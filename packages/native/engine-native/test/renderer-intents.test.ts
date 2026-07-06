@@ -291,6 +291,30 @@ describe('@quajs/engine-native renderer intents', () => {
     expect(received).toEqual([])
   })
 
+  it('rejects malformed native choice select intents before emitting pipeline events', async () => {
+    const pipeline = createTestPipeline()
+    const received: unknown[] = []
+    pipeline.on(RenderToLogicEvents.USER_CHOICE_SELECT, context => received.push(context.event.payload))
+
+    await expect(emitNativeRendererIntentToPipeline(
+      pipeline as any,
+      createNativeRendererIntent({
+        type: 'choice/select',
+        payload: {},
+      }),
+    )).rejects.toThrow('Native renderer choice/select intent requires string payload field "choiceId".')
+
+    await expect(emitNativeRendererIntentToPipeline(
+      pipeline as any,
+      createNativeRendererIntent({
+        type: 'choice/select',
+        payload: { choiceId: ['forged-choice'] },
+      }),
+    )).rejects.toThrow('Native renderer choice/select intent requires string payload field "choiceId".')
+
+    expect(received).toEqual([])
+  })
+
   it('preserves native UI intent metadata without inventing overlay shortcuts for custom actions', async () => {
     const pipeline = createTestPipeline()
     const received: Array<{ type: string, payload: unknown }> = []
@@ -346,6 +370,53 @@ describe('@quajs/engine-native renderer intents', () => {
           hovered: true,
           config: { thumbnail: 'assets/save/slot-1.png' },
           nested: { source: 'runtime-ui' },
+        },
+      },
+    ])
+  })
+
+  it('drops malformed native UI intent canonical fields before overlay shortcut dispatch', async () => {
+    const pipeline = createTestPipeline()
+    const received: Array<{ type: string, payload: unknown }> = []
+    for (const type of [
+      RenderToLogicEvents.UI_INTENT,
+      RenderToLogicEvents.UI_REQUEST_CLOSE,
+      RenderToLogicEvents.UI_REQUEST_OPEN,
+      RenderToLogicEvents.UI_REQUEST_UPDATE,
+    ]) {
+      pipeline.on(type, context => received.push({
+        type,
+        payload: context.event.payload,
+      }))
+    }
+
+    await expect(emitNativeRendererIntentToPipeline(
+      pipeline as any,
+      createNativeRendererIntent({
+        type: 'ui/intent',
+        payload: {
+          action: ['open'],
+          elementId: { forged: 'settings' },
+          source: 'native-ui',
+        },
+      }),
+    )).resolves.toEqual({
+      handled: true,
+      emittedEvents: [
+        {
+          type: RenderToLogicEvents.UI_INTENT,
+          payload: {
+            source: 'native-ui',
+          },
+        },
+      ],
+    })
+
+    expect(received).toEqual([
+      {
+        type: RenderToLogicEvents.UI_INTENT,
+        payload: {
+          source: 'native-ui',
         },
       },
     ])
@@ -440,6 +511,43 @@ describe('@quajs/engine-native renderer intents', () => {
         message: 'Native renderer choice/select intent requires string payload field "choiceId".',
         source: 'native-renderer',
         phase: 'renderer-intent',
+        metadata: {
+          nativeIntentType: 'choice/select',
+        },
+      }),
+    ])
+  })
+
+  it('reports malformed native renderer intent JSON through render errors', async () => {
+    const host = createHost()
+    const pipeline = createTestPipeline()
+    const received: Array<{ type: string, payload: unknown }> = []
+    const errors: unknown[] = []
+    for (const type of [
+      RenderToLogicEvents.USER_CHOICE_SELECT,
+      RenderToLogicEvents.UI_INTENT,
+      RenderToLogicEvents.USER_INPUT_COMMAND,
+    ]) {
+      pipeline.on(type, context => received.push({
+        type,
+        payload: context.event.payload,
+      }))
+    }
+    pipeline.on(RenderToLogicEvents.RENDER_ERROR, context => errors.push(context.event.payload))
+
+    const plugin = new NativeHostPlugin({ host })
+    await plugin.init({ pipeline } as any)
+    host.emitRendererIntent?.({ type: 'choice/select', payloadJson: '{"choiceId":' })
+    await flushMicrotasks()
+
+    expect(received).toEqual([])
+    expect(plugin.getRendererIntentErrors()).toHaveLength(1)
+    expect(errors).toEqual([
+      expect.objectContaining({
+        message: expect.stringContaining('JSON'),
+        source: 'native-renderer',
+        phase: 'renderer-intent',
+        recoverable: true,
         metadata: {
           nativeIntentType: 'choice/select',
         },
