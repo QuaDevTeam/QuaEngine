@@ -23,6 +23,10 @@ pub(super) fn renderer_intent(
     node: &UiSurfaceNodeProjection,
     intent: &UiIntentProjection,
 ) -> Option<RendererIntent> {
+    if !is_projectable_native_ui_intent_event(&intent.event) {
+        return None;
+    }
+
     let action = match intent.action.as_deref() {
         Some(action) if is_safe_native_dispatch_identifier(action) => Some(action.to_string()),
         Some(_) => return None,
@@ -50,6 +54,10 @@ pub(super) fn renderer_intent(
         action,
         metadata,
     })
+}
+
+fn is_projectable_native_ui_intent_event(event: &str) -> bool {
+    matches!(event, "ui/intent" | "choice/select")
 }
 
 pub(super) fn node_rect(

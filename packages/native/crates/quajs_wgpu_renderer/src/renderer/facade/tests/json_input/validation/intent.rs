@@ -269,6 +269,23 @@ fn json_frame_intent_validation_rejects_unsafe_dispatch_identifiers() {
         other => panic!("expected UI intent action validation error, got {other:?}"),
     }
 
+    let event = renderer
+        .prepare_frame_json_str(json_frame_with_unsupported_ui_intent_event_input())
+        .unwrap_err();
+    match event {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(
+                validation.path,
+                "view.ui.overlays[0].surface.root.intent.event"
+            );
+            assert_eq!(validation.asset_name, "native/load.dll");
+            assert!(validation
+                .reason
+                .contains("must be ui/intent or choice/select"));
+        }
+        other => panic!("expected UI intent event validation error, got {other:?}"),
+    }
+
     let metadata_key = renderer
         .prepare_frame_json_str(json_frame_with_unsafe_ui_intent_metadata_key_input())
         .unwrap_err();
