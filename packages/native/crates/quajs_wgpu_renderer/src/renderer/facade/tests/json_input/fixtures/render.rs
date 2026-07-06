@@ -16,6 +16,7 @@ pub(in super::super) fn json_frame_input() -> &'static str {
       "view": {
         "background": {
           "mode": "image",
+          "layers": [],
           "assetName": "bg/menu.png",
           "provenance": {
             "contentPackageId": "base",
@@ -124,6 +125,7 @@ pub(in super::super) fn json_frame_with_video_background_input() -> &'static str
       "view": {
         "background": {
           "mode": "video",
+          "layers": [],
           "video": {
             "assetName": "video/opening.webm",
             "poster": "poster/opening.png",

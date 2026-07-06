@@ -35,6 +35,7 @@ pub(in super::super::super) fn json_frame_with_remote_background_input() -> &'st
       "view": {
         "background": {
           "mode": "image",
+          "layers": [],
           "assetName": "https://example.invalid/bg.png"
         }
       }
@@ -49,6 +50,7 @@ pub(in super::super::super) fn json_frame_with_spaced_background_asset_input() -
       "view": {
         "background": {
           "mode": "image",
+          "layers": [],
           "assetName": " bg/menu.png "
         }
       }
@@ -63,6 +65,7 @@ pub(in super::super::super) fn json_frame_with_unsafe_video_poster_input() -> &'
       "view": {
         "background": {
           "mode": "video",
+          "layers": [],
           "video": {
             "assetName": "video/opening.webm",
             "poster": "../native/poster.node?raw"
