@@ -1,0 +1,208 @@
+use super::*;
+
+#[test]
+fn projects_surface_background_image_as_package_image_command() {
+    let layout = test_layout();
+    let ui = UiProjection::new(vec![UiOverlayProjection {
+        surface: Some(
+            UiOverlaySurfaceProjection::new("ui/menu.qui").with_root(
+                UiSurfaceNodeProjection::new(
+                    "root",
+                    UiSurfaceNodeKind::Box,
+                    rect(0.0, 0.0, 520.0, 320.0),
+                )
+                .with_style(UiSurfaceResolvedStyle {
+                    background_color: Some("#101820".to_string()),
+                    background_image: Some(UiSurfaceImageProjection::new("ui/panel.png")),
+                    background_position: Some(UiSurfaceBackgroundPositionProjection {
+                        x: 1.0,
+                        y: 0.0,
+                    }),
+                    background_size: Some(UiSurfaceObjectFitProjection::Contain),
+                    opacity: Some(0.5),
+                    ..Default::default()
+                }),
+            ),
+        ),
+        provenance: provenance("runtime.menu", ["runtime.ui"]),
+        ..UiOverlayProjection::new("menu")
+    }]);
+
+    let commands = build_ui_commands(&layout, &ui);
+    let ids = commands
+        .iter()
+        .map(|command| command.id.as_str())
+        .collect::<Vec<_>>();
+
+    assert_eq!(
+        ids,
+        vec!["ui:menu", "ui:menu:root:background-image", "ui:menu:root"]
+    );
+
+    let image = &commands[1];
+    let panel = &commands[2];
+    assert_eq!(image.kind, DrawCommandKind::Image);
+    assert_eq!(image.plane, RenderPlane::Screen);
+    assert_eq!(image.z_index, panel.z_index - 1);
+    assert_eq!(image.bounds, panel.bounds);
+    assert!((image.opacity - 0.5).abs() < 0.0001);
+    assert_eq!(
+        image.resource_ids,
+        vec![ResourceId::from("images:ui/panel.png")]
+    );
+    assert_eq!(image.owner_package_id.as_deref(), Some("runtime.menu"));
+    assert!(image.required_package_ids.contains("runtime.ui"));
+
+    match &image.params {
+        DrawCommandParams::Image(params) => {
+            assert_eq!(params.asset_type, "images");
+            assert_eq!(params.asset_name, "ui/panel.png");
+            assert_eq!(params.fit, MediaFit::Contain);
+            assert_eq!(params.origin.x, 1.0);
+            assert_eq!(params.origin.y, 0.0);
+            assert_eq!(
+                params.source,
+                LogicalRect {
+                    x: 0.0,
+                    y: 0.0,
+                    width: 520.0,
+                    height: 320.0,
+                }
+            );
+        }
+        _ => panic!("expected background image params"),
+    }
+    match &panel.params {
+        DrawCommandParams::Panel(params) => {
+            assert_eq!(params.fill_color, "#101820");
+            assert_eq!(params.role, "ui-box");
+        }
+        _ => panic!("expected panel params"),
+    }
+}
+
+#[test]
+fn projects_surface_background_image_custom_asset_type_and_node_provenance() {
+    let layout = test_layout();
+    let mut root = UiSurfaceNodeProjection::new(
+        "root",
+        UiSurfaceNodeKind::Panel,
+        rect(32.0, 48.0, 640.0, 360.0),
+    )
+    .with_style(UiSurfaceResolvedStyle {
+        background_image: Some(UiSurfaceImageProjection {
+            asset_type: "sprites".to_string(),
+            asset_name: "skins/night/menu-panel.png".to_string(),
+        }),
+        background_position: Some(UiSurfaceBackgroundPositionProjection { x: 0.25, y: 0.75 }),
+        background_size: Some(UiSurfaceObjectFitProjection::ScaleDown),
+        ..Default::default()
+    });
+    root.provenance = provenance("runtime.skin", ["runtime.menu"]);
+    let ui = UiProjection::new(vec![UiOverlayProjection {
+        surface: Some(UiOverlaySurfaceProjection::new("ui/menu.qui").with_root(root)),
+        provenance: provenance("runtime.menu", ["base.ui"]),
+        ..UiOverlayProjection::new("menu")
+    }]);
+
+    let commands = build_ui_commands(&layout, &ui);
+
+    assert_eq!(
+        commands
+            .iter()
+            .map(|command| command.id.as_str())
+            .collect::<Vec<_>>(),
+        vec!["ui:menu", "ui:menu:root:background-image", "ui:menu:root"]
+    );
+    let image = &commands[1];
+    assert_eq!(image.kind, DrawCommandKind::Image);
+    assert_eq!(image.owner_package_id.as_deref(), Some("runtime.skin"));
+    assert!(image.required_package_ids.contains("base.ui"));
+    assert!(image.required_package_ids.contains("runtime.menu"));
+    assert_eq!(
+        image.resource_ids,
+        vec![ResourceId::from("sprites:skins/night/menu-panel.png")]
+    );
+
+    match &image.params {
+        DrawCommandParams::Image(params) => {
+            assert_eq!(params.asset_type, "sprites");
+            assert_eq!(params.asset_name, "skins/night/menu-panel.png");
+            assert_eq!(params.fit, MediaFit::ScaleDown);
+            assert_eq!(params.origin.x, 0.25);
+            assert_eq!(params.origin.y, 0.75);
+            assert_eq!(params.source, image.bounds);
+        }
+        _ => panic!("expected background image params"),
+    }
+}
+
+#[test]
+fn skips_surface_background_image_with_unsafe_asset_type() {
+    let layout = test_layout();
+    let ui = UiProjection::new(vec![UiOverlayProjection {
+        surface: Some(
+            UiOverlaySurfaceProjection::new("ui/menu.qui").with_root(
+                UiSurfaceNodeProjection::new(
+                    "root",
+                    UiSurfaceNodeKind::Box,
+                    rect(0.0, 0.0, 520.0, 320.0),
+                )
+                .with_style(UiSurfaceResolvedStyle {
+                    background_image: Some(UiSurfaceImageProjection {
+                        asset_type: "../images".to_string(),
+                        asset_name: "ui/panel.png".to_string(),
+                    }),
+                    ..Default::default()
+                }),
+            ),
+        ),
+        ..UiOverlayProjection::new("menu")
+    }]);
+
+    let commands = build_ui_commands(&layout, &ui);
+    let ids = commands
+        .iter()
+        .map(|command| command.id.as_str())
+        .collect::<Vec<_>>();
+
+    assert_eq!(ids, vec!["ui:menu", "ui:menu:root"]);
+    assert!(commands
+        .iter()
+        .all(|command| command.id != "ui:menu:root:background-image"));
+}
+
+#[test]
+fn skips_surface_background_image_with_unsafe_asset_name() {
+    let layout = test_layout();
+    let ui = UiProjection::new(vec![UiOverlayProjection {
+        surface: Some(
+            UiOverlaySurfaceProjection::new("ui/menu.qui").with_root(
+                UiSurfaceNodeProjection::new(
+                    "root",
+                    UiSurfaceNodeKind::Panel,
+                    rect(0.0, 0.0, 520.0, 320.0),
+                )
+                .with_style(UiSurfaceResolvedStyle {
+                    background_image: Some(UiSurfaceImageProjection {
+                        asset_type: "images".to_string(),
+                        asset_name: "ui/native.dll?rev=1".to_string(),
+                    }),
+                    ..Default::default()
+                }),
+            ),
+        ),
+        ..UiOverlayProjection::new("menu")
+    }]);
+
+    let commands = build_ui_commands(&layout, &ui);
+    let ids = commands
+        .iter()
+        .map(|command| command.id.as_str())
+        .collect::<Vec<_>>();
+
+    assert_eq!(ids, vec!["ui:menu", "ui:menu:root"]);
+    assert!(commands
+        .iter()
+        .all(|command| command.id != "ui:menu:root:background-image"));
+}
