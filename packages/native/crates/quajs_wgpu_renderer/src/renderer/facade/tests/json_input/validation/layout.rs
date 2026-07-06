@@ -173,10 +173,19 @@ fn json_frame_layout_validation_rejects_malformed_projection_section_shapes() {
             "view.dialogue",
         ),
         (
+            json_frame_with_null_dialogue_projection_input(),
+            "view.dialogue",
+        ),
+        (
             json_frame_with_malformed_choice_set_projection_input(),
             "view.choices",
         ),
+        (
+            json_frame_with_null_choice_set_projection_input(),
+            "view.choices",
+        ),
         (json_frame_with_malformed_ui_projection_input(), "view.ui"),
+        (json_frame_with_null_ui_projection_input(), "view.ui"),
     ] {
         let error = renderer.prepare_frame_json_str(input).unwrap_err();
         match error {
