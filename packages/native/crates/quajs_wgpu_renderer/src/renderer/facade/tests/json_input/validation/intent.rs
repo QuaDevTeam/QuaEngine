@@ -77,6 +77,19 @@ fn json_frame_intent_validation_rejects_malformed_intent_shapes() {
         other => panic!("expected malformed overlay intent validation error, got {other:?}"),
     }
 
+    let null_overlay = renderer
+        .prepare_frame_json_str(json_frame_with_null_overlay_intent_input())
+        .unwrap_err();
+    match null_overlay {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(validation.path, "view.ui.overlays[0].intent");
+            assert_eq!(validation.asset_name, "");
+            assert!(validation.reason.contains("must be an object"));
+            assert!(validation.reason.contains("native UI intents"));
+        }
+        other => panic!("expected null overlay intent validation error, got {other:?}"),
+    }
+
     let surface = renderer
         .prepare_frame_json_str(json_frame_with_malformed_surface_node_intent_input())
         .unwrap_err();
@@ -88,6 +101,19 @@ fn json_frame_intent_validation_rejects_malformed_intent_shapes() {
             assert!(validation.reason.contains("native UI intents"));
         }
         other => panic!("expected malformed surface intent validation error, got {other:?}"),
+    }
+
+    let null_surface = renderer
+        .prepare_frame_json_str(json_frame_with_null_surface_node_intent_input())
+        .unwrap_err();
+    match null_surface {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(validation.path, "view.ui.overlays[0].surface.root.intent");
+            assert_eq!(validation.asset_name, "");
+            assert!(validation.reason.contains("must be an object"));
+            assert!(validation.reason.contains("native UI intents"));
+        }
+        other => panic!("expected null surface intent validation error, got {other:?}"),
     }
 
     assert_eq!(renderer.state().revision(), 0);
