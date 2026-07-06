@@ -17,7 +17,7 @@ pub fn native_wgpu_capabilities() -> Vec<RendererCapability> {
             &[],
             &["images", "characters"],
             &["object-fit", "object-position", "opacity"],
-            &["Image", "Layer"],
+            &["Image"],
             "render-empty",
         ),
         capability(
