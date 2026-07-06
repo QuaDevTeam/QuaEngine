@@ -8,9 +8,6 @@ pub(super) fn validate_asset_projection_required_fields(
     noun: &str,
     errors: &mut Vec<NativeRendererJsonValidationError>,
 ) {
-    if asset.is_null() {
-        return;
-    }
     let Some(asset_object) = asset.as_object() else {
         errors.push(NativeRendererJsonValidationError {
             path: path.to_string(),

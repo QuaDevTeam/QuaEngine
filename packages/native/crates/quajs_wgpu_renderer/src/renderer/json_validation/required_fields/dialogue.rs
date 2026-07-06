@@ -41,7 +41,7 @@ fn validate_avatar_required_fields(
     avatar: Option<&Value>,
     errors: &mut Vec<NativeRendererJsonValidationError>,
 ) {
-    let Some(avatar) = avatar.filter(|value| !value.is_null()) else {
+    let Some(avatar) = avatar else {
         return;
     };
     validate_asset_projection_required_fields(

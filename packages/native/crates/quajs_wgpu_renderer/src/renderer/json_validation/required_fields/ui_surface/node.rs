@@ -88,14 +88,16 @@ pub(super) fn validate_ui_surface_node_required_fields(
         return;
     }
 
-    super::super::assets::validate_asset_projection_required_fields(
-        node_object.get("image").unwrap_or(&Value::Null),
-        &format!("{path}.image"),
-        "native UI image resources",
-        errors,
-    );
-    if !errors.is_empty() {
-        return;
+    if let Some(image) = node_object.get("image") {
+        super::super::assets::validate_asset_projection_required_fields(
+            image,
+            &format!("{path}.image"),
+            "native UI image resources",
+            errors,
+        );
+        if !errors.is_empty() {
+            return;
+        }
     }
 
     validate_ui_surface_node_style_shape_required_fields(node_object.get("style"), path, errors);
