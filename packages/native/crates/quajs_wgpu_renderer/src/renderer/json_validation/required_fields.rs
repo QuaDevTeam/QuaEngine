@@ -113,9 +113,6 @@ fn validate_ui_projection_required_fields(
     let Some(ui) = input.get("view").and_then(|view| view.get("ui")) else {
         return;
     };
-    if ui.is_null() {
-        return;
-    }
     let Some(ui_object) = ui.as_object() else {
         errors.push(NativeRendererJsonValidationError {
             path: "view.ui".to_string(),

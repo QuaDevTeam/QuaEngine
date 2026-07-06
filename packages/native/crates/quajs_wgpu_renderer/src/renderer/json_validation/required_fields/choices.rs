@@ -9,9 +9,6 @@ pub(super) fn validate_choices_required_fields(
     let Some(choices) = input.get("view").and_then(|view| view.get("choices")) else {
         return;
     };
-    if choices.is_null() {
-        return;
-    }
     let Some(choices_object) = choices.as_object() else {
         errors.push(NativeRendererJsonValidationError {
             path: "view.choices".to_string(),

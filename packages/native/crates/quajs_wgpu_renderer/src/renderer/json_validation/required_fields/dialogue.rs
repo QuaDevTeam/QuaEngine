@@ -11,9 +11,6 @@ pub(super) fn validate_dialogue_required_fields(
     let Some(dialogue) = input.get("view").and_then(|view| view.get("dialogue")) else {
         return;
     };
-    if dialogue.is_null() {
-        return;
-    }
     let Some(dialogue_object) = dialogue.as_object() else {
         errors.push(NativeRendererJsonValidationError {
             path: "view.dialogue".to_string(),

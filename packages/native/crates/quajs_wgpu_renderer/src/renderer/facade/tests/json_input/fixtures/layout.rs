@@ -36,6 +36,17 @@ pub(in super::super) fn json_frame_with_malformed_dialogue_projection_input() ->
     "#
 }
 
+pub(in super::super) fn json_frame_with_null_dialogue_projection_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "dialogue": null
+      }
+    }
+    "#
+}
+
 pub(in super::super) fn json_frame_with_malformed_background_projection_input() -> &'static str {
     r#"
     {
@@ -239,12 +250,34 @@ pub(in super::super) fn json_frame_with_malformed_choice_set_projection_input() 
     "#
 }
 
+pub(in super::super) fn json_frame_with_null_choice_set_projection_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "choices": null
+      }
+    }
+    "#
+}
+
 pub(in super::super) fn json_frame_with_malformed_ui_projection_input() -> &'static str {
     r#"
     {
       "container": { "width": 1600, "height": 1000 },
       "view": {
         "ui": "menu"
+      }
+    }
+    "#
+}
+
+pub(in super::super) fn json_frame_with_null_ui_projection_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "ui": null
       }
     }
     "#
