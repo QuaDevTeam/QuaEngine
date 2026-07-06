@@ -62,6 +62,79 @@ pub(in super::super::super) fn json_frame_with_oversized_overlay_stack_priority_
     "#
 }
 
+pub(in super::super::super) fn json_frame_with_oversized_overlay_z_index_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "ui": {
+          "visible": true,
+          "overlays": [
+            {
+              "elementId": "menu",
+              "zIndex": -1000001,
+              "surface": {
+                "key": "ui/menu.qui",
+                "root": { "id": "root", "kind": "Box", "visible": true, "bounds": { "x": 0, "y": 0, "width": 100, "height": 100 } }
+              }
+            }
+          ]
+        }
+      }
+    }
+    "#
+}
+
+pub(in super::super::super) fn json_frame_with_oversized_scene_overlay_stack_priority_input(
+) -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "ui": {
+          "visible": true,
+          "overlays": [
+            {
+              "elementId": "scene-shell",
+              "scene": {
+                "id": "settings",
+                "overlay": {
+                  "stackPriority": -1001
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+    "#
+}
+
+pub(in super::super::super) fn json_frame_with_oversized_scene_overlay_z_index_input(
+) -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "ui": {
+          "visible": true,
+          "overlays": [
+            {
+              "elementId": "scene-shell",
+              "scene": {
+                "id": "settings",
+                "overlay": {
+                  "zIndex": 1000001
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+    "#
+}
+
 pub(in super::super::super) fn json_frame_with_oversized_ui_node_z_index_input() -> &'static str {
     r#"
     {

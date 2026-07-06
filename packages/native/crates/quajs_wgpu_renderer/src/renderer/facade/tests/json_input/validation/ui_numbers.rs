@@ -42,6 +42,45 @@ fn json_frame_z_order_validation_rejects_unsafe_resolved_values() {
         other => panic!("expected overlay stack priority validation error, got {other:?}"),
     }
 
+    let overlay_z_index = renderer
+        .prepare_frame_json_str(json_frame_with_oversized_overlay_z_index_input())
+        .unwrap_err();
+    match overlay_z_index {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(validation.path, "view.ui.overlays[0].zIndex");
+            assert_eq!(validation.asset_name, "-1000001");
+            assert!(validation.reason.contains("z-order limits"));
+        }
+        other => panic!("expected overlay zIndex validation error, got {other:?}"),
+    }
+
+    let scene_overlay_stack_priority = renderer
+        .prepare_frame_json_str(json_frame_with_oversized_scene_overlay_stack_priority_input())
+        .unwrap_err();
+    match scene_overlay_stack_priority {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(
+                validation.path,
+                "view.ui.overlays[0].scene.overlay.stackPriority"
+            );
+            assert_eq!(validation.asset_name, "-1001");
+            assert!(validation.reason.contains("stack priority limits"));
+        }
+        other => panic!("expected scene overlay stack priority validation error, got {other:?}"),
+    }
+
+    let scene_overlay_z_index = renderer
+        .prepare_frame_json_str(json_frame_with_oversized_scene_overlay_z_index_input())
+        .unwrap_err();
+    match scene_overlay_z_index {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(validation.path, "view.ui.overlays[0].scene.overlay.zIndex");
+            assert_eq!(validation.asset_name, "1000001");
+            assert!(validation.reason.contains("z-order limits"));
+        }
+        other => panic!("expected scene overlay zIndex validation error, got {other:?}"),
+    }
+
     let node_z_index = renderer
         .prepare_frame_json_str(json_frame_with_oversized_ui_node_z_index_input())
         .unwrap_err();
