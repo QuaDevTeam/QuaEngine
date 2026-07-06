@@ -5,6 +5,7 @@ pub(in super::super::super) fn json_frame_with_remote_provenance_package_input()
       "view": {
         "background": {
           "mode": "image",
+          "layers": [],
           "provenance": {
             "contentPackageId": "https://example.invalid/runtime.ui"
           }

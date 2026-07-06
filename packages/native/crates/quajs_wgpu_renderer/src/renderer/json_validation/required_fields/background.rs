@@ -43,23 +43,18 @@ fn validate_background_layers_required_fields(
     errors: &mut Vec<NativeRendererJsonValidationError>,
 ) {
     let layers_value = background_object.get("layers");
-    if background_object
-        .get("mode")
-        .and_then(Value::as_str)
-        .is_some_and(|mode| mode == "layered")
-        && missing_or_null(layers_value)
-    {
+    if missing_or_null(layers_value) {
         errors.push(NativeRendererJsonValidationError {
             path: "view.background.layers".to_string(),
             asset_name: String::new(),
             reason:
-                "must be explicitly provided for native layered background projections in resolved projection JSON"
+                "must be explicitly provided for native background projections in resolved projection JSON"
                     .to_string(),
         });
         return;
     }
 
-    let Some(layers_value) = layers_value.filter(|value| !value.is_null()) else {
+    let Some(layers_value) = layers_value else {
         return;
     };
 

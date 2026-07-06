@@ -5,6 +5,7 @@ pub(in super::super) fn json_frame_with_negative_background_width_input() -> &'s
       "view": {
         "background": {
           "mode": "image",
+          "layers": [],
           "assetName": "bg/main.png",
           "width": -1
         }
@@ -61,6 +62,7 @@ pub(in super::super) fn json_frame_with_oversized_video_opacity_input() -> &'sta
       "view": {
         "background": {
           "mode": "video",
+          "layers": [],
           "video": {
             "assetName": "video/opening.webm",
             "opacity": 1.5
@@ -78,6 +80,7 @@ pub(in super::super) fn json_frame_with_oversized_video_volume_input() -> &'stat
       "view": {
         "background": {
           "mode": "video",
+          "layers": [],
           "video": {
             "assetName": "video/opening.webm",
             "volume": 1.5
@@ -95,6 +98,7 @@ pub(in super::super) fn json_frame_with_zero_video_playback_rate_input() -> &'st
       "view": {
         "background": {
           "mode": "video",
+          "layers": [],
           "video": {
             "assetName": "video/opening.webm",
             "playbackRate": 0
@@ -112,6 +116,7 @@ pub(in super::super) fn json_frame_with_oversized_background_origin_input() -> &
       "view": {
         "background": {
           "mode": "image",
+          "layers": [],
           "assetName": "bg/main.png",
           "origin": "120% 50%"
         }
@@ -147,6 +152,7 @@ pub(in super::super) fn json_frame_with_remote_background_video_origin_input() -
       "view": {
         "background": {
           "mode": "video",
+          "layers": [],
           "video": {
             "assetName": "video/opening.webm",
             "origin": "native:load"

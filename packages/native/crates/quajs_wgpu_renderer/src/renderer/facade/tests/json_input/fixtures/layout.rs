@@ -161,6 +161,7 @@ pub(in super::super) fn json_frame_with_malformed_background_video_input() -> &'
       "view": {
         "background": {
           "mode": "video",
+          "layers": [],
           "video": "video/opening.webm"
         }
       }
@@ -176,6 +177,7 @@ pub(in super::super) fn json_frame_with_missing_background_video_asset_name_inpu
       "view": {
         "background": {
           "mode": "video",
+          "layers": [],
           "video": {
             "poster": "video/poster.png"
           }
