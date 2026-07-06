@@ -90,9 +90,6 @@ fn validate_scene_surface_required_fields(
     let Some(scene) = scene else {
         return;
     };
-    if scene.is_null() {
-        return;
-    }
     let Some(scene_object) = scene.as_object() else {
         errors.push(NativeRendererJsonValidationError {
             path: path.to_string(),
@@ -149,9 +146,6 @@ fn validate_surface_root_required_fields(
     let Some(surface) = surface else {
         return;
     };
-    if surface.is_null() {
-        return;
-    }
     let Some(surface_object) = surface.as_object() else {
         errors.push(NativeRendererJsonValidationError {
             path: path.to_string(),
@@ -165,9 +159,6 @@ fn validate_surface_root_required_fields(
     let Some(root) = surface_object.get("root") else {
         return;
     };
-    if root.is_null() {
-        return;
-    }
     if !root.is_object() {
         errors.push(NativeRendererJsonValidationError {
             path: format!("{path}.root"),
