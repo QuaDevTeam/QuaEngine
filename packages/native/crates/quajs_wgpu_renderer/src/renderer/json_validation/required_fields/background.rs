@@ -96,10 +96,7 @@ fn validate_background_video_required_fields(
     background_object: &serde_json::Map<String, Value>,
     errors: &mut Vec<NativeRendererJsonValidationError>,
 ) {
-    let Some(video) = background_object
-        .get("video")
-        .filter(|value| !value.is_null())
-    else {
+    let Some(video) = background_object.get("video") else {
         return;
     };
 
