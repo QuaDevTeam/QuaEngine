@@ -159,6 +159,46 @@ fn render_json_frame_helper_validates_frame_before_host_reads() {
 }
 
 #[test]
+fn render_json_frame_helper_rejects_unsafe_video_poster_before_host_reads() {
+    let host = RecordingAssetHost::new()
+        .with_bundle(bundle("base-bundle", Some("base")))
+        .with_asset(
+            Some("base-bundle"),
+            "../native/poster.node?raw",
+            [1, 2, 3, 4],
+        )
+        .with_asset(Some("base-bundle"), "video/opening.webm", [5, 6, 7, 8]);
+    let mut renderer = NativeRenderer::new(TextureResidentBackend::default());
+
+    let error = render_json_frame_with_host_texture_sync(
+        &mut renderer,
+        &host,
+        r#"{
+          "layout": { "preset": "landscape" },
+          "container": { "width": 1600, "height": 1000 },
+          "view": {
+            "background": {
+              "mode": "video",
+              "video": {
+                "assetName": "video/opening.webm",
+                "poster": "../native/poster.node?raw",
+                "provenance": { "contentPackageId": "base" }
+              }
+            }
+          }
+        }"#,
+    )
+    .expect_err("unsafe video poster JSON frame should fail before texture sync");
+
+    let error_message = error.to_string();
+    assert!(error_message.contains("Invalid native renderer frame JSON"));
+    assert!(error_message.contains("view.background.video.poster"));
+    assert!(host.reads.borrow().is_empty());
+    assert!(renderer.backend().submissions.is_empty());
+    assert!(renderer.backend().uploads.is_empty());
+}
+
+#[test]
 fn render_json_lifecycle_frame_helper_validates_frame_before_host_reads() {
     let host = RecordingAssetHost::new()
         .with_bundle(bundle("base-bundle", Some("base")))
