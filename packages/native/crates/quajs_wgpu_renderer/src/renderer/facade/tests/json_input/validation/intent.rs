@@ -95,6 +95,37 @@ fn json_frame_intent_validation_rejects_malformed_intent_shapes() {
 }
 
 #[test]
+fn json_frame_intent_validation_accepts_projectable_surface_intent_targets() {
+    let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
+
+    let update = renderer
+        .prepare_frame_json_str(json_frame_with_projectable_surface_intent_targets_input())
+        .expect("projectable surface intents should pass JSON validation");
+    let frame = renderer.state().frame().expect("frame prepared");
+
+    assert_eq!(update.revision, 1);
+    let box_hit = frame.hit_intent(50.0, 50.0).expect("Box intent hit");
+    assert_eq!(box_hit.intent.event, "ui/intent");
+    assert_eq!(box_hit.intent.action.as_deref(), Some("open"));
+    assert_eq!(
+        box_hit.intent.metadata.get("arg0"),
+        Some(&serde_json::json!("box"))
+    );
+
+    let backdrop_hit = frame.hit_intent(150.0, 50.0).expect("Backdrop intent hit");
+    assert_eq!(backdrop_hit.intent.event, "ui/intent");
+    assert_eq!(backdrop_hit.intent.action.as_deref(), Some("close"));
+
+    let panel_hit = frame.hit_intent(270.0, 50.0).expect("Panel intent hit");
+    assert_eq!(panel_hit.intent.event, "ui/intent");
+    assert_eq!(panel_hit.intent.action.as_deref(), Some("open"));
+    assert_eq!(
+        panel_hit.intent.metadata.get("arg0"),
+        Some(&serde_json::json!("panel"))
+    );
+}
+
+#[test]
 fn json_frame_intent_validation_rejects_non_projectable_surface_intent_targets() {
     let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
 
