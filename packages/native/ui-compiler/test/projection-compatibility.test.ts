@@ -107,6 +107,35 @@ Stack(id: "ui-root") {
     expect(compatibility.assetKinds).toEqual(expect.arrayContaining(['qui', 'qss', 'tokens', 'images']))
   })
 
+  it('omits unresolved composite components from projection-derived native requirements', () => {
+    const projection = {
+      root: {
+        id: 'dialog',
+        kind: 'Dialog',
+        bounds: { x: 0, y: 0, width: 480, height: 320 },
+        visible: true,
+        children: [
+          {
+            id: 'dialog-panel',
+            kind: 'Panel',
+            bounds: { x: 24, y: 24, width: 432, height: 272 },
+            visible: true,
+          },
+        ],
+      },
+    } as unknown as NativeUiSurfaceProjection
+
+    const requirements = collectNativeUiSurfaceProjectionRequirements(projection)
+    const compatibility = createNativeUiSurfaceCompatibilityFromProjection(projection, {
+      optionalQuiComponents: ['Dialog'],
+    })
+
+    expect(requirements.quiComponents).toEqual(['Panel'])
+    expect(compatibility.quiComponents).toEqual(['Panel'])
+    expect(compatibility.optionalQuiComponents).toEqual(['Dialog'])
+    expect(compatibility.nativeCode).toBe(false)
+  })
+
   it('omits non-projectable foundational actions from document-derived native intent events', () => {
     const qui = analyzeQuiSource(`
 Stack {
