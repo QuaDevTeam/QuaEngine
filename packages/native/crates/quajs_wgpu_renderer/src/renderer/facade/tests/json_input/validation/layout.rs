@@ -255,12 +255,32 @@ fn json_frame_layout_validation_rejects_malformed_projection_collection_shapes()
             "must be an object",
         ),
         (
+            json_frame_with_null_ui_overlay_surface_input(),
+            "view.ui.overlays[0].surface",
+            "must be an object",
+        ),
+        (
+            json_frame_with_null_ui_overlay_surface_root_input(),
+            "view.ui.overlays[0].surface.root",
+            "must be an object",
+        ),
+        (
             json_frame_with_malformed_ui_scene_input(),
             "view.ui.overlays[0].scene",
             "must be an object",
         ),
         (
+            json_frame_with_null_ui_scene_input(),
+            "view.ui.overlays[0].scene",
+            "must be an object",
+        ),
+        (
             json_frame_with_malformed_ui_scene_surface_input(),
+            "view.ui.overlays[0].scene.surface",
+            "must be an object",
+        ),
+        (
+            json_frame_with_null_ui_scene_surface_input(),
             "view.ui.overlays[0].scene.surface",
             "must be an object",
         ),

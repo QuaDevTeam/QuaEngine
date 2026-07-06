@@ -347,6 +347,47 @@ pub(in super::super) fn json_frame_with_malformed_ui_overlay_surface_input() -> 
     "#
 }
 
+pub(in super::super) fn json_frame_with_null_ui_overlay_surface_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "ui": {
+          "visible": true,
+          "overlays": [
+            {
+              "elementId": "menu",
+              "surface": null
+            }
+          ]
+        }
+      }
+    }
+    "#
+}
+
+pub(in super::super) fn json_frame_with_null_ui_overlay_surface_root_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "ui": {
+          "visible": true,
+          "overlays": [
+            {
+              "elementId": "menu",
+              "surface": {
+                "key": "ui/menu.qui",
+                "root": null
+              }
+            }
+          ]
+        }
+      }
+    }
+    "#
+}
+
 pub(in super::super) fn json_frame_with_malformed_ui_scene_input() -> &'static str {
     r#"
     {
@@ -358,6 +399,25 @@ pub(in super::super) fn json_frame_with_malformed_ui_scene_input() -> &'static s
             {
               "elementId": "menu",
               "scene": "menu-scene"
+            }
+          ]
+        }
+      }
+    }
+    "#
+}
+
+pub(in super::super) fn json_frame_with_null_ui_scene_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "ui": {
+          "visible": true,
+          "overlays": [
+            {
+              "elementId": "menu",
+              "scene": null
             }
           ]
         }
@@ -379,6 +439,28 @@ pub(in super::super) fn json_frame_with_malformed_ui_scene_surface_input() -> &'
               "scene": {
                 "id": "main-menu",
                 "surface": "ui/menu-scene.qui"
+              }
+            }
+          ]
+        }
+      }
+    }
+    "#
+}
+
+pub(in super::super) fn json_frame_with_null_ui_scene_surface_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "ui": {
+          "visible": true,
+          "overlays": [
+            {
+              "elementId": "menu",
+              "scene": {
+                "id": "main-menu",
+                "surface": null
               }
             }
           ]
