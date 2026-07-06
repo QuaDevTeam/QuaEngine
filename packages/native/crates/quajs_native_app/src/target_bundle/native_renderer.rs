@@ -35,26 +35,36 @@ pub(super) fn check_native_renderer_info(
         ),
     }
 
-    if native_renderer.version.as_deref().unwrap_or("").is_empty() {
-        diagnostics
-            .push("Native target bundle manifest must include nativeRenderer.version.".to_string());
-    }
-
-    if native_renderer
-        .capability_manifest_hash
-        .as_deref()
-        .unwrap_or("")
-        .is_empty()
-    {
-        diagnostics.push(
-            "Native target bundle manifest must include nativeRenderer.capabilityManifestHash."
-                .to_string(),
-        );
-    }
+    check_required_renderer_field("version", native_renderer.version.as_deref(), diagnostics);
+    check_required_renderer_field(
+        "capabilityManifestHash",
+        native_renderer.capability_manifest_hash.as_deref(),
+        diagnostics,
+    );
 
     if native_renderer.capability_ids.is_empty() {
         diagnostics.push(
             "Native target bundle manifest must include nativeRenderer.capabilityIds.".to_string(),
         );
+    }
+
+    for (index, capability_id) in native_renderer.capability_ids.iter().enumerate() {
+        if capability_id.trim().is_empty() {
+            diagnostics.push(format!(
+                "Native target bundle manifest nativeRenderer.capabilityIds[{index}] must not be empty."
+            ));
+        }
+    }
+}
+
+fn check_required_renderer_field(field: &str, actual: Option<&str>, diagnostics: &mut Vec<String>) {
+    match actual {
+        Some(actual) if !actual.trim().is_empty() => {}
+        Some(_) => diagnostics.push(format!(
+            "Native target bundle manifest nativeRenderer.{field} must not be empty."
+        )),
+        None => diagnostics.push(format!(
+            "Native target bundle manifest must include nativeRenderer.{field}."
+        )),
     }
 }

@@ -195,6 +195,35 @@ fn rejects_incomplete_native_renderer_metadata() {
 }
 
 #[test]
+fn rejects_blank_native_renderer_identity_metadata() {
+    let mut manifest = native_manifest();
+    let renderer = manifest.native_renderer.as_mut().unwrap();
+    renderer.version = Some("  ".to_string());
+    renderer.capability_manifest_hash = Some("\t".to_string());
+    renderer.capability_ids.push(" ".to_string());
+
+    let error = validate_native_target_bundle_manifest(&manifest, None)
+        .expect_err("blank native renderer metadata is rejected");
+
+    assert!(error
+        .diagnostics()
+        .iter()
+        .any(|diagnostic| diagnostic.contains("nativeRenderer.version must not be empty")));
+    assert!(error
+        .diagnostics()
+        .iter()
+        .any(|diagnostic| diagnostic
+            .contains("nativeRenderer.capabilityManifestHash must not be empty")));
+    assert!(
+        error
+            .diagnostics()
+            .iter()
+            .any(|diagnostic| diagnostic
+                .contains("nativeRenderer.capabilityIds[3] must not be empty"))
+    );
+}
+
+#[test]
 fn rejects_incomplete_native_runtime_metadata() {
     let mut manifest = native_manifest();
     manifest.native_runtime = Some(TargetBundleNativeRuntimeInfo {
