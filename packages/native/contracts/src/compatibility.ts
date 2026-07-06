@@ -1,8 +1,6 @@
 import type { QuaNativeHostInfo, RendererTargetCapability } from './capabilities'
 import { isCapabilityCompatible } from './capabilities'
 import {
-  collectRequiredQssFeatures,
-  collectRequiredQuiComponents,
   hasCapabilityFieldValue,
   hasCompatibleCapability,
   normalizeNativeRendererCompatibility,
@@ -31,10 +29,6 @@ export interface RuntimePackageNativeRendererCompatibility {
   optionalQuiComponents?: readonly string[]
   qssFeatures?: readonly string[]
   optionalQssFeatures?: readonly string[]
-  /** @deprecated Use quiComponents for required native QUI component names. */
-  uiSurfaces?: readonly string[]
-  /** @deprecated Use qssFeatures for required native QSS declaration names. */
-  qssTargets?: readonly string[]
   nativeCode?: false
 }
 
@@ -207,7 +201,7 @@ export function checkNativeCompatibility(options: CheckNativeCompatibilityOption
     }
   }
 
-  for (const qssFeature of collectRequiredQssFeatures(compatibility)) {
+  for (const qssFeature of compatibility.qssFeatures || []) {
     if (!hasCapabilityFieldValue(hostInfo.renderer.capabilities, 'qssFeatures', qssFeature)) {
       diagnostics.push({
         code: 'NATIVE_REQUIRED_QSS_FEATURE_MISSING',
@@ -279,7 +273,7 @@ export function checkNativeCompatibility(options: CheckNativeCompatibilityOption
     }
   }
 
-  for (const quiComponent of collectRequiredQuiComponents(compatibility)) {
+  for (const quiComponent of compatibility.quiComponents || []) {
     if (!hasCapabilityFieldValue(hostInfo.renderer.capabilities, 'quiComponents', quiComponent)) {
       diagnostics.push({
         code: 'NATIVE_REQUIRED_QUI_COMPONENT_MISSING',

@@ -46,8 +46,8 @@ describe('checkNativeCompatibility capabilities and resources', () => {
       hostInfo: createHostInfo(),
       pluginId: 'runtime.menu',
       compatibility: {
-        uiSurfaces: ['Dialog', 'VirtualList'],
-        qssTargets: ['display', 'gap'],
+        quiComponents: ['Dialog', 'VirtualList'],
+        qssFeatures: ['display', 'gap'],
         nativeCode: false,
       },
     })
@@ -222,12 +222,12 @@ describe('checkNativeCompatibility capabilities and resources', () => {
     ]))
   })
 
-  it('keeps legacy uiSurfaces and qssTargets compatibility aliases active', () => {
+  it('checks current QUI component and QSS feature compatibility fields', () => {
     const result = checkNativeCompatibility({
       hostInfo: createHostInfo(),
       compatibility: {
-        uiSurfaces: ['Panel', 'Drawer'],
-        qssTargets: ['color', 'gap'],
+        quiComponents: ['Panel', 'Drawer'],
+        qssFeatures: ['color', 'gap'],
         nativeCode: false,
       },
     })
