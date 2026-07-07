@@ -139,6 +139,15 @@ fn serializes_game_step_factory_and_run_requests_and_responses() {
             payload_json: Some("{\"ok\":true}".to_string()),
         },
     );
+    let pending_helper_run = QuickJsGameStepRunResponse::pending_helper_call(
+        Vec::new(),
+        QuickJsGameStepHelperCallRequest {
+            resume_handle_id: "quickjs:rquickjs:resume:4".to_string(),
+            module: "@quajs/plugin-background".to_string(),
+            export_name: "setBackgroundWithEngine".to_string(),
+            args_json: Some("[\"bg/opening.png\"]".to_string()),
+        },
+    );
 
     let factory_request_json = serde_json::to_value(factory_request).unwrap();
     let factory_success_json = serde_json::to_value(factory_success).unwrap();
@@ -146,6 +155,7 @@ fn serializes_game_step_factory_and_run_requests_and_responses() {
     let pending_run_json = serde_json::to_value(pending_run).unwrap();
     let pending_translation_run_json = serde_json::to_value(pending_translation_run).unwrap();
     let pending_pipeline_run_json = serde_json::to_value(pending_pipeline_run).unwrap();
+    let pending_helper_run_json = serde_json::to_value(pending_helper_run).unwrap();
     let run_request_json = serde_json::to_value(run_request).unwrap();
     let resume_request_json = serde_json::to_value(resume_request).unwrap();
     let run_error_json = serde_json::to_value(run_error).unwrap();
@@ -215,6 +225,23 @@ fn serializes_game_step_factory_and_run_requests_and_responses() {
     assert_eq!(
         pending_pipeline_run_json["pendingPipelineEmit"]["payloadJson"],
         "{\"ok\":true}"
+    );
+    assert_eq!(pending_helper_run_json["ok"], true);
+    assert_eq!(
+        pending_helper_run_json["pendingHelperCall"]["resumeHandleId"],
+        "quickjs:rquickjs:resume:4"
+    );
+    assert_eq!(
+        pending_helper_run_json["pendingHelperCall"]["module"],
+        "@quajs/plugin-background"
+    );
+    assert_eq!(
+        pending_helper_run_json["pendingHelperCall"]["exportName"],
+        "setBackgroundWithEngine"
+    );
+    assert_eq!(
+        pending_helper_run_json["pendingHelperCall"]["argsJson"],
+        "[\"bg/opening.png\"]"
     );
     assert_eq!(run_error_json["ok"], false);
     assert_eq!(run_error_json["error"]["code"], "missingRunHandle");

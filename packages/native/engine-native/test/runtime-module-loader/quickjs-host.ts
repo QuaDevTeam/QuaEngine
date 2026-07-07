@@ -9,6 +9,7 @@ import {
   createNativeQuickJsJsonExportFunction,
   createNativeRuntimeAdapters,
   createNativeRuntimeModuleLoader,
+  executeNativeQuickJsGameStepHelperCall,
   executeNativeQuickJsGameStepCommand,
 } from './helpers'
 
@@ -423,6 +424,78 @@ describe('@quajs/engine-native runtime module loader QuickJS host bridge', () =>
       resumeHandleId: 'quickjs:rquickjs:resume:p1',
     })
     expect(clearChoices).toHaveBeenCalledTimes(1)
+  })
+
+  it('resumes native QuickJS GameSteps through registered helper modules', async () => {
+    const host = {
+      ...createHost(),
+      callQuickJsGameStepFactory: vi.fn(async request => ({
+        ok: true,
+        steps: [{
+          uuid: 'intro.helper',
+          runHandleId: `${request.moduleNamespaceId}:run:helper`,
+        }],
+      })),
+      callQuickJsGameStepRun: vi.fn(async () => ({
+        ok: true,
+        pendingHelperCall: {
+          resumeHandleId: 'quickjs:rquickjs:resume:h1',
+          module: '@quajs/plugin-background',
+          exportName: 'setBackgroundWithEngine',
+          argsJson: '["bg/opening.png",{"transition":{"type":"fade"}}]',
+        },
+      })),
+      resumeQuickJsGameStepRun: vi.fn(async request => ({
+        ok: true,
+        commands: [{
+          target: 'engine' as const,
+          method: 'showDialogue' as const,
+          argsJson: `[{"text":${request.payloadJson}}]`,
+        }],
+      })),
+    }
+    const helper = vi.fn(async (_engine, assetName, options) => `${assetName}:${options.transition.type}`)
+    const factory = createNativeQuickJsGameStepFactoryFunction(host, 'quickjs:rquickjs:1', 'default', {
+      helperModules: {
+        '@quajs/plugin-background': {
+          setBackgroundWithEngine: helper,
+        },
+      },
+    })
+    const [step] = await factory()
+    const showDialogue = vi.fn(async () => {})
+    const engine = {
+      showDialogue,
+      waitFor: vi.fn(),
+    }
+
+    await step.run({
+      stepId: 'intro.helper',
+      engine,
+      pipeline: { emit: vi.fn() },
+      t: vi.fn(),
+    } as any)
+
+    expect(helper).toHaveBeenCalledWith(engine, 'bg/opening.png', { transition: { type: 'fade' } })
+    expect(host.resumeQuickJsGameStepRun).toHaveBeenCalledWith({
+      resumeHandleId: 'quickjs:rquickjs:resume:h1',
+      payloadJson: '"bg/opening.png:fade"',
+    })
+    expect(showDialogue).toHaveBeenCalledWith({ text: 'bg/opening.png:fade' })
+  })
+
+  it('requires native QuickJS helper calls to be registered on the host side', async () => {
+    await expect(executeNativeQuickJsGameStepHelperCall({
+      stepId: 'intro.helper',
+      engine: {
+        waitFor: vi.fn(),
+      },
+    } as any, {
+      resumeHandleId: 'quickjs:rquickjs:resume:h2',
+      module: '@quajs/plugin-background',
+      exportName: 'setBackgroundWithEngine',
+      argsJson: '[]',
+    })).rejects.toThrow(/not registered/)
   })
 
   it('rejects unsupported native QuickJS GameStep commands before dispatching to engine', async () => {

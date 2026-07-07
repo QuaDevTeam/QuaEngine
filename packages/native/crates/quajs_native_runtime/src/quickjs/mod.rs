@@ -177,6 +177,16 @@ pub struct QuickJsGameStepPipelineEmitRequest {
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct QuickJsGameStepHelperCallRequest {
+    pub resume_handle_id: String,
+    pub module: String,
+    pub export_name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub args_json: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct QuickJsGameStepResumeRequest {
     pub resume_handle_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -205,6 +215,8 @@ pub struct QuickJsGameStepRunResponse {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pending_pipeline_emit: Option<QuickJsGameStepPipelineEmitRequest>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pending_helper_call: Option<QuickJsGameStepHelperCallRequest>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub error: Option<QuickJsEvaluationError>,
 }
 
@@ -230,6 +242,7 @@ pub enum QuickJsEvaluationErrorCode {
     InvalidWaitEvent,
     InvalidTranslationRequest,
     InvalidPipelineRequest,
+    InvalidHelperCallRequest,
     InvalidResumePayload,
     StepRunFailed,
     UnsupportedStepContextCommand,
@@ -311,6 +324,7 @@ impl QuickJsGameStepRunResponse {
             pending_wait: None,
             pending_translation: None,
             pending_pipeline_emit: None,
+            pending_helper_call: None,
             error: None,
         }
     }
@@ -325,6 +339,7 @@ impl QuickJsGameStepRunResponse {
             pending_wait: Some(pending_wait),
             pending_translation: None,
             pending_pipeline_emit: None,
+            pending_helper_call: None,
             error: None,
         }
     }
@@ -339,6 +354,7 @@ impl QuickJsGameStepRunResponse {
             pending_wait: None,
             pending_translation: Some(pending_translation),
             pending_pipeline_emit: None,
+            pending_helper_call: None,
             error: None,
         }
     }
@@ -353,6 +369,22 @@ impl QuickJsGameStepRunResponse {
             pending_wait: None,
             pending_translation: None,
             pending_pipeline_emit: Some(pending_pipeline_emit),
+            pending_helper_call: None,
+            error: None,
+        }
+    }
+
+    pub fn pending_helper_call(
+        commands: Vec<QuickJsGameStepCommand>,
+        pending_helper_call: QuickJsGameStepHelperCallRequest,
+    ) -> Self {
+        Self {
+            ok: true,
+            commands: Some(commands),
+            pending_wait: None,
+            pending_translation: None,
+            pending_pipeline_emit: None,
+            pending_helper_call: Some(pending_helper_call),
             error: None,
         }
     }
@@ -364,6 +396,7 @@ impl QuickJsGameStepRunResponse {
             pending_wait: None,
             pending_translation: None,
             pending_pipeline_emit: None,
+            pending_helper_call: None,
             error: Some(error),
         }
     }

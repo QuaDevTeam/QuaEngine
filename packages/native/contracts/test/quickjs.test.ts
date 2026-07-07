@@ -3,6 +3,7 @@ import {
   DEFAULT_NATIVE_QUICKJS_SANDBOX_LIMITS,
   assertNativeQuickJsEvaluationResponse,
   assertNativeQuickJsGameStepCommand,
+  assertNativeQuickJsGameStepHelperCallRequest,
   assertNativeQuickJsGameStepRunResponse,
   assertNativeQuickJsGameStepFactoryCallResponse,
   assertNativeQuickJsGameStepFactoryCallRequest,
@@ -377,6 +378,46 @@ describe('native QuickJS contracts', () => {
       },
     })
 
+    expect(assertNativeQuickJsGameStepRunResponse({
+      ok: true,
+      pendingHelperCall: {
+        resumeHandleId: 'quickjs:rquickjs:resume:7',
+        module: '@quajs/plugin-background',
+        exportName: 'setBackgroundWithEngine',
+        argsJson: '["bg/opening.png",{"transition":{"type":"fade"}}]',
+      },
+    })).toEqual({
+      ok: true,
+      commands: [],
+      pendingHelperCall: {
+        resumeHandleId: 'quickjs:rquickjs:resume:7',
+        module: '@quajs/plugin-background',
+        exportName: 'setBackgroundWithEngine',
+        argsJson: '["bg/opening.png",{"transition":{"type":"fade"}}]',
+      },
+    })
+
+    expect(() => assertNativeQuickJsGameStepHelperCallRequest({
+      resumeHandleId: 'quickjs:rquickjs:resume:8',
+      module: '@quajs/plugin-background',
+      exportName: 'constructor',
+      argsJson: '[]',
+    })).toThrow(/blocked/)
+
+    expect(() => assertNativeQuickJsGameStepHelperCallRequest({
+      resumeHandleId: 'quickjs:rquickjs:resume:9',
+      module: ' @quajs/plugin-background',
+      exportName: 'setBackgroundWithEngine',
+      argsJson: '[]',
+    })).toThrow(/module name/)
+
+    expect(() => assertNativeQuickJsGameStepHelperCallRequest({
+      resumeHandleId: 'quickjs:rquickjs:resume:10',
+      module: '@quajs/plugin-background',
+      exportName: 'setBackgroundWithEngine',
+      argsJson: '{"not":"array"}',
+    })).toThrow(/JSON array/)
+
     expect(() => assertNativeQuickJsGameStepRunResponse({
       ok: true,
       pendingWait: {
@@ -390,6 +431,11 @@ describe('native QuickJS contracts', () => {
       pendingPipelineEmit: {
         resumeHandleId: 'quickjs:rquickjs:resume:5',
         event: 'plugin/custom_event',
+      },
+      pendingHelperCall: {
+        resumeHandleId: 'quickjs:rquickjs:resume:7',
+        module: '@quajs/plugin-background',
+        exportName: 'setBackgroundWithEngine',
       },
     })).toThrow(/one pending continuation/)
 

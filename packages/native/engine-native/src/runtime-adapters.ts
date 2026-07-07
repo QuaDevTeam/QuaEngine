@@ -11,7 +11,7 @@ import { assertNativeRuntimePackageGuard } from '@quajs/native-contracts'
 import { assertNativeRuntimePackageCompatibility } from './compatibility'
 import { NativeHostPlugin } from './native-host-plugin'
 import { createNativeHostQuickJsGameStepModuleNamespaceResolver, createNativeHostQuickJsModuleEvaluator, createNativeRuntimeModuleLoader } from './runtime-module-loader'
-import type { NativeQuickJsModuleNamespaceResolver, NativeQuickJsStepContextSerializer, NativeRuntimeModuleEvaluator } from './runtime-module-loader'
+import type { NativeQuickJsHelperCallExecutor, NativeQuickJsHelperModuleRegistry, NativeQuickJsModuleNamespaceResolver, NativeQuickJsStepContextSerializer, NativeRuntimeModuleEvaluator } from './runtime-module-loader'
 
 declare const TextEncoder: {
   new(): { encode: (input: string) => Uint8Array }
@@ -33,6 +33,8 @@ export interface NativeRuntimeAdaptersOptions {
   hostInfo?: QuaNativeHostInfo
   moduleEvaluator?: NativeRuntimeModuleEvaluator
   moduleNamespaceResolver?: NativeQuickJsModuleNamespaceResolver
+  quickJsHelperCallExecutor?: NativeQuickJsHelperCallExecutor
+  quickJsHelperModules?: NativeQuickJsHelperModuleRegistry
   quickJsStepContextSerializer?: NativeQuickJsStepContextSerializer
   requireSignature?: boolean
   runtimeModuleLoader?: RuntimeModuleLoader
@@ -44,6 +46,8 @@ export function createNativeRuntimeAdapters(host: QuaNativeHostApi, options: Nat
   const moduleNamespaceResolver = options.moduleNamespaceResolver
     || (host.evaluateQuickJsModule && host.callQuickJsGameStepFactory && host.callQuickJsGameStepRun && host.resumeQuickJsGameStepRun
       ? createNativeHostQuickJsGameStepModuleNamespaceResolver(host, {
+          executeHelperCall: options.quickJsHelperCallExecutor,
+          helperModules: options.quickJsHelperModules,
           serializeStepContext: options.quickJsStepContextSerializer,
         })
       : undefined)

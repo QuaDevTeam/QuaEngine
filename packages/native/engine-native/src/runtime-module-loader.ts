@@ -19,6 +19,7 @@ import type {
   NativeQuickJsGameStepDescriptor,
   NativeQuickJsGameStepFactoryCallRequest,
   NativeQuickJsGameStepFactoryCallResponse,
+  NativeQuickJsGameStepHelperCallRequest,
   NativeQuickJsGameStepRunRequest,
   NativeQuickJsGameStepRunResponse,
   NativeQuickJsGameStepResumeRequest,
@@ -35,6 +36,7 @@ import {
   assertNativeQuickJsEvaluationRequest,
   assertNativeQuickJsGameStepCommand,
   assertNativeQuickJsGameStepFactoryCallResponse,
+  assertNativeQuickJsGameStepHelperCallRequest,
   assertNativeQuickJsGameStepRunResponse,
   createNativeQuickJsGameStepFactoryCallRequest,
   createNativeQuickJsGameStepResumeRequest,
@@ -107,6 +109,18 @@ export type NativeQuickJsStepCommandExecutor = (
   ctx: StepContext,
   command: NativeQuickJsGameStepCommand,
 ) => Promise<void>
+
+export type NativeQuickJsHelperFunction = (
+  engine: StepContext['engine'],
+  ...args: readonly unknown[]
+) => unknown | Promise<unknown>
+
+export type NativeQuickJsHelperModuleRegistry = Readonly<Record<string, Readonly<Record<string, NativeQuickJsHelperFunction>>>>
+
+export type NativeQuickJsHelperCallExecutor = (
+  ctx: StepContext,
+  request: NativeQuickJsGameStepHelperCallRequest,
+) => Promise<unknown>
 
 export function createNativeHostQuickJsModuleEvaluator(
   host: Pick<QuaNativeHostApi, 'evaluateQuickJsModule'>,
@@ -204,6 +218,8 @@ export function createNativeHostQuickJsJsonModuleNamespaceResolver(
 
 export interface CreateNativeHostQuickJsGameStepModuleNamespaceResolverOptions {
   executeStepCommand?: NativeQuickJsStepCommandExecutor
+  executeHelperCall?: NativeQuickJsHelperCallExecutor
+  helperModules?: NativeQuickJsHelperModuleRegistry
   serializeStepContext?: NativeQuickJsStepContextSerializer
 }
 
@@ -268,6 +284,8 @@ function createNativeQuickJsGameStepProxy(
         ctx: (options.serializeStepContext || defaultNativeQuickJsStepContextSerializer)(ctx),
       }))
       const executeStepCommand = options.executeStepCommand || executeNativeQuickJsGameStepCommand
+      const executeHelperCall = options.executeHelperCall
+        || ((ctx, request) => executeNativeQuickJsGameStepHelperCall(ctx, request, options.helperModules))
       while (true) {
         for (const command of response.commands || []) {
           await executeStepCommand(ctx, command)
@@ -301,6 +319,14 @@ function createNativeQuickJsGameStepProxy(
           }))
           continue
         }
+        if (response.pendingHelperCall) {
+          const payload = await executeHelperCall(ctx, response.pendingHelperCall)
+          response = await callNativeQuickJsGameStepResume(host, createNativeQuickJsGameStepResumeRequest({
+            resumeHandleId: response.pendingHelperCall.resumeHandleId,
+            payload,
+          }))
+          continue
+        }
         return
       }
     },
@@ -321,6 +347,30 @@ export async function executeNativeQuickJsGameStepCommand(
     throw new Error(`Native QuickJS GameStep command ${command.target}.${command.method} is not available on StepContext.`)
   }
   await (method as (...args: unknown[]) => unknown).apply(ctx.engine, args)
+}
+
+export function createNativeQuickJsHelperCallExecutor(
+  helperModules: NativeQuickJsHelperModuleRegistry,
+): NativeQuickJsHelperCallExecutor {
+  return (ctx, request) => executeNativeQuickJsGameStepHelperCall(ctx, request, helperModules)
+}
+
+export async function executeNativeQuickJsGameStepHelperCall(
+  ctx: StepContext,
+  request: NativeQuickJsGameStepHelperCallRequest,
+  helperModules: NativeQuickJsHelperModuleRegistry = {},
+): Promise<unknown> {
+  assertNativeQuickJsGameStepHelperCallRequest(request)
+  const helperModule = helperModules[request.module]
+  const helper = helperModule?.[request.exportName]
+  if (typeof helper !== 'function') {
+    throw new Error(`Native QuickJS helper ${request.module}.${request.exportName} is not registered in the host helper resolver.`)
+  }
+  const args = request.argsJson === undefined ? [] : JSON.parse(request.argsJson)
+  if (!Array.isArray(args)) {
+    throw new Error(`Native QuickJS helper ${request.module}.${request.exportName} argsJson must be a JSON array.`)
+  }
+  return await helper(ctx.engine, ...args)
 }
 
 function defaultNativeQuickJsStepContextSerializer(ctx: StepContext): Record<string, unknown> {

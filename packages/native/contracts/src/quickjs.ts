@@ -127,6 +127,13 @@ export interface NativeQuickJsGameStepPipelineEmitRequest {
   payloadJson?: string
 }
 
+export interface NativeQuickJsGameStepHelperCallRequest {
+  resumeHandleId: string
+  module: string
+  exportName: string
+  argsJson?: string
+}
+
 export interface NativeQuickJsGameStepResumeRequest {
   resumeHandleId: string
   payloadJson?: string
@@ -138,6 +145,7 @@ export interface NativeQuickJsGameStepRunResponse {
   pendingWait?: NativeQuickJsGameStepWaitRequest
   pendingTranslation?: NativeQuickJsGameStepTranslationRequest
   pendingPipelineEmit?: NativeQuickJsGameStepPipelineEmitRequest
+  pendingHelperCall?: NativeQuickJsGameStepHelperCallRequest
   error?: NativeQuickJsEvaluationError
 }
 
@@ -188,6 +196,7 @@ export type NativeQuickJsEvaluationErrorCode
     | 'invalidWaitEvent'
     | 'invalidTranslationRequest'
     | 'invalidPipelineRequest'
+    | 'invalidHelperCallRequest'
     | 'invalidResumePayload'
     | 'stepRunFailed'
     | 'unsupportedStepContextCommand'
@@ -309,9 +318,13 @@ export function assertNativeQuickJsGameStepRunResponse(
   if (response.pendingPipelineEmit !== undefined) {
     assertNativeQuickJsGameStepPipelineEmitRequest(response.pendingPipelineEmit)
   }
+  if (response.pendingHelperCall !== undefined) {
+    assertNativeQuickJsGameStepHelperCallRequest(response.pendingHelperCall)
+  }
   const pendingCount = Number(response.pendingWait !== undefined)
     + Number(response.pendingTranslation !== undefined)
     + Number(response.pendingPipelineEmit !== undefined)
+    + Number(response.pendingHelperCall !== undefined)
   if (pendingCount > 1) {
     throw new Error('Native QuickJS GameStep run response can only contain one pending continuation.')
   }
@@ -452,6 +465,22 @@ export function assertNativeQuickJsGameStepPipelineEmitRequest(
     throw new Error('Native QuickJS GameStep pending pipeline emit requires a safe event name.')
   }
   assertOptionalJsonValue(request.payloadJson, 'Native QuickJS GameStep pending pipeline emit payloadJson')
+}
+
+export function assertNativeQuickJsGameStepHelperCallRequest(
+  request: NativeQuickJsGameStepHelperCallRequest,
+): void {
+  assertSafeQuickJsBridgeHandle(request.resumeHandleId, 'Native QuickJS GameStep pending helper call requires a safe resumeHandleId.')
+  if (!isSafeQuickJsBridgeText(request.module)) {
+    throw new Error('Native QuickJS GameStep pending helper call requires a safe module name.')
+  }
+  if (!isSafeQuickJsBridgeHandle(request.exportName)) {
+    throw new Error('Native QuickJS GameStep pending helper call requires a safe exportName.')
+  }
+  if (['__proto__', 'prototype', 'constructor'].includes(request.exportName)) {
+    throw new Error(`Native QuickJS GameStep helper export "${request.exportName}" is blocked at the bridge boundary.`)
+  }
+  assertOptionalJsonArray(request.argsJson, 'Native QuickJS GameStep pending helper call argsJson')
 }
 
 export function assertNativeQuickJsGameStepCommand(
