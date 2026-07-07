@@ -360,6 +360,23 @@ describe('native QuickJS contracts', () => {
       },
     }).pendingTranslation?.optionsJson).toBe('["Mira"]')
 
+    expect(assertNativeQuickJsGameStepRunResponse({
+      ok: true,
+      pendingPipelineEmit: {
+        resumeHandleId: 'quickjs:rquickjs:resume:5',
+        event: 'plugin/custom_event',
+        payloadJson: '{"ok":true}',
+      },
+    })).toEqual({
+      ok: true,
+      commands: [],
+      pendingPipelineEmit: {
+        resumeHandleId: 'quickjs:rquickjs:resume:5',
+        event: 'plugin/custom_event',
+        payloadJson: '{"ok":true}',
+      },
+    })
+
     expect(() => assertNativeQuickJsGameStepRunResponse({
       ok: true,
       pendingWait: {
@@ -369,6 +386,10 @@ describe('native QuickJS contracts', () => {
       pendingTranslation: {
         resumeHandleId: 'quickjs:rquickjs:resume:2',
         key: 'runtime.greeting',
+      },
+      pendingPipelineEmit: {
+        resumeHandleId: 'quickjs:rquickjs:resume:5',
+        event: 'plugin/custom_event',
       },
     })).toThrow(/one pending continuation/)
 
@@ -380,6 +401,14 @@ describe('native QuickJS contracts', () => {
         optionsJson: '"Mira"',
       },
     })).toThrow(/JSON object or array/)
+
+    expect(() => assertNativeQuickJsGameStepRunResponse({
+      ok: true,
+      pendingPipelineEmit: {
+        resumeHandleId: 'quickjs:rquickjs:resume:6',
+        event: ' plugin/custom_event',
+      },
+    })).toThrow(/event name/)
 
     expect(() => assertNativeQuickJsGameStepRunResponse({
       ok: false,
