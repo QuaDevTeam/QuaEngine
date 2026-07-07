@@ -127,6 +127,58 @@ fn json_frame_asset_validation_requires_explicit_image_asset_types() {
 }
 
 #[test]
+fn json_frame_asset_validation_requires_explicit_image_asset_names() {
+    let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
+
+    let avatar = renderer
+        .prepare_frame_json_str(json_frame_with_missing_dialogue_avatar_asset_name_input())
+        .unwrap_err();
+    match avatar {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(validation.path, "view.dialogue.avatar.assetName");
+            assert_eq!(validation.asset_name, "");
+            assert!(validation.reason.contains("explicitly provided"));
+        }
+        other => panic!("expected missing avatar assetName validation error, got {other:?}"),
+    }
+
+    let ui_image = renderer
+        .prepare_frame_json_str(json_frame_with_missing_ui_image_asset_name_input())
+        .unwrap_err();
+    match ui_image {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(
+                validation.path,
+                "view.ui.overlays[0].surface.root.image.assetName"
+            );
+            assert_eq!(validation.asset_name, "");
+            assert!(validation.reason.contains("explicitly provided"));
+        }
+        other => panic!("expected missing UI image assetName validation error, got {other:?}"),
+    }
+
+    let background_image = renderer
+        .prepare_frame_json_str(json_frame_with_missing_ui_background_image_asset_name_input())
+        .unwrap_err();
+    match background_image {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(
+                validation.path,
+                "view.ui.overlays[0].surface.root.style.backgroundImage.assetName"
+            );
+            assert_eq!(validation.asset_name, "");
+            assert!(validation.reason.contains("explicitly provided"));
+        }
+        other => {
+            panic!("expected missing UI backgroundImage assetName validation error, got {other:?}")
+        }
+    }
+
+    assert_eq!(renderer.state().revision(), 0);
+    assert!(renderer.state().frame().is_none());
+}
+
+#[test]
 fn json_frame_asset_validation_rejects_malformed_image_resource_shapes() {
     let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
 

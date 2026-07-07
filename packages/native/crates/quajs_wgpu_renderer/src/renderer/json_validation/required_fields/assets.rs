@@ -25,6 +25,13 @@ pub(super) fn validate_asset_projection_required_fields(
             reason: format!("must be explicitly provided for {noun} in resolved projection JSON"),
         });
     }
+    if missing_or_null(asset_object.get("assetName")) {
+        errors.push(NativeRendererJsonValidationError {
+            path: format!("{path}.assetName"),
+            asset_name: String::new(),
+            reason: format!("must be explicitly provided for {noun} in resolved projection JSON"),
+        });
+    }
 }
 
 fn missing_or_null(value: Option<&Value>) -> bool {
