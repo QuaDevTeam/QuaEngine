@@ -7,12 +7,14 @@ use super::api::{
 use super::info::NativeHostInfo;
 use crate::quickjs::{
     call_quickjs_game_step_factory, call_quickjs_game_step_run, call_quickjs_module_export,
-    evaluate_quickjs_module_with_registry, resume_quickjs_game_step_run, QuickJsEvaluationRequest,
-    QuickJsEvaluationResponse, QuickJsGameStepFactoryCallRequest,
-    QuickJsGameStepFactoryCallResponse, QuickJsGameStepResumeRequest, QuickJsGameStepRunRequest,
-    QuickJsGameStepRunResponse, QuickJsModuleEvaluator, QuickJsModuleExportCallRequest,
-    QuickJsModuleExportCallResponse, QuickJsModuleNamespaceRecord, QuickJsModuleNamespaceRegistry,
-    QuickJsModuleNamespaceSummary, UnsupportedQuickJsModuleEvaluator,
+    dispatch_quickjs_pipeline_listener, evaluate_quickjs_module_with_registry,
+    resume_quickjs_game_step_run, QuickJsEvaluationRequest, QuickJsEvaluationResponse,
+    QuickJsGameStepFactoryCallRequest, QuickJsGameStepFactoryCallResponse,
+    QuickJsGameStepResumeRequest, QuickJsGameStepRunRequest, QuickJsGameStepRunResponse,
+    QuickJsModuleEvaluator, QuickJsModuleExportCallRequest, QuickJsModuleExportCallResponse,
+    QuickJsModuleNamespaceRecord, QuickJsModuleNamespaceRegistry, QuickJsModuleNamespaceSummary,
+    QuickJsPipelineListenerDispatchRequest, QuickJsPipelineListenerDispatchResponse,
+    UnsupportedQuickJsModuleEvaluator,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
@@ -32,6 +34,7 @@ pub enum NativeHostApiRequest {
     CallQuickJsGameStepFactory(QuickJsGameStepFactoryCallRequest),
     CallQuickJsGameStepRun(QuickJsGameStepRunRequest),
     ResumeQuickJsGameStepRun(QuickJsGameStepResumeRequest),
+    DispatchQuickJsPipelineListener(QuickJsPipelineListenerDispatchRequest),
     ReleaseQuickJsModuleNamespace(NativeQuickJsReleaseNamespaceRequest),
     ReleaseQuickJsPackageNamespaces(NativeQuickJsReleasePackageRequest),
     GetQuickJsNamespaceSummary,
@@ -101,6 +104,7 @@ pub enum NativeHostApiResponsePayload {
     QuickJsExportCall(QuickJsModuleExportCallResponse),
     QuickJsGameStepFactoryCall(QuickJsGameStepFactoryCallResponse),
     QuickJsGameStepRun(QuickJsGameStepRunResponse),
+    QuickJsPipelineListenerDispatch(QuickJsPipelineListenerDispatchResponse),
     QuickJsNamespace(Option<QuickJsModuleNamespaceRecord>),
     QuickJsNamespaces(Vec<QuickJsModuleNamespaceRecord>),
     QuickJsNamespaceSummary(QuickJsModuleNamespaceSummary),
@@ -223,6 +227,13 @@ pub fn dispatch_native_host_api_request_with_quickjs_registry(
             NativeHostApiResponse::success(NativeHostApiResponsePayload::QuickJsGameStepRun(
                 resume_quickjs_game_step_run(quickjs, &request),
             ))
+        }
+        NativeHostApiRequest::DispatchQuickJsPipelineListener(request) => {
+            NativeHostApiResponse::success(
+                NativeHostApiResponsePayload::QuickJsPipelineListenerDispatch(
+                    dispatch_quickjs_pipeline_listener(quickjs, &request),
+                ),
+            )
         }
         NativeHostApiRequest::ReleaseQuickJsModuleNamespace(request) => {
             let released = registry.release_namespace(&request.module_namespace_id);

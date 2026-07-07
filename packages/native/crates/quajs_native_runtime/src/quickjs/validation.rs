@@ -1,7 +1,7 @@
 use super::{
     QuickJsEvaluationError, QuickJsEvaluationErrorCode, QuickJsEvaluationRequest,
     QuickJsGameStepFactoryCallRequest, QuickJsGameStepResumeRequest, QuickJsGameStepRunRequest,
-    QuickJsModuleExportCallRequest,
+    QuickJsModuleExportCallRequest, QuickJsPipelineListenerDispatchRequest,
 };
 
 pub fn validate_quickjs_evaluation_request(
@@ -288,6 +288,23 @@ pub fn validate_quickjs_game_step_resume_request(
     Ok(())
 }
 
+pub fn validate_quickjs_pipeline_listener_dispatch_request(
+    request: &QuickJsPipelineListenerDispatchRequest,
+) -> Result<(), QuickJsEvaluationError> {
+    validate_quickjs_handle(
+        &request.subscription_id,
+        QuickJsEvaluationErrorCode::InvalidPipelineRequest,
+        "QuickJS pipeline listener dispatch requires a subscriptionId.",
+        "QuickJS pipeline listener dispatch subscriptionId must be an opaque native subscription handle.",
+    )?;
+    validate_json_object(
+        request.context_json.as_str(),
+        QuickJsEvaluationErrorCode::InvalidPipelineRequest,
+        "QuickJS pipeline listener dispatch contextJson must be a JSON object.",
+    )?;
+    Ok(())
+}
+
 fn validate_quickjs_handle(
     value: &str,
     empty_code: QuickJsEvaluationErrorCode,
@@ -331,6 +348,39 @@ fn validate_optional_json_object(
                 detail: None,
             });
         }
+    }
+    Ok(())
+}
+
+fn validate_json_object(
+    json: &str,
+    code: QuickJsEvaluationErrorCode,
+    message: &str,
+) -> Result<(), QuickJsEvaluationError> {
+    let trimmed = json.trim();
+    if trimmed.is_empty() || !trimmed.starts_with('{') {
+        return Err(QuickJsEvaluationError {
+            code,
+            message: message.to_string(),
+            asset_name: None,
+            detail: None,
+        });
+    }
+    let value = serde_json::from_str::<serde_json::Value>(trimmed).map_err(|error| {
+        QuickJsEvaluationError {
+            code,
+            message: message.to_string(),
+            asset_name: None,
+            detail: Some(error.to_string()),
+        }
+    })?;
+    if !value.is_object() {
+        return Err(QuickJsEvaluationError {
+            code,
+            message: message.to_string(),
+            asset_name: None,
+            detail: None,
+        });
     }
     Ok(())
 }

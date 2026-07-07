@@ -18,6 +18,7 @@ pub use validation::{
     is_supported_quickjs_module_asset, validate_quickjs_evaluation_request,
     validate_quickjs_game_step_factory_call_request, validate_quickjs_game_step_resume_request,
     validate_quickjs_game_step_run_request, validate_quickjs_module_export_call_request,
+    validate_quickjs_pipeline_listener_dispatch_request,
 };
 
 pub const UNSUPPORTED_QUICKJS_VERSION: &str = "unsupported";
@@ -177,6 +178,41 @@ pub struct QuickJsGameStepPipelineEmitRequest {
     pub payload_json: Option<String>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum QuickJsPipelineSubscriptionOperation {
+    Subscribe,
+    Unsubscribe,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct QuickJsPipelineSubscriptionChange {
+    pub op: QuickJsPipelineSubscriptionOperation,
+    pub subscription_id: String,
+    pub module_namespace_id: String,
+    pub event: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct QuickJsPipelineListenerDispatchRequest {
+    pub subscription_id: String,
+    pub context_json: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct QuickJsPipelineListenerDispatchResponse {
+    pub ok: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub commands: Option<Vec<QuickJsGameStepCommand>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pipeline_subscriptions: Option<Vec<QuickJsPipelineSubscriptionChange>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<QuickJsEvaluationError>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct QuickJsGameStepHelperCallRequest {
@@ -218,6 +254,8 @@ pub struct QuickJsGameStepRunResponse {
     pub pending_pipeline_emit: Option<QuickJsGameStepPipelineEmitRequest>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pending_helper_call: Option<QuickJsGameStepHelperCallRequest>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pipeline_subscriptions: Option<Vec<QuickJsPipelineSubscriptionChange>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub error: Option<QuickJsEvaluationError>,
 }
@@ -327,8 +365,19 @@ impl QuickJsGameStepRunResponse {
             pending_translation: None,
             pending_pipeline_emit: None,
             pending_helper_call: None,
+            pipeline_subscriptions: None,
             error: None,
         }
+    }
+
+    pub fn with_pipeline_subscriptions(
+        mut self,
+        subscriptions: Vec<QuickJsPipelineSubscriptionChange>,
+    ) -> Self {
+        if !subscriptions.is_empty() {
+            self.pipeline_subscriptions = Some(subscriptions);
+        }
+        self
     }
 
     pub fn pending(
@@ -342,6 +391,7 @@ impl QuickJsGameStepRunResponse {
             pending_translation: None,
             pending_pipeline_emit: None,
             pending_helper_call: None,
+            pipeline_subscriptions: None,
             error: None,
         }
     }
@@ -357,6 +407,7 @@ impl QuickJsGameStepRunResponse {
             pending_translation: Some(pending_translation),
             pending_pipeline_emit: None,
             pending_helper_call: None,
+            pipeline_subscriptions: None,
             error: None,
         }
     }
@@ -372,6 +423,7 @@ impl QuickJsGameStepRunResponse {
             pending_translation: None,
             pending_pipeline_emit: Some(pending_pipeline_emit),
             pending_helper_call: None,
+            pipeline_subscriptions: None,
             error: None,
         }
     }
@@ -387,6 +439,7 @@ impl QuickJsGameStepRunResponse {
             pending_translation: None,
             pending_pipeline_emit: None,
             pending_helper_call: Some(pending_helper_call),
+            pipeline_subscriptions: None,
             error: None,
         }
     }
@@ -399,6 +452,34 @@ impl QuickJsGameStepRunResponse {
             pending_translation: None,
             pending_pipeline_emit: None,
             pending_helper_call: None,
+            pipeline_subscriptions: None,
+            error: Some(error),
+        }
+    }
+}
+
+impl QuickJsPipelineListenerDispatchResponse {
+    pub fn success(
+        commands: Vec<QuickJsGameStepCommand>,
+        subscriptions: Vec<QuickJsPipelineSubscriptionChange>,
+    ) -> Self {
+        Self {
+            ok: true,
+            commands: Some(commands),
+            pipeline_subscriptions: if subscriptions.is_empty() {
+                None
+            } else {
+                Some(subscriptions)
+            },
+            error: None,
+        }
+    }
+
+    pub fn error(error: QuickJsEvaluationError) -> Self {
+        Self {
+            ok: false,
+            commands: None,
+            pipeline_subscriptions: None,
             error: Some(error),
         }
     }
@@ -410,6 +491,8 @@ pub type QuickJsModuleExportCallResult =
 pub type QuickJsGameStepFactoryCallResult =
     Result<QuickJsGameStepFactoryCallResponse, QuickJsEvaluationError>;
 pub type QuickJsGameStepRunResult = Result<QuickJsGameStepRunResponse, QuickJsEvaluationError>;
+pub type QuickJsPipelineListenerDispatchResult =
+    Result<QuickJsPipelineListenerDispatchResponse, QuickJsEvaluationError>;
 
 pub trait QuickJsModuleEvaluator {
     fn evaluate_module(&mut self, request: &QuickJsEvaluationRequest) -> QuickJsEvaluationResult;
@@ -476,6 +559,22 @@ pub trait QuickJsModuleEvaluator {
             detail: Some(format!(
                 "No QuickJS evaluator backend has been installed for resume handle \"{}\".",
                 request.resume_handle_id
+            )),
+        })
+    }
+
+    fn dispatch_pipeline_listener(
+        &mut self,
+        request: &QuickJsPipelineListenerDispatchRequest,
+    ) -> QuickJsPipelineListenerDispatchResult {
+        Err(QuickJsEvaluationError {
+            code: QuickJsEvaluationErrorCode::UnsupportedRuntime,
+            message: "QuickJS pipeline listener dispatch calls are not available in this native runtime build."
+                .to_string(),
+            asset_name: None,
+            detail: Some(format!(
+                "No QuickJS evaluator backend has been installed for subscription \"{}\".",
+                request.subscription_id
             )),
         })
     }
@@ -585,6 +684,20 @@ pub fn resume_quickjs_game_step_run(
     match evaluator.resume_game_step_run(request) {
         Ok(response) => response,
         Err(error) => QuickJsGameStepRunResponse::error(error),
+    }
+}
+
+pub fn dispatch_quickjs_pipeline_listener(
+    evaluator: &mut impl QuickJsModuleEvaluator,
+    request: &QuickJsPipelineListenerDispatchRequest,
+) -> QuickJsPipelineListenerDispatchResponse {
+    if let Err(error) = validation::validate_quickjs_pipeline_listener_dispatch_request(request) {
+        return QuickJsPipelineListenerDispatchResponse::error(error);
+    }
+
+    match evaluator.dispatch_pipeline_listener(request) {
+        Ok(response) => response,
+        Err(error) => QuickJsPipelineListenerDispatchResponse::error(error),
     }
 }
 

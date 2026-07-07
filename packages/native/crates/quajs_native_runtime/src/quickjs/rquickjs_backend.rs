@@ -12,15 +12,18 @@ use rquickjs::{
 use super::{
     validate_quickjs_evaluation_request, validate_quickjs_game_step_factory_call_request,
     validate_quickjs_game_step_run_request, validate_quickjs_module_export_call_request,
-    QuickJsEvaluationError, QuickJsEvaluationErrorCode, QuickJsEvaluationRequest,
-    QuickJsEvaluationResponse, QuickJsEvaluationResult, QuickJsGameStepCommand,
-    QuickJsGameStepDescriptor, QuickJsGameStepFactoryCallRequest,
-    QuickJsGameStepFactoryCallResponse, QuickJsGameStepFactoryCallResult,
-    QuickJsGameStepHelperCallRequest, QuickJsGameStepPipelineEmitRequest,
-    QuickJsGameStepResumeRequest, QuickJsGameStepRunRequest, QuickJsGameStepRunResponse,
-    QuickJsGameStepRunResult, QuickJsGameStepTranslationRequest, QuickJsGameStepWaitRequest,
-    QuickJsModuleEvaluator, QuickJsModuleExportCallRequest, QuickJsModuleExportCallResponse,
-    QuickJsModuleExportCallResult, QuickJsSandboxLimits,
+    validate_quickjs_pipeline_listener_dispatch_request, QuickJsEvaluationError,
+    QuickJsEvaluationErrorCode, QuickJsEvaluationRequest, QuickJsEvaluationResponse,
+    QuickJsEvaluationResult, QuickJsGameStepCommand, QuickJsGameStepDescriptor,
+    QuickJsGameStepFactoryCallRequest, QuickJsGameStepFactoryCallResponse,
+    QuickJsGameStepFactoryCallResult, QuickJsGameStepHelperCallRequest,
+    QuickJsGameStepPipelineEmitRequest, QuickJsGameStepResumeRequest, QuickJsGameStepRunRequest,
+    QuickJsGameStepRunResponse, QuickJsGameStepRunResult, QuickJsGameStepTranslationRequest,
+    QuickJsGameStepWaitRequest, QuickJsModuleEvaluator, QuickJsModuleExportCallRequest,
+    QuickJsModuleExportCallResponse, QuickJsModuleExportCallResult,
+    QuickJsPipelineListenerDispatchRequest, QuickJsPipelineListenerDispatchResponse,
+    QuickJsPipelineListenerDispatchResult, QuickJsPipelineSubscriptionChange,
+    QuickJsPipelineSubscriptionOperation, QuickJsSandboxLimits,
 };
 
 pub const RQUICKJS_BACKEND_VERSION: &str = "rquickjs-0.12.1";
@@ -67,7 +70,7 @@ const NATIVE_QUICKJS_GAME_STEP_ENGINE_COMMAND_METHODS: &[&str] = &[
 ];
 
 const NATIVE_QUICKJS_STEP_CONTEXT_BRIDGE_SOURCE: &str = r#"
-((ctx, commands, unsupportedState, waitState, translationState, pipelineState, helperState, methods) => {
+((ctx, commands, unsupportedState, waitState, translationState, pipelineState, helperState, subscriptionState, methods, moduleNamespaceId) => {
   const engine = Object.create(null);
   const pipeline = Object.create(null);
   const serializeArgs = (method, args) => JSON.stringify(args, (_key, value) => {
@@ -81,7 +84,7 @@ const NATIVE_QUICKJS_STEP_CONTEXT_BRIDGE_SOURCE: &str = r#"
     if (argsJson === undefined) {
       throw new TypeError(`Native QuickJS StepContext command ${method} arguments must be JSON-serializable.`);
     }
-    commands.push({ target: 'engine', method, argsJson });
+    (subscriptionState.activeCommands || commands).push({ target: 'engine', method, argsJson });
   };
   const unsupported = name => () => {
     unsupportedState.name = name;
@@ -101,6 +104,63 @@ const NATIVE_QUICKJS_STEP_CONTEXT_BRIDGE_SOURCE: &str = r#"
     if (typeof event !== 'string' || event.trim() !== event || event.length === 0 || event.length > 256 || /[\u0000-\u001F\u007F]/.test(event)) {
       throw new TypeError('Native QuickJS StepContext pipeline.emit requires a safe event name.');
     }
+  };
+  const assertPipelineListener = listener => {
+    if (typeof listener !== 'function') {
+      throw new TypeError('Native QuickJS StepContext pipeline listener must be a function.');
+    }
+  };
+  const pipelineRegistry = (() => {
+    const existing = globalThis.__quaNativePipelineSubscriptions;
+    if (existing && Array.isArray(existing.records) && typeof existing.nextIndex === 'number') {
+      return existing;
+    }
+    const created = { nextIndex: 0, records: [] };
+    Object.defineProperty(globalThis, '__quaNativePipelineSubscriptions', {
+      value: created,
+      enumerable: false,
+      configurable: true
+    });
+    return created;
+  })();
+  if (!Array.isArray(subscriptionState.changes)) {
+    subscriptionState.changes = [];
+  }
+  const findSubscriptionIndex = (event, listener) => pipelineRegistry.records.findIndex(record => (
+    record && record.event === event && record.listener === listener
+  ));
+  const subscribePipeline = (event, listener) => {
+    assertPipelineEvent(event);
+    assertPipelineListener(listener);
+    if (findSubscriptionIndex(event, listener) >= 0) {
+      return;
+    }
+    pipelineRegistry.nextIndex += 1;
+    const subscriptionId = `${moduleNamespaceId}:pipeline:${pipelineRegistry.nextIndex}`;
+    const record = { event, listener, subscriptionId, moduleNamespaceId };
+    pipelineRegistry.records.push(record);
+    subscriptionState.changes.push({
+      op: 'subscribe',
+      subscriptionId,
+      moduleNamespaceId,
+      event,
+      listener
+    });
+  };
+  const unsubscribePipeline = (event, listener) => {
+    assertPipelineEvent(event);
+    assertPipelineListener(listener);
+    const index = findSubscriptionIndex(event, listener);
+    if (index < 0) {
+      return;
+    }
+    const [record] = pipelineRegistry.records.splice(index, 1);
+    subscriptionState.changes.push({
+      op: 'unsubscribe',
+      subscriptionId: record.subscriptionId,
+      moduleNamespaceId: record.moduleNamespaceId,
+      event: record.event
+    });
   };
   const assertHelperText = (value, label) => {
     if (typeof value !== 'string' || value.trim() !== value || value.length === 0 || value.length > 256 || /[\u0000-\u001F\u007F]/.test(value)) {
@@ -201,6 +261,8 @@ const NATIVE_QUICKJS_STEP_CONTEXT_BRIDGE_SOURCE: &str = r#"
   }
   Object.defineProperty(engine, 'waitFor', { value: waitFor, enumerable: true });
   Object.defineProperty(pipeline, 'emit', { value: emitPipeline, enumerable: true });
+  Object.defineProperty(pipeline, 'on', { value: subscribePipeline, enumerable: true });
+  Object.defineProperty(pipeline, 'off', { value: unsubscribePipeline, enumerable: true });
   Object.freeze(engine);
   Object.freeze(pipeline);
   Object.defineProperty(ctx, 'engine', { value: engine, enumerable: true, configurable: true });
@@ -208,6 +270,16 @@ const NATIVE_QUICKJS_STEP_CONTEXT_BRIDGE_SOURCE: &str = r#"
   Object.defineProperty(ctx, 't', { value: translate, enumerable: true, configurable: true });
   Object.defineProperty(globalThis, '__quaNativeStepHelperCall', { value: callHelper, enumerable: false, configurable: true });
   return ctx;
+})
+"#;
+
+const NATIVE_QUICKJS_PIPELINE_RELEASE_NAMESPACE_SOURCE: &str = r#"
+((moduleNamespaceId) => {
+  const registry = globalThis.__quaNativePipelineSubscriptions;
+  if (!registry || !Array.isArray(registry.records)) {
+    return;
+  }
+  registry.records = registry.records.filter(record => record && record.moduleNamespaceId !== moduleNamespaceId);
 })
 "#;
 
@@ -769,6 +841,7 @@ pub struct RquickJsModuleEvaluator {
     namespaces: BTreeMap<String, Persistent<Object<'static>>>,
     step_run_handles: BTreeMap<String, QuickJsStepRunHandle>,
     step_resume_handles: BTreeMap<String, QuickJsStepResumeHandle>,
+    pipeline_listener_handles: BTreeMap<String, QuickJsPipelineListenerHandle>,
     module_graph: NativeQuickJsModuleGraphRegistry,
     next_namespace_index: u64,
     next_step_run_index: u64,
@@ -790,8 +863,24 @@ struct QuickJsStepResumeHandle {
     translation_state: Persistent<Object<'static>>,
     pipeline_state: Persistent<Object<'static>>,
     helper_state: Persistent<Object<'static>>,
+    subscription_state: Persistent<Object<'static>>,
     unsupported_state: Persistent<Object<'static>>,
     last_command_index: usize,
+    last_subscription_change_index: usize,
+}
+
+#[derive(Clone)]
+struct QuickJsPipelineListenerHandle {
+    module_namespace_id: String,
+    function: Persistent<Function<'static>>,
+    wait_state: Persistent<Object<'static>>,
+    translation_state: Persistent<Object<'static>>,
+    pipeline_state: Persistent<Object<'static>>,
+    helper_state: Persistent<Object<'static>>,
+    subscription_state: Persistent<Object<'static>>,
+    unsupported_state: Persistent<Object<'static>>,
+    last_command_index: usize,
+    last_subscription_change_index: usize,
 }
 
 struct QuickJsPendingStepRun {
@@ -803,8 +892,12 @@ struct QuickJsPendingStepRun {
     translation_state: Persistent<Object<'static>>,
     pipeline_state: Persistent<Object<'static>>,
     helper_state: Persistent<Object<'static>>,
+    subscription_state: Persistent<Object<'static>>,
     unsupported_state: Persistent<Object<'static>>,
     last_command_index: usize,
+    last_subscription_change_index: usize,
+    pipeline_subscriptions: Vec<QuickJsPipelineSubscriptionChange>,
+    subscription_updates: Vec<QuickJsPipelineSubscriptionUpdate>,
 }
 
 enum QuickJsPendingStepRequest {
@@ -843,16 +936,51 @@ impl QuickJsPendingStepRequest {
 }
 
 enum QuickJsStepRunBoundary {
-    Complete(Vec<QuickJsGameStepCommand>),
+    Complete {
+        commands: Vec<QuickJsGameStepCommand>,
+        pipeline_subscriptions: Vec<QuickJsPipelineSubscriptionChange>,
+        subscription_updates: Vec<QuickJsPipelineSubscriptionUpdate>,
+    },
     Pending(QuickJsPendingStepRun),
 }
 
 enum QuickJsStepResumeBoundary {
-    Complete(Vec<QuickJsGameStepCommand>),
+    Complete {
+        commands: Vec<QuickJsGameStepCommand>,
+        pipeline_subscriptions: Vec<QuickJsPipelineSubscriptionChange>,
+        subscription_updates: Vec<QuickJsPipelineSubscriptionUpdate>,
+    },
     Pending {
         commands: Vec<QuickJsGameStepCommand>,
+        pipeline_subscriptions: Vec<QuickJsPipelineSubscriptionChange>,
+        subscription_updates: Vec<QuickJsPipelineSubscriptionUpdate>,
         pending_request: QuickJsPendingStepRequest,
         last_command_index: usize,
+        last_subscription_change_index: usize,
+    },
+}
+
+struct QuickJsPipelineListenerDispatchBoundary {
+    commands: Vec<QuickJsGameStepCommand>,
+    pipeline_subscriptions: Vec<QuickJsPipelineSubscriptionChange>,
+    subscription_updates: Vec<QuickJsPipelineSubscriptionUpdate>,
+    last_command_index: usize,
+    last_subscription_change_index: usize,
+}
+
+struct QuickJsPipelineSubscriptionExtraction {
+    changes: Vec<QuickJsPipelineSubscriptionChange>,
+    updates: Vec<QuickJsPipelineSubscriptionUpdate>,
+    next_change_index: usize,
+}
+
+enum QuickJsPipelineSubscriptionUpdate {
+    Subscribe {
+        subscription_id: String,
+        handle: QuickJsPipelineListenerHandle,
+    },
+    Unsubscribe {
+        subscription_id: String,
     },
 }
 
@@ -873,6 +1001,7 @@ impl RquickJsModuleEvaluator {
             namespaces: BTreeMap::new(),
             step_run_handles: BTreeMap::new(),
             step_resume_handles: BTreeMap::new(),
+            pipeline_listener_handles: BTreeMap::new(),
             module_graph,
             next_namespace_index: 0,
             next_step_run_index: 0,
@@ -896,6 +1025,30 @@ impl RquickJsModuleEvaluator {
 
     pub fn step_resume_handle_count(&self) -> usize {
         self.step_resume_handles.len()
+    }
+
+    pub fn pipeline_listener_handle_count(&self) -> usize {
+        self.pipeline_listener_handles.len()
+    }
+
+    fn apply_pipeline_subscription_updates(
+        &mut self,
+        updates: Vec<QuickJsPipelineSubscriptionUpdate>,
+    ) {
+        for update in updates {
+            match update {
+                QuickJsPipelineSubscriptionUpdate::Subscribe {
+                    subscription_id,
+                    handle,
+                } => {
+                    self.pipeline_listener_handles
+                        .insert(subscription_id, handle);
+                }
+                QuickJsPipelineSubscriptionUpdate::Unsubscribe { subscription_id } => {
+                    self.pipeline_listener_handles.remove(&subscription_id);
+                }
+            }
+        }
     }
 
     fn apply_limits(&mut self, limits: &QuickJsSandboxLimits) {
@@ -931,6 +1084,13 @@ impl RquickJsModuleEvaluator {
     fn next_step_resume_handle_id(&mut self) -> String {
         self.next_step_resume_index = self.next_step_resume_index.saturating_add(1);
         format!("quickjs:rquickjs:resume:{}", self.next_step_resume_index)
+    }
+
+    fn release_pipeline_registry_namespace(&self, module_namespace_id: &str) {
+        let _ = self.context.with(|ctx| -> rquickjs::Result<()> {
+            let release: Function = ctx.eval(NATIVE_QUICKJS_PIPELINE_RELEASE_NAMESPACE_SOURCE)?;
+            release.call::<_, ()>((module_namespace_id,))
+        });
     }
 }
 
@@ -1309,6 +1469,14 @@ impl QuickJsModuleEvaluator for RquickJsModuleEvaluator {
                         Some(error.to_string()),
                     )
                 })?;
+                let subscription_state = Object::new(ctx.clone()).map_err(|error| {
+                    call_error(
+                        QuickJsEvaluationErrorCode::InvalidStepContext,
+                        "QuickJS GameStep pipeline subscription state could not be created."
+                            .to_string(),
+                        Some(error.to_string()),
+                    )
+                })?;
                 install_step_context_bridge(
                     ctx.clone(),
                     &ctx_object,
@@ -1318,6 +1486,8 @@ impl QuickJsModuleEvaluator for RquickJsModuleEvaluator {
                     &translation_state,
                     &pipeline_state,
                     &helper_state,
+                    &subscription_state,
+                    &module_namespace_id,
                 )?;
                 let value: Value = function
                     .call_arg(one_arg(ctx.clone(), Value::from_object(ctx_object))?)
@@ -1334,9 +1504,24 @@ impl QuickJsModuleEvaluator for RquickJsModuleEvaluator {
                 if let Some(promise) = value.as_promise() {
                     match promise.finish::<()>() {
                         Ok(()) => {
-                            return Ok(QuickJsStepRunBoundary::Complete(
-                                step_commands_from_array(ctx.clone(), &commands)?,
-                            ));
+                            let commands_output = step_commands_from_array(ctx.clone(), &commands)?;
+                            let extraction = pipeline_subscription_changes_from_state(
+                                ctx.clone(),
+                                &subscription_state,
+                                &wait_state,
+                                &translation_state,
+                                &pipeline_state,
+                                &helper_state,
+                                &unsupported_state,
+                                &module_namespace_id,
+                                commands.len(),
+                                0,
+                            )?;
+                            return Ok(QuickJsStepRunBoundary::Complete {
+                                commands: commands_output,
+                                pipeline_subscriptions: extraction.changes,
+                                subscription_updates: extraction.updates,
+                            });
                         }
                         Err(Error::WouldBlock) => {
                             let last_command_index = commands.len();
@@ -1346,6 +1531,18 @@ impl QuickJsModuleEvaluator for RquickJsModuleEvaluator {
                                 &pipeline_state,
                                 &helper_state,
                                 &resume_handle_id,
+                            )?;
+                            let extraction = pipeline_subscription_changes_from_state(
+                                ctx.clone(),
+                                &subscription_state,
+                                &wait_state,
+                                &translation_state,
+                                &pipeline_state,
+                                &helper_state,
+                                &unsupported_state,
+                                &module_namespace_id,
+                                last_command_index,
+                                0,
                             )?;
                             return Ok(QuickJsStepRunBoundary::Pending(QuickJsPendingStepRun {
                                 commands: step_commands_from_array_range(
@@ -1360,8 +1557,12 @@ impl QuickJsModuleEvaluator for RquickJsModuleEvaluator {
                                 translation_state: Persistent::save(&ctx, translation_state),
                                 pipeline_state: Persistent::save(&ctx, pipeline_state),
                                 helper_state: Persistent::save(&ctx, helper_state),
+                                subscription_state: Persistent::save(&ctx, subscription_state),
                                 unsupported_state: Persistent::save(&ctx, unsupported_state),
                                 last_command_index,
+                                last_subscription_change_index: extraction.next_change_index,
+                                pipeline_subscriptions: extraction.changes,
+                                subscription_updates: extraction.updates,
                             }));
                         }
                         Err(error) => {
@@ -1393,18 +1594,39 @@ impl QuickJsModuleEvaluator for RquickJsModuleEvaluator {
                         ),
                     ));
                 }
-                Ok(QuickJsStepRunBoundary::Complete(step_commands_from_array(
+                let commands_output = step_commands_from_array(ctx.clone(), &commands)?;
+                let extraction = pipeline_subscription_changes_from_state(
                     ctx.clone(),
-                    &commands,
-                )?))
+                    &subscription_state,
+                    &wait_state,
+                    &translation_state,
+                    &pipeline_state,
+                    &helper_state,
+                    &unsupported_state,
+                    &module_namespace_id,
+                    commands.len(),
+                    0,
+                )?;
+                Ok(QuickJsStepRunBoundary::Complete {
+                    commands: commands_output,
+                    pipeline_subscriptions: extraction.changes,
+                    subscription_updates: extraction.updates,
+                })
             });
 
         match result {
-            Ok(QuickJsStepRunBoundary::Complete(commands)) => {
-                Ok(QuickJsGameStepRunResponse::success(commands))
+            Ok(QuickJsStepRunBoundary::Complete {
+                commands,
+                pipeline_subscriptions,
+                subscription_updates,
+            }) => {
+                self.apply_pipeline_subscription_updates(subscription_updates);
+                Ok(QuickJsGameStepRunResponse::success(commands)
+                    .with_pipeline_subscriptions(pipeline_subscriptions))
             }
             Ok(QuickJsStepRunBoundary::Pending(pending)) => {
                 let resume_handle_id = pending.pending_request.resume_handle_id().to_string();
+                self.apply_pipeline_subscription_updates(pending.subscription_updates);
                 self.step_resume_handles.insert(
                     resume_handle_id,
                     QuickJsStepResumeHandle {
@@ -1415,11 +1637,16 @@ impl QuickJsModuleEvaluator for RquickJsModuleEvaluator {
                         translation_state: pending.translation_state,
                         pipeline_state: pending.pipeline_state,
                         helper_state: pending.helper_state,
+                        subscription_state: pending.subscription_state,
                         unsupported_state: pending.unsupported_state,
                         last_command_index: pending.last_command_index,
+                        last_subscription_change_index: pending.last_subscription_change_index,
                     },
                 );
-                Ok(pending.pending_request.into_response(pending.commands))
+                Ok(pending
+                    .pending_request
+                    .into_response(pending.commands)
+                    .with_pipeline_subscriptions(pending.pipeline_subscriptions))
             }
             Err(error) => Err(error),
         }
@@ -1487,6 +1714,19 @@ impl QuickJsModuleEvaluator for RquickJsModuleEvaluator {
                         Some(error.to_string()),
                     )
                 })?;
+                let subscription_state =
+                    handle
+                        .subscription_state
+                        .clone()
+                        .restore(&ctx)
+                        .map_err(|error| {
+                            call_error(
+                                QuickJsEvaluationErrorCode::StepRunFailed,
+                                "QuickJS GameStep pipeline subscription state could not be restored."
+                                    .to_string(),
+                                Some(error.to_string()),
+                            )
+                        })?;
                 let unsupported_state =
                     handle
                         .unsupported_state
@@ -1635,12 +1875,26 @@ impl QuickJsModuleEvaluator for RquickJsModuleEvaluator {
                 };
                 if !accepted {
                     let last_command_index = commands.len();
+                    let extraction = pipeline_subscription_changes_from_state(
+                        ctx.clone(),
+                        &subscription_state,
+                        &wait_state,
+                        &translation_state,
+                        &pipeline_state,
+                        &helper_state,
+                        &unsupported_state,
+                        &handle.module_namespace_id,
+                        last_command_index,
+                        handle.last_subscription_change_index,
+                    )?;
                     return Ok(QuickJsStepResumeBoundary::Pending {
                         commands: step_commands_from_array_range(
                             ctx.clone(),
                             &commands,
                             handle.last_command_index,
                         )?,
+                        pipeline_subscriptions: extraction.changes,
+                        subscription_updates: extraction.updates,
                         pending_request: pending_step_request_from_states(
                             &wait_state,
                             &translation_state,
@@ -1649,25 +1903,57 @@ impl QuickJsModuleEvaluator for RquickJsModuleEvaluator {
                             &resume_handle_id,
                         )?,
                         last_command_index,
+                        last_subscription_change_index: extraction.next_change_index,
                     });
                 }
 
                 match promise.finish::<()>() {
-                    Ok(()) => Ok(QuickJsStepResumeBoundary::Complete(
-                        step_commands_from_array_range(
+                    Ok(()) => {
+                        let commands_output = step_commands_from_array_range(
                             ctx.clone(),
                             &commands,
                             handle.last_command_index,
-                        )?,
-                    )),
+                        )?;
+                        let extraction = pipeline_subscription_changes_from_state(
+                            ctx.clone(),
+                            &subscription_state,
+                            &wait_state,
+                            &translation_state,
+                            &pipeline_state,
+                            &helper_state,
+                            &unsupported_state,
+                            &handle.module_namespace_id,
+                            commands.len(),
+                            handle.last_subscription_change_index,
+                        )?;
+                        Ok(QuickJsStepResumeBoundary::Complete {
+                            commands: commands_output,
+                            pipeline_subscriptions: extraction.changes,
+                            subscription_updates: extraction.updates,
+                        })
+                    }
                     Err(Error::WouldBlock) => {
                         let last_command_index = commands.len();
+                        let extraction = pipeline_subscription_changes_from_state(
+                            ctx.clone(),
+                            &subscription_state,
+                            &wait_state,
+                            &translation_state,
+                            &pipeline_state,
+                            &helper_state,
+                            &unsupported_state,
+                            &handle.module_namespace_id,
+                            last_command_index,
+                            handle.last_subscription_change_index,
+                        )?;
                         Ok(QuickJsStepResumeBoundary::Pending {
                             commands: step_commands_from_array_range(
                                 ctx.clone(),
                                 &commands,
                                 handle.last_command_index,
                             )?,
+                            pipeline_subscriptions: extraction.changes,
+                            subscription_updates: extraction.updates,
                             pending_request: pending_step_request_from_states(
                                 &wait_state,
                                 &translation_state,
@@ -1676,6 +1962,7 @@ impl QuickJsModuleEvaluator for RquickJsModuleEvaluator {
                                 &resume_handle_id,
                             )?,
                             last_command_index,
+                            last_subscription_change_index: extraction.next_change_index,
                         })
                     }
                     Err(error) => Err(step_run_error_from_unsupported_state(
@@ -1690,27 +1977,273 @@ impl QuickJsModuleEvaluator for RquickJsModuleEvaluator {
             });
 
         match result {
-            Ok(QuickJsStepResumeBoundary::Complete(commands)) => {
-                Ok(QuickJsGameStepRunResponse::success(commands))
+            Ok(QuickJsStepResumeBoundary::Complete {
+                commands,
+                pipeline_subscriptions,
+                subscription_updates,
+            }) => {
+                self.apply_pipeline_subscription_updates(subscription_updates);
+                Ok(QuickJsGameStepRunResponse::success(commands)
+                    .with_pipeline_subscriptions(pipeline_subscriptions))
             }
             Ok(QuickJsStepResumeBoundary::Pending {
                 commands,
+                pipeline_subscriptions,
+                subscription_updates,
                 pending_request,
                 last_command_index,
+                last_subscription_change_index,
             }) => {
+                self.apply_pipeline_subscription_updates(subscription_updates);
                 handle.last_command_index = last_command_index;
+                handle.last_subscription_change_index = last_subscription_change_index;
                 self.step_resume_handles.insert(resume_handle_id, handle);
-                Ok(pending_request.into_response(commands))
+                Ok(pending_request
+                    .into_response(commands)
+                    .with_pipeline_subscriptions(pipeline_subscriptions))
+            }
+            Err(error) => Err(error),
+        }
+    }
+
+    fn dispatch_pipeline_listener(
+        &mut self,
+        request: &QuickJsPipelineListenerDispatchRequest,
+    ) -> QuickJsPipelineListenerDispatchResult {
+        validate_quickjs_pipeline_listener_dispatch_request(request)?;
+        let Some(handle) = self
+            .pipeline_listener_handles
+            .get(&request.subscription_id)
+            .cloned()
+        else {
+            return Err(QuickJsEvaluationError {
+                code: QuickJsEvaluationErrorCode::InvalidPipelineRequest,
+                message: format!(
+                    "QuickJS pipeline listener subscription \"{}\" is not registered.",
+                    request.subscription_id
+                ),
+                asset_name: None,
+                detail: None,
+            });
+        };
+
+        let result: Result<QuickJsPipelineListenerDispatchBoundary, QuickJsEvaluationError> =
+            self.context.with(|ctx| {
+                let function = handle.function.clone().restore(&ctx).map_err(|error| {
+                    call_error(
+                        QuickJsEvaluationErrorCode::StepRunFailed,
+                        "QuickJS pipeline listener callback could not be restored.".to_string(),
+                        Some(error.to_string()),
+                    )
+                })?;
+                let dispatch_commands = Array::new(ctx.clone()).map_err(|error| {
+                    call_error(
+                        QuickJsEvaluationErrorCode::InvalidStepContext,
+                        "QuickJS pipeline listener command array could not be created.".to_string(),
+                        Some(error.to_string()),
+                    )
+                })?;
+                let wait_state = handle.wait_state.clone().restore(&ctx).map_err(|error| {
+                    call_error(
+                        QuickJsEvaluationErrorCode::StepRunFailed,
+                        "QuickJS pipeline listener wait state could not be restored.".to_string(),
+                        Some(error.to_string()),
+                    )
+                })?;
+                let translation_state =
+                    handle
+                        .translation_state
+                        .clone()
+                        .restore(&ctx)
+                        .map_err(|error| {
+                            call_error(
+                                QuickJsEvaluationErrorCode::StepRunFailed,
+                                "QuickJS pipeline listener translation state could not be restored."
+                                    .to_string(),
+                                Some(error.to_string()),
+                            )
+                        })?;
+                let pipeline_state = handle.pipeline_state.clone().restore(&ctx).map_err(|error| {
+                    call_error(
+                        QuickJsEvaluationErrorCode::StepRunFailed,
+                        "QuickJS pipeline listener pipeline state could not be restored."
+                            .to_string(),
+                        Some(error.to_string()),
+                    )
+                })?;
+                let helper_state = handle.helper_state.clone().restore(&ctx).map_err(|error| {
+                    call_error(
+                        QuickJsEvaluationErrorCode::StepRunFailed,
+                        "QuickJS pipeline listener helper-call state could not be restored."
+                            .to_string(),
+                        Some(error.to_string()),
+                    )
+                })?;
+                let subscription_state =
+                    handle
+                        .subscription_state
+                        .clone()
+                        .restore(&ctx)
+                        .map_err(|error| {
+                            call_error(
+                                QuickJsEvaluationErrorCode::StepRunFailed,
+                                "QuickJS pipeline listener subscription state could not be restored."
+                                    .to_string(),
+                                Some(error.to_string()),
+                            )
+                        })?;
+                let unsupported_state =
+                    handle
+                        .unsupported_state
+                        .clone()
+                        .restore(&ctx)
+                        .map_err(|error| {
+                            call_error(
+                                QuickJsEvaluationErrorCode::StepRunFailed,
+                                "QuickJS pipeline listener unsupported-command marker could not be restored."
+                                    .to_string(),
+                                Some(error.to_string()),
+                            )
+                        })?;
+                let context_value = ctx.json_parse(request.context_json.as_str()).map_err(|error| {
+                    call_error(
+                        QuickJsEvaluationErrorCode::InvalidPipelineRequest,
+                        "QuickJS pipeline listener dispatch contextJson must be valid JSON."
+                            .to_string(),
+                        Some(error.to_string()),
+                    )
+                })?;
+                subscription_state
+                    .set("activeCommands", dispatch_commands.clone())
+                    .map_err(|error| {
+                        call_error(
+                            QuickJsEvaluationErrorCode::InvalidStepContext,
+                            "QuickJS pipeline listener active command array could not be installed."
+                                .to_string(),
+                            Some(error.to_string()),
+                        )
+                    })?;
+                let call_result: Result<Value, QuickJsEvaluationError> = function
+                    .call_arg(one_arg(ctx.clone(), context_value)?)
+                    .map_err(|error| {
+                        step_run_error_from_unsupported_state(
+                            &unsupported_state,
+                            format!(
+                                "QuickJS pipeline listener subscription \"{}\" call failed.",
+                                request.subscription_id
+                            ),
+                            Some(error.to_string()),
+                        )
+                    });
+                let value = match call_result {
+                    Ok(value) => value,
+                    Err(error) => {
+                        clear_pipeline_listener_active_commands(ctx.clone(), &subscription_state)?;
+                        return Err(error);
+                    }
+                };
+                if let Some(promise) = value.as_promise() {
+                    let finish_result = promise.finish::<()>();
+                    clear_pipeline_listener_active_commands(ctx.clone(), &subscription_state)?;
+                    match finish_result {
+                        Ok(()) => {}
+                        Err(Error::WouldBlock) => {
+                            return Err(call_error(
+                                QuickJsEvaluationErrorCode::UnsupportedStepContextCommand,
+                                format!(
+                                    "QuickJS pipeline listener subscription \"{}\" returned a pending continuation.",
+                                    request.subscription_id
+                                ),
+                                Some(
+                                    "Native QuickJS pipeline listener callbacks may run async code that settles immediately, but ctx.engine.waitFor, ctx.t, ctx.pipeline.emit, and helper-call continuations are not supported inside long-lived listeners."
+                                        .to_string(),
+                                ),
+                            ));
+                        }
+                        Err(error) => {
+                            return Err(step_run_error_from_unsupported_state(
+                                &unsupported_state,
+                                format!(
+                                    "QuickJS pipeline listener subscription \"{}\" promise failed.",
+                                    request.subscription_id
+                                ),
+                                Some(error.to_string()),
+                            ));
+                        }
+                    }
+                }
+                else {
+                    clear_pipeline_listener_active_commands(ctx.clone(), &subscription_state)?;
+                }
+                if wait_state_is_active(&wait_state)?
+                    || translation_state_is_active(&translation_state)?
+                    || pipeline_state_is_active(&pipeline_state)?
+                    || helper_state_is_active(&helper_state)?
+                {
+                    return Err(call_error(
+                        QuickJsEvaluationErrorCode::UnsupportedStepContextCommand,
+                        format!(
+                            "QuickJS pipeline listener subscription \"{}\" left a pending StepContext continuation.",
+                            request.subscription_id
+                        ),
+                        Some(
+                            "Long-lived native QuickJS pipeline listeners cannot suspend on ctx.engine.waitFor, ctx.t, ctx.pipeline.emit, or native helper calls."
+                                .to_string(),
+                        ),
+                    ));
+                }
+
+                let commands_output = step_commands_from_array(ctx.clone(), &dispatch_commands)?;
+                let last_command_index = dispatch_commands.len();
+                let extraction = pipeline_subscription_changes_from_state(
+                    ctx.clone(),
+                    &subscription_state,
+                    &wait_state,
+                    &translation_state,
+                    &pipeline_state,
+                    &helper_state,
+                    &unsupported_state,
+                    &handle.module_namespace_id,
+                    last_command_index,
+                    handle.last_subscription_change_index,
+                )?;
+                Ok(QuickJsPipelineListenerDispatchBoundary {
+                    commands: commands_output,
+                    pipeline_subscriptions: extraction.changes,
+                    subscription_updates: extraction.updates,
+                    last_command_index,
+                    last_subscription_change_index: extraction.next_change_index,
+                })
+            });
+
+        match result {
+            Ok(boundary) => {
+                self.apply_pipeline_subscription_updates(boundary.subscription_updates);
+                if let Some(existing) = self
+                    .pipeline_listener_handles
+                    .get_mut(&request.subscription_id)
+                {
+                    existing.last_command_index = boundary.last_command_index;
+                    existing.last_subscription_change_index =
+                        boundary.last_subscription_change_index;
+                }
+                Ok(QuickJsPipelineListenerDispatchResponse::success(
+                    boundary.commands,
+                    boundary.pipeline_subscriptions,
+                ))
             }
             Err(error) => Err(error),
         }
     }
 
     fn release_module_namespace(&mut self, module_namespace_id: &str) {
+        self.release_pipeline_registry_namespace(module_namespace_id);
         self.namespaces.remove(module_namespace_id);
         self.step_run_handles
             .retain(|_, handle| handle.module_namespace_id != module_namespace_id);
         self.step_resume_handles
+            .retain(|_, handle| handle.module_namespace_id != module_namespace_id);
+        self.pipeline_listener_handles
             .retain(|_, handle| handle.module_namespace_id != module_namespace_id);
     }
 }
@@ -1832,6 +2365,8 @@ fn install_step_context_bridge<'js>(
     translation_state: &Object<'js>,
     pipeline_state: &Object<'js>,
     helper_state: &Object<'js>,
+    subscription_state: &Object<'js>,
+    module_namespace_id: &str,
 ) -> Result<(), QuickJsEvaluationError> {
     let install: Function = ctx
         .eval(NATIVE_QUICKJS_STEP_CONTEXT_BRIDGE_SOURCE)
@@ -1844,7 +2379,7 @@ fn install_step_context_bridge<'js>(
         })?;
     let methods = step_engine_command_methods_array(ctx.clone())?;
     let _: Value = install
-        .call_arg(eight_args(
+        .call_arg(ten_args(
             ctx,
             ctx_object.clone(),
             commands.clone(),
@@ -1853,7 +2388,9 @@ fn install_step_context_bridge<'js>(
             translation_state.clone(),
             pipeline_state.clone(),
             helper_state.clone(),
+            subscription_state.clone(),
             methods,
+            module_namespace_id,
         )?)
         .map_err(|error| {
             call_error(
@@ -1980,6 +2517,193 @@ fn step_commands_from_array_range<'js>(
         });
     }
     Ok(output)
+}
+
+fn pipeline_subscription_changes_from_state<'js>(
+    ctx: rquickjs::Ctx<'js>,
+    subscription_state: &Object<'js>,
+    wait_state: &Object<'js>,
+    translation_state: &Object<'js>,
+    pipeline_state: &Object<'js>,
+    helper_state: &Object<'js>,
+    unsupported_state: &Object<'js>,
+    module_namespace_id: &str,
+    last_command_index: usize,
+    start_index: usize,
+) -> Result<QuickJsPipelineSubscriptionExtraction, QuickJsEvaluationError> {
+    let changes_value: Value = subscription_state.get("changes").map_err(|error| {
+        call_error(
+            QuickJsEvaluationErrorCode::InvalidPipelineRequest,
+            "QuickJS pipeline subscription change list could not be read.".to_string(),
+            Some(error.to_string()),
+        )
+    })?;
+    if changes_value.is_undefined() || changes_value.is_null() {
+        return Ok(QuickJsPipelineSubscriptionExtraction {
+            changes: Vec::new(),
+            updates: Vec::new(),
+            next_change_index: start_index,
+        });
+    }
+    let changes_array = changes_value.into_array().ok_or_else(|| {
+        call_error(
+            QuickJsEvaluationErrorCode::InvalidPipelineRequest,
+            "QuickJS pipeline subscription changes must be stored as an array.".to_string(),
+            None,
+        )
+    })?;
+    let next_change_index = changes_array.len();
+    let mut changes = Vec::new();
+    let mut updates = Vec::new();
+    for index in start_index..next_change_index {
+        let change: Object = changes_array.get(index).map_err(|error| {
+            call_error(
+                QuickJsEvaluationErrorCode::InvalidPipelineRequest,
+                format!("QuickJS pipeline subscription change at index {index} must be an object."),
+                Some(error.to_string()),
+            )
+        })?;
+        let op_text: String = change.get("op").map_err(|error| {
+            call_error(
+                QuickJsEvaluationErrorCode::InvalidPipelineRequest,
+                format!("QuickJS pipeline subscription change at index {index} requires an op."),
+                Some(error.to_string()),
+            )
+        })?;
+        let op = match op_text.as_str() {
+            "subscribe" => QuickJsPipelineSubscriptionOperation::Subscribe,
+            "unsubscribe" => QuickJsPipelineSubscriptionOperation::Unsubscribe,
+            _ => {
+                return Err(call_error(
+                    QuickJsEvaluationErrorCode::InvalidPipelineRequest,
+                    format!(
+                        "QuickJS pipeline subscription change at index {index} has invalid op \"{op_text}\"."
+                    ),
+                    None,
+                ));
+            }
+        };
+        let subscription_id: String = change.get("subscriptionId").map_err(|error| {
+            call_error(
+                QuickJsEvaluationErrorCode::InvalidPipelineRequest,
+                format!(
+                    "QuickJS pipeline subscription change at index {index} requires a subscriptionId."
+                ),
+                Some(error.to_string()),
+            )
+        })?;
+        let change_module_namespace_id: String = change.get("moduleNamespaceId").map_err(|error| {
+            call_error(
+                QuickJsEvaluationErrorCode::InvalidPipelineRequest,
+                format!(
+                    "QuickJS pipeline subscription change at index {index} requires a moduleNamespaceId."
+                ),
+                Some(error.to_string()),
+            )
+        })?;
+        let event: String = change.get("event").map_err(|error| {
+            call_error(
+                QuickJsEvaluationErrorCode::InvalidPipelineRequest,
+                format!("QuickJS pipeline subscription change at index {index} requires an event."),
+                Some(error.to_string()),
+            )
+        })?;
+        if !is_safe_quickjs_bridge_text(&subscription_id)
+            || !is_safe_quickjs_bridge_text(&change_module_namespace_id)
+            || !is_safe_quickjs_bridge_text(&event)
+        {
+            return Err(call_error(
+                QuickJsEvaluationErrorCode::InvalidPipelineRequest,
+                format!(
+                    "QuickJS pipeline subscription change at index {index} contains unsafe bridge text."
+                ),
+                Some(
+                    "Subscription ids, module namespace ids, and event names must be trimmed, non-empty, control-character-free, and at most 256 bytes."
+                        .to_string(),
+                ),
+            ));
+        }
+        if matches!(op, QuickJsPipelineSubscriptionOperation::Subscribe)
+            && change_module_namespace_id != module_namespace_id
+        {
+            return Err(call_error(
+                QuickJsEvaluationErrorCode::InvalidPipelineRequest,
+                format!(
+                    "QuickJS pipeline subscription change at index {index} does not belong to the active module namespace."
+                ),
+                None,
+            ));
+        }
+        let wire_change = QuickJsPipelineSubscriptionChange {
+            op,
+            subscription_id: subscription_id.clone(),
+            module_namespace_id: change_module_namespace_id.clone(),
+            event: event.clone(),
+        };
+        match op {
+            QuickJsPipelineSubscriptionOperation::Subscribe => {
+                let listener_value: Value = change.get("listener").map_err(|error| {
+                    call_error(
+                        QuickJsEvaluationErrorCode::InvalidPipelineRequest,
+                        format!(
+                            "QuickJS pipeline subscription change at index {index} requires a listener function."
+                        ),
+                        Some(error.to_string()),
+                    )
+                })?;
+                let listener = listener_value.into_function().ok_or_else(|| {
+                    call_error(
+                        QuickJsEvaluationErrorCode::InvalidPipelineRequest,
+                        format!(
+                            "QuickJS pipeline subscription change at index {index} listener is not callable."
+                        ),
+                        None,
+                    )
+                })?;
+                updates.push(QuickJsPipelineSubscriptionUpdate::Subscribe {
+                    subscription_id: subscription_id.clone(),
+                    handle: QuickJsPipelineListenerHandle {
+                        module_namespace_id: change_module_namespace_id,
+                        function: Persistent::save(&ctx, listener),
+                        wait_state: Persistent::save(&ctx, wait_state.clone()),
+                        translation_state: Persistent::save(&ctx, translation_state.clone()),
+                        pipeline_state: Persistent::save(&ctx, pipeline_state.clone()),
+                        helper_state: Persistent::save(&ctx, helper_state.clone()),
+                        subscription_state: Persistent::save(&ctx, subscription_state.clone()),
+                        unsupported_state: Persistent::save(&ctx, unsupported_state.clone()),
+                        last_command_index,
+                        last_subscription_change_index: next_change_index,
+                    },
+                });
+            }
+            QuickJsPipelineSubscriptionOperation::Unsubscribe => {
+                updates.push(QuickJsPipelineSubscriptionUpdate::Unsubscribe {
+                    subscription_id: subscription_id.clone(),
+                });
+            }
+        }
+        changes.push(wire_change);
+    }
+    Ok(QuickJsPipelineSubscriptionExtraction {
+        changes,
+        updates,
+        next_change_index,
+    })
+}
+
+fn clear_pipeline_listener_active_commands<'js>(
+    ctx: rquickjs::Ctx<'js>,
+    subscription_state: &Object<'js>,
+) -> Result<(), QuickJsEvaluationError> {
+    subscription_state
+        .set("activeCommands", Value::new_undefined(ctx))
+        .map_err(|error| {
+            call_error(
+                QuickJsEvaluationErrorCode::InvalidStepContext,
+                "QuickJS pipeline listener active command array could not be cleared.".to_string(),
+                Some(error.to_string()),
+            )
+        })
 }
 
 fn wait_state_is_active(wait_state: &Object<'_>) -> Result<bool, QuickJsEvaluationError> {
@@ -2379,7 +3103,7 @@ fn one_arg<'js>(
     Ok(args)
 }
 
-fn eight_args<'js>(
+fn ten_args<'js>(
     ctx: rquickjs::Ctx<'js>,
     first: Object<'js>,
     second: Array<'js>,
@@ -2388,9 +3112,11 @@ fn eight_args<'js>(
     fifth: Object<'js>,
     sixth: Object<'js>,
     seventh: Object<'js>,
-    eighth: Array<'js>,
+    eighth: Object<'js>,
+    ninth: Array<'js>,
+    tenth: &str,
 ) -> Result<rquickjs::function::Args<'js>, QuickJsEvaluationError> {
-    let mut args = rquickjs::function::Args::new(ctx, 8);
+    let mut args = rquickjs::function::Args::new(ctx, 10);
     args.push_arg(first).map_err(|error| {
         call_error(
             QuickJsEvaluationErrorCode::InvalidStepContext,
@@ -2446,7 +3172,23 @@ fn eight_args<'js>(
     args.push_arg(eighth).map_err(|error| {
         call_error(
             QuickJsEvaluationErrorCode::InvalidStepContext,
+            "QuickJS StepContext pipeline subscription state could not be passed to bridge script."
+                .to_string(),
+            Some(error.to_string()),
+        )
+    })?;
+    args.push_arg(ninth).map_err(|error| {
+        call_error(
+            QuickJsEvaluationErrorCode::InvalidStepContext,
             "QuickJS StepContext engine command methods could not be passed to bridge script."
+                .to_string(),
+            Some(error.to_string()),
+        )
+    })?;
+    args.push_arg(tenth).map_err(|error| {
+        call_error(
+            QuickJsEvaluationErrorCode::InvalidStepContext,
+            "QuickJS StepContext module namespace id could not be passed to bridge script."
                 .to_string(),
             Some(error.to_string()),
         )
@@ -3588,6 +4330,181 @@ mod tests {
             QuickJsEvaluationErrorCode::StepRunFailed
         );
         assert!(unsafe_payload.message.contains("promise failed"));
+    }
+
+    #[test]
+    fn game_step_pipeline_on_dispatches_listener_and_off_releases_it() {
+        let mut evaluator = RquickJsModuleEvaluator::new().unwrap();
+        let response = evaluator
+            .evaluate_module(&request_for_code(
+                "scripts/listener.js",
+                r#"
+                let handler = null;
+                let lastValue = null;
+
+                export default function opening() {
+                    return [{
+                        uuid: 'intro.listen',
+                        async run(ctx) {
+                            handler = context => {
+                                lastValue = context.event.payload.value;
+                                ctx.engine.showDialogue({ text: String(lastValue), mode: 'narration' });
+                            };
+                            ctx.pipeline.on('plugin/custom_event', handler);
+                        }
+                    }, {
+                        uuid: 'intro.unlisten',
+                        async run(ctx) {
+                            ctx.pipeline.off('plugin/custom_event', handler);
+                        }
+                    }];
+                }
+
+                export function getLastValue() { return lastValue; }
+                "#,
+            ))
+            .unwrap();
+        let module_namespace_id = response.module_namespace_id.unwrap();
+        let steps = evaluator
+            .call_game_step_factory(&QuickJsGameStepFactoryCallRequest {
+                module_namespace_id: module_namespace_id.clone(),
+                export_name: "default".to_string(),
+                scope_json: None,
+            })
+            .unwrap()
+            .steps
+            .unwrap();
+
+        let subscribe_run = evaluator
+            .call_game_step_run(&QuickJsGameStepRunRequest {
+                run_handle_id: steps[0].run_handle_id.clone(),
+                ctx_json: Some("{\"stepId\":\"intro.listen\"}".to_string()),
+            })
+            .unwrap();
+
+        assert!(subscribe_run.ok);
+        assert_eq!(subscribe_run.commands, Some(Vec::new()));
+        let subscriptions = subscribe_run.pipeline_subscriptions.unwrap();
+        assert_eq!(subscriptions.len(), 1);
+        assert_eq!(
+            subscriptions[0].op,
+            QuickJsPipelineSubscriptionOperation::Subscribe
+        );
+        assert_eq!(
+            subscriptions[0].module_namespace_id.as_str(),
+            module_namespace_id.as_str()
+        );
+        assert_eq!(subscriptions[0].event.as_str(), "plugin/custom_event");
+        let subscription_id = subscriptions[0].subscription_id.clone();
+        assert_eq!(evaluator.pipeline_listener_handle_count(), 1);
+
+        let dispatch = evaluator
+            .dispatch_pipeline_listener(&QuickJsPipelineListenerDispatchRequest {
+                subscription_id: subscription_id.clone(),
+                context_json: "{\"event\":{\"type\":\"plugin/custom_event\",\"payload\":{\"value\":42},\"timestamp\":1,\"id\":\"evt-1\"}}"
+                    .to_string(),
+            })
+            .unwrap();
+
+        assert!(dispatch.ok);
+        let commands = dispatch.commands.unwrap();
+        assert_eq!(commands.len(), 1);
+        assert_eq!(commands[0].method, "showDialogue");
+        assert_eq!(
+            commands[0].args_json,
+            Some("[{\"text\":\"42\",\"mode\":\"narration\"}]".to_string())
+        );
+        let last_value = evaluator
+            .call_module_export(&QuickJsModuleExportCallRequest {
+                module_namespace_id: module_namespace_id.clone(),
+                export_name: "getLastValue".to_string(),
+                args_json: None,
+            })
+            .unwrap();
+        assert_eq!(last_value.value_json, Some("42".to_string()));
+
+        let unsubscribe_run = evaluator
+            .call_game_step_run(&QuickJsGameStepRunRequest {
+                run_handle_id: steps[1].run_handle_id.clone(),
+                ctx_json: Some("{\"stepId\":\"intro.unlisten\"}".to_string()),
+            })
+            .unwrap();
+
+        let unsubscribe = unsubscribe_run.pipeline_subscriptions.unwrap();
+        assert_eq!(unsubscribe.len(), 1);
+        assert_eq!(
+            unsubscribe[0].op,
+            QuickJsPipelineSubscriptionOperation::Unsubscribe
+        );
+        assert_eq!(
+            unsubscribe[0].subscription_id.as_str(),
+            subscription_id.as_str()
+        );
+        assert_eq!(evaluator.pipeline_listener_handle_count(), 0);
+        let missing_dispatch = evaluator
+            .dispatch_pipeline_listener(&QuickJsPipelineListenerDispatchRequest {
+                subscription_id,
+                context_json: "{\"event\":{\"type\":\"plugin/custom_event\"}}".to_string(),
+            })
+            .unwrap_err();
+        assert_eq!(
+            missing_dispatch.code,
+            QuickJsEvaluationErrorCode::InvalidPipelineRequest
+        );
+    }
+
+    #[test]
+    fn game_step_pipeline_listener_rejects_pending_continuations() {
+        let mut evaluator = RquickJsModuleEvaluator::new().unwrap();
+        let response = evaluator
+            .evaluate_module(&request_for_code(
+                "scripts/pending-listener.js",
+                r#"
+                export default function opening() {
+                    return [{
+                        uuid: 'intro.listen',
+                        async run(ctx) {
+                            ctx.pipeline.on('plugin/custom_event', async () => {
+                                await ctx.engine.waitFor('user/advance');
+                            });
+                        }
+                    }];
+                }
+                "#,
+            ))
+            .unwrap();
+        let module_namespace_id = response.module_namespace_id.unwrap();
+        let steps = evaluator
+            .call_game_step_factory(&QuickJsGameStepFactoryCallRequest {
+                module_namespace_id,
+                export_name: "default".to_string(),
+                scope_json: None,
+            })
+            .unwrap()
+            .steps
+            .unwrap();
+        let subscribe_run = evaluator
+            .call_game_step_run(&QuickJsGameStepRunRequest {
+                run_handle_id: steps[0].run_handle_id.clone(),
+                ctx_json: Some("{\"stepId\":\"intro.listen\"}".to_string()),
+            })
+            .unwrap();
+        let subscription_id = subscribe_run.pipeline_subscriptions.unwrap()[0]
+            .subscription_id
+            .clone();
+
+        let error = evaluator
+            .dispatch_pipeline_listener(&QuickJsPipelineListenerDispatchRequest {
+                subscription_id,
+                context_json: "{\"event\":{\"type\":\"plugin/custom_event\"}}".to_string(),
+            })
+            .unwrap_err();
+
+        assert_eq!(
+            error.code,
+            QuickJsEvaluationErrorCode::UnsupportedStepContextCommand
+        );
+        assert!(error.message.contains("pending"));
     }
 
     #[test]

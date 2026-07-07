@@ -7,6 +7,7 @@ import {
   createNativeHostQuickJsModuleEvaluator,
   createNativeQuickJsGameStepFactoryFunction,
   createNativeQuickJsJsonExportFunction,
+  createNativeQuickJsPipelineSubscriptionBridge,
   createNativeRuntimeAdapters,
   createNativeRuntimeModuleLoader,
   executeNativeQuickJsGameStepHelperCall,
@@ -498,6 +499,140 @@ describe('@quajs/engine-native runtime module loader QuickJS host bridge', () =>
       resumeHandleId: 'quickjs:rquickjs:resume:p1',
     })
     expect(clearChoices).toHaveBeenCalledTimes(1)
+  })
+
+  it('bridges long-lived native QuickJS pipeline listeners through the real StepContext pipeline', async () => {
+    const subscription = {
+      op: 'subscribe' as const,
+      subscriptionId: 'quickjs:rquickjs:1:pipeline:1',
+      moduleNamespaceId: 'quickjs:rquickjs:1',
+      event: 'plugin/custom_event',
+    }
+    const unsubscribe = {
+      ...subscription,
+      op: 'unsubscribe' as const,
+    }
+    const host = {
+      ...createHost(),
+      callQuickJsGameStepFactory: vi.fn(async request => ({
+        ok: true,
+        steps: [{
+          uuid: 'intro.listener',
+          runHandleId: `${request.moduleNamespaceId}:run:listener`,
+        }],
+      })),
+      callQuickJsGameStepRun: vi.fn(async () => ({
+        ok: true,
+        commands: [],
+        pipelineSubscriptions: [subscription],
+      })),
+      resumeQuickJsGameStepRun: vi.fn(async () => ({ ok: true })),
+      dispatchQuickJsPipelineListener: vi.fn(async request => ({
+        ok: true,
+        commands: [{
+          target: 'engine' as const,
+          method: 'showDialogue' as const,
+          argsJson: `[{
+            "text":"${JSON.parse(request.contextJson).event.payload.value}",
+            "mode":"narration"
+          }]`.replace(/\s+/g, ''),
+        }],
+        pipelineSubscriptions: [unsubscribe],
+      })),
+    }
+    const listeners = new Map<string, Set<(context: unknown) => unknown>>()
+    const pipeline = {
+      on: vi.fn((event: string, listener: (context: unknown) => unknown) => {
+        if (!listeners.has(event))
+          listeners.set(event, new Set())
+        listeners.get(event)!.add(listener)
+        return pipeline
+      }),
+      off: vi.fn((event: string, listener: (context: unknown) => unknown) => {
+        listeners.get(event)?.delete(listener)
+        return pipeline
+      }),
+      emit: vi.fn(async (event: string, payload: unknown) => {
+        const context = {
+          event: {
+            type: event,
+            payload,
+            timestamp: 123,
+            id: 'evt-1',
+          },
+          handled: false,
+          stopPropagation: false,
+        }
+        await Promise.all(Array.from(listeners.get(event) || []).map(listener => listener(context)))
+      }),
+    }
+    const bridge = createNativeQuickJsPipelineSubscriptionBridge(host)
+    const factory = createNativeQuickJsGameStepFactoryFunction(host, 'quickjs:rquickjs:1', 'default', {
+      pipelineSubscriptionBridge: bridge,
+    })
+    const [step] = await factory()
+    const showDialogue = vi.fn(async () => {})
+
+    await step.run({
+      stepId: 'intro.listener',
+      engine: {
+        showDialogue,
+        waitFor: vi.fn(),
+      },
+      pipeline,
+      t: vi.fn(),
+    } as any)
+
+    expect(pipeline.on).toHaveBeenCalledWith('plugin/custom_event', expect.any(Function))
+    await pipeline.emit('plugin/custom_event', { value: 42 })
+
+    expect(host.dispatchQuickJsPipelineListener).toHaveBeenCalledWith({
+      subscriptionId: 'quickjs:rquickjs:1:pipeline:1',
+      contextJson: '{"event":{"type":"plugin/custom_event","payload":{"value":42},"timestamp":123,"id":"evt-1"},"handled":false,"stopPropagation":false}',
+    })
+    expect(showDialogue).toHaveBeenCalledWith({ text: '42', mode: 'narration' })
+    expect(pipeline.off).toHaveBeenCalledWith('plugin/custom_event', expect.any(Function))
+
+    await pipeline.emit('plugin/custom_event', { value: 99 })
+    expect(host.dispatchQuickJsPipelineListener).toHaveBeenCalledTimes(1)
+  })
+
+  it('fails clearly when QuickJS returns pipeline subscriptions without a TS bridge', async () => {
+    const host = {
+      ...createHost(),
+      callQuickJsGameStepFactory: vi.fn(async request => ({
+        ok: true,
+        steps: [{
+          uuid: 'intro.listener',
+          runHandleId: `${request.moduleNamespaceId}:run:listener`,
+        }],
+      })),
+      callQuickJsGameStepRun: vi.fn(async () => ({
+        ok: true,
+        pipelineSubscriptions: [{
+          op: 'subscribe' as const,
+          subscriptionId: 'quickjs:rquickjs:1:pipeline:1',
+          moduleNamespaceId: 'quickjs:rquickjs:1',
+          event: 'plugin/custom_event',
+        }],
+      })),
+      resumeQuickJsGameStepRun: vi.fn(async () => ({ ok: true })),
+    }
+    const factory = createNativeQuickJsGameStepFactoryFunction(host, 'quickjs:rquickjs:1', 'default')
+    const [step] = await factory()
+
+    await expect(step.run({
+      stepId: 'intro.listener',
+      engine: {
+        waitFor: vi.fn(),
+      },
+      pipeline: {
+        on: vi.fn(),
+        off: vi.fn(),
+        emit: vi.fn(),
+      },
+      t: vi.fn(),
+    } as any)).rejects.toThrow(/no pipeline subscription bridge/)
   })
 
   it('resumes native QuickJS GameSteps through registered helper modules', async () => {

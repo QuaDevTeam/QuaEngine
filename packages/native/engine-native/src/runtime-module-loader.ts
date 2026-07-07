@@ -20,6 +20,9 @@ import type {
   NativeQuickJsGameStepFactoryCallRequest,
   NativeQuickJsGameStepFactoryCallResponse,
   NativeQuickJsGameStepHelperCallRequest,
+  NativeQuickJsPipelineListenerDispatchRequest,
+  NativeQuickJsPipelineListenerDispatchResponse,
+  NativeQuickJsPipelineSubscriptionChange,
   NativeQuickJsGameStepRunRequest,
   NativeQuickJsGameStepRunResponse,
   NativeQuickJsGameStepResumeRequest,
@@ -37,7 +40,9 @@ import {
   assertNativeQuickJsGameStepCommand,
   assertNativeQuickJsGameStepFactoryCallResponse,
   assertNativeQuickJsGameStepHelperCallRequest,
+  assertNativeQuickJsPipelineListenerDispatchResponse,
   assertNativeQuickJsGameStepRunResponse,
+  createNativeQuickJsPipelineListenerDispatchRequest,
   createNativeQuickJsGameStepFactoryCallRequest,
   createNativeQuickJsGameStepResumeRequest,
   createNativeQuickJsGameStepRunRequest,
@@ -130,6 +135,26 @@ export type NativeQuickJsHelperCallExecutor = (
   request: NativeQuickJsGameStepHelperCallRequest,
 ) => Promise<unknown>
 
+export type NativeQuickJsPipelineListenerDispatcher = (
+  request: NativeQuickJsPipelineListenerDispatchRequest,
+) => Promise<NativeQuickJsPipelineListenerDispatchResponse>
+
+interface NativeQuickJsPipelineSubscriptionRecord {
+  event: string
+  listener: (context: any) => Promise<void>
+  moduleNamespaceId: string
+  pipeline: StepContext['pipeline']
+}
+
+export interface NativeQuickJsPipelineSubscriptionBridge {
+  apply(
+    ctx: StepContext,
+    changes: readonly NativeQuickJsPipelineSubscriptionChange[] | undefined,
+  ): void
+  releaseModuleNamespace(moduleNamespaceId: string): void
+  dispose(): void
+}
+
 export function createNativeHostQuickJsModuleEvaluator(
   host: Pick<QuaNativeHostApi, 'evaluateQuickJsModule'>,
   resolveModuleNamespace: NativeQuickJsModuleNamespaceResolver,
@@ -189,6 +214,17 @@ export async function callNativeQuickJsGameStepResume(
   return assertNativeQuickJsGameStepRunResponse(response)
 }
 
+export async function callNativeQuickJsPipelineListenerDispatch(
+  host: Pick<QuaNativeHostApi, 'dispatchQuickJsPipelineListener'>,
+  request: NativeQuickJsPipelineListenerDispatchRequest,
+): Promise<NativeQuickJsPipelineListenerDispatchResponse> {
+  if (!host.dispatchQuickJsPipelineListener) {
+    throw new Error('Native host does not provide QuickJS pipeline listener dispatch calls.')
+  }
+  const response: NativeQuickJsPipelineListenerDispatchResponse = await host.dispatchQuickJsPipelineListener(request)
+  return assertNativeQuickJsPipelineListenerDispatchResponse(response)
+}
+
 export function createNativeQuickJsJsonExportFunction(
   host: Pick<QuaNativeHostApi, 'callQuickJsModuleExport'>,
   moduleNamespaceId: string,
@@ -228,6 +264,7 @@ export interface CreateNativeHostQuickJsGameStepModuleNamespaceResolverOptions {
   executeStepCommand?: NativeQuickJsStepCommandExecutor
   executeHelperCall?: NativeQuickJsHelperCallExecutor
   helperModules?: NativeQuickJsHelperModuleRegistry
+  pipelineSubscriptionBridge?: NativeQuickJsPipelineSubscriptionBridge
   serializeStepContext?: NativeQuickJsStepContextSerializer
 }
 
@@ -294,9 +331,16 @@ function createNativeQuickJsGameStepProxy(
       const executeStepCommand = options.executeStepCommand || executeNativeQuickJsGameStepCommand
       const executeHelperCall = options.executeHelperCall
         || ((ctx, request) => executeNativeQuickJsGameStepHelperCall(ctx, request, options.helperModules))
+      const pipelineSubscriptions = options.pipelineSubscriptionBridge
       while (true) {
         for (const command of response.commands || []) {
           await executeStepCommand(ctx, command)
+        }
+        if (response.pipelineSubscriptions?.length) {
+          if (!pipelineSubscriptions) {
+            throw new Error('Native QuickJS GameStep returned pipeline subscription changes, but no pipeline subscription bridge is installed.')
+          }
+          pipelineSubscriptions.apply(ctx, response.pipelineSubscriptions)
         }
         if (response.pendingWait) {
           const payload = await ctx.engine.waitFor(response.pendingWait.event as never)
@@ -337,6 +381,80 @@ function createNativeQuickJsGameStepProxy(
         }
         return
       }
+    },
+  }
+}
+
+export function createNativeQuickJsPipelineSubscriptionBridge(
+  host: Pick<QuaNativeHostApi, 'dispatchQuickJsPipelineListener'>,
+  options: {
+    executeStepCommand?: NativeQuickJsStepCommandExecutor
+    serializePipelineContext?: (context: any) => Record<string, unknown>
+  } = {},
+): NativeQuickJsPipelineSubscriptionBridge {
+  const subscriptions = new Map<string, NativeQuickJsPipelineSubscriptionRecord>()
+  const executeStepCommand = options.executeStepCommand || executeNativeQuickJsGameStepCommand
+  const serializePipelineContext = options.serializePipelineContext || defaultNativeQuickJsPipelineContextSerializer
+
+  const unsubscribe = (subscriptionId: string): void => {
+    const existing = subscriptions.get(subscriptionId)
+    if (!existing)
+      return
+    existing.pipeline.off(existing.event, existing.listener as any)
+    subscriptions.delete(subscriptionId)
+  }
+
+  const applyChanges = (
+    ctx: StepContext,
+    changes: readonly NativeQuickJsPipelineSubscriptionChange[] | undefined,
+  ): void => {
+    if (!changes?.length)
+      return
+    for (const change of changes) {
+      unsubscribe(change.subscriptionId)
+      if (change.op === 'unsubscribe') {
+        continue
+      }
+      const listener = async (context: any) => {
+        const response = await callNativeQuickJsPipelineListenerDispatch(
+          host,
+          createNativeQuickJsPipelineListenerDispatchRequest({
+            subscriptionId: change.subscriptionId,
+            context: serializePipelineContext(context),
+          }),
+        )
+        for (const command of response.commands || []) {
+          await executeStepCommand(ctx, command)
+        }
+        applyChanges(ctx, response.pipelineSubscriptions)
+      }
+      subscriptions.set(change.subscriptionId, {
+        event: change.event,
+        listener,
+        moduleNamespaceId: change.moduleNamespaceId,
+        pipeline: ctx.pipeline,
+      })
+      ctx.pipeline.on(change.event, listener as any)
+    }
+  }
+
+  return {
+    apply(ctx, changes) {
+      applyChanges(ctx, changes)
+    },
+    releaseModuleNamespace(moduleNamespaceId) {
+      for (const [subscriptionId, record] of subscriptions) {
+        if (record.moduleNamespaceId === moduleNamespaceId) {
+          record.pipeline.off(record.event, record.listener as any)
+          subscriptions.delete(subscriptionId)
+        }
+      }
+    },
+    dispose() {
+      for (const record of subscriptions.values()) {
+        record.pipeline.off(record.event, record.listener as any)
+      }
+      subscriptions.clear()
     },
   }
 }
@@ -385,6 +503,19 @@ function defaultNativeQuickJsStepContextSerializer(ctx: StepContext): Record<str
   return {
     stepId: ctx.stepId,
     ...(ctx.previousStepId ? { previousStepId: ctx.previousStepId } : {}),
+  }
+}
+
+function defaultNativeQuickJsPipelineContextSerializer(context: any): Record<string, unknown> {
+  return {
+    event: {
+      type: context.event?.type,
+      payload: context.event?.payload,
+      timestamp: context.event?.timestamp,
+      id: context.event?.id,
+    },
+    handled: context.handled === true,
+    stopPropagation: context.stopPropagation === true,
   }
 }
 

@@ -4,6 +4,9 @@ import {
   assertNativeQuickJsEvaluationResponse,
   assertNativeQuickJsGameStepCommand,
   assertNativeQuickJsGameStepHelperCallRequest,
+  assertNativeQuickJsPipelineListenerDispatchRequest,
+  assertNativeQuickJsPipelineListenerDispatchResponse,
+  assertNativeQuickJsPipelineSubscriptionChange,
   assertNativeQuickJsGameStepRunResponse,
   assertNativeQuickJsGameStepFactoryCallResponse,
   assertNativeQuickJsGameStepFactoryCallRequest,
@@ -14,6 +17,7 @@ import {
   createNativeQuickJsGameStepFactoryCallRequest,
   createNativeQuickJsGameStepResumeRequest,
   createNativeQuickJsGameStepRunRequest,
+  createNativeQuickJsPipelineListenerDispatchRequest,
   createNativeQuickJsModuleExportCallRequest,
   parseNativeQuickJsModuleExportCallResponse,
   validateNativeQuickJsEvaluationRequest,
@@ -362,6 +366,7 @@ describe('native QuickJS contracts', () => {
     expect(assertNativeQuickJsGameStepRunResponse({ ok: true })).toEqual({
       ok: true,
       commands: [],
+      pipelineSubscriptions: [],
     })
 
     expect(assertNativeQuickJsGameStepRunResponse({
@@ -369,7 +374,7 @@ describe('native QuickJS contracts', () => {
       commands: [{
         target: 'engine',
         method: 'showChoices',
-          argsJson: '[[{"id":"go","text":"Go"}]]',
+        argsJson: '[[{"id":"go","text":"Go"}]]',
       }],
       pendingWait: {
         resumeHandleId: 'quickjs:rquickjs:resume:1',
@@ -386,6 +391,7 @@ describe('native QuickJS contracts', () => {
         resumeHandleId: 'quickjs:rquickjs:resume:1',
         event: 'user/choice_select',
       },
+      pipelineSubscriptions: [],
     })
 
     expect(assertNativeQuickJsGameStepRunResponse({
@@ -403,6 +409,7 @@ describe('native QuickJS contracts', () => {
         key: 'runtime.greeting',
         optionsJson: '{"values":{"name":"Mira"}}',
       },
+      pipelineSubscriptions: [],
     })
 
     expect(assertNativeQuickJsGameStepRunResponse({
@@ -429,6 +436,7 @@ describe('native QuickJS contracts', () => {
         event: 'plugin/custom_event',
         payloadJson: '{"ok":true}',
       },
+      pipelineSubscriptions: [],
     })
 
     expect(assertNativeQuickJsGameStepRunResponse({
@@ -448,7 +456,23 @@ describe('native QuickJS contracts', () => {
         exportName: 'setBackgroundWithEngine',
         argsJson: '["bg/opening.png",{"transition":{"type":"fade"}}]',
       },
+      pipelineSubscriptions: [],
     })
+
+    expect(assertNativeQuickJsGameStepRunResponse({
+      ok: true,
+      pipelineSubscriptions: [{
+        op: 'subscribe',
+        subscriptionId: 'quickjs:rquickjs:1:pipeline:1',
+        moduleNamespaceId: 'quickjs:rquickjs:1',
+        event: 'plugin/custom_event',
+      }],
+    }).pipelineSubscriptions).toEqual([{
+      op: 'subscribe',
+      subscriptionId: 'quickjs:rquickjs:1:pipeline:1',
+      moduleNamespaceId: 'quickjs:rquickjs:1',
+      event: 'plugin/custom_event',
+    }])
 
     expect(() => assertNativeQuickJsGameStepHelperCallRequest({
       resumeHandleId: 'quickjs:rquickjs:resume:8',
@@ -554,5 +578,72 @@ describe('native QuickJS contracts', () => {
       method: 'showChoices',
       argsJson: '{"not":"array"}',
     })).toThrow(/JSON array/)
+  })
+
+  it('creates and validates pipeline listener dispatch wire payloads', () => {
+    expect(createNativeQuickJsPipelineListenerDispatchRequest({
+      subscriptionId: 'quickjs:rquickjs:1:pipeline:1',
+      context: {
+        event: {
+          type: 'plugin/custom_event',
+          payload: { value: 42 },
+        },
+      },
+    })).toEqual({
+      subscriptionId: 'quickjs:rquickjs:1:pipeline:1',
+      contextJson: '{"event":{"type":"plugin/custom_event","payload":{"value":42}}}',
+    })
+
+    expect(() => assertNativeQuickJsPipelineSubscriptionChange({
+      op: 'subscribe',
+      subscriptionId: 'quickjs:rquickjs:1:pipeline:1',
+      moduleNamespaceId: 'quickjs:rquickjs:1',
+      event: 'plugin/custom_event',
+    })).not.toThrow()
+
+    expect(assertNativeQuickJsPipelineListenerDispatchResponse({
+      ok: true,
+      commands: [{
+        target: 'engine',
+        method: 'showDialogue',
+        argsJson: '[{"text":"Dispatched"}]',
+      }],
+      pipelineSubscriptions: [{
+        op: 'unsubscribe',
+        subscriptionId: 'quickjs:rquickjs:1:pipeline:1',
+        moduleNamespaceId: 'quickjs:rquickjs:1',
+        event: 'plugin/custom_event',
+      }],
+    })).toEqual({
+      ok: true,
+      commands: [{
+        target: 'engine',
+        method: 'showDialogue',
+        argsJson: '[{"text":"Dispatched"}]',
+      }],
+      pipelineSubscriptions: [{
+        op: 'unsubscribe',
+        subscriptionId: 'quickjs:rquickjs:1:pipeline:1',
+        moduleNamespaceId: 'quickjs:rquickjs:1',
+        event: 'plugin/custom_event',
+      }],
+    })
+
+    expect(() => assertNativeQuickJsPipelineSubscriptionChange({
+      op: 'replace' as any,
+      subscriptionId: 'quickjs:rquickjs:1:pipeline:1',
+      moduleNamespaceId: 'quickjs:rquickjs:1',
+      event: 'plugin/custom_event',
+    })).toThrow(/subscribe.*unsubscribe/)
+
+    expect(() => assertNativeQuickJsPipelineListenerDispatchRequest({
+      subscriptionId: ' quickjs:rquickjs:1:pipeline:1',
+      contextJson: '{}',
+    })).toThrow(/subscriptionId/)
+
+    expect(() => assertNativeQuickJsPipelineListenerDispatchRequest({
+      subscriptionId: 'quickjs:rquickjs:1:pipeline:1',
+      contextJson: '[]',
+    })).toThrow(/JSON object/)
   })
 })

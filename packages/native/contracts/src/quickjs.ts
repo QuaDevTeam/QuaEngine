@@ -136,6 +136,27 @@ export interface NativeQuickJsGameStepPipelineEmitRequest {
   payloadJson?: string
 }
 
+export type NativeQuickJsPipelineSubscriptionOperation = 'subscribe' | 'unsubscribe'
+
+export interface NativeQuickJsPipelineSubscriptionChange {
+  op: NativeQuickJsPipelineSubscriptionOperation
+  subscriptionId: string
+  moduleNamespaceId: string
+  event: string
+}
+
+export interface NativeQuickJsPipelineListenerDispatchRequest {
+  subscriptionId: string
+  contextJson: string
+}
+
+export interface NativeQuickJsPipelineListenerDispatchResponse {
+  ok: boolean
+  commands?: NativeQuickJsGameStepCommand[]
+  pipelineSubscriptions?: NativeQuickJsPipelineSubscriptionChange[]
+  error?: NativeQuickJsEvaluationError
+}
+
 export interface NativeQuickJsGameStepHelperCallRequest {
   resumeHandleId: string
   module: string
@@ -155,6 +176,7 @@ export interface NativeQuickJsGameStepRunResponse {
   pendingTranslation?: NativeQuickJsGameStepTranslationRequest
   pendingPipelineEmit?: NativeQuickJsGameStepPipelineEmitRequest
   pendingHelperCall?: NativeQuickJsGameStepHelperCallRequest
+  pipelineSubscriptions?: NativeQuickJsPipelineSubscriptionChange[]
   error?: NativeQuickJsEvaluationError
 }
 
@@ -332,6 +354,11 @@ export function assertNativeQuickJsGameStepRunResponse(
   if (response.pendingHelperCall !== undefined) {
     assertNativeQuickJsGameStepHelperCallRequest(response.pendingHelperCall)
   }
+  const pipelineSubscriptions = response.pipelineSubscriptions || []
+  if (!Array.isArray(pipelineSubscriptions)) {
+    throw new Error('Native QuickJS GameStep pipelineSubscriptions must be an array.')
+  }
+  pipelineSubscriptions.forEach(assertNativeQuickJsPipelineSubscriptionChange)
   const pendingCount = Number(response.pendingWait !== undefined)
     + Number(response.pendingTranslation !== undefined)
     + Number(response.pendingPipelineEmit !== undefined)
@@ -342,6 +369,30 @@ export function assertNativeQuickJsGameStepRunResponse(
   return {
     ...response,
     commands,
+    pipelineSubscriptions,
+  }
+}
+
+export function assertNativeQuickJsPipelineListenerDispatchResponse(
+  response: NativeQuickJsPipelineListenerDispatchResponse,
+): NativeQuickJsPipelineListenerDispatchResponse {
+  if (!response.ok) {
+    throw new Error(response.error?.message || 'Native QuickJS pipeline listener dispatch failed.')
+  }
+  const commands = response.commands || []
+  if (!Array.isArray(commands)) {
+    throw new Error('Native QuickJS pipeline listener dispatch commands must be an array.')
+  }
+  commands.forEach(assertNativeQuickJsGameStepCommand)
+  const pipelineSubscriptions = response.pipelineSubscriptions || []
+  if (!Array.isArray(pipelineSubscriptions)) {
+    throw new Error('Native QuickJS pipeline listener dispatch pipelineSubscriptions must be an array.')
+  }
+  pipelineSubscriptions.forEach(assertNativeQuickJsPipelineSubscriptionChange)
+  return {
+    ...response,
+    commands,
+    pipelineSubscriptions,
   }
 }
 
@@ -397,6 +448,19 @@ export function createNativeQuickJsGameStepResumeRequest(input: {
     ...(payloadJson !== undefined ? { payloadJson } : {}),
   }
   assertNativeQuickJsGameStepResumeRequest(request)
+  return request
+}
+
+export function createNativeQuickJsPipelineListenerDispatchRequest(input: {
+  subscriptionId: string
+  context: unknown
+}): NativeQuickJsPipelineListenerDispatchRequest {
+  const contextJson = stringifyOptionalJsonObject(input.context, 'Native QuickJS pipeline listener context')
+  const request = {
+    subscriptionId: input.subscriptionId,
+    contextJson: contextJson || '{}',
+  }
+  assertNativeQuickJsPipelineListenerDispatchRequest(request)
   return request
 }
 
@@ -476,6 +540,26 @@ export function assertNativeQuickJsGameStepPipelineEmitRequest(
     throw new Error('Native QuickJS GameStep pending pipeline emit requires a safe event name.')
   }
   assertOptionalJsonValue(request.payloadJson, 'Native QuickJS GameStep pending pipeline emit payloadJson')
+}
+
+export function assertNativeQuickJsPipelineSubscriptionChange(
+  change: NativeQuickJsPipelineSubscriptionChange,
+): void {
+  if (change.op !== 'subscribe' && change.op !== 'unsubscribe') {
+    throw new Error('Native QuickJS pipeline subscription change requires op "subscribe" or "unsubscribe".')
+  }
+  assertSafeQuickJsBridgeHandle(change.subscriptionId, 'Native QuickJS pipeline subscription change requires a safe subscriptionId.')
+  assertSafeQuickJsBridgeHandle(change.moduleNamespaceId, 'Native QuickJS pipeline subscription change requires a safe moduleNamespaceId.')
+  if (!isSafeQuickJsBridgeText(change.event)) {
+    throw new Error('Native QuickJS pipeline subscription change requires a safe event name.')
+  }
+}
+
+export function assertNativeQuickJsPipelineListenerDispatchRequest(
+  request: NativeQuickJsPipelineListenerDispatchRequest,
+): void {
+  assertSafeQuickJsBridgeHandle(request.subscriptionId, 'Native QuickJS pipeline listener dispatch requires a safe subscriptionId.')
+  assertOptionalJsonObject(request.contextJson, 'Native QuickJS pipeline listener dispatch contextJson')
 }
 
 export function assertNativeQuickJsGameStepHelperCallRequest(

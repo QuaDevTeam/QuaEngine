@@ -10,8 +10,8 @@ import type {
 import { assertNativeRuntimePackageGuard } from '@quajs/native-contracts'
 import { assertNativeRuntimePackageCompatibility } from './compatibility'
 import { NativeHostPlugin } from './native-host-plugin'
-import { createNativeHostQuickJsGameStepModuleNamespaceResolver, createNativeHostQuickJsModuleEvaluator, createNativeRuntimeModuleLoader } from './runtime-module-loader'
-import type { NativeQuickJsHelperCallExecutor, NativeQuickJsHelperModuleRegistry, NativeQuickJsModuleNamespaceResolver, NativeQuickJsStepContextSerializer, NativeRuntimeModuleEvaluator } from './runtime-module-loader'
+import { createNativeHostQuickJsGameStepModuleNamespaceResolver, createNativeHostQuickJsModuleEvaluator, createNativeQuickJsPipelineSubscriptionBridge, createNativeRuntimeModuleLoader } from './runtime-module-loader'
+import type { NativeQuickJsHelperCallExecutor, NativeQuickJsHelperModuleRegistry, NativeQuickJsModuleNamespaceResolver, NativeQuickJsPipelineSubscriptionBridge, NativeQuickJsStepContextSerializer, NativeRuntimeModuleEvaluator } from './runtime-module-loader'
 
 declare const TextEncoder: {
   new(): { encode: (input: string) => Uint8Array }
@@ -19,6 +19,7 @@ declare const TextEncoder: {
 
 export interface NativeRuntimeAdapters {
   host: QuaNativeHostApi
+  quickJsPipelineSubscriptionBridge?: NativeQuickJsPipelineSubscriptionBridge
   runtimeModuleLoader?: RuntimeModuleLoader
   trustPolicy: RuntimeTrustPolicy
 }
@@ -35,6 +36,7 @@ export interface NativeRuntimeAdaptersOptions {
   moduleNamespaceResolver?: NativeQuickJsModuleNamespaceResolver
   quickJsHelperCallExecutor?: NativeQuickJsHelperCallExecutor
   quickJsHelperModules?: NativeQuickJsHelperModuleRegistry
+  quickJsPipelineSubscriptionBridge?: NativeQuickJsPipelineSubscriptionBridge
   quickJsStepContextSerializer?: NativeQuickJsStepContextSerializer
   requireSignature?: boolean
   runtimeModuleLoader?: RuntimeModuleLoader
@@ -43,11 +45,16 @@ export interface NativeRuntimeAdaptersOptions {
 }
 
 export function createNativeRuntimeAdapters(host: QuaNativeHostApi, options: NativeRuntimeAdaptersOptions = {}): NativeRuntimeAdapters {
+  const pipelineSubscriptionBridge = options.quickJsPipelineSubscriptionBridge
+    || (host.dispatchQuickJsPipelineListener
+      ? createNativeQuickJsPipelineSubscriptionBridge(host)
+      : undefined)
   const moduleNamespaceResolver = options.moduleNamespaceResolver
     || (host.evaluateQuickJsModule && host.callQuickJsGameStepFactory && host.callQuickJsGameStepRun && host.resumeQuickJsGameStepRun
       ? createNativeHostQuickJsGameStepModuleNamespaceResolver(host, {
           executeHelperCall: options.quickJsHelperCallExecutor,
           helperModules: options.quickJsHelperModules,
+          pipelineSubscriptionBridge,
           serializeStepContext: options.quickJsStepContextSerializer,
         })
       : undefined)
@@ -58,6 +65,7 @@ export function createNativeRuntimeAdapters(host: QuaNativeHostApi, options: Nat
 
   return {
     host,
+    quickJsPipelineSubscriptionBridge: pipelineSubscriptionBridge,
     runtimeModuleLoader: options.runtimeModuleLoader || (moduleEvaluator
       ? createNativeRuntimeModuleLoader({
           evaluator: moduleEvaluator,
@@ -71,11 +79,13 @@ export function createNativeRuntimeAdapters(host: QuaNativeHostApi, options: Nat
 }
 
 export function createNativeEngineBootstrap(host: QuaNativeHostApi, options: NativeRuntimeAdaptersOptions = {}): NativeEngineBootstrap {
+  const adapters = createNativeRuntimeAdapters(host, options)
   return {
-    adapters: createNativeRuntimeAdapters(host, options),
+    adapters,
     plugin: new NativeHostPlugin({
       host,
       info: options.hostInfo,
+      quickJsPipelineSubscriptionBridge: adapters.quickJsPipelineSubscriptionBridge,
       targetBootstrapPackages: options.targetBootstrapPackages,
       targetBundleManifest: options.targetBundleManifest,
     }),

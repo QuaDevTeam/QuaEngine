@@ -259,3 +259,62 @@ fn serializes_game_step_factory_and_run_requests_and_responses() {
     assert_eq!(run_error_json["ok"], false);
     assert_eq!(run_error_json["error"]["code"], "missingRunHandle");
 }
+
+#[test]
+fn serializes_pipeline_listener_dispatch_requests_and_responses() {
+    let request = QuickJsPipelineListenerDispatchRequest {
+        subscription_id: "quickjs:rquickjs:1:pipeline:1".to_string(),
+        context_json: "{\"event\":{\"type\":\"plugin/custom_event\",\"payload\":{\"value\":42}}}"
+            .to_string(),
+    };
+    let subscribe = QuickJsPipelineSubscriptionChange {
+        op: QuickJsPipelineSubscriptionOperation::Subscribe,
+        subscription_id: "quickjs:rquickjs:1:pipeline:1".to_string(),
+        module_namespace_id: "quickjs:rquickjs:1".to_string(),
+        event: "plugin/custom_event".to_string(),
+    };
+    let unsubscribe = QuickJsPipelineSubscriptionChange {
+        op: QuickJsPipelineSubscriptionOperation::Unsubscribe,
+        ..subscribe.clone()
+    };
+    let run_response = QuickJsGameStepRunResponse::success(Vec::new())
+        .with_pipeline_subscriptions(vec![subscribe.clone()]);
+    let dispatch_response = QuickJsPipelineListenerDispatchResponse::success(
+        vec![QuickJsGameStepCommand {
+            target: "engine".to_string(),
+            method: "showDialogue".to_string(),
+            args_json: Some("[{\"text\":\"Dispatched\"}]".to_string()),
+        }],
+        vec![unsubscribe],
+    );
+
+    let request_json = serde_json::to_value(request).unwrap();
+    let run_response_json = serde_json::to_value(run_response).unwrap();
+    let dispatch_response_json = serde_json::to_value(dispatch_response).unwrap();
+
+    assert_eq!(
+        request_json["subscriptionId"],
+        "quickjs:rquickjs:1:pipeline:1"
+    );
+    assert_eq!(
+        request_json["contextJson"],
+        "{\"event\":{\"type\":\"plugin/custom_event\",\"payload\":{\"value\":42}}}"
+    );
+    assert_eq!(
+        run_response_json["pipelineSubscriptions"][0]["op"],
+        "subscribe"
+    );
+    assert_eq!(
+        run_response_json["pipelineSubscriptions"][0]["moduleNamespaceId"],
+        "quickjs:rquickjs:1"
+    );
+    assert_eq!(dispatch_response_json["ok"], true);
+    assert_eq!(
+        dispatch_response_json["commands"][0]["method"],
+        "showDialogue"
+    );
+    assert_eq!(
+        dispatch_response_json["pipelineSubscriptions"][0]["op"],
+        "unsubscribe"
+    );
+}
