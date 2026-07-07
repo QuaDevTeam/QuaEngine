@@ -262,3 +262,58 @@ fn json_frame_ui_style_validation_rejects_malformed_style_object_fields() {
     assert_eq!(renderer.state().revision(), 0);
     assert!(renderer.state().frame().is_none());
 }
+
+#[test]
+fn json_frame_ui_style_validation_rejects_unsupported_resolved_fields() {
+    let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
+
+    for (field, value_json, expected_path, expected_asset, expected_reason) in [
+        (
+            "boxSizing",
+            r#""border-box""#,
+            "view.ui.overlays[0].surface.root.style.boxSizing",
+            "boxSizing",
+            "supported native UI surface style field",
+        ),
+        (
+            "backgroundPosition",
+            r#"{ "x": 0.5, "y": 0.5, "left": 0.5 }"#,
+            "view.ui.overlays[0].surface.root.style.backgroundPosition.left",
+            "left",
+            "supported native UI surface style backgroundPosition field",
+        ),
+        (
+            "padding",
+            r#"{ "top": 0, "right": 0, "bottom": 0, "left": 0, "inlineStart": 8 }"#,
+            "view.ui.overlays[0].surface.root.style.padding.inlineStart",
+            "inlineStart",
+            "supported native UI surface style padding field",
+        ),
+        (
+            "objectPosition",
+            r#"{ "y": 0.5 }"#,
+            "view.ui.overlays[0].surface.root.style.objectPosition.x",
+            "",
+            "explicitly provided",
+        ),
+    ] {
+        let input = json_frame_with_malformed_ui_style_object_input(field, value_json);
+        let error = renderer.prepare_frame_json_str(&input).unwrap_err();
+
+        match error {
+            NativeRendererJsonFrameError::Validation(validation) => {
+                assert_eq!(validation.path, expected_path);
+                assert_eq!(validation.asset_name, expected_asset);
+                assert!(
+                    validation.reason.contains(expected_reason),
+                    "unexpected reason for {field}: {}",
+                    validation.reason
+                );
+            }
+            other => panic!("expected unsupported UI style field validation error, got {other:?}"),
+        }
+    }
+
+    assert_eq!(renderer.state().revision(), 0);
+    assert!(renderer.state().frame().is_none());
+}
