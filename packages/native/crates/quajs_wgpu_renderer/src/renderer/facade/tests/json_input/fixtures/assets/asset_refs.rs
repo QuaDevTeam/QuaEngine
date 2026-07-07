@@ -223,6 +223,89 @@ pub(in super::super::super) fn json_frame_with_missing_ui_background_image_asset
     "#
 }
 
+pub(in super::super::super) fn json_frame_with_missing_dialogue_avatar_asset_name_input(
+) -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "dialogue": {
+          "visible": true,
+          "mode": "say",
+          "speaker": "Narrator",
+          "text": "Opening",
+          "avatar": {
+            "assetType": "images"
+          }
+        }
+      }
+    }
+    "#
+}
+
+pub(in super::super::super) fn json_frame_with_missing_ui_image_asset_name_input() -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "ui": {
+          "visible": true,
+          "overlays": [
+            {
+              "elementId": "menu",
+              "surface": {
+                "key": "ui/menu.qui",
+                "root": {
+                  "id": "poster",
+                  "kind": "Image",
+                  "visible": true,
+                  "bounds": { "x": 0, "y": 0, "width": 100, "height": 100 },
+                  "image": {
+                    "assetType": "images"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+    "#
+}
+
+pub(in super::super::super) fn json_frame_with_missing_ui_background_image_asset_name_input(
+) -> &'static str {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "ui": {
+          "visible": true,
+          "overlays": [
+            {
+              "elementId": "menu",
+              "surface": {
+                "key": "ui/menu.qui",
+                "root": {
+                  "id": "panel",
+                  "kind": "Panel",
+                  "visible": true,
+                  "bounds": { "x": 0, "y": 0, "width": 100, "height": 100 },
+                  "style": {
+                    "backgroundImage": {
+                      "assetType": "images"
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+    "#
+}
+
 pub(in super::super::super) fn json_frame_with_malformed_dialogue_avatar_input() -> &'static str {
     r#"
     {
