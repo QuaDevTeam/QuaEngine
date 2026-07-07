@@ -11,3 +11,15 @@ export function resolveGameSteps<TScope = GameStepScope>(source: GameStepSource<
 
   return source
 }
+
+export async function resolveGameStepsAsync<TScope = GameStepScope>(source: GameStepSource<TScope>, scope?: TScope): Promise<GameStep[]> {
+  if (typeof source === 'function') {
+    const steps = await source(scope as TScope)
+    if (!Array.isArray(steps)) {
+      throw new TypeError('QuaScript factory must return a GameStep array.')
+    }
+    return steps
+  }
+
+  return source
+}

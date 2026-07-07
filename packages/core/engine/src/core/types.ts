@@ -123,9 +123,11 @@ export interface GameStep {
 
 export type GameStepScope = Record<string, unknown>
 
-export type GameStepFactory<TScope = GameStepScope> = (scope: TScope) => GameStep[]
+export type GameStepList = GameStep[] | Promise<GameStep[]>
 
-export type OptionalGameStepFactory<TScope = GameStepScope> = (scope?: TScope) => GameStep[]
+export type GameStepFactory<TScope = GameStepScope> = (scope: TScope) => GameStepList
+
+export type OptionalGameStepFactory<TScope = GameStepScope> = (scope?: TScope) => GameStepList
 
 export type GameStepSource<TScope = GameStepScope> = GameStep[] | GameStepFactory<TScope> | OptionalGameStepFactory<TScope>
 

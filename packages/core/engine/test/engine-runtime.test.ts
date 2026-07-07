@@ -115,6 +115,24 @@ describe('quaEngine runtime architecture', () => {
     expect(view.effects).toEqual([expect.objectContaining({ type: 'shake', target: 'stage' })])
   })
 
+  it('awaits async dialogue factories before running steps', async () => {
+    const engine = createEngine()
+    await engine.init()
+
+    await engine.dialogue(async () => [{
+      uuid: 'async-factory-step',
+      run: async (ctx) => {
+        await ctx.engine.showDialogue({ text: 'async line' })
+      },
+    }])
+
+    expect(engine.getViewState().dialogue).toEqual(expect.objectContaining({
+      visible: true,
+      text: 'async line',
+    }))
+    expect(engine.getCurrentStepId()).toBe('async-factory-step')
+  })
+
   it('treats explicit speaker projections as dialogue speech even when the display string is empty', async () => {
     const engine = createEngine()
     await engine.init()

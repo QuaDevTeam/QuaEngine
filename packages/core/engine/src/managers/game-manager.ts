@@ -5,7 +5,7 @@ import type { SceneTransitionOptions } from './scene-manager'
 
 import { getPackageLogger } from '@quajs/logger'
 import { generateId } from '@quajs/utils'
-import { resolveGameSteps } from '../core/script'
+import { resolveGameStepsAsync } from '../core/script'
 
 const logger = getPackageLogger('engine:game-manager')
 
@@ -46,7 +46,7 @@ export class GameManager {
   async dialogue<TScope>(steps: OptionalGameStepFactory<TScope>, scope?: TScope): Promise<void>
   async dialogue<TScope>(steps: GameStepFactory<TScope>, scope: TScope): Promise<void>
   async dialogue<TScope = GameStepScope>(steps: GameStepSource<TScope>, scope?: TScope): Promise<void> {
-    const resolvedSteps = resolveGameSteps(steps, scope)
+    const resolvedSteps = await resolveGameStepsAsync(steps, scope)
     logger.debug(`Starting dialogue with ${resolvedSteps.length} steps`)
 
     try {
