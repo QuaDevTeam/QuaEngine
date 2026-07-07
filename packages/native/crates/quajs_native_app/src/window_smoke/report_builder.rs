@@ -12,6 +12,8 @@ pub(super) struct NativeWindowSmokeReportInput<'a> {
     pub present_status: &'a str,
     pub presented: bool,
     pub present_attempt_count: usize,
+    pub target_frame_count: usize,
+    pub rendered_frame_count: usize,
     pub resize_count: usize,
     pub surface_recovery_count: usize,
     pub texture_metrics: &'a NativeWindowSmokeTextureMetrics,
@@ -37,6 +39,8 @@ pub(super) fn build_window_smoke_report(
         present_status: input.present_status.to_string(),
         presented: input.presented,
         present_attempt_count: input.present_attempt_count,
+        target_frame_count: input.target_frame_count,
+        rendered_frame_count: input.rendered_frame_count,
         resize_count: input.resize_count,
         surface_recovery_count: input.surface_recovery_count,
         texture_upload_pending_request_count: input
@@ -159,6 +163,8 @@ mod tests {
             present_status: "Presented",
             presented: true,
             present_attempt_count: 2,
+            target_frame_count: 3,
+            rendered_frame_count: 2,
             resize_count: 3,
             surface_recovery_count: 1,
             texture_metrics: &texture_metrics,
@@ -179,6 +185,8 @@ mod tests {
         });
 
         assert_eq!(report.adapter_name, "adapter");
+        assert_eq!(report.target_frame_count, 3);
+        assert_eq!(report.rendered_frame_count, 2);
         assert_eq!(report.texture_upload_pending_request_count, 2);
         assert_eq!(report.texture_lifecycle_tracked_package_count, 3);
         assert_eq!(report.audio_backend_applied_plan_count, 12);

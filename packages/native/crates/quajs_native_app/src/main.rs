@@ -73,7 +73,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     #[cfg(feature = "native-window")]
     if let Some(report) = run_native_window_smoke_from_env()? {
         println!(
-            "Qua native window smoke: adapter={} surface={} size={}x{} status={} presented={} attempts={} resizeCount={} surfaceRecoveryCount={} textureUploads={} textureUploadErrors={} textureUploadResubmits={} textureResubmitted={} textureLifecycleSyncs={} textureLifecycleInitialSyncs={} textureLifecycleTrackedPackages={} textureLifecycleReleaseAttempts={} textureLifecycleReleasedPackages={} textureLifecycleCleanupErrors={} pointerEvents={} pointerIntents={} pointerLastIntent={} passes={} commands={} submittedCommandBuffers={}",
+            "Qua native window smoke: adapter={} surface={} size={}x{} status={} presented={} attempts={} targetFrames={} renderedFrames={} resizeCount={} surfaceRecoveryCount={} textureUploads={} textureUploadErrors={} textureUploadResubmits={} textureResubmitted={} textureLifecycleSyncs={} textureLifecycleInitialSyncs={} textureLifecycleTrackedPackages={} textureLifecycleReleaseAttempts={} textureLifecycleReleasedPackages={} textureLifecycleCleanupErrors={} pointerEvents={} pointerIntents={} pointerLastIntent={} passes={} commands={} submittedCommandBuffers={}",
             report.adapter_name,
             report.surface_format,
             report.physical_width,
@@ -81,6 +81,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             report.present_status,
             report.presented,
             report.present_attempt_count,
+            report.target_frame_count,
+            report.rendered_frame_count,
             report.resize_count,
             report.surface_recovery_count,
             report.texture_upload_uploaded_count,

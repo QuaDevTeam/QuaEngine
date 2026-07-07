@@ -5,6 +5,7 @@ use winit::event_loop::ActiveEventLoop;
 use winit::window::Window;
 
 use super::bootstrap::NativeWindowSmokeRuntime;
+use super::config::load_window_smoke_target_frame_count;
 use super::error::NativeWindowSmokeError;
 use super::frame::{frame_json_for_window, normalized_physical_size, window_frame_dimensions};
 use super::input::NativeWindowSmokeInputState;
@@ -29,6 +30,8 @@ pub(super) struct NativeWindowSmokeApp {
     texture_metrics: NativeWindowSmokeTextureMetrics,
     present_loop: NativeWindowSmokePresentLoop,
     resize_state: NativeWindowSmokeResizeState,
+    target_frame_count: usize,
+    rendered_frame_count: usize,
     pub(super) report: Option<NativeWindowSmokeReport>,
     pub(super) error: Option<NativeWindowSmokeError>,
 }
@@ -45,6 +48,8 @@ impl NativeWindowSmokeApp {
             texture_metrics: NativeWindowSmokeTextureMetrics::default(),
             present_loop: NativeWindowSmokePresentLoop::default(),
             resize_state: NativeWindowSmokeResizeState::default(),
+            target_frame_count: load_window_smoke_target_frame_count(),
+            rendered_frame_count: 0,
             report: None,
             error: None,
         }
@@ -130,6 +135,7 @@ impl NativeWindowSmokeApp {
             &frame_json,
         )?;
         let present_outcome = present_window_smoke_frame(runtime, allow_occluded_report)?;
+        self.rendered_frame_count = self.rendered_frame_count.saturating_add(1);
         let input_metrics = self.input.metrics();
         let audio_metrics =
             NativeWindowSmokeAudioMetrics::from_null_backend(runtime.renderer.audio_backend());
@@ -141,6 +147,8 @@ impl NativeWindowSmokeApp {
             present_status: &present_outcome.present_status,
             presented: present_outcome.presented,
             present_attempt_count: self.present_loop.attempt_count(),
+            target_frame_count: self.target_frame_count,
+            rendered_frame_count: self.rendered_frame_count,
             resize_count: self.resize_state.count(),
             surface_recovery_count: self.present_loop.surface_recovery_count(),
             texture_metrics: &self.texture_metrics,

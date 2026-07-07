@@ -1,6 +1,9 @@
 use winit::dpi::PhysicalSize;
 
-use super::config::{native_window_smoke_enabled, DEFAULT_WINDOW_SMOKE_FRAME, WINDOW_SMOKE_ENV};
+use super::config::{
+    load_window_smoke_target_frame_count, native_window_smoke_enabled, DEFAULT_WINDOW_SMOKE_FRAME,
+    WINDOW_SMOKE_ENV, WINDOW_SMOKE_FRAMES_ENV,
+};
 use super::error::NativeWindowSmokeError;
 use super::frame::{
     frame_json_for_window, normalized_physical_size, normalized_scale_factor,
@@ -24,6 +27,25 @@ fn smoke_env_ignores_absent_false_and_zero_values() {
     assert!(native_window_smoke_enabled());
 
     std::env::remove_var(WINDOW_SMOKE_ENV);
+}
+
+#[test]
+fn target_frame_count_defaults_clamps_and_accepts_positive_values() {
+    std::env::remove_var(WINDOW_SMOKE_FRAMES_ENV);
+    assert_eq!(load_window_smoke_target_frame_count(), 1);
+
+    for value in ["", "0", "false", "not-a-number"] {
+        std::env::set_var(WINDOW_SMOKE_FRAMES_ENV, value);
+        assert_eq!(load_window_smoke_target_frame_count(), 1);
+    }
+
+    std::env::set_var(WINDOW_SMOKE_FRAMES_ENV, "3");
+    assert_eq!(load_window_smoke_target_frame_count(), 3);
+
+    std::env::set_var(WINDOW_SMOKE_FRAMES_ENV, "9999");
+    assert_eq!(load_window_smoke_target_frame_count(), 120);
+
+    std::env::remove_var(WINDOW_SMOKE_FRAMES_ENV);
 }
 
 #[test]
@@ -116,6 +138,8 @@ fn window_smoke_report_serializes_texture_lifecycle_metrics() {
         present_status: "Presented".to_string(),
         presented: true,
         present_attempt_count: 1,
+        target_frame_count: 2,
+        rendered_frame_count: 2,
         resize_count: 0,
         surface_recovery_count: 0,
         texture_upload_pending_request_count: 0,
@@ -169,6 +193,8 @@ fn window_smoke_report_serializes_texture_lifecycle_metrics() {
 
     let value = serde_json::to_value(report).expect("report should serialize");
 
+    assert_eq!(value["targetFrameCount"], 2);
+    assert_eq!(value["renderedFrameCount"], 2);
     assert_eq!(value["textureLifecycleSyncCount"], 1);
     assert_eq!(value["textureLifecycleInitialSyncCount"], 1);
     assert_eq!(value["textureLifecycleObservedBundleCount"], 2);
