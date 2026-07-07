@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 use std::ffi::CStr;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock};
 
 use rquickjs::{
     loader::{ImportAttributes, Loader, Resolver},
@@ -410,11 +410,70 @@ export async function spriteWithEngine(engine, character, sprite) {
 }
 "#;
 
-#[derive(Debug, Clone, Copy)]
-struct NativeQuickJsBuiltinHelperResolver;
+#[derive(Debug, Clone)]
+struct NativeQuickJsBuiltinHelperResolver {
+    module_graph: NativeQuickJsModuleGraphRegistry,
+}
 
-#[derive(Debug, Clone, Copy)]
-struct NativeQuickJsBuiltinHelperLoader;
+#[derive(Debug, Clone)]
+struct NativeQuickJsBuiltinHelperLoader {
+    module_graph: NativeQuickJsModuleGraphRegistry,
+}
+
+#[derive(Debug, Clone, Default)]
+struct NativeQuickJsModuleGraphRegistry {
+    modules: Arc<Mutex<BTreeMap<String, NativeQuickJsModuleGraphEntry>>>,
+}
+
+#[derive(Debug, Clone)]
+struct NativeQuickJsModuleGraphEntry {
+    package_id: String,
+    asset_name: String,
+    code: String,
+}
+
+impl NativeQuickJsModuleGraphRegistry {
+    fn set_for_request(&self, request: &QuickJsEvaluationRequest) {
+        let mut modules = self.modules.lock().unwrap();
+        modules.clear();
+        modules.insert(
+            native_quickjs_package_module_key(
+                request.module.package_id.as_str(),
+                request.module.asset_name.as_str(),
+            ),
+            NativeQuickJsModuleGraphEntry {
+                package_id: request.module.package_id.clone(),
+                asset_name: request.module.asset_name.clone(),
+                code: request.module.code.clone(),
+            },
+        );
+        for module in &request.module_graph {
+            modules.insert(
+                native_quickjs_package_module_key(
+                    module.package_id.as_str(),
+                    module.asset_name.as_str(),
+                ),
+                NativeQuickJsModuleGraphEntry {
+                    package_id: module.package_id.clone(),
+                    asset_name: module.asset_name.clone(),
+                    code: module.code.clone(),
+                },
+            );
+        }
+    }
+
+    fn clear(&self) {
+        self.modules.lock().unwrap().clear();
+    }
+
+    fn get(&self, key: &str) -> Option<NativeQuickJsModuleGraphEntry> {
+        self.modules.lock().unwrap().get(key).cloned()
+    }
+
+    fn contains(&self, key: &str) -> bool {
+        self.modules.lock().unwrap().contains_key(key)
+    }
+}
 
 impl Resolver for NativeQuickJsBuiltinHelperResolver {
     fn resolve<'js>(
@@ -434,11 +493,26 @@ impl Resolver for NativeQuickJsBuiltinHelperResolver {
         if native_quickjs_builtin_helper_source(name).is_some() {
             return Ok(name.to_string());
         }
+        if let Some(resolved) = self.resolve_module_graph_import(base, name) {
+            return Ok(resolved);
+        }
         Err(Error::new_resolving_message(
             base,
             name,
             format!("Native QuickJS has no built-in helper module named \"{name}\"."),
         ))
+    }
+}
+
+impl NativeQuickJsBuiltinHelperResolver {
+    fn resolve_module_graph_import(&self, base: &str, name: &str) -> Option<String> {
+        if !is_package_local_import_specifier(name) {
+            return None;
+        }
+        let base_entry = self.module_graph.get(base)?;
+        let resolved_asset_name = resolve_package_local_asset_name(&base_entry.asset_name, name)?;
+        let key = native_quickjs_package_module_key(&base_entry.package_id, &resolved_asset_name);
+        self.module_graph.contains(&key).then_some(key)
     }
 }
 
@@ -455,13 +529,70 @@ impl Loader for NativeQuickJsBuiltinHelperLoader {
                 "Native QuickJS built-in helper imports do not support import attributes.",
             ));
         }
-        let Some(source) = native_quickjs_builtin_helper_source(name) else {
+        if let Some(source) = native_quickjs_builtin_helper_source(name) {
+            return Module::declare(ctx.clone(), name, source.as_bytes());
+        }
+        let Some(entry) = self.module_graph.get(name) else {
             return Err(Error::new_loading_message(
                 name,
                 "Native QuickJS built-in helper module is not registered.",
             ));
         };
-        Module::declare(ctx.clone(), name, source.as_bytes())
+        Module::declare(ctx.clone(), name, entry.code.as_bytes())
+    }
+}
+
+fn native_quickjs_package_module_key(package_id: &str, asset_name: &str) -> String {
+    format!("qua-native-qpk:{}:{}", package_id, asset_name)
+}
+
+fn is_package_local_import_specifier(specifier: &str) -> bool {
+    specifier.starts_with("./") || specifier.starts_with("../")
+}
+
+fn resolve_package_local_asset_name(base_asset_name: &str, specifier: &str) -> Option<String> {
+    if !is_package_local_import_specifier(specifier)
+        || specifier.contains('\\')
+        || specifier.contains(':')
+        || specifier.chars().any(char::is_control)
+    {
+        return None;
+    }
+    let base_dir = base_asset_name
+        .rsplit_once('/')
+        .map(|(dir, _)| dir)
+        .unwrap_or("");
+    let mut parts: Vec<&str> = base_dir
+        .split('/')
+        .filter(|part| !part.is_empty() && *part != ".")
+        .collect();
+    for part in specifier.split('/') {
+        match part {
+            "" | "." => {}
+            ".." => {
+                parts.pop()?;
+            }
+            value => parts.push(value),
+        }
+    }
+    let resolved = parts.join("/");
+    let resolved_without_suffix = strip_quickjs_asset_reference_suffix(&resolved);
+    if resolved.is_empty()
+        || resolved.starts_with('/')
+        || resolved.contains("//")
+        || !resolved_without_suffix.ends_with(".js")
+            && !resolved_without_suffix.ends_with(".mjs")
+            && !resolved_without_suffix.ends_with(".cjs")
+    {
+        return None;
+    }
+    Some(resolved)
+}
+
+fn strip_quickjs_asset_reference_suffix(asset_name: &str) -> &str {
+    match asset_name.find(['?', '#']) {
+        Some(index) => &asset_name[..index],
+        None => asset_name,
     }
 }
 
@@ -578,6 +709,7 @@ pub struct RquickJsModuleEvaluator {
     namespaces: BTreeMap<String, Persistent<Object<'static>>>,
     step_run_handles: BTreeMap<String, QuickJsStepRunHandle>,
     step_resume_handles: BTreeMap<String, QuickJsStepResumeHandle>,
+    module_graph: NativeQuickJsModuleGraphRegistry,
     next_namespace_index: u64,
     next_step_run_index: u64,
     next_step_resume_index: u64,
@@ -667,15 +799,21 @@ enum QuickJsStepResumeBoundary {
 impl RquickJsModuleEvaluator {
     pub fn new() -> Result<Self, QuickJsEvaluationError> {
         let runtime = Runtime::new().map_err(backend_error)?;
+        let module_graph = NativeQuickJsModuleGraphRegistry::default();
         runtime.set_loader(
-            NativeQuickJsBuiltinHelperResolver,
-            NativeQuickJsBuiltinHelperLoader,
+            NativeQuickJsBuiltinHelperResolver {
+                module_graph: module_graph.clone(),
+            },
+            NativeQuickJsBuiltinHelperLoader {
+                module_graph: module_graph.clone(),
+            },
         );
         let context = Context::full(&runtime).map_err(backend_error)?;
         Ok(Self {
             namespaces: BTreeMap::new(),
             step_run_handles: BTreeMap::new(),
             step_resume_handles: BTreeMap::new(),
+            module_graph,
             next_namespace_index: 0,
             next_step_run_index: 0,
             next_step_resume_index: 0,
@@ -740,10 +878,15 @@ impl QuickJsModuleEvaluator for RquickJsModuleEvaluator {
     fn evaluate_module(&mut self, request: &QuickJsEvaluationRequest) -> QuickJsEvaluationResult {
         validate_quickjs_evaluation_request(request)?;
         self.apply_limits(&request.limits);
+        self.module_graph.set_for_request(request);
+        let module_key = native_quickjs_package_module_key(
+            request.module.package_id.as_str(),
+            request.module.asset_name.as_str(),
+        );
         let result: rquickjs::Result<Persistent<Object<'static>>> = self.context.with(|ctx| {
             let module = Module::declare(
                 ctx.clone(),
-                request.module.asset_name.as_bytes(),
+                module_key.as_bytes(),
                 request.module.code.as_bytes(),
             )?;
             let (module, promise) = module.eval()?;
@@ -752,6 +895,7 @@ impl QuickJsModuleEvaluator for RquickJsModuleEvaluator {
             Ok(Persistent::save(&ctx, namespace))
         });
         self.clear_interrupt_handler();
+        self.module_graph.clear();
 
         match result {
             Ok(namespace) => {
@@ -2597,6 +2741,56 @@ mod tests {
     }
 
     #[test]
+    fn evaluates_package_local_module_graph_imports() {
+        let mut evaluator = RquickJsModuleEvaluator::new().unwrap();
+        let mut request = request_for_code(
+            "scripts/opening.js",
+            r#"
+            import { buildTitle } from './helpers/title.js?cache=1#runtime';
+            export function title(name) { return buildTitle(name); }
+            "#,
+        );
+        request.module_graph.push(QuickJsRuntimeModuleRecord {
+            asset_name: "scripts/helpers/title.js?cache=1#runtime".to_string(),
+            bundle_name: "runtime.chapter.native-ui".to_string(),
+            package_id: "runtime.chapter.native-ui".to_string(),
+            kind: QuickJsRuntimeModuleKind::Script,
+            code: "export function buildTitle(name) { return `Opening:${name}`; }".to_string(),
+            bytes: b"export function buildTitle(name) { return `Opening:${name}`; }".to_vec(),
+        });
+
+        let module_namespace_id = evaluator
+            .evaluate_module(&request)
+            .unwrap()
+            .module_namespace_id
+            .unwrap();
+        let call = evaluator
+            .call_module_export(&QuickJsModuleExportCallRequest {
+                module_namespace_id,
+                export_name: "title".to_string(),
+                args_json: Some("[\"Mira\"]".to_string()),
+            })
+            .unwrap();
+
+        assert_eq!(call.value_json, Some("\"Opening:Mira\"".to_string()));
+    }
+
+    #[test]
+    fn rejects_package_local_imports_not_declared_in_module_graph() {
+        let mut evaluator = RquickJsModuleEvaluator::new().unwrap();
+        let error = evaluator
+            .evaluate_module(&request_for_code(
+                "scripts/opening.js",
+                "import { buildTitle } from './helpers/title.js'; export const title = buildTitle('Mira');",
+            ))
+            .unwrap_err();
+
+        assert_eq!(error.code, QuickJsEvaluationErrorCode::EvaluationFailed);
+        assert_eq!(error.asset_name, Some("scripts/opening.js".to_string()));
+        assert!(error.detail.as_deref().unwrap_or_default().len() > 0);
+    }
+
+    #[test]
     fn returns_structured_error_for_invalid_js_module() {
         let mut evaluator = RquickJsModuleEvaluator::new().unwrap();
         let error = evaluator
@@ -3451,6 +3645,7 @@ mod tests {
                 code: code.to_string(),
                 bytes: code.as_bytes().to_vec(),
             },
+            module_graph: Vec::new(),
             limits: QuickJsSandboxLimits::default(),
         }
     }

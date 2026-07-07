@@ -19,6 +19,14 @@ fn serializes_quickjs_evaluation_request_with_ts_field_names() {
             code: "export default function opening() {}".to_string(),
             bytes: vec![1, 2, 3],
         },
+        module_graph: vec![QuickJsRuntimeModuleRecord {
+            asset_name: "scripts/helper.js".to_string(),
+            bundle_name: "runtime.chapter.native-ui".to_string(),
+            package_id: "runtime.chapter.native-ui".to_string(),
+            kind: QuickJsRuntimeModuleKind::Script,
+            code: "export const helper = true".to_string(),
+            bytes: vec![4, 5, 6],
+        }],
         limits: QuickJsSandboxLimits::default(),
     };
 
@@ -28,6 +36,11 @@ fn serializes_quickjs_evaluation_request_with_ts_field_names() {
     assert_eq!(json["module"]["bundleName"], "runtime.chapter.native-ui");
     assert_eq!(json["module"]["packageId"], "runtime.chapter.native-ui");
     assert_eq!(json["module"]["kind"], "script");
+    assert_eq!(json["moduleGraph"][0]["assetName"], "scripts/helper.js");
+    assert_eq!(
+        json["moduleGraph"][0]["bytes"],
+        serde_json::json!([4, 5, 6])
+    );
     assert_eq!(json["limits"]["maxHeapBytes"], 64 * 1024 * 1024);
     assert_eq!(json["limits"]["maxModuleBytes"], 4 * 1024 * 1024);
 }

@@ -58,6 +58,59 @@ describe('native QuickJS contracts', () => {
     })
   })
 
+  it('creates and validates package-local QuickJS module graphs', () => {
+    const request = createNativeQuickJsEvaluationRequest({
+      assetName: 'scripts/opening.js',
+      bundleName: 'runtime.chapter.native-ui',
+      packageId: 'runtime.chapter.native-ui',
+      kind: 'script',
+      code: 'import { title } from "./helper.js"; export default title',
+      bytes: new Uint8Array([1]),
+      moduleGraph: [{
+        assetName: 'scripts/helper.js',
+        bundleName: 'runtime.chapter.native-ui',
+        packageId: 'runtime.chapter.native-ui',
+        kind: 'script',
+        code: 'export const title = "Opening"',
+        bytes: [2],
+      }],
+    })
+
+    expect(request.moduleGraph).toEqual([{
+      assetName: 'scripts/helper.js',
+      bundleName: 'runtime.chapter.native-ui',
+      packageId: 'runtime.chapter.native-ui',
+      kind: 'script',
+      code: 'export const title = "Opening"',
+      bytes: [2],
+    }])
+    expect(validateNativeQuickJsEvaluationRequest(request)).toEqual({ ok: true, errors: [] })
+
+    expect(validateNativeQuickJsEvaluationRequest({
+      ...request,
+      moduleGraph: [{
+        ...request.moduleGraph![0],
+        packageId: 'runtime.other',
+      }],
+    }).errors.map(error => error.code)).toContain('forbiddenAssetName')
+
+    expect(validateNativeQuickJsEvaluationRequest({
+      ...request,
+      moduleGraph: [{
+        ...request.moduleGraph![0],
+        assetName: '../helper.js',
+      }],
+    }).errors.map(error => error.code)).toContain('forbiddenAssetName')
+
+    expect(validateNativeQuickJsEvaluationRequest({
+      ...request,
+      moduleGraph: [{
+        ...request.moduleGraph![0],
+        assetName: 'scripts/opening.js?cache=1',
+      }],
+    }).errors.map(error => error.code)).toContain('forbiddenAssetName')
+  })
+
   it('accepts JavaScript module assets with inert query or hash suffixes', () => {
     for (const assetName of ['scripts/opening.js?cache=1', 'scripts/opening.mjs#runtime', 'scripts/opening.cjs?cache=1#runtime']) {
       const result = validateNativeQuickJsEvaluationRequest(createNativeQuickJsEvaluationRequest({

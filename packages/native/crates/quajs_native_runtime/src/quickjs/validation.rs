@@ -65,6 +65,105 @@ pub fn validate_quickjs_evaluation_request(
     ) {
         return Err(error);
     }
+    let mut seen_graph_assets = std::collections::BTreeSet::new();
+    for graph_module in &request.module_graph {
+        let graph_asset_name = graph_module.asset_name.as_str();
+        if !seen_graph_assets.insert(graph_asset_name.to_string()) {
+            return Err(QuickJsEvaluationError {
+                code: QuickJsEvaluationErrorCode::ForbiddenAssetName,
+                message: format!(
+                    "QuickJS runtime module graph contains duplicate assetName \"{}\".",
+                    graph_module.asset_name
+                ),
+                asset_name: Some(graph_module.asset_name.clone()),
+                detail: None,
+            });
+        }
+        if strip_asset_reference_suffix(graph_asset_name)
+            == strip_asset_reference_suffix(asset_name)
+        {
+            return Err(QuickJsEvaluationError {
+                code: QuickJsEvaluationErrorCode::ForbiddenAssetName,
+                message: format!(
+                    "QuickJS runtime module graph assetName \"{}\" must not duplicate the entry module assetName.",
+                    graph_module.asset_name
+                ),
+                asset_name: Some(graph_module.asset_name.clone()),
+                detail: None,
+            });
+        }
+        if graph_module.package_id != request.module.package_id
+            || graph_module.bundle_name != request.module.bundle_name
+        {
+            return Err(QuickJsEvaluationError {
+                code: QuickJsEvaluationErrorCode::ForbiddenAssetName,
+                message: format!(
+                    "QuickJS runtime module graph assetName \"{}\" must belong to the same runtime package and bundle as the entry module.",
+                    graph_module.asset_name
+                ),
+                asset_name: Some(graph_module.asset_name.clone()),
+                detail: None,
+            });
+        }
+        if graph_asset_name.is_empty() {
+            return Err(QuickJsEvaluationError {
+                code: QuickJsEvaluationErrorCode::MissingAssetName,
+                message: "QuickJS runtime module graph entries require assetName values."
+                    .to_string(),
+                asset_name: None,
+                detail: None,
+            });
+        }
+        if is_forbidden_runtime_module_asset_name(graph_asset_name) {
+            return Err(QuickJsEvaluationError {
+                code: QuickJsEvaluationErrorCode::ForbiddenAssetName,
+                message: format!(
+                    "QuickJS runtime module graph assetName \"{}\" must be package-relative.",
+                    graph_module.asset_name
+                ),
+                asset_name: Some(graph_module.asset_name.clone()),
+                detail: None,
+            });
+        }
+        if is_forbidden_native_module_payload(graph_asset_name) {
+            return Err(QuickJsEvaluationError {
+                code: QuickJsEvaluationErrorCode::ForbiddenNativePayload,
+                message: format!(
+                    "QuickJS runtime module graph assetName \"{}\" must not reference a native payload.",
+                    graph_module.asset_name
+                ),
+                asset_name: Some(graph_module.asset_name.clone()),
+                detail: None,
+            });
+        }
+        if !is_supported_quickjs_module_asset(graph_asset_name) {
+            return Err(QuickJsEvaluationError {
+                code: QuickJsEvaluationErrorCode::UnsupportedModuleAsset,
+                message: format!(
+                    "QuickJS runtime module graph assetName \"{}\" must reference a JavaScript module asset.",
+                    graph_module.asset_name
+                ),
+                asset_name: Some(graph_module.asset_name.clone()),
+                detail: Some("Supported extensions are .js, .mjs, and .cjs.".to_string()),
+            });
+        }
+        if let Some(error) = quickjs_module_size_error(
+            &graph_module.asset_name,
+            "module graph bytes",
+            graph_module.bytes.len() as u64,
+            request.limits.max_module_bytes,
+        ) {
+            return Err(error);
+        }
+        if let Some(error) = quickjs_module_size_error(
+            &graph_module.asset_name,
+            "module graph code bytes",
+            graph_module.code.as_bytes().len() as u64,
+            request.limits.max_module_bytes,
+        ) {
+            return Err(error);
+        }
+    }
     Ok(())
 }
 

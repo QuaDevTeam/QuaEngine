@@ -82,6 +82,8 @@ impl Default for QuickJsSandboxLimits {
 #[serde(rename_all = "camelCase")]
 pub struct QuickJsEvaluationRequest {
     pub module: QuickJsRuntimeModuleRecord,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub module_graph: Vec<QuickJsRuntimeModuleRecord>,
     pub limits: QuickJsSandboxLimits,
 }
 

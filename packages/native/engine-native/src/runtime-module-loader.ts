@@ -70,6 +70,14 @@ interface NativeRuntimeModuleRecordWithVariants {
   variants?: Record<string, NativeRuntimeModuleVariantRecord>
 }
 
+interface NativeRuntimeModuleRecordWithNativeQuickJsMetadata {
+  metadata?: {
+    nativeQuickJs?: {
+      imports?: readonly (string | { assetName?: string, module?: string, path?: string, relativePath?: string })[]
+    }
+  }
+}
+
 export interface NativeRuntimeModuleEvaluationContext {
   assetName: string
   bundleName: string
@@ -423,6 +431,7 @@ export function createNativeRuntimeModuleLoader(options: NativeRuntimeModuleLoad
       locale: ctx.locale,
     })
     const code = new TextDecoder().decode(asset.data)
+    const moduleGraph = await loadNativeQuickJsModuleGraph(record, kind, ctx)
     const request = createNativeQuickJsEvaluationRequest({
       assetName,
       bundleName: ctx.bundle.bundleName,
@@ -430,6 +439,7 @@ export function createNativeRuntimeModuleLoader(options: NativeRuntimeModuleLoad
       code,
       kind: toQuickJsRuntimeModuleKind(kind),
       limits: options.limits,
+      moduleGraph,
       packageId: ctx.package.id,
     })
     const loaded = await options.evaluator({
@@ -459,6 +469,52 @@ export function createNativeRuntimeModuleLoader(options: NativeRuntimeModuleLoad
       ? { loadStoreMigrationModule: (record, ctx) => loadModule<RuntimeLoadedMigrationModule>('store-migration', record, ctx) }
       : {}),
   }
+}
+
+async function loadNativeQuickJsModuleGraph(
+  record: NativeRuntimeModuleRecord,
+  kind: NativeRuntimeModuleKind,
+  ctx: RuntimeModuleLoadContext,
+): Promise<NativeQuickJsEvaluationRequest['moduleGraph']> {
+  const assetNames = getNativeQuickJsModuleGraphAssetNames(record, kind)
+  if (assetNames.length === 0) {
+    return undefined
+  }
+  const modules: NonNullable<NativeQuickJsEvaluationRequest['moduleGraph']> = []
+  const seen = new Set<string>()
+  for (const assetName of assetNames) {
+    if (seen.has(assetName))
+      continue
+    seen.add(assetName)
+    const asset = await ctx.assets.getAsset('scripts', assetName, {
+      bundleName: ctx.bundle.bundleName,
+      targetPackageId: ctx.package.id,
+      locale: ctx.locale,
+    })
+    modules.push({
+      assetName,
+      bundleName: ctx.bundle.bundleName,
+      packageId: ctx.package.id,
+      kind: toQuickJsRuntimeModuleKind(kind),
+      code: new TextDecoder().decode(asset.data),
+      bytes: Array.from(asset.data),
+    })
+  }
+  return modules
+}
+
+function getNativeQuickJsModuleGraphAssetNames(
+  record: NativeRuntimeModuleRecord,
+  kind: NativeRuntimeModuleKind,
+): string[] {
+  const imports = (record as NativeRuntimeModuleRecordWithNativeQuickJsMetadata).metadata?.nativeQuickJs?.imports || []
+  return imports.map((entry, index) => {
+    const assetName = typeof entry === 'string'
+      ? entry
+      : entry.assetName || entry.module || entry.path || entry.relativePath || ''
+    assertNativeRuntimeModuleAssetName(assetName, kind, `metadata.nativeQuickJs.imports.${index}`)
+    return assetName
+  })
 }
 
 function toQuickJsRuntimeModuleKind(kind: NativeRuntimeModuleKind): NativeQuickJsRuntimeModuleKind {
