@@ -94,6 +94,10 @@ export function createNativeHostApiFromBridge(dispatch: NativeHostBridgeDispatch
       method: 'callQuickJsGameStepRun',
       params: request,
     }, 'quickJsGameStepRun'),
+    resumeQuickJsGameStepRun: request => call({
+      method: 'resumeQuickJsGameStepRun',
+      params: request,
+    }, 'quickJsGameStepRun'),
     releaseQuickJsModuleNamespace: moduleNamespaceId => call({
       method: 'releaseQuickJsModuleNamespace',
       params: { moduleNamespaceId },

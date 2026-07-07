@@ -1,6 +1,7 @@
 use super::{
     QuickJsEvaluationError, QuickJsEvaluationErrorCode, QuickJsEvaluationRequest,
-    QuickJsGameStepFactoryCallRequest, QuickJsGameStepRunRequest, QuickJsModuleExportCallRequest,
+    QuickJsGameStepFactoryCallRequest, QuickJsGameStepResumeRequest, QuickJsGameStepRunRequest,
+    QuickJsModuleExportCallRequest,
 };
 
 pub fn validate_quickjs_evaluation_request(
@@ -169,6 +170,25 @@ pub fn validate_quickjs_game_step_run_request(
     Ok(())
 }
 
+pub fn validate_quickjs_game_step_resume_request(
+    request: &QuickJsGameStepResumeRequest,
+) -> Result<(), QuickJsEvaluationError> {
+    validate_quickjs_handle(
+        &request.resume_handle_id,
+        QuickJsEvaluationErrorCode::MissingResumeHandle,
+        "QuickJS GameStep resume requires a resumeHandleId.",
+        "QuickJS GameStep resumeHandleId must be an opaque native continuation handle.",
+    )?;
+    if let Some(payload_json) = request.payload_json.as_deref() {
+        validate_json_value(
+            payload_json,
+            QuickJsEvaluationErrorCode::InvalidResumePayload,
+            "QuickJS GameStep resume payloadJson must be valid JSON when provided.",
+        )?;
+    }
+    Ok(())
+}
+
 fn validate_quickjs_handle(
     value: &str,
     empty_code: QuickJsEvaluationErrorCode,
@@ -213,6 +233,28 @@ fn validate_optional_json_object(
             });
         }
     }
+    Ok(())
+}
+
+fn validate_json_value(
+    json: &str,
+    code: QuickJsEvaluationErrorCode,
+    message: &str,
+) -> Result<(), QuickJsEvaluationError> {
+    if json.trim().is_empty() {
+        return Err(QuickJsEvaluationError {
+            code,
+            message: message.to_string(),
+            asset_name: None,
+            detail: None,
+        });
+    }
+    serde_json::from_str::<serde_json::Value>(json).map_err(|error| QuickJsEvaluationError {
+        code,
+        message: message.to_string(),
+        asset_name: None,
+        detail: Some(error.to_string()),
+    })?;
     Ok(())
 }
 

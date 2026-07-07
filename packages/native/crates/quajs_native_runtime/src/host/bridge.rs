@@ -7,12 +7,12 @@ use super::api::{
 use super::info::NativeHostInfo;
 use crate::quickjs::{
     call_quickjs_game_step_factory, call_quickjs_game_step_run, call_quickjs_module_export,
-    evaluate_quickjs_module_with_registry, QuickJsEvaluationRequest, QuickJsEvaluationResponse,
-    QuickJsGameStepFactoryCallRequest, QuickJsGameStepFactoryCallResponse,
-    QuickJsGameStepRunRequest, QuickJsGameStepRunResponse, QuickJsModuleEvaluator,
-    QuickJsModuleExportCallRequest, QuickJsModuleExportCallResponse, QuickJsModuleNamespaceRecord,
-    QuickJsModuleNamespaceRegistry, QuickJsModuleNamespaceSummary,
-    UnsupportedQuickJsModuleEvaluator,
+    evaluate_quickjs_module_with_registry, resume_quickjs_game_step_run, QuickJsEvaluationRequest,
+    QuickJsEvaluationResponse, QuickJsGameStepFactoryCallRequest,
+    QuickJsGameStepFactoryCallResponse, QuickJsGameStepResumeRequest, QuickJsGameStepRunRequest,
+    QuickJsGameStepRunResponse, QuickJsModuleEvaluator, QuickJsModuleExportCallRequest,
+    QuickJsModuleExportCallResponse, QuickJsModuleNamespaceRecord, QuickJsModuleNamespaceRegistry,
+    QuickJsModuleNamespaceSummary, UnsupportedQuickJsModuleEvaluator,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
@@ -31,6 +31,7 @@ pub enum NativeHostApiRequest {
     CallQuickJsModuleExport(QuickJsModuleExportCallRequest),
     CallQuickJsGameStepFactory(QuickJsGameStepFactoryCallRequest),
     CallQuickJsGameStepRun(QuickJsGameStepRunRequest),
+    ResumeQuickJsGameStepRun(QuickJsGameStepResumeRequest),
     ReleaseQuickJsModuleNamespace(NativeQuickJsReleaseNamespaceRequest),
     ReleaseQuickJsPackageNamespaces(NativeQuickJsReleasePackageRequest),
     GetQuickJsNamespaceSummary,
@@ -216,6 +217,11 @@ pub fn dispatch_native_host_api_request_with_quickjs_registry(
         NativeHostApiRequest::CallQuickJsGameStepRun(request) => {
             NativeHostApiResponse::success(NativeHostApiResponsePayload::QuickJsGameStepRun(
                 call_quickjs_game_step_run(quickjs, &request),
+            ))
+        }
+        NativeHostApiRequest::ResumeQuickJsGameStepRun(request) => {
+            NativeHostApiResponse::success(NativeHostApiResponsePayload::QuickJsGameStepRun(
+                resume_quickjs_game_step_run(quickjs, &request),
             ))
         }
         NativeHostApiRequest::ReleaseQuickJsModuleNamespace(request) => {

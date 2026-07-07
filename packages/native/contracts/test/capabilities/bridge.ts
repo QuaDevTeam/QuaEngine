@@ -110,6 +110,21 @@ describe('native host bridge adapter contracts', () => {
               },
             },
           }
+        case 'resumeQuickJsGameStepRun':
+          return {
+            ok: true,
+            payload: {
+              type: 'quickJsGameStepRun',
+              value: {
+                ok: true,
+                commands: [{
+                  target: 'engine',
+                  method: 'clearChoices',
+                  argsJson: '[]',
+                }],
+              },
+            },
+          }
         case 'releaseQuickJsModuleNamespace':
           return {
             ok: true,
@@ -214,6 +229,17 @@ describe('native host bridge adapter contracts', () => {
         argsJson: '[]',
       }],
     })
+    await expect(host.resumeQuickJsGameStepRun?.({
+      resumeHandleId: 'quickjs:resume:1',
+      payloadJson: '{"choiceId":"go"}',
+    })).resolves.toEqual({
+      ok: true,
+      commands: [{
+        target: 'engine',
+        method: 'clearChoices',
+        argsJson: '[]',
+      }],
+    })
     await expect(host.releaseQuickJsModuleNamespace?.('quickjs:module:1')).resolves.toEqual(namespaceRecord)
     await expect(host.releaseQuickJsModuleNamespace?.('missing')).resolves.toBeUndefined()
     await expect(host.releaseQuickJsPackageNamespaces?.('runtime.chapter.native-ui')).resolves.toEqual([namespaceRecord])
@@ -254,6 +280,13 @@ describe('native host bridge adapter contracts', () => {
         params: {
           runHandleId: 'quickjs:module:1:run:1',
           ctxJson: '{"stepId":"intro.1"}',
+        },
+      },
+      {
+        method: 'resumeQuickJsGameStepRun',
+        params: {
+          resumeHandleId: 'quickjs:resume:1',
+          payloadJson: '{"choiceId":"go"}',
         },
       },
       { method: 'releaseQuickJsModuleNamespace', params: { moduleNamespaceId: 'quickjs:module:1' } },

@@ -16,8 +16,8 @@ pub use rquickjs_backend::{
 pub use validation::{
     is_forbidden_native_module_payload, is_forbidden_runtime_module_asset_name,
     is_supported_quickjs_module_asset, validate_quickjs_evaluation_request,
-    validate_quickjs_game_step_factory_call_request, validate_quickjs_game_step_run_request,
-    validate_quickjs_module_export_call_request,
+    validate_quickjs_game_step_factory_call_request, validate_quickjs_game_step_resume_request,
+    validate_quickjs_game_step_run_request, validate_quickjs_module_export_call_request,
 };
 
 pub const UNSUPPORTED_QUICKJS_VERSION: &str = "unsupported";
@@ -152,6 +152,21 @@ pub struct QuickJsGameStepRunRequest {
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct QuickJsGameStepWaitRequest {
+    pub resume_handle_id: String,
+    pub event: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct QuickJsGameStepResumeRequest {
+    pub resume_handle_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub payload_json: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct QuickJsGameStepCommand {
     pub target: String,
     pub method: String,
@@ -165,6 +180,8 @@ pub struct QuickJsGameStepRunResponse {
     pub ok: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub commands: Option<Vec<QuickJsGameStepCommand>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pending_wait: Option<QuickJsGameStepWaitRequest>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub error: Option<QuickJsEvaluationError>,
 }
@@ -187,6 +204,9 @@ pub enum QuickJsEvaluationErrorCode {
     InvalidStepFactoryResult,
     InvalidStepDescriptor,
     MissingRunHandle,
+    MissingResumeHandle,
+    InvalidWaitEvent,
+    InvalidResumePayload,
     StepRunFailed,
     UnsupportedStepContextCommand,
     UnsupportedReturnValue,
@@ -264,6 +284,19 @@ impl QuickJsGameStepRunResponse {
         Self {
             ok: true,
             commands: Some(commands),
+            pending_wait: None,
+            error: None,
+        }
+    }
+
+    pub fn pending(
+        commands: Vec<QuickJsGameStepCommand>,
+        pending_wait: QuickJsGameStepWaitRequest,
+    ) -> Self {
+        Self {
+            ok: true,
+            commands: Some(commands),
+            pending_wait: Some(pending_wait),
             error: None,
         }
     }
@@ -272,6 +305,7 @@ impl QuickJsGameStepRunResponse {
         Self {
             ok: false,
             commands: None,
+            pending_wait: None,
             error: Some(error),
         }
     }
@@ -332,6 +366,23 @@ pub trait QuickJsModuleEvaluator {
             detail: Some(format!(
                 "No QuickJS evaluator backend has been installed for run handle \"{}\".",
                 request.run_handle_id
+            )),
+        })
+    }
+
+    fn resume_game_step_run(
+        &mut self,
+        request: &QuickJsGameStepResumeRequest,
+    ) -> QuickJsGameStepRunResult {
+        Err(QuickJsEvaluationError {
+            code: QuickJsEvaluationErrorCode::UnsupportedRuntime,
+            message:
+                "QuickJS GameStep continuation resume calls are not available in this native runtime build."
+                    .to_string(),
+            asset_name: None,
+            detail: Some(format!(
+                "No QuickJS evaluator backend has been installed for resume handle \"{}\".",
+                request.resume_handle_id
             )),
         })
     }
@@ -425,6 +476,20 @@ pub fn call_quickjs_game_step_run(
     }
 
     match evaluator.call_game_step_run(request) {
+        Ok(response) => response,
+        Err(error) => QuickJsGameStepRunResponse::error(error),
+    }
+}
+
+pub fn resume_quickjs_game_step_run(
+    evaluator: &mut impl QuickJsModuleEvaluator,
+    request: &QuickJsGameStepResumeRequest,
+) -> QuickJsGameStepRunResponse {
+    if let Err(error) = validation::validate_quickjs_game_step_resume_request(request) {
+        return QuickJsGameStepRunResponse::error(error);
+    }
+
+    match evaluator.resume_game_step_run(request) {
         Ok(response) => response,
         Err(error) => QuickJsGameStepRunResponse::error(error),
     }
