@@ -1,7 +1,11 @@
 export {
+  callNativeQuickJsGameStepFactory,
+  callNativeQuickJsGameStepRun,
   callNativeQuickJsModuleExport,
+  createNativeHostQuickJsGameStepModuleNamespaceResolver,
   createNativeHostQuickJsJsonModuleNamespaceResolver,
   createNativeHostQuickJsModuleEvaluator,
+  createNativeQuickJsGameStepFactoryFunction,
   createNativeQuickJsJsonExportFunction,
   createNativeRuntimeAdapters,
   createNativeRuntimeModuleLoader,

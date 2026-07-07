@@ -39,9 +39,13 @@ export type {
 } from './runtime-adapters'
 export {
   createNativeHostQuickJsModuleEvaluator,
+  createNativeHostQuickJsGameStepModuleNamespaceResolver,
   createNativeHostQuickJsJsonModuleNamespaceResolver,
+  createNativeQuickJsGameStepFactoryFunction,
   createNativeQuickJsJsonExportFunction,
   createNativeRuntimeModuleLoader,
+  callNativeQuickJsGameStepFactory,
+  callNativeQuickJsGameStepRun,
   callNativeQuickJsModuleExport,
   getNativeQuickJsNamespaceSummary,
   getNativeQuickJsPackageNamespaceSummary,
@@ -50,7 +54,9 @@ export {
 } from './runtime-module-loader'
 export type {
   NativeQuickJsModuleNamespaceResolver,
+  NativeQuickJsGameStepFactoryFunction,
   NativeQuickJsJsonExportFunction,
+  NativeQuickJsStepContextSerializer,
   NativeRuntimeModuleEvaluationContext,
   NativeRuntimeModuleEvaluator,
   NativeRuntimeModuleKind,

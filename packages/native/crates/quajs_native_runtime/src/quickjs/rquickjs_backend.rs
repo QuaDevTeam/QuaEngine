@@ -3,14 +3,17 @@ use std::ffi::CStr;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, OnceLock};
 
-use rquickjs::{Array, Context, Module, Object, Persistent, Runtime, Value};
+use rquickjs::{Array, Context, Function, Module, Object, Persistent, Runtime, Value};
 
 use super::{
-    validate_quickjs_evaluation_request, validate_quickjs_module_export_call_request,
+    validate_quickjs_evaluation_request, validate_quickjs_game_step_factory_call_request,
+    validate_quickjs_game_step_run_request, validate_quickjs_module_export_call_request,
     QuickJsEvaluationError, QuickJsEvaluationErrorCode, QuickJsEvaluationRequest,
-    QuickJsEvaluationResponse, QuickJsEvaluationResult, QuickJsModuleEvaluator,
-    QuickJsModuleExportCallRequest, QuickJsModuleExportCallResponse, QuickJsModuleExportCallResult,
-    QuickJsSandboxLimits,
+    QuickJsEvaluationResponse, QuickJsEvaluationResult, QuickJsGameStepDescriptor,
+    QuickJsGameStepFactoryCallRequest, QuickJsGameStepFactoryCallResponse,
+    QuickJsGameStepFactoryCallResult, QuickJsGameStepRunRequest, QuickJsGameStepRunResponse,
+    QuickJsGameStepRunResult, QuickJsModuleEvaluator, QuickJsModuleExportCallRequest,
+    QuickJsModuleExportCallResponse, QuickJsModuleExportCallResult, QuickJsSandboxLimits,
 };
 
 pub const RQUICKJS_BACKEND_VERSION: &str = "rquickjs-0.12.1";
@@ -32,9 +35,16 @@ pub fn quickjs_rquickjs_runtime_version() -> &'static str {
 
 pub struct RquickJsModuleEvaluator {
     namespaces: BTreeMap<String, Persistent<Object<'static>>>,
+    step_run_handles: BTreeMap<String, QuickJsStepRunHandle>,
     next_namespace_index: u64,
+    next_step_run_index: u64,
     context: Context,
     runtime: Runtime,
+}
+
+struct QuickJsStepRunHandle {
+    module_namespace_id: String,
+    function: Persistent<Function<'static>>,
 }
 
 impl RquickJsModuleEvaluator {
@@ -43,7 +53,9 @@ impl RquickJsModuleEvaluator {
         let context = Context::full(&runtime).map_err(backend_error)?;
         Ok(Self {
             namespaces: BTreeMap::new(),
+            step_run_handles: BTreeMap::new(),
             next_namespace_index: 0,
+            next_step_run_index: 0,
             context,
             runtime,
         })
@@ -55,6 +67,10 @@ impl RquickJsModuleEvaluator {
 
     pub fn namespace_count(&self) -> usize {
         self.namespaces.len()
+    }
+
+    pub fn step_run_handle_count(&self) -> usize {
+        self.step_run_handles.len()
     }
 
     fn apply_limits(&mut self, limits: &QuickJsSandboxLimits) {
@@ -80,6 +96,11 @@ impl RquickJsModuleEvaluator {
     fn next_namespace_id(&mut self) -> String {
         self.next_namespace_index = self.next_namespace_index.saturating_add(1);
         format!("quickjs:rquickjs:{}", self.next_namespace_index)
+    }
+
+    fn next_step_run_handle_id(&mut self) -> String {
+        self.next_step_run_index = self.next_step_run_index.saturating_add(1);
+        format!("quickjs:rquickjs:step:{}", self.next_step_run_index)
     }
 }
 
@@ -244,8 +265,202 @@ impl QuickJsModuleEvaluator for RquickJsModuleEvaluator {
         }
     }
 
+    fn call_game_step_factory(
+        &mut self,
+        request: &QuickJsGameStepFactoryCallRequest,
+    ) -> QuickJsGameStepFactoryCallResult {
+        validate_quickjs_game_step_factory_call_request(request)?;
+        let Some(namespace) = self.namespaces.get(&request.module_namespace_id).cloned() else {
+            return Err(QuickJsEvaluationError {
+                code: QuickJsEvaluationErrorCode::MissingModuleNamespace,
+                message: format!(
+                    "QuickJS module namespace \"{}\" is not registered.",
+                    request.module_namespace_id
+                ),
+                asset_name: None,
+                detail: None,
+            });
+        };
+
+        let result: Result<
+            Vec<(QuickJsGameStepDescriptor, Persistent<Function<'static>>)>,
+            QuickJsEvaluationError,
+        > = self.context.with(|ctx| {
+            let namespace = namespace.restore(&ctx).map_err(|error| {
+                call_error(
+                    QuickJsEvaluationErrorCode::EvaluationFailed,
+                    "QuickJS module namespace could not be restored.".to_string(),
+                    Some(error.to_string()),
+                )
+            })?;
+            let factory: Function = read_callable_export(
+                &namespace,
+                &request.module_namespace_id,
+                &request.export_name,
+            )?;
+            let steps_value: Value = factory
+                .call_arg(factory_args_from_scope_json(
+                    ctx.clone(),
+                    request.scope_json.as_deref(),
+                )?)
+                .map_err(|error| {
+                    call_error(
+                        QuickJsEvaluationErrorCode::EvaluationFailed,
+                        format!(
+                            "QuickJS GameStep factory export \"{}\" call failed.",
+                            request.export_name
+                        ),
+                        Some(error.to_string()),
+                    )
+                })?;
+            let steps_array = steps_value.into_array().ok_or_else(|| {
+                call_error(
+                    QuickJsEvaluationErrorCode::InvalidStepFactoryResult,
+                    "QuickJS GameStep factory must return a GameStep array.".to_string(),
+                    None,
+                )
+            })?;
+
+            let mut handles = Vec::new();
+            for index in 0..steps_array.len() {
+                let step_object: Object = steps_array.get(index).map_err(|error| {
+                    call_error(
+                        QuickJsEvaluationErrorCode::InvalidStepDescriptor,
+                        format!("QuickJS GameStep descriptor at index {index} is not an object."),
+                        Some(error.to_string()),
+                    )
+                })?;
+                let uuid: String = step_object.get("uuid").map_err(|error| {
+                    call_error(
+                        QuickJsEvaluationErrorCode::InvalidStepDescriptor,
+                        format!(
+                            "QuickJS GameStep descriptor at index {index} requires a string uuid."
+                        ),
+                        Some(error.to_string()),
+                    )
+                })?;
+                if uuid.trim().is_empty()
+                    || uuid.trim() != uuid
+                    || uuid.chars().any(char::is_control)
+                {
+                    return Err(call_error(
+                        QuickJsEvaluationErrorCode::InvalidStepDescriptor,
+                        format!(
+                            "QuickJS GameStep descriptor at index {index} has an invalid uuid."
+                        ),
+                        None,
+                    ));
+                }
+
+                let run_value: Value = step_object.get("run").map_err(|error| {
+                    call_error(
+                        QuickJsEvaluationErrorCode::InvalidStepDescriptor,
+                        format!("QuickJS GameStep descriptor \"{uuid}\" requires a run function."),
+                        Some(error.to_string()),
+                    )
+                })?;
+                let run_function = run_value.into_function().ok_or_else(|| {
+                    call_error(
+                        QuickJsEvaluationErrorCode::InvalidStepDescriptor,
+                        format!(
+                            "QuickJS GameStep descriptor \"{uuid}\" run property is not callable."
+                        ),
+                        None,
+                    )
+                })?;
+                let metadata_json = step_metadata_json(&ctx, &step_object)?;
+                let descriptor = QuickJsGameStepDescriptor {
+                    uuid,
+                    run_handle_id: String::new(),
+                    metadata_json,
+                };
+                handles.push((descriptor, Persistent::save(&ctx, run_function)));
+            }
+            Ok(handles)
+        });
+
+        match result {
+            Ok(handles) => {
+                let mut descriptors = Vec::with_capacity(handles.len());
+                for (mut descriptor, function) in handles {
+                    let run_handle_id = self.next_step_run_handle_id();
+                    descriptor.run_handle_id = run_handle_id.clone();
+                    self.step_run_handles.insert(
+                        run_handle_id,
+                        QuickJsStepRunHandle {
+                            module_namespace_id: request.module_namespace_id.clone(),
+                            function,
+                        },
+                    );
+                    descriptors.push(descriptor);
+                }
+                Ok(QuickJsGameStepFactoryCallResponse::success(descriptors))
+            }
+            Err(error) => Err(error),
+        }
+    }
+
+    fn call_game_step_run(
+        &mut self,
+        request: &QuickJsGameStepRunRequest,
+    ) -> QuickJsGameStepRunResult {
+        validate_quickjs_game_step_run_request(request)?;
+        let Some(handle) = self.step_run_handles.get(&request.run_handle_id) else {
+            return Err(QuickJsEvaluationError {
+                code: QuickJsEvaluationErrorCode::MissingRunHandle,
+                message: format!(
+                    "QuickJS GameStep run handle \"{}\" is not registered.",
+                    request.run_handle_id
+                ),
+                asset_name: None,
+                detail: None,
+            });
+        };
+        let function = handle.function.clone();
+
+        let result: Result<(), QuickJsEvaluationError> = self.context.with(|ctx| {
+            let function = function.restore(&ctx).map_err(|error| {
+                call_error(
+                    QuickJsEvaluationErrorCode::StepRunFailed,
+                    "QuickJS GameStep run function could not be restored.".to_string(),
+                    Some(error.to_string()),
+                )
+            })?;
+            let ctx_value = step_context_value(ctx.clone(), request.ctx_json.as_deref())?;
+            let value: Value = function
+                .call_arg(one_arg(ctx.clone(), ctx_value)?)
+                .map_err(|error| {
+                    call_error(
+                        QuickJsEvaluationErrorCode::StepRunFailed,
+                        format!(
+                            "QuickJS GameStep run handle \"{}\" call failed.",
+                            request.run_handle_id
+                        ),
+                        Some(error.to_string()),
+                    )
+                })?;
+            if let Some(promise) = value.as_promise() {
+                promise.finish::<()>().map_err(|error| {
+                    call_error(
+                        QuickJsEvaluationErrorCode::StepRunFailed,
+                        format!(
+                            "QuickJS GameStep run handle \"{}\" promise failed.",
+                            request.run_handle_id
+                        ),
+                        Some(error.to_string()),
+                    )
+                })?;
+            }
+            Ok(())
+        });
+
+        result.map(|_| QuickJsGameStepRunResponse::success())
+    }
+
     fn release_module_namespace(&mut self, module_namespace_id: &str) {
         self.namespaces.remove(module_namespace_id);
+        self.step_run_handles
+            .retain(|_, handle| handle.module_namespace_id != module_namespace_id);
     }
 }
 
@@ -285,6 +500,156 @@ fn args_from_json_array<'js>(
         })?;
     }
     Ok(args)
+}
+
+fn factory_args_from_scope_json<'js>(
+    ctx: rquickjs::Ctx<'js>,
+    scope_json: Option<&str>,
+) -> Result<rquickjs::function::Args<'js>, QuickJsEvaluationError> {
+    let mut args =
+        rquickjs::function::Args::new(ctx.clone(), if scope_json.is_some() { 1 } else { 0 });
+    if let Some(scope_json) = scope_json {
+        let value = ctx.json_parse(scope_json).map_err(|error| {
+            call_error(
+                QuickJsEvaluationErrorCode::InvalidScope,
+                "QuickJS GameStep factory scopeJson must be valid JSON.".to_string(),
+                Some(error.to_string()),
+            )
+        })?;
+        if !value.is_object() || value.is_array() {
+            return Err(call_error(
+                QuickJsEvaluationErrorCode::InvalidScope,
+                "QuickJS GameStep factory scopeJson must be a JSON object.".to_string(),
+                None,
+            ));
+        }
+        args.push_arg(value).map_err(|error| {
+            call_error(
+                QuickJsEvaluationErrorCode::InvalidScope,
+                "QuickJS GameStep factory scopeJson could not be passed to QuickJS.".to_string(),
+                Some(error.to_string()),
+            )
+        })?;
+    }
+    Ok(args)
+}
+
+fn step_context_value<'js>(
+    ctx: rquickjs::Ctx<'js>,
+    ctx_json: Option<&str>,
+) -> Result<Value<'js>, QuickJsEvaluationError> {
+    match ctx_json {
+        Some(ctx_json) => {
+            let value = ctx.json_parse(ctx_json).map_err(|error| {
+                call_error(
+                    QuickJsEvaluationErrorCode::InvalidStepContext,
+                    "QuickJS GameStep run ctxJson must be valid JSON.".to_string(),
+                    Some(error.to_string()),
+                )
+            })?;
+            if !value.is_object() || value.is_array() {
+                return Err(call_error(
+                    QuickJsEvaluationErrorCode::InvalidStepContext,
+                    "QuickJS GameStep run ctxJson must be a JSON object.".to_string(),
+                    None,
+                ));
+            }
+            Ok(value)
+        }
+        None => Object::new(ctx.clone())
+            .map(Value::from_object)
+            .map_err(|error| {
+                call_error(
+                    QuickJsEvaluationErrorCode::InvalidStepContext,
+                    "QuickJS GameStep run context object could not be created.".to_string(),
+                    Some(error.to_string()),
+                )
+            }),
+    }
+}
+
+fn one_arg<'js>(
+    ctx: rquickjs::Ctx<'js>,
+    value: Value<'js>,
+) -> Result<rquickjs::function::Args<'js>, QuickJsEvaluationError> {
+    let mut args = rquickjs::function::Args::new(ctx, 1);
+    args.push_arg(value).map_err(|error| {
+        call_error(
+            QuickJsEvaluationErrorCode::InvalidStepContext,
+            "QuickJS GameStep run context could not be passed.".to_string(),
+            Some(error.to_string()),
+        )
+    })?;
+    Ok(args)
+}
+
+fn read_callable_export<'js>(
+    namespace: &Object<'js>,
+    module_namespace_id: &str,
+    export_name: &str,
+) -> Result<Function<'js>, QuickJsEvaluationError> {
+    let export_value: Value = namespace.get(export_name).map_err(|error| {
+        call_error(
+            QuickJsEvaluationErrorCode::EvaluationFailed,
+            format!("QuickJS module export \"{export_name}\" could not be read."),
+            Some(error.to_string()),
+        )
+    })?;
+    if export_value.is_undefined() || export_value.is_null() {
+        return Err(call_error(
+            QuickJsEvaluationErrorCode::MissingExport,
+            format!("QuickJS module namespace \"{module_namespace_id}\" does not export \"{export_name}\"."),
+            None,
+        ));
+    }
+    export_value.into_function().ok_or_else(|| {
+        call_error(
+            QuickJsEvaluationErrorCode::ExportNotCallable,
+            format!("QuickJS module export \"{export_name}\" is not callable."),
+            None,
+        )
+    })
+}
+
+fn step_metadata_json<'js>(
+    ctx: &rquickjs::Ctx<'js>,
+    step_object: &Object<'js>,
+) -> Result<Option<String>, QuickJsEvaluationError> {
+    let metadata: Value = step_object.get("metadata").map_err(|error| {
+        call_error(
+            QuickJsEvaluationErrorCode::InvalidStepDescriptor,
+            "QuickJS GameStep metadata could not be read.".to_string(),
+            Some(error.to_string()),
+        )
+    })?;
+    if metadata.is_undefined() || metadata.is_null() {
+        return Ok(None);
+    }
+    let value = ctx
+        .json_stringify(metadata)
+        .map_err(|error| {
+            call_error(
+                QuickJsEvaluationErrorCode::InvalidStepDescriptor,
+                "QuickJS GameStep metadata could not be serialized to JSON.".to_string(),
+                Some(error.to_string()),
+            )
+        })?
+        .ok_or_else(|| {
+            call_error(
+                QuickJsEvaluationErrorCode::InvalidStepDescriptor,
+                "QuickJS GameStep metadata must be JSON-serializable.".to_string(),
+                None,
+            )
+        })?
+        .to_string()
+        .map_err(|error| {
+            call_error(
+                QuickJsEvaluationErrorCode::InvalidStepDescriptor,
+                "QuickJS GameStep metadata string could not be copied to Rust.".to_string(),
+                Some(error.to_string()),
+            )
+        })?;
+    Ok(Some(value))
 }
 
 fn call_error(
@@ -461,6 +826,105 @@ mod tests {
             .unwrap_err();
 
         assert_eq!(error.code, QuickJsEvaluationErrorCode::InvalidArguments);
+    }
+
+    #[test]
+    fn creates_game_step_descriptors_and_runs_step_handles() {
+        let mut evaluator = RquickJsModuleEvaluator::new().unwrap();
+        let response = evaluator
+            .evaluate_module(&request_for_code(
+                "scripts/opening.js",
+                r#"
+                let lastRun = null;
+                export default function opening(scope = {}) {
+                    return [{
+                        uuid: 'intro.1',
+                        metadata: { title: scope.title, point: { nodeId: 'intro' } },
+                        async run(ctx) {
+                            lastRun = { stepId: ctx.stepId, previousStepId: ctx.previousStepId };
+                        }
+                    }];
+                }
+                export function getLastRun() { return lastRun; }
+                "#,
+            ))
+            .unwrap();
+        let module_namespace_id = response.module_namespace_id.unwrap();
+
+        let factory = evaluator
+            .call_game_step_factory(&QuickJsGameStepFactoryCallRequest {
+                module_namespace_id: module_namespace_id.clone(),
+                export_name: "default".to_string(),
+                scope_json: Some("{\"title\":\"Opening\"}".to_string()),
+            })
+            .unwrap();
+        let steps = factory.steps.unwrap();
+
+        assert_eq!(steps.len(), 1);
+        assert_eq!(steps[0].uuid, "intro.1");
+        assert_eq!(
+            steps[0].metadata_json,
+            Some("{\"title\":\"Opening\",\"point\":{\"nodeId\":\"intro\"}}".to_string())
+        );
+        assert_eq!(evaluator.step_run_handle_count(), 1);
+
+        let run = evaluator
+            .call_game_step_run(&QuickJsGameStepRunRequest {
+                run_handle_id: steps[0].run_handle_id.clone(),
+                ctx_json: Some(
+                    "{\"stepId\":\"intro.1\",\"previousStepId\":\"intro.0\"}".to_string(),
+                ),
+            })
+            .unwrap();
+        assert!(run.ok);
+
+        let last_run = evaluator
+            .call_module_export(&QuickJsModuleExportCallRequest {
+                module_namespace_id,
+                export_name: "getLastRun".to_string(),
+                args_json: None,
+            })
+            .unwrap();
+        assert_eq!(
+            last_run.value_json,
+            Some("{\"stepId\":\"intro.1\",\"previousStepId\":\"intro.0\"}".to_string())
+        );
+    }
+
+    #[test]
+    fn releasing_namespace_drops_game_step_run_handles() {
+        let mut evaluator = RquickJsModuleEvaluator::new().unwrap();
+        let response = evaluator
+            .evaluate_module(&request_for_code(
+                "scripts/opening.js",
+                "export default function opening() { return [{ uuid: 'intro.1', run() {} }]; }",
+            ))
+            .unwrap();
+        let module_namespace_id = response.module_namespace_id.unwrap();
+        let steps = evaluator
+            .call_game_step_factory(&QuickJsGameStepFactoryCallRequest {
+                module_namespace_id: module_namespace_id.clone(),
+                export_name: "default".to_string(),
+                scope_json: None,
+            })
+            .unwrap()
+            .steps
+            .unwrap();
+
+        assert_eq!(steps.len(), 1);
+        assert_eq!(evaluator.step_run_handle_count(), 1);
+
+        evaluator.release_module_namespace(&module_namespace_id);
+
+        assert_eq!(evaluator.namespace_count(), 0);
+        assert_eq!(evaluator.step_run_handle_count(), 0);
+        let missing = evaluator
+            .call_game_step_run(&QuickJsGameStepRunRequest {
+                run_handle_id: steps[0].run_handle_id.clone(),
+                ctx_json: None,
+            })
+            .unwrap_err();
+        assert_eq!(missing.code, QuickJsEvaluationErrorCode::MissingRunHandle);
     }
 
     fn exported_string(

@@ -1,4 +1,6 @@
 import type {
+  GameStep,
+  StepContext,
   RuntimeLoadedMigrationModule,
   RuntimeLoadedPluginModule,
   RuntimeLoadedSceneModule,
@@ -13,6 +15,11 @@ import type {
 import type {
   NativeQuickJsEvaluationRequest,
   NativeQuickJsEvaluationResponse,
+  NativeQuickJsGameStepDescriptor,
+  NativeQuickJsGameStepFactoryCallRequest,
+  NativeQuickJsGameStepFactoryCallResponse,
+  NativeQuickJsGameStepRunRequest,
+  NativeQuickJsGameStepRunResponse,
   NativeQuickJsModuleExportCallRequest,
   NativeQuickJsModuleExportCallResponse,
   NativeQuickJsModuleNamespaceRecord,
@@ -24,6 +31,10 @@ import type {
 import {
   assertNativeQuickJsEvaluationResponse,
   assertNativeQuickJsEvaluationRequest,
+  assertNativeQuickJsGameStepFactoryCallResponse,
+  assertNativeQuickJsGameStepRunResponse,
+  createNativeQuickJsGameStepFactoryCallRequest,
+  createNativeQuickJsGameStepRunRequest,
   createNativeQuickJsModuleExportCallRequest,
   createNativeQuickJsEvaluationRequest,
   isForbiddenNativeAssetReference,
@@ -73,6 +84,7 @@ export type NativeRuntimeModuleEvaluator = (
 export interface NativeRuntimeModuleLoaderOptions {
   evaluator: NativeRuntimeModuleEvaluator
   limits?: Partial<NativeQuickJsSandboxLimits>
+  moduleKinds?: readonly NativeRuntimeModuleKind[]
 }
 
 export type NativeQuickJsModuleNamespaceResolver = (
@@ -82,6 +94,10 @@ export type NativeQuickJsModuleNamespaceResolver = (
 ) => unknown | Promise<unknown>
 
 export type NativeQuickJsJsonExportFunction = (...args: readonly unknown[]) => Promise<unknown>
+
+export type NativeQuickJsGameStepFactoryFunction = (scope?: unknown) => Promise<GameStep[]>
+
+export type NativeQuickJsStepContextSerializer = (ctx: StepContext) => Record<string, unknown> | undefined
 
 export function createNativeHostQuickJsModuleEvaluator(
   host: Pick<QuaNativeHostApi, 'evaluateQuickJsModule'>,
@@ -107,6 +123,28 @@ export async function callNativeQuickJsModuleExport(
   }
   const response: NativeQuickJsModuleExportCallResponse = await host.callQuickJsModuleExport(request)
   return parseNativeQuickJsModuleExportCallResponse(response)
+}
+
+export async function callNativeQuickJsGameStepFactory(
+  host: Pick<QuaNativeHostApi, 'callQuickJsGameStepFactory'>,
+  request: NativeQuickJsGameStepFactoryCallRequest,
+): Promise<NativeQuickJsGameStepDescriptor[]> {
+  if (!host.callQuickJsGameStepFactory) {
+    throw new Error('Native host does not provide QuickJS GameStep factory calls.')
+  }
+  const response: NativeQuickJsGameStepFactoryCallResponse = await host.callQuickJsGameStepFactory(request)
+  return assertNativeQuickJsGameStepFactoryCallResponse(response)
+}
+
+export async function callNativeQuickJsGameStepRun(
+  host: Pick<QuaNativeHostApi, 'callQuickJsGameStepRun'>,
+  request: NativeQuickJsGameStepRunRequest,
+): Promise<void> {
+  if (!host.callQuickJsGameStepRun) {
+    throw new Error('Native host does not provide QuickJS GameStep run calls.')
+  }
+  const response: NativeQuickJsGameStepRunResponse = await host.callQuickJsGameStepRun(request)
+  assertNativeQuickJsGameStepRunResponse(response)
 }
 
 export function createNativeQuickJsJsonExportFunction(
@@ -144,6 +182,81 @@ export function createNativeHostQuickJsJsonModuleNamespaceResolver(
   }
 }
 
+export interface CreateNativeHostQuickJsGameStepModuleNamespaceResolverOptions {
+  serializeStepContext?: NativeQuickJsStepContextSerializer
+}
+
+export function createNativeQuickJsGameStepFactoryFunction(
+  host: Pick<QuaNativeHostApi, 'callQuickJsGameStepFactory' | 'callQuickJsGameStepRun'>,
+  moduleNamespaceId: string,
+  exportName: string,
+  options: CreateNativeHostQuickJsGameStepModuleNamespaceResolverOptions = {},
+): NativeQuickJsGameStepFactoryFunction {
+  return async (scope?: unknown) => {
+    const descriptors = await callNativeQuickJsGameStepFactory(host, createNativeQuickJsGameStepFactoryCallRequest({
+      moduleNamespaceId,
+      exportName,
+      scope,
+    }))
+    return descriptors.map(descriptor => createNativeQuickJsGameStepProxy(host, descriptor, options))
+  }
+}
+
+export function createNativeHostQuickJsGameStepModuleNamespaceResolver(
+  host: Pick<QuaNativeHostApi, 'callQuickJsGameStepFactory' | 'callQuickJsGameStepRun'>,
+  options: CreateNativeHostQuickJsGameStepModuleNamespaceResolverOptions = {},
+): NativeQuickJsModuleNamespaceResolver {
+  return (moduleNamespaceId, ctx) => {
+    if (ctx.kind !== 'script') {
+      throw new Error(`Native QuickJS GameStep namespace resolver can only load script modules, not ${ctx.kind} modules.`)
+    }
+    return new Proxy(Object.create(null), {
+      get(_target, property) {
+        if (property === Symbol.toStringTag)
+          return 'NativeQuickJsGameStepModuleNamespace'
+        if (property === 'then')
+          return undefined
+        if (typeof property !== 'string')
+          return undefined
+        return createNativeQuickJsGameStepFactoryFunction(host, moduleNamespaceId, property, options)
+      },
+      has(_target, property) {
+        return typeof property === 'string' && property !== 'then'
+      },
+    })
+  }
+}
+
+function createNativeQuickJsGameStepProxy(
+  host: Pick<QuaNativeHostApi, 'callQuickJsGameStepRun'>,
+  descriptor: NativeQuickJsGameStepDescriptor,
+  options: CreateNativeHostQuickJsGameStepModuleNamespaceResolverOptions,
+): GameStep {
+  if (!descriptor.uuid || typeof descriptor.uuid !== 'string') {
+    throw new TypeError('Native QuickJS GameStep descriptor requires a uuid.')
+  }
+  if (!descriptor.runHandleId || typeof descriptor.runHandleId !== 'string') {
+    throw new TypeError(`Native QuickJS GameStep descriptor "${descriptor.uuid}" requires a runHandleId.`)
+  }
+  return {
+    uuid: descriptor.uuid,
+    ...(descriptor.metadataJson !== undefined ? { metadata: JSON.parse(descriptor.metadataJson) } : {}),
+    run: async (ctx) => {
+      await callNativeQuickJsGameStepRun(host, createNativeQuickJsGameStepRunRequest({
+        runHandleId: descriptor.runHandleId,
+        ctx: (options.serializeStepContext || defaultNativeQuickJsStepContextSerializer)(ctx),
+      }))
+    },
+  }
+}
+
+function defaultNativeQuickJsStepContextSerializer(ctx: StepContext): Record<string, unknown> {
+  return {
+    stepId: ctx.stepId,
+    ...(ctx.previousStepId ? { previousStepId: ctx.previousStepId } : {}),
+  }
+}
+
 export async function releaseNativeQuickJsModuleNamespace(
   host: Pick<QuaNativeHostApi, 'releaseQuickJsModuleNamespace'>,
   moduleNamespaceId: string,
@@ -172,6 +285,9 @@ export async function getNativeQuickJsPackageNamespaceSummary(
 }
 
 export function createNativeRuntimeModuleLoader(options: NativeRuntimeModuleLoaderOptions): RuntimeModuleLoader {
+  const enabledKinds = new Set<NativeRuntimeModuleKind>(
+    options.moduleKinds || ['script', 'scene', 'engine-plugin', 'store-migration'],
+  )
   const loadModule = async <TLoaded>(
     kind: NativeRuntimeModuleKind,
     record: NativeRuntimeModuleRecord,
@@ -207,10 +323,18 @@ export function createNativeRuntimeModuleLoader(options: NativeRuntimeModuleLoad
   }
 
   return {
-    loadEnginePluginModule: (record, ctx) => loadModule<RuntimeLoadedPluginModule>('engine-plugin', record, ctx),
-    loadSceneModule: (record, ctx) => loadModule<RuntimeLoadedSceneModule>('scene', record, ctx),
-    loadScriptModule: (record, ctx) => loadModule<RuntimeLoadedScriptModule>('script', record, ctx),
-    loadStoreMigrationModule: (record, ctx) => loadModule<RuntimeLoadedMigrationModule>('store-migration', record, ctx),
+    ...(enabledKinds.has('engine-plugin')
+      ? { loadEnginePluginModule: (record, ctx) => loadModule<RuntimeLoadedPluginModule>('engine-plugin', record, ctx) }
+      : {}),
+    ...(enabledKinds.has('scene')
+      ? { loadSceneModule: (record, ctx) => loadModule<RuntimeLoadedSceneModule>('scene', record, ctx) }
+      : {}),
+    ...(enabledKinds.has('script')
+      ? { loadScriptModule: (record, ctx) => loadModule<RuntimeLoadedScriptModule>('script', record, ctx) }
+      : {}),
+    ...(enabledKinds.has('store-migration')
+      ? { loadStoreMigrationModule: (record, ctx) => loadModule<RuntimeLoadedMigrationModule>('store-migration', record, ctx) }
+      : {}),
   }
 }
 

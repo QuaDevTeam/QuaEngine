@@ -117,6 +117,120 @@ fn unsupported_evaluator_returns_structured_export_call_error() {
 }
 
 #[test]
+fn game_step_factory_helper_validates_request_before_calling_backend() {
+    #[derive(Default)]
+    struct CountingEvaluator {
+        calls: usize,
+    }
+
+    impl QuickJsModuleEvaluator for CountingEvaluator {
+        fn evaluate_module(
+            &mut self,
+            _request: &QuickJsEvaluationRequest,
+        ) -> QuickJsEvaluationResult {
+            Ok(QuickJsEvaluationResponse::success("unused"))
+        }
+
+        fn call_game_step_factory(
+            &mut self,
+            _request: &QuickJsGameStepFactoryCallRequest,
+        ) -> QuickJsGameStepFactoryCallResult {
+            self.calls += 1;
+            Ok(QuickJsGameStepFactoryCallResponse::success(Vec::new()))
+        }
+    }
+
+    let mut evaluator = CountingEvaluator::default();
+    let response = call_quickjs_game_step_factory(
+        &mut evaluator,
+        &QuickJsGameStepFactoryCallRequest {
+            module_namespace_id: "quickjs:rquickjs:1".to_string(),
+            export_name: "default".to_string(),
+            scope_json: Some("[]".to_string()),
+        },
+    );
+
+    assert!(!response.ok);
+    assert_eq!(evaluator.calls, 0);
+    assert_eq!(
+        response.error.unwrap().code,
+        QuickJsEvaluationErrorCode::InvalidScope
+    );
+}
+
+#[test]
+fn game_step_run_helper_validates_request_before_calling_backend() {
+    #[derive(Default)]
+    struct CountingEvaluator {
+        calls: usize,
+    }
+
+    impl QuickJsModuleEvaluator for CountingEvaluator {
+        fn evaluate_module(
+            &mut self,
+            _request: &QuickJsEvaluationRequest,
+        ) -> QuickJsEvaluationResult {
+            Ok(QuickJsEvaluationResponse::success("unused"))
+        }
+
+        fn call_game_step_run(
+            &mut self,
+            _request: &QuickJsGameStepRunRequest,
+        ) -> QuickJsGameStepRunResult {
+            self.calls += 1;
+            Ok(QuickJsGameStepRunResponse::success())
+        }
+    }
+
+    let mut evaluator = CountingEvaluator::default();
+    let response = call_quickjs_game_step_run(
+        &mut evaluator,
+        &QuickJsGameStepRunRequest {
+            run_handle_id: "quickjs:rquickjs:step:1".to_string(),
+            ctx_json: Some("null".to_string()),
+        },
+    );
+
+    assert!(!response.ok);
+    assert_eq!(evaluator.calls, 0);
+    assert_eq!(
+        response.error.unwrap().code,
+        QuickJsEvaluationErrorCode::InvalidStepContext
+    );
+}
+
+#[test]
+fn unsupported_evaluator_returns_structured_game_step_errors() {
+    let mut evaluator = UnsupportedQuickJsModuleEvaluator;
+    let factory = call_quickjs_game_step_factory(
+        &mut evaluator,
+        &QuickJsGameStepFactoryCallRequest {
+            module_namespace_id: "quickjs:rquickjs:1".to_string(),
+            export_name: "default".to_string(),
+            scope_json: None,
+        },
+    );
+    let run = call_quickjs_game_step_run(
+        &mut evaluator,
+        &QuickJsGameStepRunRequest {
+            run_handle_id: "quickjs:rquickjs:step:1".to_string(),
+            ctx_json: None,
+        },
+    );
+
+    assert!(!factory.ok);
+    assert_eq!(
+        factory.error.unwrap().code,
+        QuickJsEvaluationErrorCode::UnsupportedRuntime
+    );
+    assert!(!run.ok);
+    assert_eq!(
+        run.error.unwrap().code,
+        QuickJsEvaluationErrorCode::UnsupportedRuntime
+    );
+}
+
+#[test]
 fn evaluator_helper_returns_backend_success_response() {
     struct NamespaceEvaluator;
 

@@ -1,6 +1,6 @@
 use super::{
     QuickJsEvaluationError, QuickJsEvaluationErrorCode, QuickJsEvaluationRequest,
-    QuickJsModuleExportCallRequest,
+    QuickJsGameStepFactoryCallRequest, QuickJsGameStepRunRequest, QuickJsModuleExportCallRequest,
 };
 
 pub fn validate_quickjs_evaluation_request(
@@ -113,6 +113,62 @@ pub fn validate_quickjs_module_export_call_request(
     Ok(())
 }
 
+pub fn validate_quickjs_game_step_factory_call_request(
+    request: &QuickJsGameStepFactoryCallRequest,
+) -> Result<(), QuickJsEvaluationError> {
+    validate_quickjs_handle(
+        &request.module_namespace_id,
+        QuickJsEvaluationErrorCode::MissingModuleNamespace,
+        "QuickJS GameStep factory call requires a moduleNamespaceId.",
+        "QuickJS GameStep factory call moduleNamespaceId must be an opaque native namespace handle.",
+    )?;
+    validate_quickjs_handle(
+        &request.export_name,
+        QuickJsEvaluationErrorCode::MissingExportName,
+        "QuickJS GameStep factory call requires an exportName.",
+        "QuickJS GameStep factory call exportName must be a safe JavaScript export name.",
+    )?;
+    if matches!(
+        request.export_name.as_str(),
+        "__proto__" | "prototype" | "constructor"
+    ) {
+        return Err(QuickJsEvaluationError {
+            code: QuickJsEvaluationErrorCode::MissingExport,
+            message: format!(
+                "QuickJS GameStep factory export \"{}\" is not callable through the native bridge.",
+                request.export_name
+            ),
+            asset_name: None,
+            detail: Some(
+                "Prototype-related export names are blocked at the native bridge.".to_string(),
+            ),
+        });
+    }
+    validate_optional_json_object(
+        request.scope_json.as_deref(),
+        QuickJsEvaluationErrorCode::InvalidScope,
+        "QuickJS GameStep factory scopeJson must be a JSON object when provided.",
+    )?;
+    Ok(())
+}
+
+pub fn validate_quickjs_game_step_run_request(
+    request: &QuickJsGameStepRunRequest,
+) -> Result<(), QuickJsEvaluationError> {
+    validate_quickjs_handle(
+        &request.run_handle_id,
+        QuickJsEvaluationErrorCode::MissingRunHandle,
+        "QuickJS GameStep run requires a runHandleId.",
+        "QuickJS GameStep runHandleId must be an opaque native run handle.",
+    )?;
+    validate_optional_json_object(
+        request.ctx_json.as_deref(),
+        QuickJsEvaluationErrorCode::InvalidStepContext,
+        "QuickJS GameStep run ctxJson must be a JSON object when provided.",
+    )?;
+    Ok(())
+}
+
 fn validate_quickjs_handle(
     value: &str,
     empty_code: QuickJsEvaluationErrorCode,
@@ -137,6 +193,25 @@ fn validate_quickjs_handle(
                     .to_string(),
             ),
         });
+    }
+    Ok(())
+}
+
+fn validate_optional_json_object(
+    json: Option<&str>,
+    code: QuickJsEvaluationErrorCode,
+    message: &str,
+) -> Result<(), QuickJsEvaluationError> {
+    if let Some(json) = json {
+        let trimmed = json.trim();
+        if trimmed.is_empty() || !trimmed.starts_with('{') {
+            return Err(QuickJsEvaluationError {
+                code,
+                message: message.to_string(),
+                asset_name: None,
+                detail: None,
+            });
+        }
     }
     Ok(())
 }
