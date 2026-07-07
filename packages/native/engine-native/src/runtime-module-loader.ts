@@ -21,6 +21,7 @@ import type {
   NativeQuickJsGameStepFactoryCallResponse,
   NativeQuickJsGameStepRunRequest,
   NativeQuickJsGameStepRunResponse,
+  NativeQuickJsGameStepResumeRequest,
   NativeQuickJsModuleExportCallRequest,
   NativeQuickJsModuleExportCallResponse,
   NativeQuickJsModuleNamespaceRecord,
@@ -36,6 +37,7 @@ import {
   assertNativeQuickJsGameStepFactoryCallResponse,
   assertNativeQuickJsGameStepRunResponse,
   createNativeQuickJsGameStepFactoryCallRequest,
+  createNativeQuickJsGameStepResumeRequest,
   createNativeQuickJsGameStepRunRequest,
   createNativeQuickJsModuleExportCallRequest,
   createNativeQuickJsEvaluationRequest,
@@ -146,11 +148,22 @@ export async function callNativeQuickJsGameStepFactory(
 export async function callNativeQuickJsGameStepRun(
   host: Pick<QuaNativeHostApi, 'callQuickJsGameStepRun'>,
   request: NativeQuickJsGameStepRunRequest,
-): Promise<NativeQuickJsGameStepCommand[]> {
+): Promise<NativeQuickJsGameStepRunResponse> {
   if (!host.callQuickJsGameStepRun) {
     throw new Error('Native host does not provide QuickJS GameStep run calls.')
   }
   const response: NativeQuickJsGameStepRunResponse = await host.callQuickJsGameStepRun(request)
+  return assertNativeQuickJsGameStepRunResponse(response)
+}
+
+export async function callNativeQuickJsGameStepResume(
+  host: Pick<QuaNativeHostApi, 'resumeQuickJsGameStepRun'>,
+  request: NativeQuickJsGameStepResumeRequest,
+): Promise<NativeQuickJsGameStepRunResponse> {
+  if (!host.resumeQuickJsGameStepRun) {
+    throw new Error('Native host does not provide QuickJS GameStep continuation resume calls.')
+  }
+  const response: NativeQuickJsGameStepRunResponse = await host.resumeQuickJsGameStepRun(request)
   return assertNativeQuickJsGameStepRunResponse(response)
 }
 
@@ -195,7 +208,7 @@ export interface CreateNativeHostQuickJsGameStepModuleNamespaceResolverOptions {
 }
 
 export function createNativeQuickJsGameStepFactoryFunction(
-  host: Pick<QuaNativeHostApi, 'callQuickJsGameStepFactory' | 'callQuickJsGameStepRun'>,
+  host: Pick<QuaNativeHostApi, 'callQuickJsGameStepFactory' | 'callQuickJsGameStepRun' | 'resumeQuickJsGameStepRun'>,
   moduleNamespaceId: string,
   exportName: string,
   options: CreateNativeHostQuickJsGameStepModuleNamespaceResolverOptions = {},
@@ -211,7 +224,7 @@ export function createNativeQuickJsGameStepFactoryFunction(
 }
 
 export function createNativeHostQuickJsGameStepModuleNamespaceResolver(
-  host: Pick<QuaNativeHostApi, 'callQuickJsGameStepFactory' | 'callQuickJsGameStepRun'>,
+  host: Pick<QuaNativeHostApi, 'callQuickJsGameStepFactory' | 'callQuickJsGameStepRun' | 'resumeQuickJsGameStepRun'>,
   options: CreateNativeHostQuickJsGameStepModuleNamespaceResolverOptions = {},
 ): NativeQuickJsModuleNamespaceResolver {
   return (moduleNamespaceId, ctx) => {
@@ -236,7 +249,7 @@ export function createNativeHostQuickJsGameStepModuleNamespaceResolver(
 }
 
 function createNativeQuickJsGameStepProxy(
-  host: Pick<QuaNativeHostApi, 'callQuickJsGameStepRun'>,
+  host: Pick<QuaNativeHostApi, 'callQuickJsGameStepRun' | 'resumeQuickJsGameStepRun'>,
   descriptor: NativeQuickJsGameStepDescriptor,
   options: CreateNativeHostQuickJsGameStepModuleNamespaceResolverOptions,
 ): GameStep {
@@ -250,13 +263,23 @@ function createNativeQuickJsGameStepProxy(
     uuid: descriptor.uuid,
     ...(descriptor.metadataJson !== undefined ? { metadata: JSON.parse(descriptor.metadataJson) } : {}),
     run: async (ctx) => {
-      const commands = await callNativeQuickJsGameStepRun(host, createNativeQuickJsGameStepRunRequest({
+      let response = await callNativeQuickJsGameStepRun(host, createNativeQuickJsGameStepRunRequest({
         runHandleId: descriptor.runHandleId,
         ctx: (options.serializeStepContext || defaultNativeQuickJsStepContextSerializer)(ctx),
       }))
       const executeStepCommand = options.executeStepCommand || executeNativeQuickJsGameStepCommand
-      for (const command of commands) {
-        await executeStepCommand(ctx, command)
+      while (true) {
+        for (const command of response.commands || []) {
+          await executeStepCommand(ctx, command)
+        }
+        if (!response.pendingWait) {
+          return
+        }
+        const payload = await ctx.engine.waitFor(response.pendingWait.event as never)
+        response = await callNativeQuickJsGameStepResume(host, createNativeQuickJsGameStepResumeRequest({
+          resumeHandleId: response.pendingWait.resumeHandleId,
+          payload,
+        }))
       }
     },
   }

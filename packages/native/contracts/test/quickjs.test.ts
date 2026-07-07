@@ -6,10 +6,12 @@ import {
   assertNativeQuickJsGameStepRunResponse,
   assertNativeQuickJsGameStepFactoryCallResponse,
   assertNativeQuickJsGameStepFactoryCallRequest,
+  assertNativeQuickJsGameStepResumeRequest,
   assertNativeQuickJsGameStepRunRequest,
   assertNativeQuickJsModuleExportCallRequest,
   createNativeQuickJsEvaluationRequest,
   createNativeQuickJsGameStepFactoryCallRequest,
+  createNativeQuickJsGameStepResumeRequest,
   createNativeQuickJsGameStepRunRequest,
   createNativeQuickJsModuleExportCallRequest,
   parseNativeQuickJsModuleExportCallResponse,
@@ -237,6 +239,14 @@ describe('native QuickJS contracts', () => {
       ctxJson: '{"stepId":"intro.1"}',
     })
 
+    expect(createNativeQuickJsGameStepResumeRequest({
+      resumeHandleId: 'quickjs:rquickjs:resume:1',
+      payload: { choiceId: 'go' },
+    })).toEqual({
+      resumeHandleId: 'quickjs:rquickjs:resume:1',
+      payloadJson: '{"choiceId":"go"}',
+    })
+
     expect(() => assertNativeQuickJsGameStepFactoryCallRequest({
       moduleNamespaceId: 'quickjs:rquickjs:1',
       exportName: 'constructor',
@@ -258,6 +268,16 @@ describe('native QuickJS contracts', () => {
       runHandleId: 'quickjs:rquickjs:step:1',
       ctxJson: 'null',
     })).toThrow(/JSON object/)
+
+    expect(() => assertNativeQuickJsGameStepResumeRequest({
+      resumeHandleId: ' quickjs:rquickjs:resume:1',
+      payloadJson: '{}',
+    })).toThrow(/resumeHandleId/)
+
+    expect(() => assertNativeQuickJsGameStepResumeRequest({
+      resumeHandleId: 'quickjs:rquickjs:resume:1',
+      payloadJson: '{',
+    })).toThrow(/JSON/)
   })
 
   it('unwraps GameStep factory and run responses', () => {
@@ -285,19 +305,33 @@ describe('native QuickJS contracts', () => {
     expect(() => assertNativeQuickJsGameStepFactoryCallResponse({ ok: true }))
       .toThrow(/without step descriptors/)
 
-    expect(assertNativeQuickJsGameStepRunResponse({ ok: true })).toEqual([])
+    expect(assertNativeQuickJsGameStepRunResponse({ ok: true })).toEqual({
+      ok: true,
+      commands: [],
+    })
     expect(assertNativeQuickJsGameStepRunResponse({
+      ok: true,
+      commands: [{
+        target: 'engine',
+        method: 'showChoices',
+          argsJson: '[[{"id":"go","text":"Go"}]]',
+      }],
+      pendingWait: {
+        resumeHandleId: 'quickjs:rquickjs:resume:1',
+        event: 'user/choice_select',
+      },
+    })).toEqual({
       ok: true,
       commands: [{
         target: 'engine',
         method: 'showChoices',
         argsJson: '[[{"id":"go","text":"Go"}]]',
       }],
-    })).toEqual([{
-      target: 'engine',
-      method: 'showChoices',
-      argsJson: '[[{"id":"go","text":"Go"}]]',
-    }])
+      pendingWait: {
+        resumeHandleId: 'quickjs:rquickjs:resume:1',
+        event: 'user/choice_select',
+      },
+    })
     expect(() => assertNativeQuickJsGameStepRunResponse({
       ok: false,
       error: {

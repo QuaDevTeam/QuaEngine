@@ -6,7 +6,7 @@ use std::sync::{Arc, OnceLock};
 use rquickjs::{
     loader::{ImportAttributes, Loader, Resolver},
     module::Declared,
-    Array, Context, Ctx, Error, Function, Module, Object, Persistent, Runtime, Value,
+    Array, Context, Ctx, Error, Function, Module, Object, Persistent, Promise, Runtime, Value,
 };
 
 use super::{
@@ -16,9 +16,10 @@ use super::{
     QuickJsEvaluationResponse, QuickJsEvaluationResult, QuickJsGameStepCommand,
     QuickJsGameStepDescriptor, QuickJsGameStepFactoryCallRequest,
     QuickJsGameStepFactoryCallResponse, QuickJsGameStepFactoryCallResult,
-    QuickJsGameStepRunRequest, QuickJsGameStepRunResponse, QuickJsGameStepRunResult,
-    QuickJsModuleEvaluator, QuickJsModuleExportCallRequest, QuickJsModuleExportCallResponse,
-    QuickJsModuleExportCallResult, QuickJsSandboxLimits,
+    QuickJsGameStepResumeRequest, QuickJsGameStepRunRequest, QuickJsGameStepRunResponse,
+    QuickJsGameStepRunResult, QuickJsGameStepWaitRequest, QuickJsModuleEvaluator,
+    QuickJsModuleExportCallRequest, QuickJsModuleExportCallResponse, QuickJsModuleExportCallResult,
+    QuickJsSandboxLimits,
 };
 
 pub const RQUICKJS_BACKEND_VERSION: &str = "rquickjs-0.12.1";
@@ -57,7 +58,7 @@ const NATIVE_QUICKJS_GAME_STEP_ENGINE_COMMAND_METHODS: &[&str] = &[
 ];
 
 const NATIVE_QUICKJS_STEP_CONTEXT_BRIDGE_SOURCE: &str = r#"
-((ctx, commands, unsupportedState, methods) => {
+((ctx, commands, unsupportedState, waitState, methods) => {
   const engine = Object.create(null);
   const serializeArgs = (method, args) => JSON.stringify(args, (_key, value) => {
     if (typeof value === 'function' || typeof value === 'symbol' || typeof value === 'undefined') {
@@ -76,15 +77,54 @@ const NATIVE_QUICKJS_STEP_CONTEXT_BRIDGE_SOURCE: &str = r#"
     unsupportedState.name = name;
     throw new Error(`Native QuickJS StepContext ${name} requires a native continuation bridge.`);
   };
+  const assertWaitEvent = event => {
+    if (typeof event !== 'string' || event.trim() !== event || event.length === 0 || event.length > 256 || /[\u0000-\u001F\u007F]/.test(event)) {
+      throw new TypeError('Native QuickJS StepContext engine.waitFor requires a safe pipeline event name.');
+    }
+  };
+  const waitFor = (event, matcher) => {
+    assertWaitEvent(event);
+    if (matcher !== undefined && typeof matcher !== 'function') {
+      throw new TypeError('Native QuickJS StepContext engine.waitFor matcher must be a function when provided.');
+    }
+    if (waitState.active) {
+      throw new Error('Native QuickJS StepContext can only suspend one engine.waitFor at a time.');
+    }
+    waitState.active = true;
+    waitState.event = event;
+    waitState.matcher = matcher;
+    return new Promise(resolve => {
+      waitState.resolve = resolve;
+    });
+  };
   for (const method of methods) {
     Object.defineProperty(engine, method, { value: record(method), enumerable: true });
   }
-  Object.defineProperty(engine, 'waitFor', { value: unsupported('engine.waitFor'), enumerable: true });
+  Object.defineProperty(engine, 'waitFor', { value: waitFor, enumerable: true });
   Object.freeze(engine);
   Object.defineProperty(ctx, 'engine', { value: engine, enumerable: true, configurable: true });
   Object.defineProperty(ctx, 'pipeline', { value: Object.freeze(Object.create(null)), enumerable: true, configurable: true });
   Object.defineProperty(ctx, 't', { value: unsupported('t'), enumerable: true, configurable: true });
   return ctx;
+})
+"#;
+
+const NATIVE_QUICKJS_STEP_WAIT_RESUME_SOURCE: &str = r#"
+((waitState, payload) => {
+  if (!waitState.active) {
+    return { accepted: false };
+  }
+  const matcher = waitState.matcher;
+  if (typeof matcher === 'function' && matcher(payload) !== true) {
+    return { accepted: false, event: waitState.event };
+  }
+  const resolve = waitState.resolve;
+  waitState.active = false;
+  waitState.event = undefined;
+  waitState.matcher = undefined;
+  waitState.resolve = undefined;
+  resolve(payload);
+  return { accepted: true };
 })
 "#;
 
@@ -308,8 +348,10 @@ pub fn quickjs_rquickjs_runtime_version() -> &'static str {
 pub struct RquickJsModuleEvaluator {
     namespaces: BTreeMap<String, Persistent<Object<'static>>>,
     step_run_handles: BTreeMap<String, QuickJsStepRunHandle>,
+    step_resume_handles: BTreeMap<String, QuickJsStepResumeHandle>,
     next_namespace_index: u64,
     next_step_run_index: u64,
+    next_step_resume_index: u64,
     context: Context,
     runtime: Runtime,
 }
@@ -317,6 +359,39 @@ pub struct RquickJsModuleEvaluator {
 struct QuickJsStepRunHandle {
     module_namespace_id: String,
     function: Persistent<Function<'static>>,
+}
+
+struct QuickJsStepResumeHandle {
+    module_namespace_id: String,
+    promise: Persistent<Promise<'static>>,
+    commands: Persistent<Array<'static>>,
+    wait_state: Persistent<Object<'static>>,
+    unsupported_state: Persistent<Object<'static>>,
+    last_command_index: usize,
+}
+
+struct QuickJsPendingStepRun {
+    commands: Vec<QuickJsGameStepCommand>,
+    pending_wait: QuickJsGameStepWaitRequest,
+    promise: Persistent<Promise<'static>>,
+    commands_array: Persistent<Array<'static>>,
+    wait_state: Persistent<Object<'static>>,
+    unsupported_state: Persistent<Object<'static>>,
+    last_command_index: usize,
+}
+
+enum QuickJsStepRunBoundary {
+    Complete(Vec<QuickJsGameStepCommand>),
+    Pending(QuickJsPendingStepRun),
+}
+
+enum QuickJsStepResumeBoundary {
+    Complete(Vec<QuickJsGameStepCommand>),
+    Pending {
+        commands: Vec<QuickJsGameStepCommand>,
+        pending_wait: QuickJsGameStepWaitRequest,
+        last_command_index: usize,
+    },
 }
 
 impl RquickJsModuleEvaluator {
@@ -330,8 +405,10 @@ impl RquickJsModuleEvaluator {
         Ok(Self {
             namespaces: BTreeMap::new(),
             step_run_handles: BTreeMap::new(),
+            step_resume_handles: BTreeMap::new(),
             next_namespace_index: 0,
             next_step_run_index: 0,
+            next_step_resume_index: 0,
             context,
             runtime,
         })
@@ -347,6 +424,10 @@ impl RquickJsModuleEvaluator {
 
     pub fn step_run_handle_count(&self) -> usize {
         self.step_run_handles.len()
+    }
+
+    pub fn step_resume_handle_count(&self) -> usize {
+        self.step_resume_handles.len()
     }
 
     fn apply_limits(&mut self, limits: &QuickJsSandboxLimits) {
@@ -377,6 +458,11 @@ impl RquickJsModuleEvaluator {
     fn next_step_run_handle_id(&mut self) -> String {
         self.next_step_run_index = self.next_step_run_index.saturating_add(1);
         format!("quickjs:rquickjs:step:{}", self.next_step_run_index)
+    }
+
+    fn next_step_resume_handle_id(&mut self) -> String {
+        self.next_step_resume_index = self.next_step_resume_index.saturating_add(1);
+        format!("quickjs:rquickjs:resume:{}", self.next_step_resume_index)
     }
 }
 
@@ -693,8 +779,10 @@ impl QuickJsModuleEvaluator for RquickJsModuleEvaluator {
             });
         };
         let function = handle.function.clone();
+        let module_namespace_id = handle.module_namespace_id.clone();
+        let resume_handle_id = self.next_step_resume_handle_id();
 
-        let result: Result<Vec<QuickJsGameStepCommand>, QuickJsEvaluationError> =
+        let result: Result<QuickJsStepRunBoundary, QuickJsEvaluationError> =
             self.context.with(|ctx| {
                 let function = function.restore(&ctx).map_err(|error| {
                     call_error(
@@ -719,11 +807,19 @@ impl QuickJsModuleEvaluator for RquickJsModuleEvaluator {
                         Some(error.to_string()),
                     )
                 })?;
+                let wait_state = Object::new(ctx.clone()).map_err(|error| {
+                    call_error(
+                        QuickJsEvaluationErrorCode::InvalidStepContext,
+                        "QuickJS GameStep wait state could not be created.".to_string(),
+                        Some(error.to_string()),
+                    )
+                })?;
                 install_step_context_bridge(
                     ctx.clone(),
                     &ctx_object,
                     &commands,
                     &unsupported_state,
+                    &wait_state,
                 )?;
                 let value: Value = function
                     .call_arg(one_arg(ctx.clone(), Value::from_object(ctx_object))?)
@@ -738,26 +834,236 @@ impl QuickJsModuleEvaluator for RquickJsModuleEvaluator {
                         )
                     })?;
                 if let Some(promise) = value.as_promise() {
-                    promise.finish::<()>().map_err(|error| {
+                    match promise.finish::<()>() {
+                        Ok(()) => {
+                            return Ok(QuickJsStepRunBoundary::Complete(
+                                step_commands_from_array(ctx.clone(), &commands)?,
+                            ));
+                        }
+                        Err(Error::WouldBlock) => {
+                            let last_command_index = commands.len();
+                            let pending_wait =
+                                pending_wait_from_state(&wait_state, &resume_handle_id)?;
+                            return Ok(QuickJsStepRunBoundary::Pending(QuickJsPendingStepRun {
+                                commands: step_commands_from_array_range(
+                                    ctx.clone(),
+                                    &commands,
+                                    0,
+                                )?,
+                                pending_wait,
+                                promise: Persistent::save(&ctx, promise.clone()),
+                                commands_array: Persistent::save(&ctx, commands.clone()),
+                                wait_state: Persistent::save(&ctx, wait_state),
+                                unsupported_state: Persistent::save(&ctx, unsupported_state),
+                                last_command_index,
+                            }));
+                        }
+                        Err(error) => {
+                            return Err(step_run_error_from_unsupported_state(
+                                &unsupported_state,
+                                format!(
+                                    "QuickJS GameStep run handle \"{}\" promise failed.",
+                                    request.run_handle_id
+                                ),
+                                Some(error.to_string()),
+                            ));
+                        }
+                    }
+                }
+                if wait_state_is_active(&wait_state)? {
+                    return Err(call_error(
+                        QuickJsEvaluationErrorCode::StepRunFailed,
+                        format!(
+                            "QuickJS GameStep run handle \"{}\" returned while engine.waitFor is pending.",
+                            request.run_handle_id
+                        ),
+                        Some(
+                            "GameStep run functions must await or return the engine.waitFor promise."
+                                .to_string(),
+                        ),
+                    ));
+                }
+                Ok(QuickJsStepRunBoundary::Complete(step_commands_from_array(
+                    ctx.clone(),
+                    &commands,
+                )?))
+            });
+
+        match result {
+            Ok(QuickJsStepRunBoundary::Complete(commands)) => {
+                Ok(QuickJsGameStepRunResponse::success(commands))
+            }
+            Ok(QuickJsStepRunBoundary::Pending(pending)) => {
+                self.step_resume_handles.insert(
+                    pending.pending_wait.resume_handle_id.clone(),
+                    QuickJsStepResumeHandle {
+                        module_namespace_id,
+                        promise: pending.promise,
+                        commands: pending.commands_array,
+                        wait_state: pending.wait_state,
+                        unsupported_state: pending.unsupported_state,
+                        last_command_index: pending.last_command_index,
+                    },
+                );
+                Ok(QuickJsGameStepRunResponse::pending(
+                    pending.commands,
+                    pending.pending_wait,
+                ))
+            }
+            Err(error) => Err(error),
+        }
+    }
+
+    fn resume_game_step_run(
+        &mut self,
+        request: &QuickJsGameStepResumeRequest,
+    ) -> QuickJsGameStepRunResult {
+        super::validate_quickjs_game_step_resume_request(request)?;
+        let resume_handle_id = request.resume_handle_id.clone();
+        let Some(mut handle) = self.step_resume_handles.remove(&resume_handle_id) else {
+            return Err(QuickJsEvaluationError {
+                code: QuickJsEvaluationErrorCode::MissingResumeHandle,
+                message: format!(
+                    "QuickJS GameStep resume handle \"{}\" is not registered.",
+                    request.resume_handle_id
+                ),
+                asset_name: None,
+                detail: None,
+            });
+        };
+
+        let result: Result<QuickJsStepResumeBoundary, QuickJsEvaluationError> =
+            self.context.with(|ctx| {
+                let promise = handle.promise.clone().restore(&ctx).map_err(|error| {
+                    call_error(
+                        QuickJsEvaluationErrorCode::StepRunFailed,
+                        "QuickJS GameStep pending promise could not be restored.".to_string(),
+                        Some(error.to_string()),
+                    )
+                })?;
+                let commands = handle.commands.clone().restore(&ctx).map_err(|error| {
+                    call_error(
+                        QuickJsEvaluationErrorCode::StepRunFailed,
+                        "QuickJS GameStep command array could not be restored.".to_string(),
+                        Some(error.to_string()),
+                    )
+                })?;
+                let wait_state = handle.wait_state.clone().restore(&ctx).map_err(|error| {
+                    call_error(
+                        QuickJsEvaluationErrorCode::StepRunFailed,
+                        "QuickJS GameStep wait state could not be restored.".to_string(),
+                        Some(error.to_string()),
+                    )
+                })?;
+                let unsupported_state =
+                    handle
+                        .unsupported_state
+                        .clone()
+                        .restore(&ctx)
+                        .map_err(|error| {
+                            call_error(
+                            QuickJsEvaluationErrorCode::StepRunFailed,
+                            "QuickJS GameStep unsupported-command marker could not be restored."
+                                .to_string(),
+                            Some(error.to_string()),
+                        )
+                        })?;
+                let payload = resume_payload_value(ctx.clone(), request.payload_json.as_deref())?;
+                let resume_wait: Function = ctx
+                    .eval(NATIVE_QUICKJS_STEP_WAIT_RESUME_SOURCE)
+                    .map_err(|error| {
+                        call_error(
+                            QuickJsEvaluationErrorCode::StepRunFailed,
+                            "QuickJS StepContext wait resume script could not be compiled."
+                                .to_string(),
+                            Some(error.to_string()),
+                        )
+                    })?;
+                let resume_result: Object = resume_wait
+                    .call_arg(two_args(ctx.clone(), wait_state.clone(), payload)?)
+                    .map_err(|error| {
                         step_run_error_from_unsupported_state(
                             &unsupported_state,
                             format!(
-                                "QuickJS GameStep run handle \"{}\" promise failed.",
-                                request.run_handle_id
+                                "QuickJS GameStep resume handle \"{}\" failed.",
+                                request.resume_handle_id
                             ),
                             Some(error.to_string()),
                         )
                     })?;
+                let accepted: bool = resume_result.get("accepted").map_err(|error| {
+                    call_error(
+                        QuickJsEvaluationErrorCode::StepRunFailed,
+                        "QuickJS GameStep wait resume result did not include accepted.".to_string(),
+                        Some(error.to_string()),
+                    )
+                })?;
+                if !accepted {
+                    let last_command_index = commands.len();
+                    return Ok(QuickJsStepResumeBoundary::Pending {
+                        commands: step_commands_from_array_range(
+                            ctx.clone(),
+                            &commands,
+                            handle.last_command_index,
+                        )?,
+                        pending_wait: pending_wait_from_state(&wait_state, &resume_handle_id)?,
+                        last_command_index,
+                    });
                 }
-                step_commands_from_array(ctx.clone(), &commands)
+
+                match promise.finish::<()>() {
+                    Ok(()) => Ok(QuickJsStepResumeBoundary::Complete(
+                        step_commands_from_array_range(
+                            ctx.clone(),
+                            &commands,
+                            handle.last_command_index,
+                        )?,
+                    )),
+                    Err(Error::WouldBlock) => {
+                        let last_command_index = commands.len();
+                        Ok(QuickJsStepResumeBoundary::Pending {
+                            commands: step_commands_from_array_range(
+                                ctx.clone(),
+                                &commands,
+                                handle.last_command_index,
+                            )?,
+                            pending_wait: pending_wait_from_state(&wait_state, &resume_handle_id)?,
+                            last_command_index,
+                        })
+                    }
+                    Err(error) => Err(step_run_error_from_unsupported_state(
+                        &unsupported_state,
+                        format!(
+                            "QuickJS GameStep resume handle \"{}\" promise failed.",
+                            request.resume_handle_id
+                        ),
+                        Some(error.to_string()),
+                    )),
+                }
             });
 
-        result.map(QuickJsGameStepRunResponse::success)
+        match result {
+            Ok(QuickJsStepResumeBoundary::Complete(commands)) => {
+                Ok(QuickJsGameStepRunResponse::success(commands))
+            }
+            Ok(QuickJsStepResumeBoundary::Pending {
+                commands,
+                pending_wait,
+                last_command_index,
+            }) => {
+                handle.last_command_index = last_command_index;
+                self.step_resume_handles.insert(resume_handle_id, handle);
+                Ok(QuickJsGameStepRunResponse::pending(commands, pending_wait))
+            }
+            Err(error) => Err(error),
+        }
     }
 
     fn release_module_namespace(&mut self, module_namespace_id: &str) {
         self.namespaces.remove(module_namespace_id);
         self.step_run_handles
+            .retain(|_, handle| handle.module_namespace_id != module_namespace_id);
+        self.step_resume_handles
             .retain(|_, handle| handle.module_namespace_id != module_namespace_id);
     }
 }
@@ -875,6 +1181,7 @@ fn install_step_context_bridge<'js>(
     ctx_object: &Object<'js>,
     commands: &Array<'js>,
     unsupported_state: &Object<'js>,
+    wait_state: &Object<'js>,
 ) -> Result<(), QuickJsEvaluationError> {
     let install: Function = ctx
         .eval(NATIVE_QUICKJS_STEP_CONTEXT_BRIDGE_SOURCE)
@@ -887,11 +1194,12 @@ fn install_step_context_bridge<'js>(
         })?;
     let methods = step_engine_command_methods_array(ctx.clone())?;
     let _: Value = install
-        .call_arg(four_args(
+        .call_arg(five_args(
             ctx,
             ctx_object.clone(),
             commands.clone(),
             unsupported_state.clone(),
+            wait_state.clone(),
             methods,
         )?)
         .map_err(|error| {
@@ -934,8 +1242,16 @@ fn step_commands_from_array<'js>(
     ctx: rquickjs::Ctx<'js>,
     commands: &Array<'js>,
 ) -> Result<Vec<QuickJsGameStepCommand>, QuickJsEvaluationError> {
+    step_commands_from_array_range(ctx, commands, 0)
+}
+
+fn step_commands_from_array_range<'js>(
+    ctx: rquickjs::Ctx<'js>,
+    commands: &Array<'js>,
+    start_index: usize,
+) -> Result<Vec<QuickJsGameStepCommand>, QuickJsEvaluationError> {
     let mut output = Vec::with_capacity(commands.len());
-    for index in 0..commands.len() {
+    for index in start_index..commands.len() {
         let command: Object = commands.get(index).map_err(|error| {
             call_error(
                 QuickJsEvaluationErrorCode::InvalidStepContext,
@@ -1013,6 +1329,66 @@ fn step_commands_from_array<'js>(
     Ok(output)
 }
 
+fn wait_state_is_active(wait_state: &Object<'_>) -> Result<bool, QuickJsEvaluationError> {
+    let active: Value = wait_state.get("active").map_err(|error| {
+        call_error(
+            QuickJsEvaluationErrorCode::InvalidStepContext,
+            "QuickJS GameStep wait state active flag could not be read.".to_string(),
+            Some(error.to_string()),
+        )
+    })?;
+    if active.is_undefined() || active.is_null() {
+        return Ok(false);
+    }
+    wait_state.get("active").map_err(|error| {
+        call_error(
+            QuickJsEvaluationErrorCode::InvalidStepContext,
+            "QuickJS GameStep wait state active flag must be a boolean.".to_string(),
+            Some(error.to_string()),
+        )
+    })
+}
+
+fn pending_wait_from_state(
+    wait_state: &Object<'_>,
+    resume_handle_id: &str,
+) -> Result<QuickJsGameStepWaitRequest, QuickJsEvaluationError> {
+    if !wait_state_is_active(wait_state)? {
+        return Err(call_error(
+            QuickJsEvaluationErrorCode::InvalidWaitEvent,
+            "QuickJS GameStep promise blocked without an active engine.waitFor.".to_string(),
+            Some(
+                "Native QuickJS can only suspend GameStep runs at ctx.engine.waitFor.".to_string(),
+            ),
+        ));
+    }
+    let event: String = wait_state.get("event").map_err(|error| {
+        call_error(
+            QuickJsEvaluationErrorCode::InvalidWaitEvent,
+            "QuickJS GameStep wait state requires a pipeline event name.".to_string(),
+            Some(error.to_string()),
+        )
+    })?;
+    if !is_safe_quickjs_bridge_text(&event) {
+        return Err(call_error(
+            QuickJsEvaluationErrorCode::InvalidWaitEvent,
+            "QuickJS GameStep wait event name is invalid.".to_string(),
+            Some("Wait event names must be trimmed, non-empty, control-character-free, and at most 256 bytes.".to_string()),
+        ));
+    }
+    Ok(QuickJsGameStepWaitRequest {
+        resume_handle_id: resume_handle_id.to_string(),
+        event,
+    })
+}
+
+fn is_safe_quickjs_bridge_text(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= 256
+        && value.trim() == value
+        && !value.chars().any(char::is_control)
+}
+
 fn is_allowed_step_engine_command_method(method: &str) -> bool {
     NATIVE_QUICKJS_GAME_STEP_ENGINE_COMMAND_METHODS
         .iter()
@@ -1034,14 +1410,15 @@ fn one_arg<'js>(
     Ok(args)
 }
 
-fn four_args<'js>(
+fn five_args<'js>(
     ctx: rquickjs::Ctx<'js>,
     first: Object<'js>,
     second: Array<'js>,
     third: Object<'js>,
-    fourth: Array<'js>,
+    fourth: Object<'js>,
+    fifth: Array<'js>,
 ) -> Result<rquickjs::function::Args<'js>, QuickJsEvaluationError> {
-    let mut args = rquickjs::function::Args::new(ctx, 4);
+    let mut args = rquickjs::function::Args::new(ctx, 5);
     args.push_arg(first).map_err(|error| {
         call_error(
             QuickJsEvaluationErrorCode::InvalidStepContext,
@@ -1067,12 +1444,58 @@ fn four_args<'js>(
     args.push_arg(fourth).map_err(|error| {
         call_error(
             QuickJsEvaluationErrorCode::InvalidStepContext,
+            "QuickJS StepContext wait state could not be passed to bridge script.".to_string(),
+            Some(error.to_string()),
+        )
+    })?;
+    args.push_arg(fifth).map_err(|error| {
+        call_error(
+            QuickJsEvaluationErrorCode::InvalidStepContext,
             "QuickJS StepContext engine command methods could not be passed to bridge script."
                 .to_string(),
             Some(error.to_string()),
         )
     })?;
     Ok(args)
+}
+
+fn two_args<'js>(
+    ctx: rquickjs::Ctx<'js>,
+    first: Object<'js>,
+    second: Value<'js>,
+) -> Result<rquickjs::function::Args<'js>, QuickJsEvaluationError> {
+    let mut args = rquickjs::function::Args::new(ctx, 2);
+    args.push_arg(first).map_err(|error| {
+        call_error(
+            QuickJsEvaluationErrorCode::StepRunFailed,
+            "QuickJS StepContext wait state could not be passed to resume script.".to_string(),
+            Some(error.to_string()),
+        )
+    })?;
+    args.push_arg(second).map_err(|error| {
+        call_error(
+            QuickJsEvaluationErrorCode::InvalidResumePayload,
+            "QuickJS GameStep resume payload could not be passed to QuickJS.".to_string(),
+            Some(error.to_string()),
+        )
+    })?;
+    Ok(args)
+}
+
+fn resume_payload_value<'js>(
+    ctx: rquickjs::Ctx<'js>,
+    payload_json: Option<&str>,
+) -> Result<Value<'js>, QuickJsEvaluationError> {
+    match payload_json {
+        Some(payload_json) => ctx.json_parse(payload_json).map_err(|error| {
+            call_error(
+                QuickJsEvaluationErrorCode::InvalidResumePayload,
+                "QuickJS GameStep resume payloadJson must be valid JSON.".to_string(),
+                Some(error.to_string()),
+            )
+        }),
+        None => Ok(Value::new_undefined(ctx)),
+    }
 }
 
 fn read_callable_export<'js>(
@@ -1287,7 +1710,7 @@ mod tests {
     }
 
     #[test]
-    fn builtin_character_helpers_keep_wait_for_as_explicit_gap() {
+    fn builtin_character_helpers_suspend_on_wait_for() {
         let mut evaluator = RquickJsModuleEvaluator::new().unwrap();
         let response = evaluator
             .evaluate_module(&request_for_code(
@@ -1317,22 +1740,20 @@ mod tests {
             .steps
             .unwrap();
 
-        let error = evaluator
+        let run = evaluator
             .call_game_step_run(&QuickJsGameStepRunRequest {
                 run_handle_id: steps[0].run_handle_id.clone(),
                 ctx_json: Some("{\"stepId\":\"intro.narrate\"}".to_string()),
             })
-            .unwrap_err();
+            .unwrap();
 
-        assert_eq!(
-            error.code,
-            QuickJsEvaluationErrorCode::UnsupportedStepContextCommand
-        );
-        assert!(error
-            .detail
-            .as_deref()
-            .unwrap_or_default()
-            .contains("requires a native continuation bridge"));
+        assert!(run.ok);
+        assert_eq!(run.commands.unwrap()[0].method, "showDialogue");
+        let pending = run.pending_wait.unwrap();
+        assert_eq!(pending.event, "user/advance");
+        assert!(pending
+            .resume_handle_id
+            .starts_with("quickjs:rquickjs:resume:"));
     }
 
     #[test]
@@ -1622,27 +2043,31 @@ mod tests {
     }
 
     #[test]
-    fn game_step_wait_for_requires_continuation_bridge() {
+    fn game_step_wait_for_suspends_and_resumes_same_promise() {
         let mut evaluator = RquickJsModuleEvaluator::new().unwrap();
         let response = evaluator
             .evaluate_module(&request_for_code(
                 "scripts/opening.js",
                 r#"
+                let selected = null;
                 export default function opening() {
                     return [{
                         uuid: 'intro.wait',
                         async run(ctx) {
-                            await ctx.engine.waitFor('user/choice_select');
+                            await ctx.engine.showChoices([{ id: 'go', text: 'Go' }]);
+                            selected = await ctx.engine.waitFor('user/choice_select', payload => payload.choiceId === 'go');
+                            await ctx.engine.clearChoices();
                         }
                     }];
                 }
+                export function getSelected() { return selected; }
                 "#,
             ))
             .unwrap();
         let module_namespace_id = response.module_namespace_id.unwrap();
         let steps = evaluator
             .call_game_step_factory(&QuickJsGameStepFactoryCallRequest {
-                module_namespace_id,
+                module_namespace_id: module_namespace_id.clone(),
                 export_name: "default".to_string(),
                 scope_json: None,
             })
@@ -1650,22 +2075,63 @@ mod tests {
             .steps
             .unwrap();
 
-        let error = evaluator
+        let pending_run = evaluator
             .call_game_step_run(&QuickJsGameStepRunRequest {
                 run_handle_id: steps[0].run_handle_id.clone(),
                 ctx_json: Some("{\"stepId\":\"intro.wait\"}".to_string()),
             })
-            .unwrap_err();
+            .unwrap();
 
+        assert_eq!(pending_run.commands.as_ref().unwrap().len(), 1);
         assert_eq!(
-            error.code,
-            QuickJsEvaluationErrorCode::UnsupportedStepContextCommand
+            pending_run.commands.as_ref().unwrap()[0].method,
+            "showChoices"
         );
-        assert!(error
-            .detail
-            .as_deref()
-            .unwrap_or_default()
-            .contains("requires a native continuation bridge"));
+        let pending_wait = pending_run.pending_wait.unwrap();
+        assert_eq!(pending_wait.event, "user/choice_select");
+        assert_eq!(evaluator.step_resume_handle_count(), 1);
+
+        let still_pending = evaluator
+            .resume_game_step_run(&QuickJsGameStepResumeRequest {
+                resume_handle_id: pending_wait.resume_handle_id.clone(),
+                payload_json: Some("{\"choiceId\":\"stay\"}".to_string()),
+            })
+            .unwrap();
+
+        assert!(still_pending.commands.unwrap().is_empty());
+        assert_eq!(
+            still_pending
+                .pending_wait
+                .as_ref()
+                .unwrap()
+                .resume_handle_id,
+            pending_wait.resume_handle_id.as_str()
+        );
+        assert_eq!(evaluator.step_resume_handle_count(), 1);
+
+        let completed = evaluator
+            .resume_game_step_run(&QuickJsGameStepResumeRequest {
+                resume_handle_id: pending_wait.resume_handle_id.clone(),
+                payload_json: Some("{\"choiceId\":\"go\"}".to_string()),
+            })
+            .unwrap();
+
+        assert!(completed.pending_wait.is_none());
+        let commands = completed.commands.unwrap();
+        assert_eq!(commands.len(), 1);
+        assert_eq!(commands[0].method, "clearChoices");
+        assert_eq!(evaluator.step_resume_handle_count(), 0);
+        let selected = evaluator
+            .call_module_export(&QuickJsModuleExportCallRequest {
+                module_namespace_id,
+                export_name: "getSelected".to_string(),
+                args_json: None,
+            })
+            .unwrap();
+        assert_eq!(
+            selected.value_json,
+            Some("{\"choiceId\":\"go\"}".to_string())
+        );
     }
 
     #[test]
@@ -1695,6 +2161,7 @@ mod tests {
 
         assert_eq!(evaluator.namespace_count(), 0);
         assert_eq!(evaluator.step_run_handle_count(), 0);
+        assert_eq!(evaluator.step_resume_handle_count(), 0);
         let missing = evaluator
             .call_game_step_run(&QuickJsGameStepRunRequest {
                 run_handle_id: steps[0].run_handle_id.clone(),

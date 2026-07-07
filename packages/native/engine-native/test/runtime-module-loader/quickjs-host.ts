@@ -213,6 +213,10 @@ describe('@quajs/engine-native runtime module loader QuickJS host bridge', () =>
           argsJson: '[]',
         }],
       })),
+      resumeQuickJsGameStepRun: vi.fn(async () => ({
+        ok: true,
+        commands: [],
+      })),
     }
 
     const factory = createNativeQuickJsGameStepFactoryFunction(host, 'quickjs:rquickjs:1', 'default')
@@ -253,6 +257,76 @@ describe('@quajs/engine-native runtime module loader QuickJS host bridge', () =>
     expect(clearChoices).toHaveBeenCalledWith()
   })
 
+  it('resumes native QuickJS GameSteps through real engine waits', async () => {
+    const host = {
+      ...createHost(),
+      callQuickJsGameStepFactory: vi.fn(async request => ({
+        ok: true,
+        steps: [{
+          uuid: 'intro.wait',
+          runHandleId: `${request.moduleNamespaceId}:run:wait`,
+        }],
+      })),
+      callQuickJsGameStepRun: vi.fn(async () => ({
+        ok: true,
+        commands: [{
+          target: 'engine' as const,
+          method: 'showChoices' as const,
+          argsJson: '[[{"id":"go","text":"Go"}]]',
+        }],
+        pendingWait: {
+          resumeHandleId: 'quickjs:rquickjs:resume:1',
+          event: 'user/choice_select',
+        },
+      })),
+      resumeQuickJsGameStepRun: vi.fn(async request => request.payloadJson === '{"choiceId":"retry"}'
+        ? {
+            ok: true,
+            pendingWait: {
+              resumeHandleId: request.resumeHandleId,
+              event: 'user/choice_select',
+            },
+          }
+        : {
+            ok: true,
+            commands: [{
+              target: 'engine' as const,
+              method: 'clearChoices' as const,
+              argsJson: '[]',
+            }],
+          }),
+    }
+    const factory = createNativeQuickJsGameStepFactoryFunction(host, 'quickjs:rquickjs:1', 'default')
+    const [step] = await factory()
+    const showChoices = vi.fn(async () => {})
+    const clearChoices = vi.fn(async () => {})
+    const waitFor = vi.fn()
+      .mockResolvedValueOnce({ choiceId: 'retry' })
+      .mockResolvedValueOnce({ choiceId: 'go' })
+
+    await step.run({
+      stepId: 'intro.wait',
+      engine: {
+        showChoices,
+        clearChoices,
+        waitFor,
+      },
+    } as any)
+
+    expect(showChoices).toHaveBeenCalledWith([{ id: 'go', text: 'Go' }])
+    expect(waitFor).toHaveBeenCalledTimes(2)
+    expect(waitFor).toHaveBeenNthCalledWith(1, 'user/choice_select')
+    expect(host.resumeQuickJsGameStepRun).toHaveBeenNthCalledWith(1, {
+      resumeHandleId: 'quickjs:rquickjs:resume:1',
+      payloadJson: '{"choiceId":"retry"}',
+    })
+    expect(host.resumeQuickJsGameStepRun).toHaveBeenNthCalledWith(2, {
+      resumeHandleId: 'quickjs:rquickjs:resume:1',
+      payloadJson: '{"choiceId":"go"}',
+    })
+    expect(clearChoices).toHaveBeenCalledTimes(1)
+  })
+
   it('rejects unsupported native QuickJS GameStep commands before dispatching to engine', async () => {
     await expect(executeNativeQuickJsGameStepCommand({
       stepId: 'intro.1',
@@ -286,6 +360,9 @@ describe('@quajs/engine-native runtime module loader QuickJS host bridge', () =>
       callQuickJsGameStepRun: vi.fn(async () => ({
         ok: true,
       })),
+      resumeQuickJsGameStepRun: vi.fn(async () => ({
+        ok: true,
+      })),
     }
     const adapters = createNativeRuntimeAdapters(host)
 
@@ -314,6 +391,7 @@ describe('@quajs/engine-native runtime module loader QuickJS host bridge', () =>
     const resolver = createNativeHostQuickJsGameStepModuleNamespaceResolver({
       callQuickJsGameStepFactory: vi.fn(),
       callQuickJsGameStepRun: vi.fn(),
+      resumeQuickJsGameStepRun: vi.fn(),
     })
 
     expect(() => resolver('quickjs:rquickjs:1', {

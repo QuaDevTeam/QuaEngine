@@ -10,9 +10,10 @@ use crate::quickjs::{
     QuickJsEvaluationResponse, QuickJsEvaluationResult, QuickJsGameStepCommand,
     QuickJsGameStepDescriptor, QuickJsGameStepFactoryCallRequest,
     QuickJsGameStepFactoryCallResponse, QuickJsGameStepFactoryCallResult,
-    QuickJsGameStepRunRequest, QuickJsGameStepRunResponse, QuickJsGameStepRunResult,
-    QuickJsModuleEvaluator, QuickJsModuleExportCallRequest, QuickJsModuleExportCallResponse,
-    QuickJsModuleExportCallResult, QuickJsModuleNamespaceRegistry, QuickJsModuleNamespaceSummary,
+    QuickJsGameStepResumeRequest, QuickJsGameStepRunRequest, QuickJsGameStepRunResponse,
+    QuickJsGameStepRunResult, QuickJsModuleEvaluator, QuickJsModuleExportCallRequest,
+    QuickJsModuleExportCallResponse, QuickJsModuleExportCallResult, QuickJsModuleNamespaceRegistry,
+    QuickJsModuleNamespaceSummary,
 };
 
 use super::helpers::{host_info, quickjs_request_for_asset};
@@ -191,6 +192,20 @@ fn dispatches_quickjs_game_step_calls_through_injected_evaluator() {
                 },
             ]))
         }
+
+        fn resume_game_step_run(
+            &mut self,
+            _request: &QuickJsGameStepResumeRequest,
+        ) -> QuickJsGameStepRunResult {
+            self.run_calls += 1;
+            Ok(QuickJsGameStepRunResponse::success(vec![
+                QuickJsGameStepCommand {
+                    target: "engine".to_string(),
+                    method: "clearChoices".to_string(),
+                    args_json: Some("[]".to_string()),
+                },
+            ]))
+        }
     }
 
     let mut host = InMemoryNativeHostApi::new(host_info());
@@ -235,7 +250,24 @@ fn dispatches_quickjs_game_step_calls_through_injected_evaluator() {
         }
         payload => panic!("expected quickjs GameStep run payload, got {payload:?}"),
     }
-    assert_eq!(quickjs.run_calls, 1);
+
+    let resume = dispatch_native_host_api_request_with_quickjs(
+        &mut host,
+        &mut quickjs,
+        NativeHostApiRequest::ResumeQuickJsGameStepRun(QuickJsGameStepResumeRequest {
+            resume_handle_id: "quickjs:rquickjs:resume:1".to_string(),
+            payload_json: Some("{\"choiceId\":\"go\"}".to_string()),
+        }),
+    );
+
+    match resume.payload.unwrap() {
+        NativeHostApiResponsePayload::QuickJsGameStepRun(call) => {
+            assert!(call.ok);
+            assert_eq!(call.commands.unwrap()[0].method, "clearChoices");
+        }
+        payload => panic!("expected quickjs GameStep resume payload, got {payload:?}"),
+    }
+    assert_eq!(quickjs.run_calls, 2);
 }
 
 #[test]

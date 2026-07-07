@@ -101,6 +101,10 @@ fn serializes_game_step_factory_and_run_requests_and_responses() {
         run_handle_id: "quickjs:rquickjs:step:1".to_string(),
         ctx_json: Some("{\"stepId\":\"intro.1\"}".to_string()),
     };
+    let resume_request = QuickJsGameStepResumeRequest {
+        resume_handle_id: "quickjs:rquickjs:resume:1".to_string(),
+        payload_json: Some("{\"choiceId\":\"go\"}".to_string()),
+    };
     let run_error = QuickJsGameStepRunResponse::error(QuickJsEvaluationError {
         code: QuickJsEvaluationErrorCode::MissingRunHandle,
         message: "Missing run handle.".to_string(),
@@ -112,11 +116,20 @@ fn serializes_game_step_factory_and_run_requests_and_responses() {
         method: "showChoices".to_string(),
         args_json: Some("[[{\"id\":\"go\",\"text\":\"Go\"}]]".to_string()),
     }]);
+    let pending_run = QuickJsGameStepRunResponse::pending(
+        Vec::new(),
+        QuickJsGameStepWaitRequest {
+            resume_handle_id: "quickjs:rquickjs:resume:1".to_string(),
+            event: "user/choice_select".to_string(),
+        },
+    );
 
     let factory_request_json = serde_json::to_value(factory_request).unwrap();
     let factory_success_json = serde_json::to_value(factory_success).unwrap();
     let run_success_json = serde_json::to_value(run_success).unwrap();
+    let pending_run_json = serde_json::to_value(pending_run).unwrap();
     let run_request_json = serde_json::to_value(run_request).unwrap();
+    let resume_request_json = serde_json::to_value(resume_request).unwrap();
     let run_error_json = serde_json::to_value(run_error).unwrap();
 
     assert_eq!(
@@ -137,12 +150,27 @@ fn serializes_game_step_factory_and_run_requests_and_responses() {
     );
     assert_eq!(run_request_json["runHandleId"], "quickjs:rquickjs:step:1");
     assert_eq!(run_request_json["ctxJson"], "{\"stepId\":\"intro.1\"}");
+    assert_eq!(
+        resume_request_json["resumeHandleId"],
+        "quickjs:rquickjs:resume:1"
+    );
+    assert_eq!(resume_request_json["payloadJson"], "{\"choiceId\":\"go\"}");
     assert_eq!(run_success_json["ok"], true);
     assert_eq!(run_success_json["commands"][0]["target"], "engine");
     assert_eq!(run_success_json["commands"][0]["method"], "showChoices");
     assert_eq!(
         run_success_json["commands"][0]["argsJson"],
         "[[{\"id\":\"go\",\"text\":\"Go\"}]]"
+    );
+    assert_eq!(pending_run_json["ok"], true);
+    assert_eq!(pending_run_json["commands"], serde_json::json!([]));
+    assert_eq!(
+        pending_run_json["pendingWait"]["resumeHandleId"],
+        "quickjs:rquickjs:resume:1"
+    );
+    assert_eq!(
+        pending_run_json["pendingWait"]["event"],
+        "user/choice_select"
     );
     assert_eq!(run_error_json["ok"], false);
     assert_eq!(run_error_json["error"]["code"], "missingRunHandle");

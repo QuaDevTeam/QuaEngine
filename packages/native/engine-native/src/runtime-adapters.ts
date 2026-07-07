@@ -42,7 +42,7 @@ export interface NativeRuntimeAdaptersOptions {
 
 export function createNativeRuntimeAdapters(host: QuaNativeHostApi, options: NativeRuntimeAdaptersOptions = {}): NativeRuntimeAdapters {
   const moduleNamespaceResolver = options.moduleNamespaceResolver
-    || (host.evaluateQuickJsModule && host.callQuickJsGameStepFactory && host.callQuickJsGameStepRun
+    || (host.evaluateQuickJsModule && host.callQuickJsGameStepFactory && host.callQuickJsGameStepRun && host.resumeQuickJsGameStepRun
       ? createNativeHostQuickJsGameStepModuleNamespaceResolver(host, {
           serializeStepContext: options.quickJsStepContextSerializer,
         })

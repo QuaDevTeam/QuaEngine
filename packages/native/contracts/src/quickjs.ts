@@ -110,9 +110,20 @@ export interface NativeQuickJsGameStepRunRequest {
   ctxJson?: string
 }
 
+export interface NativeQuickJsGameStepWaitRequest {
+  resumeHandleId: string
+  event: string
+}
+
+export interface NativeQuickJsGameStepResumeRequest {
+  resumeHandleId: string
+  payloadJson?: string
+}
+
 export interface NativeQuickJsGameStepRunResponse {
   ok: boolean
   commands?: NativeQuickJsGameStepCommand[]
+  pendingWait?: NativeQuickJsGameStepWaitRequest
   error?: NativeQuickJsEvaluationError
 }
 
@@ -159,6 +170,9 @@ export type NativeQuickJsEvaluationErrorCode
     | 'invalidStepFactoryResult'
     | 'invalidStepDescriptor'
     | 'missingRunHandle'
+    | 'missingResumeHandle'
+    | 'invalidWaitEvent'
+    | 'invalidResumePayload'
     | 'stepRunFailed'
     | 'unsupportedStepContextCommand'
     | 'unsupportedReturnValue'
@@ -261,18 +275,22 @@ export function assertNativeQuickJsGameStepFactoryCallResponse(
 
 export function assertNativeQuickJsGameStepRunResponse(
   response: NativeQuickJsGameStepRunResponse,
-): NativeQuickJsGameStepCommand[] {
+): NativeQuickJsGameStepRunResponse {
   if (!response.ok) {
     throw new Error(response.error?.message || 'Native QuickJS GameStep run failed.')
   }
-  if (response.commands === undefined) {
-    return []
-  }
-  if (!Array.isArray(response.commands)) {
+  const commands = response.commands || []
+  if (!Array.isArray(commands)) {
     throw new Error('Native QuickJS GameStep run commands must be an array.')
   }
-  response.commands.forEach(assertNativeQuickJsGameStepCommand)
-  return response.commands
+  commands.forEach(assertNativeQuickJsGameStepCommand)
+  if (response.pendingWait !== undefined) {
+    assertNativeQuickJsGameStepWaitRequest(response.pendingWait)
+  }
+  return {
+    ...response,
+    commands,
+  }
 }
 
 export function createNativeQuickJsModuleExportCallRequest(input: {
@@ -317,6 +335,19 @@ export function createNativeQuickJsGameStepRunRequest(input: {
   return request
 }
 
+export function createNativeQuickJsGameStepResumeRequest(input: {
+  resumeHandleId: string
+  payload?: unknown
+}): NativeQuickJsGameStepResumeRequest {
+  const payloadJson = stringifyOptionalJsonValue(input.payload, 'Native QuickJS GameStep resume payload')
+  const request = {
+    resumeHandleId: input.resumeHandleId,
+    ...(payloadJson !== undefined ? { payloadJson } : {}),
+  }
+  assertNativeQuickJsGameStepResumeRequest(request)
+  return request
+}
+
 export function assertNativeQuickJsModuleExportCallRequest(
   request: NativeQuickJsModuleExportCallRequest,
 ): void {
@@ -357,6 +388,22 @@ export function assertNativeQuickJsGameStepRunRequest(
 ): void {
   assertSafeQuickJsBridgeHandle(request.runHandleId, 'Native QuickJS GameStep run requires a safe runHandleId.')
   assertOptionalJsonObject(request.ctxJson, 'Native QuickJS GameStep run ctxJson')
+}
+
+export function assertNativeQuickJsGameStepResumeRequest(
+  request: NativeQuickJsGameStepResumeRequest,
+): void {
+  assertSafeQuickJsBridgeHandle(request.resumeHandleId, 'Native QuickJS GameStep resume requires a safe resumeHandleId.')
+  assertOptionalJsonValue(request.payloadJson, 'Native QuickJS GameStep resume payloadJson')
+}
+
+export function assertNativeQuickJsGameStepWaitRequest(
+  request: NativeQuickJsGameStepWaitRequest,
+): void {
+  assertSafeQuickJsBridgeHandle(request.resumeHandleId, 'Native QuickJS GameStep pending wait requires a safe resumeHandleId.')
+  if (!isSafeQuickJsBridgeText(request.event)) {
+    throw new Error('Native QuickJS GameStep pending wait requires a safe event name.')
+  }
 }
 
 export function assertNativeQuickJsGameStepCommand(
@@ -480,6 +527,10 @@ function collectQuickJsModuleByteLimitErrors(
 }
 
 function isSafeQuickJsBridgeHandle(value: string): boolean {
+  return isSafeQuickJsBridgeText(value)
+}
+
+function isSafeQuickJsBridgeText(value: string): boolean {
   return value.trim() === value
     && value.length > 0
     && value.length <= 256
@@ -500,6 +551,17 @@ function stringifyOptionalJsonObject(value: unknown, label: string): string | un
     throw new Error(`${label} must be JSON-serializable.`)
   }
   assertOptionalJsonObject(json, `${label} JSON`)
+  return json
+}
+
+function stringifyOptionalJsonValue(value: unknown, label: string): string | undefined {
+  if (value === undefined)
+    return undefined
+  const json = JSON.stringify(value)
+  if (json === undefined) {
+    throw new Error(`${label} must be JSON-serializable.`)
+  }
+  assertOptionalJsonValue(json, `${label} JSON`)
   return json
 }
 
@@ -527,6 +589,16 @@ function assertOptionalJsonArray(json: string | undefined, label: string): void 
   if (!Array.isArray(parsed)) {
     throw new Error(`${label} must be a JSON array.`)
   }
+}
+
+function assertOptionalJsonValue(json: string | undefined, label: string): void {
+  if (json === undefined)
+    return
+  const trimmed = json.trim()
+  if (!trimmed) {
+    throw new Error(`${label} must be valid JSON.`)
+  }
+  JSON.parse(trimmed)
 }
 
 function utf8ByteLength(input: string): number {
