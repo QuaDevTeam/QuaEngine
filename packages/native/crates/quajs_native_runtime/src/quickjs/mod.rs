@@ -1,11 +1,17 @@
 use serde::{Deserialize, Serialize};
 
 mod registry;
+#[cfg(feature = "quickjs-rquickjs")]
+mod rquickjs_backend;
 mod validation;
 
 pub use registry::{
     quickjs_module_namespace_id, QuickJsModuleNamespaceRecord, QuickJsModuleNamespaceRegistry,
     QuickJsModuleNamespaceSummary,
+};
+#[cfg(feature = "quickjs-rquickjs")]
+pub use rquickjs_backend::{
+    quickjs_rquickjs_runtime_version, RquickJsModuleEvaluator, RQUICKJS_BACKEND_VERSION,
 };
 pub use validation::{
     is_forbidden_native_module_payload, is_forbidden_runtime_module_asset_name,
@@ -17,7 +23,16 @@ pub const UNSUPPORTED_QUICKJS_VERSION: &str = "unsupported";
 pub fn quickjs_runtime_version() -> &'static str {
     match option_env!("QUA_NATIVE_QUICKJS_VERSION") {
         Some(version) if !version.trim().is_empty() => version,
-        _ => UNSUPPORTED_QUICKJS_VERSION,
+        _ => {
+            #[cfg(feature = "quickjs-rquickjs")]
+            {
+                quickjs_rquickjs_runtime_version()
+            }
+            #[cfg(not(feature = "quickjs-rquickjs"))]
+            {
+                UNSUPPORTED_QUICKJS_VERSION
+            }
+        }
     }
 }
 
@@ -123,6 +138,14 @@ pub type QuickJsEvaluationResult = Result<QuickJsEvaluationResponse, QuickJsEval
 
 pub trait QuickJsModuleEvaluator {
     fn evaluate_module(&mut self, request: &QuickJsEvaluationRequest) -> QuickJsEvaluationResult;
+
+    fn release_module_namespace(&mut self, _module_namespace_id: &str) {}
+
+    fn release_module_namespaces(&mut self, records: &[QuickJsModuleNamespaceRecord]) {
+        for record in records {
+            self.release_module_namespace(&record.id);
+        }
+    }
 }
 
 #[derive(Debug, Clone, Default)]

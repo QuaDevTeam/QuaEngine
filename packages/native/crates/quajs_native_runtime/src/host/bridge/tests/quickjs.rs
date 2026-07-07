@@ -214,3 +214,59 @@ fn dispatches_quickjs_namespace_summary_and_release_with_registry() {
         ))
     );
 }
+
+#[test]
+fn dispatches_quickjs_release_hooks_to_injected_evaluator() {
+    #[derive(Default)]
+    struct TrackingQuickJsEvaluator {
+        released: Vec<String>,
+    }
+
+    impl QuickJsModuleEvaluator for TrackingQuickJsEvaluator {
+        fn evaluate_module(
+            &mut self,
+            request: &QuickJsEvaluationRequest,
+        ) -> QuickJsEvaluationResult {
+            Ok(QuickJsEvaluationResponse::success(format!(
+                "quickjs:{}:{}",
+                request.module.package_id, request.module.asset_name
+            )))
+        }
+
+        fn release_module_namespace(&mut self, module_namespace_id: &str) {
+            self.released.push(module_namespace_id.to_string());
+        }
+    }
+
+    let mut host = InMemoryNativeHostApi::new(host_info());
+    let mut quickjs = TrackingQuickJsEvaluator::default();
+    let mut registry = QuickJsModuleNamespaceRegistry::new();
+
+    for asset_name in ["scripts/opening.js", "scripts/menu.js"] {
+        let response = dispatch_native_host_api_request_with_quickjs_registry(
+            &mut host,
+            &mut quickjs,
+            &mut registry,
+            NativeHostApiRequest::EvaluateQuickJsModule(quickjs_request_for_asset(asset_name)),
+        );
+        assert!(response.ok);
+    }
+
+    let response = dispatch_native_host_api_request_with_quickjs_registry(
+        &mut host,
+        &mut quickjs,
+        &mut registry,
+        NativeHostApiRequest::ReleaseQuickJsPackageNamespaces(NativeQuickJsReleasePackageRequest {
+            package_id: "runtime.chapter.native-ui".to_string(),
+        }),
+    );
+
+    assert!(response.ok);
+    assert_eq!(
+        quickjs.released,
+        vec![
+            "quickjs:runtime.chapter.native-ui:scripts/menu.js",
+            "quickjs:runtime.chapter.native-ui:scripts/opening.js",
+        ]
+    );
+}

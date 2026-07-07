@@ -5,7 +5,12 @@ license.workspace = true
 repository.workspace = true
 version.workspace = true
 
+[features]
+default = []
+quickjs-rquickjs = ["dep:rquickjs"]
+
 [dependencies]
+rquickjs = { version = "0.12.1", optional = true, default-features = false, features = ["std"] }
 serde.workspace = true
 sha2.workspace = true
 
