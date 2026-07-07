@@ -64,6 +64,8 @@ fn rejects_native_payload_and_non_js_runtime_module_assets() {
         "native/helper.wasm?raw",
         "native/helper.wasm#runtime",
         "native/helper.wasm?cache=1#runtime",
+        "native/helper.class",
+        "native/helper.class?raw",
     ] {
         let request = request_for_asset(asset_name, vec![1]);
         let error = validate_quickjs_evaluation_request(&request).unwrap_err();
