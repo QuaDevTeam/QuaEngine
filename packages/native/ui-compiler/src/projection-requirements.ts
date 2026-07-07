@@ -3,6 +3,7 @@ import type {
   NativeUiSurfaceNodeProjection,
   NativeUiSurfaceProjection,
 } from './types'
+import { isSafeNativeAssetType, isSafePackageAssetName } from './assets'
 import { findNativeUiComponent } from './registry'
 
 export interface NativeUiSurfaceProjectionRequirements {
@@ -97,7 +98,7 @@ function collectNativeUiSurfaceNodeRequirements(
 
   if (node.image) {
     requirements.projectionFields.add('image')
-    requirements.assetKinds.add(node.image.assetType)
+    collectAssetKind(node.image, requirements)
   }
   if (node.text !== undefined)
     requirements.projectionFields.add('text')
@@ -129,10 +130,22 @@ function collectStyleRequirements(
       requirements.qssFeatures.add(feature)
   }
 
-  if (style.backgroundImage)
-    requirements.assetKinds.add(style.backgroundImage.assetType)
+  collectAssetKind(style.backgroundImage, requirements)
   if (style.fontFamily?.length)
     requirements.assetKinds.add('fonts')
+}
+
+function collectAssetKind(
+  image: { assetName: string, assetType: string } | undefined,
+  requirements: NativeUiSurfaceProjectionRequirementSets,
+): void {
+  if (
+    image
+    && isSafeNativeAssetType(image.assetType)
+    && isSafePackageAssetName(image.assetName)
+  ) {
+    requirements.assetKinds.add(image.assetType)
+  }
 }
 
 function createRequirementSets(): NativeUiSurfaceProjectionRequirementSets {
