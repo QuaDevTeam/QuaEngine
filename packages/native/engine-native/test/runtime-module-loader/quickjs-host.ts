@@ -573,6 +573,34 @@ describe('@quajs/engine-native runtime module loader QuickJS host bridge', () =>
   })
 
   it('rejects unsupported native QuickJS GameStep commands before dispatching to engine', async () => {
+    const quickSave = vi.fn()
+    const markRollbackBoundary = vi.fn()
+    await executeNativeQuickJsGameStepCommand({
+      stepId: 'intro.1',
+      engine: {
+        quickSave,
+        markRollbackBoundary,
+      },
+    } as any, {
+      target: 'engine',
+      method: 'quickSave',
+      argsJson: '[{"name":"Before choice"}]',
+    })
+    await executeNativeQuickJsGameStepCommand({
+      stepId: 'intro.1',
+      engine: {
+        quickSave,
+        markRollbackBoundary,
+      },
+    } as any, {
+      target: 'engine',
+      method: 'markRollbackBoundary',
+      argsJson: '["no-rollback"]',
+    })
+
+    expect(quickSave).toHaveBeenCalledWith({ name: 'Before choice' })
+    expect(markRollbackBoundary).toHaveBeenCalledWith('no-rollback')
+
     await expect(executeNativeQuickJsGameStepCommand({
       stepId: 'intro.1',
       engine: {
