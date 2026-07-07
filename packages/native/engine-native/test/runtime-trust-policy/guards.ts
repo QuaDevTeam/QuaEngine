@@ -107,6 +107,45 @@ describe('@quajs/engine-native runtime trust policy guards', () => {
     expect(host.verifySignature).not.toHaveBeenCalled()
   })
 
+  it('checks both package native compatibility metadata forms before native signature verification', async () => {
+    const host = {
+      ...createHost(),
+      verifySignature: vi.fn(async () => true),
+    }
+    const policy = createNativeRuntimeTrustPolicy(host, {
+      hostInfo: createHostInfo(),
+    })
+
+    await expect(policy.verifyPackage!(createTrustContext({
+      metadata: {
+        nativeRenderer: {
+          renderer: '@quajs/native-renderer',
+          qssFeatures: ['background-color'],
+          nativeCode: false,
+        },
+        renderers: {
+          native: {
+            renderer: '@quajs/native-renderer',
+            qssFeatures: ['gap'],
+            nativeCode: false,
+          },
+        },
+      },
+      integrity: {
+        hash: 'abc123',
+        algorithm: 'sha256',
+      },
+      signature: {
+        value: 'base64:AQID',
+        algorithm: 'ed25519',
+        keyId: 'test-key',
+      },
+    }))).rejects.toThrow(/Required native QSS feature "gap" is not available/)
+
+    expect(host.getHostInfo).not.toHaveBeenCalled()
+    expect(host.verifySignature).not.toHaveBeenCalled()
+  })
+
   it('checks runtime plugin native renderer compatibility before native signature verification', async () => {
     const host = {
       ...createHost(),
@@ -181,6 +220,51 @@ describe('@quajs/engine-native runtime trust policy guards', () => {
         keyId: 'test-key',
       },
     }))).rejects.toThrow(/Required native asset kind "shader" is not available/)
+
+    expect(host.getHostInfo).not.toHaveBeenCalled()
+    expect(host.verifySignature).not.toHaveBeenCalled()
+  })
+
+  it('checks both runtime plugin native compatibility metadata forms before native signature verification', async () => {
+    const host = {
+      ...createHost(),
+      verifySignature: vi.fn(async () => true),
+    }
+    const policy = createNativeRuntimeTrustPolicy(host, {
+      hostInfo: createHostInfo(),
+    })
+
+    await expect(policy.verifyPackage!(createTrustContext({
+      plugins: [
+        {
+          id: 'menu-ui',
+          assetName: 'plugins/menu-ui.js',
+          metadata: {
+            nativeRenderer: {
+              renderer: '@quajs/native-renderer',
+              assetKinds: ['qui'],
+              nativeCode: false,
+            },
+            renderers: {
+              native: {
+                renderer: '@quajs/native-renderer',
+                capabilityIds: ['native-wgpu.audio@1'],
+                nativeCode: false,
+              },
+            },
+          },
+        },
+      ],
+      integrity: {
+        hash: 'abc123',
+        algorithm: 'sha256',
+      },
+      signature: {
+        value: 'base64:AQID',
+        algorithm: 'ed25519',
+        keyId: 'test-key',
+      },
+    }))).rejects.toThrow(/Required native capability "native-wgpu\.audio@1" is not available/)
 
     expect(host.getHostInfo).not.toHaveBeenCalled()
     expect(host.verifySignature).not.toHaveBeenCalled()

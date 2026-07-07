@@ -120,35 +120,34 @@ function getRuntimePackageNativeRendererCompatibilityBlocks(
     pluginId: string
     nativeRenderer: RuntimePackageNativeRendererCompatibility
   }> = []
-  const packageCompatibility = getNativeRendererCompatibilityFromMetadata(runtimePackage.metadata)
-  if (packageCompatibility) {
+  for (const packageCompatibility of getNativeRendererCompatibilityFromMetadata(runtimePackage.metadata)) {
     blocks.push({
       pluginId: runtimePackage.id,
       nativeRenderer: packageCompatibility,
     })
   }
   for (const plugin of runtimePackage.plugins || []) {
-    const pluginCompatibility = getNativeRendererCompatibilityFromMetadata(plugin.metadata)
-    if (!pluginCompatibility)
-      continue
-    blocks.push({
-      pluginId: plugin.id,
-      nativeRenderer: pluginCompatibility,
-    })
+    for (const pluginCompatibility of getNativeRendererCompatibilityFromMetadata(plugin.metadata)) {
+      blocks.push({
+        pluginId: plugin.id,
+        nativeRenderer: pluginCompatibility,
+      })
+    }
   }
   return blocks
 }
 
 function getNativeRendererCompatibilityFromMetadata(
   metadata: NativeGuardRuntimePackageManifest['metadata'],
-): RuntimePackageNativeRendererCompatibility | undefined {
+): RuntimePackageNativeRendererCompatibility[] {
+  const blocks: RuntimePackageNativeRendererCompatibility[] = []
   if (!metadata)
-    return undefined
+    return blocks
   if (isRecord(metadata.nativeRenderer))
-    return metadata.nativeRenderer as RuntimePackageNativeRendererCompatibility
+    blocks.push(metadata.nativeRenderer as RuntimePackageNativeRendererCompatibility)
   if (isRecord(metadata.renderers) && isRecord(metadata.renderers.native))
-    return metadata.renderers.native as RuntimePackageNativeRendererCompatibility
-  return undefined
+    blocks.push(metadata.renderers.native as RuntimePackageNativeRendererCompatibility)
+  return blocks
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
