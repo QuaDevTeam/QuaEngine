@@ -222,7 +222,7 @@ fn has_forbidden_native_dispatch_uri_scheme(value: &str) -> bool {
     )
 }
 
-const FORBIDDEN_NATIVE_PAYLOAD_EXTENSIONS: [&str; 16] = [
+const FORBIDDEN_NATIVE_PAYLOAD_EXTENSIONS: [&str; 17] = [
     ".dylib",
     ".so",
     ".dll",
@@ -239,6 +239,7 @@ const FORBIDDEN_NATIVE_PAYLOAD_EXTENSIONS: [&str; 16] = [
     ".rpm",
     ".appimage",
     ".jar",
+    ".class",
 ];
 
 #[cfg(test)]
@@ -267,6 +268,7 @@ mod tests {
             "ui/../menu.png",
             "ui/native.dll",
             "ui/native.dll?v=1",
+            "ui/native.class?rev=1",
             "ui/plugin.framework/Contents/bin",
             "ui/module.wasm#hash",
             "ui/menu.png\n",

@@ -267,6 +267,7 @@ fn falls_back_from_unsafe_dialogue_style_on_direct_projection() {
                 "Qua Serif",
                 "../Escape Serif",
                 "NativePayload.dll",
+                "NativePayload.class",
                 "fonts:Injected",
             ])),
             font_size: Some(MAX_NATIVE_RICH_TEXT_LOGICAL_VALUE + 1.0),
@@ -377,6 +378,7 @@ fn skips_unsafe_avatar_asset_names_on_direct_projection() {
         "https://example.test/yuki.png",
         "avatars\\yuki.png",
         "avatars/native.dylib?rev=1",
+        "avatars/native.class?rev=1",
     ] {
         let dialogue = DialogueProjection {
             avatar: Some(DialogueAvatarProjection {
