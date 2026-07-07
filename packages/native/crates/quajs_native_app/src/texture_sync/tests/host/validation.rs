@@ -126,6 +126,39 @@ fn rejects_unsafe_package_ids_before_host_reads() {
                 ["base..candidate"],
             ),
         ),
+        (
+            "dot-only owner",
+            texture_request(
+                "images:ui/panel.png",
+                "images",
+                "ui/panel.png",
+                ["."],
+                [],
+                ["base"],
+            ),
+        ),
+        (
+            "dot-prefixed required",
+            texture_request(
+                "images:ui/panel.png",
+                "images",
+                "ui/panel.png",
+                ["runtime.menu"],
+                [".base"],
+                ["base"],
+            ),
+        ),
+        (
+            "dot-suffixed candidate",
+            texture_request(
+                "images:ui/panel.png",
+                "images",
+                "ui/panel.png",
+                ["runtime.menu"],
+                [],
+                ["base."],
+            ),
+        ),
     ];
 
     for (source, request) in cases {

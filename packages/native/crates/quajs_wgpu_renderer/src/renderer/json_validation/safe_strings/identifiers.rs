@@ -95,6 +95,16 @@ pub(in crate::renderer::json_validation) fn invalid_native_json_package_id_reaso
     if package_id.contains(['/', '\\']) {
         return Some("package provenance ids must be identifiers, not paths".to_string());
     }
+    if !package_id.chars().any(|char| char.is_ascii_alphanumeric()) {
+        return Some(
+            "package provenance ids must contain at least one ASCII letter or digit".to_string(),
+        );
+    }
+    if !starts_and_ends_with_ascii_alphanumeric(package_id) {
+        return Some(
+            "package provenance ids must start and end with an ASCII letter or digit".to_string(),
+        );
+    }
     if !package_id
         .chars()
         .all(|char| char.is_ascii_alphanumeric() || matches!(char, '.' | '-' | '_'))
@@ -161,5 +171,12 @@ fn has_forbidden_ui_dispatch_uri_scheme(value: &str) -> bool {
             | "ffi"
             | "node"
             | "wasm"
+    )
+}
+
+fn starts_and_ends_with_ascii_alphanumeric(value: &str) -> bool {
+    matches!(
+        (value.chars().next(), value.chars().next_back()),
+        (Some(first), Some(last)) if first.is_ascii_alphanumeric() && last.is_ascii_alphanumeric()
     )
 }
