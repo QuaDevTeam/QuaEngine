@@ -107,6 +107,85 @@ describe('@quajs/engine-native runtime trust policy guards', () => {
     expect(host.verifySignature).not.toHaveBeenCalled()
   })
 
+  it('checks runtime plugin native renderer compatibility before native signature verification', async () => {
+    const host = {
+      ...createHost(),
+      verifySignature: vi.fn(async () => true),
+    }
+    const policy = createNativeRuntimeTrustPolicy(host, {
+      hostInfo: createHostInfo(),
+    })
+
+    await expect(policy.verifyPackage!(createTrustContext({
+      plugins: [
+        {
+          id: 'menu-ui',
+          assetName: 'plugins/menu-ui.js',
+          metadata: {
+            nativeRenderer: {
+              renderer: '@quajs/native-renderer',
+              qssFeatures: ['background-color', 'gap'],
+              quiComponents: ['Panel', 'VirtualList'],
+              nativeCode: false,
+            },
+          },
+        },
+      ],
+      integrity: {
+        hash: 'abc123',
+        algorithm: 'sha256',
+      },
+      signature: {
+        value: 'base64:AQID',
+        algorithm: 'ed25519',
+        keyId: 'test-key',
+      },
+    }))).rejects.toThrow(/Required native QSS feature "gap" is not available.*Required native QUI component "VirtualList" is not available/)
+
+    expect(host.getHostInfo).not.toHaveBeenCalled()
+    expect(host.verifySignature).not.toHaveBeenCalled()
+  })
+
+  it('checks runtime plugin target-scoped native renderer compatibility before native signature verification', async () => {
+    const host = {
+      ...createHost(),
+      verifySignature: vi.fn(async () => true),
+    }
+    const policy = createNativeRuntimeTrustPolicy(host, {
+      hostInfo: createHostInfo(),
+    })
+
+    await expect(policy.verifyPackage!(createTrustContext({
+      plugins: [
+        {
+          id: 'menu-ui',
+          assetName: 'plugins/menu-ui.js',
+          metadata: {
+            renderers: {
+              native: {
+                renderer: '@quajs/native-renderer',
+                assetKinds: ['qui', 'shader'],
+                nativeCode: false,
+              },
+            },
+          },
+        },
+      ],
+      integrity: {
+        hash: 'abc123',
+        algorithm: 'sha256',
+      },
+      signature: {
+        value: 'base64:AQID',
+        algorithm: 'ed25519',
+        keyId: 'test-key',
+      },
+    }))).rejects.toThrow(/Required native asset kind "shader" is not available/)
+
+    expect(host.getHostInfo).not.toHaveBeenCalled()
+    expect(host.verifySignature).not.toHaveBeenCalled()
+  })
+
   it('checks runtime package native asset kind compatibility before native signature verification', async () => {
     const host = {
       ...createHost(),

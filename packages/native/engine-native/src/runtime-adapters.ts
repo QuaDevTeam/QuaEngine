@@ -85,12 +85,12 @@ export function createNativeRuntimeTrustPolicy(
         package: runtimePackage,
         bundle: ctx.bundle as unknown as NativeGuardDynamicBundleRecord,
       })
-      const nativeRenderer = getRuntimePackageNativeRendererCompatibility(runtimePackage)
-      if (nativeRenderer) {
-        assertNativeRuntimePackageCompatibility(await getHostInfo(), {
-          pluginId: runtimePackage.id,
-          nativeRenderer,
-        })
+      const nativeCompatibilityBlocks = getRuntimePackageNativeRendererCompatibilityBlocks(runtimePackage)
+      if (nativeCompatibilityBlocks.length > 0) {
+        const hostInfo = await getHostInfo()
+        for (const compatibilityBlock of nativeCompatibilityBlocks) {
+          assertNativeRuntimePackageCompatibility(hostInfo, compatibilityBlock)
+        }
       }
       if (!ctx.package.signature?.value)
         return true
@@ -110,10 +110,38 @@ export function createNativeRuntimeTrustPolicy(
   }
 }
 
-function getRuntimePackageNativeRendererCompatibility(
+function getRuntimePackageNativeRendererCompatibilityBlocks(
   runtimePackage: NativeGuardRuntimePackageManifest,
+): Array<{
+  pluginId: string
+  nativeRenderer: RuntimePackageNativeRendererCompatibility
+}> {
+  const blocks: Array<{
+    pluginId: string
+    nativeRenderer: RuntimePackageNativeRendererCompatibility
+  }> = []
+  const packageCompatibility = getNativeRendererCompatibilityFromMetadata(runtimePackage.metadata)
+  if (packageCompatibility) {
+    blocks.push({
+      pluginId: runtimePackage.id,
+      nativeRenderer: packageCompatibility,
+    })
+  }
+  for (const plugin of runtimePackage.plugins || []) {
+    const pluginCompatibility = getNativeRendererCompatibilityFromMetadata(plugin.metadata)
+    if (!pluginCompatibility)
+      continue
+    blocks.push({
+      pluginId: plugin.id,
+      nativeRenderer: pluginCompatibility,
+    })
+  }
+  return blocks
+}
+
+function getNativeRendererCompatibilityFromMetadata(
+  metadata: NativeGuardRuntimePackageManifest['metadata'],
 ): RuntimePackageNativeRendererCompatibility | undefined {
-  const metadata = runtimePackage.metadata
   if (!metadata)
     return undefined
   if (isRecord(metadata.nativeRenderer))
