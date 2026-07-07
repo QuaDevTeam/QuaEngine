@@ -9,6 +9,7 @@ import {
   createNativeQuickJsJsonExportFunction,
   createNativeRuntimeAdapters,
   createNativeRuntimeModuleLoader,
+  executeNativeQuickJsGameStepCommand,
 } from './helpers'
 
 describe('@quajs/engine-native runtime module loader QuickJS host bridge', () => {
@@ -202,6 +203,15 @@ describe('@quajs/engine-native runtime module loader QuickJS host bridge', () =>
       })),
       callQuickJsGameStepRun: vi.fn(async () => ({
         ok: true,
+        commands: [{
+          target: 'engine' as const,
+          method: 'showChoices' as const,
+          argsJson: '[[{"id":"go","text":"Go"}]]',
+        }, {
+          target: 'engine' as const,
+          method: 'clearChoices' as const,
+          argsJson: '[]',
+        }],
       })),
     }
 
@@ -218,9 +228,16 @@ describe('@quajs/engine-native runtime module loader QuickJS host bridge', () =>
     })
     expect(typeof steps[0].run).toBe('function')
 
+    const showChoices = vi.fn(async () => {})
+    const clearChoices = vi.fn(async () => {})
+
     await steps[0].run({
       stepId: 'intro.1',
       previousStepId: 'intro.0',
+      engine: {
+        showChoices,
+        clearChoices,
+      },
     } as any)
 
     expect(host.callQuickJsGameStepFactory).toHaveBeenCalledWith({
@@ -232,6 +249,21 @@ describe('@quajs/engine-native runtime module loader QuickJS host bridge', () =>
       runHandleId: 'quickjs:rquickjs:1:run:1',
       ctxJson: '{"stepId":"intro.1","previousStepId":"intro.0"}',
     })
+    expect(showChoices).toHaveBeenCalledWith([{ id: 'go', text: 'Go' }])
+    expect(clearChoices).toHaveBeenCalledWith()
+  })
+
+  it('rejects unsupported native QuickJS GameStep commands before dispatching to engine', async () => {
+    await expect(executeNativeQuickJsGameStepCommand({
+      stepId: 'intro.1',
+      engine: {
+        waitFor: vi.fn(),
+      },
+    } as any, {
+      target: 'engine',
+      method: 'waitFor' as any,
+      argsJson: '["user/choice_select"]',
+    })).rejects.toThrow(/allowlisted/)
   })
 
   it('installs a native GameStep script module loader when the host supports the bridge', async () => {

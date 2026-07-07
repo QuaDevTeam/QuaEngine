@@ -102,6 +102,11 @@ describe('native host bridge adapter contracts', () => {
               type: 'quickJsGameStepRun',
               value: {
                 ok: true,
+                commands: [{
+                  target: 'engine',
+                  method: 'clearChoices',
+                  argsJson: '[]',
+                }],
               },
             },
           }
@@ -203,6 +208,11 @@ describe('native host bridge adapter contracts', () => {
       ctxJson: '{"stepId":"intro.1"}',
     })).resolves.toEqual({
       ok: true,
+      commands: [{
+        target: 'engine',
+        method: 'clearChoices',
+        argsJson: '[]',
+      }],
     })
     await expect(host.releaseQuickJsModuleNamespace?.('quickjs:module:1')).resolves.toEqual(namespaceRecord)
     await expect(host.releaseQuickJsModuleNamespace?.('missing')).resolves.toBeUndefined()

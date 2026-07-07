@@ -9,14 +9,80 @@ use super::{
     validate_quickjs_evaluation_request, validate_quickjs_game_step_factory_call_request,
     validate_quickjs_game_step_run_request, validate_quickjs_module_export_call_request,
     QuickJsEvaluationError, QuickJsEvaluationErrorCode, QuickJsEvaluationRequest,
-    QuickJsEvaluationResponse, QuickJsEvaluationResult, QuickJsGameStepDescriptor,
-    QuickJsGameStepFactoryCallRequest, QuickJsGameStepFactoryCallResponse,
-    QuickJsGameStepFactoryCallResult, QuickJsGameStepRunRequest, QuickJsGameStepRunResponse,
-    QuickJsGameStepRunResult, QuickJsModuleEvaluator, QuickJsModuleExportCallRequest,
-    QuickJsModuleExportCallResponse, QuickJsModuleExportCallResult, QuickJsSandboxLimits,
+    QuickJsEvaluationResponse, QuickJsEvaluationResult, QuickJsGameStepCommand,
+    QuickJsGameStepDescriptor, QuickJsGameStepFactoryCallRequest,
+    QuickJsGameStepFactoryCallResponse, QuickJsGameStepFactoryCallResult,
+    QuickJsGameStepRunRequest, QuickJsGameStepRunResponse, QuickJsGameStepRunResult,
+    QuickJsModuleEvaluator, QuickJsModuleExportCallRequest, QuickJsModuleExportCallResponse,
+    QuickJsModuleExportCallResult, QuickJsSandboxLimits,
 };
 
 pub const RQUICKJS_BACKEND_VERSION: &str = "rquickjs-0.12.1";
+
+const NATIVE_QUICKJS_GAME_STEP_ENGINE_COMMAND_METHODS: &[&str] = &[
+    "showDialogue",
+    "hideDialogue",
+    "showChoices",
+    "clearChoices",
+    "jumpToChoice",
+    "setBackgroundProjection",
+    "setAnimationProjection",
+    "removeAnimationProjection",
+    "clearAnimationProjections",
+    "showCharacter",
+    "hideCharacter",
+    "moveCharacter",
+    "setCharacterExpression",
+    "setCharacterSprite",
+    "showUI",
+    "hideUI",
+    "updateUI",
+    "setPluginProjection",
+    "setLayoutProjection",
+    "setFlowControlOptions",
+    "setDialogueOptions",
+    "setFlowControlMode",
+    "setFlowControlPolicy",
+    "resetFlowControlPolicy",
+    "startAuto",
+    "stopAuto",
+    "startSkip",
+    "stopSkip",
+    "startFastForward",
+    "stopFastForward",
+];
+
+const NATIVE_QUICKJS_STEP_CONTEXT_BRIDGE_SOURCE: &str = r#"
+((ctx, commands, unsupportedState, methods) => {
+  const engine = Object.create(null);
+  const serializeArgs = (method, args) => JSON.stringify(args, (_key, value) => {
+    if (typeof value === 'function' || typeof value === 'symbol' || typeof value === 'undefined') {
+      throw new TypeError(`Native QuickJS StepContext command ${method} arguments must be JSON-serializable.`);
+    }
+    return value;
+  });
+  const record = method => (...args) => {
+    const argsJson = serializeArgs(method, args);
+    if (argsJson === undefined) {
+      throw new TypeError(`Native QuickJS StepContext command ${method} arguments must be JSON-serializable.`);
+    }
+    commands.push({ target: 'engine', method, argsJson });
+  };
+  const unsupported = name => () => {
+    unsupportedState.name = name;
+    throw new Error(`Native QuickJS StepContext ${name} requires a native continuation bridge.`);
+  };
+  for (const method of methods) {
+    Object.defineProperty(engine, method, { value: record(method), enumerable: true });
+  }
+  Object.defineProperty(engine, 'waitFor', { value: unsupported('engine.waitFor'), enumerable: true });
+  Object.freeze(engine);
+  Object.defineProperty(ctx, 'engine', { value: engine, enumerable: true, configurable: true });
+  Object.defineProperty(ctx, 'pipeline', { value: Object.freeze(Object.create(null)), enumerable: true, configurable: true });
+  Object.defineProperty(ctx, 't', { value: unsupported('t'), enumerable: true, configurable: true });
+  return ctx;
+})
+"#;
 
 pub fn quickjs_rquickjs_runtime_version() -> &'static str {
     static VERSION: OnceLock<&'static str> = OnceLock::new();
@@ -418,43 +484,65 @@ impl QuickJsModuleEvaluator for RquickJsModuleEvaluator {
         };
         let function = handle.function.clone();
 
-        let result: Result<(), QuickJsEvaluationError> = self.context.with(|ctx| {
-            let function = function.restore(&ctx).map_err(|error| {
-                call_error(
-                    QuickJsEvaluationErrorCode::StepRunFailed,
-                    "QuickJS GameStep run function could not be restored.".to_string(),
-                    Some(error.to_string()),
-                )
-            })?;
-            let ctx_value = step_context_value(ctx.clone(), request.ctx_json.as_deref())?;
-            let value: Value = function
-                .call_arg(one_arg(ctx.clone(), ctx_value)?)
-                .map_err(|error| {
+        let result: Result<Vec<QuickJsGameStepCommand>, QuickJsEvaluationError> =
+            self.context.with(|ctx| {
+                let function = function.restore(&ctx).map_err(|error| {
                     call_error(
                         QuickJsEvaluationErrorCode::StepRunFailed,
-                        format!(
-                            "QuickJS GameStep run handle \"{}\" call failed.",
-                            request.run_handle_id
-                        ),
+                        "QuickJS GameStep run function could not be restored.".to_string(),
                         Some(error.to_string()),
                     )
                 })?;
-            if let Some(promise) = value.as_promise() {
-                promise.finish::<()>().map_err(|error| {
+                let ctx_object = step_context_object(ctx.clone(), request.ctx_json.as_deref())?;
+                let commands = Array::new(ctx.clone()).map_err(|error| {
                     call_error(
-                        QuickJsEvaluationErrorCode::StepRunFailed,
-                        format!(
-                            "QuickJS GameStep run handle \"{}\" promise failed.",
-                            request.run_handle_id
-                        ),
+                        QuickJsEvaluationErrorCode::InvalidStepContext,
+                        "QuickJS GameStep command array could not be created.".to_string(),
                         Some(error.to_string()),
                     )
                 })?;
-            }
-            Ok(())
-        });
+                let unsupported_state = Object::new(ctx.clone()).map_err(|error| {
+                    call_error(
+                        QuickJsEvaluationErrorCode::InvalidStepContext,
+                        "QuickJS GameStep unsupported-command marker could not be created."
+                            .to_string(),
+                        Some(error.to_string()),
+                    )
+                })?;
+                install_step_context_bridge(
+                    ctx.clone(),
+                    &ctx_object,
+                    &commands,
+                    &unsupported_state,
+                )?;
+                let value: Value = function
+                    .call_arg(one_arg(ctx.clone(), Value::from_object(ctx_object))?)
+                    .map_err(|error| {
+                        step_run_error_from_unsupported_state(
+                            &unsupported_state,
+                            format!(
+                                "QuickJS GameStep run handle \"{}\" call failed.",
+                                request.run_handle_id
+                            ),
+                            Some(error.to_string()),
+                        )
+                    })?;
+                if let Some(promise) = value.as_promise() {
+                    promise.finish::<()>().map_err(|error| {
+                        step_run_error_from_unsupported_state(
+                            &unsupported_state,
+                            format!(
+                                "QuickJS GameStep run handle \"{}\" promise failed.",
+                                request.run_handle_id
+                            ),
+                            Some(error.to_string()),
+                        )
+                    })?;
+                }
+                step_commands_from_array(ctx.clone(), &commands)
+            });
 
-        result.map(|_| QuickJsGameStepRunResponse::success())
+        result.map(QuickJsGameStepRunResponse::success)
     }
 
     fn release_module_namespace(&mut self, module_namespace_id: &str) {
@@ -534,10 +622,10 @@ fn factory_args_from_scope_json<'js>(
     Ok(args)
 }
 
-fn step_context_value<'js>(
+fn step_context_object<'js>(
     ctx: rquickjs::Ctx<'js>,
     ctx_json: Option<&str>,
-) -> Result<Value<'js>, QuickJsEvaluationError> {
+) -> Result<Object<'js>, QuickJsEvaluationError> {
     match ctx_json {
         Some(ctx_json) => {
             let value = ctx.json_parse(ctx_json).map_err(|error| {
@@ -554,18 +642,171 @@ fn step_context_value<'js>(
                     None,
                 ));
             }
-            Ok(value)
-        }
-        None => Object::new(ctx.clone())
-            .map(Value::from_object)
-            .map_err(|error| {
+            value.into_object().ok_or_else(|| {
                 call_error(
                     QuickJsEvaluationErrorCode::InvalidStepContext,
-                    "QuickJS GameStep run context object could not be created.".to_string(),
+                    "QuickJS GameStep run ctxJson must be a JSON object.".to_string(),
+                    None,
+                )
+            })
+        }
+        None => Object::new(ctx.clone()).map_err(|error| {
+            call_error(
+                QuickJsEvaluationErrorCode::InvalidStepContext,
+                "QuickJS GameStep run context object could not be created.".to_string(),
+                Some(error.to_string()),
+            )
+        }),
+    }
+}
+
+fn install_step_context_bridge<'js>(
+    ctx: rquickjs::Ctx<'js>,
+    ctx_object: &Object<'js>,
+    commands: &Array<'js>,
+    unsupported_state: &Object<'js>,
+) -> Result<(), QuickJsEvaluationError> {
+    let install: Function = ctx
+        .eval(NATIVE_QUICKJS_STEP_CONTEXT_BRIDGE_SOURCE)
+        .map_err(|error| {
+            call_error(
+                QuickJsEvaluationErrorCode::InvalidStepContext,
+                "QuickJS StepContext bridge script could not be compiled.".to_string(),
+                Some(error.to_string()),
+            )
+        })?;
+    let methods = step_engine_command_methods_array(ctx.clone())?;
+    let _: Value = install
+        .call_arg(four_args(
+            ctx,
+            ctx_object.clone(),
+            commands.clone(),
+            unsupported_state.clone(),
+            methods,
+        )?)
+        .map_err(|error| {
+            call_error(
+                QuickJsEvaluationErrorCode::InvalidStepContext,
+                "QuickJS StepContext bridge script could not be installed.".to_string(),
+                Some(error.to_string()),
+            )
+        })?;
+    Ok(())
+}
+
+fn step_engine_command_methods_array<'js>(
+    ctx: rquickjs::Ctx<'js>,
+) -> Result<Array<'js>, QuickJsEvaluationError> {
+    let methods = Array::new(ctx.clone()).map_err(|error| {
+        call_error(
+            QuickJsEvaluationErrorCode::InvalidStepContext,
+            "QuickJS StepContext engine command method array could not be created.".to_string(),
+            Some(error.to_string()),
+        )
+    })?;
+    for (index, method) in NATIVE_QUICKJS_GAME_STEP_ENGINE_COMMAND_METHODS
+        .iter()
+        .enumerate()
+    {
+        methods.set(index, *method).map_err(|error| {
+            call_error(
+                QuickJsEvaluationErrorCode::InvalidStepContext,
+                "QuickJS StepContext engine command method could not be passed to bridge script."
+                    .to_string(),
+                Some(error.to_string()),
+            )
+        })?;
+    }
+    Ok(methods)
+}
+
+fn step_commands_from_array<'js>(
+    ctx: rquickjs::Ctx<'js>,
+    commands: &Array<'js>,
+) -> Result<Vec<QuickJsGameStepCommand>, QuickJsEvaluationError> {
+    let mut output = Vec::with_capacity(commands.len());
+    for index in 0..commands.len() {
+        let command: Object = commands.get(index).map_err(|error| {
+            call_error(
+                QuickJsEvaluationErrorCode::InvalidStepContext,
+                format!("QuickJS GameStep command at index {index} must be an object."),
+                Some(error.to_string()),
+            )
+        })?;
+        let target: String = command.get("target").map_err(|error| {
+            call_error(
+                QuickJsEvaluationErrorCode::InvalidStepContext,
+                format!("QuickJS GameStep command at index {index} requires a target."),
+                Some(error.to_string()),
+            )
+        })?;
+        if target != "engine" {
+            return Err(call_error(
+                QuickJsEvaluationErrorCode::UnsupportedStepContextCommand,
+                format!("QuickJS GameStep command target \"{target}\" is not supported."),
+                None,
+            ));
+        }
+        let method: String = command.get("method").map_err(|error| {
+            call_error(
+                QuickJsEvaluationErrorCode::InvalidStepContext,
+                format!("QuickJS GameStep command at index {index} requires a method."),
+                Some(error.to_string()),
+            )
+        })?;
+        if !is_allowed_step_engine_command_method(&method) {
+            return Err(call_error(
+                QuickJsEvaluationErrorCode::UnsupportedStepContextCommand,
+                format!("QuickJS GameStep engine command \"{method}\" is not allowlisted."),
+                None,
+            ));
+        }
+        let args_value: Value = command.get("argsJson").map_err(|error| {
+            call_error(
+                QuickJsEvaluationErrorCode::InvalidStepContext,
+                format!("QuickJS GameStep command \"{method}\" argsJson could not be read."),
+                Some(error.to_string()),
+            )
+        })?;
+        let args_json = if args_value.is_undefined() || args_value.is_null() {
+            None
+        } else {
+            let args_json: String = command.get("argsJson").map_err(|error| {
+                call_error(
+                    QuickJsEvaluationErrorCode::InvalidStepContext,
+                    format!("QuickJS GameStep command \"{method}\" argsJson must be a string."),
                     Some(error.to_string()),
                 )
-            }),
+            })?;
+            let parsed_args = ctx.json_parse(args_json.as_str()).map_err(|error| {
+                call_error(
+                    QuickJsEvaluationErrorCode::InvalidStepContext,
+                    format!("QuickJS GameStep command \"{method}\" argsJson must be valid JSON."),
+                    Some(error.to_string()),
+                )
+            })?;
+            if !parsed_args.is_array() {
+                return Err(call_error(
+                    QuickJsEvaluationErrorCode::InvalidStepContext,
+                    format!("QuickJS GameStep command \"{method}\" argsJson must be a JSON array."),
+                    None,
+                ));
+            }
+            Some(args_json)
+        };
+        output.push(QuickJsGameStepCommand {
+            target,
+            method,
+            args_json,
+        });
     }
+    Ok(output)
+}
+
+fn is_allowed_step_engine_command_method(method: &str) -> bool {
+    NATIVE_QUICKJS_GAME_STEP_ENGINE_COMMAND_METHODS
+        .iter()
+        .any(|allowed| *allowed == method)
 }
 
 fn one_arg<'js>(
@@ -577,6 +818,47 @@ fn one_arg<'js>(
         call_error(
             QuickJsEvaluationErrorCode::InvalidStepContext,
             "QuickJS GameStep run context could not be passed.".to_string(),
+            Some(error.to_string()),
+        )
+    })?;
+    Ok(args)
+}
+
+fn four_args<'js>(
+    ctx: rquickjs::Ctx<'js>,
+    first: Object<'js>,
+    second: Array<'js>,
+    third: Object<'js>,
+    fourth: Array<'js>,
+) -> Result<rquickjs::function::Args<'js>, QuickJsEvaluationError> {
+    let mut args = rquickjs::function::Args::new(ctx, 4);
+    args.push_arg(first).map_err(|error| {
+        call_error(
+            QuickJsEvaluationErrorCode::InvalidStepContext,
+            "QuickJS StepContext object could not be passed to bridge script.".to_string(),
+            Some(error.to_string()),
+        )
+    })?;
+    args.push_arg(second).map_err(|error| {
+        call_error(
+            QuickJsEvaluationErrorCode::InvalidStepContext,
+            "QuickJS StepContext command array could not be passed to bridge script.".to_string(),
+            Some(error.to_string()),
+        )
+    })?;
+    args.push_arg(third).map_err(|error| {
+        call_error(
+            QuickJsEvaluationErrorCode::InvalidStepContext,
+            "QuickJS StepContext unsupported-command marker could not be passed to bridge script."
+                .to_string(),
+            Some(error.to_string()),
+        )
+    })?;
+    args.push_arg(fourth).map_err(|error| {
+        call_error(
+            QuickJsEvaluationErrorCode::InvalidStepContext,
+            "QuickJS StepContext engine command methods could not be passed to bridge script."
+                .to_string(),
             Some(error.to_string()),
         )
     })?;
@@ -663,6 +945,36 @@ fn call_error(
         asset_name: None,
         detail,
     }
+}
+
+fn step_run_error_from_unsupported_state<'js>(
+    unsupported_state: &Object<'js>,
+    message: String,
+    detail: Option<String>,
+) -> QuickJsEvaluationError {
+    let unsupported_name = unsupported_state
+        .get::<_, Value>("name")
+        .ok()
+        .and_then(|value| {
+            if value.is_undefined() || value.is_null() {
+                None
+            } else {
+                unsupported_state.get::<_, String>("name").ok()
+            }
+        });
+    if let Some(name) = unsupported_name {
+        return call_error(
+            QuickJsEvaluationErrorCode::UnsupportedStepContextCommand,
+            format!("QuickJS GameStep run reached unsupported StepContext command {name}."),
+            Some(format!(
+                "Native QuickJS StepContext {name} requires a native continuation bridge.{}",
+                detail
+                    .map(|value| format!(" QuickJS detail: {value}"))
+                    .unwrap_or_default()
+            )),
+        );
+    }
+    call_error(QuickJsEvaluationErrorCode::StepRunFailed, message, detail)
 }
 
 #[cfg(test)]
@@ -877,6 +1189,7 @@ mod tests {
             })
             .unwrap();
         assert!(run.ok);
+        assert_eq!(run.commands, Some(Vec::new()));
 
         let last_run = evaluator
             .call_module_export(&QuickJsModuleExportCallRequest {
@@ -889,6 +1202,103 @@ mod tests {
             last_run.value_json,
             Some("{\"stepId\":\"intro.1\",\"previousStepId\":\"intro.0\"}".to_string())
         );
+    }
+
+    #[test]
+    fn game_step_run_captures_allowlisted_engine_commands() {
+        let mut evaluator = RquickJsModuleEvaluator::new().unwrap();
+        let response = evaluator
+            .evaluate_module(&request_for_code(
+                "scripts/opening.js",
+                r#"
+                export default function opening() {
+                    return [{
+                        uuid: 'intro.choices',
+                        async run(ctx) {
+                            await ctx.engine.showChoices([{ id: 'go', text: 'Go' }]);
+                            await ctx.engine.clearChoices();
+                        }
+                    }];
+                }
+                "#,
+            ))
+            .unwrap();
+        let module_namespace_id = response.module_namespace_id.unwrap();
+        let steps = evaluator
+            .call_game_step_factory(&QuickJsGameStepFactoryCallRequest {
+                module_namespace_id,
+                export_name: "default".to_string(),
+                scope_json: None,
+            })
+            .unwrap()
+            .steps
+            .unwrap();
+
+        let run = evaluator
+            .call_game_step_run(&QuickJsGameStepRunRequest {
+                run_handle_id: steps[0].run_handle_id.clone(),
+                ctx_json: Some("{\"stepId\":\"intro.choices\"}".to_string()),
+            })
+            .unwrap();
+
+        let commands = run.commands.unwrap();
+        assert_eq!(commands.len(), 2);
+        assert_eq!(commands[0].target, "engine");
+        assert_eq!(commands[0].method, "showChoices");
+        assert_eq!(
+            commands[0].args_json,
+            Some("[[{\"id\":\"go\",\"text\":\"Go\"}]]".to_string())
+        );
+        assert_eq!(commands[1].target, "engine");
+        assert_eq!(commands[1].method, "clearChoices");
+        assert_eq!(commands[1].args_json, Some("[]".to_string()));
+    }
+
+    #[test]
+    fn game_step_wait_for_requires_continuation_bridge() {
+        let mut evaluator = RquickJsModuleEvaluator::new().unwrap();
+        let response = evaluator
+            .evaluate_module(&request_for_code(
+                "scripts/opening.js",
+                r#"
+                export default function opening() {
+                    return [{
+                        uuid: 'intro.wait',
+                        async run(ctx) {
+                            await ctx.engine.waitFor('user/choice_select');
+                        }
+                    }];
+                }
+                "#,
+            ))
+            .unwrap();
+        let module_namespace_id = response.module_namespace_id.unwrap();
+        let steps = evaluator
+            .call_game_step_factory(&QuickJsGameStepFactoryCallRequest {
+                module_namespace_id,
+                export_name: "default".to_string(),
+                scope_json: None,
+            })
+            .unwrap()
+            .steps
+            .unwrap();
+
+        let error = evaluator
+            .call_game_step_run(&QuickJsGameStepRunRequest {
+                run_handle_id: steps[0].run_handle_id.clone(),
+                ctx_json: Some("{\"stepId\":\"intro.wait\"}".to_string()),
+            })
+            .unwrap_err();
+
+        assert_eq!(
+            error.code,
+            QuickJsEvaluationErrorCode::UnsupportedStepContextCommand
+        );
+        assert!(error
+            .detail
+            .as_deref()
+            .unwrap_or_default()
+            .contains("requires a native continuation bridge"));
     }
 
     #[test]

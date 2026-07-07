@@ -15,6 +15,7 @@ import type {
 import type {
   NativeQuickJsEvaluationRequest,
   NativeQuickJsEvaluationResponse,
+  NativeQuickJsGameStepCommand,
   NativeQuickJsGameStepDescriptor,
   NativeQuickJsGameStepFactoryCallRequest,
   NativeQuickJsGameStepFactoryCallResponse,
@@ -31,6 +32,7 @@ import type {
 import {
   assertNativeQuickJsEvaluationResponse,
   assertNativeQuickJsEvaluationRequest,
+  assertNativeQuickJsGameStepCommand,
   assertNativeQuickJsGameStepFactoryCallResponse,
   assertNativeQuickJsGameStepRunResponse,
   createNativeQuickJsGameStepFactoryCallRequest,
@@ -99,6 +101,11 @@ export type NativeQuickJsGameStepFactoryFunction = (scope?: unknown) => Promise<
 
 export type NativeQuickJsStepContextSerializer = (ctx: StepContext) => Record<string, unknown> | undefined
 
+export type NativeQuickJsStepCommandExecutor = (
+  ctx: StepContext,
+  command: NativeQuickJsGameStepCommand,
+) => Promise<void>
+
 export function createNativeHostQuickJsModuleEvaluator(
   host: Pick<QuaNativeHostApi, 'evaluateQuickJsModule'>,
   resolveModuleNamespace: NativeQuickJsModuleNamespaceResolver,
@@ -139,12 +146,12 @@ export async function callNativeQuickJsGameStepFactory(
 export async function callNativeQuickJsGameStepRun(
   host: Pick<QuaNativeHostApi, 'callQuickJsGameStepRun'>,
   request: NativeQuickJsGameStepRunRequest,
-): Promise<void> {
+): Promise<NativeQuickJsGameStepCommand[]> {
   if (!host.callQuickJsGameStepRun) {
     throw new Error('Native host does not provide QuickJS GameStep run calls.')
   }
   const response: NativeQuickJsGameStepRunResponse = await host.callQuickJsGameStepRun(request)
-  assertNativeQuickJsGameStepRunResponse(response)
+  return assertNativeQuickJsGameStepRunResponse(response)
 }
 
 export function createNativeQuickJsJsonExportFunction(
@@ -183,6 +190,7 @@ export function createNativeHostQuickJsJsonModuleNamespaceResolver(
 }
 
 export interface CreateNativeHostQuickJsGameStepModuleNamespaceResolverOptions {
+  executeStepCommand?: NativeQuickJsStepCommandExecutor
   serializeStepContext?: NativeQuickJsStepContextSerializer
 }
 
@@ -242,12 +250,32 @@ function createNativeQuickJsGameStepProxy(
     uuid: descriptor.uuid,
     ...(descriptor.metadataJson !== undefined ? { metadata: JSON.parse(descriptor.metadataJson) } : {}),
     run: async (ctx) => {
-      await callNativeQuickJsGameStepRun(host, createNativeQuickJsGameStepRunRequest({
+      const commands = await callNativeQuickJsGameStepRun(host, createNativeQuickJsGameStepRunRequest({
         runHandleId: descriptor.runHandleId,
         ctx: (options.serializeStepContext || defaultNativeQuickJsStepContextSerializer)(ctx),
       }))
+      const executeStepCommand = options.executeStepCommand || executeNativeQuickJsGameStepCommand
+      for (const command of commands) {
+        await executeStepCommand(ctx, command)
+      }
     },
   }
+}
+
+export async function executeNativeQuickJsGameStepCommand(
+  ctx: StepContext,
+  command: NativeQuickJsGameStepCommand,
+): Promise<void> {
+  assertNativeQuickJsGameStepCommand(command)
+  const args = command.argsJson === undefined ? [] : JSON.parse(command.argsJson)
+  if (!Array.isArray(args)) {
+    throw new Error(`Native QuickJS GameStep command ${command.target}.${command.method} argsJson must be a JSON array.`)
+  }
+  const method = ctx.engine?.[command.method as keyof typeof ctx.engine]
+  if (typeof method !== 'function') {
+    throw new Error(`Native QuickJS GameStep command ${command.target}.${command.method} is not available on StepContext.`)
+  }
+  await (method as (...args: unknown[]) => unknown).apply(ctx.engine, args)
 }
 
 function defaultNativeQuickJsStepContextSerializer(ctx: StepContext): Record<string, unknown> {

@@ -7,12 +7,12 @@ use crate::host::bridge::{
 use crate::host::InMemoryNativeHostApi;
 use crate::quickjs::{
     QuickJsEvaluationError, QuickJsEvaluationErrorCode, QuickJsEvaluationRequest,
-    QuickJsEvaluationResponse, QuickJsEvaluationResult, QuickJsGameStepDescriptor,
-    QuickJsGameStepFactoryCallRequest, QuickJsGameStepFactoryCallResponse,
-    QuickJsGameStepFactoryCallResult, QuickJsGameStepRunRequest, QuickJsGameStepRunResponse,
-    QuickJsGameStepRunResult, QuickJsModuleEvaluator, QuickJsModuleExportCallRequest,
-    QuickJsModuleExportCallResponse, QuickJsModuleExportCallResult, QuickJsModuleNamespaceRegistry,
-    QuickJsModuleNamespaceSummary,
+    QuickJsEvaluationResponse, QuickJsEvaluationResult, QuickJsGameStepCommand,
+    QuickJsGameStepDescriptor, QuickJsGameStepFactoryCallRequest,
+    QuickJsGameStepFactoryCallResponse, QuickJsGameStepFactoryCallResult,
+    QuickJsGameStepRunRequest, QuickJsGameStepRunResponse, QuickJsGameStepRunResult,
+    QuickJsModuleEvaluator, QuickJsModuleExportCallRequest, QuickJsModuleExportCallResponse,
+    QuickJsModuleExportCallResult, QuickJsModuleNamespaceRegistry, QuickJsModuleNamespaceSummary,
 };
 
 use super::helpers::{host_info, quickjs_request_for_asset};
@@ -183,7 +183,13 @@ fn dispatches_quickjs_game_step_calls_through_injected_evaluator() {
             _request: &QuickJsGameStepRunRequest,
         ) -> QuickJsGameStepRunResult {
             self.run_calls += 1;
-            Ok(QuickJsGameStepRunResponse::success())
+            Ok(QuickJsGameStepRunResponse::success(vec![
+                QuickJsGameStepCommand {
+                    target: "engine".to_string(),
+                    method: "clearChoices".to_string(),
+                    args_json: Some("[]".to_string()),
+                },
+            ]))
         }
     }
 
@@ -225,6 +231,7 @@ fn dispatches_quickjs_game_step_calls_through_injected_evaluator() {
     match run.payload.unwrap() {
         NativeHostApiResponsePayload::QuickJsGameStepRun(call) => {
             assert!(call.ok);
+            assert_eq!(call.commands.unwrap()[0].method, "clearChoices");
         }
         payload => panic!("expected quickjs GameStep run payload, got {payload:?}"),
     }
