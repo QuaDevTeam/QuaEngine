@@ -13,6 +13,7 @@ Treat AI generated content as Runtime Packages:
 - QuaAssets mounts packages as side-by-side dynamic bundles.
 - Engine activates packages through `RuntimeContentManager`.
 - Renderer receives pipeline events and engine-owned view state only.
+- Runtime script factories may return `GameStep[]` synchronously or through a Promise. `RuntimeContentManager` must await package script factories so native QuickJS, Web loaders, and other injected module loaders can bridge evaluated script modules without faking synchronous host execution.
 
 Never implement generated content as loose resource pushes. Assets, scripts, store changes, story graph deltas, audio, sprites, animations, and plugins should all arrive through a QPK package.
 

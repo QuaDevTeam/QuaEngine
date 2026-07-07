@@ -110,7 +110,7 @@ import { PluginContextImpl } from '../plugins/core/context'
 import { getPluginRegistry } from '../plugins/core/registry'
 import { RuntimeContentManager } from '../runtime-content/manager'
 import { createRollbackConfig, isSerializedRollbackJournal, RollbackController } from './rollback'
-import { resolveGameSteps } from './script'
+import { resolveGameStepsAsync } from './script'
 import { assertSerializableSceneState, isChoiceTarget } from './story-targets'
 import { createInitialEngineState } from './types'
 
@@ -579,7 +579,7 @@ export class QuaEngine {
   async dialogue<TScope = GameStepScope>(steps: GameStepSource<TScope>, scope?: TScope): Promise<void> {
     this.assertInitialized()
     try {
-      const resolvedSteps = resolveGameSteps(steps, scope)
+      const resolvedSteps = await resolveGameStepsAsync(steps, scope)
       const navigationVersion = this.navigationVersion
       for (const step of resolvedSteps) {
         if (this.navigationVersion !== navigationVersion) {

@@ -123,6 +123,7 @@ export type {
   GameSaveData,
   GameStep,
   GameStepFactory,
+  GameStepList,
   GameStepScope,
   GameStepSource,
   JsonSerializable,
