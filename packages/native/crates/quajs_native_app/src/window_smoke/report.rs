@@ -10,6 +10,8 @@ pub struct NativeWindowSmokeReport {
     pub present_status: String,
     pub presented: bool,
     pub present_attempt_count: usize,
+    pub target_frame_count: usize,
+    pub rendered_frame_count: usize,
     pub resize_count: usize,
     pub surface_recovery_count: usize,
     pub texture_upload_pending_request_count: usize,

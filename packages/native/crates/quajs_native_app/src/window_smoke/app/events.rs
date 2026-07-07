@@ -85,7 +85,7 @@ impl ApplicationHandler for NativeWindowSmokeApp {
                 }
             }
             WindowEvent::RedrawRequested => {
-                if self.report.is_none() && self.redraw_once_or_schedule_retry() {
+                if self.needs_more_frames() && self.redraw_once_or_schedule_retry() {
                     return;
                 }
                 event_loop.exit();
@@ -95,19 +95,28 @@ impl ApplicationHandler for NativeWindowSmokeApp {
     }
 
     fn about_to_wait(&mut self, _event_loop: &ActiveEventLoop) {
-        if self.report.is_none() {
+        if self.needs_more_frames() {
             self.request_redraw();
         }
     }
 }
 
 impl NativeWindowSmokeApp {
+    fn needs_more_frames(&self) -> bool {
+        self.rendered_frame_count < self.target_frame_count
+    }
+
     fn redraw_once_or_schedule_retry(&mut self) -> bool {
         let allow_occluded_report = self.present_loop.next_attempt_allows_occluded_report();
         match self.render_once(allow_occluded_report) {
             Ok(report) => {
                 self.report = Some(report);
-                false
+                if self.needs_more_frames() {
+                    self.request_redraw();
+                    true
+                } else {
+                    false
+                }
             }
             Err(error) => self.handle_redraw_failure(error),
         }

@@ -4,6 +4,10 @@ use super::error::NativeWindowSmokeError;
 
 pub const WINDOW_SMOKE_ENV: &str = "QUA_NATIVE_RENDERER_WINDOW_SMOKE";
 pub const WINDOW_SMOKE_FRAME_ENV: &str = "QUA_NATIVE_RENDERER_WINDOW_SMOKE_FRAME";
+pub const WINDOW_SMOKE_FRAMES_ENV: &str = "QUA_NATIVE_RENDERER_WINDOW_SMOKE_FRAMES";
+
+const DEFAULT_WINDOW_SMOKE_FRAME_COUNT: usize = 1;
+const MAX_WINDOW_SMOKE_FRAME_COUNT: usize = 120;
 
 pub(super) const DEFAULT_WINDOW_SMOKE_FRAME: &str =
     include_str!("../../../../test-fixtures/renderer/qui-qss-surface-frame.json");
@@ -30,4 +34,20 @@ pub(super) fn load_window_smoke_frame_source() -> Result<String, NativeWindowSmo
             path.display()
         ))
     })
+}
+
+pub(super) fn load_window_smoke_target_frame_count() -> usize {
+    let Some(value) = std::env::var_os(WINDOW_SMOKE_FRAMES_ENV) else {
+        return DEFAULT_WINDOW_SMOKE_FRAME_COUNT;
+    };
+    let value = value.to_string_lossy();
+    let value = value.trim();
+    let Ok(frame_count) = value.parse::<usize>() else {
+        return DEFAULT_WINDOW_SMOKE_FRAME_COUNT;
+    };
+
+    frame_count.clamp(
+        DEFAULT_WINDOW_SMOKE_FRAME_COUNT,
+        MAX_WINDOW_SMOKE_FRAME_COUNT,
+    )
 }
