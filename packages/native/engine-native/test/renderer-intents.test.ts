@@ -375,7 +375,7 @@ describe('@quajs/engine-native renderer intents', () => {
     ])
   })
 
-  it('drops malformed native UI intent canonical fields before overlay shortcut dispatch', async () => {
+  it('rejects malformed native UI intent canonical fields before emitting pipeline events', async () => {
     const pipeline = createTestPipeline()
     const received: Array<{ type: string, payload: unknown }> = []
     for (const type of [
@@ -400,26 +400,20 @@ describe('@quajs/engine-native renderer intents', () => {
           source: 'native-ui',
         },
       }),
-    )).resolves.toEqual({
-      handled: true,
-      emittedEvents: [
-        {
-          type: RenderToLogicEvents.UI_INTENT,
-          payload: {
-            source: 'native-ui',
-          },
-        },
-      ],
-    })
+    )).rejects.toThrow('Native renderer ui/intent payload field "action" must be a non-empty string when provided.')
 
-    expect(received).toEqual([
-      {
-        type: RenderToLogicEvents.UI_INTENT,
+    await expect(emitNativeRendererIntentToPipeline(
+      pipeline as any,
+      createNativeRendererIntent({
+        type: 'ui/intent',
         payload: {
-          source: 'native-ui',
+          action: 'open',
+          elementId: { forged: 'settings' },
         },
-      },
-    ])
+      }),
+    )).rejects.toThrow('Native renderer ui/intent payload field "elementId" must be a non-empty string when provided.')
+
+    expect(received).toEqual([])
   })
 
   it('does not emit render-to-logic business events for malformed native renderer intents', async () => {
@@ -513,6 +507,42 @@ describe('@quajs/engine-native renderer intents', () => {
         phase: 'renderer-intent',
         metadata: {
           nativeIntentType: 'choice/select',
+        },
+      }),
+    ])
+  })
+
+  it('reports malformed native UI intent canonical fields through render errors', async () => {
+    const host = createHost()
+    const pipeline = createTestPipeline()
+    const received: Array<{ type: string, payload: unknown }> = []
+    const errors: unknown[] = []
+    pipeline.on(RenderToLogicEvents.UI_INTENT, context => received.push({
+      type: RenderToLogicEvents.UI_INTENT,
+      payload: context.event.payload,
+    }))
+    pipeline.on(RenderToLogicEvents.RENDER_ERROR, context => errors.push(context.event.payload))
+
+    const plugin = new NativeHostPlugin({ host })
+    await plugin.init({ pipeline } as any)
+    host.emitRendererIntent?.(createNativeRendererIntent({
+      type: 'ui/intent',
+      payload: {
+        action: ['open'],
+        elementId: 'settings',
+      },
+    }))
+    await flushMicrotasks()
+
+    expect(received).toEqual([])
+    expect(plugin.getRendererIntentErrors()).toHaveLength(1)
+    expect(errors).toEqual([
+      expect.objectContaining({
+        message: 'Native renderer ui/intent payload field "action" must be a non-empty string when provided.',
+        source: 'native-renderer',
+        phase: 'renderer-intent',
+        metadata: {
+          nativeIntentType: 'ui/intent',
         },
       }),
     ])
