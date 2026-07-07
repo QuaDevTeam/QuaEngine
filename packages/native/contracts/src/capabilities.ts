@@ -3,6 +3,8 @@ import type {
   NativeQuickJsEvaluationResponse,
   NativeQuickJsGameStepFactoryCallRequest,
   NativeQuickJsGameStepFactoryCallResponse,
+  NativeQuickJsPipelineListenerDispatchRequest,
+  NativeQuickJsPipelineListenerDispatchResponse,
   NativeQuickJsGameStepRunRequest,
   NativeQuickJsGameStepRunResponse,
   NativeQuickJsGameStepResumeRequest,
@@ -129,6 +131,7 @@ export type NativeHostApiRequest =
   | { method: 'callQuickJsGameStepFactory', params: NativeQuickJsGameStepFactoryCallRequest }
   | { method: 'callQuickJsGameStepRun', params: NativeQuickJsGameStepRunRequest }
   | { method: 'resumeQuickJsGameStepRun', params: NativeQuickJsGameStepResumeRequest }
+  | { method: 'dispatchQuickJsPipelineListener', params: NativeQuickJsPipelineListenerDispatchRequest }
   | { method: 'releaseQuickJsModuleNamespace', params: NativeQuickJsReleaseNamespaceRequest }
   | { method: 'releaseQuickJsPackageNamespaces', params: NativeQuickJsReleasePackageRequest }
   | { method: 'getQuickJsNamespaceSummary' }
@@ -173,6 +176,7 @@ export interface NativeHostApiResponseValueByType {
   quickJsExportCall: NativeQuickJsModuleExportCallResponse
   quickJsGameStepFactoryCall: NativeQuickJsGameStepFactoryCallResponse
   quickJsGameStepRun: NativeQuickJsGameStepRunResponse
+  quickJsPipelineListenerDispatch: NativeQuickJsPipelineListenerDispatchResponse
   quickJsNamespace: NativeQuickJsModuleNamespaceRecord | null | undefined
   quickJsNamespaces: NativeQuickJsModuleNamespaceRecord[]
   quickJsNamespaceSummary: NativeQuickJsModuleNamespaceSummary
@@ -208,6 +212,7 @@ export interface QuaNativeHostApi {
   callQuickJsGameStepFactory?: (request: NativeQuickJsGameStepFactoryCallRequest) => Promise<NativeQuickJsGameStepFactoryCallResponse>
   callQuickJsGameStepRun?: (request: NativeQuickJsGameStepRunRequest) => Promise<NativeQuickJsGameStepRunResponse>
   resumeQuickJsGameStepRun?: (request: NativeQuickJsGameStepResumeRequest) => Promise<NativeQuickJsGameStepRunResponse>
+  dispatchQuickJsPipelineListener?: (request: NativeQuickJsPipelineListenerDispatchRequest) => Promise<NativeQuickJsPipelineListenerDispatchResponse>
   releaseQuickJsModuleNamespace?: (moduleNamespaceId: string) => Promise<NativeQuickJsModuleNamespaceRecord | undefined>
   releaseQuickJsPackageNamespaces?: (packageId: string) => Promise<NativeQuickJsModuleNamespaceRecord[]>
   getQuickJsNamespaceSummary?: () => Promise<NativeQuickJsModuleNamespaceSummary>

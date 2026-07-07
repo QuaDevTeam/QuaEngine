@@ -21,10 +21,12 @@ import {
   formatNativeTargetBundleManifestError,
 } from './native-manifest-validation'
 import { installNativeRendererIntentBridge } from './renderer-intents'
+import type { NativeQuickJsPipelineSubscriptionBridge } from './runtime-module-loader'
 
 export interface NativeHostPluginOptions {
   host: QuaNativeHostApi
   info?: QuaNativeHostInfo
+  quickJsPipelineSubscriptionBridge?: NativeQuickJsPipelineSubscriptionBridge
   targetBootstrapPackages?: readonly string[]
   targetBundleManifest?: TargetBundleManifest
 }
@@ -76,6 +78,7 @@ export class NativeHostPlugin implements EnginePlugin {
     this.disposeRendererIntentBridge = undefined
     this.disposeRuntimePackageUnloadListener?.()
     this.disposeRuntimePackageUnloadListener = undefined
+    this.options.quickJsPipelineSubscriptionBridge?.dispose()
   }
 
   getHostInfo(): QuaNativeHostInfo | undefined {
@@ -147,6 +150,9 @@ export class NativeHostPlugin implements EnginePlugin {
       return
     try {
       const released = await this.options.host.releaseQuickJsPackageNamespaces(packageId)
+      for (const record of released) {
+        this.options.quickJsPipelineSubscriptionBridge?.releaseModuleNamespace(record.id)
+      }
       this.releasedQuickJsPackages.push(...released)
     }
     catch (error) {

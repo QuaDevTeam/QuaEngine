@@ -13,7 +13,9 @@ use crate::quickjs::{
     QuickJsGameStepResumeRequest, QuickJsGameStepRunRequest, QuickJsGameStepRunResponse,
     QuickJsGameStepRunResult, QuickJsModuleEvaluator, QuickJsModuleExportCallRequest,
     QuickJsModuleExportCallResponse, QuickJsModuleExportCallResult, QuickJsModuleNamespaceRegistry,
-    QuickJsModuleNamespaceSummary,
+    QuickJsModuleNamespaceSummary, QuickJsPipelineListenerDispatchRequest,
+    QuickJsPipelineListenerDispatchResponse, QuickJsPipelineListenerDispatchResult,
+    QuickJsPipelineSubscriptionChange, QuickJsPipelineSubscriptionOperation,
 };
 
 use super::helpers::{host_info, quickjs_request_for_asset};
@@ -268,6 +270,68 @@ fn dispatches_quickjs_game_step_calls_through_injected_evaluator() {
         payload => panic!("expected quickjs GameStep resume payload, got {payload:?}"),
     }
     assert_eq!(quickjs.run_calls, 2);
+}
+
+#[test]
+fn dispatches_quickjs_pipeline_listener_calls_through_injected_evaluator() {
+    struct TestQuickJsEvaluator;
+
+    impl QuickJsModuleEvaluator for TestQuickJsEvaluator {
+        fn evaluate_module(
+            &mut self,
+            request: &QuickJsEvaluationRequest,
+        ) -> QuickJsEvaluationResult {
+            Ok(QuickJsEvaluationResponse::success(format!(
+                "quickjs:{}:{}",
+                request.module.package_id, request.module.asset_name
+            )))
+        }
+
+        fn dispatch_pipeline_listener(
+            &mut self,
+            request: &QuickJsPipelineListenerDispatchRequest,
+        ) -> QuickJsPipelineListenerDispatchResult {
+            Ok(QuickJsPipelineListenerDispatchResponse::success(
+                vec![QuickJsGameStepCommand {
+                    target: "engine".to_string(),
+                    method: "showDialogue".to_string(),
+                    args_json: Some(format!("[{{\"text\":{}}}]", request.context_json)),
+                }],
+                vec![QuickJsPipelineSubscriptionChange {
+                    op: QuickJsPipelineSubscriptionOperation::Unsubscribe,
+                    subscription_id: request.subscription_id.clone(),
+                    module_namespace_id: "quickjs:rquickjs:1".to_string(),
+                    event: "plugin/custom_event".to_string(),
+                }],
+            ))
+        }
+    }
+
+    let mut host = InMemoryNativeHostApi::new(host_info());
+    let mut quickjs = TestQuickJsEvaluator;
+    let response = dispatch_native_host_api_request_with_quickjs(
+        &mut host,
+        &mut quickjs,
+        NativeHostApiRequest::DispatchQuickJsPipelineListener(
+            QuickJsPipelineListenerDispatchRequest {
+                subscription_id: "quickjs:rquickjs:1:pipeline:1".to_string(),
+                context_json: "{\"event\":{\"type\":\"plugin/custom_event\"}}".to_string(),
+            },
+        ),
+    );
+
+    assert!(response.ok);
+    match response.payload.unwrap() {
+        NativeHostApiResponsePayload::QuickJsPipelineListenerDispatch(call) => {
+            assert!(call.ok);
+            assert_eq!(call.commands.unwrap()[0].method, "showDialogue");
+            assert_eq!(
+                call.pipeline_subscriptions.unwrap()[0].op,
+                QuickJsPipelineSubscriptionOperation::Unsubscribe
+            );
+        }
+        payload => panic!("expected quickjs pipeline listener dispatch payload, got {payload:?}"),
+    }
 }
 
 #[test]
