@@ -1,5 +1,8 @@
 export {
+  callNativeQuickJsModuleExport,
+  createNativeHostQuickJsJsonModuleNamespaceResolver,
   createNativeHostQuickJsModuleEvaluator,
+  createNativeQuickJsJsonExportFunction,
   createNativeRuntimeAdapters,
   createNativeRuntimeModuleLoader,
   getNativeQuickJsNamespaceSummary,

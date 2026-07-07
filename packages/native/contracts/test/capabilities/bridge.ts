@@ -62,6 +62,21 @@ describe('native host bridge adapter contracts', () => {
               },
             },
           }
+        case 'callQuickJsModuleExport':
+          return {
+            ok: true,
+            payload: {
+              type: 'quickJsExportCall',
+              value: {
+                ok: true,
+                valueJson: JSON.stringify({
+                  namespace: request.params.moduleNamespaceId,
+                  exportName: request.params.exportName,
+                  args: JSON.parse(request.params.argsJson || '[]'),
+                }),
+              },
+            },
+          }
         case 'releaseQuickJsModuleNamespace':
           return {
             ok: true,
@@ -135,6 +150,14 @@ describe('native host bridge adapter contracts', () => {
       ok: true,
       moduleNamespaceId: 'runtime.chapter.native-ui:scripts/opening.js',
     })
+    await expect(host.callQuickJsModuleExport?.({
+      moduleNamespaceId: 'quickjs:module:1',
+      exportName: 'default',
+      argsJson: '[{"scene":"opening"}]',
+    })).resolves.toEqual({
+      ok: true,
+      valueJson: '{"namespace":"quickjs:module:1","exportName":"default","args":[{"scene":"opening"}]}',
+    })
     await expect(host.releaseQuickJsModuleNamespace?.('quickjs:module:1')).resolves.toEqual(namespaceRecord)
     await expect(host.releaseQuickJsModuleNamespace?.('missing')).resolves.toBeUndefined()
     await expect(host.releaseQuickJsPackageNamespaces?.('runtime.chapter.native-ui')).resolves.toEqual([namespaceRecord])
@@ -154,6 +177,14 @@ describe('native host bridge adapter contracts', () => {
       { method: 'readAssetBytes', params: { url: 'images/bg.png' } },
       { method: 'writeStorage', params: { key: 'profile/save-1', value: [7, 8] } },
       expect.objectContaining({ method: 'evaluateQuickJsModule' }),
+      {
+        method: 'callQuickJsModuleExport',
+        params: {
+          moduleNamespaceId: 'quickjs:module:1',
+          exportName: 'default',
+          argsJson: '[{"scene":"opening"}]',
+        },
+      },
       { method: 'releaseQuickJsModuleNamespace', params: { moduleNamespaceId: 'quickjs:module:1' } },
       { method: 'releaseQuickJsPackageNamespaces', params: { packageId: 'runtime.chapter.native-ui' } },
       { method: 'getQuickJsNamespaceSummary' },

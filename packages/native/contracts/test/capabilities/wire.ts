@@ -81,6 +81,22 @@ describe('native host wire contracts', () => {
     })
 
     expect(createNativeHostApiRequest({
+      method: 'callQuickJsModuleExport',
+      params: {
+        moduleNamespaceId: 'quickjs:rquickjs:1',
+        exportName: 'default',
+        argsJson: '[{"scene":"opening"}]',
+      },
+    })).toEqual({
+      method: 'callQuickJsModuleExport',
+      params: {
+        moduleNamespaceId: 'quickjs:rquickjs:1',
+        exportName: 'default',
+        argsJson: '[{"scene":"opening"}]',
+      },
+    })
+
+    expect(createNativeHostApiRequest({
       method: 'releaseQuickJsModuleNamespace',
       params: {
         moduleNamespaceId: 'quickjs:module:1',

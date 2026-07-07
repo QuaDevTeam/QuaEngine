@@ -1,4 +1,7 @@
-use super::{QuickJsEvaluationError, QuickJsEvaluationErrorCode, QuickJsEvaluationRequest};
+use super::{
+    QuickJsEvaluationError, QuickJsEvaluationErrorCode, QuickJsEvaluationRequest,
+    QuickJsModuleExportCallRequest,
+};
 
 pub fn validate_quickjs_evaluation_request(
     request: &QuickJsEvaluationRequest,
@@ -60,6 +63,80 @@ pub fn validate_quickjs_evaluation_request(
         request.limits.max_module_bytes,
     ) {
         return Err(error);
+    }
+    Ok(())
+}
+
+pub fn validate_quickjs_module_export_call_request(
+    request: &QuickJsModuleExportCallRequest,
+) -> Result<(), QuickJsEvaluationError> {
+    validate_quickjs_handle(
+        &request.module_namespace_id,
+        QuickJsEvaluationErrorCode::MissingModuleNamespace,
+        "QuickJS module export call requires a moduleNamespaceId.",
+        "QuickJS module export call moduleNamespaceId must be an opaque native namespace handle.",
+    )?;
+    validate_quickjs_handle(
+        &request.export_name,
+        QuickJsEvaluationErrorCode::MissingExportName,
+        "QuickJS module export call requires an exportName.",
+        "QuickJS module export call exportName must be a safe JavaScript export name.",
+    )?;
+    if matches!(
+        request.export_name.as_str(),
+        "__proto__" | "prototype" | "constructor"
+    ) {
+        return Err(QuickJsEvaluationError {
+            code: QuickJsEvaluationErrorCode::MissingExport,
+            message: format!(
+                "QuickJS module export \"{}\" is not callable through the native bridge.",
+                request.export_name
+            ),
+            asset_name: None,
+            detail: Some(
+                "Prototype-related export names are blocked at the native bridge.".to_string(),
+            ),
+        });
+    }
+    if let Some(args_json) = &request.args_json {
+        let trimmed = args_json.trim();
+        if trimmed.is_empty() || !trimmed.starts_with('[') {
+            return Err(QuickJsEvaluationError {
+                code: QuickJsEvaluationErrorCode::InvalidArguments,
+                message: "QuickJS module export call argsJson must be a JSON array when provided."
+                    .to_string(),
+                asset_name: None,
+                detail: None,
+            });
+        }
+    }
+    Ok(())
+}
+
+fn validate_quickjs_handle(
+    value: &str,
+    empty_code: QuickJsEvaluationErrorCode,
+    empty_message: &str,
+    invalid_message: &str,
+) -> Result<(), QuickJsEvaluationError> {
+    if value.trim().is_empty() {
+        return Err(QuickJsEvaluationError {
+            code: empty_code,
+            message: empty_message.to_string(),
+            asset_name: None,
+            detail: None,
+        });
+    }
+    if value.trim() != value || value.chars().any(char::is_control) || value.len() > 256 {
+        return Err(QuickJsEvaluationError {
+            code: empty_code,
+            message: invalid_message.to_string(),
+            asset_name: None,
+            detail: Some(
+                "Bridge handles must be trimmed, control-character-free, and at most 256 bytes."
+                    .to_string(),
+            ),
+        });
     }
     Ok(())
 }

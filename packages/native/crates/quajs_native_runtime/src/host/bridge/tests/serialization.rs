@@ -3,6 +3,7 @@ use crate::host::bridge::{
     NativeHostApiResponsePayload, NativeQuickJsReleaseNamespaceRequest,
     NativeQuickJsReleasePackageRequest,
 };
+use crate::quickjs::{QuickJsModuleExportCallRequest, QuickJsModuleExportCallResponse};
 
 use super::helpers::quickjs_request_for_asset;
 
@@ -35,6 +36,33 @@ fn serializes_bridge_requests_and_responses_with_ts_field_names() {
     assert_eq!(
         quickjs_json["params"]["module"]["assetName"],
         "scripts/opening.js"
+    );
+
+    let call_export = serde_json::to_value(NativeHostApiRequest::CallQuickJsModuleExport(
+        QuickJsModuleExportCallRequest {
+            module_namespace_id: "quickjs:rquickjs:1".to_string(),
+            export_name: "default".to_string(),
+            args_json: Some("[{\"scene\":\"opening\"}]".to_string()),
+        },
+    ))
+    .unwrap();
+    assert_eq!(call_export["method"], "callQuickJsModuleExport");
+    assert_eq!(
+        call_export["params"]["moduleNamespaceId"],
+        "quickjs:rquickjs:1"
+    );
+    assert_eq!(call_export["params"]["exportName"], "default");
+
+    let call_response = serde_json::to_value(NativeHostApiResponse::success(
+        NativeHostApiResponsePayload::QuickJsExportCall(QuickJsModuleExportCallResponse::success(
+            Some("{\"ok\":true}".to_string()),
+        )),
+    ))
+    .unwrap();
+    assert_eq!(call_response["payload"]["type"], "quickJsExportCall");
+    assert_eq!(
+        call_response["payload"]["value"]["valueJson"],
+        "{\"ok\":true}"
     );
 
     let release_namespace = serde_json::to_value(

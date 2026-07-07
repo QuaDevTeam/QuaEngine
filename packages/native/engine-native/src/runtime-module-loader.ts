@@ -13,6 +13,8 @@ import type {
 import type {
   NativeQuickJsEvaluationRequest,
   NativeQuickJsEvaluationResponse,
+  NativeQuickJsModuleExportCallRequest,
+  NativeQuickJsModuleExportCallResponse,
   NativeQuickJsModuleNamespaceRecord,
   NativeQuickJsModuleNamespaceSummary,
   NativeQuickJsRuntimeModuleKind,
@@ -22,9 +24,11 @@ import type {
 import {
   assertNativeQuickJsEvaluationResponse,
   assertNativeQuickJsEvaluationRequest,
+  createNativeQuickJsModuleExportCallRequest,
   createNativeQuickJsEvaluationRequest,
   isForbiddenNativeAssetReference,
   isForbiddenNativePayload,
+  parseNativeQuickJsModuleExportCallResponse,
 } from '@quajs/native-contracts'
 
 declare const TextDecoder: {
@@ -77,6 +81,8 @@ export type NativeQuickJsModuleNamespaceResolver = (
   response: NativeQuickJsEvaluationResponse,
 ) => unknown | Promise<unknown>
 
+export type NativeQuickJsJsonExportFunction = (...args: readonly unknown[]) => Promise<unknown>
+
 export function createNativeHostQuickJsModuleEvaluator(
   host: Pick<QuaNativeHostApi, 'evaluateQuickJsModule'>,
   resolveModuleNamespace: NativeQuickJsModuleNamespaceResolver,
@@ -89,6 +95,52 @@ export function createNativeHostQuickJsModuleEvaluator(
     const response = await host.evaluateQuickJsModule(ctx.request)
     const moduleNamespaceId = assertNativeQuickJsEvaluationResponse(response)
     return await resolveModuleNamespace(moduleNamespaceId, ctx, response)
+  }
+}
+
+export async function callNativeQuickJsModuleExport(
+  host: Pick<QuaNativeHostApi, 'callQuickJsModuleExport'>,
+  request: NativeQuickJsModuleExportCallRequest,
+): Promise<unknown> {
+  if (!host.callQuickJsModuleExport) {
+    throw new Error('Native host does not provide QuickJS module export calls.')
+  }
+  const response: NativeQuickJsModuleExportCallResponse = await host.callQuickJsModuleExport(request)
+  return parseNativeQuickJsModuleExportCallResponse(response)
+}
+
+export function createNativeQuickJsJsonExportFunction(
+  host: Pick<QuaNativeHostApi, 'callQuickJsModuleExport'>,
+  moduleNamespaceId: string,
+  exportName: string,
+): NativeQuickJsJsonExportFunction {
+  return async (...args: readonly unknown[]) => {
+    return await callNativeQuickJsModuleExport(host, createNativeQuickJsModuleExportCallRequest({
+      moduleNamespaceId,
+      exportName,
+      args,
+    }))
+  }
+}
+
+export function createNativeHostQuickJsJsonModuleNamespaceResolver(
+  host: Pick<QuaNativeHostApi, 'callQuickJsModuleExport'>,
+): NativeQuickJsModuleNamespaceResolver {
+  return (moduleNamespaceId) => {
+    return new Proxy(Object.create(null), {
+      get(_target, property) {
+        if (property === Symbol.toStringTag)
+          return 'NativeQuickJsJsonModuleNamespace'
+        if (property === 'then')
+          return undefined
+        if (typeof property !== 'string')
+          return undefined
+        return createNativeQuickJsJsonExportFunction(host, moduleNamespaceId, property)
+      },
+      has(_target, property) {
+        return typeof property === 'string' && property !== 'then'
+      },
+    })
   }
 }
 

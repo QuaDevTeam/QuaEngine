@@ -14,11 +14,13 @@ pub use host::{
     NativeRendererIntent, NativeRuntimeInfo, NativeSignatureVerifyRequest, RendererCapability,
 };
 pub use quickjs::{
-    evaluate_quickjs_module, evaluate_quickjs_module_with_registry,
+    call_quickjs_module_export, evaluate_quickjs_module, evaluate_quickjs_module_with_registry,
     is_forbidden_runtime_module_asset_name, quickjs_module_namespace_id, quickjs_runtime_version,
-    validate_quickjs_evaluation_request, QuickJsEvaluationError, QuickJsEvaluationErrorCode,
-    QuickJsEvaluationRequest, QuickJsEvaluationResponse, QuickJsEvaluationResult,
-    QuickJsModuleEvaluator, QuickJsModuleNamespaceRecord, QuickJsModuleNamespaceRegistry,
-    QuickJsModuleNamespaceSummary, QuickJsRuntimeModuleKind, QuickJsRuntimeModuleRecord,
-    QuickJsSandboxLimits, UnsupportedQuickJsModuleEvaluator, UNSUPPORTED_QUICKJS_VERSION,
+    validate_quickjs_evaluation_request, validate_quickjs_module_export_call_request,
+    QuickJsEvaluationError, QuickJsEvaluationErrorCode, QuickJsEvaluationRequest,
+    QuickJsEvaluationResponse, QuickJsEvaluationResult, QuickJsModuleEvaluator,
+    QuickJsModuleExportCallRequest, QuickJsModuleExportCallResponse, QuickJsModuleExportCallResult,
+    QuickJsModuleNamespaceRecord, QuickJsModuleNamespaceRegistry, QuickJsModuleNamespaceSummary,
+    QuickJsRuntimeModuleKind, QuickJsRuntimeModuleRecord, QuickJsSandboxLimits,
+    UnsupportedQuickJsModuleEvaluator, UNSUPPORTED_QUICKJS_VERSION,
 };
