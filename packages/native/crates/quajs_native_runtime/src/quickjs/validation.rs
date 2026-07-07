@@ -147,7 +147,7 @@ fn strip_asset_reference_suffix(asset_name: &str) -> &str {
 
 const SUPPORTED_QUICKJS_MODULE_EXTENSIONS: [&str; 3] = [".js", ".mjs", ".cjs"];
 
-const FORBIDDEN_NATIVE_MODULE_PAYLOAD_EXTENSIONS: [&str; 16] = [
+const FORBIDDEN_NATIVE_MODULE_PAYLOAD_EXTENSIONS: [&str; 17] = [
     ".dylib",
     ".so",
     ".dll",
@@ -164,4 +164,5 @@ const FORBIDDEN_NATIVE_MODULE_PAYLOAD_EXTENSIONS: [&str; 16] = [
     ".rpm",
     ".appimage",
     ".jar",
+    ".class",
 ];
