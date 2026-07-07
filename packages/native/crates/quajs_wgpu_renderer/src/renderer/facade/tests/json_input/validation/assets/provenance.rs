@@ -34,6 +34,21 @@ fn json_frame_provenance_validation_rejects_unsafe_package_ids() {
         other => panic!("expected UI provenance validation error, got {other:?}"),
     }
 
+    let dot_prefixed = renderer
+        .prepare_frame_json_str(json_frame_with_dot_prefixed_provenance_package_input())
+        .unwrap_err();
+    match dot_prefixed {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(
+                validation.path,
+                "view.ui.overlays[0].surface.root.provenance.contentPackageId"
+            );
+            assert_eq!(validation.asset_name, ".runtime");
+            assert!(validation.reason.contains("start and end"));
+        }
+        other => panic!("expected dot-prefixed provenance validation error, got {other:?}"),
+    }
+
     assert_eq!(renderer.state().revision(), 0);
     assert!(renderer.state().frame().is_none());
 }

@@ -74,6 +74,8 @@ fn validate_package_id(package_id: &str) -> Result<(), String> {
     if package_id.is_empty()
         || package_id.trim() != package_id
         || package_id.contains("..")
+        || !package_id.chars().any(|ch| ch.is_ascii_alphanumeric())
+        || !starts_and_ends_with_ascii_alphanumeric(package_id)
         || !package_id
             .chars()
             .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | '.'))
@@ -83,6 +85,13 @@ fn validate_package_id(package_id: &str) -> Result<(), String> {
         ));
     }
     Ok(())
+}
+
+fn starts_and_ends_with_ascii_alphanumeric(value: &str) -> bool {
+    matches!(
+        (value.chars().next(), value.chars().next_back()),
+        (Some(first), Some(last)) if first.is_ascii_alphanumeric() && last.is_ascii_alphanumeric()
+    )
 }
 
 fn strip_query_hash(value: &str) -> &str {
