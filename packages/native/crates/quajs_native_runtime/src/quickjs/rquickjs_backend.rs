@@ -16,10 +16,11 @@ use super::{
     QuickJsEvaluationResponse, QuickJsEvaluationResult, QuickJsGameStepCommand,
     QuickJsGameStepDescriptor, QuickJsGameStepFactoryCallRequest,
     QuickJsGameStepFactoryCallResponse, QuickJsGameStepFactoryCallResult,
-    QuickJsGameStepPipelineEmitRequest, QuickJsGameStepResumeRequest, QuickJsGameStepRunRequest,
-    QuickJsGameStepRunResponse, QuickJsGameStepRunResult, QuickJsGameStepTranslationRequest,
-    QuickJsGameStepWaitRequest, QuickJsModuleEvaluator, QuickJsModuleExportCallRequest,
-    QuickJsModuleExportCallResponse, QuickJsModuleExportCallResult, QuickJsSandboxLimits,
+    QuickJsGameStepHelperCallRequest, QuickJsGameStepPipelineEmitRequest,
+    QuickJsGameStepResumeRequest, QuickJsGameStepRunRequest, QuickJsGameStepRunResponse,
+    QuickJsGameStepRunResult, QuickJsGameStepTranslationRequest, QuickJsGameStepWaitRequest,
+    QuickJsModuleEvaluator, QuickJsModuleExportCallRequest, QuickJsModuleExportCallResponse,
+    QuickJsModuleExportCallResult, QuickJsSandboxLimits,
 };
 
 pub const RQUICKJS_BACKEND_VERSION: &str = "rquickjs-0.12.1";
@@ -58,7 +59,7 @@ const NATIVE_QUICKJS_GAME_STEP_ENGINE_COMMAND_METHODS: &[&str] = &[
 ];
 
 const NATIVE_QUICKJS_STEP_CONTEXT_BRIDGE_SOURCE: &str = r#"
-((ctx, commands, unsupportedState, waitState, translationState, pipelineState, methods) => {
+((ctx, commands, unsupportedState, waitState, translationState, pipelineState, helperState, methods) => {
   const engine = Object.create(null);
   const pipeline = Object.create(null);
   const serializeArgs = (method, args) => JSON.stringify(args, (_key, value) => {
@@ -93,8 +94,13 @@ const NATIVE_QUICKJS_STEP_CONTEXT_BRIDGE_SOURCE: &str = r#"
       throw new TypeError('Native QuickJS StepContext pipeline.emit requires a safe event name.');
     }
   };
+  const assertHelperText = (value, label) => {
+    if (typeof value !== 'string' || value.trim() !== value || value.length === 0 || value.length > 256 || /[\u0000-\u001F\u007F]/.test(value)) {
+      throw new TypeError(`Native QuickJS StepContext helper call requires a safe ${label}.`);
+    }
+  };
   const assertNoPendingContinuation = name => {
-    if (waitState.active || translationState.active || pipelineState.active) {
+    if (waitState.active || translationState.active || pipelineState.active || helperState.active) {
       throw new Error(`Native QuickJS StepContext can only suspend one ${name} continuation at a time.`);
     }
   };
@@ -155,6 +161,33 @@ const NATIVE_QUICKJS_STEP_CONTEXT_BRIDGE_SOURCE: &str = r#"
       pipelineState.resolve = resolve;
     });
   };
+  const callHelper = (moduleName, exportName, engineArg, args) => {
+    assertHelperText(moduleName, 'helper module name');
+    assertHelperText(exportName, 'helper export name');
+    if (exportName === '__proto__' || exportName === 'prototype' || exportName === 'constructor') {
+      throw new TypeError(`Native QuickJS helper export ${exportName} is blocked.`);
+    }
+    if (!engineArg || typeof engineArg !== 'object') {
+      throw new TypeError(`Native QuickJS helper ${moduleName}.${exportName} requires ctx.engine as its first argument.`);
+    }
+    let argsJson = JSON.stringify(args, (_key, value) => {
+      if (typeof value === 'function' || typeof value === 'symbol' || typeof value === 'undefined') {
+        throw new TypeError(`Native QuickJS helper ${moduleName}.${exportName} arguments must be JSON-serializable.`);
+      }
+      return value;
+    });
+    if (argsJson === undefined || !argsJson.startsWith('[')) {
+      throw new TypeError(`Native QuickJS helper ${moduleName}.${exportName} arguments must serialize to a JSON array.`);
+    }
+    assertNoPendingContinuation('helper call');
+    helperState.active = true;
+    helperState.module = moduleName;
+    helperState.exportName = exportName;
+    helperState.argsJson = argsJson;
+    return new Promise(resolve => {
+      helperState.resolve = resolve;
+    });
+  };
   for (const method of methods) {
     Object.defineProperty(engine, method, { value: record(method), enumerable: true });
   }
@@ -165,6 +198,7 @@ const NATIVE_QUICKJS_STEP_CONTEXT_BRIDGE_SOURCE: &str = r#"
   Object.defineProperty(ctx, 'engine', { value: engine, enumerable: true, configurable: true });
   Object.defineProperty(ctx, 'pipeline', { value: pipeline, enumerable: true, configurable: true });
   Object.defineProperty(ctx, 't', { value: translate, enumerable: true, configurable: true });
+  Object.defineProperty(globalThis, '__quaNativeStepHelperCall', { value: callHelper, enumerable: false, configurable: true });
   return ctx;
 })
 "#;
@@ -217,6 +251,22 @@ const NATIVE_QUICKJS_STEP_PIPELINE_RESUME_SOURCE: &str = r#"
   pipelineState.payloadJson = undefined;
   pipelineState.resolve = undefined;
   resolve(undefined);
+  return { accepted: true };
+})
+"#;
+
+const NATIVE_QUICKJS_STEP_HELPER_RESUME_SOURCE: &str = r#"
+((helperState, payload) => {
+  if (!helperState.active) {
+    return { accepted: false };
+  }
+  const resolve = helperState.resolve;
+  helperState.active = false;
+  helperState.module = undefined;
+  helperState.exportName = undefined;
+  helperState.argsJson = undefined;
+  helperState.resolve = undefined;
+  resolve(payload);
   return { accepted: true };
 })
 "#;
@@ -415,12 +465,98 @@ impl Loader for NativeQuickJsBuiltinHelperLoader {
     }
 }
 
-fn native_quickjs_builtin_helper_source(name: &str) -> Option<&'static str> {
+fn native_quickjs_builtin_helper_source(name: &str) -> Option<String> {
     match name {
-        "@quajs/engine" => Some(NATIVE_QUICKJS_ENGINE_HELPERS_SOURCE),
-        "@quajs/character" => Some(NATIVE_QUICKJS_CHARACTER_HELPERS_SOURCE),
+        "@quajs/engine" => Some(NATIVE_QUICKJS_ENGINE_HELPERS_SOURCE.to_string()),
+        "@quajs/character" => Some(NATIVE_QUICKJS_CHARACTER_HELPERS_SOURCE.to_string()),
+        _ => native_quickjs_bridge_helper_exports(name)
+            .map(|exports| native_quickjs_bridge_helper_source(name, exports)),
+    }
+}
+
+fn native_quickjs_bridge_helper_exports(name: &str) -> Option<&'static [&'static str]> {
+    match name {
+        "@quajs/character/animation" => Some(&[
+            "playCharacterEnterWithEngine",
+            "playCharacterFadeWithEngine",
+            "playCharacterExitWithEngine",
+        ]),
+        "@quajs/plugin-achievement" => Some(&[
+            "unlockAchievementWithEngine",
+            "openAchievementBoardWithEngine",
+        ]),
+        "@quajs/plugin-animation" => Some(&[
+            "registerAnimationWithEngine",
+            "playTimelineWithEngine",
+            "playAnimationWithEngine",
+        ]),
+        "@quajs/plugin-audio" => Some(&[
+            "configureAudioChapterWithEngine",
+            "playVoiceWithEngine",
+            "playBGMWithEngine",
+            "playSFXWithEngine",
+            "playAmbientWithEngine",
+            "setAudioGainWithEngine",
+            "setAudioEqWithEngine",
+            "setAudioAutomationWithEngine",
+            "stopAudioWithEngine",
+            "pauseAudioWithEngine",
+            "resumeAudioWithEngine",
+            "seekAudioWithEngine",
+            "stopVoiceWithEngine",
+            "stopBGMWithEngine",
+            "stopSFXWithEngine",
+            "stopAmbientWithEngine",
+        ]),
+        "@quajs/plugin-background" => Some(&[
+            "setBackgroundWithEngine",
+            "clearBackgroundWithEngine",
+            "setVideoBackgroundWithEngine",
+            "setLayeredBackgroundWithEngine",
+            "addBackgroundLayerWithEngine",
+            "removeBackgroundLayerWithEngine",
+            "clearBackgroundLayersWithEngine",
+            "transitionBackgroundWithEngine",
+            "transitionBackgroundLayerWithEngine",
+            "showCgOverlayWithEngine",
+            "hideCgOverlayWithEngine",
+        ]),
+        "@quajs/plugin-backlog" => Some(&["setBacklogPolicyWithEngine"]),
+        "@quajs/plugin-gallery" => {
+            Some(&["unlockGalleryEntryWithEngine", "openGallerySceneWithEngine"])
+        }
+        "@quajs/plugin-inventory" => Some(&[
+            "grantInventoryItemWithEngine",
+            "consumeInventoryItemWithEngine",
+            "setInventoryItemQuantityWithEngine",
+        ]),
+        "@quajs/story-graph" => Some(&[
+            "setStoryMetadataWithEngine",
+            "emitStoryEventWithEngine",
+            "setStoryChapterSelectWithEngine",
+        ]),
         _ => None,
     }
+}
+
+fn native_quickjs_bridge_helper_source(name: &str, exports: &[&str]) -> String {
+    let mut source = String::from(
+        r#"
+const createNativeHelper = (moduleName, exportName) => async (engine, ...args) => {
+  const bridge = globalThis.__quaNativeStepHelperCall;
+  if (typeof bridge !== 'function') {
+    throw new Error(`Native QuickJS helper ${moduleName}.${exportName} requires an active GameStep bridge.`);
+  }
+  return await bridge(moduleName, exportName, engine, args);
+};
+"#,
+    );
+    for export_name in exports {
+        source.push_str(&format!(
+            "export const {export_name} = createNativeHelper({name:?}, {export_name:?});\n"
+        ));
+    }
+    source
 }
 
 pub fn quickjs_rquickjs_runtime_version() -> &'static str {
@@ -461,6 +597,7 @@ struct QuickJsStepResumeHandle {
     wait_state: Persistent<Object<'static>>,
     translation_state: Persistent<Object<'static>>,
     pipeline_state: Persistent<Object<'static>>,
+    helper_state: Persistent<Object<'static>>,
     unsupported_state: Persistent<Object<'static>>,
     last_command_index: usize,
 }
@@ -473,6 +610,7 @@ struct QuickJsPendingStepRun {
     wait_state: Persistent<Object<'static>>,
     translation_state: Persistent<Object<'static>>,
     pipeline_state: Persistent<Object<'static>>,
+    helper_state: Persistent<Object<'static>>,
     unsupported_state: Persistent<Object<'static>>,
     last_command_index: usize,
 }
@@ -481,6 +619,7 @@ enum QuickJsPendingStepRequest {
     Wait(QuickJsGameStepWaitRequest),
     Translation(QuickJsGameStepTranslationRequest),
     PipelineEmit(QuickJsGameStepPipelineEmitRequest),
+    HelperCall(QuickJsGameStepHelperCallRequest),
 }
 
 impl QuickJsPendingStepRequest {
@@ -489,6 +628,7 @@ impl QuickJsPendingStepRequest {
             QuickJsPendingStepRequest::Wait(request) => request.resume_handle_id.as_str(),
             QuickJsPendingStepRequest::Translation(request) => request.resume_handle_id.as_str(),
             QuickJsPendingStepRequest::PipelineEmit(request) => request.resume_handle_id.as_str(),
+            QuickJsPendingStepRequest::HelperCall(request) => request.resume_handle_id.as_str(),
         }
     }
 
@@ -502,6 +642,9 @@ impl QuickJsPendingStepRequest {
             }
             QuickJsPendingStepRequest::PipelineEmit(request) => {
                 QuickJsGameStepRunResponse::pending_pipeline_emit(commands, request)
+            }
+            QuickJsPendingStepRequest::HelperCall(request) => {
+                QuickJsGameStepRunResponse::pending_helper_call(commands, request)
             }
         }
     }
@@ -955,6 +1098,13 @@ impl QuickJsModuleEvaluator for RquickJsModuleEvaluator {
                         Some(error.to_string()),
                     )
                 })?;
+                let helper_state = Object::new(ctx.clone()).map_err(|error| {
+                    call_error(
+                        QuickJsEvaluationErrorCode::InvalidStepContext,
+                        "QuickJS GameStep helper-call state could not be created.".to_string(),
+                        Some(error.to_string()),
+                    )
+                })?;
                 install_step_context_bridge(
                     ctx.clone(),
                     &ctx_object,
@@ -963,6 +1113,7 @@ impl QuickJsModuleEvaluator for RquickJsModuleEvaluator {
                     &wait_state,
                     &translation_state,
                     &pipeline_state,
+                    &helper_state,
                 )?;
                 let value: Value = function
                     .call_arg(one_arg(ctx.clone(), Value::from_object(ctx_object))?)
@@ -989,6 +1140,7 @@ impl QuickJsModuleEvaluator for RquickJsModuleEvaluator {
                                 &wait_state,
                                 &translation_state,
                                 &pipeline_state,
+                                &helper_state,
                                 &resume_handle_id,
                             )?;
                             return Ok(QuickJsStepRunBoundary::Pending(QuickJsPendingStepRun {
@@ -1003,6 +1155,7 @@ impl QuickJsModuleEvaluator for RquickJsModuleEvaluator {
                                 wait_state: Persistent::save(&ctx, wait_state),
                                 translation_state: Persistent::save(&ctx, translation_state),
                                 pipeline_state: Persistent::save(&ctx, pipeline_state),
+                                helper_state: Persistent::save(&ctx, helper_state),
                                 unsupported_state: Persistent::save(&ctx, unsupported_state),
                                 last_command_index,
                             }));
@@ -1022,6 +1175,7 @@ impl QuickJsModuleEvaluator for RquickJsModuleEvaluator {
                 if wait_state_is_active(&wait_state)?
                     || translation_state_is_active(&translation_state)?
                     || pipeline_state_is_active(&pipeline_state)?
+                    || helper_state_is_active(&helper_state)?
                 {
                     return Err(call_error(
                         QuickJsEvaluationErrorCode::StepRunFailed,
@@ -1030,7 +1184,7 @@ impl QuickJsModuleEvaluator for RquickJsModuleEvaluator {
                             request.run_handle_id
                         ),
                         Some(
-                            "GameStep run functions must await or return ctx.engine.waitFor / ctx.t / ctx.pipeline.emit promises."
+                            "GameStep run functions must await or return ctx.engine.waitFor / ctx.t / ctx.pipeline.emit / native helper promises."
                                 .to_string(),
                         ),
                     ));
@@ -1056,6 +1210,7 @@ impl QuickJsModuleEvaluator for RquickJsModuleEvaluator {
                         wait_state: pending.wait_state,
                         translation_state: pending.translation_state,
                         pipeline_state: pending.pipeline_state,
+                        helper_state: pending.helper_state,
                         unsupported_state: pending.unsupported_state,
                         last_command_index: pending.last_command_index,
                     },
@@ -1118,6 +1273,13 @@ impl QuickJsModuleEvaluator for RquickJsModuleEvaluator {
                     call_error(
                         QuickJsEvaluationErrorCode::StepRunFailed,
                         "QuickJS GameStep pipeline state could not be restored.".to_string(),
+                        Some(error.to_string()),
+                    )
+                })?;
+                let helper_state = handle.helper_state.clone().restore(&ctx).map_err(|error| {
+                    call_error(
+                        QuickJsEvaluationErrorCode::StepRunFailed,
+                        "QuickJS GameStep helper-call state could not be restored.".to_string(),
                         Some(error.to_string()),
                     )
                 })?;
@@ -1226,6 +1388,37 @@ impl QuickJsModuleEvaluator for RquickJsModuleEvaluator {
                             Some(error.to_string()),
                         )
                     })?
+                } else if helper_state_is_active(&helper_state)? {
+                    let resume_helper: Function = ctx
+                        .eval(NATIVE_QUICKJS_STEP_HELPER_RESUME_SOURCE)
+                        .map_err(|error| {
+                            call_error(
+                                QuickJsEvaluationErrorCode::StepRunFailed,
+                                "QuickJS StepContext helper-call resume script could not be compiled."
+                                    .to_string(),
+                                Some(error.to_string()),
+                            )
+                        })?;
+                    let resume_result: Object = resume_helper
+                        .call_arg(two_args(ctx.clone(), helper_state.clone(), payload)?)
+                        .map_err(|error| {
+                            step_run_error_from_unsupported_state(
+                                &unsupported_state,
+                                format!(
+                                    "QuickJS GameStep resume handle \"{}\" failed.",
+                                    request.resume_handle_id
+                                ),
+                                Some(error.to_string()),
+                            )
+                        })?;
+                    resume_result.get("accepted").map_err(|error| {
+                        call_error(
+                            QuickJsEvaluationErrorCode::StepRunFailed,
+                            "QuickJS GameStep helper-call resume result did not include accepted."
+                                .to_string(),
+                            Some(error.to_string()),
+                        )
+                    })?
                 } else {
                     return Err(call_error(
                         QuickJsEvaluationErrorCode::MissingResumeHandle,
@@ -1248,6 +1441,7 @@ impl QuickJsModuleEvaluator for RquickJsModuleEvaluator {
                             &wait_state,
                             &translation_state,
                             &pipeline_state,
+                            &helper_state,
                             &resume_handle_id,
                         )?,
                         last_command_index,
@@ -1274,6 +1468,7 @@ impl QuickJsModuleEvaluator for RquickJsModuleEvaluator {
                                 &wait_state,
                                 &translation_state,
                                 &pipeline_state,
+                                &helper_state,
                                 &resume_handle_id,
                             )?,
                             last_command_index,
@@ -1432,6 +1627,7 @@ fn install_step_context_bridge<'js>(
     wait_state: &Object<'js>,
     translation_state: &Object<'js>,
     pipeline_state: &Object<'js>,
+    helper_state: &Object<'js>,
 ) -> Result<(), QuickJsEvaluationError> {
     let install: Function = ctx
         .eval(NATIVE_QUICKJS_STEP_CONTEXT_BRIDGE_SOURCE)
@@ -1444,7 +1640,7 @@ fn install_step_context_bridge<'js>(
         })?;
     let methods = step_engine_command_methods_array(ctx.clone())?;
     let _: Value = install
-        .call_arg(seven_args(
+        .call_arg(eight_args(
             ctx,
             ctx_object.clone(),
             commands.clone(),
@@ -1452,6 +1648,7 @@ fn install_step_context_bridge<'js>(
             wait_state.clone(),
             translation_state.clone(),
             pipeline_state.clone(),
+            helper_state.clone(),
             methods,
         )?)
         .map_err(|error| {
@@ -1643,31 +1840,55 @@ fn pipeline_state_is_active(pipeline_state: &Object<'_>) -> Result<bool, QuickJs
     })
 }
 
+fn helper_state_is_active(helper_state: &Object<'_>) -> Result<bool, QuickJsEvaluationError> {
+    let active: Value = helper_state.get("active").map_err(|error| {
+        call_error(
+            QuickJsEvaluationErrorCode::InvalidStepContext,
+            "QuickJS GameStep helper-call state active flag could not be read.".to_string(),
+            Some(error.to_string()),
+        )
+    })?;
+    if active.is_undefined() || active.is_null() {
+        return Ok(false);
+    }
+    helper_state.get("active").map_err(|error| {
+        call_error(
+            QuickJsEvaluationErrorCode::InvalidStepContext,
+            "QuickJS GameStep helper-call state active flag must be a boolean.".to_string(),
+            Some(error.to_string()),
+        )
+    })
+}
+
 fn pending_step_request_from_states(
     wait_state: &Object<'_>,
     translation_state: &Object<'_>,
     pipeline_state: &Object<'_>,
+    helper_state: &Object<'_>,
     resume_handle_id: &str,
 ) -> Result<QuickJsPendingStepRequest, QuickJsEvaluationError> {
     let wait_active = wait_state_is_active(wait_state)?;
     let translation_active = translation_state_is_active(translation_state)?;
     let pipeline_active = pipeline_state_is_active(pipeline_state)?;
-    match (wait_active, translation_active, pipeline_active) {
-        (true, false, false) => Ok(QuickJsPendingStepRequest::Wait(pending_wait_from_state(
-            wait_state,
-            resume_handle_id,
-        )?)),
-        (false, true, false) => Ok(QuickJsPendingStepRequest::Translation(
+    let helper_active = helper_state_is_active(helper_state)?;
+    match (wait_active, translation_active, pipeline_active, helper_active) {
+        (true, false, false, false) => Ok(QuickJsPendingStepRequest::Wait(
+            pending_wait_from_state(wait_state, resume_handle_id)?,
+        )),
+        (false, true, false, false) => Ok(QuickJsPendingStepRequest::Translation(
             pending_translation_from_state(translation_state, resume_handle_id)?,
         )),
-        (false, false, true) => Ok(QuickJsPendingStepRequest::PipelineEmit(
+        (false, false, true, false) => Ok(QuickJsPendingStepRequest::PipelineEmit(
             pending_pipeline_emit_from_state(pipeline_state, resume_handle_id)?,
         )),
-        (false, false, false) => Err(call_error(
+        (false, false, false, true) => Ok(QuickJsPendingStepRequest::HelperCall(
+            pending_helper_call_from_state(helper_state, resume_handle_id)?,
+        )),
+        (false, false, false, false) => Err(call_error(
             QuickJsEvaluationErrorCode::StepRunFailed,
             "QuickJS GameStep promise blocked without an active StepContext continuation."
                 .to_string(),
-            Some("Native QuickJS can only suspend GameStep runs at ctx.engine.waitFor, ctx.t, or ctx.pipeline.emit.".to_string()),
+            Some("Native QuickJS can only suspend GameStep runs at ctx.engine.waitFor, ctx.t, ctx.pipeline.emit, or a registered native helper call.".to_string()),
         )),
         _ => Err(call_error(
             QuickJsEvaluationErrorCode::InvalidStepContext,
@@ -1840,6 +2061,92 @@ fn pending_pipeline_emit_from_state(
     })
 }
 
+fn pending_helper_call_from_state(
+    helper_state: &Object<'_>,
+    resume_handle_id: &str,
+) -> Result<QuickJsGameStepHelperCallRequest, QuickJsEvaluationError> {
+    if !helper_state_is_active(helper_state)? {
+        return Err(call_error(
+            QuickJsEvaluationErrorCode::InvalidHelperCallRequest,
+            "QuickJS GameStep promise blocked without an active native helper call.".to_string(),
+            Some("Native QuickJS can only bridge registered helper imports through native helper continuations.".to_string()),
+        ));
+    }
+    let module: String = helper_state.get("module").map_err(|error| {
+        call_error(
+            QuickJsEvaluationErrorCode::InvalidHelperCallRequest,
+            "QuickJS GameStep helper-call state requires a module name.".to_string(),
+            Some(error.to_string()),
+        )
+    })?;
+    if !is_safe_quickjs_bridge_text(&module) {
+        return Err(call_error(
+            QuickJsEvaluationErrorCode::InvalidHelperCallRequest,
+            "QuickJS GameStep helper-call module name is invalid.".to_string(),
+            Some("Helper module names must be trimmed, non-empty, control-character-free, and at most 256 bytes.".to_string()),
+        ));
+    }
+    let export_name: String = helper_state.get("exportName").map_err(|error| {
+        call_error(
+            QuickJsEvaluationErrorCode::InvalidHelperCallRequest,
+            "QuickJS GameStep helper-call state requires an export name.".to_string(),
+            Some(error.to_string()),
+        )
+    })?;
+    if !is_safe_quickjs_bridge_text(&export_name)
+        || matches!(
+            export_name.as_str(),
+            "__proto__" | "prototype" | "constructor"
+        )
+    {
+        return Err(call_error(
+            QuickJsEvaluationErrorCode::InvalidHelperCallRequest,
+            "QuickJS GameStep helper-call export name is invalid.".to_string(),
+            Some("Helper export names must be safe bridge text and must not be prototype-related names.".to_string()),
+        ));
+    }
+    let args_value: Value = helper_state.get("argsJson").map_err(|error| {
+        call_error(
+            QuickJsEvaluationErrorCode::InvalidHelperCallRequest,
+            "QuickJS GameStep helper-call argsJson could not be read.".to_string(),
+            Some(error.to_string()),
+        )
+    })?;
+    let args_json = if args_value.is_undefined() || args_value.is_null() {
+        None
+    } else {
+        let args_json: String = helper_state.get("argsJson").map_err(|error| {
+            call_error(
+                QuickJsEvaluationErrorCode::InvalidHelperCallRequest,
+                "QuickJS GameStep helper-call argsJson must be a string.".to_string(),
+                Some(error.to_string()),
+            )
+        })?;
+        let parsed_args: serde_json::Value =
+            serde_json::from_str(args_json.as_str()).map_err(|error| {
+                call_error(
+                    QuickJsEvaluationErrorCode::InvalidHelperCallRequest,
+                    "QuickJS GameStep helper-call argsJson must be valid JSON.".to_string(),
+                    Some(error.to_string()),
+                )
+            })?;
+        if !parsed_args.is_array() {
+            return Err(call_error(
+                QuickJsEvaluationErrorCode::InvalidHelperCallRequest,
+                "QuickJS GameStep helper-call argsJson must be a JSON array.".to_string(),
+                None,
+            ));
+        }
+        Some(args_json)
+    };
+    Ok(QuickJsGameStepHelperCallRequest {
+        resume_handle_id: resume_handle_id.to_string(),
+        module,
+        export_name,
+        args_json,
+    })
+}
+
 fn is_safe_quickjs_bridge_text(value: &str) -> bool {
     !value.is_empty()
         && value.len() <= 256
@@ -1868,7 +2175,7 @@ fn one_arg<'js>(
     Ok(args)
 }
 
-fn seven_args<'js>(
+fn eight_args<'js>(
     ctx: rquickjs::Ctx<'js>,
     first: Object<'js>,
     second: Array<'js>,
@@ -1876,9 +2183,10 @@ fn seven_args<'js>(
     fourth: Object<'js>,
     fifth: Object<'js>,
     sixth: Object<'js>,
-    seventh: Array<'js>,
+    seventh: Object<'js>,
+    eighth: Array<'js>,
 ) -> Result<rquickjs::function::Args<'js>, QuickJsEvaluationError> {
-    let mut args = rquickjs::function::Args::new(ctx, 7);
+    let mut args = rquickjs::function::Args::new(ctx, 8);
     args.push_arg(first).map_err(|error| {
         call_error(
             QuickJsEvaluationErrorCode::InvalidStepContext,
@@ -1924,6 +2232,14 @@ fn seven_args<'js>(
         )
     })?;
     args.push_arg(seventh).map_err(|error| {
+        call_error(
+            QuickJsEvaluationErrorCode::InvalidStepContext,
+            "QuickJS StepContext helper-call state could not be passed to bridge script."
+                .to_string(),
+            Some(error.to_string()),
+        )
+    })?;
+    args.push_arg(eighth).map_err(|error| {
         call_error(
             QuickJsEvaluationErrorCode::InvalidStepContext,
             "QuickJS StepContext engine command methods could not be passed to bridge script."
@@ -2923,6 +3239,133 @@ mod tests {
             QuickJsEvaluationErrorCode::StepRunFailed
         );
         assert!(unsafe_payload.message.contains("promise failed"));
+    }
+
+    #[test]
+    fn game_step_helper_import_suspends_and_resumes_same_promise() {
+        let mut evaluator = RquickJsModuleEvaluator::new().unwrap();
+        let response = evaluator
+            .evaluate_module(&request_for_code(
+                "scripts/helper-opening.js",
+                r#"
+                import { setBackgroundWithEngine } from '@quajs/plugin-background';
+
+                let helperResult = null;
+                export default function opening() {
+                    return [{
+                        uuid: 'intro.helper',
+                        async run(ctx) {
+                            helperResult = await setBackgroundWithEngine(ctx.engine, 'bg/opening.png', {
+                                transition: { type: 'fade' }
+                            });
+                            await ctx.engine.showDialogue({ text: helperResult });
+                        }
+                    }];
+                }
+                export function getHelperResult() { return helperResult; }
+                "#,
+            ))
+            .unwrap();
+        let module_namespace_id = response.module_namespace_id.unwrap();
+        let steps = evaluator
+            .call_game_step_factory(&QuickJsGameStepFactoryCallRequest {
+                module_namespace_id: module_namespace_id.clone(),
+                export_name: "default".to_string(),
+                scope_json: None,
+            })
+            .unwrap()
+            .steps
+            .unwrap();
+
+        let pending_run = evaluator
+            .call_game_step_run(&QuickJsGameStepRunRequest {
+                run_handle_id: steps[0].run_handle_id.clone(),
+                ctx_json: Some("{\"stepId\":\"intro.helper\"}".to_string()),
+            })
+            .unwrap();
+
+        assert!(pending_run.commands.as_ref().unwrap().is_empty());
+        assert!(pending_run.pending_wait.is_none());
+        assert!(pending_run.pending_translation.is_none());
+        assert!(pending_run.pending_pipeline_emit.is_none());
+        let pending_helper = pending_run.pending_helper_call.unwrap();
+        assert_eq!(pending_helper.module, "@quajs/plugin-background");
+        assert_eq!(pending_helper.export_name, "setBackgroundWithEngine");
+        assert_eq!(
+            pending_helper.args_json,
+            Some("[\"bg/opening.png\",{\"transition\":{\"type\":\"fade\"}}]".to_string())
+        );
+        assert_eq!(evaluator.step_resume_handle_count(), 1);
+
+        let completed = evaluator
+            .resume_game_step_run(&QuickJsGameStepResumeRequest {
+                resume_handle_id: pending_helper.resume_handle_id.clone(),
+                payload_json: Some("\"background-applied\"".to_string()),
+            })
+            .unwrap();
+
+        assert!(completed.pending_helper_call.is_none());
+        let commands = completed.commands.unwrap();
+        assert_eq!(commands.len(), 1);
+        assert_eq!(commands[0].method, "showDialogue");
+        assert_eq!(
+            commands[0].args_json,
+            Some("[{\"text\":\"background-applied\"}]".to_string())
+        );
+        assert_eq!(evaluator.step_resume_handle_count(), 0);
+        let helper_result = evaluator
+            .call_module_export(&QuickJsModuleExportCallRequest {
+                module_namespace_id,
+                export_name: "getHelperResult".to_string(),
+                args_json: None,
+            })
+            .unwrap();
+        assert_eq!(
+            helper_result.value_json,
+            Some("\"background-applied\"".to_string())
+        );
+    }
+
+    #[test]
+    fn game_step_helper_import_rejects_unsafe_arguments() {
+        let mut evaluator = RquickJsModuleEvaluator::new().unwrap();
+        let response = evaluator
+            .evaluate_module(&request_for_code(
+                "scripts/unsafe-helper.js",
+                r#"
+                import { setBackgroundWithEngine } from '@quajs/plugin-background';
+
+                export default function opening() {
+                    return [{
+                        uuid: 'intro.bad-helper',
+                        async run(ctx) {
+                            await setBackgroundWithEngine(ctx.engine, undefined);
+                        }
+                    }];
+                }
+                "#,
+            ))
+            .unwrap();
+        let module_namespace_id = response.module_namespace_id.unwrap();
+        let steps = evaluator
+            .call_game_step_factory(&QuickJsGameStepFactoryCallRequest {
+                module_namespace_id,
+                export_name: "default".to_string(),
+                scope_json: None,
+            })
+            .unwrap()
+            .steps
+            .unwrap();
+
+        let error = evaluator
+            .call_game_step_run(&QuickJsGameStepRunRequest {
+                run_handle_id: steps[0].run_handle_id.clone(),
+                ctx_json: Some("{\"stepId\":\"intro.bad-helper\"}".to_string()),
+            })
+            .unwrap_err();
+
+        assert_eq!(error.code, QuickJsEvaluationErrorCode::StepRunFailed);
+        assert!(error.message.contains("promise failed"));
     }
 
     #[test]
