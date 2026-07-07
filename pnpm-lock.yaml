@@ -695,6 +695,10 @@ importers:
       '@quajs/native-contracts':
         specifier: workspace:*
         version: link:../contracts
+    devDependencies:
+      '@quajs/assets':
+        specifier: workspace:*
+        version: link:../../core/assets
 
   packages/native/language-server:
     dependencies:
