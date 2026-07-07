@@ -2,8 +2,14 @@ import { describe, expect, it } from 'vitest'
 import {
   DEFAULT_NATIVE_QUICKJS_SANDBOX_LIMITS,
   assertNativeQuickJsEvaluationResponse,
+  assertNativeQuickJsGameStepRunResponse,
+  assertNativeQuickJsGameStepFactoryCallResponse,
+  assertNativeQuickJsGameStepFactoryCallRequest,
+  assertNativeQuickJsGameStepRunRequest,
   assertNativeQuickJsModuleExportCallRequest,
   createNativeQuickJsEvaluationRequest,
+  createNativeQuickJsGameStepFactoryCallRequest,
+  createNativeQuickJsGameStepRunRequest,
   createNativeQuickJsModuleExportCallRequest,
   parseNativeQuickJsModuleExportCallResponse,
   validateNativeQuickJsEvaluationRequest,
@@ -210,5 +216,81 @@ describe('native QuickJS contracts', () => {
         message: 'Missing export.',
       },
     })).toThrow('Missing export.')
+  })
+
+  it('creates and validates GameStep factory and run bridge requests', () => {
+    expect(createNativeQuickJsGameStepFactoryCallRequest({
+      moduleNamespaceId: 'quickjs:rquickjs:1',
+      scope: { title: 'Opening' },
+    })).toEqual({
+      moduleNamespaceId: 'quickjs:rquickjs:1',
+      exportName: 'default',
+      scopeJson: '{"title":"Opening"}',
+    })
+
+    expect(createNativeQuickJsGameStepRunRequest({
+      runHandleId: 'quickjs:rquickjs:step:1',
+      ctx: { stepId: 'intro.1' },
+    })).toEqual({
+      runHandleId: 'quickjs:rquickjs:step:1',
+      ctxJson: '{"stepId":"intro.1"}',
+    })
+
+    expect(() => assertNativeQuickJsGameStepFactoryCallRequest({
+      moduleNamespaceId: 'quickjs:rquickjs:1',
+      exportName: 'constructor',
+      scopeJson: '{}',
+    })).toThrow(/blocked/)
+
+    expect(() => assertNativeQuickJsGameStepFactoryCallRequest({
+      moduleNamespaceId: 'quickjs:rquickjs:1',
+      exportName: 'default',
+      scopeJson: '[]',
+    })).toThrow(/JSON object/)
+
+    expect(() => assertNativeQuickJsGameStepRunRequest({
+      runHandleId: ' quickjs:rquickjs:step:1',
+      ctxJson: '{}',
+    })).toThrow(/runHandleId/)
+
+    expect(() => assertNativeQuickJsGameStepRunRequest({
+      runHandleId: 'quickjs:rquickjs:step:1',
+      ctxJson: 'null',
+    })).toThrow(/JSON object/)
+  })
+
+  it('unwraps GameStep factory and run responses', () => {
+    expect(assertNativeQuickJsGameStepFactoryCallResponse({
+      ok: true,
+      steps: [{
+        uuid: 'intro.1',
+        runHandleId: 'quickjs:rquickjs:step:1',
+        metadataJson: '{"title":"Opening"}',
+      }],
+    })).toEqual([{
+      uuid: 'intro.1',
+      runHandleId: 'quickjs:rquickjs:step:1',
+      metadataJson: '{"title":"Opening"}',
+    }])
+
+    expect(() => assertNativeQuickJsGameStepFactoryCallResponse({
+      ok: false,
+      error: {
+        code: 'invalidStepFactoryResult',
+        message: 'Factory did not return steps.',
+      },
+    })).toThrow('Factory did not return steps.')
+
+    expect(() => assertNativeQuickJsGameStepFactoryCallResponse({ ok: true }))
+      .toThrow(/without step descriptors/)
+
+    expect(assertNativeQuickJsGameStepRunResponse({ ok: true })).toBeUndefined()
+    expect(() => assertNativeQuickJsGameStepRunResponse({
+      ok: false,
+      error: {
+        code: 'missingRunHandle',
+        message: 'Missing run handle.',
+      },
+    })).toThrow('Missing run handle.')
   })
 })

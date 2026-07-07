@@ -7,9 +7,12 @@ use crate::host::bridge::{
 use crate::host::InMemoryNativeHostApi;
 use crate::quickjs::{
     QuickJsEvaluationError, QuickJsEvaluationErrorCode, QuickJsEvaluationRequest,
-    QuickJsEvaluationResponse, QuickJsEvaluationResult, QuickJsModuleEvaluator,
-    QuickJsModuleExportCallRequest, QuickJsModuleExportCallResponse, QuickJsModuleExportCallResult,
-    QuickJsModuleNamespaceRegistry, QuickJsModuleNamespaceSummary,
+    QuickJsEvaluationResponse, QuickJsEvaluationResult, QuickJsGameStepDescriptor,
+    QuickJsGameStepFactoryCallRequest, QuickJsGameStepFactoryCallResponse,
+    QuickJsGameStepFactoryCallResult, QuickJsGameStepRunRequest, QuickJsGameStepRunResponse,
+    QuickJsGameStepRunResult, QuickJsModuleEvaluator, QuickJsModuleExportCallRequest,
+    QuickJsModuleExportCallResponse, QuickJsModuleExportCallResult, QuickJsModuleNamespaceRegistry,
+    QuickJsModuleNamespaceSummary,
 };
 
 use super::helpers::{host_info, quickjs_request_for_asset};
@@ -138,6 +141,94 @@ fn dispatches_quickjs_export_calls_through_injected_evaluator() {
         }
         payload => panic!("expected quickjs export call payload, got {payload:?}"),
     }
+}
+
+#[test]
+fn dispatches_quickjs_game_step_calls_through_injected_evaluator() {
+    #[derive(Default)]
+    struct TestQuickJsEvaluator {
+        run_calls: usize,
+    }
+
+    impl QuickJsModuleEvaluator for TestQuickJsEvaluator {
+        fn evaluate_module(
+            &mut self,
+            request: &QuickJsEvaluationRequest,
+        ) -> QuickJsEvaluationResult {
+            Ok(QuickJsEvaluationResponse::success(format!(
+                "quickjs:{}:{}",
+                request.module.package_id, request.module.asset_name
+            )))
+        }
+
+        fn call_game_step_factory(
+            &mut self,
+            request: &QuickJsGameStepFactoryCallRequest,
+        ) -> QuickJsGameStepFactoryCallResult {
+            Ok(QuickJsGameStepFactoryCallResponse::success(vec![
+                QuickJsGameStepDescriptor {
+                    uuid: "intro.1".to_string(),
+                    run_handle_id: format!("{}:run:1", request.module_namespace_id),
+                    metadata_json: Some(format!(
+                        "{{\"exportName\":\"{}\",\"scope\":{}}}",
+                        request.export_name,
+                        request.scope_json.as_deref().unwrap_or("{}")
+                    )),
+                },
+            ]))
+        }
+
+        fn call_game_step_run(
+            &mut self,
+            _request: &QuickJsGameStepRunRequest,
+        ) -> QuickJsGameStepRunResult {
+            self.run_calls += 1;
+            Ok(QuickJsGameStepRunResponse::success())
+        }
+    }
+
+    let mut host = InMemoryNativeHostApi::new(host_info());
+    let mut quickjs = TestQuickJsEvaluator::default();
+    let factory = dispatch_native_host_api_request_with_quickjs(
+        &mut host,
+        &mut quickjs,
+        NativeHostApiRequest::CallQuickJsGameStepFactory(QuickJsGameStepFactoryCallRequest {
+            module_namespace_id: "quickjs:rquickjs:1".to_string(),
+            export_name: "default".to_string(),
+            scope_json: Some("{\"route\":\"main\"}".to_string()),
+        }),
+    );
+
+    match factory.payload.unwrap() {
+        NativeHostApiResponsePayload::QuickJsGameStepFactoryCall(call) => {
+            assert!(call.ok);
+            let steps = call.steps.unwrap();
+            assert_eq!(steps[0].uuid, "intro.1");
+            assert_eq!(steps[0].run_handle_id, "quickjs:rquickjs:1:run:1");
+            assert_eq!(
+                steps[0].metadata_json,
+                Some("{\"exportName\":\"default\",\"scope\":{\"route\":\"main\"}}".to_string())
+            );
+        }
+        payload => panic!("expected quickjs GameStep factory payload, got {payload:?}"),
+    }
+
+    let run = dispatch_native_host_api_request_with_quickjs(
+        &mut host,
+        &mut quickjs,
+        NativeHostApiRequest::CallQuickJsGameStepRun(QuickJsGameStepRunRequest {
+            run_handle_id: "quickjs:rquickjs:1:run:1".to_string(),
+            ctx_json: Some("{\"stepId\":\"intro.1\"}".to_string()),
+        }),
+    );
+
+    match run.payload.unwrap() {
+        NativeHostApiResponsePayload::QuickJsGameStepRun(call) => {
+            assert!(call.ok);
+        }
+        payload => panic!("expected quickjs GameStep run payload, got {payload:?}"),
+    }
+    assert_eq!(quickjs.run_calls, 1);
 }
 
 #[test]

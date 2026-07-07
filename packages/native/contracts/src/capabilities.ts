@@ -1,6 +1,10 @@
 import type {
   NativeQuickJsEvaluationRequest,
   NativeQuickJsEvaluationResponse,
+  NativeQuickJsGameStepFactoryCallRequest,
+  NativeQuickJsGameStepFactoryCallResponse,
+  NativeQuickJsGameStepRunRequest,
+  NativeQuickJsGameStepRunResponse,
   NativeQuickJsModuleExportCallRequest,
   NativeQuickJsModuleExportCallResponse,
   NativeQuickJsModuleNamespaceRecord,
@@ -121,6 +125,8 @@ export type NativeHostApiRequest =
   | { method: 'verifySignature', params: NativeSignatureVerifyWireRequest }
   | { method: 'evaluateQuickJsModule', params: NativeQuickJsEvaluationRequest }
   | { method: 'callQuickJsModuleExport', params: NativeQuickJsModuleExportCallRequest }
+  | { method: 'callQuickJsGameStepFactory', params: NativeQuickJsGameStepFactoryCallRequest }
+  | { method: 'callQuickJsGameStepRun', params: NativeQuickJsGameStepRunRequest }
   | { method: 'releaseQuickJsModuleNamespace', params: NativeQuickJsReleaseNamespaceRequest }
   | { method: 'releaseQuickJsPackageNamespaces', params: NativeQuickJsReleasePackageRequest }
   | { method: 'getQuickJsNamespaceSummary' }
@@ -163,6 +169,8 @@ export interface NativeHostApiResponseValueByType {
   signatureValid: boolean
   quickJsEvaluation: NativeQuickJsEvaluationResponse
   quickJsExportCall: NativeQuickJsModuleExportCallResponse
+  quickJsGameStepFactoryCall: NativeQuickJsGameStepFactoryCallResponse
+  quickJsGameStepRun: NativeQuickJsGameStepRunResponse
   quickJsNamespace: NativeQuickJsModuleNamespaceRecord | null | undefined
   quickJsNamespaces: NativeQuickJsModuleNamespaceRecord[]
   quickJsNamespaceSummary: NativeQuickJsModuleNamespaceSummary
@@ -195,6 +203,8 @@ export interface QuaNativeHostApi {
   verifySignature?: (request: NativeSignatureVerifyRequest) => Promise<boolean>
   evaluateQuickJsModule?: (request: NativeQuickJsEvaluationRequest) => Promise<NativeQuickJsEvaluationResponse>
   callQuickJsModuleExport?: (request: NativeQuickJsModuleExportCallRequest) => Promise<NativeQuickJsModuleExportCallResponse>
+  callQuickJsGameStepFactory?: (request: NativeQuickJsGameStepFactoryCallRequest) => Promise<NativeQuickJsGameStepFactoryCallResponse>
+  callQuickJsGameStepRun?: (request: NativeQuickJsGameStepRunRequest) => Promise<NativeQuickJsGameStepRunResponse>
   releaseQuickJsModuleNamespace?: (moduleNamespaceId: string) => Promise<NativeQuickJsModuleNamespaceRecord | undefined>
   releaseQuickJsPackageNamespaces?: (packageId: string) => Promise<NativeQuickJsModuleNamespaceRecord[]>
   getQuickJsNamespaceSummary?: () => Promise<NativeQuickJsModuleNamespaceSummary>

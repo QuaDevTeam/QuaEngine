@@ -10,8 +10,8 @@ import type {
 import { assertNativeRuntimePackageGuard } from '@quajs/native-contracts'
 import { assertNativeRuntimePackageCompatibility } from './compatibility'
 import { NativeHostPlugin } from './native-host-plugin'
-import { createNativeHostQuickJsModuleEvaluator, createNativeRuntimeModuleLoader } from './runtime-module-loader'
-import type { NativeQuickJsModuleNamespaceResolver, NativeRuntimeModuleEvaluator } from './runtime-module-loader'
+import { createNativeHostQuickJsGameStepModuleNamespaceResolver, createNativeHostQuickJsModuleEvaluator, createNativeRuntimeModuleLoader } from './runtime-module-loader'
+import type { NativeQuickJsModuleNamespaceResolver, NativeQuickJsStepContextSerializer, NativeRuntimeModuleEvaluator } from './runtime-module-loader'
 
 declare const TextEncoder: {
   new(): { encode: (input: string) => Uint8Array }
@@ -33,6 +33,7 @@ export interface NativeRuntimeAdaptersOptions {
   hostInfo?: QuaNativeHostInfo
   moduleEvaluator?: NativeRuntimeModuleEvaluator
   moduleNamespaceResolver?: NativeQuickJsModuleNamespaceResolver
+  quickJsStepContextSerializer?: NativeQuickJsStepContextSerializer
   requireSignature?: boolean
   runtimeModuleLoader?: RuntimeModuleLoader
   targetBootstrapPackages?: readonly string[]
@@ -40,15 +41,26 @@ export interface NativeRuntimeAdaptersOptions {
 }
 
 export function createNativeRuntimeAdapters(host: QuaNativeHostApi, options: NativeRuntimeAdaptersOptions = {}): NativeRuntimeAdapters {
+  const moduleNamespaceResolver = options.moduleNamespaceResolver
+    || (host.evaluateQuickJsModule && host.callQuickJsGameStepFactory && host.callQuickJsGameStepRun
+      ? createNativeHostQuickJsGameStepModuleNamespaceResolver(host, {
+          serializeStepContext: options.quickJsStepContextSerializer,
+        })
+      : undefined)
   const moduleEvaluator = options.moduleEvaluator
-    || (options.moduleNamespaceResolver
-      ? createNativeHostQuickJsModuleEvaluator(host, options.moduleNamespaceResolver)
+    || (moduleNamespaceResolver
+      ? createNativeHostQuickJsModuleEvaluator(host, moduleNamespaceResolver)
       : undefined)
 
   return {
     host,
     runtimeModuleLoader: options.runtimeModuleLoader || (moduleEvaluator
-      ? createNativeRuntimeModuleLoader({ evaluator: moduleEvaluator })
+      ? createNativeRuntimeModuleLoader({
+          evaluator: moduleEvaluator,
+          moduleKinds: moduleNamespaceResolver === options.moduleNamespaceResolver
+            ? undefined
+            : ['script'],
+        })
       : undefined),
     trustPolicy: createNativeRuntimeTrustPolicy(host, options),
   }

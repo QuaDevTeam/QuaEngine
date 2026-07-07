@@ -2,8 +2,10 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   createHost,
   createModuleLoadContext,
+  createNativeHostQuickJsGameStepModuleNamespaceResolver,
   createNativeHostQuickJsJsonModuleNamespaceResolver,
   createNativeHostQuickJsModuleEvaluator,
+  createNativeQuickJsGameStepFactoryFunction,
   createNativeQuickJsJsonExportFunction,
   createNativeRuntimeAdapters,
   createNativeRuntimeModuleLoader,
@@ -182,5 +184,111 @@ describe('@quajs/engine-native runtime module loader QuickJS host bridge', () =>
       exportName: 'default',
       argsJson: '["hello"]',
     })
+  })
+
+  it('creates GameStep factories over native QuickJS step handles', async () => {
+    const host = {
+      ...createHost(),
+      callQuickJsGameStepFactory: vi.fn(async request => ({
+        ok: true,
+        steps: [{
+          uuid: 'intro.1',
+          runHandleId: `${request.moduleNamespaceId}:run:1`,
+          metadataJson: JSON.stringify({
+            title: JSON.parse(request.scopeJson || '{}').title,
+            exportName: request.exportName,
+          }),
+        }],
+      })),
+      callQuickJsGameStepRun: vi.fn(async () => ({
+        ok: true,
+      })),
+    }
+
+    const factory = createNativeQuickJsGameStepFactoryFunction(host, 'quickjs:rquickjs:1', 'default')
+    const steps = await factory({ title: 'Opening' })
+
+    expect(steps).toHaveLength(1)
+    expect(steps[0]).toMatchObject({
+      uuid: 'intro.1',
+      metadata: {
+        title: 'Opening',
+        exportName: 'default',
+      },
+    })
+    expect(typeof steps[0].run).toBe('function')
+
+    await steps[0].run({
+      stepId: 'intro.1',
+      previousStepId: 'intro.0',
+    } as any)
+
+    expect(host.callQuickJsGameStepFactory).toHaveBeenCalledWith({
+      moduleNamespaceId: 'quickjs:rquickjs:1',
+      exportName: 'default',
+      scopeJson: '{"title":"Opening"}',
+    })
+    expect(host.callQuickJsGameStepRun).toHaveBeenCalledWith({
+      runHandleId: 'quickjs:rquickjs:1:run:1',
+      ctxJson: '{"stepId":"intro.1","previousStepId":"intro.0"}',
+    })
+  })
+
+  it('installs a native GameStep script module loader when the host supports the bridge', async () => {
+    const { ctx } = createModuleLoadContext({
+      'scripts/opening.js': 'export default function opening() {}',
+    })
+    const host = {
+      ...createHost(),
+      evaluateQuickJsModule: vi.fn(async request => ({
+        ok: true,
+        moduleNamespaceId: `${request.module.packageId}:${request.module.assetName}`,
+      })),
+      callQuickJsGameStepFactory: vi.fn(async request => ({
+        ok: true,
+        steps: [{
+          uuid: 'intro.1',
+          runHandleId: `${request.moduleNamespaceId}:run:1`,
+        }],
+      })),
+      callQuickJsGameStepRun: vi.fn(async () => ({
+        ok: true,
+      })),
+    }
+    const adapters = createNativeRuntimeAdapters(host)
+
+    expect(adapters.runtimeModuleLoader?.loadEnginePluginModule).toBeUndefined()
+    expect(adapters.runtimeModuleLoader?.loadSceneModule).toBeUndefined()
+    expect(adapters.runtimeModuleLoader?.loadStoreMigrationModule).toBeUndefined()
+
+    const loaded = await adapters.runtimeModuleLoader?.loadScriptModule?.({
+      id: 'opening',
+      packageId: 'runtime.chapter.native-ui',
+      bundleName: 'runtime.chapter.native-ui',
+      assetName: 'scripts/opening.js',
+    }, ctx)
+    const steps = await loaded?.default?.({ route: 'main' })
+
+    expect(steps?.map(step => step.uuid)).toEqual(['intro.1'])
+    expect(host.evaluateQuickJsModule).toHaveBeenCalled()
+    expect(host.callQuickJsGameStepFactory).toHaveBeenCalledWith({
+      moduleNamespaceId: 'runtime.chapter.native-ui:scripts/opening.js',
+      exportName: 'default',
+      scopeJson: '{"route":"main"}',
+    })
+  })
+
+  it('keeps the GameStep namespace resolver scoped to script modules', async () => {
+    const resolver = createNativeHostQuickJsGameStepModuleNamespaceResolver({
+      callQuickJsGameStepFactory: vi.fn(),
+      callQuickJsGameStepRun: vi.fn(),
+    })
+
+    expect(() => resolver('quickjs:rquickjs:1', {
+      kind: 'engine-plugin',
+    } as any, {
+      ok: true,
+      moduleNamespaceId: 'quickjs:rquickjs:1',
+    })).toThrow(/only load script modules/)
   })
 })

@@ -46,6 +46,34 @@ export interface NativeQuickJsModuleExportCallResponse {
   error?: NativeQuickJsEvaluationError
 }
 
+export interface NativeQuickJsGameStepFactoryCallRequest {
+  moduleNamespaceId: string
+  exportName: string
+  scopeJson?: string
+}
+
+export interface NativeQuickJsGameStepDescriptor {
+  uuid: string
+  runHandleId: string
+  metadataJson?: string
+}
+
+export interface NativeQuickJsGameStepFactoryCallResponse {
+  ok: boolean
+  steps?: NativeQuickJsGameStepDescriptor[]
+  error?: NativeQuickJsEvaluationError
+}
+
+export interface NativeQuickJsGameStepRunRequest {
+  runHandleId: string
+  ctxJson?: string
+}
+
+export interface NativeQuickJsGameStepRunResponse {
+  ok: boolean
+  error?: NativeQuickJsEvaluationError
+}
+
 export interface NativeQuickJsModuleNamespaceRecord {
   id: string
   packageId: string
@@ -84,6 +112,12 @@ export type NativeQuickJsEvaluationErrorCode
     | 'missingExport'
     | 'exportNotCallable'
     | 'invalidArguments'
+    | 'invalidScope'
+    | 'invalidStepContext'
+    | 'invalidStepFactoryResult'
+    | 'invalidStepDescriptor'
+    | 'missingRunHandle'
+    | 'stepRunFailed'
     | 'unsupportedReturnValue'
     | 'evaluationFailed'
     | 'unsupportedRuntime'
@@ -170,6 +204,26 @@ export function parseNativeQuickJsModuleExportCallResponse(
   return valueJson === undefined ? undefined : JSON.parse(valueJson)
 }
 
+export function assertNativeQuickJsGameStepFactoryCallResponse(
+  response: NativeQuickJsGameStepFactoryCallResponse,
+): NativeQuickJsGameStepDescriptor[] {
+  if (!response.ok) {
+    throw new Error(response.error?.message || 'Native QuickJS GameStep factory call failed.')
+  }
+  if (!Array.isArray(response.steps)) {
+    throw new Error('Native QuickJS GameStep factory call succeeded without step descriptors.')
+  }
+  return response.steps
+}
+
+export function assertNativeQuickJsGameStepRunResponse(
+  response: NativeQuickJsGameStepRunResponse,
+): void {
+  if (!response.ok) {
+    throw new Error(response.error?.message || 'Native QuickJS GameStep run failed.')
+  }
+}
+
 export function createNativeQuickJsModuleExportCallRequest(input: {
   moduleNamespaceId: string
   exportName: string
@@ -181,6 +235,34 @@ export function createNativeQuickJsModuleExportCallRequest(input: {
     argsJson: input.args ? JSON.stringify(input.args) : undefined,
   }
   assertNativeQuickJsModuleExportCallRequest(request)
+  return request
+}
+
+export function createNativeQuickJsGameStepFactoryCallRequest(input: {
+  moduleNamespaceId: string
+  exportName?: string
+  scope?: unknown
+}): NativeQuickJsGameStepFactoryCallRequest {
+  const scopeJson = stringifyOptionalJsonObject(input.scope, 'Native QuickJS GameStep factory scope')
+  const request = {
+    moduleNamespaceId: input.moduleNamespaceId,
+    exportName: input.exportName || 'default',
+    ...(scopeJson !== undefined ? { scopeJson } : {}),
+  }
+  assertNativeQuickJsGameStepFactoryCallRequest(request)
+  return request
+}
+
+export function createNativeQuickJsGameStepRunRequest(input: {
+  runHandleId: string
+  ctx?: unknown
+}): NativeQuickJsGameStepRunRequest {
+  const ctxJson = stringifyOptionalJsonObject(input.ctx, 'Native QuickJS GameStep run context')
+  const request = {
+    runHandleId: input.runHandleId,
+    ...(ctxJson !== undefined ? { ctxJson } : {}),
+  }
+  assertNativeQuickJsGameStepRunRequest(request)
   return request
 }
 
@@ -206,6 +288,24 @@ export function assertNativeQuickJsModuleExportCallRequest(
       throw new Error('Native QuickJS module export call argsJson must be a JSON array.')
     }
   }
+}
+
+export function assertNativeQuickJsGameStepFactoryCallRequest(
+  request: NativeQuickJsGameStepFactoryCallRequest,
+): void {
+  assertSafeQuickJsBridgeHandle(request.moduleNamespaceId, 'Native QuickJS GameStep factory call requires a safe moduleNamespaceId.')
+  assertSafeQuickJsBridgeHandle(request.exportName, 'Native QuickJS GameStep factory call requires a safe exportName.')
+  if (['__proto__', 'prototype', 'constructor'].includes(request.exportName)) {
+    throw new Error(`Native QuickJS GameStep factory export "${request.exportName}" is blocked at the bridge boundary.`)
+  }
+  assertOptionalJsonObject(request.scopeJson, 'Native QuickJS GameStep factory scopeJson')
+}
+
+export function assertNativeQuickJsGameStepRunRequest(
+  request: NativeQuickJsGameStepRunRequest,
+): void {
+  assertSafeQuickJsBridgeHandle(request.runHandleId, 'Native QuickJS GameStep run requires a safe runHandleId.')
+  assertOptionalJsonObject(request.ctxJson, 'Native QuickJS GameStep run ctxJson')
 }
 
 export function validateNativeQuickJsEvaluationRequest(
@@ -311,6 +411,36 @@ function isSafeQuickJsBridgeHandle(value: string): boolean {
     && value.length > 0
     && value.length <= 256
     && !/[\u0000-\u001F\u007F]/.test(value)
+}
+
+function assertSafeQuickJsBridgeHandle(value: string, message: string): void {
+  if (!isSafeQuickJsBridgeHandle(value)) {
+    throw new Error(message)
+  }
+}
+
+function stringifyOptionalJsonObject(value: unknown, label: string): string | undefined {
+  if (value === undefined)
+    return undefined
+  const json = JSON.stringify(value)
+  if (json === undefined) {
+    throw new Error(`${label} must be JSON-serializable.`)
+  }
+  assertOptionalJsonObject(json, `${label} JSON`)
+  return json
+}
+
+function assertOptionalJsonObject(json: string | undefined, label: string): void {
+  if (json === undefined)
+    return
+  const trimmed = json.trim()
+  if (!trimmed.startsWith('{')) {
+    throw new Error(`${label} must be a JSON object.`)
+  }
+  const parsed = JSON.parse(trimmed)
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error(`${label} must be a JSON object.`)
+  }
 }
 
 function utf8ByteLength(input: string): number {

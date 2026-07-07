@@ -16,6 +16,7 @@ pub use rquickjs_backend::{
 pub use validation::{
     is_forbidden_native_module_payload, is_forbidden_runtime_module_asset_name,
     is_supported_quickjs_module_asset, validate_quickjs_evaluation_request,
+    validate_quickjs_game_step_factory_call_request, validate_quickjs_game_step_run_request,
     validate_quickjs_module_export_call_request,
 };
 
@@ -113,6 +114,50 @@ pub struct QuickJsModuleExportCallResponse {
     pub error: Option<QuickJsEvaluationError>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct QuickJsGameStepFactoryCallRequest {
+    pub module_namespace_id: String,
+    pub export_name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scope_json: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct QuickJsGameStepDescriptor {
+    pub uuid: String,
+    pub run_handle_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub metadata_json: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct QuickJsGameStepFactoryCallResponse {
+    pub ok: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub steps: Option<Vec<QuickJsGameStepDescriptor>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<QuickJsEvaluationError>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct QuickJsGameStepRunRequest {
+    pub run_handle_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ctx_json: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct QuickJsGameStepRunResponse {
+    pub ok: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<QuickJsEvaluationError>,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum QuickJsEvaluationErrorCode {
@@ -126,6 +171,12 @@ pub enum QuickJsEvaluationErrorCode {
     MissingExport,
     ExportNotCallable,
     InvalidArguments,
+    InvalidScope,
+    InvalidStepContext,
+    InvalidStepFactoryResult,
+    InvalidStepDescriptor,
+    MissingRunHandle,
+    StepRunFailed,
     UnsupportedReturnValue,
     EvaluationFailed,
     UnsupportedRuntime,
@@ -178,9 +229,46 @@ impl QuickJsModuleExportCallResponse {
     }
 }
 
+impl QuickJsGameStepFactoryCallResponse {
+    pub fn success(steps: Vec<QuickJsGameStepDescriptor>) -> Self {
+        Self {
+            ok: true,
+            steps: Some(steps),
+            error: None,
+        }
+    }
+
+    pub fn error(error: QuickJsEvaluationError) -> Self {
+        Self {
+            ok: false,
+            steps: None,
+            error: Some(error),
+        }
+    }
+}
+
+impl QuickJsGameStepRunResponse {
+    pub fn success() -> Self {
+        Self {
+            ok: true,
+            error: None,
+        }
+    }
+
+    pub fn error(error: QuickJsEvaluationError) -> Self {
+        Self {
+            ok: false,
+            error: Some(error),
+        }
+    }
+}
+
 pub type QuickJsEvaluationResult = Result<QuickJsEvaluationResponse, QuickJsEvaluationError>;
 pub type QuickJsModuleExportCallResult =
     Result<QuickJsModuleExportCallResponse, QuickJsEvaluationError>;
+pub type QuickJsGameStepFactoryCallResult =
+    Result<QuickJsGameStepFactoryCallResponse, QuickJsEvaluationError>;
+pub type QuickJsGameStepRunResult = Result<QuickJsGameStepRunResponse, QuickJsEvaluationError>;
 
 pub trait QuickJsModuleEvaluator {
     fn evaluate_module(&mut self, request: &QuickJsEvaluationRequest) -> QuickJsEvaluationResult;
@@ -197,6 +285,39 @@ pub trait QuickJsModuleEvaluator {
             detail: Some(format!(
                 "No QuickJS evaluator backend has been installed for namespace \"{}\".",
                 request.module_namespace_id
+            )),
+        })
+    }
+
+    fn call_game_step_factory(
+        &mut self,
+        request: &QuickJsGameStepFactoryCallRequest,
+    ) -> QuickJsGameStepFactoryCallResult {
+        Err(QuickJsEvaluationError {
+            code: QuickJsEvaluationErrorCode::UnsupportedRuntime,
+            message:
+                "QuickJS GameStep factory calls are not available in this native runtime build."
+                    .to_string(),
+            asset_name: None,
+            detail: Some(format!(
+                "No QuickJS evaluator backend has been installed for namespace \"{}\".",
+                request.module_namespace_id
+            )),
+        })
+    }
+
+    fn call_game_step_run(
+        &mut self,
+        request: &QuickJsGameStepRunRequest,
+    ) -> QuickJsGameStepRunResult {
+        Err(QuickJsEvaluationError {
+            code: QuickJsEvaluationErrorCode::UnsupportedRuntime,
+            message: "QuickJS GameStep run calls are not available in this native runtime build."
+                .to_string(),
+            asset_name: None,
+            detail: Some(format!(
+                "No QuickJS evaluator backend has been installed for run handle \"{}\".",
+                request.run_handle_id
             )),
         })
     }
@@ -264,6 +385,34 @@ pub fn call_quickjs_module_export(
     match evaluator.call_module_export(request) {
         Ok(response) => response,
         Err(error) => QuickJsModuleExportCallResponse::error(error),
+    }
+}
+
+pub fn call_quickjs_game_step_factory(
+    evaluator: &mut impl QuickJsModuleEvaluator,
+    request: &QuickJsGameStepFactoryCallRequest,
+) -> QuickJsGameStepFactoryCallResponse {
+    if let Err(error) = validation::validate_quickjs_game_step_factory_call_request(request) {
+        return QuickJsGameStepFactoryCallResponse::error(error);
+    }
+
+    match evaluator.call_game_step_factory(request) {
+        Ok(response) => response,
+        Err(error) => QuickJsGameStepFactoryCallResponse::error(error),
+    }
+}
+
+pub fn call_quickjs_game_step_run(
+    evaluator: &mut impl QuickJsModuleEvaluator,
+    request: &QuickJsGameStepRunRequest,
+) -> QuickJsGameStepRunResponse {
+    if let Err(error) = validation::validate_quickjs_game_step_run_request(request) {
+        return QuickJsGameStepRunResponse::error(error);
+    }
+
+    match evaluator.call_game_step_run(request) {
+        Ok(response) => response,
+        Err(error) => QuickJsGameStepRunResponse::error(error),
     }
 }
 

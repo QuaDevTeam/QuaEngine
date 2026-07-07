@@ -77,6 +77,34 @@ describe('native host bridge adapter contracts', () => {
               },
             },
           }
+        case 'callQuickJsGameStepFactory':
+          return {
+            ok: true,
+            payload: {
+              type: 'quickJsGameStepFactoryCall',
+              value: {
+                ok: true,
+                steps: [{
+                  uuid: 'intro.1',
+                  runHandleId: `${request.params.moduleNamespaceId}:run:1`,
+                  metadataJson: JSON.stringify({
+                    exportName: request.params.exportName,
+                    scope: JSON.parse(request.params.scopeJson || '{}'),
+                  }),
+                }],
+              },
+            },
+          }
+        case 'callQuickJsGameStepRun':
+          return {
+            ok: true,
+            payload: {
+              type: 'quickJsGameStepRun',
+              value: {
+                ok: true,
+              },
+            },
+          }
         case 'releaseQuickJsModuleNamespace':
           return {
             ok: true,
@@ -158,6 +186,24 @@ describe('native host bridge adapter contracts', () => {
       ok: true,
       valueJson: '{"namespace":"quickjs:module:1","exportName":"default","args":[{"scene":"opening"}]}',
     })
+    await expect(host.callQuickJsGameStepFactory?.({
+      moduleNamespaceId: 'quickjs:module:1',
+      exportName: 'default',
+      scopeJson: '{"title":"Opening"}',
+    })).resolves.toEqual({
+      ok: true,
+      steps: [{
+        uuid: 'intro.1',
+        runHandleId: 'quickjs:module:1:run:1',
+        metadataJson: '{"exportName":"default","scope":{"title":"Opening"}}',
+      }],
+    })
+    await expect(host.callQuickJsGameStepRun?.({
+      runHandleId: 'quickjs:module:1:run:1',
+      ctxJson: '{"stepId":"intro.1"}',
+    })).resolves.toEqual({
+      ok: true,
+    })
     await expect(host.releaseQuickJsModuleNamespace?.('quickjs:module:1')).resolves.toEqual(namespaceRecord)
     await expect(host.releaseQuickJsModuleNamespace?.('missing')).resolves.toBeUndefined()
     await expect(host.releaseQuickJsPackageNamespaces?.('runtime.chapter.native-ui')).resolves.toEqual([namespaceRecord])
@@ -183,6 +229,21 @@ describe('native host bridge adapter contracts', () => {
           moduleNamespaceId: 'quickjs:module:1',
           exportName: 'default',
           argsJson: '[{"scene":"opening"}]',
+        },
+      },
+      {
+        method: 'callQuickJsGameStepFactory',
+        params: {
+          moduleNamespaceId: 'quickjs:module:1',
+          exportName: 'default',
+          scopeJson: '{"title":"Opening"}',
+        },
+      },
+      {
+        method: 'callQuickJsGameStepRun',
+        params: {
+          runHandleId: 'quickjs:module:1:run:1',
+          ctxJson: '{"stepId":"intro.1"}',
         },
       },
       { method: 'releaseQuickJsModuleNamespace', params: { moduleNamespaceId: 'quickjs:module:1' } },
