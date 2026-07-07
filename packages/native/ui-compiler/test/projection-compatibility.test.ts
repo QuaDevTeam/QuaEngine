@@ -200,6 +200,78 @@ Panel.bad-type {
     expect(compatibility.nativeCode).toBe(false)
   })
 
+  it('omits unsafe resolved projection asset references from native compatibility asset kinds', () => {
+    const projection = {
+      root: {
+        id: 'menu',
+        kind: 'Panel',
+        bounds: { x: 0, y: 0, width: 480, height: 320 },
+        visible: true,
+        style: {
+          backgroundImage: {
+            assetName: 'ui/panel.png',
+            assetType: 'images',
+          },
+        },
+        children: [
+          {
+            id: 'safe-poster',
+            kind: 'Image',
+            bounds: { x: 24, y: 24, width: 160, height: 120 },
+            visible: true,
+            image: {
+              assetName: 'ui/poster.png',
+              assetType: 'sprites',
+            },
+          },
+          {
+            id: 'native-payload',
+            kind: 'Image',
+            bounds: { x: 208, y: 24, width: 160, height: 120 },
+            visible: true,
+            image: {
+              assetName: 'ui/native.dll',
+              assetType: 'native',
+            },
+          },
+          {
+            id: 'traversal-bg',
+            kind: 'Panel',
+            bounds: { x: 24, y: 176, width: 160, height: 80 },
+            visible: true,
+            style: {
+              backgroundImage: {
+                assetName: '../escape.png',
+                assetType: 'images',
+              },
+            },
+          },
+          {
+            id: 'bad-type-bg',
+            kind: 'Panel',
+            bounds: { x: 208, y: 176, width: 160, height: 80 },
+            visible: true,
+            style: {
+              backgroundImage: {
+                assetName: 'ui/panel.png',
+                assetType: '../bad',
+              },
+            },
+          },
+        ],
+      },
+    } satisfies NativeUiSurfaceProjection
+
+    const requirements = collectNativeUiSurfaceProjectionRequirements(projection)
+    const compatibility = createNativeUiSurfaceCompatibilityFromProjection(projection)
+
+    expect(requirements.assetKinds).toEqual(['images', 'sprites'])
+    expect(compatibility.assetKinds).toEqual(expect.arrayContaining(['images', 'qss', 'qui', 'sprites', 'tokens']))
+    expect(compatibility.assetKinds).toHaveLength(5)
+    expect(compatibility.assetKinds).not.toEqual(expect.arrayContaining(['native', '../bad']))
+    expect(compatibility.nativeCode).toBe(false)
+  })
+
   it('omits preview-only QSS declarations from document-derived native requirements', () => {
     const qui = analyzeQuiSource(`
 Panel.card {
