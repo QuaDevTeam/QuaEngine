@@ -131,12 +131,21 @@ fn serializes_game_step_factory_and_run_requests_and_responses() {
             options_json: Some("{\"values\":{\"name\":\"Mira\"}}".to_string()),
         },
     );
+    let pending_pipeline_run = QuickJsGameStepRunResponse::pending_pipeline_emit(
+        Vec::new(),
+        QuickJsGameStepPipelineEmitRequest {
+            resume_handle_id: "quickjs:rquickjs:resume:3".to_string(),
+            event: "plugin/custom_event".to_string(),
+            payload_json: Some("{\"ok\":true}".to_string()),
+        },
+    );
 
     let factory_request_json = serde_json::to_value(factory_request).unwrap();
     let factory_success_json = serde_json::to_value(factory_success).unwrap();
     let run_success_json = serde_json::to_value(run_success).unwrap();
     let pending_run_json = serde_json::to_value(pending_run).unwrap();
     let pending_translation_run_json = serde_json::to_value(pending_translation_run).unwrap();
+    let pending_pipeline_run_json = serde_json::to_value(pending_pipeline_run).unwrap();
     let run_request_json = serde_json::to_value(run_request).unwrap();
     let resume_request_json = serde_json::to_value(resume_request).unwrap();
     let run_error_json = serde_json::to_value(run_error).unwrap();
@@ -193,6 +202,19 @@ fn serializes_game_step_factory_and_run_requests_and_responses() {
     assert_eq!(
         pending_translation_run_json["pendingTranslation"]["optionsJson"],
         "{\"values\":{\"name\":\"Mira\"}}"
+    );
+    assert_eq!(pending_pipeline_run_json["ok"], true);
+    assert_eq!(
+        pending_pipeline_run_json["pendingPipelineEmit"]["resumeHandleId"],
+        "quickjs:rquickjs:resume:3"
+    );
+    assert_eq!(
+        pending_pipeline_run_json["pendingPipelineEmit"]["event"],
+        "plugin/custom_event"
+    );
+    assert_eq!(
+        pending_pipeline_run_json["pendingPipelineEmit"]["payloadJson"],
+        "{\"ok\":true}"
     );
     assert_eq!(run_error_json["ok"], false);
     assert_eq!(run_error_json["error"]["code"], "missingRunHandle");

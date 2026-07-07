@@ -376,6 +376,55 @@ describe('@quajs/engine-native runtime module loader QuickJS host bridge', () =>
     expect(showDialogue).toHaveBeenCalledWith({ text: 'Hello, Mira' })
   })
 
+  it('resumes native QuickJS GameSteps through real pipeline emits', async () => {
+    const host = {
+      ...createHost(),
+      callQuickJsGameStepFactory: vi.fn(async request => ({
+        ok: true,
+        steps: [{
+          uuid: 'intro.pipeline',
+          runHandleId: `${request.moduleNamespaceId}:run:pipeline`,
+        }],
+      })),
+      callQuickJsGameStepRun: vi.fn(async () => ({
+        ok: true,
+        pendingPipelineEmit: {
+          resumeHandleId: 'quickjs:rquickjs:resume:p1',
+          event: 'plugin/custom_event',
+          payloadJson: '{"value":42}',
+        },
+      })),
+      resumeQuickJsGameStepRun: vi.fn(async () => ({
+        ok: true,
+        commands: [{
+          target: 'engine' as const,
+          method: 'clearChoices' as const,
+          argsJson: '[]',
+        }],
+      })),
+    }
+    const factory = createNativeQuickJsGameStepFactoryFunction(host, 'quickjs:rquickjs:1', 'default')
+    const [step] = await factory()
+    const emit = vi.fn(async () => {})
+    const clearChoices = vi.fn(async () => {})
+
+    await step.run({
+      stepId: 'intro.pipeline',
+      engine: {
+        clearChoices,
+        waitFor: vi.fn(),
+      },
+      pipeline: { emit },
+      t: vi.fn(),
+    } as any)
+
+    expect(emit).toHaveBeenCalledWith('plugin/custom_event', { value: 42 })
+    expect(host.resumeQuickJsGameStepRun).toHaveBeenCalledWith({
+      resumeHandleId: 'quickjs:rquickjs:resume:p1',
+    })
+    expect(clearChoices).toHaveBeenCalledTimes(1)
+  })
+
   it('rejects unsupported native QuickJS GameStep commands before dispatching to engine', async () => {
     await expect(executeNativeQuickJsGameStepCommand({
       stepId: 'intro.1',

@@ -121,6 +121,12 @@ export interface NativeQuickJsGameStepTranslationRequest {
   optionsJson?: string
 }
 
+export interface NativeQuickJsGameStepPipelineEmitRequest {
+  resumeHandleId: string
+  event: string
+  payloadJson?: string
+}
+
 export interface NativeQuickJsGameStepResumeRequest {
   resumeHandleId: string
   payloadJson?: string
@@ -131,6 +137,7 @@ export interface NativeQuickJsGameStepRunResponse {
   commands?: NativeQuickJsGameStepCommand[]
   pendingWait?: NativeQuickJsGameStepWaitRequest
   pendingTranslation?: NativeQuickJsGameStepTranslationRequest
+  pendingPipelineEmit?: NativeQuickJsGameStepPipelineEmitRequest
   error?: NativeQuickJsEvaluationError
 }
 
@@ -180,6 +187,7 @@ export type NativeQuickJsEvaluationErrorCode
     | 'missingResumeHandle'
     | 'invalidWaitEvent'
     | 'invalidTranslationRequest'
+    | 'invalidPipelineRequest'
     | 'invalidResumePayload'
     | 'stepRunFailed'
     | 'unsupportedStepContextCommand'
@@ -298,7 +306,13 @@ export function assertNativeQuickJsGameStepRunResponse(
   if (response.pendingTranslation !== undefined) {
     assertNativeQuickJsGameStepTranslationRequest(response.pendingTranslation)
   }
-  if (response.pendingWait !== undefined && response.pendingTranslation !== undefined) {
+  if (response.pendingPipelineEmit !== undefined) {
+    assertNativeQuickJsGameStepPipelineEmitRequest(response.pendingPipelineEmit)
+  }
+  const pendingCount = Number(response.pendingWait !== undefined)
+    + Number(response.pendingTranslation !== undefined)
+    + Number(response.pendingPipelineEmit !== undefined)
+  if (pendingCount > 1) {
     throw new Error('Native QuickJS GameStep run response can only contain one pending continuation.')
   }
   return {
@@ -428,6 +442,16 @@ export function assertNativeQuickJsGameStepTranslationRequest(
     throw new Error('Native QuickJS GameStep pending translation requires a safe translation key.')
   }
   assertOptionalJsonObjectOrArray(request.optionsJson, 'Native QuickJS GameStep pending translation optionsJson')
+}
+
+export function assertNativeQuickJsGameStepPipelineEmitRequest(
+  request: NativeQuickJsGameStepPipelineEmitRequest,
+): void {
+  assertSafeQuickJsBridgeHandle(request.resumeHandleId, 'Native QuickJS GameStep pending pipeline emit requires a safe resumeHandleId.')
+  if (!isSafeQuickJsBridgeText(request.event)) {
+    throw new Error('Native QuickJS GameStep pending pipeline emit requires a safe event name.')
+  }
+  assertOptionalJsonValue(request.payloadJson, 'Native QuickJS GameStep pending pipeline emit payloadJson')
 }
 
 export function assertNativeQuickJsGameStepCommand(

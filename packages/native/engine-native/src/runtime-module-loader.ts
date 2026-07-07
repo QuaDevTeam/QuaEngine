@@ -272,25 +272,36 @@ function createNativeQuickJsGameStepProxy(
         for (const command of response.commands || []) {
           await executeStepCommand(ctx, command)
         }
-        if (!response.pendingWait) {
-          if (response.pendingTranslation) {
-            const options = response.pendingTranslation.optionsJson === undefined
-              ? undefined
-              : JSON.parse(response.pendingTranslation.optionsJson)
-            const payload = await ctx.t(response.pendingTranslation.key, options)
-            response = await callNativeQuickJsGameStepResume(host, createNativeQuickJsGameStepResumeRequest({
-              resumeHandleId: response.pendingTranslation.resumeHandleId,
-              payload,
-            }))
-            continue
-          }
-          return
+        if (response.pendingWait) {
+          const payload = await ctx.engine.waitFor(response.pendingWait.event as never)
+          response = await callNativeQuickJsGameStepResume(host, createNativeQuickJsGameStepResumeRequest({
+            resumeHandleId: response.pendingWait.resumeHandleId,
+            payload,
+          }))
+          continue
         }
-        const payload = await ctx.engine.waitFor(response.pendingWait.event as never)
-        response = await callNativeQuickJsGameStepResume(host, createNativeQuickJsGameStepResumeRequest({
-          resumeHandleId: response.pendingWait.resumeHandleId,
-          payload,
-        }))
+        if (response.pendingTranslation) {
+          const options = response.pendingTranslation.optionsJson === undefined
+            ? undefined
+            : JSON.parse(response.pendingTranslation.optionsJson)
+          const payload = await ctx.t(response.pendingTranslation.key, options)
+          response = await callNativeQuickJsGameStepResume(host, createNativeQuickJsGameStepResumeRequest({
+            resumeHandleId: response.pendingTranslation.resumeHandleId,
+            payload,
+          }))
+          continue
+        }
+        if (response.pendingPipelineEmit) {
+          const payload = response.pendingPipelineEmit.payloadJson === undefined
+            ? undefined
+            : JSON.parse(response.pendingPipelineEmit.payloadJson)
+          await ctx.pipeline.emit(response.pendingPipelineEmit.event, payload)
+          response = await callNativeQuickJsGameStepResume(host, createNativeQuickJsGameStepResumeRequest({
+            resumeHandleId: response.pendingPipelineEmit.resumeHandleId,
+          }))
+          continue
+        }
+        return
       }
     },
   }
