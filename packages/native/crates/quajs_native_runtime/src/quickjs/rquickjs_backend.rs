@@ -288,6 +288,58 @@ export async function resolveQuaText(_ctx, parts) {
   }
   return resolved.join('');
 }
+
+function assertString(value, label) {
+  if (typeof value !== 'string') {
+    throw new TypeError(`${label} must be a string.`);
+  }
+}
+
+function objectOptions(options) {
+  if (options === undefined) {
+    return {};
+  }
+  if (!options || typeof options !== 'object' || Array.isArray(options)) {
+    throw new TypeError('QuaEngine story helper options must be an object when provided.');
+  }
+  return options;
+}
+
+export function node(id, options = {}) {
+  assertString(id, 'node id');
+  return { kind: 'node', id, ...objectOptions(options) };
+}
+
+export function label(id, options = {}) {
+  assertString(id, 'label id');
+  return { kind: 'label', id, ...objectOptions(options) };
+}
+
+export function scene(sceneId, options = {}) {
+  assertString(sceneId, 'scene id');
+  return { kind: 'scene', sceneId, ...objectOptions(options) };
+}
+
+export function script(moduleId, options = {}) {
+  assertString(moduleId, 'script module id');
+  return { kind: 'script', moduleId, ...objectOptions(options) };
+}
+
+export function checkpoint(id) {
+  assertString(id, 'checkpoint id');
+  return { kind: 'checkpoint', id };
+}
+
+export function packageNode(packageId, nodeId, options = {}) {
+  assertString(packageId, 'package id');
+  assertString(nodeId, 'package node id');
+  return { kind: 'package-node', packageId, nodeId, ...objectOptions(options) };
+}
+
+export function image(name, options = {}) {
+  assertString(name, 'image name');
+  return { type: 'images', name, ...objectOptions(options) };
+}
 "#;
 
 const NATIVE_QUICKJS_CHARACTER_HELPERS_SOURCE: &str = r#"
@@ -2642,6 +2694,90 @@ mod tests {
         assert_eq!(args[0]["speaker"], "Alice");
         assert_eq!(args[0]["avatar"]["type"], "images");
         assert_eq!(args[0]["avatar"]["name"], "alice.png");
+    }
+
+    #[test]
+    fn evaluates_compiled_quascript_with_engine_story_helpers() {
+        let mut evaluator = RquickJsModuleEvaluator::new().unwrap();
+        let response = evaluator
+            .evaluate_module(&request_for_code(
+                "scripts/choice.js",
+                r#"
+                import { checkpoint, image, label, node, packageNode, scene, script } from '@quajs/engine';
+
+                export default function opening() {
+                    return [{
+                        uuid: 'intro.choice',
+                        async run(ctx) {
+                            await ctx.engine.showChoices([{
+                                id: 'go-library',
+                                text: 'Go library',
+                                target: node('library', {
+                                    sceneId: 'opening',
+                                    requiredRuntimePackages: ['runtime.library']
+                                }),
+                                enabled: true,
+                                presentation: {
+                                    thumbnail: image('story/library.png', { alt: 'Library' })
+                                },
+                                metadata: {
+                                    jumpTarget: scene('dorm', { entry: 'nightReturn', state: { from: 'library' } }),
+                                    labelTarget: label('after-library'),
+                                    scriptTarget: script('bonus', { nodeId: 'after' }),
+                                    packageTarget: packageNode('runtime.extra', 'node-1'),
+                                    checkpointTarget: checkpoint('save-1')
+                                }
+                            }]);
+                        }
+                    }];
+                }
+                "#,
+            ))
+            .unwrap();
+        let module_namespace_id = response.module_namespace_id.unwrap();
+        let steps = evaluator
+            .call_game_step_factory(&QuickJsGameStepFactoryCallRequest {
+                module_namespace_id,
+                export_name: "default".to_string(),
+                scope_json: None,
+            })
+            .unwrap()
+            .steps
+            .unwrap();
+
+        let run = evaluator
+            .call_game_step_run(&QuickJsGameStepRunRequest {
+                run_handle_id: steps[0].run_handle_id.clone(),
+                ctx_json: Some("{\"stepId\":\"intro.choice\"}".to_string()),
+            })
+            .unwrap();
+
+        let commands = run.commands.unwrap();
+        assert_eq!(commands.len(), 1);
+        assert_eq!(commands[0].method, "showChoices");
+        let args: serde_json::Value =
+            serde_json::from_str(commands[0].args_json.as_deref().unwrap()).unwrap();
+        let choice = &args[0][0];
+        assert_eq!(choice["target"]["kind"], "node");
+        assert_eq!(choice["target"]["id"], "library");
+        assert_eq!(choice["target"]["sceneId"], "opening");
+        assert_eq!(
+            choice["target"]["requiredRuntimePackages"][0],
+            "runtime.library"
+        );
+        assert_eq!(choice["presentation"]["thumbnail"]["type"], "images");
+        assert_eq!(
+            choice["presentation"]["thumbnail"]["name"],
+            "story/library.png"
+        );
+        assert_eq!(choice["presentation"]["thumbnail"]["alt"], "Library");
+        assert_eq!(choice["metadata"]["jumpTarget"]["kind"], "scene");
+        assert_eq!(choice["metadata"]["jumpTarget"]["sceneId"], "dorm");
+        assert_eq!(choice["metadata"]["jumpTarget"]["entry"], "nightReturn");
+        assert_eq!(choice["metadata"]["labelTarget"]["kind"], "label");
+        assert_eq!(choice["metadata"]["scriptTarget"]["kind"], "script");
+        assert_eq!(choice["metadata"]["packageTarget"]["kind"], "package-node");
+        assert_eq!(choice["metadata"]["checkpointTarget"]["kind"], "checkpoint");
     }
 
     #[test]
