@@ -66,6 +66,7 @@ export interface NativeQuickJsSandboxLimits {
 
 export interface NativeQuickJsEvaluationRequest {
   module: NativeQuickJsRuntimeModuleRecord
+  moduleGraph?: NativeQuickJsRuntimeModuleRecord[]
   limits: NativeQuickJsSandboxLimits
 }
 
@@ -234,6 +235,7 @@ export interface CreateNativeQuickJsEvaluationRequestInput {
   kind: NativeQuickJsRuntimeModuleKind
   code: string
   bytes: Uint8Array
+  moduleGraph?: readonly NativeQuickJsRuntimeModuleRecord[]
   limits?: Partial<NativeQuickJsSandboxLimits>
 }
 
@@ -249,6 +251,7 @@ export function createNativeQuickJsEvaluationRequest(
       code: input.code,
       bytes: nativeBytesToWire(input.bytes),
     },
+    ...(input.moduleGraph?.length ? { moduleGraph: input.moduleGraph.map(module => ({ ...module })) } : {}),
     limits: {
       ...DEFAULT_NATIVE_QUICKJS_SANDBOX_LIMITS,
       ...(input.limits || {}),
@@ -546,6 +549,65 @@ export function validateNativeQuickJsEvaluationRequest(
   const maxModuleBytes = request.limits.maxModuleBytes
   collectQuickJsModuleByteLimitErrors(errors, assetName, 'module bytes', request.module.bytes.length, maxModuleBytes)
   collectQuickJsModuleByteLimitErrors(errors, assetName, 'code bytes', utf8ByteLength(request.module.code), maxModuleBytes)
+
+  const moduleGraph = request.moduleGraph || []
+  const seenGraphAssets = new Set<string>()
+  for (const graphModule of moduleGraph) {
+    const graphAssetName = graphModule.assetName
+    if (seenGraphAssets.has(graphAssetName)) {
+      errors.push({
+        code: 'forbiddenAssetName',
+        assetName: graphAssetName,
+        message: `Native QuickJS module graph contains duplicate assetName "${graphAssetName}".`,
+      })
+    }
+    seenGraphAssets.add(graphAssetName)
+    if (stripAssetReferenceSuffix(graphAssetName) === stripAssetReferenceSuffix(assetName)) {
+      errors.push({
+        code: 'forbiddenAssetName',
+        assetName: graphAssetName,
+        message: `Native QuickJS module graph asset "${graphAssetName}" must not duplicate the entry module assetName.`,
+      })
+    }
+    if (graphModule.packageId !== request.module.packageId || graphModule.bundleName !== request.module.bundleName) {
+      errors.push({
+        code: 'forbiddenAssetName',
+        assetName: graphAssetName,
+        message: `Native QuickJS module graph asset "${graphAssetName}" must belong to the same runtime package and bundle as the entry module.`,
+      })
+    }
+    if (!graphAssetName) {
+      errors.push({
+        code: 'missingAssetName',
+        message: 'Native QuickJS module graph entries require package-relative assetName values.',
+      })
+    }
+    else {
+      if (isForbiddenNativeQuickJsModuleAssetName(graphAssetName)) {
+        errors.push({
+          code: 'forbiddenAssetName',
+          assetName: graphAssetName,
+          message: `Native QuickJS module graph assetName "${graphAssetName}" must be package-relative and use forward-slash package paths.`,
+        })
+      }
+      if (isForbiddenNativePayload(graphAssetName, forbiddenExtensions)) {
+        errors.push({
+          code: 'forbiddenNativePayload',
+          assetName: graphAssetName,
+          message: `Native QuickJS module graph assetName "${graphAssetName}" must not reference a native payload.`,
+        })
+      }
+      if (!isNativeQuickJsModuleAsset(graphAssetName)) {
+        errors.push({
+          code: 'unsupportedModuleAsset',
+          assetName: graphAssetName,
+          message: `Native QuickJS module graph assetName "${graphAssetName}" must reference a JavaScript module asset (.js, .mjs, or .cjs).`,
+        })
+      }
+    }
+    collectQuickJsModuleByteLimitErrors(errors, graphAssetName, 'module graph bytes', graphModule.bytes.length, maxModuleBytes)
+    collectQuickJsModuleByteLimitErrors(errors, graphAssetName, 'module graph code bytes', utf8ByteLength(graphModule.code), maxModuleBytes)
+  }
 
   return {
     ok: errors.length === 0,

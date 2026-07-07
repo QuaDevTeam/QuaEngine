@@ -26,6 +26,7 @@ pub(super) fn quickjs_request_for_asset(asset_name: &str) -> QuickJsEvaluationRe
             code: "export default function opening() {}".to_string(),
             bytes: vec![1, 2, 3],
         },
+        module_graph: Vec::new(),
         limits: QuickJsSandboxLimits::default(),
     }
 }

@@ -148,6 +148,80 @@ describe('@quajs/engine-native runtime module loader QuickJS host bridge', () =>
     expect(host.evaluateQuickJsModule).not.toHaveBeenCalled()
   })
 
+  it('loads declared package-local QuickJS module graph imports from QPK script assets', async () => {
+    const { ctx } = createModuleLoadContext({
+      'scripts/opening.js': 'import { helper } from "./helper.js"; export default helper',
+      'scripts/helper.js': 'export const helper = []',
+    })
+    const host = {
+      ...createHost(),
+      evaluateQuickJsModule: vi.fn(async request => ({
+        ok: true,
+        moduleNamespaceId: `${request.module.packageId}:${request.module.assetName}`,
+      })),
+    }
+    const adapters = createNativeRuntimeAdapters(host, {
+      moduleNamespaceResolver(moduleNamespaceId) {
+        return { default: moduleNamespaceId }
+      },
+    })
+
+    await adapters.runtimeModuleLoader?.loadScriptModule?.({
+      id: 'opening',
+      packageId: 'runtime.chapter.native-ui',
+      bundleName: 'runtime.chapter.native-ui',
+      assetName: 'scripts/opening.js',
+      metadata: {
+        nativeQuickJs: {
+          imports: ['scripts/helper.js'],
+        },
+      },
+    }, ctx)
+
+    expect(host.evaluateQuickJsModule).toHaveBeenCalledWith(expect.objectContaining({
+      moduleGraph: [{
+        assetName: 'scripts/helper.js',
+        bundleName: 'runtime.chapter.native-ui',
+        packageId: 'runtime.chapter.native-ui',
+        kind: 'script',
+        code: 'export const helper = []',
+        bytes: Array.from('export const helper = []').map(char => char.charCodeAt(0)),
+      }],
+    }))
+  })
+
+  it('rejects unsafe declared QuickJS module graph imports before host evaluation', async () => {
+    const { ctx } = createModuleLoadContext({
+      'scripts/opening.js': 'export default []',
+    })
+    const host = {
+      ...createHost(),
+      evaluateQuickJsModule: vi.fn(async request => ({
+        ok: true,
+        moduleNamespaceId: `${request.module.packageId}:${request.module.assetName}`,
+      })),
+    }
+    const adapters = createNativeRuntimeAdapters(host, {
+      moduleNamespaceResolver(moduleNamespaceId) {
+        return { default: moduleNamespaceId }
+      },
+    })
+
+    await expect(adapters.runtimeModuleLoader?.loadScriptModule?.({
+      id: 'opening',
+      packageId: 'runtime.chapter.native-ui',
+      bundleName: 'runtime.chapter.native-ui',
+      assetName: 'scripts/opening.js',
+      metadata: {
+        nativeQuickJs: {
+          imports: ['../escape.js'],
+        },
+      },
+    }, ctx)).rejects.toThrow(/must be a package-relative script asset/)
+
+    expect(host.evaluateQuickJsModule).not.toHaveBeenCalled()
+  })
+
   it('creates JSON-safe export proxy functions over native QuickJS namespace handles', async () => {
     const host = {
       ...createHost(),

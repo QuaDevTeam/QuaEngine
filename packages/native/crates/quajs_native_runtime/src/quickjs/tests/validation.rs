@@ -20,6 +20,27 @@ fn accepts_package_relative_runtime_module_assets_under_limits() {
 }
 
 #[test]
+fn rejects_runtime_module_graph_entry_that_duplicates_entry_module_asset() {
+    let mut request = request_for_asset("scripts/opening.js", vec![1]);
+    request.module_graph.push(QuickJsRuntimeModuleRecord {
+        asset_name: "scripts/opening.js?cache=1".to_string(),
+        bundle_name: request.module.bundle_name.clone(),
+        package_id: request.module.package_id.clone(),
+        kind: QuickJsRuntimeModuleKind::Script,
+        code: "export const duplicate = true;".to_string(),
+        bytes: vec![1],
+    });
+
+    let error = validate_quickjs_evaluation_request(&request).unwrap_err();
+
+    assert_eq!(error.code, QuickJsEvaluationErrorCode::ForbiddenAssetName);
+    assert_eq!(
+        error.asset_name,
+        Some("scripts/opening.js?cache=1".to_string())
+    );
+}
+
+#[test]
 fn rejects_absolute_uri_parent_and_oversized_runtime_module_assets() {
     for asset_name in [
         "",

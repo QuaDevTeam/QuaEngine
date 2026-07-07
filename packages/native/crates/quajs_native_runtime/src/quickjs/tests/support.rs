@@ -10,6 +10,7 @@ pub(super) fn request_for_asset(asset_name: &str, bytes: Vec<u8>) -> QuickJsEval
             code: String::new(),
             bytes,
         },
+        module_graph: Vec::new(),
         limits: QuickJsSandboxLimits::default(),
     }
 }
