@@ -1,3 +1,5 @@
+#[cfg(feature = "quickjs-rquickjs")]
+mod quickjs_bridge;
 mod renderer_smoke;
 mod startup;
 mod target_bundle;
@@ -20,6 +22,20 @@ fn main() {
 }
 
 fn run() -> Result<(), Box<dyn std::error::Error>> {
+    #[cfg(feature = "quickjs-rquickjs")]
+    if quickjs_bridge::is_quickjs_bridge_requested() {
+        quickjs_bridge::run_quickjs_bridge_from_stdio()?;
+        return Ok(());
+    }
+    #[cfg(not(feature = "quickjs-rquickjs"))]
+    if std::env::var_os("QUA_NATIVE_QUICKJS_BRIDGE").is_some() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::Unsupported,
+            "Native QuickJS bridge requires the quickjs-rquickjs Cargo feature.",
+        )
+        .into());
+    }
+
     let target_bundle_manifest = std::env::var_os("QUA_NATIVE_TARGET_BUNDLE_MANIFEST")
         .map(load_native_target_bundle_manifest)
         .transpose()?;

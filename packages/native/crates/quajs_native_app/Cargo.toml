@@ -8,6 +8,7 @@ version.workspace = true
 [features]
 default = []
 image-decode = ["quajs_wgpu_renderer/image-decode"]
+quickjs-rquickjs = ["quajs_native_runtime/quickjs-rquickjs"]
 native-window = [
   "image-decode",
   "dep:pollster",

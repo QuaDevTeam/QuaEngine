@@ -2,19 +2,51 @@ import { MemoryAssetStorage } from '@quajs/assets'
 import { QuaEngine } from '@quajs/engine'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
-  createHost,
   createNativeRendererJsonFrameInput,
   createNativeRuntimeAdapters,
 } from './helpers'
+import { createRealNativeQuickJsBridge, runNativeRendererSmokeFrame } from './real-quickjs-bridge'
 
 describe('@quajs/engine-native runtime product smoke', () => {
   afterEach(() => {
     QuaEngine.resetInstance()
   })
 
-  it('loads a runtime QPK QuickJS GameStep and packages the engine projection for native rendering', async () => {
-    const storyCode = 'import { marker } from "./shared.js"; export default function nativeStory() { return marker }'
-    const sharedCode = 'export const marker = "native-qpk"'
+  it('loads a runtime QPK through real native QuickJS and renders the engine projection in Rust', async () => {
+    const bridge = await createRealNativeQuickJsBridge()
+    const verifySignature = vi.fn(async () => true)
+    const host = {
+      ...bridge.host,
+      verifySignature,
+    }
+    const storyCode = `
+      import { resolveQuaText } from '@quajs/engine';
+      import { choiceText, sharedLabel } from './shared.js';
+
+      export default function nativeStory(scope = {}) {
+        return [{
+          uuid: 'runtime.native.story.step.1',
+          metadata: {
+            point: { nodeId: 'native-start' }
+          },
+          async run(ctx) {
+            const playerName = await resolveQuaText(ctx, [scope.playerName || 'Player']);
+            await ctx.engine.showDialogue({
+              text: 'Native line for ' + playerName + ' via ' + sharedLabel,
+              mode: 'narration'
+            });
+            await ctx.engine.showChoices([
+              { id: 'stay', text: choiceText },
+              { id: 'leave', text: 'Leave', enabled: false }
+            ]);
+          }
+        }];
+      }
+    `
+    const sharedCode = `
+      export const sharedLabel = 'real-rquickjs';
+      export const choiceText = 'Stay with native QuickJS';
+    `
     const manifest = createRuntimeBundleManifest({
       id: 'runtime.native.story',
       version: '1.0.0',
@@ -45,141 +77,151 @@ describe('@quajs/engine-native runtime product smoke', () => {
       ['assets/scripts/story.js', utf8(storyCode)],
       ['assets/scripts/shared.js', utf8(sharedCode)],
     ]))
-    const host = {
-      ...createHost(),
-      verifySignature: vi.fn(async () => true),
-      evaluateQuickJsModule: vi.fn(async request => ({
-        ok: true,
-        moduleNamespaceId: `${request.module.packageId}:${request.module.assetName}:quickjs`,
-      })),
-      callQuickJsGameStepFactory: vi.fn(async request => ({
-        ok: true,
-        steps: [{
-          uuid: 'runtime.native.story.step.1',
-          runHandleId: `${request.moduleNamespaceId}:run:1`,
-          metadataJson: JSON.stringify({
-            point: { nodeId: 'native-start' },
+    try {
+      const adapters = createNativeRuntimeAdapters(host, { requireSignature: true })
+      const engine = new QuaEngine({
+        assets: {
+          endpoint: 'https://cdn.example.com',
+          adapter: createMemoryAdapter({
+            'https://cdn.example.com/native-story.qpk': qpk,
+          }, 'native-story-hash'),
+        },
+        runtimeModuleLoader: adapters.runtimeModuleLoader,
+        trustPolicy: adapters.trustPolicy,
+      })
+
+      await engine.init()
+      const state = await engine.loadRuntimePackage('native-story.qpk')
+      await engine.runScriptModule('runtime.native.story', { playerName: 'Mira' })
+
+      expect(state).toEqual(expect.objectContaining({
+        id: 'runtime.native.story',
+        state: 'active',
+        priority: 7,
+      }))
+      expect(verifySignature).toHaveBeenCalledWith(expect.objectContaining({
+        algorithm: 'ed25519',
+        keyId: undefined,
+      }))
+
+      const evaluationRequest = bridge.requests.find(request => request.method === 'evaluateQuickJsModule')
+      expect(evaluationRequest).toEqual(expect.objectContaining({
+        method: 'evaluateQuickJsModule',
+        params: expect.objectContaining({
+          module: expect.objectContaining({
+            assetName: 'story.js',
+            bundleName: 'runtime.native.story',
+            code: storyCode,
+            packageId: 'runtime.native.story',
           }),
-        }],
-      })),
-      callQuickJsGameStepRun: vi.fn(async () => ({
-        ok: true,
-        commands: [{
-          target: 'engine' as const,
-          method: 'showDialogue' as const,
-          argsJson: '[{"text":"Native line","mode":"narration"}]',
+          moduleGraph: [{
+            assetName: 'shared.js',
+            bundleName: 'runtime.native.story',
+            packageId: 'runtime.native.story',
+            kind: 'script',
+            code: sharedCode,
+            bytes: Array.from(utf8(sharedCode)),
+          }],
+        }),
+      }))
+      const factoryRequest = bridge.requests.find(request => request.method === 'callQuickJsGameStepFactory')
+      const factoryParams = factoryRequest?.method === 'callQuickJsGameStepFactory'
+        ? factoryRequest.params
+        : undefined
+      expect(factoryRequest).toEqual(expect.objectContaining({
+        method: 'callQuickJsGameStepFactory',
+        params: expect.objectContaining({
+          exportName: 'default',
+          scopeJson: '{"playerName":"Mira"}',
+        }),
+      }))
+      expect(factoryParams?.moduleNamespaceId).toMatch(/^quickjs:rquickjs:/)
+      expect(bridge.requests.some(request => request.method === 'callQuickJsGameStepRun')).toBe(true)
+
+      expect(engine.getViewState().dialogue).toEqual(expect.objectContaining({
+        visible: true,
+        text: 'Native line for Mira via real-rquickjs',
+        mode: 'narration',
+      }))
+      expect(engine.getViewState().choices).toEqual([
+        expect.objectContaining({ id: 'stay', text: 'Stay with native QuickJS', enabled: true }),
+        expect.objectContaining({ id: 'leave', text: 'Leave', enabled: false }),
+      ])
+      expect(engine.getStoryPoint()).toEqual(expect.objectContaining({
+        stepId: 'runtime.native.story.step.1',
+        contentPackageId: 'runtime.native.story',
+        scriptModuleId: 'runtime.native.story',
+        scriptModuleVersion: '1.0.0',
+      }))
+
+      const namespaceSummary = await host.getQuickJsPackageNamespaceSummary!('runtime.native.story')
+      expect(namespaceSummary).toEqual(expect.objectContaining({
+        namespaceCount: 1,
+        packageCount: 1,
+      }))
+      expect(namespaceSummary?.totalBytes).toBeGreaterThan(0)
+
+      const frame = createNativeRendererJsonFrameInput(engine.getViewState(), {
+        container: { width: 1600, height: 1000, devicePixelRatio: 1 },
+      })
+
+      expect(frame.layout).toEqual(engine.getViewState().layout)
+      expect(frame.view.dialogue).toEqual(expect.objectContaining({
+        visible: true,
+        text: 'Native line for Mira via real-rquickjs',
+        mode: 'narration',
+        provenance: {
+          contentPackageId: 'runtime.native.story',
+        },
+      }))
+      expect(frame.view.choices).toEqual({
+        visible: true,
+        choices: [{
+          id: 'stay',
+          text: 'Stay with native QuickJS',
+          enabled: true,
+          provenance: {
+            contentPackageId: 'runtime.native.story',
+          },
         }, {
-          target: 'engine' as const,
-          method: 'showChoices' as const,
-          argsJson: '[[{"id":"stay","text":"Stay"},{"id":"leave","text":"Leave","enabled":false}]]',
+          id: 'leave',
+          text: 'Leave',
+          enabled: false,
+          provenance: {
+            contentPackageId: 'runtime.native.story',
+          },
         }],
-      })),
-      resumeQuickJsGameStepRun: vi.fn(async () => ({ ok: true })),
-    }
-    const adapters = createNativeRuntimeAdapters(host, { requireSignature: true })
-    const engine = new QuaEngine({
-      assets: {
-        endpoint: 'https://cdn.example.com',
-        adapter: createMemoryAdapter({
-          'https://cdn.example.com/native-story.qpk': qpk,
-        }, 'native-story-hash'),
-      },
-      runtimeModuleLoader: adapters.runtimeModuleLoader,
-      trustPolicy: adapters.trustPolicy,
-    })
+        provenance: {
+          contentPackageId: 'runtime.native.story',
+        },
+      })
+      expect(frame.view.ui).toEqual({
+        visible: true,
+        overlays: [],
+      })
+      expect(frame.view.audio).toBeUndefined()
+      expect(JSON.parse(JSON.stringify(frame))).toEqual(expect.objectContaining({
+        view: expect.any(Object),
+      }))
 
-    await engine.init()
-    const state = await engine.loadRuntimePackage('native-story.qpk')
-    await engine.runScriptModule('runtime.native.story')
+      const rendererSummary = await runNativeRendererSmokeFrame(frame)
+      expect(rendererSummary.revision).toBe(1)
+      expect(rendererSummary.commandCount).toBeGreaterThan(0)
+      expect(rendererSummary.missingResourceCount).toBe(0)
+      expect(rendererSummary.backend).toEqual(expect.objectContaining({
+        validationErrorCount: 0,
+      }))
 
-    expect(state).toEqual(expect.objectContaining({
-      id: 'runtime.native.story',
-      state: 'active',
-      priority: 7,
-    }))
-    expect(host.verifySignature).toHaveBeenCalledWith(expect.objectContaining({
-      algorithm: 'ed25519',
-      keyId: undefined,
-    }))
-    expect(host.evaluateQuickJsModule).toHaveBeenCalledWith(expect.objectContaining({
-      module: expect.objectContaining({
+      const released = await host.releaseQuickJsPackageNamespaces!('runtime.native.story')
+      expect(released).toEqual([expect.objectContaining({
+        packageId: 'runtime.native.story',
         assetName: 'story.js',
-        bundleName: 'runtime.native.story',
-        code: storyCode,
-        packageId: 'runtime.native.story',
-      }),
-      moduleGraph: [{
-        assetName: 'shared.js',
-        bundleName: 'runtime.native.story',
-        packageId: 'runtime.native.story',
-        kind: 'script',
-        code: sharedCode,
-        bytes: Array.from(utf8(sharedCode)),
-      }],
-    }))
-    expect(host.callQuickJsGameStepFactory).toHaveBeenCalledWith({
-      moduleNamespaceId: 'runtime.native.story:story.js:quickjs',
-      exportName: 'default',
-    })
-    expect(engine.getViewState().dialogue).toEqual(expect.objectContaining({
-      visible: true,
-      text: 'Native line',
-      mode: 'narration',
-    }))
-    expect(engine.getViewState().choices).toEqual([
-      expect.objectContaining({ id: 'stay', text: 'Stay', enabled: true }),
-      expect.objectContaining({ id: 'leave', text: 'Leave', enabled: false }),
-    ])
-    expect(engine.getStoryPoint()).toEqual(expect.objectContaining({
-      stepId: 'runtime.native.story.step.1',
-      contentPackageId: 'runtime.native.story',
-      scriptModuleId: 'runtime.native.story',
-      scriptModuleVersion: '1.0.0',
-    }))
-
-    const frame = createNativeRendererJsonFrameInput(engine.getViewState(), {
-      container: { width: 1600, height: 1000, devicePixelRatio: 1 },
-    })
-
-    expect(frame.layout).toEqual(engine.getViewState().layout)
-    expect(frame.view.dialogue).toEqual(expect.objectContaining({
-      visible: true,
-      text: 'Native line',
-      mode: 'narration',
-      provenance: {
-        contentPackageId: 'runtime.native.story',
-      },
-    }))
-    expect(frame.view.choices).toEqual({
-      visible: true,
-      choices: [{
-        id: 'stay',
-        text: 'Stay',
-        enabled: true,
-        provenance: {
-          contentPackageId: 'runtime.native.story',
-        },
-      }, {
-        id: 'leave',
-        text: 'Leave',
-        enabled: false,
-        provenance: {
-          contentPackageId: 'runtime.native.story',
-        },
-      }],
-      provenance: {
-        contentPackageId: 'runtime.native.story',
-      },
-    })
-    expect(frame.view.ui).toEqual({
-      visible: true,
-      overlays: [],
-    })
-    expect(frame.view.audio).toBeUndefined()
-    expect(JSON.parse(JSON.stringify(frame))).toEqual(expect.objectContaining({
-      view: expect.any(Object),
-    }))
-  })
+      })])
+    }
+    finally {
+      await bridge.close()
+    }
+  }, 180_000)
 })
 
 function createMemoryAdapter(files: Record<string, Uint8Array> = {}, hash = '') {

@@ -20,7 +20,13 @@ fn binary_runs_renderer_smoke_frame_from_projection_json() {
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("Qua native host ready: renderer="));
+    #[cfg(not(feature = "quickjs-rquickjs"))]
     assert!(stdout.contains("\"quickjsVersion\":\"unsupported\""));
+    #[cfg(feature = "quickjs-rquickjs")]
+    {
+        assert!(stdout.contains("\"quickjsVersion\":\"quickjs-"));
+        assert!(stdout.contains("rquickjs-0.12.1"));
+    }
     assert!(stdout.contains("Qua native renderer smoke: revision=1 passes="));
     assert!(stdout.contains("missingResources=0"));
     assert!(stdout.contains("audioBackendPlans=1"));
