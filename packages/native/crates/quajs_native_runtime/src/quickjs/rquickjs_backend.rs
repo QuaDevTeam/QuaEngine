@@ -3,7 +3,11 @@ use std::ffi::CStr;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, OnceLock};
 
-use rquickjs::{Array, Context, Function, Module, Object, Persistent, Runtime, Value};
+use rquickjs::{
+    loader::{ImportAttributes, Loader, Resolver},
+    module::Declared,
+    Array, Context, Ctx, Error, Function, Module, Object, Persistent, Runtime, Value,
+};
 
 use super::{
     validate_quickjs_evaluation_request, validate_quickjs_game_step_factory_call_request,
@@ -84,6 +88,208 @@ const NATIVE_QUICKJS_STEP_CONTEXT_BRIDGE_SOURCE: &str = r#"
 })
 "#;
 
+const NATIVE_QUICKJS_ENGINE_HELPERS_SOURCE: &str = r#"
+export const RenderToLogicEvents = Object.freeze({
+  USER_ADVANCE: 'user/advance',
+  USER_CHOICE_SELECT: 'user/choice_select'
+});
+
+export async function resolveQuaText(_ctx, parts) {
+  if (!Array.isArray(parts)) {
+    throw new TypeError('resolveQuaText expects a part array.');
+  }
+  const resolved = [];
+  for (const part of parts) {
+    const value = await part;
+    resolved.push(value === undefined || value === null ? '' : String(value));
+  }
+  return resolved.join('');
+}
+"#;
+
+const NATIVE_QUICKJS_CHARACTER_HELPERS_SOURCE: &str = r#"
+const USER_ADVANCE = 'user/advance';
+
+function assertEngine(engine, helper) {
+  if (!engine || typeof engine !== 'object') {
+    throw new TypeError(`${helper} requires ctx.engine.`);
+  }
+}
+
+function characterId(character) {
+  if (typeof character === 'string') {
+    return character;
+  }
+  if (character && typeof character.id === 'string') {
+    return character.id;
+  }
+  throw new TypeError('Native QuickJS character helpers require a string character id or an object with a string id.');
+}
+
+function characterName(character, options) {
+  if (options && typeof options.characterName === 'string') {
+    return options.characterName;
+  }
+  if (character && typeof character !== 'string') {
+    if (typeof character.displayName === 'string') {
+      return character.displayName;
+    }
+    if (typeof character.name === 'string') {
+      return character.name;
+    }
+    if (typeof character.id === 'string') {
+      return character.id;
+    }
+  }
+  return characterId(character);
+}
+
+function normalizeAvatar(avatar) {
+  if (avatar === undefined || avatar === null) {
+    return undefined;
+  }
+  if (typeof avatar === 'string') {
+    return { type: 'images', name: avatar };
+  }
+  if (typeof avatar === 'object') {
+    return { ...avatar, type: avatar.type || 'images' };
+  }
+  throw new TypeError('Native QuickJS character helper avatar must be a string or object.');
+}
+
+function assignIfDefined(target, key, value) {
+  if (value !== undefined) {
+    target[key] = value;
+  }
+}
+
+function shouldWait(options) {
+  return !options || options.wait !== false;
+}
+
+export async function speakWithEngine(engine, character, text, options = {}) {
+  assertEngine(engine, 'speakWithEngine');
+  const payload = {
+    characterId: characterId(character),
+    characterName: characterName(character, options),
+    text,
+    mode: options.mode || 'say'
+  };
+  assignIfDefined(payload, 'avatar', normalizeAvatar(options.avatar));
+  assignIfDefined(payload, 'speaker', options.speaker);
+  assignIfDefined(payload, 'speakerStyle', options.speakerStyle);
+  assignIfDefined(payload, 'typewriter', options.typewriter);
+  await engine.showDialogue(payload);
+  if (shouldWait(options)) {
+    await engine.waitFor(USER_ADVANCE);
+  }
+}
+
+export async function narrateWithEngine(engine, text, options = {}) {
+  assertEngine(engine, 'narrateWithEngine');
+  const payload = { text, mode: 'narration' };
+  assignIfDefined(payload, 'typewriter', options.typewriter);
+  assignIfDefined(payload, 'metadata', options.metadata);
+  await engine.showDialogue(payload);
+  if (shouldWait(options)) {
+    await engine.waitFor(USER_ADVANCE);
+  }
+}
+
+export async function showWithEngine(engine, character, options = {}) {
+  assertEngine(engine, 'showWithEngine');
+  await engine.showCharacter({
+    ...options,
+    id: characterId(character),
+    name: characterName(character, options),
+    visible: options.visible !== false
+  });
+}
+
+export async function hideWithEngine(engine, character) {
+  assertEngine(engine, 'hideWithEngine');
+  await engine.hideCharacter(characterId(character));
+}
+
+export async function moveWithEngine(engine, character, position) {
+  assertEngine(engine, 'moveWithEngine');
+  await engine.moveCharacter(characterId(character), position);
+}
+
+export async function expressionWithEngine(engine, character, expression) {
+  assertEngine(engine, 'expressionWithEngine');
+  await engine.setCharacterExpression(characterId(character), expression);
+}
+
+export async function spriteWithEngine(engine, character, sprite) {
+  assertEngine(engine, 'spriteWithEngine');
+  await engine.setCharacterSprite(characterId(character), sprite);
+}
+"#;
+
+#[derive(Debug, Clone, Copy)]
+struct NativeQuickJsBuiltinHelperResolver;
+
+#[derive(Debug, Clone, Copy)]
+struct NativeQuickJsBuiltinHelperLoader;
+
+impl Resolver for NativeQuickJsBuiltinHelperResolver {
+    fn resolve<'js>(
+        &mut self,
+        _ctx: &Ctx<'js>,
+        base: &str,
+        name: &str,
+        attributes: Option<ImportAttributes<'js>>,
+    ) -> rquickjs::Result<String> {
+        if attributes.is_some() {
+            return Err(Error::new_resolving_message(
+                base,
+                name,
+                "Native QuickJS built-in helper imports do not support import attributes.",
+            ));
+        }
+        if native_quickjs_builtin_helper_source(name).is_some() {
+            return Ok(name.to_string());
+        }
+        Err(Error::new_resolving_message(
+            base,
+            name,
+            format!("Native QuickJS has no built-in helper module named \"{name}\"."),
+        ))
+    }
+}
+
+impl Loader for NativeQuickJsBuiltinHelperLoader {
+    fn load<'js>(
+        &mut self,
+        ctx: &Ctx<'js>,
+        name: &str,
+        attributes: Option<ImportAttributes<'js>>,
+    ) -> rquickjs::Result<Module<'js, Declared>> {
+        if attributes.is_some() {
+            return Err(Error::new_loading_message(
+                name,
+                "Native QuickJS built-in helper imports do not support import attributes.",
+            ));
+        }
+        let Some(source) = native_quickjs_builtin_helper_source(name) else {
+            return Err(Error::new_loading_message(
+                name,
+                "Native QuickJS built-in helper module is not registered.",
+            ));
+        };
+        Module::declare(ctx.clone(), name, source.as_bytes())
+    }
+}
+
+fn native_quickjs_builtin_helper_source(name: &str) -> Option<&'static str> {
+    match name {
+        "@quajs/engine" => Some(NATIVE_QUICKJS_ENGINE_HELPERS_SOURCE),
+        "@quajs/character" => Some(NATIVE_QUICKJS_CHARACTER_HELPERS_SOURCE),
+        _ => None,
+    }
+}
+
 pub fn quickjs_rquickjs_runtime_version() -> &'static str {
     static VERSION: OnceLock<&'static str> = OnceLock::new();
     VERSION.get_or_init(|| {
@@ -116,6 +322,10 @@ struct QuickJsStepRunHandle {
 impl RquickJsModuleEvaluator {
     pub fn new() -> Result<Self, QuickJsEvaluationError> {
         let runtime = Runtime::new().map_err(backend_error)?;
+        runtime.set_loader(
+            NativeQuickJsBuiltinHelperResolver,
+            NativeQuickJsBuiltinHelperLoader,
+        );
         let context = Context::full(&runtime).map_err(backend_error)?;
         Ok(Self {
             namespaces: BTreeMap::new(),
@@ -1018,6 +1228,163 @@ mod tests {
     }
 
     #[test]
+    fn evaluates_compiled_quascript_with_builtin_character_helpers() {
+        let mut evaluator = RquickJsModuleEvaluator::new().unwrap();
+        let response = evaluator
+            .evaluate_module(&request_for_code(
+                "scripts/opening.js",
+                r#"
+                import { resolveQuaText } from '@quajs/engine';
+                import { speakWithEngine } from '@quajs/character';
+
+                export default function opening(scope = {}) {
+                    return [{
+                        uuid: 'intro.speak',
+                        async run(ctx) {
+                            const text = await resolveQuaText(ctx, ['Hi ', scope.playerName]);
+                            await speakWithEngine(ctx.engine, 'alice', text, {
+                                wait: false,
+                                avatar: 'alice.png',
+                                speaker: 'Alice'
+                            });
+                        }
+                    }];
+                }
+                "#,
+            ))
+            .unwrap();
+        let module_namespace_id = response.module_namespace_id.unwrap();
+        let steps = evaluator
+            .call_game_step_factory(&QuickJsGameStepFactoryCallRequest {
+                module_namespace_id,
+                export_name: "default".to_string(),
+                scope_json: Some("{\"playerName\":\"Mira\"}".to_string()),
+            })
+            .unwrap()
+            .steps
+            .unwrap();
+
+        let run = evaluator
+            .call_game_step_run(&QuickJsGameStepRunRequest {
+                run_handle_id: steps[0].run_handle_id.clone(),
+                ctx_json: Some("{\"stepId\":\"intro.speak\"}".to_string()),
+            })
+            .unwrap();
+
+        let commands = run.commands.unwrap();
+        assert_eq!(commands.len(), 1);
+        assert_eq!(commands[0].target, "engine");
+        assert_eq!(commands[0].method, "showDialogue");
+        let args: serde_json::Value =
+            serde_json::from_str(commands[0].args_json.as_deref().unwrap()).unwrap();
+        assert_eq!(args[0]["characterId"], "alice");
+        assert_eq!(args[0]["characterName"], "alice");
+        assert_eq!(args[0]["text"], "Hi Mira");
+        assert_eq!(args[0]["mode"], "say");
+        assert_eq!(args[0]["speaker"], "Alice");
+        assert_eq!(args[0]["avatar"]["type"], "images");
+        assert_eq!(args[0]["avatar"]["name"], "alice.png");
+    }
+
+    #[test]
+    fn builtin_character_helpers_keep_wait_for_as_explicit_gap() {
+        let mut evaluator = RquickJsModuleEvaluator::new().unwrap();
+        let response = evaluator
+            .evaluate_module(&request_for_code(
+                "scripts/opening.js",
+                r#"
+                import { narrateWithEngine } from '@quajs/character';
+
+                export default function opening() {
+                    return [{
+                        uuid: 'intro.narrate',
+                        async run(ctx) {
+                            await narrateWithEngine(ctx.engine, 'Hello from native QuickJS.');
+                        }
+                    }];
+                }
+                "#,
+            ))
+            .unwrap();
+        let module_namespace_id = response.module_namespace_id.unwrap();
+        let steps = evaluator
+            .call_game_step_factory(&QuickJsGameStepFactoryCallRequest {
+                module_namespace_id,
+                export_name: "default".to_string(),
+                scope_json: None,
+            })
+            .unwrap()
+            .steps
+            .unwrap();
+
+        let error = evaluator
+            .call_game_step_run(&QuickJsGameStepRunRequest {
+                run_handle_id: steps[0].run_handle_id.clone(),
+                ctx_json: Some("{\"stepId\":\"intro.narrate\"}".to_string()),
+            })
+            .unwrap_err();
+
+        assert_eq!(
+            error.code,
+            QuickJsEvaluationErrorCode::UnsupportedStepContextCommand
+        );
+        assert!(error
+            .detail
+            .as_deref()
+            .unwrap_or_default()
+            .contains("requires a native continuation bridge"));
+    }
+
+    #[test]
+    fn rejects_non_builtin_module_imports_without_host_resolution() {
+        let mut evaluator = RquickJsModuleEvaluator::new().unwrap();
+        let error = evaluator
+            .evaluate_module(&request_for_code(
+                "scripts/unsafe-import.js",
+                "import { readFile } from 'node:fs'; export const unsafe = readFile;",
+            ))
+            .unwrap_err();
+
+        assert_eq!(error.code, QuickJsEvaluationErrorCode::EvaluationFailed);
+        assert_eq!(
+            error.asset_name,
+            Some("scripts/unsafe-import.js".to_string())
+        );
+        assert!(error.detail.as_deref().unwrap_or_default().len() > 0);
+        assert_eq!(evaluator.namespace_count(), 0);
+    }
+
+    #[test]
+    fn builtin_helper_imports_can_be_reused_across_modules() {
+        let mut evaluator = RquickJsModuleEvaluator::new().unwrap();
+        let first = evaluator
+            .evaluate_module(&request_for_code(
+                "scripts/first.js",
+                "import { RenderToLogicEvents } from '@quajs/engine'; export function value() { return RenderToLogicEvents.USER_ADVANCE + ':one'; }",
+            ))
+            .unwrap()
+            .module_namespace_id
+            .unwrap();
+        let second = evaluator
+            .evaluate_module(&request_for_code(
+                "scripts/second.js",
+                "import { RenderToLogicEvents } from '@quajs/engine'; export function value() { return RenderToLogicEvents.USER_ADVANCE + ':two'; }",
+            ))
+            .unwrap()
+            .module_namespace_id
+            .unwrap();
+
+        assert_eq!(
+            exported_call_string(&mut evaluator, &first, "value"),
+            "user/advance:one"
+        );
+        assert_eq!(
+            exported_call_string(&mut evaluator, &second, "value"),
+            "user/advance:two"
+        );
+    }
+
+    #[test]
     fn returns_structured_error_for_invalid_js_module() {
         let mut evaluator = RquickJsModuleEvaluator::new().unwrap();
         let error = evaluator
@@ -1356,6 +1723,21 @@ mod tests {
                     .get::<_, String>(export_name)
             })
             .unwrap()
+    }
+
+    fn exported_call_string(
+        evaluator: &mut RquickJsModuleEvaluator,
+        module_namespace_id: &str,
+        export_name: &str,
+    ) -> String {
+        let call = evaluator
+            .call_module_export(&QuickJsModuleExportCallRequest {
+                module_namespace_id: module_namespace_id.to_string(),
+                export_name: export_name.to_string(),
+                args_json: None,
+            })
+            .unwrap();
+        serde_json::from_str::<String>(call.value_json.as_deref().unwrap()).unwrap()
     }
 
     fn request_for_code(asset_name: &str, code: &str) -> QuickJsEvaluationRequest {
