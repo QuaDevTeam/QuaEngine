@@ -488,6 +488,77 @@ describe('@quajs/engine-native renderer intents', () => {
     expect(received).toEqual([{ choiceId: 'left' }])
   })
 
+  it('chains and restores existing native renderer intent callbacks without creating a second dispatch path', async () => {
+    const host = createHost()
+    const previousEmitRendererIntent = vi.fn()
+    host.emitRendererIntent = previousEmitRendererIntent
+    const pipeline = createTestPipeline()
+    const received: unknown[] = []
+    pipeline.on(RenderToLogicEvents.USER_CHOICE_SELECT, context => received.push(context.event.payload))
+
+    const plugin = new NativeHostPlugin({ host })
+    await plugin.init({ pipeline } as any)
+    const leftIntent = createNativeRendererIntent({
+      type: 'choice/select',
+      payload: { choiceId: 'left' },
+    })
+
+    host.emitRendererIntent?.(leftIntent)
+    await flushMicrotasks()
+
+    expect(received).toEqual([{ choiceId: 'left' }])
+    expect(previousEmitRendererIntent).toHaveBeenCalledTimes(1)
+    expect(previousEmitRendererIntent).toHaveBeenCalledWith(leftIntent)
+
+    plugin.destroy()
+    expect(host.emitRendererIntent).toBe(previousEmitRendererIntent)
+    host.emitRendererIntent?.(createNativeRendererIntent({
+      type: 'choice/select',
+      payload: { choiceId: 'right' },
+    }))
+    await flushMicrotasks()
+
+    expect(received).toEqual([{ choiceId: 'left' }])
+    expect(previousEmitRendererIntent).toHaveBeenCalledTimes(2)
+  })
+
+  it('reports previous native renderer intent callback failures without blocking pipeline dispatch', async () => {
+    const previousError = new Error('previous native callback failed')
+    const host = createHost()
+    host.emitRendererIntent = vi.fn(() => {
+      throw previousError
+    })
+    const pipeline = createTestPipeline()
+    const received: unknown[] = []
+    const errors: unknown[] = []
+    pipeline.on(RenderToLogicEvents.USER_CHOICE_SELECT, context => received.push(context.event.payload))
+    pipeline.on(RenderToLogicEvents.RENDER_ERROR, context => errors.push(context.event.payload))
+
+    const plugin = new NativeHostPlugin({ host })
+    await plugin.init({ pipeline } as any)
+    const intent = createNativeRendererIntent({
+      type: 'choice/select',
+      payload: { choiceId: 'left' },
+    })
+
+    expect(() => host.emitRendererIntent?.(intent)).not.toThrow()
+    await flushMicrotasks()
+
+    expect(received).toEqual([{ choiceId: 'left' }])
+    expect(plugin.getRendererIntentErrors()).toEqual([previousError])
+    expect(errors).toEqual([
+      expect.objectContaining({
+        message: 'previous native callback failed',
+        source: 'native-renderer',
+        phase: 'renderer-intent',
+        recoverable: true,
+        metadata: {
+          nativeIntentType: 'choice/select',
+        },
+      }),
+    ])
+  })
+
   it('reports malformed native renderer intent payloads through render errors', async () => {
     const host = createHost()
     const pipeline = createTestPipeline()
