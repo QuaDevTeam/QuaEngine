@@ -171,7 +171,7 @@ fn stripped_suffix(value: &str) -> &str {
         .unwrap_or(value)
 }
 
-const FORBIDDEN_NATIVE_PAYLOAD_EXTENSIONS: [&str; 16] = [
+const FORBIDDEN_NATIVE_PAYLOAD_EXTENSIONS: [&str; 17] = [
     ".dylib",
     ".so",
     ".dll",
@@ -188,4 +188,5 @@ const FORBIDDEN_NATIVE_PAYLOAD_EXTENSIONS: [&str; 16] = [
     ".rpm",
     ".appimage",
     ".jar",
+    ".class",
 ];

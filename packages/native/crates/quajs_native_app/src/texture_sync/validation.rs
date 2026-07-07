@@ -112,11 +112,31 @@ fn looks_like_uri_scheme(value: &str) -> bool {
 }
 
 fn has_forbidden_native_payload_extension(value: &str) -> bool {
-    let Some((_, extension)) = value.rsplit_once('.') else {
-        return false;
-    };
-    matches!(
-        extension.to_ascii_lowercase().as_str(),
-        "a" | "app" | "dylib" | "dll" | "exe" | "node" | "o" | "rlib" | "so" | "wasm"
-    )
+    let normalized = value.to_ascii_lowercase();
+    FORBIDDEN_NATIVE_PAYLOAD_EXTENSIONS.iter().any(|extension| {
+        normalized.ends_with(extension) || normalized.contains(&format!("{extension}/"))
+    })
 }
+
+const FORBIDDEN_NATIVE_PAYLOAD_EXTENSIONS: [&str; 20] = [
+    ".a",
+    ".app",
+    ".appimage",
+    ".bundle",
+    ".class",
+    ".deb",
+    ".dylib",
+    ".dll",
+    ".exe",
+    ".framework",
+    ".jar",
+    ".msi",
+    ".node",
+    ".o",
+    ".pkg",
+    ".rlib",
+    ".rpm",
+    ".so",
+    ".wasi",
+    ".wasm",
+];

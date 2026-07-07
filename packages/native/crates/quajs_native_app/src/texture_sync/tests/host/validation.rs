@@ -28,6 +28,36 @@ fn rejects_unsafe_asset_references_before_host_reads() {
 }
 
 #[test]
+fn rejects_native_payload_texture_assets_before_host_reads() {
+    let host = RecordingAssetHost::new().with_bundle(bundle("base-bundle", Some("base")));
+
+    for asset_name in ["ui/helper.class", "native/Plugin.framework/Contents/bin"] {
+        let mut sink = RecordingTextureUploadSink::default();
+        let sync = sync_plan([texture_request(
+            "images:ui/helper.png",
+            "images",
+            asset_name,
+            ["base"],
+            [],
+            ["base"],
+        )]);
+
+        let report = sync_pending_texture_uploads_from_host(&host, &mut sink, &sync);
+
+        assert!(
+            !report.is_ok(),
+            "native payload texture asset should fail before host reads: {asset_name:?}"
+        );
+        assert_eq!(report.invalid_request_count, 1);
+        assert!(report.failures[0]
+            .message
+            .contains("must not reference native payloads"));
+        assert!(sink.uploads.is_empty());
+    }
+    assert!(host.reads.borrow().is_empty());
+}
+
+#[test]
 fn rejects_asset_names_with_whitespace_or_control_characters_before_host_reads() {
     let host = RecordingAssetHost::new().with_bundle(bundle("base-bundle", Some("base")));
 

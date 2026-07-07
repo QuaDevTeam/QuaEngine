@@ -50,6 +50,18 @@ fn json_frame_asset_validation_rejects_url_and_native_audio_payloads() {
         }
         other => panic!("expected audio validation error, got {other:?}"),
     }
+
+    let class_payload = json_frame_with_native_audio_payload_input()
+        .replace("audio/bridge.node#runtime", "audio/bridge.class#runtime");
+    let audio_class = renderer.prepare_frame_json_str(&class_payload).unwrap_err();
+    match audio_class {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(validation.path, "view.audio.tracks[0].assetName");
+            assert_eq!(validation.asset_name, "audio/bridge.class#runtime");
+            assert!(validation.reason.contains("native payloads"));
+        }
+        other => panic!("expected audio class validation error, got {other:?}"),
+    }
     assert_eq!(renderer.state().revision(), 0);
     assert!(renderer.state().frame().is_none());
 }

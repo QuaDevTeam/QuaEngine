@@ -12,6 +12,7 @@ fn noop_device_rejects_unsafe_decoded_texture_resource_ids_without_residency() {
         "images:../native.dll",
         "images:bg.png?raw",
         "images:native/plugin.node",
+        "images:native/helper.class",
     ];
 
     for resource_id in unsafe_resource_ids {
