@@ -122,7 +122,11 @@ async function emitNativeUiIntent(
   event: NativeRendererIntent,
 ): Promise<NativeRendererIntentDispatchResult> {
   const payload = parseNativeRendererIntentPayloadRecord(event)
-  const uiIntentPayload = normalizeUiIntentPayload(payload)
+  const {
+    action,
+    elementId,
+    payload: uiIntentPayload,
+  } = normalizeUiIntentPayload(payload)
   const emittedEvents: NativeRendererIntentEmittedEvent[] = [
     {
       type: RENDER_TO_LOGIC_UI_INTENT,
@@ -132,8 +136,6 @@ async function emitNativeUiIntent(
 
   await pipeline.emit(RENDER_TO_LOGIC_UI_INTENT, uiIntentPayload)
 
-  const action = stringField(payload, 'action')
-  const elementId = stringField(payload, 'elementId')
   if (!action || !elementId) {
     return { handled: true, emittedEvents }
   }
@@ -203,10 +205,14 @@ function parseNativeRendererIntentPayloadRecord(event: NativeRendererIntent): Re
   return payload
 }
 
-function normalizeUiIntentPayload(payload: Record<string, unknown>): Record<string, unknown> {
+function normalizeUiIntentPayload(payload: Record<string, unknown>): {
+  action?: string
+  elementId?: string
+  payload: Record<string, unknown>
+} {
   const normalized: Record<string, unknown> = { ...payload }
-  const action = stringField(payload, 'action')
-  const elementId = stringField(payload, 'elementId')
+  const action = optionalUiIntentStringField(payload, 'action')
+  const elementId = optionalUiIntentStringField(payload, 'elementId')
 
   if (action !== undefined)
     normalized.action = action
@@ -218,7 +224,11 @@ function normalizeUiIntentPayload(payload: Record<string, unknown>): Record<stri
   else
     delete normalized.elementId
 
-  return normalized
+  return {
+    action,
+    elementId,
+    payload: normalized,
+  }
 }
 
 function normalizeInputCommandPayload(payload: Record<string, unknown>): RendererInputCommandPayload {
@@ -263,6 +273,16 @@ function normalizeInputCommandPayload(payload: Record<string, unknown>): Rendere
 function stringField(payload: Record<string, unknown>, field: string): string | undefined {
   const value = payload[field]
   return typeof value === 'string' && value.length > 0 ? value : undefined
+}
+
+function optionalUiIntentStringField(payload: Record<string, unknown>, field: string): string | undefined {
+  const value = payload[field]
+  if (value === undefined)
+    return undefined
+  if (typeof value !== 'string' || value.length === 0) {
+    throw new Error(`Native renderer ui/intent payload field "${field}" must be a non-empty string when provided.`)
+  }
+  return value
 }
 
 function finiteNumberField(payload: Record<string, unknown>, field: string): number | undefined {
