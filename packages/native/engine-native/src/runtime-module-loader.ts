@@ -273,6 +273,17 @@ function createNativeQuickJsGameStepProxy(
           await executeStepCommand(ctx, command)
         }
         if (!response.pendingWait) {
+          if (response.pendingTranslation) {
+            const options = response.pendingTranslation.optionsJson === undefined
+              ? undefined
+              : JSON.parse(response.pendingTranslation.optionsJson)
+            const payload = await ctx.t(response.pendingTranslation.key, options)
+            response = await callNativeQuickJsGameStepResume(host, createNativeQuickJsGameStepResumeRequest({
+              resumeHandleId: response.pendingTranslation.resumeHandleId,
+              payload,
+            }))
+            continue
+          }
           return
         }
         const payload = await ctx.engine.waitFor(response.pendingWait.event as never)
