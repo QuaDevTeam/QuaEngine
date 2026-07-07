@@ -526,6 +526,18 @@ describe('native QuickJS contracts', () => {
     })).not.toThrow()
 
     expect(() => assertNativeQuickJsGameStepCommand({
+      target: 'engine',
+      method: 'quickSave',
+      argsJson: '[{"name":"Before choice"}]',
+    })).not.toThrow()
+
+    expect(() => assertNativeQuickJsGameStepCommand({
+      target: 'engine',
+      method: 'markRollbackBoundary',
+      argsJson: '["no-rollback"]',
+    })).not.toThrow()
+
+    expect(() => assertNativeQuickJsGameStepCommand({
       target: 'pipeline' as any,
       method: 'clearChoices',
       argsJson: '[]',

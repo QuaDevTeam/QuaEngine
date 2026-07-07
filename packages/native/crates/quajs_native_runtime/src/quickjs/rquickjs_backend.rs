@@ -50,6 +50,14 @@ const NATIVE_QUICKJS_GAME_STEP_ENGINE_COMMAND_METHODS: &[&str] = &[
     "setFlowControlMode",
     "setFlowControlPolicy",
     "resetFlowControlPolicy",
+    "saveToSlot",
+    "loadFromSlot",
+    "quickSave",
+    "quickLoad",
+    "autoSave",
+    "createRollbackAnchor",
+    "markRollbackBoundary",
+    "fixRollback",
     "startAuto",
     "stopAuto",
     "startSkip",
@@ -3125,6 +3133,8 @@ mod tests {
                         uuid: 'intro.choices',
                         async run(ctx) {
                             await ctx.engine.showChoices([{ id: 'go', text: 'Go' }]);
+                            await ctx.engine.quickSave({ name: 'Before choice' });
+                            await ctx.engine.markRollbackBoundary('no-rollback');
                             await ctx.engine.clearChoices();
                         }
                     }];
@@ -3151,7 +3161,7 @@ mod tests {
             .unwrap();
 
         let commands = run.commands.unwrap();
-        assert_eq!(commands.len(), 2);
+        assert_eq!(commands.len(), 4);
         assert_eq!(commands[0].target, "engine");
         assert_eq!(commands[0].method, "showChoices");
         assert_eq!(
@@ -3159,8 +3169,17 @@ mod tests {
             Some("[[{\"id\":\"go\",\"text\":\"Go\"}]]".to_string())
         );
         assert_eq!(commands[1].target, "engine");
-        assert_eq!(commands[1].method, "clearChoices");
-        assert_eq!(commands[1].args_json, Some("[]".to_string()));
+        assert_eq!(commands[1].method, "quickSave");
+        assert_eq!(
+            commands[1].args_json,
+            Some("[{\"name\":\"Before choice\"}]".to_string())
+        );
+        assert_eq!(commands[2].target, "engine");
+        assert_eq!(commands[2].method, "markRollbackBoundary");
+        assert_eq!(commands[2].args_json, Some("[\"no-rollback\"]".to_string()));
+        assert_eq!(commands[3].target, "engine");
+        assert_eq!(commands[3].method, "clearChoices");
+        assert_eq!(commands[3].args_json, Some("[]".to_string()));
     }
 
     #[test]
