@@ -327,6 +327,55 @@ describe('@quajs/engine-native runtime module loader QuickJS host bridge', () =>
     expect(clearChoices).toHaveBeenCalledTimes(1)
   })
 
+  it('resumes native QuickJS GameSteps through real StepContext translations', async () => {
+    const host = {
+      ...createHost(),
+      callQuickJsGameStepFactory: vi.fn(async request => ({
+        ok: true,
+        steps: [{
+          uuid: 'intro.translate',
+          runHandleId: `${request.moduleNamespaceId}:run:translate`,
+        }],
+      })),
+      callQuickJsGameStepRun: vi.fn(async () => ({
+        ok: true,
+        pendingTranslation: {
+          resumeHandleId: 'quickjs:rquickjs:resume:t1',
+          key: 'runtime.greeting',
+          optionsJson: '{"values":{"name":"Mira"}}',
+        },
+      })),
+      resumeQuickJsGameStepRun: vi.fn(async request => ({
+        ok: true,
+        commands: [{
+          target: 'engine' as const,
+          method: 'showDialogue' as const,
+          argsJson: `[{"text":${request.payloadJson}}]`,
+        }],
+      })),
+    }
+    const factory = createNativeQuickJsGameStepFactoryFunction(host, 'quickjs:rquickjs:1', 'default')
+    const [step] = await factory()
+    const showDialogue = vi.fn(async () => {})
+    const t = vi.fn(async () => 'Hello, Mira')
+
+    await step.run({
+      stepId: 'intro.translate',
+      engine: {
+        showDialogue,
+        waitFor: vi.fn(),
+      },
+      t,
+    } as any)
+
+    expect(t).toHaveBeenCalledWith('runtime.greeting', { values: { name: 'Mira' } })
+    expect(host.resumeQuickJsGameStepRun).toHaveBeenCalledWith({
+      resumeHandleId: 'quickjs:rquickjs:resume:t1',
+      payloadJson: '"Hello, Mira"',
+    })
+    expect(showDialogue).toHaveBeenCalledWith({ text: 'Hello, Mira' })
+  })
+
   it('rejects unsupported native QuickJS GameStep commands before dispatching to engine', async () => {
     await expect(executeNativeQuickJsGameStepCommand({
       stepId: 'intro.1',

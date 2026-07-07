@@ -159,6 +159,15 @@ pub struct QuickJsGameStepWaitRequest {
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct QuickJsGameStepTranslationRequest {
+    pub resume_handle_id: String,
+    pub key: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub options_json: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct QuickJsGameStepResumeRequest {
     pub resume_handle_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -183,6 +192,8 @@ pub struct QuickJsGameStepRunResponse {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pending_wait: Option<QuickJsGameStepWaitRequest>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pending_translation: Option<QuickJsGameStepTranslationRequest>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub error: Option<QuickJsEvaluationError>,
 }
 
@@ -206,6 +217,7 @@ pub enum QuickJsEvaluationErrorCode {
     MissingRunHandle,
     MissingResumeHandle,
     InvalidWaitEvent,
+    InvalidTranslationRequest,
     InvalidResumePayload,
     StepRunFailed,
     UnsupportedStepContextCommand,
@@ -285,6 +297,7 @@ impl QuickJsGameStepRunResponse {
             ok: true,
             commands: Some(commands),
             pending_wait: None,
+            pending_translation: None,
             error: None,
         }
     }
@@ -297,6 +310,20 @@ impl QuickJsGameStepRunResponse {
             ok: true,
             commands: Some(commands),
             pending_wait: Some(pending_wait),
+            pending_translation: None,
+            error: None,
+        }
+    }
+
+    pub fn pending_translation(
+        commands: Vec<QuickJsGameStepCommand>,
+        pending_translation: QuickJsGameStepTranslationRequest,
+    ) -> Self {
+        Self {
+            ok: true,
+            commands: Some(commands),
+            pending_wait: None,
+            pending_translation: Some(pending_translation),
             error: None,
         }
     }
@@ -306,6 +333,7 @@ impl QuickJsGameStepRunResponse {
             ok: false,
             commands: None,
             pending_wait: None,
+            pending_translation: None,
             error: Some(error),
         }
     }

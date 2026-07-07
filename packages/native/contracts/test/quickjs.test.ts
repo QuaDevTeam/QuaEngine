@@ -309,6 +309,7 @@ describe('native QuickJS contracts', () => {
       ok: true,
       commands: [],
     })
+
     expect(assertNativeQuickJsGameStepRunResponse({
       ok: true,
       commands: [{
@@ -332,6 +333,54 @@ describe('native QuickJS contracts', () => {
         event: 'user/choice_select',
       },
     })
+
+    expect(assertNativeQuickJsGameStepRunResponse({
+      ok: true,
+      pendingTranslation: {
+        resumeHandleId: 'quickjs:rquickjs:resume:2',
+        key: 'runtime.greeting',
+        optionsJson: '{"values":{"name":"Mira"}}',
+      },
+    })).toEqual({
+      ok: true,
+      commands: [],
+      pendingTranslation: {
+        resumeHandleId: 'quickjs:rquickjs:resume:2',
+        key: 'runtime.greeting',
+        optionsJson: '{"values":{"name":"Mira"}}',
+      },
+    })
+
+    expect(assertNativeQuickJsGameStepRunResponse({
+      ok: true,
+      pendingTranslation: {
+        resumeHandleId: 'quickjs:rquickjs:resume:3',
+        key: 'runtime.indexed',
+        optionsJson: '["Mira"]',
+      },
+    }).pendingTranslation?.optionsJson).toBe('["Mira"]')
+
+    expect(() => assertNativeQuickJsGameStepRunResponse({
+      ok: true,
+      pendingWait: {
+        resumeHandleId: 'quickjs:rquickjs:resume:1',
+        event: 'user/choice_select',
+      },
+      pendingTranslation: {
+        resumeHandleId: 'quickjs:rquickjs:resume:2',
+        key: 'runtime.greeting',
+      },
+    })).toThrow(/one pending continuation/)
+
+    expect(() => assertNativeQuickJsGameStepRunResponse({
+      ok: true,
+      pendingTranslation: {
+        resumeHandleId: 'quickjs:rquickjs:resume:4',
+        key: 'runtime.greeting',
+        optionsJson: '"Mira"',
+      },
+    })).toThrow(/JSON object or array/)
+
     expect(() => assertNativeQuickJsGameStepRunResponse({
       ok: false,
       error: {

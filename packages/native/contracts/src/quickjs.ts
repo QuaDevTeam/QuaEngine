@@ -115,6 +115,12 @@ export interface NativeQuickJsGameStepWaitRequest {
   event: string
 }
 
+export interface NativeQuickJsGameStepTranslationRequest {
+  resumeHandleId: string
+  key: string
+  optionsJson?: string
+}
+
 export interface NativeQuickJsGameStepResumeRequest {
   resumeHandleId: string
   payloadJson?: string
@@ -124,6 +130,7 @@ export interface NativeQuickJsGameStepRunResponse {
   ok: boolean
   commands?: NativeQuickJsGameStepCommand[]
   pendingWait?: NativeQuickJsGameStepWaitRequest
+  pendingTranslation?: NativeQuickJsGameStepTranslationRequest
   error?: NativeQuickJsEvaluationError
 }
 
@@ -172,6 +179,7 @@ export type NativeQuickJsEvaluationErrorCode
     | 'missingRunHandle'
     | 'missingResumeHandle'
     | 'invalidWaitEvent'
+    | 'invalidTranslationRequest'
     | 'invalidResumePayload'
     | 'stepRunFailed'
     | 'unsupportedStepContextCommand'
@@ -286,6 +294,12 @@ export function assertNativeQuickJsGameStepRunResponse(
   commands.forEach(assertNativeQuickJsGameStepCommand)
   if (response.pendingWait !== undefined) {
     assertNativeQuickJsGameStepWaitRequest(response.pendingWait)
+  }
+  if (response.pendingTranslation !== undefined) {
+    assertNativeQuickJsGameStepTranslationRequest(response.pendingTranslation)
+  }
+  if (response.pendingWait !== undefined && response.pendingTranslation !== undefined) {
+    throw new Error('Native QuickJS GameStep run response can only contain one pending continuation.')
   }
   return {
     ...response,
@@ -404,6 +418,16 @@ export function assertNativeQuickJsGameStepWaitRequest(
   if (!isSafeQuickJsBridgeText(request.event)) {
     throw new Error('Native QuickJS GameStep pending wait requires a safe event name.')
   }
+}
+
+export function assertNativeQuickJsGameStepTranslationRequest(
+  request: NativeQuickJsGameStepTranslationRequest,
+): void {
+  assertSafeQuickJsBridgeHandle(request.resumeHandleId, 'Native QuickJS GameStep pending translation requires a safe resumeHandleId.')
+  if (!isSafeQuickJsBridgeText(request.key)) {
+    throw new Error('Native QuickJS GameStep pending translation requires a safe translation key.')
+  }
+  assertOptionalJsonObjectOrArray(request.optionsJson, 'Native QuickJS GameStep pending translation optionsJson')
 }
 
 export function assertNativeQuickJsGameStepCommand(
@@ -588,6 +612,19 @@ function assertOptionalJsonArray(json: string | undefined, label: string): void 
   const parsed = JSON.parse(trimmed)
   if (!Array.isArray(parsed)) {
     throw new Error(`${label} must be a JSON array.`)
+  }
+}
+
+function assertOptionalJsonObjectOrArray(json: string | undefined, label: string): void {
+  if (json === undefined)
+    return
+  const trimmed = json.trim()
+  if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) {
+    throw new Error(`${label} must be a JSON object or array.`)
+  }
+  const parsed = JSON.parse(trimmed)
+  if (!parsed || typeof parsed !== 'object') {
+    throw new Error(`${label} must be a JSON object or array.`)
   }
 }
 
