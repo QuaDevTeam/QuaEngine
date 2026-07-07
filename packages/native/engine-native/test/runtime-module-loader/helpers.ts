@@ -9,6 +9,7 @@ export {
   createNativeQuickJsJsonExportFunction,
   createNativeRuntimeAdapters,
   createNativeRuntimeModuleLoader,
+  executeNativeQuickJsGameStepCommand,
   getNativeQuickJsNamespaceSummary,
   getNativeQuickJsPackageNamespaceSummary,
   releaseNativeQuickJsModuleNamespace,

@@ -7,6 +7,47 @@ import {
 
 export type NativeQuickJsRuntimeModuleKind = 'script' | 'scene' | 'enginePlugin' | 'storeMigration'
 
+export const NATIVE_QUICKJS_GAME_STEP_ENGINE_COMMAND_METHODS = [
+  'showDialogue',
+  'hideDialogue',
+  'showChoices',
+  'clearChoices',
+  'jumpToChoice',
+  'setBackgroundProjection',
+  'setAnimationProjection',
+  'removeAnimationProjection',
+  'clearAnimationProjections',
+  'showCharacter',
+  'hideCharacter',
+  'moveCharacter',
+  'setCharacterExpression',
+  'setCharacterSprite',
+  'showUI',
+  'hideUI',
+  'updateUI',
+  'setPluginProjection',
+  'setLayoutProjection',
+  'setFlowControlOptions',
+  'setDialogueOptions',
+  'setFlowControlMode',
+  'setFlowControlPolicy',
+  'resetFlowControlPolicy',
+  'startAuto',
+  'stopAuto',
+  'startSkip',
+  'stopSkip',
+  'startFastForward',
+  'stopFastForward',
+] as const
+
+export type NativeQuickJsGameStepEngineCommandMethod = typeof NATIVE_QUICKJS_GAME_STEP_ENGINE_COMMAND_METHODS[number]
+
+export interface NativeQuickJsGameStepCommand {
+  target: 'engine'
+  method: NativeQuickJsGameStepEngineCommandMethod
+  argsJson?: string
+}
+
 export interface NativeQuickJsRuntimeModuleRecord {
   assetName: string
   bundleName: string
@@ -71,6 +112,7 @@ export interface NativeQuickJsGameStepRunRequest {
 
 export interface NativeQuickJsGameStepRunResponse {
   ok: boolean
+  commands?: NativeQuickJsGameStepCommand[]
   error?: NativeQuickJsEvaluationError
 }
 
@@ -118,6 +160,7 @@ export type NativeQuickJsEvaluationErrorCode
     | 'invalidStepDescriptor'
     | 'missingRunHandle'
     | 'stepRunFailed'
+    | 'unsupportedStepContextCommand'
     | 'unsupportedReturnValue'
     | 'evaluationFailed'
     | 'unsupportedRuntime'
@@ -218,10 +261,18 @@ export function assertNativeQuickJsGameStepFactoryCallResponse(
 
 export function assertNativeQuickJsGameStepRunResponse(
   response: NativeQuickJsGameStepRunResponse,
-): void {
+): NativeQuickJsGameStepCommand[] {
   if (!response.ok) {
     throw new Error(response.error?.message || 'Native QuickJS GameStep run failed.')
   }
+  if (response.commands === undefined) {
+    return []
+  }
+  if (!Array.isArray(response.commands)) {
+    throw new Error('Native QuickJS GameStep run commands must be an array.')
+  }
+  response.commands.forEach(assertNativeQuickJsGameStepCommand)
+  return response.commands
 }
 
 export function createNativeQuickJsModuleExportCallRequest(input: {
@@ -306,6 +357,28 @@ export function assertNativeQuickJsGameStepRunRequest(
 ): void {
   assertSafeQuickJsBridgeHandle(request.runHandleId, 'Native QuickJS GameStep run requires a safe runHandleId.')
   assertOptionalJsonObject(request.ctxJson, 'Native QuickJS GameStep run ctxJson')
+}
+
+export function assertNativeQuickJsGameStepCommand(
+  command: NativeQuickJsGameStepCommand,
+): void {
+  if (!command || typeof command !== 'object') {
+    throw new Error('Native QuickJS GameStep command must be an object.')
+  }
+  if (command.target !== 'engine') {
+    throw new Error('Native QuickJS GameStep command target must be "engine".')
+  }
+  if (!isNativeQuickJsGameStepEngineCommandMethod(command.method)) {
+    throw new Error(`Native QuickJS GameStep command method "${String(command.method)}" is not allowlisted.`)
+  }
+  assertOptionalJsonArray(command.argsJson, `Native QuickJS GameStep command ${command.method} argsJson`)
+}
+
+export function isNativeQuickJsGameStepEngineCommandMethod(
+  value: unknown,
+): value is NativeQuickJsGameStepEngineCommandMethod {
+  return typeof value === 'string'
+    && (NATIVE_QUICKJS_GAME_STEP_ENGINE_COMMAND_METHODS as readonly string[]).includes(value)
 }
 
 export function validateNativeQuickJsEvaluationRequest(
@@ -440,6 +513,19 @@ function assertOptionalJsonObject(json: string | undefined, label: string): void
   const parsed = JSON.parse(trimmed)
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
     throw new Error(`${label} must be a JSON object.`)
+  }
+}
+
+function assertOptionalJsonArray(json: string | undefined, label: string): void {
+  if (json === undefined)
+    return
+  const trimmed = json.trim()
+  if (!trimmed.startsWith('[')) {
+    throw new Error(`${label} must be a JSON array.`)
+  }
+  const parsed = JSON.parse(trimmed)
+  if (!Array.isArray(parsed)) {
+    throw new Error(`${label} must be a JSON array.`)
   }
 }
 

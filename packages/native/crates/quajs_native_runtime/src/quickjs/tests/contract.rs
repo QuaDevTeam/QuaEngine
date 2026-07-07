@@ -107,9 +107,15 @@ fn serializes_game_step_factory_and_run_requests_and_responses() {
         asset_name: None,
         detail: None,
     });
+    let run_success = QuickJsGameStepRunResponse::success(vec![QuickJsGameStepCommand {
+        target: "engine".to_string(),
+        method: "showChoices".to_string(),
+        args_json: Some("[[{\"id\":\"go\",\"text\":\"Go\"}]]".to_string()),
+    }]);
 
     let factory_request_json = serde_json::to_value(factory_request).unwrap();
     let factory_success_json = serde_json::to_value(factory_success).unwrap();
+    let run_success_json = serde_json::to_value(run_success).unwrap();
     let run_request_json = serde_json::to_value(run_request).unwrap();
     let run_error_json = serde_json::to_value(run_error).unwrap();
 
@@ -131,6 +137,13 @@ fn serializes_game_step_factory_and_run_requests_and_responses() {
     );
     assert_eq!(run_request_json["runHandleId"], "quickjs:rquickjs:step:1");
     assert_eq!(run_request_json["ctxJson"], "{\"stepId\":\"intro.1\"}");
+    assert_eq!(run_success_json["ok"], true);
+    assert_eq!(run_success_json["commands"][0]["target"], "engine");
+    assert_eq!(run_success_json["commands"][0]["method"], "showChoices");
+    assert_eq!(
+        run_success_json["commands"][0]["argsJson"],
+        "[[{\"id\":\"go\",\"text\":\"Go\"}]]"
+    );
     assert_eq!(run_error_json["ok"], false);
     assert_eq!(run_error_json["error"]["code"], "missingRunHandle");
 }

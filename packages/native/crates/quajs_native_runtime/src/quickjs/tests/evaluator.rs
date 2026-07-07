@@ -178,7 +178,7 @@ fn game_step_run_helper_validates_request_before_calling_backend() {
             _request: &QuickJsGameStepRunRequest,
         ) -> QuickJsGameStepRunResult {
             self.calls += 1;
-            Ok(QuickJsGameStepRunResponse::success())
+            Ok(QuickJsGameStepRunResponse::success(Vec::new()))
         }
     }
 

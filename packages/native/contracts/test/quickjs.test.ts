@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   DEFAULT_NATIVE_QUICKJS_SANDBOX_LIMITS,
   assertNativeQuickJsEvaluationResponse,
+  assertNativeQuickJsGameStepCommand,
   assertNativeQuickJsGameStepRunResponse,
   assertNativeQuickJsGameStepFactoryCallResponse,
   assertNativeQuickJsGameStepFactoryCallRequest,
@@ -284,7 +285,19 @@ describe('native QuickJS contracts', () => {
     expect(() => assertNativeQuickJsGameStepFactoryCallResponse({ ok: true }))
       .toThrow(/without step descriptors/)
 
-    expect(assertNativeQuickJsGameStepRunResponse({ ok: true })).toBeUndefined()
+    expect(assertNativeQuickJsGameStepRunResponse({ ok: true })).toEqual([])
+    expect(assertNativeQuickJsGameStepRunResponse({
+      ok: true,
+      commands: [{
+        target: 'engine',
+        method: 'showChoices',
+        argsJson: '[[{"id":"go","text":"Go"}]]',
+      }],
+    })).toEqual([{
+      target: 'engine',
+      method: 'showChoices',
+      argsJson: '[[{"id":"go","text":"Go"}]]',
+    }])
     expect(() => assertNativeQuickJsGameStepRunResponse({
       ok: false,
       error: {
@@ -292,5 +305,31 @@ describe('native QuickJS contracts', () => {
         message: 'Missing run handle.',
       },
     })).toThrow('Missing run handle.')
+  })
+
+  it('validates GameStep run command descriptors', () => {
+    expect(() => assertNativeQuickJsGameStepCommand({
+      target: 'engine',
+      method: 'clearChoices',
+      argsJson: '[]',
+    })).not.toThrow()
+
+    expect(() => assertNativeQuickJsGameStepCommand({
+      target: 'pipeline' as any,
+      method: 'clearChoices',
+      argsJson: '[]',
+    })).toThrow(/target/)
+
+    expect(() => assertNativeQuickJsGameStepCommand({
+      target: 'engine',
+      method: 'waitFor' as any,
+      argsJson: '["user/choice_select"]',
+    })).toThrow(/allowlisted/)
+
+    expect(() => assertNativeQuickJsGameStepCommand({
+      target: 'engine',
+      method: 'showChoices',
+      argsJson: '{"not":"array"}',
+    })).toThrow(/JSON array/)
   })
 })

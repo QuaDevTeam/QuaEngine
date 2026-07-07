@@ -152,8 +152,19 @@ pub struct QuickJsGameStepRunRequest {
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct QuickJsGameStepCommand {
+    pub target: String,
+    pub method: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub args_json: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct QuickJsGameStepRunResponse {
     pub ok: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub commands: Option<Vec<QuickJsGameStepCommand>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub error: Option<QuickJsEvaluationError>,
 }
@@ -177,6 +188,7 @@ pub enum QuickJsEvaluationErrorCode {
     InvalidStepDescriptor,
     MissingRunHandle,
     StepRunFailed,
+    UnsupportedStepContextCommand,
     UnsupportedReturnValue,
     EvaluationFailed,
     UnsupportedRuntime,
@@ -248,9 +260,10 @@ impl QuickJsGameStepFactoryCallResponse {
 }
 
 impl QuickJsGameStepRunResponse {
-    pub fn success() -> Self {
+    pub fn success(commands: Vec<QuickJsGameStepCommand>) -> Self {
         Self {
             ok: true,
+            commands: Some(commands),
             error: None,
         }
     }
@@ -258,6 +271,7 @@ impl QuickJsGameStepRunResponse {
     pub fn error(error: QuickJsEvaluationError) -> Self {
         Self {
             ok: false,
+            commands: None,
             error: Some(error),
         }
     }
