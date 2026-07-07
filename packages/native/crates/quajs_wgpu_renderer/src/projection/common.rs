@@ -130,6 +130,8 @@ pub(crate) fn is_safe_native_package_id(package_id: &str) -> bool {
     if normalized.split('/').any(|segment| segment == "..")
         || package_id.contains("..")
         || package_id.contains(['/', '\\'])
+        || !package_id.chars().any(|char| char.is_ascii_alphanumeric())
+        || !starts_and_ends_with_ascii_alphanumeric(package_id)
     {
         return false;
     }
@@ -137,6 +139,13 @@ pub(crate) fn is_safe_native_package_id(package_id: &str) -> bool {
     package_id
         .chars()
         .all(|char| char.is_ascii_alphanumeric() || matches!(char, '.' | '-' | '_'))
+}
+
+fn starts_and_ends_with_ascii_alphanumeric(value: &str) -> bool {
+    matches!(
+        (value.chars().next(), value.chars().next_back()),
+        (Some(first), Some(last)) if first.is_ascii_alphanumeric() && last.is_ascii_alphanumeric()
+    )
 }
 
 pub(crate) fn is_safe_native_dispatch_identifier(value: &str) -> bool {
@@ -298,6 +307,9 @@ mod tests {
             "runtime.ui?rev=1",
             "runtime.ui#hash",
             "runtime..ui",
+            ".",
+            ".runtime",
+            "runtime.",
             "../runtime.ui",
             "runtime:ui",
             "runtime ui",
