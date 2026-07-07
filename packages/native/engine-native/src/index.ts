@@ -32,6 +32,17 @@ export type {
   NativeRendererIntentDispatchResult,
   NativeRendererIntentEmittedEvent,
 } from './renderer-intents'
+export {
+  createNativeRendererJsonFrameInput,
+  createNativeRendererViewProjection,
+} from './renderer-frame'
+export type {
+  CreateNativeRendererJsonFrameInputOptions,
+  NativeRendererEngineViewProjection,
+  NativeRendererJsonFrameInput,
+  NativeRendererSafeAreaInsetsInput,
+  NativeRendererStageContainerInput,
+} from './renderer-frame'
 export type {
   NativeEngineBootstrap,
   NativeRuntimeAdapters,

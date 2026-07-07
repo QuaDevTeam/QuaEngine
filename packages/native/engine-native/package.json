@@ -43,5 +43,8 @@
   "dependencies": {
     "@quajs/engine": "workspace:*",
     "@quajs/native-contracts": "workspace:*"
+  },
+  "devDependencies": {
+    "@quajs/assets": "workspace:*"
   }
 }
