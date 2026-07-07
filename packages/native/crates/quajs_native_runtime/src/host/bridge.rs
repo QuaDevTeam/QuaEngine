@@ -192,13 +192,17 @@ pub fn dispatch_native_host_api_request_with_quickjs_registry(
             ))
         }
         NativeHostApiRequest::ReleaseQuickJsModuleNamespace(request) => {
-            NativeHostApiResponse::success(NativeHostApiResponsePayload::QuickJsNamespace(
-                registry.release_namespace(&request.module_namespace_id),
-            ))
+            let released = registry.release_namespace(&request.module_namespace_id);
+            if let Some(record) = &released {
+                quickjs.release_module_namespace(&record.id);
+            }
+            NativeHostApiResponse::success(NativeHostApiResponsePayload::QuickJsNamespace(released))
         }
         NativeHostApiRequest::ReleaseQuickJsPackageNamespaces(request) => {
+            let released = registry.release_package(&request.package_id);
+            quickjs.release_module_namespaces(&released);
             NativeHostApiResponse::success(NativeHostApiResponsePayload::QuickJsNamespaces(
-                registry.release_package(&request.package_id),
+                released,
             ))
         }
         NativeHostApiRequest::GetQuickJsNamespaceSummary => NativeHostApiResponse::success(
