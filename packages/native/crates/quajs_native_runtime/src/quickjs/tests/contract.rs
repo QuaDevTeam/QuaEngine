@@ -55,3 +55,31 @@ fn serializes_evaluation_success_and_error_responses() {
     assert_eq!(error_json["error"]["code"], "unsupportedRuntime");
     assert_eq!(error_json["error"]["assetName"], "scripts/opening.js");
 }
+
+#[test]
+fn serializes_module_export_call_requests_and_responses() {
+    let request = QuickJsModuleExportCallRequest {
+        module_namespace_id: "quickjs:rquickjs:1".to_string(),
+        export_name: "default".to_string(),
+        args_json: Some("[{\"scene\":\"opening\"}]".to_string()),
+    };
+    let success = QuickJsModuleExportCallResponse::success(Some("{\"ok\":true}".to_string()));
+    let error = QuickJsModuleExportCallResponse::error(QuickJsEvaluationError {
+        code: QuickJsEvaluationErrorCode::MissingExport,
+        message: "Missing export.".to_string(),
+        asset_name: None,
+        detail: None,
+    });
+
+    let request_json = serde_json::to_value(request).unwrap();
+    let success_json = serde_json::to_value(success).unwrap();
+    let error_json = serde_json::to_value(error).unwrap();
+
+    assert_eq!(request_json["moduleNamespaceId"], "quickjs:rquickjs:1");
+    assert_eq!(request_json["exportName"], "default");
+    assert_eq!(request_json["argsJson"], "[{\"scene\":\"opening\"}]");
+    assert_eq!(success_json["ok"], true);
+    assert_eq!(success_json["valueJson"], "{\"ok\":true}");
+    assert_eq!(error_json["ok"], false);
+    assert_eq!(error_json["error"]["code"], "missingExport");
+}

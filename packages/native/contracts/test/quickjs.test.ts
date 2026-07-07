@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest'
 import {
   DEFAULT_NATIVE_QUICKJS_SANDBOX_LIMITS,
   assertNativeQuickJsEvaluationResponse,
+  assertNativeQuickJsModuleExportCallRequest,
   createNativeQuickJsEvaluationRequest,
+  createNativeQuickJsModuleExportCallRequest,
+  parseNativeQuickJsModuleExportCallResponse,
   validateNativeQuickJsEvaluationRequest,
 } from '../src'
 
@@ -158,5 +161,54 @@ describe('native QuickJS contracts', () => {
     expect(() => assertNativeQuickJsEvaluationResponse({
       ok: true,
     })).toThrow('Native QuickJS module evaluation succeeded without a module namespace id.')
+  })
+
+  it('creates and validates JSON-safe module export call requests', () => {
+    expect(createNativeQuickJsModuleExportCallRequest({
+      moduleNamespaceId: 'quickjs:rquickjs:1',
+      exportName: 'default',
+      args: [{ scene: 'opening' }],
+    })).toEqual({
+      moduleNamespaceId: 'quickjs:rquickjs:1',
+      exportName: 'default',
+      argsJson: '[{"scene":"opening"}]',
+    })
+
+    expect(() => assertNativeQuickJsModuleExportCallRequest({
+      moduleNamespaceId: ' quickjs:rquickjs:1',
+      exportName: 'default',
+      argsJson: '[]',
+    })).toThrow(/moduleNamespaceId/)
+
+    expect(() => assertNativeQuickJsModuleExportCallRequest({
+      moduleNamespaceId: 'quickjs:rquickjs:1',
+      exportName: 'constructor',
+      argsJson: '[]',
+    })).toThrow(/blocked/)
+
+    expect(() => assertNativeQuickJsModuleExportCallRequest({
+      moduleNamespaceId: 'quickjs:rquickjs:1',
+      exportName: 'default',
+      argsJson: '{"not":"array"}',
+    })).toThrow(/JSON array/)
+  })
+
+  it('parses JSON-safe module export call responses', () => {
+    expect(parseNativeQuickJsModuleExportCallResponse({
+      ok: true,
+      valueJson: '{"value":5}',
+    })).toEqual({ value: 5 })
+
+    expect(parseNativeQuickJsModuleExportCallResponse({
+      ok: true,
+    })).toBeUndefined()
+
+    expect(() => parseNativeQuickJsModuleExportCallResponse({
+      ok: false,
+      error: {
+        code: 'missingExport',
+        message: 'Missing export.',
+      },
+    })).toThrow('Missing export.')
   })
 })

@@ -16,6 +16,7 @@ pub use rquickjs_backend::{
 pub use validation::{
     is_forbidden_native_module_payload, is_forbidden_runtime_module_asset_name,
     is_supported_quickjs_module_asset, validate_quickjs_evaluation_request,
+    validate_quickjs_module_export_call_request,
 };
 
 pub const UNSUPPORTED_QUICKJS_VERSION: &str = "unsupported";
@@ -93,6 +94,25 @@ pub struct QuickJsEvaluationResponse {
     pub error: Option<QuickJsEvaluationError>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct QuickJsModuleExportCallRequest {
+    pub module_namespace_id: String,
+    pub export_name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub args_json: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct QuickJsModuleExportCallResponse {
+    pub ok: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub value_json: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<QuickJsEvaluationError>,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum QuickJsEvaluationErrorCode {
@@ -101,6 +121,12 @@ pub enum QuickJsEvaluationErrorCode {
     ForbiddenNativePayload,
     UnsupportedModuleAsset,
     ModuleTooLarge,
+    MissingModuleNamespace,
+    MissingExportName,
+    MissingExport,
+    ExportNotCallable,
+    InvalidArguments,
+    UnsupportedReturnValue,
     EvaluationFailed,
     UnsupportedRuntime,
 }
@@ -134,10 +160,46 @@ impl QuickJsEvaluationResponse {
     }
 }
 
+impl QuickJsModuleExportCallResponse {
+    pub fn success(value_json: Option<String>) -> Self {
+        Self {
+            ok: true,
+            value_json,
+            error: None,
+        }
+    }
+
+    pub fn error(error: QuickJsEvaluationError) -> Self {
+        Self {
+            ok: false,
+            value_json: None,
+            error: Some(error),
+        }
+    }
+}
+
 pub type QuickJsEvaluationResult = Result<QuickJsEvaluationResponse, QuickJsEvaluationError>;
+pub type QuickJsModuleExportCallResult =
+    Result<QuickJsModuleExportCallResponse, QuickJsEvaluationError>;
 
 pub trait QuickJsModuleEvaluator {
     fn evaluate_module(&mut self, request: &QuickJsEvaluationRequest) -> QuickJsEvaluationResult;
+
+    fn call_module_export(
+        &mut self,
+        request: &QuickJsModuleExportCallRequest,
+    ) -> QuickJsModuleExportCallResult {
+        Err(QuickJsEvaluationError {
+            code: QuickJsEvaluationErrorCode::UnsupportedRuntime,
+            message: "QuickJS module export calls are not available in this native runtime build."
+                .to_string(),
+            asset_name: None,
+            detail: Some(format!(
+                "No QuickJS evaluator backend has been installed for namespace \"{}\".",
+                request.module_namespace_id
+            )),
+        })
+    }
 
     fn release_module_namespace(&mut self, _module_namespace_id: &str) {}
 
@@ -189,6 +251,20 @@ pub fn evaluate_quickjs_module_with_registry(
         registry.register_evaluated_module(module_namespace_id, request);
     }
     response
+}
+
+pub fn call_quickjs_module_export(
+    evaluator: &mut impl QuickJsModuleEvaluator,
+    request: &QuickJsModuleExportCallRequest,
+) -> QuickJsModuleExportCallResponse {
+    if let Err(error) = validation::validate_quickjs_module_export_call_request(request) {
+        return QuickJsModuleExportCallResponse::error(error);
+    }
+
+    match evaluator.call_module_export(request) {
+        Ok(response) => response,
+        Err(error) => QuickJsModuleExportCallResponse::error(error),
+    }
 }
 
 #[cfg(test)]

@@ -6,8 +6,9 @@ use super::api::{
 };
 use super::info::NativeHostInfo;
 use crate::quickjs::{
-    evaluate_quickjs_module_with_registry, QuickJsEvaluationRequest, QuickJsEvaluationResponse,
-    QuickJsModuleEvaluator, QuickJsModuleNamespaceRecord, QuickJsModuleNamespaceRegistry,
+    call_quickjs_module_export, evaluate_quickjs_module_with_registry, QuickJsEvaluationRequest,
+    QuickJsEvaluationResponse, QuickJsModuleEvaluator, QuickJsModuleExportCallRequest,
+    QuickJsModuleExportCallResponse, QuickJsModuleNamespaceRecord, QuickJsModuleNamespaceRegistry,
     QuickJsModuleNamespaceSummary, UnsupportedQuickJsModuleEvaluator,
 };
 
@@ -24,6 +25,7 @@ pub enum NativeHostApiRequest {
     HashBytes(NativeHostApiHashBytesRequest),
     VerifySignature(NativeSignatureVerifyRequest),
     EvaluateQuickJsModule(QuickJsEvaluationRequest),
+    CallQuickJsModuleExport(QuickJsModuleExportCallRequest),
     ReleaseQuickJsModuleNamespace(NativeQuickJsReleaseNamespaceRequest),
     ReleaseQuickJsPackageNamespaces(NativeQuickJsReleasePackageRequest),
     GetQuickJsNamespaceSummary,
@@ -90,6 +92,7 @@ pub enum NativeHostApiResponsePayload {
     Hash(String),
     SignatureValid(bool),
     QuickJsEvaluation(QuickJsEvaluationResponse),
+    QuickJsExportCall(QuickJsModuleExportCallResponse),
     QuickJsNamespace(Option<QuickJsModuleNamespaceRecord>),
     QuickJsNamespaces(Vec<QuickJsModuleNamespaceRecord>),
     QuickJsNamespaceSummary(QuickJsModuleNamespaceSummary),
@@ -189,6 +192,11 @@ pub fn dispatch_native_host_api_request_with_quickjs_registry(
         NativeHostApiRequest::EvaluateQuickJsModule(request) => {
             NativeHostApiResponse::success(NativeHostApiResponsePayload::QuickJsEvaluation(
                 evaluate_quickjs_module_with_registry(quickjs, registry, &request),
+            ))
+        }
+        NativeHostApiRequest::CallQuickJsModuleExport(request) => {
+            NativeHostApiResponse::success(NativeHostApiResponsePayload::QuickJsExportCall(
+                call_quickjs_module_export(quickjs, &request),
             ))
         }
         NativeHostApiRequest::ReleaseQuickJsModuleNamespace(request) => {

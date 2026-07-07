@@ -49,6 +49,74 @@ fn unsupported_evaluator_returns_structured_runtime_error() {
 }
 
 #[test]
+fn export_call_helper_validates_request_before_calling_backend() {
+    #[derive(Default)]
+    struct CountingEvaluator {
+        calls: usize,
+    }
+
+    impl QuickJsModuleEvaluator for CountingEvaluator {
+        fn evaluate_module(
+            &mut self,
+            _request: &QuickJsEvaluationRequest,
+        ) -> QuickJsEvaluationResult {
+            Ok(QuickJsEvaluationResponse::success("unused"))
+        }
+
+        fn call_module_export(
+            &mut self,
+            _request: &QuickJsModuleExportCallRequest,
+        ) -> QuickJsModuleExportCallResult {
+            self.calls += 1;
+            Ok(QuickJsModuleExportCallResponse::success(Some(
+                "null".to_string(),
+            )))
+        }
+    }
+
+    let mut evaluator = CountingEvaluator::default();
+    let response = call_quickjs_module_export(
+        &mut evaluator,
+        &QuickJsModuleExportCallRequest {
+            module_namespace_id: "quickjs:rquickjs:1".to_string(),
+            export_name: "default".to_string(),
+            args_json: Some("{\"not\":\"array\"}".to_string()),
+        },
+    );
+
+    assert!(!response.ok);
+    assert_eq!(evaluator.calls, 0);
+    assert_eq!(
+        response.error.unwrap().code,
+        QuickJsEvaluationErrorCode::InvalidArguments
+    );
+}
+
+#[test]
+fn unsupported_evaluator_returns_structured_export_call_error() {
+    let mut evaluator = UnsupportedQuickJsModuleEvaluator;
+    let response = call_quickjs_module_export(
+        &mut evaluator,
+        &QuickJsModuleExportCallRequest {
+            module_namespace_id: "quickjs:rquickjs:1".to_string(),
+            export_name: "default".to_string(),
+            args_json: None,
+        },
+    );
+
+    assert!(!response.ok);
+    let error = response.error.unwrap();
+    assert_eq!(error.code, QuickJsEvaluationErrorCode::UnsupportedRuntime);
+    assert_eq!(
+        error.detail,
+        Some(
+            "No QuickJS evaluator backend has been installed for namespace \"quickjs:rquickjs:1\"."
+                .to_string()
+        )
+    );
+}
+
+#[test]
 fn evaluator_helper_returns_backend_success_response() {
     struct NamespaceEvaluator;
 

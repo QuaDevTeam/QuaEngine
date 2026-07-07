@@ -8,6 +8,7 @@ use crate::host::InMemoryNativeHostApi;
 use crate::quickjs::{
     QuickJsEvaluationError, QuickJsEvaluationErrorCode, QuickJsEvaluationRequest,
     QuickJsEvaluationResponse, QuickJsEvaluationResult, QuickJsModuleEvaluator,
+    QuickJsModuleExportCallRequest, QuickJsModuleExportCallResponse, QuickJsModuleExportCallResult,
     QuickJsModuleNamespaceRegistry, QuickJsModuleNamespaceSummary,
 };
 
@@ -81,6 +82,61 @@ fn dispatches_quickjs_evaluation_through_injected_evaluator() {
             );
         }
         _ => panic!("expected quickjs evaluation payload"),
+    }
+}
+
+#[test]
+fn dispatches_quickjs_export_calls_through_injected_evaluator() {
+    struct TestQuickJsEvaluator;
+
+    impl QuickJsModuleEvaluator for TestQuickJsEvaluator {
+        fn evaluate_module(
+            &mut self,
+            request: &QuickJsEvaluationRequest,
+        ) -> QuickJsEvaluationResult {
+            Ok(QuickJsEvaluationResponse::success(format!(
+                "quickjs:{}:{}",
+                request.module.package_id, request.module.asset_name
+            )))
+        }
+
+        fn call_module_export(
+            &mut self,
+            request: &QuickJsModuleExportCallRequest,
+        ) -> QuickJsModuleExportCallResult {
+            Ok(QuickJsModuleExportCallResponse::success(Some(format!(
+                "{{\"namespace\":\"{}\",\"exportName\":\"{}\",\"args\":{}}}",
+                request.module_namespace_id,
+                request.export_name,
+                request.args_json.as_deref().unwrap_or("[]")
+            ))))
+        }
+    }
+
+    let mut host = InMemoryNativeHostApi::new(host_info());
+    let mut quickjs = TestQuickJsEvaluator;
+    let response = dispatch_native_host_api_request_with_quickjs(
+        &mut host,
+        &mut quickjs,
+        NativeHostApiRequest::CallQuickJsModuleExport(QuickJsModuleExportCallRequest {
+            module_namespace_id: "quickjs:rquickjs:1".to_string(),
+            export_name: "default".to_string(),
+            args_json: Some("[{\"scene\":\"opening\"}]".to_string()),
+        }),
+    );
+
+    assert!(response.ok);
+    match response.payload.unwrap() {
+        NativeHostApiResponsePayload::QuickJsExportCall(call) => {
+            assert!(call.ok);
+            assert_eq!(
+                call.value_json,
+                Some(
+                    "{\"namespace\":\"quickjs:rquickjs:1\",\"exportName\":\"default\",\"args\":[{\"scene\":\"opening\"}]}".to_string()
+                )
+            );
+        }
+        payload => panic!("expected quickjs export call payload, got {payload:?}"),
     }
 }
 

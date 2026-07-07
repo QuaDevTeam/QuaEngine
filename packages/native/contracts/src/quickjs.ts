@@ -34,6 +34,18 @@ export interface NativeQuickJsEvaluationResponse {
   error?: NativeQuickJsEvaluationError
 }
 
+export interface NativeQuickJsModuleExportCallRequest {
+  moduleNamespaceId: string
+  exportName: string
+  argsJson?: string
+}
+
+export interface NativeQuickJsModuleExportCallResponse {
+  ok: boolean
+  valueJson?: string
+  error?: NativeQuickJsEvaluationError
+}
+
 export interface NativeQuickJsModuleNamespaceRecord {
   id: string
   packageId: string
@@ -67,6 +79,12 @@ export type NativeQuickJsEvaluationErrorCode
     | 'forbiddenNativePayload'
     | 'unsupportedModuleAsset'
     | 'moduleTooLarge'
+    | 'missingModuleNamespace'
+    | 'missingExportName'
+    | 'missingExport'
+    | 'exportNotCallable'
+    | 'invalidArguments'
+    | 'unsupportedReturnValue'
     | 'evaluationFailed'
     | 'unsupportedRuntime'
 
@@ -134,6 +152,60 @@ export function assertNativeQuickJsEvaluationResponse(
     throw new Error('Native QuickJS module evaluation succeeded without a module namespace id.')
   }
   return response.moduleNamespaceId
+}
+
+export function assertNativeQuickJsModuleExportCallResponse(
+  response: NativeQuickJsModuleExportCallResponse,
+): string | undefined {
+  if (!response.ok) {
+    throw new Error(response.error?.message || 'Native QuickJS module export call failed.')
+  }
+  return response.valueJson
+}
+
+export function parseNativeQuickJsModuleExportCallResponse(
+  response: NativeQuickJsModuleExportCallResponse,
+): unknown {
+  const valueJson = assertNativeQuickJsModuleExportCallResponse(response)
+  return valueJson === undefined ? undefined : JSON.parse(valueJson)
+}
+
+export function createNativeQuickJsModuleExportCallRequest(input: {
+  moduleNamespaceId: string
+  exportName: string
+  args?: readonly unknown[]
+}): NativeQuickJsModuleExportCallRequest {
+  const request = {
+    moduleNamespaceId: input.moduleNamespaceId,
+    exportName: input.exportName,
+    argsJson: input.args ? JSON.stringify(input.args) : undefined,
+  }
+  assertNativeQuickJsModuleExportCallRequest(request)
+  return request
+}
+
+export function assertNativeQuickJsModuleExportCallRequest(
+  request: NativeQuickJsModuleExportCallRequest,
+): void {
+  if (!isSafeQuickJsBridgeHandle(request.moduleNamespaceId)) {
+    throw new Error('Native QuickJS module export call requires a safe moduleNamespaceId.')
+  }
+  if (!isSafeQuickJsBridgeHandle(request.exportName)) {
+    throw new Error('Native QuickJS module export call requires a safe exportName.')
+  }
+  if (['__proto__', 'prototype', 'constructor'].includes(request.exportName)) {
+    throw new Error(`Native QuickJS module export "${request.exportName}" is blocked at the bridge boundary.`)
+  }
+  if (request.argsJson !== undefined) {
+    const trimmed = request.argsJson.trim()
+    if (!trimmed.startsWith('[')) {
+      throw new Error('Native QuickJS module export call argsJson must be a JSON array.')
+    }
+    const parsed = JSON.parse(trimmed)
+    if (!Array.isArray(parsed)) {
+      throw new Error('Native QuickJS module export call argsJson must be a JSON array.')
+    }
+  }
 }
 
 export function validateNativeQuickJsEvaluationRequest(
@@ -232,6 +304,13 @@ function collectQuickJsModuleByteLimitErrors(
     detail: `${field}: ${actualBytes}; maxModuleBytes: ${maxModuleBytes}`,
     message: `Native QuickJS module "${assetName || '<missing>'}" ${field} length ${actualBytes} exceeds maxModuleBytes ${maxModuleBytes}.`,
   })
+}
+
+function isSafeQuickJsBridgeHandle(value: string): boolean {
+  return value.trim() === value
+    && value.length > 0
+    && value.length <= 256
+    && !/[\u0000-\u001F\u007F]/.test(value)
 }
 
 function utf8ByteLength(input: string): number {

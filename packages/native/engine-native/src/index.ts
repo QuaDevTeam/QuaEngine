@@ -39,7 +39,10 @@ export type {
 } from './runtime-adapters'
 export {
   createNativeHostQuickJsModuleEvaluator,
+  createNativeHostQuickJsJsonModuleNamespaceResolver,
+  createNativeQuickJsJsonExportFunction,
   createNativeRuntimeModuleLoader,
+  callNativeQuickJsModuleExport,
   getNativeQuickJsNamespaceSummary,
   getNativeQuickJsPackageNamespaceSummary,
   releaseNativeQuickJsModuleNamespace,
@@ -47,6 +50,7 @@ export {
 } from './runtime-module-loader'
 export type {
   NativeQuickJsModuleNamespaceResolver,
+  NativeQuickJsJsonExportFunction,
   NativeRuntimeModuleEvaluationContext,
   NativeRuntimeModuleEvaluator,
   NativeRuntimeModuleKind,

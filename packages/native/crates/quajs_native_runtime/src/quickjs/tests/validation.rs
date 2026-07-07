@@ -106,3 +106,50 @@ fn rejects_code_bytes_over_quickjs_module_limit() {
         Some("code bytes: 29; maxModuleBytes: 4".to_string())
     );
 }
+
+#[test]
+fn validates_module_export_call_requests() {
+    let request = QuickJsModuleExportCallRequest {
+        module_namespace_id: "quickjs:rquickjs:1".to_string(),
+        export_name: "default".to_string(),
+        args_json: Some("[{\"scene\":\"opening\"}]".to_string()),
+    };
+
+    assert_eq!(
+        validate_quickjs_module_export_call_request(&request),
+        Ok(())
+    );
+
+    let missing_namespace = QuickJsModuleExportCallRequest {
+        module_namespace_id: " ".to_string(),
+        ..request.clone()
+    };
+    assert_eq!(
+        validate_quickjs_module_export_call_request(&missing_namespace)
+            .unwrap_err()
+            .code,
+        QuickJsEvaluationErrorCode::MissingModuleNamespace
+    );
+
+    let blocked_export = QuickJsModuleExportCallRequest {
+        export_name: "constructor".to_string(),
+        ..request.clone()
+    };
+    assert_eq!(
+        validate_quickjs_module_export_call_request(&blocked_export)
+            .unwrap_err()
+            .code,
+        QuickJsEvaluationErrorCode::MissingExport
+    );
+
+    let invalid_args = QuickJsModuleExportCallRequest {
+        args_json: Some("{\"not\":\"array\"}".to_string()),
+        ..request
+    };
+    assert_eq!(
+        validate_quickjs_module_export_call_request(&invalid_args)
+            .unwrap_err()
+            .code,
+        QuickJsEvaluationErrorCode::InvalidArguments
+    );
+}

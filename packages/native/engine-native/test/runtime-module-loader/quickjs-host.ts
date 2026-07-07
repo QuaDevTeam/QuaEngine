@@ -2,7 +2,9 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   createHost,
   createModuleLoadContext,
+  createNativeHostQuickJsJsonModuleNamespaceResolver,
   createNativeHostQuickJsModuleEvaluator,
+  createNativeQuickJsJsonExportFunction,
   createNativeRuntimeAdapters,
   createNativeRuntimeModuleLoader,
 } from './helpers'
@@ -140,5 +142,45 @@ describe('@quajs/engine-native runtime module loader QuickJS host bridge', () =>
     })).rejects.toThrow(/must be package-relative/)
 
     expect(host.evaluateQuickJsModule).not.toHaveBeenCalled()
+  })
+
+  it('creates JSON-safe export proxy functions over native QuickJS namespace handles', async () => {
+    const host = {
+      ...createHost(),
+      callQuickJsModuleExport: vi.fn(async request => ({
+        ok: true,
+        valueJson: JSON.stringify({
+          namespace: request.moduleNamespaceId,
+          exportName: request.exportName,
+          args: JSON.parse(request.argsJson || '[]'),
+        }),
+      })),
+    }
+
+    const callDefault = createNativeQuickJsJsonExportFunction(host, 'quickjs:rquickjs:1', 'default')
+    await expect(callDefault({ scene: 'opening' })).resolves.toEqual({
+      namespace: 'quickjs:rquickjs:1',
+      exportName: 'default',
+      args: [{ scene: 'opening' }],
+    })
+
+    const resolver = createNativeHostQuickJsJsonModuleNamespaceResolver(host)
+    const namespace = await resolver('quickjs:rquickjs:2', {} as any, {
+      ok: true,
+      moduleNamespaceId: 'quickjs:rquickjs:2',
+    }) as Record<string, unknown>
+
+    expect('default' in namespace).toBe(true)
+    expect(typeof namespace.default).toBe('function')
+    await expect((namespace.default as (...args: unknown[]) => Promise<unknown>)('hello')).resolves.toEqual({
+      namespace: 'quickjs:rquickjs:2',
+      exportName: 'default',
+      args: ['hello'],
+    })
+    expect(host.callQuickJsModuleExport).toHaveBeenCalledWith({
+      moduleNamespaceId: 'quickjs:rquickjs:2',
+      exportName: 'default',
+      argsJson: '["hello"]',
+    })
   })
 })

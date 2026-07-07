@@ -82,6 +82,10 @@ export function createNativeHostApiFromBridge(dispatch: NativeHostBridgeDispatch
       method: 'evaluateQuickJsModule',
       params: request,
     }, 'quickJsEvaluation'),
+    callQuickJsModuleExport: request => call({
+      method: 'callQuickJsModuleExport',
+      params: request,
+    }, 'quickJsExportCall'),
     releaseQuickJsModuleNamespace: moduleNamespaceId => call({
       method: 'releaseQuickJsModuleNamespace',
       params: { moduleNamespaceId },

@@ -3,12 +3,14 @@ use std::ffi::CStr;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, OnceLock};
 
-use rquickjs::{Context, Module, Object, Persistent, Runtime};
+use rquickjs::{Array, Context, Module, Object, Persistent, Runtime, Value};
 
 use super::{
-    validate_quickjs_evaluation_request, QuickJsEvaluationError, QuickJsEvaluationErrorCode,
-    QuickJsEvaluationRequest, QuickJsEvaluationResponse, QuickJsEvaluationResult,
-    QuickJsModuleEvaluator, QuickJsSandboxLimits,
+    validate_quickjs_evaluation_request, validate_quickjs_module_export_call_request,
+    QuickJsEvaluationError, QuickJsEvaluationErrorCode, QuickJsEvaluationRequest,
+    QuickJsEvaluationResponse, QuickJsEvaluationResult, QuickJsModuleEvaluator,
+    QuickJsModuleExportCallRequest, QuickJsModuleExportCallResponse, QuickJsModuleExportCallResult,
+    QuickJsSandboxLimits,
 };
 
 pub const RQUICKJS_BACKEND_VERSION: &str = "rquickjs-0.12.1";
@@ -117,6 +119,131 @@ impl QuickJsModuleEvaluator for RquickJsModuleEvaluator {
         }
     }
 
+    fn call_module_export(
+        &mut self,
+        request: &QuickJsModuleExportCallRequest,
+    ) -> QuickJsModuleExportCallResult {
+        validate_quickjs_module_export_call_request(request)?;
+        let Some(namespace) = self.namespaces.get(&request.module_namespace_id).cloned() else {
+            return Err(QuickJsEvaluationError {
+                code: QuickJsEvaluationErrorCode::MissingModuleNamespace,
+                message: format!(
+                    "QuickJS module namespace \"{}\" is not registered.",
+                    request.module_namespace_id
+                ),
+                asset_name: None,
+                detail: None,
+            });
+        };
+
+        let result: Result<Option<String>, QuickJsEvaluationError> = self.context.with(|ctx| {
+            let namespace = namespace.restore(&ctx).map_err(|error| {
+                call_error(
+                    QuickJsEvaluationErrorCode::EvaluationFailed,
+                    "QuickJS module namespace could not be restored.".to_string(),
+                    Some(error.to_string()),
+                )
+            })?;
+            let export_value: Value =
+                namespace
+                    .get(request.export_name.as_str())
+                    .map_err(|error| {
+                        call_error(
+                            QuickJsEvaluationErrorCode::EvaluationFailed,
+                            format!(
+                                "QuickJS module export \"{}\" could not be read.",
+                                request.export_name
+                            ),
+                            Some(error.to_string()),
+                        )
+                    })?;
+            if export_value.is_undefined() || export_value.is_null() {
+                return Err(call_error(
+                    QuickJsEvaluationErrorCode::MissingExport,
+                    format!(
+                        "QuickJS module namespace \"{}\" does not export \"{}\".",
+                        request.module_namespace_id, request.export_name
+                    ),
+                    None,
+                ));
+            }
+            if !export_value.is_function() {
+                return Err(call_error(
+                    QuickJsEvaluationErrorCode::ExportNotCallable,
+                    format!(
+                        "QuickJS module export \"{}\" is not callable.",
+                        request.export_name
+                    ),
+                    None,
+                ));
+            }
+
+            let function = export_value.into_function().ok_or_else(|| {
+                call_error(
+                    QuickJsEvaluationErrorCode::ExportNotCallable,
+                    format!(
+                        "QuickJS module export \"{}\" is not callable.",
+                        request.export_name
+                    ),
+                    None,
+                )
+            })?;
+            let args_json = request.args_json.as_deref().unwrap_or("[]");
+            let args_value = ctx.json_parse(args_json).map_err(|error| {
+                call_error(
+                    QuickJsEvaluationErrorCode::InvalidArguments,
+                    "QuickJS module export argsJson must be valid JSON.".to_string(),
+                    Some(error.to_string()),
+                )
+            })?;
+            let args_array = args_value.into_array().ok_or_else(|| {
+                call_error(
+                    QuickJsEvaluationErrorCode::InvalidArguments,
+                    "QuickJS module export argsJson must be a JSON array.".to_string(),
+                    None,
+                )
+            })?;
+            let value: Value = function
+                .call_arg(args_from_json_array(ctx.clone(), &args_array)?)
+                .map_err(|error| {
+                    call_error(
+                        QuickJsEvaluationErrorCode::EvaluationFailed,
+                        format!(
+                            "QuickJS module export \"{}\" call failed.",
+                            request.export_name
+                        ),
+                        Some(error.to_string()),
+                    )
+                })?;
+            let value_json = ctx
+                .json_stringify(value)
+                .map_err(|error| {
+                    call_error(
+                        QuickJsEvaluationErrorCode::UnsupportedReturnValue,
+                        "QuickJS module export returned a value that cannot be serialized to JSON."
+                            .to_string(),
+                        Some(error.to_string()),
+                    )
+                })?
+                .map(|value| value.to_string())
+                .transpose()
+                .map_err(|error| {
+                    call_error(
+                        QuickJsEvaluationErrorCode::UnsupportedReturnValue,
+                        "QuickJS module export returned a string that cannot be copied to Rust."
+                            .to_string(),
+                        Some(error.to_string()),
+                    )
+                })?;
+            Ok(value_json)
+        });
+
+        match result {
+            Ok(value_json) => Ok(QuickJsModuleExportCallResponse::success(value_json)),
+            Err(error) => Err(error),
+        }
+    }
+
     fn release_module_namespace(&mut self, module_namespace_id: &str) {
         self.namespaces.remove(module_namespace_id);
     }
@@ -133,6 +260,44 @@ fn backend_error(error: rquickjs::Error) -> QuickJsEvaluationError {
 
 fn saturating_u64_to_usize(value: u64) -> usize {
     usize::try_from(value).unwrap_or(usize::MAX)
+}
+
+fn args_from_json_array<'js>(
+    ctx: rquickjs::Ctx<'js>,
+    array: &Array<'js>,
+) -> Result<rquickjs::function::Args<'js>, QuickJsEvaluationError> {
+    let mut args = rquickjs::function::Args::new(ctx.clone(), array.len());
+    for index in 0..array.len() {
+        let value: Value = array.get(index).map_err(|error| {
+            call_error(
+                QuickJsEvaluationErrorCode::InvalidArguments,
+                "QuickJS module export argsJson contains a value that cannot be read.".to_string(),
+                Some(error.to_string()),
+            )
+        })?;
+        args.push_arg(value).map_err(|error| {
+            call_error(
+                QuickJsEvaluationErrorCode::InvalidArguments,
+                "QuickJS module export argsJson contains a value that cannot be passed."
+                    .to_string(),
+                Some(error.to_string()),
+            )
+        })?;
+    }
+    Ok(args)
+}
+
+fn call_error(
+    code: QuickJsEvaluationErrorCode,
+    message: String,
+    detail: Option<String>,
+) -> QuickJsEvaluationError {
+    QuickJsEvaluationError {
+        code,
+        message,
+        asset_name: None,
+        detail,
+    }
 }
 
 #[cfg(test)]
@@ -219,6 +384,83 @@ mod tests {
 
         assert!(registry.is_empty());
         assert_eq!(evaluator.namespace_count(), 0);
+    }
+
+    #[test]
+    fn calls_json_safe_module_exports_by_namespace_handle() {
+        let mut evaluator = RquickJsModuleEvaluator::new().unwrap();
+        let request = request_for_code(
+            "scripts/math.js",
+            "export function add(a, b) { return { value: a + b }; }",
+        );
+        let response = evaluator.evaluate_module(&request).unwrap();
+        let module_namespace_id = response.module_namespace_id.unwrap();
+
+        let call = evaluator
+            .call_module_export(&QuickJsModuleExportCallRequest {
+                module_namespace_id,
+                export_name: "add".to_string(),
+                args_json: Some("[2,3]".to_string()),
+            })
+            .unwrap();
+
+        assert!(call.ok);
+        assert_eq!(call.value_json, Some("{\"value\":5}".to_string()));
+    }
+
+    #[test]
+    fn rejects_missing_and_non_callable_exports() {
+        let mut evaluator = RquickJsModuleEvaluator::new().unwrap();
+        let response = evaluator
+            .evaluate_module(&request_for_code(
+                "scripts/constants.js",
+                "export const value = 42;",
+            ))
+            .unwrap();
+        let module_namespace_id = response.module_namespace_id.unwrap();
+
+        let missing = evaluator
+            .call_module_export(&QuickJsModuleExportCallRequest {
+                module_namespace_id: module_namespace_id.clone(),
+                export_name: "missing".to_string(),
+                args_json: None,
+            })
+            .unwrap_err();
+        assert_eq!(missing.code, QuickJsEvaluationErrorCode::MissingExport);
+
+        let non_callable = evaluator
+            .call_module_export(&QuickJsModuleExportCallRequest {
+                module_namespace_id,
+                export_name: "value".to_string(),
+                args_json: None,
+            })
+            .unwrap_err();
+        assert_eq!(
+            non_callable.code,
+            QuickJsEvaluationErrorCode::ExportNotCallable
+        );
+    }
+
+    #[test]
+    fn rejects_invalid_export_call_arguments() {
+        let mut evaluator = RquickJsModuleEvaluator::new().unwrap();
+        let response = evaluator
+            .evaluate_module(&request_for_code(
+                "scripts/echo.js",
+                "export function echo(value) { return value; }",
+            ))
+            .unwrap();
+        let module_namespace_id = response.module_namespace_id.unwrap();
+
+        let error = evaluator
+            .call_module_export(&QuickJsModuleExportCallRequest {
+                module_namespace_id,
+                export_name: "echo".to_string(),
+                args_json: Some("{\"not\":\"array\"}".to_string()),
+            })
+            .unwrap_err();
+
+        assert_eq!(error.code, QuickJsEvaluationErrorCode::InvalidArguments);
     }
 
     fn exported_string(

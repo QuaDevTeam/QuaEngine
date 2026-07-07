@@ -1,6 +1,8 @@
 import type {
   NativeQuickJsEvaluationRequest,
   NativeQuickJsEvaluationResponse,
+  NativeQuickJsModuleExportCallRequest,
+  NativeQuickJsModuleExportCallResponse,
   NativeQuickJsModuleNamespaceRecord,
   NativeQuickJsModuleNamespaceSummary,
   NativeQuickJsReleaseNamespaceRequest,
@@ -118,6 +120,7 @@ export type NativeHostApiRequest =
   | { method: 'hashBytes', params: NativeHostApiHashBytesRequest }
   | { method: 'verifySignature', params: NativeSignatureVerifyWireRequest }
   | { method: 'evaluateQuickJsModule', params: NativeQuickJsEvaluationRequest }
+  | { method: 'callQuickJsModuleExport', params: NativeQuickJsModuleExportCallRequest }
   | { method: 'releaseQuickJsModuleNamespace', params: NativeQuickJsReleaseNamespaceRequest }
   | { method: 'releaseQuickJsPackageNamespaces', params: NativeQuickJsReleasePackageRequest }
   | { method: 'getQuickJsNamespaceSummary' }
@@ -159,6 +162,7 @@ export interface NativeHostApiResponseValueByType {
   hash: string
   signatureValid: boolean
   quickJsEvaluation: NativeQuickJsEvaluationResponse
+  quickJsExportCall: NativeQuickJsModuleExportCallResponse
   quickJsNamespace: NativeQuickJsModuleNamespaceRecord | null | undefined
   quickJsNamespaces: NativeQuickJsModuleNamespaceRecord[]
   quickJsNamespaceSummary: NativeQuickJsModuleNamespaceSummary
@@ -190,6 +194,7 @@ export interface QuaNativeHostApi {
   hashBytes: (bytes: Uint8Array, algorithm: 'sha256') => Promise<string>
   verifySignature?: (request: NativeSignatureVerifyRequest) => Promise<boolean>
   evaluateQuickJsModule?: (request: NativeQuickJsEvaluationRequest) => Promise<NativeQuickJsEvaluationResponse>
+  callQuickJsModuleExport?: (request: NativeQuickJsModuleExportCallRequest) => Promise<NativeQuickJsModuleExportCallResponse>
   releaseQuickJsModuleNamespace?: (moduleNamespaceId: string) => Promise<NativeQuickJsModuleNamespaceRecord | undefined>
   releaseQuickJsPackageNamespaces?: (packageId: string) => Promise<NativeQuickJsModuleNamespaceRecord[]>
   getQuickJsNamespaceSummary?: () => Promise<NativeQuickJsModuleNamespaceSummary>
