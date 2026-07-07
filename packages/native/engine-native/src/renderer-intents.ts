@@ -85,7 +85,12 @@ export function installNativeRendererIntentBridge(
         }
       })
       .catch(error => options.onError?.(error, event))
-    previousEmitRendererIntent?.(event)
+    try {
+      previousEmitRendererIntent?.(event)
+    }
+    catch (error) {
+      options.onError?.(error, event)
+    }
   }
 
   host.emitRendererIntent = emitRendererIntent
