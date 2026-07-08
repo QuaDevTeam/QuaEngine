@@ -161,7 +161,8 @@ impl NativeProductWindowPresentFailureKind {
                 NativeProductFramePresentFailureKind::OccludedOrTimedOut
             }
             Self::Lost | Self::Outdated => NativeProductFramePresentFailureKind::RecoverableSurface,
-            Self::Validation | Self::DeviceLost | Self::OutOfMemory | Self::Fatal => {
+            Self::DeviceLost => NativeProductFramePresentFailureKind::RecoverableDevice,
+            Self::Validation | Self::OutOfMemory | Self::Fatal => {
                 NativeProductFramePresentFailureKind::Fatal
             }
         }
@@ -214,6 +215,7 @@ impl Display for NativeProductWindowPresentFailure {
 
 #[derive(Debug)]
 pub(crate) struct NativeProductWindowRuntime<H> {
+    instance: wgpu::Instance,
     surface: wgpu::Surface<'static>,
     product: RealWgpuProductRuntime<H>,
     adapter: wgpu::Adapter,
@@ -281,6 +283,7 @@ where
         })?;
 
         Ok(Self {
+            instance: instance.clone(),
             surface,
             product: NativeProductRuntime::new(
                 NativeRenderer::with_audio_backend(backend, audio_backend),
@@ -421,6 +424,48 @@ where
         self.configured_physical_size = NativeProductWindowPhysicalSize::new(
             surface_config.config.width,
             surface_config.config.height,
+        );
+
+        Ok(NativeProductWindowResizeReport {
+            physical_size: self.configured_physical_size,
+        })
+    }
+
+    pub(crate) fn recover_device_for_physical_size(
+        &mut self,
+        physical_size: NativeProductWindowPhysicalSize,
+    ) -> Result<NativeProductWindowResizeReport, NativeProductWindowError> {
+        let bootstrap_request = RealWgpuSurfaceTargetBootstrapRequest::new(
+            physical_size.width,
+            physical_size.height,
+            self.backend_config.clone(),
+        );
+        let bootstrap = pollster::block_on(create_real_wgpu_surface_target(
+            &self.instance,
+            &self.surface,
+            &bootstrap_request,
+        ))
+        .map_err(|error| {
+            NativeProductWindowError::new(format!(
+                "failed to recover native product window wgpu device: {error}"
+            ))
+        })?;
+
+        let runtime_device = RealWgpuNativeRenderRuntimeDevice::new(bootstrap.target);
+        let runtime_executor = InMemoryWgpuNativeRenderRuntimeExecutor::with_device(runtime_device);
+        let backend = WgpuNativeRenderBackend::with_runtime_executor(
+            self.backend_config.clone(),
+            runtime_executor,
+        );
+        self.product.renderer_mut().replace_backend(backend);
+        self.adapter = bootstrap.adapter;
+        self.presentation.adapter_name = bootstrap.adapter_info.name;
+        self.presentation.surface_format = format!("{:?}", bootstrap.surface_config.config.format);
+        self.presentation.present_mode =
+            format!("{:?}", bootstrap.surface_config.config.present_mode);
+        self.configured_physical_size = NativeProductWindowPhysicalSize::new(
+            bootstrap.surface_config.config.width,
+            bootstrap.surface_config.config.height,
         );
 
         Ok(NativeProductWindowResizeReport {
@@ -669,7 +714,7 @@ mod tests {
                 "native product window surface present failed: device removed"
             )
             .frame_failure_kind(),
-            NativeProductFramePresentFailureKind::Fatal
+            NativeProductFramePresentFailureKind::RecoverableDevice
         );
         assert_eq!(
             NativeProductWindowPresentFailureKind::Outdated.label(),

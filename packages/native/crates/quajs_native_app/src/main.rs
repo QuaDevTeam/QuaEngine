@@ -95,7 +95,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     #[cfg(feature = "native-window")]
     if let Some(report) = run_native_window_smoke_from_env()? {
         println!(
-            "Qua native window smoke: adapter={} surface={} size={}x{} status={} presented={} attempts={} targetFrames={} renderedFrames={} resizeCount={} surfaceRecoveryCount={} surfaceRecoveryAttempts={} surfaceRecoverySuccesses={} surfaceRecoveryMissingSize={} surfaceRecoveryErrors={} presentFailures={} recoverableSurfaceFailures={} lastPresentFailure={} lastSurfacePresentFailure={} lastSurfaceRecoveryAction={} lastSurfaceRecoveryStatus={} appLifecycle={} appLifecycleTicks={} appRedrawRequests={} textureUploads={} textureUploadErrors={} textureUploadResubmits={} textureResubmitted={} textureLifecycleSyncs={} textureLifecycleInitialSyncs={} textureLifecycleTrackedPackages={} textureLifecycleReleaseAttempts={} textureLifecycleReleasedPackages={} textureLifecycleCleanupErrors={} textureShutdowns={} textureShutdownReleasedResources={} textureShutdownReleasedTextures={} textureShutdownCleanupErrors={} pointerEvents={} pointerIntents={} pointerLastIntent={} imeEvents={} imeEnabled={} imeDisabled={} imePreedit={} imeCommit={} passes={} commands={} submittedCommandBuffers={}",
+            "Qua native window smoke: adapter={} surface={} size={}x{} status={} presented={} attempts={} targetFrames={} renderedFrames={} resizeCount={} surfaceRecoveryCount={} surfaceRecoveryAttempts={} surfaceRecoverySuccesses={} surfaceRecoveryMissingSize={} surfaceRecoveryErrors={} deviceRecoveryCount={} deviceRecoveryAttempts={} deviceRecoverySuccesses={} deviceRecoveryMissingSize={} deviceRecoveryErrors={} presentFailures={} recoverableSurfaceFailures={} recoverableDeviceFailures={} lastPresentFailure={} lastSurfacePresentFailure={} lastRecoveryAction={} lastSurfaceRecoveryStatus={} lastDeviceRecoveryStatus={} appLifecycle={} appLifecycleTicks={} appRedrawRequests={} textureUploads={} textureUploadErrors={} textureUploadResubmits={} textureResubmitted={} textureLifecycleSyncs={} textureLifecycleInitialSyncs={} textureLifecycleTrackedPackages={} textureLifecycleReleaseAttempts={} textureLifecycleReleasedPackages={} textureLifecycleCleanupErrors={} textureShutdowns={} textureShutdownReleasedResources={} textureShutdownReleasedTextures={} textureShutdownCleanupErrors={} pointerEvents={} pointerIntents={} pointerLastIntent={} imeEvents={} imeEnabled={} imeDisabled={} imePreedit={} imeCommit={} passes={} commands={} submittedCommandBuffers={}",
             report.adapter_name,
             report.surface_format,
             report.physical_width,
@@ -111,19 +111,26 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             report.surface_recovery_success_count,
             report.surface_recovery_missing_size_count,
             report.surface_recovery_error_count,
+            report.device_recovery_count,
+            report.device_recovery_attempt_count,
+            report.device_recovery_success_count,
+            report.device_recovery_missing_size_count,
+            report.device_recovery_error_count,
             report.present_failure_count,
             report.recoverable_surface_failure_count,
+            report.recoverable_device_failure_count,
             report.last_present_failure_kind.as_deref().unwrap_or("none"),
             report
                 .last_surface_present_failure_kind
                 .as_deref()
                 .unwrap_or("none"),
+            report.last_recovery_action.as_deref().unwrap_or("none"),
             report
-                .last_surface_recovery_action
+                .last_surface_recovery_status
                 .as_deref()
                 .unwrap_or("none"),
             report
-                .last_surface_recovery_status
+                .last_device_recovery_status
                 .as_deref()
                 .unwrap_or("none"),
             report.app_lifecycle_state,

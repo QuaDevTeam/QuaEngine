@@ -144,12 +144,19 @@ fn window_smoke_report_serializes_texture_lifecycle_metrics() {
         surface_recovery_success_count: 1,
         surface_recovery_missing_size_count: 1,
         surface_recovery_error_count: 0,
+        device_recovery_count: 1,
+        device_recovery_attempt_count: 1,
+        device_recovery_success_count: 1,
+        device_recovery_missing_size_count: 0,
+        device_recovery_error_count: 0,
         present_failure_count: 3,
         recoverable_surface_failure_count: 2,
+        recoverable_device_failure_count: 1,
         last_present_failure_kind: Some("recoverable-surface".to_string()),
         last_surface_present_failure_kind: Some("outdated".to_string()),
-        last_surface_recovery_action: Some("recover-surface".to_string()),
+        last_recovery_action: Some("recover-device".to_string()),
         last_surface_recovery_status: Some("reconfigured".to_string()),
+        last_device_recovery_status: Some("device-rebuilt".to_string()),
         texture_upload_pending_request_count: 0,
         texture_upload_already_resident_count: 2,
         texture_upload_uploaded_count: 2,
@@ -227,12 +234,19 @@ fn window_smoke_report_serializes_texture_lifecycle_metrics() {
     assert_eq!(value["surfaceRecoverySuccessCount"], 1);
     assert_eq!(value["surfaceRecoveryMissingSizeCount"], 1);
     assert_eq!(value["surfaceRecoveryErrorCount"], 0);
+    assert_eq!(value["deviceRecoveryCount"], 1);
+    assert_eq!(value["deviceRecoveryAttemptCount"], 1);
+    assert_eq!(value["deviceRecoverySuccessCount"], 1);
+    assert_eq!(value["deviceRecoveryMissingSizeCount"], 0);
+    assert_eq!(value["deviceRecoveryErrorCount"], 0);
     assert_eq!(value["presentFailureCount"], 3);
     assert_eq!(value["recoverableSurfaceFailureCount"], 2);
+    assert_eq!(value["recoverableDeviceFailureCount"], 1);
     assert_eq!(value["lastPresentFailureKind"], "recoverable-surface");
     assert_eq!(value["lastSurfacePresentFailureKind"], "outdated");
-    assert_eq!(value["lastSurfaceRecoveryAction"], "recover-surface");
+    assert_eq!(value["lastRecoveryAction"], "recover-device");
     assert_eq!(value["lastSurfaceRecoveryStatus"], "reconfigured");
+    assert_eq!(value["lastDeviceRecoveryStatus"], "device-rebuilt");
     assert_eq!(value["textureLifecycleSyncCount"], 1);
     assert_eq!(value["textureLifecycleInitialSyncCount"], 1);
     assert_eq!(value["textureLifecycleObservedBundleCount"], 2);
