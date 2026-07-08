@@ -103,7 +103,7 @@ impl ApplicationHandler for NativeWindowSmokeApp {
 
 impl NativeWindowSmokeApp {
     fn needs_more_frames(&self) -> bool {
-        self.rendered_frame_count < self.target_frame_count
+        self.product_loop.rendered_frame_count() < self.target_frame_count
     }
 
     fn redraw_once_or_schedule_retry(&mut self) -> bool {
