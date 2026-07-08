@@ -4,6 +4,8 @@ mod product_frame_scheduler;
 mod product_loop;
 #[cfg(any(test, feature = "image-decode"))]
 mod product_runtime;
+#[cfg(feature = "native-window")]
+mod product_window;
 #[cfg(feature = "quickjs-rquickjs")]
 mod quickjs_bridge;
 mod renderer_smoke;

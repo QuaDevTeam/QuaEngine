@@ -4,13 +4,14 @@ use super::config::{
     load_window_smoke_target_frame_count, native_window_smoke_enabled, DEFAULT_WINDOW_SMOKE_FRAME,
     WINDOW_SMOKE_ENV, WINDOW_SMOKE_FRAMES_ENV,
 };
-use super::error::NativeWindowSmokeError;
 use super::frame::{
     frame_json_for_window, normalized_physical_size, normalized_scale_factor,
     window_frame_dimensions,
 };
-use super::present::{is_occluded_or_timeout_present_error, is_recoverable_surface_present_error};
 use super::report::NativeWindowSmokeReport;
+use crate::product_window::{
+    is_occluded_or_timeout_present_error_message, is_recoverable_surface_present_error_message,
+};
 
 #[test]
 fn smoke_env_ignores_absent_false_and_zero_values() {
@@ -86,45 +87,33 @@ fn derives_window_frame_dimensions_from_physical_size_and_scale() {
 
 #[test]
 fn detects_occluded_or_timeout_present_errors() {
-    assert!(is_occluded_or_timeout_present_error(
-        &NativeWindowSmokeError::new(
-            "Native renderer smoke surface present failed: InvalidOperationOrder: cannot present frame because surface is occluded."
-        )
+    assert!(is_occluded_or_timeout_present_error_message(
+        "Native renderer smoke surface present failed: InvalidOperationOrder: cannot present frame because surface is occluded."
     ));
-    assert!(is_occluded_or_timeout_present_error(
-        &NativeWindowSmokeError::new(
-            "Native renderer smoke surface present failed: InvalidOperationOrder: cannot present frame because surface acquisition timed out."
-        )
+    assert!(is_occluded_or_timeout_present_error_message(
+        "Native renderer smoke surface present failed: InvalidOperationOrder: cannot present frame because surface acquisition timed out."
     ));
-    assert!(!is_occluded_or_timeout_present_error(
-        &NativeWindowSmokeError::new(
-            "Native renderer smoke surface present failed: InvalidOperationOrder: cannot present frame because surface was lost."
-        )
+    assert!(!is_occluded_or_timeout_present_error_message(
+        "Native renderer smoke surface present failed: InvalidOperationOrder: cannot present frame because surface was lost."
     ));
-    assert!(!is_occluded_or_timeout_present_error(
-        &NativeWindowSmokeError::new("Native renderer smoke frame failed: validation error.")
+    assert!(!is_occluded_or_timeout_present_error_message(
+        "Native renderer smoke frame failed: validation error."
     ));
 }
 
 #[test]
 fn detects_recoverable_surface_present_errors() {
-    assert!(is_recoverable_surface_present_error(
-        &NativeWindowSmokeError::new(
-            "Native renderer smoke surface present failed: InvalidOperationOrder: cannot present frame because surface was lost."
-        )
+    assert!(is_recoverable_surface_present_error_message(
+        "Native renderer smoke surface present failed: InvalidOperationOrder: cannot present frame because surface was lost."
     ));
-    assert!(is_recoverable_surface_present_error(
-        &NativeWindowSmokeError::new(
-            "Native renderer smoke surface present failed: InvalidOperationOrder: cannot present frame because surface configuration is outdated."
-        )
+    assert!(is_recoverable_surface_present_error_message(
+        "Native renderer smoke surface present failed: InvalidOperationOrder: cannot present frame because surface configuration is outdated."
     ));
-    assert!(!is_recoverable_surface_present_error(
-        &NativeWindowSmokeError::new(
-            "Native renderer smoke surface present failed: InvalidOperationOrder: cannot present frame because surface is occluded."
-        )
+    assert!(!is_recoverable_surface_present_error_message(
+        "Native renderer smoke surface present failed: InvalidOperationOrder: cannot present frame because surface is occluded."
     ));
-    assert!(!is_recoverable_surface_present_error(
-        &NativeWindowSmokeError::new("Native renderer smoke frame failed: validation error.")
+    assert!(!is_recoverable_surface_present_error_message(
+        "Native renderer smoke frame failed: validation error."
     ));
 }
 

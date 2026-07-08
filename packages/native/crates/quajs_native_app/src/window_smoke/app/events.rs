@@ -5,8 +5,8 @@ use winit::window::WindowId;
 
 use super::NativeWindowSmokeApp;
 use crate::product_frame_scheduler::NativeProductFramePresentFailureAction;
+use crate::product_window::present_failure_kind_from_message;
 use crate::window_smoke::input::{pointer_button_from_winit, pointer_phase_from_element_state};
-use crate::window_smoke::present::present_failure_kind;
 
 impl ApplicationHandler for NativeWindowSmokeApp {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
@@ -128,7 +128,7 @@ impl NativeWindowSmokeApp {
     ) -> bool {
         match self
             .frame_scheduler
-            .classify_present_failure(present_failure_kind(&error))
+            .classify_present_failure(present_failure_kind_from_message(&error.to_string()))
         {
             NativeProductFramePresentFailureAction::RetryRedraw => {
                 self.request_redraw();
