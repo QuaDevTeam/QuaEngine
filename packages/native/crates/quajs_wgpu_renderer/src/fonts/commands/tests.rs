@@ -26,12 +26,30 @@ fn plans_load_and_activate_for_new_font_faces() {
     assert_eq!(plan.commands[1].kind, FontBackendCommandKind::ActivateFace);
     let face = plan.commands[0].face.as_ref().unwrap();
     assert_eq!(face.id, "noto-serif-jp");
+    assert_eq!(face.order, 0);
     assert_eq!(face.family, "Noto Serif JP");
     assert_eq!(face.package_candidates, set(["runtime.fonts"]));
     assert_eq!(
         face.face_resource_id,
         ResourceId::from("font:face:fonts:fonts/noto-serif-jp.woff2")
     );
+}
+
+#[test]
+fn preserves_projection_order_for_font_fallback_planning() {
+    let fonts = FontsProjection::new(vec![
+        FontFaceProjection::new("Qua Sans", "fonts/latin.ttf").with_id("latin"),
+        FontFaceProjection::new("Qua Sans", "fonts/cjk.ttf").with_id("cjk"),
+    ]);
+
+    let plan = plan_font_backend_commands(
+        &FontBackendFaceStateMap::new(),
+        Some(&fonts),
+        &NativeAssetRequestPlan::default(),
+    );
+
+    assert_eq!(plan.next_faces["latin"].order, 0);
+    assert_eq!(plan.next_faces["cjk"].order, 1);
 }
 
 #[test]

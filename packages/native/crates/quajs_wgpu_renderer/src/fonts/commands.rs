@@ -40,6 +40,7 @@ pub enum FontBackendCommandKind {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct FontBackendFaceState {
     pub id: String,
+    pub order: usize,
     pub family: String,
     pub asset_type: String,
     pub asset_name: String,
@@ -120,7 +121,7 @@ fn font_backend_face_states(
 
     let mut seen_face_ids = BTreeSet::new();
     let mut states = BTreeMap::new();
-    for face in &fonts.faces {
+    for (order, face) in fonts.faces.iter().enumerate() {
         let face_id = face.identity();
         if !is_safe_native_dispatch_identifier(&face_id)
             || !insert_unique_safe_native_dispatch_identifier(&mut seen_face_ids, &face_id)
@@ -129,7 +130,7 @@ fn font_backend_face_states(
         {
             continue;
         }
-        let state = font_backend_face_state(fonts, face, &face_id, assets);
+        let state = font_backend_face_state(fonts, face, &face_id, order, assets);
         states.insert(state.id.clone(), state);
     }
     states
@@ -139,6 +140,7 @@ fn font_backend_face_state(
     fonts: &FontsProjection,
     face: &FontFaceProjection,
     face_id: &str,
+    order: usize,
     assets: &NativeAssetRequestPlan,
 ) -> FontBackendFaceState {
     let package_candidates = assets
@@ -156,6 +158,7 @@ fn font_backend_face_state(
 
     FontBackendFaceState {
         id: face_id.to_string(),
+        order,
         family: face.family.clone(),
         asset_type: face.asset_type.clone(),
         asset_name: face.asset_name.clone(),
@@ -186,6 +189,7 @@ fn face_command(kind: FontBackendCommandKind, face: &FontBackendFaceState) -> Fo
 
 fn face_identity_changed(previous: &FontBackendFaceState, next: &FontBackendFaceState) -> bool {
     previous.family != next.family
+        || previous.order != next.order
         || previous.asset_type != next.asset_type
         || previous.asset_name != next.asset_name
         || previous.style != next.style

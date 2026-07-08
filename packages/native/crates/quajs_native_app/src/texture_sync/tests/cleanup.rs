@@ -1,4 +1,4 @@
-use quajs_wgpu_renderer::audio::NativeAudioBackendError;
+use quajs_wgpu_renderer::audio::{NativeAudioBackendError, NullNativeAudioBackend};
 use quajs_wgpu_renderer::renderer::{NativeRenderer, NativeRendererHostCleanupRecord};
 use quajs_wgpu_renderer::resources::{NativeResourceKind, NativeResourceRecord, ResourceId};
 
@@ -12,7 +12,8 @@ use crate::texture_sync::{
 
 use super::support::{
     renderer_with_rejecting_audio_after_audio_frame,
-    renderer_with_rejecting_audio_after_inactive_audio_frame, TextureResidentBackend,
+    renderer_with_rejecting_audio_after_inactive_audio_frame, test_layout, view_with_font_package,
+    AssetLoadingFontBackend, TextureResidentBackend,
 };
 
 #[test]
@@ -208,6 +209,42 @@ fn release_package_resources_with_host_texture_cleanup_audio_failure_preserves_h
         vec!["images:runtime-menu.png"]
     );
     assert!(renderer.backend().released_resource_ids.is_empty());
+}
+
+#[test]
+fn release_package_resources_with_media_teardown_syncs_font_atlas_releases() {
+    let font_backend = AssetLoadingFontBackend {
+        atlas_texture_releases: vec![ResourceId::from("fonts:Noto Serif JP")],
+        ..Default::default()
+    };
+    let mut renderer = NativeRenderer::with_audio_font_backend(
+        TextureResidentBackend {
+            resident_resource_ids: vec!["fonts:Noto Serif JP".to_string()],
+            ..Default::default()
+        },
+        NullNativeAudioBackend::new(),
+        font_backend,
+    );
+    renderer
+        .prepare_frame_and_apply_font(test_layout(), &view_with_font_package("runtime.fonts"))
+        .expect("font frame should seed package-owned font backend faces");
+
+    let result = release_package_resources_with_host_texture_cleanup_and_media_teardown(
+        &mut renderer,
+        "runtime.fonts",
+    )
+    .expect("font package teardown should release pending atlas textures");
+
+    let atlas_report = result
+        .font_atlas_report
+        .expect("media teardown should report font atlas sync");
+    assert_eq!(atlas_report.release_candidate_count, 1);
+    assert_eq!(atlas_report.released_count, 1);
+    assert_eq!(
+        atlas_report.released_resource_ids,
+        vec![ResourceId::from("fonts:Noto Serif JP")]
+    );
+    assert!(renderer.backend().resident_resource_ids.is_empty());
 }
 
 #[test]
