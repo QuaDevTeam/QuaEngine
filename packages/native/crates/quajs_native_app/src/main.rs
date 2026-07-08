@@ -6,6 +6,8 @@ mod product_loop;
 mod product_runtime;
 #[cfg(feature = "native-window")]
 mod product_window;
+#[cfg(feature = "native-window")]
+mod product_window_loop;
 #[cfg(feature = "quickjs-rquickjs")]
 mod quickjs_bridge;
 mod renderer_smoke;

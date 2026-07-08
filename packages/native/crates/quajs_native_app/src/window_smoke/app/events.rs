@@ -4,8 +4,9 @@ use winit::event_loop::ActiveEventLoop;
 use winit::window::WindowId;
 
 use super::NativeWindowSmokeApp;
-use crate::product_frame_scheduler::NativeProductFramePresentFailureAction;
-use crate::product_window::present_failure_kind_from_message;
+use crate::product_window::NativeProductWindowPhysicalSize;
+use crate::product_window_loop::NativeProductWindowLoopFailureAction;
+use crate::window_smoke::frame::normalized_physical_size;
 use crate::window_smoke::input::{pointer_button_from_winit, pointer_phase_from_element_state};
 
 impl ApplicationHandler for NativeWindowSmokeApp {
@@ -98,17 +99,14 @@ impl ApplicationHandler for NativeWindowSmokeApp {
 
 impl NativeWindowSmokeApp {
     fn needs_more_frames(&self) -> bool {
-        let rendered_frame_count = self
-            .runtime
+        self.window_loop
             .as_ref()
-            .map(|runtime| runtime.rendered_frame_count())
-            .unwrap_or(0);
-        self.frame_scheduler.needs_more_frames(rendered_frame_count)
+            .map(|window_loop| window_loop.needs_more_frames())
+            .unwrap_or(true)
     }
 
     fn redraw_once_or_schedule_retry(&mut self) -> bool {
-        let attempt = self.frame_scheduler.begin_present_attempt();
-        match self.render_once(attempt.allow_occluded_report) {
+        match self.render_once() {
             Ok(report) => {
                 self.report = Some(report);
                 if self.needs_more_frames() {
@@ -126,25 +124,27 @@ impl NativeWindowSmokeApp {
         &mut self,
         error: crate::window_smoke::NativeWindowSmokeError,
     ) -> bool {
-        match self
-            .frame_scheduler
-            .classify_present_failure(present_failure_kind_from_message(&error.to_string()))
-        {
-            NativeProductFramePresentFailureAction::RetryRedraw => {
+        let recovery_size = self.window.as_ref().map(|window| {
+            let size = normalized_physical_size(window.inner_size());
+            NativeProductWindowPhysicalSize::new(size.width, size.height)
+        });
+        let Some(window_loop) = self.window_loop.as_mut() else {
+            self.error = Some(error);
+            return false;
+        };
+        match window_loop.handle_redraw_failure(&error.to_string(), recovery_size) {
+            Ok(NativeProductWindowLoopFailureAction::RetryRedraw) => {
                 self.request_redraw();
                 true
             }
-            NativeProductFramePresentFailureAction::RecoverSurface => {
-                if let Err(recovery_error) = self.recover_surface_from_window_size() {
-                    self.error = Some(recovery_error);
-                    false
-                } else {
-                    self.request_redraw();
-                    true
-                }
-            }
-            NativeProductFramePresentFailureAction::Fail => {
+            Ok(NativeProductWindowLoopFailureAction::Fail) => {
                 self.error = Some(error);
+                false
+            }
+            Err(recovery_error) => {
+                self.error = Some(crate::window_smoke::NativeWindowSmokeError::new(format!(
+                    "Failed to recover native renderer smoke product window surface: {recovery_error}."
+                )));
                 false
             }
         }
