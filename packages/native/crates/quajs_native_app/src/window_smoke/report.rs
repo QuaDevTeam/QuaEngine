@@ -61,6 +61,8 @@ pub struct NativeWindowSmokeReport {
     pub keyboard_repeat_count: usize,
     pub keyboard_intent_emit_count: usize,
     pub ime_event_count: usize,
+    pub ime_enabled_count: usize,
+    pub ime_disabled_count: usize,
     pub ime_preedit_count: usize,
     pub ime_commit_count: usize,
     pub ime_intent_emit_count: usize,

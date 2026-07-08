@@ -179,6 +179,8 @@ fn window_smoke_report_serializes_texture_lifecycle_metrics() {
         keyboard_repeat_count: 0,
         keyboard_intent_emit_count: 0,
         ime_event_count: 0,
+        ime_enabled_count: 0,
+        ime_disabled_count: 0,
         ime_preedit_count: 0,
         ime_commit_count: 0,
         ime_intent_emit_count: 0,
@@ -246,6 +248,8 @@ fn window_smoke_report_serializes_texture_lifecycle_metrics() {
     assert_eq!(value["keyboardRepeatCount"], 0);
     assert_eq!(value["keyboardIntentEmitCount"], 0);
     assert_eq!(value["imeEventCount"], 0);
+    assert_eq!(value["imeEnabledCount"], 0);
+    assert_eq!(value["imeDisabledCount"], 0);
     assert_eq!(value["imePreeditCount"], 0);
     assert_eq!(value["imeCommitCount"], 0);
     assert_eq!(value["imeIntentEmitCount"], 0);

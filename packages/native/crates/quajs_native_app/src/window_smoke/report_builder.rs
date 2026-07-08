@@ -129,6 +129,8 @@ pub(super) fn build_window_smoke_report(
         keyboard_repeat_count: input.input_metrics.keyboard_repeat_count,
         keyboard_intent_emit_count: input.input_metrics.keyboard_intent_emit_count,
         ime_event_count: input.input_metrics.ime_event_count,
+        ime_enabled_count: input.input_metrics.ime_enabled_count,
+        ime_disabled_count: input.input_metrics.ime_disabled_count,
         ime_preedit_count: input.input_metrics.ime_preedit_count,
         ime_commit_count: input.input_metrics.ime_commit_count,
         ime_intent_emit_count: input.input_metrics.ime_intent_emit_count,
@@ -205,6 +207,8 @@ mod tests {
             keyboard_repeat_count: 1,
             keyboard_intent_emit_count: 2,
             ime_event_count: 4,
+            ime_enabled_count: 1,
+            ime_disabled_count: 1,
             ime_preedit_count: 2,
             ime_commit_count: 1,
             ime_intent_emit_count: 3,
@@ -323,6 +327,8 @@ mod tests {
         assert_eq!(report.keyboard_repeat_count, 1);
         assert_eq!(report.keyboard_intent_emit_count, 2);
         assert_eq!(report.ime_event_count, 4);
+        assert_eq!(report.ime_enabled_count, 1);
+        assert_eq!(report.ime_disabled_count, 1);
         assert_eq!(report.ime_preedit_count, 2);
         assert_eq!(report.ime_commit_count, 1);
         assert_eq!(report.ime_intent_emit_count, 3);
