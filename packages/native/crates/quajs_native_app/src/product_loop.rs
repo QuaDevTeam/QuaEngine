@@ -1,13 +1,15 @@
 use quajs_native_runtime::NativeHostApi;
-use quajs_wgpu_renderer::audio::NativeAudioBackend;
+use quajs_wgpu_renderer::audio::{NativeAudioBackend, NativeAudioBackendError};
 use quajs_wgpu_renderer::renderer::{NativeRenderBackend, NativeRenderer};
 
 use crate::texture_sync::{
+    clear_renderer_with_host_texture_cleanup_and_audio_teardown,
     render_json_frame_with_host_texture_lifecycle_sync_and_audio_teardown,
     sync_mounted_texture_bundle_lifecycle_from_host_and_audio_teardown,
     NativeTextureBundleLifecycleSyncError, NativeTextureBundleLifecycleSyncReport,
-    NativeTextureBundleMountRegistry, NativeTextureJsonLifecycleFrameError,
-    NativeTextureLifecycleSyncedFrameResult, NativeTextureUploadSink,
+    NativeTextureBundleMountRegistry, NativeTextureCleanedClearResult,
+    NativeTextureJsonLifecycleFrameError, NativeTextureLifecycleSyncedFrameResult,
+    NativeTextureUploadSink,
 };
 
 #[derive(Debug, Default)]
@@ -73,6 +75,20 @@ impl NativeProductLoop {
             host,
         )
     }
+
+    #[allow(dead_code)]
+    pub(crate) fn shutdown_with_audio_teardown<B, A>(
+        &mut self,
+        renderer: &mut NativeRenderer<B, A>,
+    ) -> Result<NativeTextureCleanedClearResult, NativeAudioBackendError>
+    where
+        B: NativeRenderBackend + NativeTextureUploadSink,
+        A: NativeAudioBackend,
+    {
+        let result = clear_renderer_with_host_texture_cleanup_and_audio_teardown(renderer)?;
+        self.texture_bundle_registry = NativeTextureBundleMountRegistry::new();
+        Ok(result)
+    }
 }
 
 #[cfg(test)]
@@ -84,11 +100,23 @@ mod tests {
         NativeHostInfoBuilder, NativeMountedBundleInfo, NativePlatform, NativeProfile,
         NativeRendererIntent, NativeSignatureVerifyRequest,
     };
+    use quajs_wgpu_renderer::audio::{
+        AudioBackendCommandPlan, NativeAudioBackendResult, NullNativeAudioBackend,
+    };
+    use quajs_wgpu_renderer::projection::audio::{
+        AudioProjection, AudioTrackKind, AudioTrackMemoryEstimate, AudioTrackProjection,
+    };
+    use quajs_wgpu_renderer::projection::common::PackageProvenance;
+    use quajs_wgpu_renderer::projection::view::ViewProjection;
     use quajs_wgpu_renderer::renderer::{
         NativeRenderBackendResult, NativeRenderFrameRef, NativeRenderSubmission,
     };
     use quajs_wgpu_renderer::resources::{
         NativeResourceKind, NativeResourceRecord, NativeTextureUploadRequest, ResourceId,
+    };
+    use quajs_wgpu_renderer::stage_layout::{
+        resolve_stage_layout, ResolvedStageLayout, StageContainerInput, ViewLayoutInput,
+        ViewLayoutOrientation,
     };
 
     use super::*;
@@ -198,6 +226,124 @@ mod tests {
         assert_eq!(unmounted_host.list_calls.get(), 1);
     }
 
+    #[test]
+    fn shutdown_with_audio_teardown_clears_renderer_and_resets_bundle_registry() {
+        let mounted_host =
+            ProductLoopHost::default().with_bundle("runtime-bundle", Some("runtime.menu"));
+        let empty_host = ProductLoopHost::default();
+        let mut renderer = NativeRenderer::with_null_audio_backend(ProductLoopBackend {
+            resident_resource_ids: vec!["images:runtime-menu.png".to_string()],
+            ..Default::default()
+        });
+        renderer.state_mut().resources_mut().insert(
+            NativeResourceRecord::new("images:runtime-menu.png", NativeResourceKind::Texture)
+                .owned_by("runtime.menu"),
+        );
+        let mut product_loop = NativeProductLoop::new();
+
+        let baseline = product_loop
+            .tick_host_lifecycle_with_audio_teardown(&mut renderer, &mounted_host)
+            .expect("initial lifecycle tick should establish mounted package baseline");
+        let shutdown = product_loop
+            .shutdown_with_audio_teardown(&mut renderer)
+            .expect("shutdown should tear down renderer resources");
+        let after_shutdown = product_loop
+            .tick_host_lifecycle_with_audio_teardown(&mut renderer, &empty_host)
+            .expect("post-shutdown lifecycle tick should start from a fresh registry");
+
+        assert!(baseline.initial_sync);
+        assert_eq!(baseline.tracked_package_ids, vec!["runtime.menu"]);
+        assert_eq!(shutdown.released_resources.len(), 1);
+        assert_eq!(shutdown.host_cleanup.len(), 1);
+        assert_eq!(shutdown.texture_cleanup_report.released_count, 1);
+        assert_eq!(
+            shutdown.texture_cleanup_report.released_resource_ids,
+            vec![ResourceId::from("images:runtime-menu.png")]
+        );
+        assert!(renderer.resources().is_empty());
+        assert!(renderer.backend().resident_resource_ids.is_empty());
+        assert_eq!(
+            renderer.backend().released_resource_ids,
+            vec![ResourceId::from("images:runtime-menu.png")]
+        );
+        assert_eq!(product_loop.rendered_frame_count(), 0);
+        assert!(after_shutdown.initial_sync);
+        assert!(after_shutdown.removed_package_ids.is_empty());
+        assert!(after_shutdown.tracked_package_ids.is_empty());
+        assert_eq!(mounted_host.list_calls.get(), 1);
+        assert_eq!(empty_host.list_calls.get(), 1);
+    }
+
+    #[test]
+    fn shutdown_audio_failure_preserves_renderer_and_bundle_registry_for_retry() {
+        let mounted_host =
+            ProductLoopHost::default().with_bundle("runtime-bundle", Some("runtime.menu"));
+        let empty_host = ProductLoopHost::default();
+        let mut renderer = NativeRenderer::with_audio_backend(
+            ProductLoopBackend {
+                resident_resource_ids: vec!["images:runtime-menu.png".to_string()],
+                ..Default::default()
+            },
+            NullNativeAudioBackend::new(),
+        );
+        renderer
+            .prepare_frame_and_apply_audio(test_layout(), &view_with_audio_package("runtime.menu"))
+            .expect("audio frame should seed backend tracks");
+        let (state, backend, _) = renderer.into_parts_with_audio();
+        let mut renderer =
+            NativeRenderer::with_state_and_audio_backend(state, backend, RejectingAudioBackend);
+        renderer.state_mut().resources_mut().insert(
+            NativeResourceRecord::new("images:runtime-menu.png", NativeResourceKind::Texture)
+                .owned_by("runtime.menu"),
+        );
+        let mut product_loop = NativeProductLoop::new();
+
+        product_loop
+            .tick_host_lifecycle_with_audio_teardown(&mut renderer, &mounted_host)
+            .expect("initial lifecycle tick should establish mounted package baseline");
+        let error = product_loop
+            .shutdown_with_audio_teardown(&mut renderer)
+            .expect_err("audio teardown failure should abort shutdown before clearing renderer");
+        let retry = product_loop
+            .tick_host_lifecycle_with_audio_teardown(&mut renderer, &empty_host)
+            .expect("preserved lifecycle baseline should let the next tick retry release");
+
+        assert_eq!(
+            error,
+            NativeAudioBackendError::backend_rejected("test audio backend rejected plan")
+        );
+        assert_eq!(retry.release_attempt_count, 1);
+        assert_eq!(retry.removed_package_ids, vec!["runtime.menu"]);
+        assert_eq!(retry.blocked_package_ids, vec!["runtime.menu"]);
+        assert_eq!(retry.tracked_package_ids, vec!["runtime.menu"]);
+        assert!(retry.released_package_ids.is_empty());
+        assert!(renderer
+            .resources()
+            .get(ResourceId::from("images:runtime-menu.png"))
+            .is_some());
+        assert!(renderer
+            .resources()
+            .get(ResourceId::from("audio:buffer:bgm:bgm:music/opening.ogg"))
+            .is_some());
+        assert!(renderer
+            .state()
+            .audio_backend_tracks()
+            .contains_key("bgm-main"));
+        assert_eq!(
+            renderer.backend().resident_resource_ids,
+            vec!["images:runtime-menu.png"]
+        );
+        assert!(renderer.backend().released_resource_ids.is_empty());
+        assert!(product_loop.texture_bundle_registry.is_initialized());
+        assert_eq!(
+            product_loop.texture_bundle_registry.tracked_package_ids(),
+            vec!["runtime.menu"]
+        );
+        assert_eq!(product_loop.rendered_frame_count(), 0);
+        assert_eq!(mounted_host.list_calls.get(), 1);
+        assert_eq!(empty_host.list_calls.get(), 1);
+    }
+
     #[derive(Default)]
     struct ProductLoopBackend {
         submissions: Vec<NativeRenderSubmission>,
@@ -241,6 +387,53 @@ mod tests {
             }
             self.released_resource_ids.push(resource_id.clone());
             Ok(true)
+        }
+    }
+
+    struct RejectingAudioBackend;
+
+    impl NativeAudioBackend for RejectingAudioBackend {
+        fn apply_audio_commands(
+            &mut self,
+            _plan: &AudioBackendCommandPlan,
+        ) -> NativeAudioBackendResult {
+            Err(NativeAudioBackendError::backend_rejected(
+                "test audio backend rejected plan",
+            ))
+        }
+    }
+
+    fn test_layout() -> ResolvedStageLayout {
+        resolve_stage_layout(
+            Some(ViewLayoutInput {
+                preset: Some(ViewLayoutOrientation::Landscape),
+                ..Default::default()
+            }),
+            StageContainerInput {
+                width: Some(1600.0),
+                height: Some(1000.0),
+                ..Default::default()
+            },
+        )
+    }
+
+    fn view_with_audio_package(package_id: &str) -> ViewProjection {
+        ViewProjection {
+            audio: Some(AudioProjection::new(vec![AudioTrackProjection::new(
+                "bgm-main",
+                AudioTrackKind::Bgm,
+                "music/opening.ogg",
+            )
+            .memory(AudioTrackMemoryEstimate {
+                buffer_cpu_bytes: 2048,
+                stream_cpu_bytes: 0,
+                handle_cpu_bytes: 64,
+            })
+            .with_provenance(PackageProvenance {
+                content_package_id: Some(package_id.to_string()),
+                required_runtime_packages: Default::default(),
+            })])),
+            ..Default::default()
         }
     }
 
