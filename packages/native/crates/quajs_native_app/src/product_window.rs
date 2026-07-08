@@ -10,6 +10,7 @@ use quajs_wgpu_renderer::renderer::{
     RealWgpuSurfacePresentReport, RealWgpuSurfaceTargetBootstrapRequest, WgpuNativeRenderBackend,
     WgpuNativeRenderBackendConfig, WgpuNativeRenderRuntimeError, WgpuNativeSurfaceConfigRequest,
 };
+use quajs_wgpu_renderer::video::NullNativeVideoBackend;
 
 #[cfg(feature = "native-audio-rodio")]
 use crate::audio_backend::RodioNativeAudioBackend;
@@ -33,11 +34,12 @@ pub(crate) type NativeProductWindowAudioBackend = RodioNativeAudioBackend;
 pub(crate) type NativeProductWindowAudioBackend = NullNativeAudioBackend;
 
 pub(crate) type NativeProductWindowFontBackend = SimpleNativeFontAtlasBackend;
+pub(crate) type NativeProductWindowVideoBackend = NullNativeVideoBackend;
 
 pub(crate) type NativeProductWindowRenderer = NativeRenderer<
     NativeProductWindowBackend,
     NativeProductWindowAudioBackend,
-    (),
+    NativeProductWindowVideoBackend,
     NativeProductWindowFontBackend,
 >;
 
@@ -48,7 +50,7 @@ type RealWgpuProductRuntime<H> = NativeProductRuntime<
     NativeProductWindowBackend,
     NativeProductWindowAudioBackend,
     H,
-    (),
+    NativeProductWindowVideoBackend,
     NativeProductWindowFontBackend,
 >;
 
@@ -294,13 +296,19 @@ where
                 "failed to initialize native product window audio backend: {error}"
             ))
         })?;
+        let video_backend = create_product_window_video_backend();
         let font_backend = create_product_window_font_backend();
 
         Ok(Self {
             instance: instance.clone(),
             surface,
             product: NativeProductRuntime::new(
-                NativeRenderer::with_audio_font_backend(backend, audio_backend, font_backend),
+                NativeRenderer::with_audio_video_font_backend(
+                    backend,
+                    audio_backend,
+                    video_backend,
+                    font_backend,
+                ),
                 host,
             ),
             adapter: bootstrap.adapter,
@@ -508,6 +516,10 @@ fn create_product_window_audio_backend(
 
 fn create_product_window_font_backend() -> NativeProductWindowFontBackend {
     SimpleNativeFontAtlasBackend::new()
+}
+
+fn create_product_window_video_backend() -> NativeProductWindowVideoBackend {
+    NullNativeVideoBackend::new()
 }
 
 fn classify_present_failure_message(message: &str) -> NativeProductWindowPresentFailureKind {
