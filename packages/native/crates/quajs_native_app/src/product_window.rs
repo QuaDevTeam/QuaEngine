@@ -10,6 +10,7 @@ use quajs_wgpu_renderer::renderer::{
     RealWgpuSurfacePresentReport, RealWgpuSurfaceTargetBootstrapRequest, WgpuNativeRenderBackend,
     WgpuNativeRenderBackendConfig, WgpuNativeRenderRuntimeError, WgpuNativeSurfaceConfigRequest,
 };
+#[cfg(not(feature = "native-video-gif"))]
 use quajs_wgpu_renderer::video::NullNativeVideoBackend;
 
 #[cfg(feature = "native-audio-rodio")]
@@ -23,6 +24,8 @@ use crate::texture_sync::{
     NativeTextureCleanedClearResult, NativeTextureJsonLifecycleFrameError,
     NativeTextureMediaTeardownError,
 };
+#[cfg(feature = "native-video-gif")]
+use crate::video_backend::GifNativeVideoBackend;
 
 pub(crate) type NativeProductWindowBackend = WgpuNativeRenderBackend<
     InMemoryWgpuNativeRenderRuntimeExecutor<RealWgpuNativeRenderRuntimeDevice>,
@@ -34,6 +37,9 @@ pub(crate) type NativeProductWindowAudioBackend = RodioNativeAudioBackend;
 pub(crate) type NativeProductWindowAudioBackend = NullNativeAudioBackend;
 
 pub(crate) type NativeProductWindowFontBackend = SimpleNativeFontAtlasBackend;
+#[cfg(feature = "native-video-gif")]
+pub(crate) type NativeProductWindowVideoBackend = GifNativeVideoBackend;
+#[cfg(not(feature = "native-video-gif"))]
 pub(crate) type NativeProductWindowVideoBackend = NullNativeVideoBackend;
 
 pub(crate) type NativeProductWindowRenderer = NativeRenderer<
@@ -518,6 +524,12 @@ fn create_product_window_font_backend() -> NativeProductWindowFontBackend {
     SimpleNativeFontAtlasBackend::new()
 }
 
+#[cfg(feature = "native-video-gif")]
+fn create_product_window_video_backend() -> NativeProductWindowVideoBackend {
+    GifNativeVideoBackend::new()
+}
+
+#[cfg(not(feature = "native-video-gif"))]
 fn create_product_window_video_backend() -> NativeProductWindowVideoBackend {
     NullNativeVideoBackend::new()
 }
