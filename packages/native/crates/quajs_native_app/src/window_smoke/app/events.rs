@@ -91,7 +91,9 @@ impl ApplicationHandler for NativeWindowSmokeApp {
                 }
             }
             WindowEvent::Ime(event) => {
-                self.input.record_ime_event(&event);
+                if let Err(error) = self.dispatch_window_ime_event(&event) {
+                    self.fail_and_exit(event_loop, error);
+                }
             }
             WindowEvent::MouseInput { state, button, .. } => {
                 let phase = pointer_phase_from_element_state(state);

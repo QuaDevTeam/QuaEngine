@@ -58,6 +58,8 @@ export type {
   RendererInputCommand,
   RendererInputCommandPayload,
   RendererInputDevice,
+  RendererTextInputPayload,
+  RendererTextInputPhase,
   RendererLifecyclePayload,
   RenderErrorPayload,
   RendererUiIntentPayload,

@@ -27,7 +27,23 @@ fn pointer_capability_is_limited_to_interactive_surface_components() {
     assert!(!pointer.qui_components.contains(&"Text".to_string()));
     assert!(pointer.intent_events.contains(&"choice/select".to_string()));
     assert!(pointer.intent_events.contains(&"ui/intent".to_string()));
+    assert!(!pointer
+        .intent_events
+        .contains(&"user/text_input".to_string()));
     assert!(pointer
         .projection_keys
         .contains(&"view.choices".to_string()));
+}
+
+#[test]
+fn text_input_capability_declares_only_text_input_intents() {
+    let capabilities = native_wgpu_capabilities();
+    let text = capability(&capabilities, "native-wgpu.input.text@1");
+
+    assert_eq!(text.fallback, "reject-package");
+    assert!(text.projection_keys.is_empty());
+    assert!(text.asset_kinds.is_empty());
+    assert!(text.qss_features.is_empty());
+    assert!(text.qui_components.is_empty());
+    assert_eq!(text.intent_events, vec!["user/text_input".to_string()]);
 }

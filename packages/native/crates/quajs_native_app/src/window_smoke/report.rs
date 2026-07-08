@@ -53,6 +53,7 @@ pub struct NativeWindowSmokeReport {
     pub ime_event_count: usize,
     pub ime_preedit_count: usize,
     pub ime_commit_count: usize,
+    pub ime_intent_emit_count: usize,
     pub ime_last_text_byte_count: Option<usize>,
     pub app_lifecycle_state: String,
     pub app_focused: bool,

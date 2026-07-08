@@ -368,6 +368,30 @@ describe('render-core event contracts', () => {
     })])
   })
 
+  it('dispatches renderer text input projection events through @quajs/pipeline', async () => {
+    const pipeline = new Pipeline()
+    const textInputs: unknown[] = []
+    onRenderToLogic(pipeline, RenderToLogicEvents.USER_TEXT_INPUT, payload => textInputs.push(payload))
+
+    await emitRenderToLogic(pipeline, RenderToLogicEvents.USER_TEXT_INPUT, {
+      phase: 'preedit',
+      source: 'ime',
+      text: '候補',
+      cursorStart: 0,
+      cursorEnd: 1,
+      timestamp: 456,
+      metadata: { textByteCount: 6 },
+    })
+
+    expect(textInputs).toEqual([expect.objectContaining({
+      phase: 'preedit',
+      source: 'ime',
+      text: '候補',
+      cursorStart: 0,
+      cursorEnd: 1,
+    })])
+  })
+
   it('normalizes renderer errors through the shared render-to-logic channel', async () => {
     const pipeline = new Pipeline()
     const errors: unknown[] = []

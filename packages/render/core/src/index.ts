@@ -126,6 +126,7 @@ export enum RenderToLogicEvents {
   USER_CLICK = 'user/click',
   USER_KEY_PRESS = 'user/key_press',
   USER_INPUT_COMMAND = 'user/input_command',
+  USER_TEXT_INPUT = 'user/text_input',
   USER_ADVANCE = 'user/advance',
   USER_CHOICE_SELECT = 'user/choice_select',
   FLOW_CONTROL_SET_MODE_REQUEST = 'flow_control/set_mode_request',
@@ -1080,6 +1081,18 @@ export interface RendererInputCommandPayload {
   metadata?: Readonly<Record<string, unknown>>
 }
 
+export type RendererTextInputPhase = 'enabled' | 'disabled' | 'preedit' | 'commit'
+
+export interface RendererTextInputPayload {
+  phase: RendererTextInputPhase
+  source: string
+  timestamp: number
+  text?: string
+  cursorStart?: number
+  cursorEnd?: number
+  metadata?: Readonly<Record<string, unknown>>
+}
+
 export interface FlowControlSetModePayload {
   mode: FlowControlMode
   source?: string
@@ -1267,6 +1280,7 @@ export interface RenderToLogicEventPayloadMap {
   [RenderToLogicEvents.USER_CLICK]: UserClickPayload
   [RenderToLogicEvents.USER_KEY_PRESS]: { key: string, code?: string }
   [RenderToLogicEvents.USER_INPUT_COMMAND]: RendererInputCommandPayload
+  [RenderToLogicEvents.USER_TEXT_INPUT]: RendererTextInputPayload
   [RenderToLogicEvents.USER_ADVANCE]: { source?: string }
   [RenderToLogicEvents.USER_CHOICE_SELECT]: UserChoiceSelectPayload
   [RenderToLogicEvents.FLOW_CONTROL_SET_MODE_REQUEST]: FlowControlSetModePayload

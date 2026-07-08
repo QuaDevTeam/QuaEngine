@@ -81,6 +81,7 @@ describe('@quajs/engine-native renderer intents', () => {
     for (const type of [
       RenderToLogicEvents.USER_CHOICE_SELECT,
       RenderToLogicEvents.USER_INPUT_COMMAND,
+      RenderToLogicEvents.USER_TEXT_INPUT,
       RenderToLogicEvents.UI_INTENT,
       RenderToLogicEvents.UI_REQUEST_CLOSE,
       RenderToLogicEvents.UI_REQUEST_OPEN,
@@ -172,6 +173,37 @@ describe('@quajs/engine-native renderer intents', () => {
     })
     await expect(emitNativeRendererIntentToPipeline(
       pipeline as any,
+      createNativeRendererIntent({
+        type: 'user/text_input',
+        payload: {
+          phase: 'commit',
+          source: 'ime',
+          text: '決定',
+          timestamp: 2345,
+          metadata: {
+            textByteCount: 6,
+          },
+        },
+      }),
+    )).resolves.toEqual({
+      handled: true,
+      emittedEvents: [
+        {
+          type: RenderToLogicEvents.USER_TEXT_INPUT,
+          payload: {
+            phase: 'commit',
+            source: 'ime',
+            text: '決定',
+            timestamp: 2345,
+            metadata: {
+              textByteCount: 6,
+            },
+          },
+        },
+      ],
+    })
+    await expect(emitNativeRendererIntentToPipeline(
+      pipeline as any,
       createNativeRendererIntent({ type: 'window/blur', payload: { ignored: true } }),
     )).resolves.toEqual({
       handled: true,
@@ -238,6 +270,18 @@ describe('@quajs/engine-native renderer intents', () => {
           },
         },
       },
+      {
+        type: RenderToLogicEvents.USER_TEXT_INPUT,
+        payload: {
+          phase: 'commit',
+          source: 'ime',
+          text: '決定',
+          timestamp: 2345,
+          metadata: {
+            textByteCount: 6,
+          },
+        },
+      },
       { type: RenderToLogicEvents.WINDOW_BLUR, payload: {} },
       { type: RenderToLogicEvents.WINDOW_FOCUS, payload: {} },
     ])
@@ -287,6 +331,52 @@ describe('@quajs/engine-native renderer intents', () => {
         },
       }),
     )).rejects.toThrow('Native renderer user/input_command intent payload field "metadata" must be an object when provided.')
+
+    expect(received).toEqual([])
+  })
+
+  it('rejects malformed native text input intents before emitting pipeline events', async () => {
+    const pipeline = createTestPipeline()
+    const received: unknown[] = []
+    pipeline.on(RenderToLogicEvents.USER_TEXT_INPUT, context => received.push(context.event.payload))
+
+    await expect(emitNativeRendererIntentToPipeline(
+      pipeline as any,
+      createNativeRendererIntent({
+        type: 'user/text_input',
+        payload: {
+          phase: 'replace-all-text',
+          source: 'ime',
+          timestamp: 1234,
+        },
+      }),
+    )).rejects.toThrow('Native renderer user/text_input intent requires supported string payload field "phase".')
+
+    await expect(emitNativeRendererIntentToPipeline(
+      pipeline as any,
+      createNativeRendererIntent({
+        type: 'user/text_input',
+        payload: {
+          phase: 'commit',
+          source: 'ime',
+          text: ['not-text'],
+          timestamp: 1234,
+        },
+      }),
+    )).rejects.toThrow('Native renderer user/text_input intent payload field "text" must be a string when provided.')
+
+    await expect(emitNativeRendererIntentToPipeline(
+      pipeline as any,
+      createNativeRendererIntent({
+        type: 'user/text_input',
+        payload: {
+          phase: 'preedit',
+          source: 'ime',
+          timestamp: 1234,
+          metadata: ['not-record'],
+        },
+      }),
+    )).rejects.toThrow('Native renderer user/text_input intent payload field "metadata" must be an object when provided.')
 
     expect(received).toEqual([])
   })

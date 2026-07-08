@@ -130,6 +130,15 @@ pub fn native_wgpu_capabilities() -> Vec<RendererCapability> {
             &["Backdrop", "Box", "Button", "Panel"],
             "reject-package",
         ),
+        capability(
+            "native-wgpu.input.text@1",
+            &[],
+            &["user/text_input"],
+            &[],
+            &[],
+            &[],
+            "reject-package",
+        ),
     ]
 }
 
