@@ -27,6 +27,8 @@ mod startup;
 mod target_bundle;
 #[cfg(any(test, feature = "image-decode"))]
 mod texture_sync;
+#[cfg(any(test, feature = "image-decode"))]
+mod video_sync;
 #[cfg(feature = "native-window")]
 mod window_smoke;
 

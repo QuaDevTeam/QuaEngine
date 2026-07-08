@@ -5,6 +5,7 @@ use crate::frame::PreparedNativeFrame;
 use crate::input::NativePointerInteractionState;
 use crate::renderer::metrics::NativeRendererMetrics;
 use crate::resources::{NativeResourceLedger, ResourceBudget, ResourceBudgetViolation};
+use crate::video::VideoBackendStreamStateMap;
 
 mod frame;
 mod input;
@@ -18,6 +19,7 @@ pub struct NativeRendererState {
     pointer_interaction: NativePointerInteractionState,
     active_audio_resource_ids: BTreeSet<crate::resources::ResourceId>,
     audio_backend_tracks: AudioBackendTrackStateMap,
+    video_backend_streams: VideoBackendStreamStateMap,
 }
 
 impl NativeRendererState {
@@ -51,6 +53,14 @@ impl NativeRendererState {
 
     pub(crate) fn replace_audio_backend_tracks(&mut self, tracks: AudioBackendTrackStateMap) {
         self.audio_backend_tracks = tracks;
+    }
+
+    pub fn video_backend_streams(&self) -> &VideoBackendStreamStateMap {
+        &self.video_backend_streams
+    }
+
+    pub(crate) fn replace_video_backend_streams(&mut self, streams: VideoBackendStreamStateMap) {
+        self.video_backend_streams = streams;
     }
 
     pub fn metrics(&self) -> NativeRendererMetrics {

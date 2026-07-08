@@ -7,6 +7,7 @@ pub mod render_graph;
 pub mod renderer;
 pub mod resources;
 pub mod stage_layout;
+pub mod video;
 
 pub use capabilities::native_wgpu_capabilities;
 
