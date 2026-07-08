@@ -131,6 +131,14 @@ fn window_smoke_report_serializes_texture_lifecycle_metrics() {
         rendered_frame_count: 2,
         resize_count: 0,
         surface_recovery_count: 0,
+        surface_recovery_attempt_count: 2,
+        surface_recovery_success_count: 1,
+        surface_recovery_missing_size_count: 1,
+        surface_recovery_error_count: 0,
+        present_failure_count: 3,
+        recoverable_surface_failure_count: 2,
+        last_present_failure_kind: Some("recoverable-surface".to_string()),
+        last_surface_recovery_action: Some("recover-surface".to_string()),
         texture_upload_pending_request_count: 0,
         texture_upload_already_resident_count: 2,
         texture_upload_uploaded_count: 2,
@@ -199,6 +207,14 @@ fn window_smoke_report_serializes_texture_lifecycle_metrics() {
 
     assert_eq!(value["targetFrameCount"], 2);
     assert_eq!(value["renderedFrameCount"], 2);
+    assert_eq!(value["surfaceRecoveryAttemptCount"], 2);
+    assert_eq!(value["surfaceRecoverySuccessCount"], 1);
+    assert_eq!(value["surfaceRecoveryMissingSizeCount"], 1);
+    assert_eq!(value["surfaceRecoveryErrorCount"], 0);
+    assert_eq!(value["presentFailureCount"], 3);
+    assert_eq!(value["recoverableSurfaceFailureCount"], 2);
+    assert_eq!(value["lastPresentFailureKind"], "recoverable-surface");
+    assert_eq!(value["lastSurfaceRecoveryAction"], "recover-surface");
     assert_eq!(value["textureLifecycleSyncCount"], 1);
     assert_eq!(value["textureLifecycleInitialSyncCount"], 1);
     assert_eq!(value["textureLifecycleObservedBundleCount"], 2);

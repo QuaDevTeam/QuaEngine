@@ -141,6 +141,7 @@ impl NativeWindowSmokeApp {
         let rendered_frame_count = runtime.rendered_frame_count();
         let audio_metrics =
             NativeWindowSmokeAudioMetrics::from_null_backend(runtime.renderer().audio_backend());
+        let recovery_metrics = window_loop.recovery_metrics();
 
         let presentation = runtime.presentation();
         Ok(build_window_smoke_report(NativeWindowSmokeReportInput {
@@ -154,6 +155,7 @@ impl NativeWindowSmokeApp {
             rendered_frame_count,
             resize_count: window_loop.resize_count(),
             surface_recovery_count: window_loop.surface_recovery_count(),
+            recovery_metrics,
             texture_metrics: &self.texture_metrics,
             audio_metrics: &audio_metrics,
             input_metrics,

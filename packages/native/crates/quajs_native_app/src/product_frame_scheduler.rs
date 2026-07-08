@@ -7,11 +7,31 @@ pub(crate) enum NativeProductFramePresentFailureAction {
     Fail,
 }
 
+impl NativeProductFramePresentFailureAction {
+    pub(crate) fn label(self) -> &'static str {
+        match self {
+            Self::RetryRedraw => "retry-redraw",
+            Self::RecoverSurface => "recover-surface",
+            Self::Fail => "fail",
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum NativeProductFramePresentFailureKind {
     OccludedOrTimedOut,
     RecoverableSurface,
     Fatal,
+}
+
+impl NativeProductFramePresentFailureKind {
+    pub(crate) fn label(self) -> &'static str {
+        match self {
+            Self::OccludedOrTimedOut => "occluded-or-timed-out",
+            Self::RecoverableSurface => "recoverable-surface",
+            Self::Fatal => "fatal",
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -20,12 +40,24 @@ pub(crate) struct NativeProductFrameAttempt {
     pub(crate) attempt_number: usize,
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) struct NativeProductSurfaceRecoveryMetrics {
+    pub(crate) present_failure_count: usize,
+    pub(crate) recoverable_surface_failure_count: usize,
+    pub(crate) surface_recovery_attempt_count: usize,
+    pub(crate) surface_recovery_success_count: usize,
+    pub(crate) surface_recovery_missing_size_count: usize,
+    pub(crate) surface_recovery_error_count: usize,
+    pub(crate) last_present_failure_kind: Option<NativeProductFramePresentFailureKind>,
+    pub(crate) last_recovery_action: Option<NativeProductFramePresentFailureAction>,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct NativeProductFrameScheduler {
     target_frame_count: usize,
     max_present_attempts: usize,
     attempt_count: usize,
-    surface_recovery_count: usize,
+    recovery_metrics: NativeProductSurfaceRecoveryMetrics,
 }
 
 impl NativeProductFrameScheduler {
@@ -41,7 +73,7 @@ impl NativeProductFrameScheduler {
             target_frame_count: target_frame_count.max(1),
             max_present_attempts: max_present_attempts.max(1),
             attempt_count: 0,
-            surface_recovery_count: 0,
+            recovery_metrics: NativeProductSurfaceRecoveryMetrics::default(),
         }
     }
 
@@ -54,7 +86,11 @@ impl NativeProductFrameScheduler {
     }
 
     pub(crate) fn surface_recovery_count(&self) -> usize {
-        self.surface_recovery_count
+        self.recovery_metrics.surface_recovery_success_count
+    }
+
+    pub(crate) fn recovery_metrics(&self) -> NativeProductSurfaceRecoveryMetrics {
+        self.recovery_metrics
     }
 
     pub(crate) fn needs_more_frames(&self, rendered_frame_count: usize) -> bool {
@@ -69,8 +105,51 @@ impl NativeProductFrameScheduler {
         }
     }
 
-    pub(crate) fn record_surface_recovery(&mut self) {
-        self.surface_recovery_count = self.surface_recovery_count.saturating_add(1);
+    pub(crate) fn record_present_failure(
+        &mut self,
+        failure: NativeProductFramePresentFailureKind,
+        action: NativeProductFramePresentFailureAction,
+    ) {
+        self.recovery_metrics.present_failure_count = self
+            .recovery_metrics
+            .present_failure_count
+            .saturating_add(1);
+        if failure == NativeProductFramePresentFailureKind::RecoverableSurface {
+            self.recovery_metrics.recoverable_surface_failure_count = self
+                .recovery_metrics
+                .recoverable_surface_failure_count
+                .saturating_add(1);
+        }
+        self.recovery_metrics.last_present_failure_kind = Some(failure);
+        self.recovery_metrics.last_recovery_action = Some(action);
+    }
+
+    pub(crate) fn record_surface_recovery_attempt(&mut self) {
+        self.recovery_metrics.surface_recovery_attempt_count = self
+            .recovery_metrics
+            .surface_recovery_attempt_count
+            .saturating_add(1);
+    }
+
+    pub(crate) fn record_surface_recovery_success(&mut self) {
+        self.recovery_metrics.surface_recovery_success_count = self
+            .recovery_metrics
+            .surface_recovery_success_count
+            .saturating_add(1);
+    }
+
+    pub(crate) fn record_surface_recovery_missing_size(&mut self) {
+        self.recovery_metrics.surface_recovery_missing_size_count = self
+            .recovery_metrics
+            .surface_recovery_missing_size_count
+            .saturating_add(1);
+    }
+
+    pub(crate) fn record_surface_recovery_error(&mut self) {
+        self.recovery_metrics.surface_recovery_error_count = self
+            .recovery_metrics
+            .surface_recovery_error_count
+            .saturating_add(1);
     }
 
     pub(crate) fn classify_present_failure(
@@ -193,9 +272,54 @@ mod tests {
     fn records_surface_recoveries_as_transient_scheduler_metrics() {
         let mut scheduler = NativeProductFrameScheduler::new(1);
 
-        scheduler.record_surface_recovery();
-        scheduler.record_surface_recovery();
+        scheduler.record_surface_recovery_attempt();
+        scheduler.record_surface_recovery_success();
+        scheduler.record_surface_recovery_attempt();
+        scheduler.record_surface_recovery_error();
 
-        assert_eq!(scheduler.surface_recovery_count(), 2);
+        assert_eq!(scheduler.surface_recovery_count(), 1);
+        assert_eq!(
+            scheduler.recovery_metrics(),
+            NativeProductSurfaceRecoveryMetrics {
+                surface_recovery_attempt_count: 2,
+                surface_recovery_success_count: 1,
+                surface_recovery_error_count: 1,
+                ..NativeProductSurfaceRecoveryMetrics::default()
+            }
+        );
+    }
+
+    #[test]
+    fn records_present_failure_classification_metrics() {
+        let mut scheduler = NativeProductFrameScheduler::with_max_present_attempts(1, 3);
+        scheduler.begin_present_attempt();
+        let action = scheduler
+            .classify_present_failure(NativeProductFramePresentFailureKind::RecoverableSurface);
+
+        scheduler.record_present_failure(
+            NativeProductFramePresentFailureKind::RecoverableSurface,
+            action,
+        );
+
+        assert_eq!(
+            scheduler.recovery_metrics(),
+            NativeProductSurfaceRecoveryMetrics {
+                present_failure_count: 1,
+                recoverable_surface_failure_count: 1,
+                last_present_failure_kind: Some(
+                    NativeProductFramePresentFailureKind::RecoverableSurface
+                ),
+                last_recovery_action: Some(NativeProductFramePresentFailureAction::RecoverSurface),
+                ..NativeProductSurfaceRecoveryMetrics::default()
+            }
+        );
+        assert_eq!(
+            NativeProductFramePresentFailureKind::RecoverableSurface.label(),
+            "recoverable-surface"
+        );
+        assert_eq!(
+            NativeProductFramePresentFailureAction::RecoverSurface.label(),
+            "recover-surface"
+        );
     }
 }

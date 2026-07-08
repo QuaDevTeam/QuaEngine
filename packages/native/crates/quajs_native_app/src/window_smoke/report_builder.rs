@@ -3,6 +3,7 @@ use super::input::NativeWindowSmokeInputMetrics;
 use super::metrics::{NativeWindowSmokeAudioMetrics, NativeWindowSmokeTextureMetrics};
 use super::report::NativeWindowSmokeReport;
 use crate::product_app_loop::{NativeProductAppLifecycleState, NativeProductAppLoopSnapshot};
+use crate::product_frame_scheduler::NativeProductSurfaceRecoveryMetrics;
 use crate::product_window::NativeProductWindowPhysicalSize;
 
 pub(super) struct NativeWindowSmokeReportInput<'a> {
@@ -16,6 +17,7 @@ pub(super) struct NativeWindowSmokeReportInput<'a> {
     pub rendered_frame_count: usize,
     pub resize_count: usize,
     pub surface_recovery_count: usize,
+    pub recovery_metrics: NativeProductSurfaceRecoveryMetrics,
     pub texture_metrics: &'a NativeWindowSmokeTextureMetrics,
     pub audio_metrics: &'a NativeWindowSmokeAudioMetrics,
     pub input_metrics: &'a NativeWindowSmokeInputMetrics,
@@ -44,6 +46,22 @@ pub(super) fn build_window_smoke_report(
         rendered_frame_count: input.rendered_frame_count,
         resize_count: input.resize_count,
         surface_recovery_count: input.surface_recovery_count,
+        surface_recovery_attempt_count: input.recovery_metrics.surface_recovery_attempt_count,
+        surface_recovery_success_count: input.recovery_metrics.surface_recovery_success_count,
+        surface_recovery_missing_size_count: input
+            .recovery_metrics
+            .surface_recovery_missing_size_count,
+        surface_recovery_error_count: input.recovery_metrics.surface_recovery_error_count,
+        present_failure_count: input.recovery_metrics.present_failure_count,
+        recoverable_surface_failure_count: input.recovery_metrics.recoverable_surface_failure_count,
+        last_present_failure_kind: input
+            .recovery_metrics
+            .last_present_failure_kind
+            .map(|kind| kind.label().to_string()),
+        last_surface_recovery_action: input
+            .recovery_metrics
+            .last_recovery_action
+            .map(|action| action.label().to_string()),
         texture_upload_pending_request_count: input
             .texture_metrics
             .upload_last_pending_request_count,
@@ -200,6 +218,20 @@ mod tests {
             rendered_frame_count: 2,
             resize_count: 3,
             surface_recovery_count: 1,
+            recovery_metrics: NativeProductSurfaceRecoveryMetrics {
+                present_failure_count: 2,
+                recoverable_surface_failure_count: 1,
+                surface_recovery_attempt_count: 2,
+                surface_recovery_success_count: 1,
+                surface_recovery_missing_size_count: 1,
+                surface_recovery_error_count: 0,
+                last_present_failure_kind: Some(
+                    crate::product_frame_scheduler::NativeProductFramePresentFailureKind::RecoverableSurface,
+                ),
+                last_recovery_action: Some(
+                    crate::product_frame_scheduler::NativeProductFramePresentFailureAction::RecoverSurface,
+                ),
+            },
             texture_metrics: &texture_metrics,
             audio_metrics: &audio_metrics,
             input_metrics: &input_metrics,
@@ -231,6 +263,20 @@ mod tests {
         assert_eq!(report.adapter_name, "adapter");
         assert_eq!(report.target_frame_count, 3);
         assert_eq!(report.rendered_frame_count, 2);
+        assert_eq!(report.surface_recovery_attempt_count, 2);
+        assert_eq!(report.surface_recovery_success_count, 1);
+        assert_eq!(report.surface_recovery_missing_size_count, 1);
+        assert_eq!(report.surface_recovery_error_count, 0);
+        assert_eq!(report.present_failure_count, 2);
+        assert_eq!(report.recoverable_surface_failure_count, 1);
+        assert_eq!(
+            report.last_present_failure_kind.as_deref(),
+            Some("recoverable-surface")
+        );
+        assert_eq!(
+            report.last_surface_recovery_action.as_deref(),
+            Some("recover-surface")
+        );
         assert_eq!(report.texture_upload_pending_request_count, 2);
         assert_eq!(report.texture_lifecycle_tracked_package_count, 3);
         assert_eq!(report.texture_shutdown_count, 1);
