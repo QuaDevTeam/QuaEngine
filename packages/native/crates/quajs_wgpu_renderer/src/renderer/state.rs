@@ -1,6 +1,7 @@
 use std::collections::BTreeSet;
 
 use crate::audio::AudioBackendTrackStateMap;
+use crate::fonts::FontBackendFaceStateMap;
 use crate::frame::PreparedNativeFrame;
 use crate::input::NativePointerInteractionState;
 use crate::renderer::metrics::NativeRendererMetrics;
@@ -18,7 +19,9 @@ pub struct NativeRendererState {
     resources: NativeResourceLedger,
     pointer_interaction: NativePointerInteractionState,
     active_audio_resource_ids: BTreeSet<crate::resources::ResourceId>,
+    active_font_resource_ids: BTreeSet<crate::resources::ResourceId>,
     audio_backend_tracks: AudioBackendTrackStateMap,
+    font_backend_faces: FontBackendFaceStateMap,
     video_backend_streams: VideoBackendStreamStateMap,
 }
 
@@ -53,6 +56,14 @@ impl NativeRendererState {
 
     pub(crate) fn replace_audio_backend_tracks(&mut self, tracks: AudioBackendTrackStateMap) {
         self.audio_backend_tracks = tracks;
+    }
+
+    pub fn font_backend_faces(&self) -> &FontBackendFaceStateMap {
+        &self.font_backend_faces
+    }
+
+    pub(crate) fn replace_font_backend_faces(&mut self, faces: FontBackendFaceStateMap) {
+        self.font_backend_faces = faces;
     }
 
     pub fn video_backend_streams(&self) -> &VideoBackendStreamStateMap {

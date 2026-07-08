@@ -70,7 +70,9 @@ impl NativeRendererState {
         self.revision = self.revision.saturating_add(1);
         self.pointer_interaction.clear();
         self.active_audio_resource_ids.clear();
+        self.active_font_resource_ids.clear();
         self.audio_backend_tracks.clear();
+        self.font_backend_faces.clear();
         self.video_backend_streams.clear();
         self.resources.clear()
     }
@@ -88,6 +90,7 @@ impl NativeRendererState {
 
     fn active_resource_ids(&self) -> BTreeSet<crate::resources::ResourceId> {
         let mut ids = self.active_audio_resource_ids.clone();
+        ids.extend(self.active_font_resource_ids.iter().cloned());
         if let Some(frame) = &self.frame {
             ids.extend(
                 frame

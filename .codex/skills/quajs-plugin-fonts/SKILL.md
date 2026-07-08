@@ -73,7 +73,9 @@ Runtime package font entries must preserve package provenance. Unloading a runti
 
 ## Renderer Boundary
 
-Web renderers resolve asset URLs, create browser `FontFace` resources, attach style/runtime resources, and clean them up as transient projection resources. Engine/plugin state only says which fonts should exist.
+Web renderers resolve asset URLs, create browser `FontFace` resources, attach style/runtime resources, and clean them up as transient projection resources. Native renderers consume `view.plugins.fonts`, validate font face asset/provenance data, plan transient font backend commands, and load font bytes only through package-scoped native host/QPK asset reads. Engine/plugin state only says which fonts should exist.
+
+Native font projection and bytes sync do not imply real glyph shaping, bidi, fallback selection, CJK rendering, or font asset rasterization until a native text backend consumes those loaded faces.
 
 ## Validation
 

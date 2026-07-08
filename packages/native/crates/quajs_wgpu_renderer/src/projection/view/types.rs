@@ -1,6 +1,7 @@
 use crate::projection::{
     audio::AudioProjection, background::BackgroundProjection, character::CharacterProjection,
-    choices::ChoiceSetProjection, dialogue::DialogueProjection, ui::UiProjection,
+    choices::ChoiceSetProjection, dialogue::DialogueProjection, plugins::PluginProjection,
+    ui::UiProjection,
 };
 
 use serde::{Deserialize, Serialize};
@@ -20,4 +21,6 @@ pub struct ViewProjection {
     pub ui: Option<UiProjection>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub audio: Option<AudioProjection>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub plugins: Option<PluginProjection>,
 }

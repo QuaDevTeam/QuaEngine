@@ -9,6 +9,7 @@ mod audio;
 mod background;
 mod choices;
 mod dialogue;
+mod fonts;
 mod ui_surface;
 
 pub(crate) fn validate_json_frame_required_fields(
@@ -23,6 +24,7 @@ pub(crate) fn validate_json_frame_required_fields(
     validate_ui_projection_required_fields(input, &mut errors);
     ui_surface::validate_ui_surface_required_fields(input, &mut errors);
     audio::validate_audio_track_required_fields(input, &mut errors);
+    fonts::validate_fonts_required_fields(input, &mut errors);
     if let Some(error) = errors.into_iter().next() {
         return Err(NativeRendererJsonFrameError::Validation(error));
     }

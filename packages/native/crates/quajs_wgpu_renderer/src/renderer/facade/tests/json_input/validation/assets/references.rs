@@ -390,3 +390,82 @@ fn json_frame_asset_validation_rejects_unsafe_surface_keys() {
     assert_eq!(renderer.state().revision(), 0);
     assert!(renderer.state().frame().is_none());
 }
+
+#[test]
+fn json_frame_asset_validation_rejects_unsafe_font_face_assets() {
+    let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
+
+    let error = renderer
+        .prepare_frame_json_str(
+            r#"
+            {
+              "container": { "width": 1600, "height": 1000 },
+              "view": {
+                "plugins": {
+                  "fonts": {
+                    "revision": 1,
+                    "faces": [
+                      {
+                        "id": "bad-font",
+                        "family": "Bad Font",
+                        "assetType": "fonts",
+                        "assetName": "../native/font.node?raw"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+            "#,
+        )
+        .unwrap_err();
+
+    match error {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(validation.path, "view.plugins.fonts.faces[0].assetName");
+            assert_eq!(validation.asset_name, "../native/font.node?raw");
+            assert!(validation.reason.contains("traverse"));
+        }
+        other => panic!("expected font face asset validation error, got {other:?}"),
+    }
+    assert_eq!(renderer.state().revision(), 0);
+    assert!(renderer.state().frame().is_none());
+}
+
+#[test]
+fn json_frame_asset_validation_requires_explicit_font_face_asset_types() {
+    let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
+
+    let error = renderer
+        .prepare_frame_json_str(
+            r#"
+            {
+              "container": { "width": 1600, "height": 1000 },
+              "view": {
+                "plugins": {
+                  "fonts": {
+                    "faces": [
+                      {
+                        "family": "Missing Type",
+                        "assetName": "fonts/missing-type.woff2"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+            "#,
+        )
+        .unwrap_err();
+
+    match error {
+        NativeRendererJsonFrameError::Validation(validation) => {
+            assert_eq!(validation.path, "view.plugins.fonts.faces[0].assetType");
+            assert_eq!(validation.asset_name, "");
+            assert!(validation.reason.contains("explicitly provided"));
+        }
+        other => panic!("expected missing font face assetType validation error, got {other:?}"),
+    }
+    assert_eq!(renderer.state().revision(), 0);
+    assert!(renderer.state().frame().is_none());
+}

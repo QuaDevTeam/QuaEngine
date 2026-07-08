@@ -3,6 +3,8 @@ mod audio_backend;
 #[cfg(any(test, feature = "image-decode"))]
 mod audio_sync;
 #[cfg(any(test, feature = "image-decode"))]
+mod font_sync;
+#[cfg(any(test, feature = "image-decode"))]
 mod host_assets;
 #[cfg(any(test, feature = "image-decode"))]
 mod product_app_loop;

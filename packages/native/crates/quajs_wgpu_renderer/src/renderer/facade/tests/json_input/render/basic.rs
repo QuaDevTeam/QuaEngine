@@ -125,6 +125,67 @@ fn can_prepare_json_frame_without_render_submission() {
 }
 
 #[test]
+fn prepares_font_plugin_projection_resources_from_json() {
+    let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
+
+    let update = renderer
+        .prepare_frame_json_str(
+            r#"
+            {
+              "container": { "width": 1600, "height": 1000 },
+              "view": {
+                "plugins": {
+                  "fonts": {
+                    "revision": 1,
+                    "requiredRuntimePackages": ["runtime.shared-fonts"],
+                    "faces": [
+                      {
+                        "id": "noto-serif-jp",
+                        "family": "Noto Serif JP",
+                        "assetType": "fonts",
+                        "assetName": "fonts/noto-serif-jp.woff2",
+                        "weight": 500,
+                        "style": "normal",
+                        "provenance": {
+                          "contentPackageId": "runtime.fonts",
+                          "requiredRuntimePackages": ["base"]
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+            "#,
+        )
+        .expect("font projection JSON should prepare");
+
+    assert_eq!(update.font_resource_sync.upsert.len(), 1);
+    assert_eq!(update.font_assets.requests.len(), 1);
+    assert_eq!(update.font_backend_commands.commands.len(), 2);
+    assert_eq!(
+        update.font_backend_commands.next_faces["noto-serif-jp"].package_candidates,
+        ["base", "runtime.fonts", "runtime.shared-fonts"]
+            .into_iter()
+            .map(ToString::to_string)
+            .collect()
+    );
+    let font_resource = renderer
+        .resources()
+        .get("font:face:fonts:fonts/noto-serif-jp.woff2")
+        .expect("font face resource recorded");
+    assert_eq!(font_resource.kind, NativeResourceKind::FontFace);
+    assert_eq!(
+        font_resource.owner_package_id.as_deref(),
+        Some("runtime.fonts")
+    );
+    assert!(font_resource.required_package_ids.contains("base"));
+    assert!(font_resource
+        .required_package_ids
+        .contains("runtime.shared-fonts"));
+}
+
+#[test]
 fn renders_video_background_json_as_poster_fallback_projection() {
     let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
 

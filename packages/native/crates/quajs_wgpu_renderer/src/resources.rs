@@ -1,6 +1,7 @@
 pub mod assets;
 pub mod audio;
 pub mod budget;
+pub mod fonts;
 mod kind;
 pub mod ledger;
 pub mod plan;
@@ -34,4 +35,8 @@ mod tests;
 pub use audio::{
     audio_resource_records, plan_audio_asset_requests, plan_audio_resource_sync,
     AudioResourceSyncPlan,
+};
+pub use fonts::{
+    font_face_resource_id, font_resource_records, plan_font_asset_requests,
+    plan_font_resource_sync, FontResourceSyncPlan,
 };

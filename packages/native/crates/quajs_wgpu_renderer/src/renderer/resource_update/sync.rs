@@ -1,5 +1,6 @@
 use crate::resources::{
-    AudioResourceSyncPlan, FrameResourceSyncPlan, NativeResourceLedger, NativeResourceRecord,
+    AudioResourceSyncPlan, FontResourceSyncPlan, FrameResourceSyncPlan, NativeResourceLedger,
+    NativeResourceRecord,
 };
 
 pub(in crate::renderer) fn apply_resource_sync(
@@ -26,15 +27,30 @@ pub(in crate::renderer) fn apply_audio_resource_sync(
     ledger: &mut NativeResourceLedger,
     sync: &AudioResourceSyncPlan,
 ) -> Vec<NativeResourceRecord> {
+    apply_projection_resource_sync(ledger, &sync.release, &sync.upsert)
+}
+
+pub(in crate::renderer) fn apply_font_resource_sync(
+    ledger: &mut NativeResourceLedger,
+    sync: &FontResourceSyncPlan,
+) -> Vec<NativeResourceRecord> {
+    apply_projection_resource_sync(ledger, &sync.release, &sync.upsert)
+}
+
+fn apply_projection_resource_sync(
+    ledger: &mut NativeResourceLedger,
+    release: &[crate::resources::ResourceId],
+    upsert: &[NativeResourceRecord],
+) -> Vec<NativeResourceRecord> {
     let mut released = Vec::new();
 
-    for id in &sync.release {
+    for id in release {
         if let Some(record) = ledger.release_resource(id.clone()) {
             released.push(record);
         }
     }
 
-    for record in &sync.upsert {
+    for record in upsert {
         release_replaced_resource_if_needed(&mut released, ledger.insert(record.clone()), record);
     }
 
