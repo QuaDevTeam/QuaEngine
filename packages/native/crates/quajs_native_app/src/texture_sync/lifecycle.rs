@@ -8,7 +8,7 @@ use quajs_wgpu_renderer::video::{NativeVideoBackend, NativeVideoBackendError};
 
 use super::cleanup::{
     release_package_resources_with_host_texture_cleanup,
-    release_package_resources_with_host_texture_cleanup_and_audio_teardown,
+    release_package_resources_with_host_texture_cleanup_and_media_teardown,
     NativeTextureCleanedPackageReleaseResult, NativeTextureMediaTeardownError,
 };
 use super::types::NativeTextureUploadSink;
@@ -70,11 +70,11 @@ impl Display for NativeTextureBundleLifecycleSyncError {
             ),
             Self::Audio(error) => write!(
                 formatter,
-                "Native texture bundle lifecycle audio teardown failed: {error}"
+                "Native texture bundle lifecycle media teardown failed for audio backend: {error}"
             ),
             Self::Video(error) => write!(
                 formatter,
-                "Native texture bundle lifecycle video teardown failed: {error}"
+                "Native texture bundle lifecycle media teardown failed for video backend: {error}"
             ),
         }
     }
@@ -133,7 +133,7 @@ where
 }
 
 #[allow(dead_code)]
-pub fn sync_mounted_texture_bundle_lifecycle_from_host_and_audio_teardown<B, A, V, H>(
+pub fn sync_mounted_texture_bundle_lifecycle_from_host_and_media_teardown<B, A, V, H>(
     registry: &mut NativeTextureBundleMountRegistry,
     renderer: &mut NativeRenderer<B, A, V>,
     host: &H,
@@ -150,7 +150,7 @@ where
         renderer,
         &bundles,
         |renderer, package_id| {
-            release_package_resources_with_host_texture_cleanup_and_audio_teardown(
+            release_package_resources_with_host_texture_cleanup_and_media_teardown(
                 renderer, package_id,
             )
             .map_err(Into::into)

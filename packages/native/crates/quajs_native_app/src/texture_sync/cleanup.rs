@@ -69,11 +69,11 @@ impl Display for NativeTextureMediaTeardownError {
         match self {
             Self::Audio(error) => write!(
                 formatter,
-                "Native texture media audio teardown failed: {error}"
+                "Native texture media teardown failed for audio backend: {error}"
             ),
             Self::Video(error) => write!(
                 formatter,
-                "Native texture media video teardown failed: {error}"
+                "Native texture media teardown failed for video backend: {error}"
             ),
         }
     }
@@ -167,7 +167,7 @@ where
 }
 
 #[allow(dead_code)]
-pub fn release_package_resources_with_host_texture_cleanup_and_audio_teardown<B, A, V>(
+pub fn release_package_resources_with_host_texture_cleanup_and_media_teardown<B, A, V>(
     renderer: &mut NativeRenderer<B, A, V>,
     package_id: &str,
 ) -> Result<NativeTextureCleanedPackageReleaseResult, NativeTextureMediaTeardownError>
@@ -209,7 +209,7 @@ where
 }
 
 #[allow(dead_code)]
-pub fn clear_renderer_with_host_texture_cleanup_and_audio_teardown<B, A, V>(
+pub fn clear_renderer_with_host_texture_cleanup_and_media_teardown<B, A, V>(
     renderer: &mut NativeRenderer<B, A, V>,
 ) -> Result<NativeTextureCleanedClearResult, NativeTextureMediaTeardownError>
 where

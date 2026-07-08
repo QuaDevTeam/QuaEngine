@@ -13,7 +13,7 @@ use crate::texture_sync::NativeTextureBundleLifecycleSyncReport;
 pub(crate) trait NativeProductAppShellWindowLoop {
     fn needs_more_frames(&self) -> bool;
 
-    fn tick_host_lifecycle_with_audio_teardown(
+    fn tick_host_lifecycle_with_media_teardown(
         &mut self,
     ) -> Result<NativeTextureBundleLifecycleSyncReport, NativeProductWindowLoopError>;
 
@@ -32,10 +32,10 @@ where
         NativeProductWindowLoop::needs_more_frames(self)
     }
 
-    fn tick_host_lifecycle_with_audio_teardown(
+    fn tick_host_lifecycle_with_media_teardown(
         &mut self,
     ) -> Result<NativeTextureBundleLifecycleSyncReport, NativeProductWindowLoopError> {
-        NativeProductWindowLoop::tick_host_lifecycle_with_audio_teardown(self)
+        NativeProductWindowLoop::tick_host_lifecycle_with_media_teardown(self)
     }
 
     fn handle_redraw_failure(
@@ -181,7 +181,7 @@ where
         action: NativeProductAppLoopAction,
     ) -> Result<NativeProductAppShellAction, NativeProductWindowLoopError> {
         let lifecycle_report = if action.tick_host_lifecycle {
-            Some(self.window_loop.tick_host_lifecycle_with_audio_teardown()?)
+            Some(self.window_loop.tick_host_lifecycle_with_media_teardown()?)
         } else {
             None
         };
@@ -320,7 +320,7 @@ mod tests {
             self.needs_more_frames
         }
 
-        fn tick_host_lifecycle_with_audio_teardown(
+        fn tick_host_lifecycle_with_media_teardown(
             &mut self,
         ) -> Result<NativeTextureBundleLifecycleSyncReport, NativeProductWindowLoopError> {
             self.lifecycle_tick_count = self.lifecycle_tick_count.saturating_add(1);

@@ -3,7 +3,7 @@ use quajs_wgpu_renderer::resources::ResourceId;
 
 use crate::texture_sync::{
     render_json_frame_with_host_texture_lifecycle_sync,
-    render_json_frame_with_host_texture_lifecycle_sync_and_audio_teardown,
+    render_json_frame_with_host_texture_lifecycle_sync_and_media_teardown,
     render_json_frame_with_host_texture_sync, NativeTextureBundleMountRegistry,
 };
 
@@ -263,14 +263,14 @@ fn render_json_lifecycle_frame_helper_syncs_texture_upload_and_bundle_baseline()
 }
 
 #[test]
-fn render_json_lifecycle_audio_teardown_helper_syncs_texture_upload_and_bundle_baseline() {
+fn render_json_lifecycle_media_teardown_helper_syncs_texture_upload_and_bundle_baseline() {
     let host = RecordingAssetHost::new()
         .with_bundle(bundle("base-bundle", Some("base")))
         .with_asset(Some("base-bundle"), "bg/school.png", [1, 2, 3, 4]);
     let mut registry = NativeTextureBundleMountRegistry::new();
     let mut renderer = NativeRenderer::with_null_audio_backend(TextureResidentBackend::default());
 
-    let result = render_json_frame_with_host_texture_lifecycle_sync_and_audio_teardown(
+    let result = render_json_frame_with_host_texture_lifecycle_sync_and_media_teardown(
         &mut registry,
         &mut renderer,
         &host,
@@ -287,7 +287,7 @@ fn render_json_lifecycle_audio_teardown_helper_syncs_texture_upload_and_bundle_b
           }
         }"#,
     )
-    .expect("texture lifecycle JSON frame should render with audio teardown gate");
+    .expect("texture lifecycle JSON frame should render with media teardown gate");
 
     assert!(result.frame.resubmitted_after_texture_upload);
     assert_eq!(result.frame.texture_upload_report.uploaded_count, 1);

@@ -1,6 +1,7 @@
 use std::fmt::{Display, Formatter};
 
 use quajs_native_runtime::{InMemoryNativeHostApi, NativeHostApi};
+use quajs_wgpu_renderer::audio::NativeAudioBackendError;
 #[cfg(not(feature = "native-audio-rodio"))]
 use quajs_wgpu_renderer::audio::NullNativeAudioBackend;
 use quajs_wgpu_renderer::renderer::{
@@ -320,24 +321,24 @@ where
         self.product.host_mut()
     }
 
-    pub(crate) fn render_projection_json_with_audio_teardown(
+    pub(crate) fn render_projection_json_with_media_teardown(
         &mut self,
         input: &str,
     ) -> Result<NativeProductLoopFrameResult, NativeTextureJsonLifecycleFrameError> {
         self.product
-            .render_projection_json_with_audio_teardown(input)
+            .render_projection_json_with_media_teardown(input)
     }
 
-    pub(crate) fn tick_host_lifecycle_with_audio_teardown(
+    pub(crate) fn tick_host_lifecycle_with_media_teardown(
         &mut self,
     ) -> Result<NativeTextureBundleLifecycleSyncReport, NativeTextureBundleLifecycleSyncError> {
-        self.product.tick_host_lifecycle_with_audio_teardown()
+        self.product.tick_host_lifecycle_with_media_teardown()
     }
 
-    pub(crate) fn shutdown_with_audio_teardown(
+    pub(crate) fn shutdown_with_media_teardown(
         &mut self,
     ) -> Result<NativeTextureCleanedClearResult, NativeTextureMediaTeardownError> {
-        self.product.shutdown_with_audio_teardown()
+        self.product.shutdown_with_media_teardown()
     }
 
     pub(crate) fn present_frame(

@@ -60,35 +60,35 @@ where
         &mut self.host
     }
 
-    pub(crate) fn render_projection_json_with_audio_teardown(
+    pub(crate) fn render_projection_json_with_media_teardown(
         &mut self,
         input: &str,
     ) -> Result<NativeProductLoopFrameResult, NativeTextureJsonLifecycleFrameError> {
         let result = self
             .product_loop
-            .render_projection_json_with_audio_teardown(&mut self.renderer, &self.host, input)?;
+            .render_projection_json_with_media_teardown(&mut self.renderer, &self.host, input)?;
         self.emit_audio_backend_renderer_intents()
             .map_err(native_audio_intent_error_to_json_frame_error)?;
         Ok(result)
     }
 
     #[allow(dead_code)]
-    pub(crate) fn tick_host_lifecycle_with_audio_teardown(
+    pub(crate) fn tick_host_lifecycle_with_media_teardown(
         &mut self,
     ) -> Result<NativeTextureBundleLifecycleSyncReport, NativeTextureBundleLifecycleSyncError> {
         let report = self
             .product_loop
-            .tick_host_lifecycle_with_audio_teardown(&mut self.renderer, &self.host)?;
+            .tick_host_lifecycle_with_media_teardown(&mut self.renderer, &self.host)?;
         self.emit_audio_backend_renderer_intents()
             .map_err(native_audio_intent_error_to_lifecycle_error)?;
         Ok(report)
     }
 
-    pub(crate) fn shutdown_with_audio_teardown(
+    pub(crate) fn shutdown_with_media_teardown(
         &mut self,
     ) -> Result<NativeTextureCleanedClearResult, NativeTextureMediaTeardownError> {
         self.product_loop
-            .shutdown_with_audio_teardown(&mut self.renderer)
+            .shutdown_with_media_teardown(&mut self.renderer)
     }
 
     #[allow(dead_code)]
@@ -239,10 +239,10 @@ mod tests {
         let mut runtime = NativeProductRuntime::new(renderer, host);
 
         let first = runtime
-            .render_projection_json_with_audio_teardown(EMPTY_FRAME_JSON)
+            .render_projection_json_with_media_teardown(EMPTY_FRAME_JSON)
             .expect("first product runtime frame should render");
         let second = runtime
-            .render_projection_json_with_audio_teardown(EMPTY_FRAME_JSON)
+            .render_projection_json_with_media_teardown(EMPTY_FRAME_JSON)
             .expect("second product runtime frame should render");
 
         assert_eq!(first.frame_number, 1);
@@ -266,11 +266,11 @@ mod tests {
         );
 
         let baseline = runtime
-            .tick_host_lifecycle_with_audio_teardown()
+            .tick_host_lifecycle_with_media_teardown()
             .expect("initial lifecycle tick should establish mounted package baseline");
         runtime.host_mut().bundles.clear();
         let release = runtime
-            .tick_host_lifecycle_with_audio_teardown()
+            .tick_host_lifecycle_with_media_teardown()
             .expect("second lifecycle tick should release removed package resources");
 
         assert!(baseline.initial_sync);
@@ -305,10 +305,10 @@ mod tests {
         let mut runtime = NativeProductRuntime::new(renderer, host);
 
         let frame = runtime
-            .render_projection_json_with_audio_teardown(EMPTY_FRAME_JSON)
+            .render_projection_json_with_media_teardown(EMPTY_FRAME_JSON)
             .expect("product runtime frame should render and emit audio intents");
         runtime
-            .render_projection_json_with_audio_teardown(EMPTY_FRAME_JSON)
+            .render_projection_json_with_media_teardown(EMPTY_FRAME_JSON)
             .expect("second product runtime frame should not re-emit drained audio intents");
 
         assert_eq!(frame.frame_number, 1);
@@ -347,7 +347,7 @@ mod tests {
         let mut runtime = NativeProductRuntime::new(renderer, host);
 
         let report = runtime
-            .tick_host_lifecycle_with_audio_teardown()
+            .tick_host_lifecycle_with_media_teardown()
             .expect("product runtime lifecycle tick should emit audio intents");
 
         assert!(report.initial_sync);
@@ -378,14 +378,14 @@ mod tests {
         );
 
         let baseline = runtime
-            .tick_host_lifecycle_with_audio_teardown()
+            .tick_host_lifecycle_with_media_teardown()
             .expect("initial lifecycle tick should establish mounted package baseline");
         let shutdown = runtime
-            .shutdown_with_audio_teardown()
+            .shutdown_with_media_teardown()
             .expect("shutdown should clear renderer resources");
         runtime.host_mut().bundles.clear();
         let after_shutdown = runtime
-            .tick_host_lifecycle_with_audio_teardown()
+            .tick_host_lifecycle_with_media_teardown()
             .expect("post-shutdown lifecycle tick should start from a fresh baseline");
 
         assert!(baseline.initial_sync);
