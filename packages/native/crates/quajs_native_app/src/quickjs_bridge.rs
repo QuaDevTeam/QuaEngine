@@ -9,6 +9,7 @@ use quajs_native_runtime::{
 };
 
 use crate::startup::{compile_time_native_app_config, create_native_startup_host_info};
+use crate::target_bundle::{load_native_target_bundle_manifest, NativeTargetBundleManifest};
 
 pub const QUICKJS_BRIDGE_ENV: &str = "QUA_NATIVE_QUICKJS_BRIDGE";
 
@@ -71,22 +72,49 @@ pub fn is_quickjs_bridge_requested() -> bool {
 pub fn run_quickjs_bridge_from_stdio() -> Result<(), NativeQuickJsBridgeError> {
     let stdin = std::io::stdin();
     let stdout = std::io::stdout();
-    run_quickjs_bridge(stdin.lock(), stdout.lock())
+    let target_bundle_manifest = load_quickjs_bridge_target_bundle_manifest_from_env()?;
+    run_quickjs_bridge_with_target_bundle_manifest(
+        stdin.lock(),
+        stdout.lock(),
+        target_bundle_manifest.as_ref(),
+    )
 }
 
+#[cfg(test)]
 pub fn run_quickjs_bridge<R, W>(reader: R, writer: W) -> Result<(), NativeQuickJsBridgeError>
 where
     R: BufRead,
     W: Write,
 {
-    let host_info = create_native_startup_host_info(compile_time_native_app_config(), None)
-        .map_err(|error| NativeQuickJsBridgeError::Startup(error.to_string()))?;
+    run_quickjs_bridge_with_target_bundle_manifest(reader, writer, None)
+}
+
+fn run_quickjs_bridge_with_target_bundle_manifest<R, W>(
+    reader: R,
+    writer: W,
+    target_bundle_manifest: Option<&NativeTargetBundleManifest>,
+) -> Result<(), NativeQuickJsBridgeError>
+where
+    R: BufRead,
+    W: Write,
+{
+    let host_info =
+        create_native_startup_host_info(compile_time_native_app_config(), target_bundle_manifest)
+            .map_err(|error| NativeQuickJsBridgeError::Startup(error.to_string()))?;
     let mut host = InMemoryNativeHostApi::new(host_info);
     let mut quickjs = RquickJsModuleEvaluator::new()
         .map_err(|error| NativeQuickJsBridgeError::QuickJsInit(error.message))?;
     let mut registry = QuickJsModuleNamespaceRegistry::new();
 
     run_quickjs_bridge_with_host(reader, writer, &mut host, &mut quickjs, &mut registry)
+}
+
+fn load_quickjs_bridge_target_bundle_manifest_from_env(
+) -> Result<Option<NativeTargetBundleManifest>, NativeQuickJsBridgeError> {
+    std::env::var_os("QUA_NATIVE_TARGET_BUNDLE_MANIFEST")
+        .map(load_native_target_bundle_manifest)
+        .transpose()
+        .map_err(|error| NativeQuickJsBridgeError::Startup(error.to_string()))
 }
 
 fn run_quickjs_bridge_with_host<R, W>(
@@ -129,6 +157,16 @@ fn invalid_request_response(message: String) -> NativeHostApiResponse {
 mod tests {
     use super::*;
 
+    fn native_manifest_for_compile_time_config() -> NativeTargetBundleManifest {
+        let mut manifest = crate::target_bundle::tests::native_manifest();
+        let config = compile_time_native_app_config();
+        let app = manifest.app.as_mut().expect("native app metadata exists");
+        app.bundle_id = Some(config.bundle_id);
+        app.version = Some(config.version);
+        app.build_number = Some(config.build_number);
+        manifest
+    }
+
     #[test]
     fn quickjs_bridge_dispatches_jsonl_host_info() {
         let mut output = Vec::new();
@@ -162,5 +200,28 @@ mod tests {
             .as_str()
             .unwrap()
             .contains("valid JSON"));
+    }
+
+    #[test]
+    fn quickjs_bridge_validates_target_bundle_manifest_before_serving() {
+        let mut output = Vec::new();
+        let mut manifest = native_manifest_for_compile_time_config();
+        manifest
+            .native_runtime
+            .as_mut()
+            .expect("native runtime metadata exists")
+            .quickjs_version = Some("stale-quickjs".to_string());
+
+        let error = run_quickjs_bridge_with_target_bundle_manifest(
+            std::io::Cursor::new(b"{\"method\":\"getHostInfo\"}\n"),
+            &mut output,
+            Some(&manifest),
+        )
+        .expect_err("stale target bundle manifest should block QuickJS bridge startup");
+
+        assert!(output.is_empty());
+        assert!(error
+            .to_string()
+            .contains("nativeRuntime.quickjsVersion \"stale-quickjs\""));
     }
 }
