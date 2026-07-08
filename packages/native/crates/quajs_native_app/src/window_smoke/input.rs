@@ -41,6 +41,8 @@ pub(super) struct NativeWindowSmokeInputMetrics {
     pub keyboard_repeat_count: usize,
     pub keyboard_intent_emit_count: usize,
     pub ime_event_count: usize,
+    pub ime_enabled_count: usize,
+    pub ime_disabled_count: usize,
     pub ime_preedit_count: usize,
     pub ime_commit_count: usize,
     pub ime_intent_emit_count: usize,
@@ -151,6 +153,12 @@ impl NativeWindowSmokeInputState {
     fn record_ime_report(&mut self, report: crate::product_input::NativeProductImeEventReport) {
         self.metrics.ime_event_count = self.metrics.ime_event_count.saturating_add(1);
         match report.kind {
+            NativeProductImeEventKind::Enabled => {
+                self.metrics.ime_enabled_count = self.metrics.ime_enabled_count.saturating_add(1);
+            }
+            NativeProductImeEventKind::Disabled => {
+                self.metrics.ime_disabled_count = self.metrics.ime_disabled_count.saturating_add(1);
+            }
             NativeProductImeEventKind::Preedit => {
                 self.metrics.ime_preedit_count = self.metrics.ime_preedit_count.saturating_add(1);
                 self.metrics.ime_last_text_byte_count = report.text_byte_count;
@@ -159,7 +167,6 @@ impl NativeWindowSmokeInputState {
                 self.metrics.ime_commit_count = self.metrics.ime_commit_count.saturating_add(1);
                 self.metrics.ime_last_text_byte_count = report.text_byte_count;
             }
-            NativeProductImeEventKind::Enabled | NativeProductImeEventKind::Disabled => {}
         }
         if report.intent_emitted {
             self.metrics.ime_intent_emit_count =
@@ -358,8 +365,10 @@ mod tests {
         input.record_keyboard_state(ElementState::Pressed, false);
         input.record_keyboard_state(ElementState::Pressed, true);
         input.record_keyboard_state(ElementState::Released, false);
+        input.record_ime_event(&Ime::Enabled);
         input.record_ime_event(&Ime::Preedit("候補".to_string(), Some((0, 1))));
         input.record_ime_event(&Ime::Commit("決定".to_string()));
+        input.record_ime_event(&Ime::Disabled);
 
         assert_eq!(input.metrics().focus_gain_count, 1);
         assert_eq!(input.metrics().focus_loss_count, 1);
@@ -369,7 +378,9 @@ mod tests {
         assert_eq!(input.metrics().keyboard_release_count, 1);
         assert_eq!(input.metrics().keyboard_repeat_count, 1);
         assert_eq!(input.metrics().keyboard_intent_emit_count, 0);
-        assert_eq!(input.metrics().ime_event_count, 2);
+        assert_eq!(input.metrics().ime_event_count, 4);
+        assert_eq!(input.metrics().ime_enabled_count, 1);
+        assert_eq!(input.metrics().ime_disabled_count, 1);
         assert_eq!(input.metrics().ime_preedit_count, 1);
         assert_eq!(input.metrics().ime_commit_count, 1);
         assert_eq!(input.metrics().ime_last_text_byte_count, Some("決定".len()));
