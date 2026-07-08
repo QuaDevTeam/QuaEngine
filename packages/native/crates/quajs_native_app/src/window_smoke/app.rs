@@ -16,7 +16,7 @@ use super::report::NativeWindowSmokeReport;
 use super::report_builder::{build_window_smoke_report, NativeWindowSmokeReportInput};
 use super::resize::NativeWindowSmokeResizeState;
 use super::texture_host::create_window_smoke_texture_host;
-use crate::texture_sync::NativeTextureBundleMountRegistry;
+use crate::product_loop::NativeProductLoop;
 
 mod events;
 
@@ -25,13 +25,12 @@ pub(super) struct NativeWindowSmokeApp {
     window: Option<Arc<Window>>,
     runtime: Option<NativeWindowSmokeRuntime>,
     texture_host: quajs_native_runtime::InMemoryNativeHostApi,
-    texture_bundle_registry: NativeTextureBundleMountRegistry,
+    product_loop: NativeProductLoop,
     input: NativeWindowSmokeInputState,
     texture_metrics: NativeWindowSmokeTextureMetrics,
     present_loop: NativeWindowSmokePresentLoop,
     resize_state: NativeWindowSmokeResizeState,
     target_frame_count: usize,
-    rendered_frame_count: usize,
     pub(super) report: Option<NativeWindowSmokeReport>,
     pub(super) error: Option<NativeWindowSmokeError>,
 }
@@ -43,13 +42,12 @@ impl NativeWindowSmokeApp {
             window: None,
             runtime: None,
             texture_host: create_window_smoke_texture_host(),
-            texture_bundle_registry: NativeTextureBundleMountRegistry::new(),
+            product_loop: NativeProductLoop::new(),
             input: NativeWindowSmokeInputState::default(),
             texture_metrics: NativeWindowSmokeTextureMetrics::default(),
             present_loop: NativeWindowSmokePresentLoop::default(),
             resize_state: NativeWindowSmokeResizeState::default(),
             target_frame_count: load_window_smoke_target_frame_count(),
-            rendered_frame_count: 0,
             report: None,
             error: None,
         }
@@ -111,9 +109,9 @@ impl NativeWindowSmokeApp {
             dimensions.device_pixel_ratio,
         )?;
 
-        let synced_frame =
-            crate::texture_sync::render_json_frame_with_host_texture_lifecycle_sync_and_audio_teardown(
-                &mut self.texture_bundle_registry,
+        let product_frame = self
+            .product_loop
+            .render_projection_json_with_audio_teardown(
                 &mut runtime.renderer,
                 &self.texture_host,
                 &frame_json,
@@ -121,6 +119,7 @@ impl NativeWindowSmokeApp {
             .map_err(|error| {
                 NativeWindowSmokeError::new(format!("Native renderer smoke frame failed: {error}."))
             })?;
+        let synced_frame = product_frame.synced_frame;
         self.texture_metrics.record_texture_sync(
             &synced_frame.frame.texture_upload_report,
             &synced_frame.frame.texture_host_cleanup_report,
@@ -135,7 +134,6 @@ impl NativeWindowSmokeApp {
             &frame_json,
         )?;
         let present_outcome = present_window_smoke_frame(runtime, allow_occluded_report)?;
-        self.rendered_frame_count = self.rendered_frame_count.saturating_add(1);
         let input_metrics = self.input.metrics();
         let audio_metrics =
             NativeWindowSmokeAudioMetrics::from_null_backend(runtime.renderer.audio_backend());
@@ -148,7 +146,7 @@ impl NativeWindowSmokeApp {
             presented: present_outcome.presented,
             present_attempt_count: self.present_loop.attempt_count(),
             target_frame_count: self.target_frame_count,
-            rendered_frame_count: self.rendered_frame_count,
+            rendered_frame_count: product_frame.frame_number,
             resize_count: self.resize_state.count(),
             surface_recovery_count: self.present_loop.surface_recovery_count(),
             texture_metrics: &self.texture_metrics,

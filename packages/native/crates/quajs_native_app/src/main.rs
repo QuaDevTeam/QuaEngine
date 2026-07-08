@@ -1,3 +1,5 @@
+#[cfg(any(test, feature = "image-decode"))]
+mod product_loop;
 #[cfg(feature = "quickjs-rquickjs")]
 mod quickjs_bridge;
 mod renderer_smoke;
