@@ -6,11 +6,17 @@ use crate::projection::background::{
 };
 use crate::projection::character::CharacterProjection;
 use crate::projection::common::PackageProvenance;
-use crate::projection::view::{build_view_render_graph, ViewProjection};
+use crate::projection::view::{
+    build_view_render_graph, build_view_render_graph_with_video_frame_resources, ViewProjection,
+};
 use crate::render_graph::{DrawCommand, DrawCommandKind, LogicalRect, RenderGraph, RenderPlane};
+use crate::resources::plan_asset_requests;
 use crate::stage_layout::{
     resolve_stage_layout, ResolvedStageLayout, StageContainerInput, ViewLayoutInput,
     ViewLayoutOrientation,
+};
+use crate::video::{
+    VideoBackendFrameResource, VideoBackendFrameResourceMap, BACKGROUND_VIDEO_STREAM_ID,
 };
 
 #[test]
@@ -101,6 +107,45 @@ fn plans_video_fallback_poster_texture_without_decoder_request() {
     );
     assert!(!plan.by_kind.contains_key(&NativeResourceKind::VideoDecoder));
     assert_eq!(plan.by_kind[&NativeResourceKind::Texture], 1);
+}
+
+#[test]
+fn plans_video_frame_texture_ring_without_asset_upload_request() {
+    let frame_resource_id = ResourceId::from("video:texture-ring:video:movie/opening.mp4");
+    let graph = build_view_render_graph_with_video_frame_resources(
+        test_layout(),
+        &ViewProjection {
+            background: Some(BackgroundProjection {
+                mode: BackgroundMode::Video,
+                video: Some(BackgroundVideoProjection {
+                    poster: Some("poster/opening.png".to_string()),
+                    provenance: provenance("runtime.video", ["base"]),
+                    ..BackgroundVideoProjection::new("movie/opening.mp4")
+                }),
+                ..Default::default()
+            }),
+            ..Default::default()
+        },
+        &VideoBackendFrameResourceMap::from([(
+            BACKGROUND_VIDEO_STREAM_ID.to_string(),
+            VideoBackendFrameResource {
+                stream_id: BACKGROUND_VIDEO_STREAM_ID.to_string(),
+                resource_id: frame_resource_id.clone(),
+            },
+        )]),
+    );
+
+    let plan = plan_render_graph_resources(&graph);
+    let asset_plan = plan_asset_requests(&plan);
+
+    assert_eq!(plan.requests.len(), 1);
+    assert_eq!(
+        plan.request(frame_resource_id.clone()).unwrap().kind,
+        NativeResourceKind::VideoTextureRing
+    );
+    assert_eq!(plan.by_kind[&NativeResourceKind::VideoTextureRing], 1);
+    assert_eq!(asset_plan.requests.len(), 0);
+    assert_eq!(asset_plan.skipped_resource_ids, vec![frame_resource_id]);
 }
 
 #[test]

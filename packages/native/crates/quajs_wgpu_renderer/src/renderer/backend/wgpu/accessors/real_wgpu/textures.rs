@@ -173,6 +173,8 @@ impl
 fn is_decoded_texture_cleanup_kind(kind: NativeResourceKind) -> bool {
     matches!(
         kind,
-        NativeResourceKind::Texture | NativeResourceKind::DecodedImage
+        NativeResourceKind::Texture
+            | NativeResourceKind::DecodedImage
+            | NativeResourceKind::VideoTextureRing
     )
 }

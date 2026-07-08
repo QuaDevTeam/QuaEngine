@@ -18,6 +18,12 @@ pub(super) fn media_vertex_rect(primitive: &WgpuNativeRenderPrimitive) -> WgpuFl
             origin,
             source,
             ..
+        }
+        | WgpuNativeRenderPrimitiveKind::VideoFrame {
+            fit,
+            origin,
+            source,
+            ..
         } => fit_media_rect(base, primitive.logical_bounds, *source, *fit, *origin).unwrap_or(base),
         _ => base,
     }

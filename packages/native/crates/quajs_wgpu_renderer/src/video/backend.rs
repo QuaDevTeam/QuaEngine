@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::fmt::{Display, Formatter};
 
 use super::commands::{VideoBackendCommandPlan, VideoBackendStreamStateMap};
@@ -11,6 +12,14 @@ pub struct VideoBackendAssetLoad {
     pub asset_name: String,
     pub package_id: Option<String>,
     pub bytes: Vec<u8>,
+}
+
+pub type VideoBackendFrameResourceMap = BTreeMap<String, VideoBackendFrameResource>;
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct VideoBackendFrameResource {
+    pub stream_id: String,
+    pub resource_id: ResourceId,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -56,6 +65,10 @@ pub trait NativeVideoBackend {
     }
 
     fn apply_video_commands(&mut self, plan: &VideoBackendCommandPlan) -> NativeVideoBackendResult;
+
+    fn video_frame_resources(&self) -> VideoBackendFrameResourceMap {
+        VideoBackendFrameResourceMap::new()
+    }
 }
 
 impl NativeVideoBackend for () {

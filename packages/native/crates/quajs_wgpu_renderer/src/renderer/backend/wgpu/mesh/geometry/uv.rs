@@ -6,7 +6,8 @@ use super::types::WgpuNativeRenderUvRect;
 pub(super) fn texture_uv_rect(primitive: &WgpuNativeRenderPrimitive) -> WgpuNativeRenderUvRect {
     match &primitive.kind {
         WgpuNativeRenderPrimitiveKind::Image { source, .. }
-        | WgpuNativeRenderPrimitiveKind::VideoFallback { source, .. } => {
+        | WgpuNativeRenderPrimitiveKind::VideoFallback { source, .. }
+        | WgpuNativeRenderPrimitiveKind::VideoFrame { source, .. } => {
             normalized_source_uv_rect(*source).unwrap_or_default()
         }
         _ => WgpuNativeRenderUvRect::default(),

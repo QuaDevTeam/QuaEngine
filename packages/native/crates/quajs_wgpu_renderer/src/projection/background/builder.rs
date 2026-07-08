@@ -13,6 +13,7 @@ use crate::render_graph::{
 };
 use crate::resources::ResourceId;
 use crate::stage_layout::ResolvedStageLayout;
+use crate::video::{VideoBackendFrameResourceMap, BACKGROUND_VIDEO_STREAM_ID};
 
 use super::layout::{full_stage_rect, media_fit, media_origin, resolve_background_bounds};
 use super::types::{
@@ -20,12 +21,40 @@ use super::types::{
 };
 
 pub fn append_background_commands(graph: &mut RenderGraph, background: &BackgroundProjection) {
-    graph.extend(build_background_commands(&graph.layout, background));
+    graph.extend(build_background_commands_with_video_frame_resources(
+        &graph.layout,
+        background,
+        &VideoBackendFrameResourceMap::new(),
+    ));
+}
+
+pub fn append_background_commands_with_video_frame_resources(
+    graph: &mut RenderGraph,
+    background: &BackgroundProjection,
+    video_frame_resources: &VideoBackendFrameResourceMap,
+) {
+    graph.extend(build_background_commands_with_video_frame_resources(
+        &graph.layout,
+        background,
+        video_frame_resources,
+    ));
 }
 
 pub fn build_background_commands(
     layout: &ResolvedStageLayout,
     background: &BackgroundProjection,
+) -> Vec<DrawCommand> {
+    build_background_commands_with_video_frame_resources(
+        layout,
+        background,
+        &VideoBackendFrameResourceMap::new(),
+    )
+}
+
+pub fn build_background_commands_with_video_frame_resources(
+    layout: &ResolvedStageLayout,
+    background: &BackgroundProjection,
+    video_frame_resources: &VideoBackendFrameResourceMap,
 ) -> Vec<DrawCommand> {
     match background.mode {
         BackgroundMode::Image => background
@@ -59,7 +88,7 @@ pub fn build_background_commands(
             .video
             .as_ref()
             .filter(|video| is_safe_native_asset_name(&video.asset_name))
-            .and_then(|video| background_video_command(layout, video))
+            .and_then(|video| background_video_command(layout, video, video_frame_resources))
             .into_iter()
             .collect(),
     }
@@ -154,6 +183,7 @@ fn background_layer_command(
 fn background_video_command(
     layout: &ResolvedStageLayout,
     video: &BackgroundVideoProjection,
+    video_frame_resources: &VideoBackendFrameResourceMap,
 ) -> Option<DrawCommand> {
     if !is_safe_native_opacity(video.opacity)
         || !is_safe_native_background_origin(video.origin.as_deref())
@@ -164,6 +194,9 @@ fn background_video_command(
     }
 
     let asset_type = "video".to_string();
+    let frame_resource_id = video_frame_resources
+        .get(BACKGROUND_VIDEO_STREAM_ID)
+        .map(|frame| frame.resource_id.clone());
     let poster_asset_name = video
         .poster
         .as_deref()
@@ -179,6 +212,7 @@ fn background_video_command(
     .params(DrawCommandParams::Video(VideoDrawParams {
         asset_type,
         asset_name: video.asset_name.clone(),
+        frame_resource_id: frame_resource_id.clone(),
         poster_asset_name: poster_asset_name.clone(),
         looped: video.looped,
         muted: video.muted,
@@ -187,10 +221,14 @@ fn background_video_command(
         fit: media_fit(video.fit),
         origin: media_origin(video.origin.as_deref()),
         source: full_stage_rect(layout),
-        fallback_reason: Some("native video decode backend is not active".to_string()),
+        fallback_reason: frame_resource_id
+            .is_none()
+            .then(|| "native video decode backend is not active".to_string()),
     }));
 
-    if let Some(poster) = &poster_asset_name {
+    if let Some(frame_resource_id) = frame_resource_id {
+        command = command.resource(frame_resource_id);
+    } else if let Some(poster) = &poster_asset_name {
         command = command.resource(background_resource_id("images", poster));
     }
 

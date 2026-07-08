@@ -21,6 +21,8 @@ where
             video_backend.apply_video_commands(&update.video_backend_commands)?;
             self.state
                 .replace_video_backend_streams(update.video_backend_commands.next_streams.clone());
+            self.state
+                .replace_video_backend_frame_resources(video_backend.video_frame_resources());
         }
         Ok(())
     }
@@ -38,6 +40,8 @@ where
 
         if let Some(video_backend) = &mut self.video_backend {
             video_backend.apply_video_commands(&plan)?;
+            self.state
+                .replace_video_backend_frame_resources(video_backend.video_frame_resources());
         }
         self.state.replace_video_backend_streams(plan.next_streams);
 
@@ -64,6 +68,8 @@ where
         let next_streams = plan.next_streams.clone();
         if let Some(video_backend) = &mut self.video_backend {
             video_backend.apply_video_commands(&plan)?;
+            self.state
+                .replace_video_backend_frame_resources(video_backend.video_frame_resources());
         }
         self.state.replace_video_backend_streams(next_streams);
 
