@@ -74,9 +74,21 @@ fn create_host_info(config: NativeAppConfig) -> NativeHostInfo {
 }
 
 pub(crate) fn native_startup_renderer_capabilities() -> Vec<RendererCapability> {
-    let mut capabilities = native_wgpu_capabilities();
-    #[cfg(all(feature = "native-window", feature = "native-audio-rodio"))]
+    append_native_startup_feature_capabilities(native_wgpu_capabilities())
+}
+
+#[cfg(all(feature = "native-window", feature = "native-audio-rodio"))]
+fn append_native_startup_feature_capabilities(
+    mut capabilities: Vec<RendererCapability>,
+) -> Vec<RendererCapability> {
     capabilities.push(native_wgpu_audio_playback_capability());
+    capabilities
+}
+
+#[cfg(not(all(feature = "native-window", feature = "native-audio-rodio")))]
+fn append_native_startup_feature_capabilities(
+    capabilities: Vec<RendererCapability>,
+) -> Vec<RendererCapability> {
     capabilities
 }
 
