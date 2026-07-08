@@ -1,5 +1,8 @@
 import { MemoryAssetStorage } from '@quajs/assets'
-import { QuaEngine } from '@quajs/engine'
+import type { ViewChoiceProjection } from '@quajs/engine'
+import { emitRenderToLogic, QuaEngine, RenderToLogicEvents } from '@quajs/engine'
+import { compileQuaScriptModuleToTsAsync } from '@quajs/script-compiler'
+import ts from 'typescript'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   createNativeRendererJsonFrameInput,
@@ -222,7 +225,315 @@ describe('@quajs/engine-native runtime product smoke', () => {
       await bridge.close()
     }
   }, 180_000)
+
+  it('runs compiled QuaScript from a runtime QPK through real native QuickJS and Rust rendering', async () => {
+    const bridge = await createRealNativeQuickJsBridge()
+    const verifySignature = vi.fn(async () => true)
+    const host = {
+      ...bridge.host,
+      verifySignature,
+    }
+    const qsSource = `
+<script setup lang="ts">
+const displayName = scope.playerName || 'Player'
+const runtimeLabel = scope.runtimeLabel || 'native QuickJS'
+</script>
+
+The native route greets \${displayName}.
+Mira: Compiled QuaScript is running inside \${runtimeLabel}.
+- Stay with compiled QS if scope.allowStay
+- Leave if false
+`
+    const storyCode = await compileQuaScriptToRuntimeJs(qsSource, {
+      moduleId: 'runtime.native.qs.story',
+      stableSeed: 'native-qs-product-smoke',
+      version: '1.0.0',
+    })
+    const manifest = createRuntimeBundleManifest({
+      id: 'runtime.native.qs.story',
+      version: '1.0.0',
+      priority: 8,
+      scripts: [{
+        id: 'runtime.native.qs.story',
+        version: '1.0.0',
+        assetName: 'compiled-story.js',
+      }],
+      metadata: {
+        nativeRenderer: {
+          packageName: '@quajs/native-renderer',
+          versionRange: '>=0.1.0',
+          capabilityIds: ['native-wgpu.input.pointer@1'],
+          intentEvents: ['choice/select'],
+          nativeCode: false,
+        },
+      },
+      integrity: { hash: 'native-qs-story-hash', algorithm: 'sha256' },
+      signature: { value: 'signed-qs', algorithm: 'ed25519' },
+    })
+    const qpk = createQpkBundle(manifest, new Map([
+      ['assets/scripts/compiled-story.js', utf8(storyCode)],
+    ]))
+    try {
+      const adapters = createNativeRuntimeAdapters(host, { requireSignature: true })
+      const engine = new QuaEngine({
+        assets: {
+          endpoint: 'https://cdn.example.com',
+          adapter: createMemoryAdapter({
+            'https://cdn.example.com/native-qs-story.qpk': qpk,
+          }, 'native-qs-story-hash'),
+        },
+        runtimeModuleLoader: adapters.runtimeModuleLoader,
+        trustPolicy: adapters.trustPolicy,
+      })
+
+      await engine.init()
+      engine.registerStoryTargetResolver((target) => {
+        if (target.kind !== 'node' || target.id !== 'stay-with-compiled-qs') {
+          return undefined
+        }
+        return {
+          target,
+          requiredRuntimePackages: ['runtime.native.qs.story'],
+          point: {
+            nodeId: target.id,
+            stepId: 'runtime.native.qs.story.after-choice',
+            contentPackageId: 'runtime.native.qs.story',
+            requiredRuntimePackages: ['runtime.native.qs.story'],
+            scriptModuleId: 'runtime.native.qs.story',
+            scriptModuleVersion: '1.0.0',
+          },
+        }
+      })
+      const state = await engine.loadRuntimePackage('native-qs-story.qpk')
+      const running = engine.runScriptModule('runtime.native.qs.story', {
+        allowStay: true,
+        playerName: 'Mira',
+        runtimeLabel: 'real rquickjs',
+      })
+      const runningState = trackRunningScript(running)
+      await advancePastDialogue(engine, 'The native route greets Mira.', runningState)
+      await advancePastDialogue(engine, 'Compiled QuaScript is running inside real rquickjs.', runningState)
+      const choices = await waitForChoiceProjection(engine, 'stay-with-compiled-qs', runningState)
+
+      expect(state).toEqual(expect.objectContaining({
+        id: 'runtime.native.qs.story',
+        state: 'active',
+        priority: 8,
+      }))
+      expect(verifySignature).toHaveBeenCalledWith(expect.objectContaining({
+        algorithm: 'ed25519',
+        keyId: undefined,
+      }))
+      expect(choices).toEqual([
+        expect.objectContaining({
+          id: 'stay-with-compiled-qs',
+          text: 'Stay with compiled QS',
+          enabled: true,
+          metadata: expect.objectContaining({
+            contentPackageId: 'runtime.native.qs.story',
+          }),
+        }),
+        expect.objectContaining({
+          id: 'leave',
+          text: 'Leave',
+          enabled: false,
+          metadata: expect.objectContaining({
+            contentPackageId: 'runtime.native.qs.story',
+          }),
+        }),
+      ])
+      expect(engine.getViewState().dialogue).toEqual(expect.objectContaining({
+        visible: true,
+        characterName: 'Mira',
+        text: 'Compiled QuaScript is running inside real rquickjs.',
+      }))
+
+      const evaluationRequest = bridge.requests.find(request => request.method === 'evaluateQuickJsModule')
+      expect(evaluationRequest).toEqual(expect.objectContaining({
+        method: 'evaluateQuickJsModule',
+        params: expect.objectContaining({
+          module: expect.objectContaining({
+            assetName: 'compiled-story.js',
+            bundleName: 'runtime.native.qs.story',
+            code: storyCode,
+            packageId: 'runtime.native.qs.story',
+          }),
+        }),
+      }))
+      if (evaluationRequest?.method === 'evaluateQuickJsModule') {
+        expect(evaluationRequest.params.moduleGraph ?? []).toEqual([])
+      }
+      expect(bridge.requests.some(request => request.method === 'callQuickJsGameStepRun')).toBe(true)
+
+      const frame = createNativeRendererJsonFrameInput(engine.getViewState(), {
+        container: { width: 1600, height: 1000, devicePixelRatio: 1 },
+      })
+      expect(frame.view.dialogue).toEqual(expect.objectContaining({
+        text: 'Compiled QuaScript is running inside real rquickjs.',
+        provenance: {
+          contentPackageId: 'runtime.native.qs.story',
+        },
+      }))
+      expect(frame.view.choices).toEqual({
+        visible: true,
+        choices: [
+          expect.objectContaining({
+            id: 'stay-with-compiled-qs',
+            provenance: {
+              contentPackageId: 'runtime.native.qs.story',
+            },
+          }),
+          expect.objectContaining({
+            id: 'leave',
+            enabled: false,
+            provenance: {
+              contentPackageId: 'runtime.native.qs.story',
+            },
+          }),
+        ],
+        provenance: {
+          contentPackageId: 'runtime.native.qs.story',
+        },
+      })
+
+      const rendererSummary = await runNativeRendererSmokeFrame(frame)
+      expect(rendererSummary.revision).toBe(1)
+      expect(rendererSummary.commandCount).toBeGreaterThan(0)
+      expect(rendererSummary.missingResourceCount).toBe(0)
+
+      await emitRenderToLogic(engine.getPipeline(), RenderToLogicEvents.USER_CHOICE_SELECT, {
+        choiceId: 'stay-with-compiled-qs',
+      })
+      await running
+      expect(engine.getViewState().choices).toEqual([])
+      expect(engine.getStoryPoint()).toEqual(expect.objectContaining({
+        nodeId: 'stay-with-compiled-qs',
+        stepId: 'runtime.native.qs.story.after-choice',
+        contentPackageId: 'runtime.native.qs.story',
+        scriptModuleId: 'runtime.native.qs.story',
+        scriptModuleVersion: '1.0.0',
+      }))
+
+      const released = await host.releaseQuickJsPackageNamespaces!('runtime.native.qs.story')
+      expect(released).toEqual([expect.objectContaining({
+        packageId: 'runtime.native.qs.story',
+        assetName: 'compiled-story.js',
+      })])
+    }
+    finally {
+      await bridge.close()
+    }
+  }, 180_000)
 })
+
+async function compileQuaScriptToRuntimeJs(
+  source: string,
+  runtimeModule: { moduleId: string, stableSeed: string, version: string },
+): Promise<string> {
+  const compiledTs = await compileQuaScriptModuleToTsAsync(source, {
+    autoCollectDecorators: false,
+    hotReload: false,
+    runtimeModule,
+  })
+  return ts.transpileModule(compiledTs, {
+    compilerOptions: {
+      module: ts.ModuleKind.ESNext,
+      target: ts.ScriptTarget.ES2020,
+    },
+  }).outputText
+}
+
+async function waitForChoiceProjection(
+  engine: QuaEngine,
+  choiceId: string,
+  running: RunningScriptState = { completed: false },
+): Promise<ViewChoiceProjection[]> {
+  const deadline = Date.now() + 5000
+  while (Date.now() < deadline) {
+    assertRunning(running, `Native compiled QuaScript completed before projecting choice "${choiceId}".`)
+    const choices = engine.getViewState().choices || []
+    if (choices.some(choice => choice.id === choiceId)) {
+      await nextMacrotask()
+      return choices
+    }
+    await delay(10)
+  }
+  throw new Error(`Timed out waiting for native compiled QuaScript choice "${choiceId}".`)
+}
+
+async function advancePastDialogue(
+  engine: QuaEngine,
+  text: string,
+  running: RunningScriptState,
+): Promise<void> {
+  await waitForDialogueProjection(engine, text, running)
+  const deadline = Date.now() + 5000
+  while (Date.now() < deadline) {
+    await emitRenderToLogic(engine.getPipeline(), RenderToLogicEvents.USER_ADVANCE, {
+      source: 'native-product-smoke',
+    })
+    await delay(20)
+    assertRunning(running, `Native compiled QuaScript completed while advancing past dialogue "${text}".`)
+    const view = engine.getViewState()
+    if (view.dialogue.text !== text || view.choices.length > 0) {
+      return
+    }
+  }
+  throw new Error(`Timed out advancing past native compiled QuaScript dialogue "${text}".`)
+}
+
+async function waitForDialogueProjection(
+  engine: QuaEngine,
+  text: string,
+  running: RunningScriptState,
+): Promise<void> {
+  const deadline = Date.now() + 5000
+  while (Date.now() < deadline) {
+    assertRunning(running, `Native compiled QuaScript completed before projecting dialogue "${text}".`)
+    if (engine.getViewState().dialogue.text === text) {
+      await nextMacrotask()
+      return
+    }
+    await delay(10)
+  }
+  throw new Error(`Timed out waiting for native compiled QuaScript dialogue "${text}".`)
+}
+
+interface RunningScriptState {
+  completed: boolean
+  failed?: unknown
+}
+
+function trackRunningScript(running: Promise<unknown>): RunningScriptState {
+  const state: RunningScriptState = { completed: false }
+  void running.then(
+    () => {
+      state.completed = true
+    },
+    (error) => {
+      state.completed = true
+      state.failed = error
+    },
+  )
+  return state
+}
+
+function assertRunning(running: RunningScriptState, message: string): void {
+  if (running.failed) {
+    throw running.failed
+  }
+  if (running.completed) {
+    throw new Error(message)
+  }
+}
+
+function nextMacrotask(): Promise<void> {
+  return delay(0)
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
 
 function createMemoryAdapter(files: Record<string, Uint8Array> = {}, hash = '') {
   const fileMap = new Map(Object.entries(files))
