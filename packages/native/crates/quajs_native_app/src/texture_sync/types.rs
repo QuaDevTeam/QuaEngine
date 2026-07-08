@@ -74,6 +74,61 @@ impl NativeFontAtlasTextureSyncReport {
     }
 }
 
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct NativeVideoFrameTextureSyncReport {
+    pub pending_upload_count: usize,
+    pub release_candidate_count: usize,
+    pub uploaded_count: usize,
+    pub released_count: usize,
+    pub missing_release_count: usize,
+    pub invalid_frame_count: usize,
+    pub upload_error_count: usize,
+    pub release_error_count: usize,
+    pub uploaded_resource_ids: Vec<ResourceId>,
+    pub released_resource_ids: Vec<ResourceId>,
+    pub missing_release_resource_ids: Vec<ResourceId>,
+    pub failures: Vec<NativeVideoFrameTextureSyncFailure>,
+    pub release_failures: Vec<NativeTextureReleaseHostSyncFailure>,
+}
+
+impl NativeVideoFrameTextureSyncReport {
+    #[allow(dead_code)]
+    pub fn is_ok(&self) -> bool {
+        self.failures.is_empty() && self.release_failures.is_empty()
+    }
+
+    pub(super) fn record_failure(&mut self, failure: NativeVideoFrameTextureSyncFailure) {
+        match failure.kind {
+            NativeVideoFrameTextureSyncFailureKind::InvalidFrame => {
+                self.invalid_frame_count += 1;
+            }
+            NativeVideoFrameTextureSyncFailureKind::UploadError => {
+                self.upload_error_count += 1;
+            }
+        }
+        self.failures.push(failure);
+    }
+
+    pub(super) fn record_release_failure(&mut self, failure: NativeTextureReleaseHostSyncFailure) {
+        self.release_error_count += 1;
+        self.release_failures.push(failure);
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct NativeVideoFrameTextureSyncFailure {
+    pub kind: NativeVideoFrameTextureSyncFailureKind,
+    pub stream_id: String,
+    pub resource_id: ResourceId,
+    pub message: String,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NativeVideoFrameTextureSyncFailureKind {
+    InvalidFrame,
+    UploadError,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct NativeFontAtlasTextureSyncFailure {
     pub kind: NativeFontAtlasTextureSyncFailureKind,

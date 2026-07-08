@@ -5,6 +5,7 @@ pub use backend::{
     NativeVideoBackend, NativeVideoBackendError, NativeVideoBackendErrorKind,
     NativeVideoBackendResult, NullNativeVideoBackend, NullNativeVideoBackendDiagnostics,
     VideoBackendAssetLoad, VideoBackendFrameResource, VideoBackendFrameResourceMap,
+    VideoBackendFrameTexture,
 };
 pub use commands::{
     plan_video_backend_commands, plan_video_backend_package_teardown_commands, VideoBackendCommand,
