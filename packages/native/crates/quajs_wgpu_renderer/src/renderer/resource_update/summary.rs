@@ -1,13 +1,14 @@
 use std::collections::BTreeMap;
 
 use super::types::{
-    NativeRendererFrameAudioResourceSyncSummary, NativeRendererFrameResourceSyncSummary,
-    NativeRendererHostCleanupRecord, NativeRendererPackageReleaseSummary,
+    NativeRendererFrameAudioResourceSyncSummary, NativeRendererFrameFontResourceSyncSummary,
+    NativeRendererFrameResourceSyncSummary, NativeRendererHostCleanupRecord,
+    NativeRendererPackageReleaseSummary,
 };
 use crate::resources::{
-    is_declarative_asset_kind, AudioResourceSyncPlan, FrameResourceSyncPlan, NativeResourceKind,
-    NativeResourceLedger, NativeResourceRecord, PackageUnloadBlockerReason, PackageUnloadPlan,
-    ResourceMemory,
+    is_declarative_asset_kind, AudioResourceSyncPlan, FontResourceSyncPlan, FrameResourceSyncPlan,
+    NativeResourceKind, NativeResourceLedger, NativeResourceRecord, PackageUnloadBlockerReason,
+    PackageUnloadPlan, ResourceMemory,
 };
 
 pub(in crate::renderer) fn frame_resource_sync_summary(
@@ -44,6 +45,29 @@ pub(in crate::renderer) fn frame_audio_resource_sync_summary(
 ) -> NativeRendererFrameAudioResourceSyncSummary {
     let released = released_resource_summary(released_resources);
     let mut summary = NativeRendererFrameAudioResourceSyncSummary {
+        upsert_count: sync.upsert.len(),
+        retain_count: sync.retain.len(),
+        release_count: sync.release.len(),
+        released_count: released.count,
+        replacement_release_count: replacement_release_count(sync.release.len(), released.count),
+        released_memory: released.memory,
+        released_by_kind: released.by_kind,
+        ..Default::default()
+    };
+
+    for record in &sync.upsert {
+        *summary.upsert_by_kind.entry(record.kind).or_default() += 1;
+    }
+
+    summary
+}
+
+pub(in crate::renderer) fn frame_font_resource_sync_summary(
+    sync: &FontResourceSyncPlan,
+    released_resources: &[NativeResourceRecord],
+) -> NativeRendererFrameFontResourceSyncSummary {
+    let released = released_resource_summary(released_resources);
+    let mut summary = NativeRendererFrameFontResourceSyncSummary {
         upsert_count: sync.upsert.len(),
         retain_count: sync.retain.len(),
         release_count: sync.release.len(),

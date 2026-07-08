@@ -3,6 +3,8 @@ use std::collections::BTreeSet;
 use crate::projection::audio::AudioTrackMemoryEstimate;
 use crate::projection::character::{CharacterPosition, CharacterProjection};
 use crate::projection::choices::{ChoiceProjection, ChoiceSetProjection};
+use crate::projection::common::FontFamilyProjection;
+use crate::projection::fonts::{FontFaceProjection, FontsProjection};
 use crate::projection::view::ViewProjection;
 use crate::renderer::json_input::NativeRendererJsonValidationError;
 
@@ -69,6 +71,62 @@ impl JsonProjectionValidator {
                 );
             }
         }
+        if let Some(fonts) = view
+            .plugins
+            .as_ref()
+            .and_then(|plugins| plugins.fonts.as_ref())
+        {
+            self.validate_fonts(fonts);
+        }
+    }
+
+    fn validate_fonts(&mut self, fonts: &FontsProjection) {
+        for (index, package_id) in fonts.required_runtime_packages.iter().enumerate() {
+            self.validate_package_id(
+                &format!("view.plugins.fonts.requiredRuntimePackages[{index}]"),
+                package_id,
+            );
+        }
+
+        let mut face_ids = BTreeSet::new();
+        for (index, face) in fonts.faces.iter().enumerate() {
+            self.validate_font_face(
+                face,
+                &format!("view.plugins.fonts.faces[{index}]"),
+                &mut face_ids,
+            );
+        }
+    }
+
+    fn validate_font_face(
+        &mut self,
+        face: &FontFaceProjection,
+        path: &str,
+        face_ids: &mut BTreeSet<String>,
+    ) {
+        let identity = face.identity();
+        if let Some(id) = &face.id {
+            self.validate_ui_dispatch_identifier(&format!("{path}.id"), id, "font face ids");
+        } else {
+            self.validate_ui_dispatch_identifier(
+                &format!("{path}.identity"),
+                &identity,
+                "font face ids",
+            );
+        }
+        self.validate_unique_identifier(
+            &format!("{path}.id"),
+            &identity,
+            face_ids,
+            "font face ids",
+        );
+        self.validate_font_family(
+            &format!("{path}.family"),
+            &FontFamilyProjection::new([face.family.clone()]),
+        );
+        self.validate_asset_type(&format!("{path}.assetType"), &face.asset_type);
+        self.validate_asset_reference(&format!("{path}.assetName"), &face.asset_name);
+        self.validate_provenance(&format!("{path}.provenance"), &face.provenance);
     }
 
     fn validate_character(

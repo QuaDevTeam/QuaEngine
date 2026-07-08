@@ -1,10 +1,11 @@
 use std::collections::BTreeMap;
 
 use crate::audio::AudioBackendCommandPlan;
+use crate::fonts::FontBackendCommandPlan;
 use crate::resources::{
-    AudioResourceSyncPlan, FrameResourceSyncPlan, NativeAssetRequestPlan, NativeResourceKind,
-    NativeResourceRecord, NativeTextureUploadRequestPlan, PackageUnloadBlockerReason,
-    PackageUnloadPlan, ResourceId, ResourceMemory,
+    AudioResourceSyncPlan, FontResourceSyncPlan, FrameResourceSyncPlan, NativeAssetRequestPlan,
+    NativeResourceKind, NativeResourceRecord, NativeTextureUploadRequestPlan,
+    PackageUnloadBlockerReason, PackageUnloadPlan, ResourceId, ResourceMemory,
 };
 use crate::video::VideoBackendCommandPlan;
 
@@ -20,6 +21,10 @@ pub struct NativeRendererFrameUpdate {
     pub audio_resource_sync_summary: NativeRendererFrameAudioResourceSyncSummary,
     pub audio_assets: NativeAssetRequestPlan,
     pub audio_backend_commands: AudioBackendCommandPlan,
+    pub font_resource_sync: FontResourceSyncPlan,
+    pub font_resource_sync_summary: NativeRendererFrameFontResourceSyncSummary,
+    pub font_assets: NativeAssetRequestPlan,
+    pub font_backend_commands: FontBackendCommandPlan,
     pub video_backend_commands: VideoBackendCommandPlan,
 }
 
@@ -40,6 +45,18 @@ pub struct NativeRendererFrameResourceSyncSummary {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct NativeRendererFrameAudioResourceSyncSummary {
+    pub upsert_count: usize,
+    pub retain_count: usize,
+    pub release_count: usize,
+    pub released_count: usize,
+    pub replacement_release_count: usize,
+    pub released_memory: ResourceMemory,
+    pub upsert_by_kind: BTreeMap<NativeResourceKind, usize>,
+    pub released_by_kind: BTreeMap<NativeResourceKind, usize>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct NativeRendererFrameFontResourceSyncSummary {
     pub upsert_count: usize,
     pub retain_count: usize,
     pub release_count: usize,

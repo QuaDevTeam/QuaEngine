@@ -1,5 +1,6 @@
 pub mod audio;
 pub mod capabilities;
+pub mod fonts;
 pub mod frame;
 pub mod input;
 pub mod projection;

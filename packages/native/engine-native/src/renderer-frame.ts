@@ -27,6 +27,7 @@ export type NativeRendererEngineViewProjection = Readonly<JsonRecord & {
   dialogue?: unknown
   choices?: readonly unknown[]
   ui?: unknown
+  plugins?: unknown
 }>
 
 export interface CreateNativeRendererJsonFrameInputOptions {
@@ -61,6 +62,64 @@ export function createNativeRendererViewProjection(view: NativeRendererEngineVie
     dialogue: createNativeDialogueProjection(view.dialogue),
     choices: createNativeChoiceSetProjection(view.choices),
     ui: createNativeUiProjection(view.ui),
+    plugins: createNativePluginProjection(view.plugins),
+  })
+}
+
+function createNativePluginProjection(plugins: unknown): JsonRecord | undefined {
+  const record = asRecord(plugins)
+  if (!record) {
+    return undefined
+  }
+  return omitUndefined({
+    fonts: createNativeFontsProjection(record.fonts),
+  })
+}
+
+function createNativeFontsProjection(fonts: unknown): JsonRecord | undefined {
+  const record = asRecord(fonts)
+  if (!record) {
+    return undefined
+  }
+  const faces = Array.isArray(record.faces)
+    ? record.faces.map(createNativeFontFaceProjection).filter(isJsonRecord)
+    : []
+  return omitUndefined({
+    revision: integerValue(record.revision) ?? 0,
+    requiredRuntimePackages: uniqueStrings(stringArray(record.requiredRuntimePackages)),
+    faces,
+  })
+}
+
+function createNativeFontFaceProjection(face: unknown): JsonRecord | undefined {
+  const record = asRecord(face)
+  if (!record) {
+    return undefined
+  }
+  const family = stringValue(record.family)
+  const assetName = stringValue(record.assetName)
+  if (!family || !assetName) {
+    return undefined
+  }
+  return omitUndefined({
+    id: stringValue(record.id),
+    family,
+    assetName,
+    assetType: stringValue(record.assetType) || stringValue(record.type) || 'fonts',
+    locale: stringValue(record.locale),
+    style: stringValue(record.style),
+    weight: typeof record.weight === 'string' || typeof record.weight === 'number'
+      ? record.weight
+      : undefined,
+    stretch: stringValue(record.stretch),
+    display: stringValue(record.display),
+    unicodeRange: stringValue(record.unicodeRange),
+    featureSettings: stringValue(record.featureSettings),
+    variationSettings: stringValue(record.variationSettings),
+    ascentOverride: stringValue(record.ascentOverride),
+    descentOverride: stringValue(record.descentOverride),
+    lineGapOverride: stringValue(record.lineGapOverride),
+    provenance: createPackageProvenance(record),
   })
 }
 

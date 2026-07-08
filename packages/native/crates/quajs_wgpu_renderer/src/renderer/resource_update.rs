@@ -4,13 +4,14 @@ mod types;
 mod unload;
 
 pub(super) use summary::{
-    frame_audio_resource_sync_summary, frame_resource_sync_summary, host_cleanup_records,
-    package_release_summary,
+    frame_audio_resource_sync_summary, frame_font_resource_sync_summary,
+    frame_resource_sync_summary, host_cleanup_records, package_release_summary,
 };
-pub(super) use sync::{apply_audio_resource_sync, apply_resource_sync};
+pub(super) use sync::{apply_audio_resource_sync, apply_font_resource_sync, apply_resource_sync};
 pub use types::{
-    NativeRendererFrameAudioResourceSyncSummary, NativeRendererFrameResourceSyncSummary,
-    NativeRendererFrameUpdate, NativeRendererHostCleanupRecord, NativeRendererPackageRelease,
+    NativeRendererFrameAudioResourceSyncSummary, NativeRendererFrameFontResourceSyncSummary,
+    NativeRendererFrameResourceSyncSummary, NativeRendererFrameUpdate,
+    NativeRendererHostCleanupRecord, NativeRendererPackageRelease,
     NativeRendererPackageReleaseSummary,
 };
 pub(super) use unload::{

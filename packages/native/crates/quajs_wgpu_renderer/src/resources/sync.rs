@@ -46,7 +46,7 @@ pub fn plan_frame_resource_sync(
     }
 
     for record in ledger.records() {
-        if !requested_ids.contains(&record.id) && is_frame_managed_kind(record.kind) {
+        if !requested_ids.contains(&record.id) && is_frame_managed_record(record) {
             plan.release.push(record.id.clone());
         }
     }
@@ -115,9 +115,13 @@ fn record_metadata_matches(existing: &NativeResourceRecord, next: &NativeResourc
         && existing.required_package_ids == next.required_package_ids
 }
 
-fn is_frame_managed_kind(kind: NativeResourceKind) -> bool {
+fn is_frame_managed_record(record: &NativeResourceRecord) -> bool {
+    if record.kind == NativeResourceKind::FontFace && record.id.as_str().starts_with("font:face:") {
+        return false;
+    }
+
     matches!(
-        kind,
+        record.kind,
         NativeResourceKind::Texture
             | NativeResourceKind::Buffer
             | NativeResourceKind::GlyphAtlas
