@@ -61,12 +61,12 @@ export class WebAudioAudioRuntime {
     ambient: undefined,
   }
 
-  private readonly singleSlots: Record<'bgm' | 'voice', SlotRuntime | undefined> = {
-    bgm: undefined,
+  private readonly singleSlots: Record<'voice', SlotRuntime | undefined> = {
     voice: undefined,
   }
 
-  private readonly collectionSlots: Record<'sfx' | 'ambient', Map<string, SlotRuntime>> = {
+  private readonly collectionSlots: Record<'bgm' | 'sfx' | 'ambient', Map<string, SlotRuntime>> = {
+    bgm: new Map(),
     sfx: new Map(),
     ambient: new Map(),
   }
@@ -101,7 +101,7 @@ export class WebAudioAudioRuntime {
     this.syncBus('sfx', this.projection.buses.sfx)
     this.syncBus('ambient', this.projection.buses.ambient)
 
-    await this.syncSingleTrack('bgm', this.projection.bgm)
+    await this.syncTrackCollection('bgm', collectBgmTracks(this.projection))
     await this.syncSingleTrack('voice', selectActiveVoice(this.projection.voices))
     await this.syncTrackCollection('sfx', this.projection.sfx)
     await this.syncTrackCollection('ambient', this.projection.ambients)
@@ -181,6 +181,7 @@ export class WebAudioAudioRuntime {
     for (const slot of this.getAllSlots()) {
       this.stopSlot(slot, 0, 'destroy', true)
     }
+    this.collectionSlots.bgm.clear()
     this.collectionSlots.sfx.clear()
     this.collectionSlots.ambient.clear()
     this.bufferCache.clear()
@@ -241,7 +242,7 @@ export class WebAudioAudioRuntime {
     this.scheduleAutomationChain(bus.eqNodes, projection.automation || [])
   }
 
-  private async syncSingleTrack(kind: 'bgm' | 'voice', projection?: AudioTrackProjection): Promise<void> {
+  private async syncSingleTrack(kind: 'voice', projection?: AudioTrackProjection): Promise<void> {
     const context = this.ensureContext()
     const bus = this.getOrCreateBus(kind, context)
     const slot = this.singleSlots[kind] || this.createSlot(kind, context, bus)
@@ -255,7 +256,7 @@ export class WebAudioAudioRuntime {
     await this.syncSlotProjection(kind, projection, slot, bus, context)
   }
 
-  private async syncTrackCollection(kind: 'sfx' | 'ambient', projections: readonly AudioTrackProjection[]): Promise<void> {
+  private async syncTrackCollection(kind: 'bgm' | 'sfx' | 'ambient', projections: readonly AudioTrackProjection[]): Promise<void> {
     const context = this.ensureContext()
     const bus = this.getOrCreateBus(kind, context)
     const slots = this.collectionSlots[kind]
@@ -787,10 +788,18 @@ export class WebAudioAudioRuntime {
   private getAllSlots(): SlotRuntime[] {
     return [
       ...Object.values(this.singleSlots).filter((slot): slot is SlotRuntime => Boolean(slot)),
+      ...this.collectionSlots.bgm.values(),
       ...this.collectionSlots.sfx.values(),
       ...this.collectionSlots.ambient.values(),
     ]
   }
+}
+
+function collectBgmTracks(projection: AudioViewProjection): AudioTrackProjection[] {
+  return [
+    ...(projection.bgmOutgoing || []),
+    ...(projection.bgm ? [projection.bgm] : []),
+  ]
 }
 
 function selectActiveVoice(voices: readonly AudioTrackProjection[]): AudioTrackProjection | undefined {

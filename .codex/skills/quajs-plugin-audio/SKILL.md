@@ -117,9 +117,11 @@ Browser autoplay policy is handled by the Web renderer runtime. Autoplay blocks 
 
 Audio handles, decoded buffers, WebAudio nodes, Cocos handles, and scheduling internals are renderer-local transient resources. Engine/store owns audio intent.
 
+BGM crossfade is represented in engine-owned projection, not renderer-owned history. When a new BGM is played with `crossfadeMs`, the previous current BGM remains in `bgmOutgoing` as a `stopping` track with fade metadata while the new `bgm` track fades in. Renderers consume both projected tracks and report the outgoing track's `audio/ended` event so the plugin can clear it.
+
 ## Runtime Packages
 
-Audio asset refs and projections must preserve `contentPackageId` and `requiredRuntimePackages`. Runtime package unload should clear audio entries owned by or dependent on the unloaded package.
+Audio asset refs and projections must preserve `contentPackageId` and `requiredRuntimePackages`, including outgoing BGM crossfade tracks. Runtime package unload should clear audio entries owned by or dependent on the unloaded package.
 
 ## Validation
 

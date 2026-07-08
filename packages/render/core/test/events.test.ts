@@ -15,6 +15,7 @@ import {
   LogicToRenderEvents,
   onLogicToRender,
   onRenderToLogic,
+  projectAudioProjection,
   RendererPluginHost,
   RenderToLogicEvents,
   resolveActiveUiSceneProjection,
@@ -33,6 +34,49 @@ import {
 } from '../src'
 
 describe('render-core event contracts', () => {
+  it('projects animation tracks onto outgoing BGM projections', () => {
+    const projected = projectAudioProjection<any>({
+      plugins: {
+        audio: {
+          buses: {},
+          bgmOutgoing: [
+            {
+              id: 'bgm-old',
+              kind: 'bgm',
+              assetKey: 'bgm/old.ogg',
+              state: 'stopping',
+              gainDb: -80,
+            },
+          ],
+          voices: [],
+          sfx: [],
+          ambients: [],
+        },
+      },
+      animations: [
+        {
+          id: 'fade-old-bgm',
+          state: 'running',
+          startedAt: 0,
+          duration: 1000,
+          playbackRate: 1,
+          resolvedTracks: [
+            {
+              target: 'audioTrack:bgm-old',
+              property: 'gainDb',
+              keyframes: [
+                { at: 0, value: -80 },
+                { at: 1000, value: -12 },
+              ],
+            },
+          ],
+        },
+      ],
+    } as any, 1000)
+
+    expect(projected?.bgmOutgoing[0].gainDb).toBe(-12)
+  })
+
   it('normalizes project layout presets for aspect-interval rendering', () => {
     expect(createViewLayoutProjection('landscape')).toEqual(expect.objectContaining({
       orientation: 'landscape',
