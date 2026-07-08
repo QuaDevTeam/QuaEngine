@@ -5,6 +5,13 @@ import { parseNativeRendererIntentPayload } from '@quajs/native-contracts'
 
 type NativeRendererIntentPipeline = Parameters<typeof emitRenderToLogic>[0]
 const RENDER_TO_LOGIC_UI_INTENT = 'ui/intent'
+const AUDIO_RENDER_TO_LOGIC_EVENTS = {
+  ENDED: 'audio/ended',
+  INTERRUPTED: 'audio/interrupted',
+  UNLOCKED: 'audio/unlocked',
+  ERROR: 'audio/error',
+} as const
+type NativeAudioRenderToLogicEvent = typeof AUDIO_RENDER_TO_LOGIC_EVENTS[keyof typeof AUDIO_RENDER_TO_LOGIC_EVENTS]
 const INPUT_COMMANDS = new Set([
   'advance',
   'auto:start',
@@ -26,9 +33,10 @@ const INPUT_COMMANDS = new Set([
 ])
 const INPUT_DEVICES = new Set(['keyboard', 'pointer', 'wheel', 'gamepad'])
 const TEXT_INPUT_PHASES = new Set(['enabled', 'disabled', 'preedit', 'commit'])
+const AUDIO_TRACK_CHANNELS = new Set(['bgm', 'voice', 'sfx', 'ambient'])
 
 export interface NativeRendererIntentEmittedEvent {
-  type: RenderToLogicEvents | typeof RENDER_TO_LOGIC_UI_INTENT
+  type: RenderToLogicEvents | typeof RENDER_TO_LOGIC_UI_INTENT | NativeAudioRenderToLogicEvent
   payload: unknown
 }
 
@@ -61,6 +69,13 @@ export async function emitNativeRendererIntentToPipeline(
       return await emitNativeWindowLifecycleIntent(pipeline, RenderToLogicEvents.WINDOW_FOCUS)
     case RenderToLogicEvents.WINDOW_BLUR:
       return await emitNativeWindowLifecycleIntent(pipeline, RenderToLogicEvents.WINDOW_BLUR)
+    case AUDIO_RENDER_TO_LOGIC_EVENTS.ENDED:
+    case AUDIO_RENDER_TO_LOGIC_EVENTS.INTERRUPTED:
+      return await emitNativeAudioTrackIntent(pipeline, event, event.type)
+    case AUDIO_RENDER_TO_LOGIC_EVENTS.UNLOCKED:
+      return await emitNativeAudioUnlockedIntent(pipeline, event)
+    case AUDIO_RENDER_TO_LOGIC_EVENTS.ERROR:
+      return await emitNativeAudioErrorIntent(pipeline, event)
     default:
       return {
         handled: false,
@@ -219,6 +234,90 @@ async function emitNativeWindowLifecycleIntent(
   return { handled: true, emittedEvents }
 }
 
+async function emitNativeAudioTrackIntent(
+  pipeline: NativeRendererIntentPipeline,
+  event: NativeRendererIntent,
+  type: typeof AUDIO_RENDER_TO_LOGIC_EVENTS.ENDED | typeof AUDIO_RENDER_TO_LOGIC_EVENTS.INTERRUPTED,
+): Promise<NativeRendererIntentDispatchResult> {
+  const payload = normalizeAudioTrackEventPayload(parseNativeRendererIntentPayloadRecord(event), type)
+  const emittedEvents = [{ type, payload }]
+  await pipeline.emit(type, payload)
+  return { handled: true, emittedEvents }
+}
+
+async function emitNativeAudioUnlockedIntent(
+  pipeline: NativeRendererIntentPipeline,
+  event: NativeRendererIntent,
+): Promise<NativeRendererIntentDispatchResult> {
+  const payload = parseNativeRendererIntentPayloadRecord(event)
+  const timestamp = finiteNumberField(payload, 'timestamp')
+  if (timestamp === undefined) {
+    throw new Error('Native renderer audio/unlocked intent requires finite number payload field "timestamp".')
+  }
+
+  const emittedPayload = { timestamp }
+  const emittedEvents = [{ type: AUDIO_RENDER_TO_LOGIC_EVENTS.UNLOCKED, payload: emittedPayload }]
+  await pipeline.emit(AUDIO_RENDER_TO_LOGIC_EVENTS.UNLOCKED, emittedPayload)
+  return { handled: true, emittedEvents }
+}
+
+async function emitNativeAudioErrorIntent(
+  pipeline: NativeRendererIntentPipeline,
+  event: NativeRendererIntent,
+): Promise<NativeRendererIntentDispatchResult> {
+  const payload = parseNativeRendererIntentPayloadRecord(event)
+  const message = stringField(payload, 'message')
+  if (!message) {
+    throw new Error('Native renderer audio/error intent requires string payload field "message".')
+  }
+
+  const trackId = optionalIntentStringField(payload, 'trackId', 'audio/error')
+  const emittedPayload: Record<string, unknown> = { message }
+  if (trackId !== undefined)
+    emittedPayload.trackId = trackId
+  if ('error' in payload)
+    emittedPayload.error = payload.error
+
+  const emittedEvents = [{ type: AUDIO_RENDER_TO_LOGIC_EVENTS.ERROR, payload: emittedPayload }]
+  await pipeline.emit(AUDIO_RENDER_TO_LOGIC_EVENTS.ERROR, emittedPayload)
+  return { handled: true, emittedEvents }
+}
+
+function normalizeAudioTrackEventPayload(
+  payload: Record<string, unknown>,
+  intentType: typeof AUDIO_RENDER_TO_LOGIC_EVENTS.ENDED | typeof AUDIO_RENDER_TO_LOGIC_EVENTS.INTERRUPTED,
+): Record<string, unknown> {
+  const channel = stringField(payload, 'channel')
+  if (!channel || !AUDIO_TRACK_CHANNELS.has(channel)) {
+    throw new Error(`Native renderer ${intentType} intent requires supported string payload field "channel".`)
+  }
+
+  const id = stringField(payload, 'id')
+  if (!id) {
+    throw new Error(`Native renderer ${intentType} intent requires string payload field "id".`)
+  }
+
+  const assetKey = stringField(payload, 'assetKey')
+  if (!assetKey) {
+    throw new Error(`Native renderer ${intentType} intent requires string payload field "assetKey".`)
+  }
+
+  const chapterId = optionalIntentStringField(payload, 'chapterId', intentType)
+  const lineId = optionalIntentStringField(payload, 'lineId', intentType)
+  const reason = optionalIntentStringField(payload, 'reason', intentType)
+  const metadata = optionalRecordField(payload, 'metadata', intentType)
+  const normalized: Record<string, unknown> = { channel, id, assetKey }
+  if (chapterId !== undefined)
+    normalized.chapterId = chapterId
+  if (lineId !== undefined)
+    normalized.lineId = lineId
+  if (reason !== undefined)
+    normalized.reason = reason
+  if (metadata !== undefined)
+    normalized.metadata = metadata
+  return normalized
+}
+
 function parseNativeRendererIntentPayloadRecord(event: NativeRendererIntent): Record<string, unknown> {
   const payload = parseNativeRendererIntentPayload(event)
   if (payload === undefined)
@@ -345,6 +444,20 @@ function optionalStringField(payload: Record<string, unknown>, field: string): s
   return value
 }
 
+function optionalIntentStringField(
+  payload: Record<string, unknown>,
+  field: string,
+  intentType: string,
+): string | undefined {
+  const value = payload[field]
+  if (value === undefined)
+    return undefined
+  if (typeof value !== 'string') {
+    throw new Error(`Native renderer ${intentType} intent payload field "${field}" must be a string when provided.`)
+  }
+  return value
+}
+
 function optionalUiIntentStringField(payload: Record<string, unknown>, field: string): string | undefined {
   const value = payload[field]
   if (value === undefined)
@@ -383,7 +496,7 @@ function optionalBooleanField(payload: Record<string, unknown>, field: string): 
 function optionalRecordField(
   payload: Record<string, unknown>,
   field: string,
-  intentType: 'user/input_command' | 'user/text_input',
+  intentType: string,
 ): Record<string, unknown> | undefined {
   const value = payload[field]
   if (value === undefined)

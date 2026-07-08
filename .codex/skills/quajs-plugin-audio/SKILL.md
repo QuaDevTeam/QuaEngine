@@ -113,7 +113,7 @@ Audio automation and animation keyframe `easing` values use QuaEngine timing fun
 
 ## Renderer Boundary
 
-Browser autoplay policy is handled by the Web renderer runtime. Autoplay blocks are not engine audio errors; pending tracks should start after a valid user activation unlocks WebAudio. Native window product runtimes may use an opt-in renderer-local backend such as `quajs_native_app`'s `native-window,native-audio-rodio` feature combination; it must consume engine-owned audio projection and QPK-loaded bytes only.
+Browser autoplay policy is handled by the Web renderer runtime. Autoplay blocks are not engine audio errors; pending tracks should start after a valid user activation unlocks WebAudio. Native window product runtimes may use an opt-in renderer-local backend such as `quajs_native_app`'s `native-window,native-audio-rodio` feature combination; it must consume engine-owned audio projection and QPK-loaded bytes only. Native audio backends that report completion, interruption, unlock, or playback errors should emit the standard `audio/ended`, `audio/interrupted`, `audio/unlocked`, and `audio/error` pipeline event names through the native renderer intent bridge instead of adding a native-specific event path.
 
 Audio handles, decoded buffers, WebAudio nodes, Cocos handles, and scheduling internals are renderer-local transient resources. Engine/store owns audio intent.
 

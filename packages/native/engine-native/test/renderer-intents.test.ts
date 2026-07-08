@@ -74,6 +74,13 @@ function flushMicrotasks(): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, 0))
 }
 
+const AUDIO_EVENTS = {
+  ENDED: 'audio/ended',
+  INTERRUPTED: 'audio/interrupted',
+  UNLOCKED: 'audio/unlocked',
+  ERROR: 'audio/error',
+} as const
+
 describe('@quajs/engine-native renderer intents', () => {
   it('maps native renderer pointer intents into render-to-logic pipeline events', async () => {
     const pipeline = createTestPipeline()
@@ -285,6 +292,191 @@ describe('@quajs/engine-native renderer intents', () => {
       { type: RenderToLogicEvents.WINDOW_BLUR, payload: {} },
       { type: RenderToLogicEvents.WINDOW_FOCUS, payload: {} },
     ])
+  })
+
+  it('forwards native audio renderer intents into the existing audio pipeline events', async () => {
+    const pipeline = createTestPipeline()
+    const received: Array<{ type: string, payload: unknown }> = []
+    for (const type of Object.values(AUDIO_EVENTS)) {
+      pipeline.on(type, context => received.push({
+        type,
+        payload: context.event.payload,
+      }))
+    }
+
+    await expect(emitNativeRendererIntentToPipeline(
+      pipeline as any,
+      createNativeRendererIntent({
+        type: AUDIO_EVENTS.ENDED,
+        payload: {
+          channel: 'voice',
+          id: 'voice-line-1',
+          assetKey: 'voice/ch01/line-1.ogg',
+          chapterId: 'ch01',
+          lineId: 'line-1',
+          reason: 'finished',
+          metadata: {
+            contentPackageId: 'runtime.voice',
+          },
+        },
+      }),
+    )).resolves.toEqual({
+      handled: true,
+      emittedEvents: [
+        {
+          type: AUDIO_EVENTS.ENDED,
+          payload: {
+            channel: 'voice',
+            id: 'voice-line-1',
+            assetKey: 'voice/ch01/line-1.ogg',
+            chapterId: 'ch01',
+            lineId: 'line-1',
+            reason: 'finished',
+            metadata: {
+              contentPackageId: 'runtime.voice',
+            },
+          },
+        },
+      ],
+    })
+
+    await emitNativeRendererIntentToPipeline(
+      pipeline as any,
+      createNativeRendererIntent({
+        type: AUDIO_EVENTS.INTERRUPTED,
+        payload: {
+          channel: 'bgm',
+          id: 'bgm-main',
+          assetKey: 'audio/bgm/night.ogg',
+          reason: 'stopped',
+        },
+      }),
+    )
+    await expect(emitNativeRendererIntentToPipeline(
+      pipeline as any,
+      createNativeRendererIntent({
+        type: AUDIO_EVENTS.UNLOCKED,
+        payload: {
+          timestamp: 3456,
+        },
+      }),
+    )).resolves.toEqual({
+      handled: true,
+      emittedEvents: [
+        {
+          type: AUDIO_EVENTS.UNLOCKED,
+          payload: { timestamp: 3456 },
+        },
+      ],
+    })
+    await emitNativeRendererIntentToPipeline(
+      pipeline as any,
+      createNativeRendererIntent({
+        type: AUDIO_EVENTS.ERROR,
+        payload: {
+          message: 'native decoder failed',
+          trackId: 'sfx-click',
+          error: { code: 'decode' },
+        },
+      }),
+    )
+
+    expect(received).toEqual([
+      {
+        type: AUDIO_EVENTS.ENDED,
+        payload: {
+          channel: 'voice',
+          id: 'voice-line-1',
+          assetKey: 'voice/ch01/line-1.ogg',
+          chapterId: 'ch01',
+          lineId: 'line-1',
+          reason: 'finished',
+          metadata: {
+            contentPackageId: 'runtime.voice',
+          },
+        },
+      },
+      {
+        type: AUDIO_EVENTS.INTERRUPTED,
+        payload: {
+          channel: 'bgm',
+          id: 'bgm-main',
+          assetKey: 'audio/bgm/night.ogg',
+          reason: 'stopped',
+        },
+      },
+      { type: AUDIO_EVENTS.UNLOCKED, payload: { timestamp: 3456 } },
+      {
+        type: AUDIO_EVENTS.ERROR,
+        payload: {
+          message: 'native decoder failed',
+          trackId: 'sfx-click',
+          error: { code: 'decode' },
+        },
+      },
+    ])
+  })
+
+  it('rejects malformed native audio intents before emitting pipeline events', async () => {
+    const pipeline = createTestPipeline()
+    const received: unknown[] = []
+    for (const type of Object.values(AUDIO_EVENTS)) {
+      pipeline.on(type, context => received.push(context.event.payload))
+    }
+
+    await expect(emitNativeRendererIntentToPipeline(
+      pipeline as any,
+      createNativeRendererIntent({
+        type: AUDIO_EVENTS.ENDED,
+        payload: {
+          channel: 'movie',
+          id: 'voice-line-1',
+          assetKey: 'voice/ch01/line-1.ogg',
+        },
+      }),
+    )).rejects.toThrow('Native renderer audio/ended intent requires supported string payload field "channel".')
+
+    await expect(emitNativeRendererIntentToPipeline(
+      pipeline as any,
+      createNativeRendererIntent({
+        type: AUDIO_EVENTS.INTERRUPTED,
+        payload: {
+          channel: 'bgm',
+          id: 'bgm-main',
+        },
+      }),
+    )).rejects.toThrow('Native renderer audio/interrupted intent requires string payload field "assetKey".')
+
+    await expect(emitNativeRendererIntentToPipeline(
+      pipeline as any,
+      createNativeRendererIntent({
+        type: AUDIO_EVENTS.ENDED,
+        payload: {
+          channel: 'voice',
+          id: 'voice-line-1',
+          assetKey: 'voice/ch01/line-1.ogg',
+          metadata: ['not-record'],
+        },
+      }),
+    )).rejects.toThrow('Native renderer audio/ended intent payload field "metadata" must be an object when provided.')
+
+    await expect(emitNativeRendererIntentToPipeline(
+      pipeline as any,
+      createNativeRendererIntent({
+        type: AUDIO_EVENTS.UNLOCKED,
+        payload: { timestamp: Number.NaN },
+      }),
+    )).rejects.toThrow('Native renderer audio/unlocked intent requires finite number payload field "timestamp".')
+
+    await expect(emitNativeRendererIntentToPipeline(
+      pipeline as any,
+      createNativeRendererIntent({
+        type: AUDIO_EVENTS.ERROR,
+        payload: { trackId: 'sfx-click' },
+      }),
+    )).rejects.toThrow('Native renderer audio/error intent requires string payload field "message".')
+
+    expect(received).toEqual([])
   })
 
   it('rejects malformed native input command intents before emitting pipeline events', async () => {
