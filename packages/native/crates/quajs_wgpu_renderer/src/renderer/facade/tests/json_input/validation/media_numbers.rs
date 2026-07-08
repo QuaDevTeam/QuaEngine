@@ -38,6 +38,29 @@ fn json_frame_audio_number_validation_rejects_unsafe_resolved_values() {
 }
 
 #[test]
+fn json_frame_audio_timing_validation_rejects_unsafe_resolved_values() {
+    let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
+
+    for (field, value_json, reason) in [
+        ("seekMs", "-1", "non-negative"),
+        ("playAt", "8640000000001", "timestamp"),
+    ] {
+        let input = json_frame_with_unsafe_audio_timing_input(field, value_json);
+        let error = renderer.prepare_frame_json_str(&input).unwrap_err();
+        match error {
+            NativeRendererJsonFrameError::Validation(validation) => {
+                assert_eq!(validation.path, format!("view.audio.tracks[0].{field}"));
+                assert!(validation.reason.contains(reason));
+            }
+            other => panic!("expected unsafe audio timing validation error, got {other:?}"),
+        }
+    }
+
+    assert_eq!(renderer.state().revision(), 0);
+    assert!(renderer.state().frame().is_none());
+}
+
+#[test]
 fn json_frame_audio_projection_validation_rejects_web_audio_alias_fields() {
     let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
 

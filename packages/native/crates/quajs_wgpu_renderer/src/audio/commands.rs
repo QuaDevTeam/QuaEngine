@@ -52,6 +52,14 @@ pub struct AudioBackendTrackState {
     pub playback_state: AudioTrackPlaybackState,
     pub looped: bool,
     pub volume: f32,
+    pub duration_ms: Option<f64>,
+    pub fade_in_ms: Option<f64>,
+    pub fade_out_ms: Option<f64>,
+    pub crossfade_ms: Option<f64>,
+    pub play_at: Option<f64>,
+    pub delay_ms: Option<f64>,
+    pub seek_ms: Option<f64>,
+    pub offset_ms: Option<f64>,
     pub package_candidates: BTreeSet<String>,
     pub media_resource_id: ResourceId,
     pub handle_resource_id: ResourceId,
@@ -175,6 +183,14 @@ fn audio_backend_track_state(
         playback_state: track.playback_state,
         looped: track.looped,
         volume: track.volume,
+        duration_ms: track.duration_ms,
+        fade_in_ms: track.fade_in_ms,
+        fade_out_ms: track.fade_out_ms,
+        crossfade_ms: track.crossfade_ms,
+        play_at: track.play_at,
+        delay_ms: track.delay_ms,
+        seek_ms: track.seek_ms,
+        offset_ms: track.offset_ms,
         package_candidates,
         media_resource_id: media_resource_id(track),
         handle_resource_id: handle_resource_id(track),
@@ -238,6 +254,14 @@ fn track_playback_changed(
     previous.playback_state != next.playback_state
         || previous.looped != next.looped
         || (previous.volume - next.volume).abs() > f32::EPSILON
+        || previous.duration_ms != next.duration_ms
+        || previous.fade_in_ms != next.fade_in_ms
+        || previous.fade_out_ms != next.fade_out_ms
+        || previous.crossfade_ms != next.crossfade_ms
+        || previous.play_at != next.play_at
+        || previous.delay_ms != next.delay_ms
+        || previous.seek_ms != next.seek_ms
+        || previous.offset_ms != next.offset_ms
         || previous.package_candidates != next.package_candidates
 }
 

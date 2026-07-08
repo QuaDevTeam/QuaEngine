@@ -21,6 +21,8 @@ pub(crate) const MAX_NATIVE_CHARACTER_ROTATION_DEGREES: f64 = 360_000.0;
 pub(crate) const MAX_NATIVE_Z_INDEX: i32 = 1_000_000;
 pub(crate) const MAX_NATIVE_STACK_PRIORITY: i32 = 1_000;
 pub(crate) const MAX_NATIVE_AUDIO_TRACK_CPU_BYTES: u64 = 2 * 1024 * 1024 * 1024;
+pub(crate) const MAX_NATIVE_AUDIO_DURATION_MS: f64 = 24.0 * 60.0 * 60.0 * 1000.0;
+pub(crate) const MAX_NATIVE_AUDIO_TIMESTAMP_MS: f64 = 8_640_000_000_000.0;
 
 pub(crate) const MAX_NATIVE_UI_LOGICAL_COORDINATE: f64 = 1_000_000.0;
 pub(crate) const MAX_NATIVE_UI_LOGICAL_DIMENSION: f64 = 1_000_000.0;
@@ -154,13 +156,34 @@ pub(crate) fn is_safe_native_ui_style_numbers(style: &UiSurfaceResolvedStyle) ->
 }
 
 pub(crate) fn is_safe_native_audio_track_numbers(track: &AudioTrackProjection) -> bool {
-    is_safe_native_opacity(track.volume) && is_safe_native_audio_memory(&track.memory)
+    is_safe_native_opacity(track.volume)
+        && is_safe_optional_audio_duration_ms(track.duration_ms)
+        && is_safe_optional_audio_duration_ms(track.fade_in_ms)
+        && is_safe_optional_audio_duration_ms(track.fade_out_ms)
+        && is_safe_optional_audio_duration_ms(track.crossfade_ms)
+        && is_safe_optional_audio_timestamp_ms(track.play_at)
+        && is_safe_optional_audio_duration_ms(track.delay_ms)
+        && is_safe_optional_audio_duration_ms(track.seek_ms)
+        && is_safe_optional_audio_duration_ms(track.offset_ms)
+        && is_safe_native_audio_memory(&track.memory)
 }
 
 pub(crate) fn is_safe_native_audio_memory(memory: &AudioTrackMemoryEstimate) -> bool {
     memory.buffer_cpu_bytes <= MAX_NATIVE_AUDIO_TRACK_CPU_BYTES
         && memory.stream_cpu_bytes <= MAX_NATIVE_AUDIO_TRACK_CPU_BYTES
         && memory.handle_cpu_bytes <= MAX_NATIVE_AUDIO_TRACK_CPU_BYTES
+}
+
+pub(crate) fn is_safe_optional_audio_duration_ms(value: Option<f64>) -> bool {
+    value.is_none_or(|value| {
+        value.is_finite() && value >= 0.0 && value <= MAX_NATIVE_AUDIO_DURATION_MS
+    })
+}
+
+pub(crate) fn is_safe_optional_audio_timestamp_ms(value: Option<f64>) -> bool {
+    value.is_none_or(|value| {
+        value.is_finite() && value >= 0.0 && value <= MAX_NATIVE_AUDIO_TIMESTAMP_MS
+    })
 }
 
 pub(crate) fn is_safe_native_text_payload(text: &str) -> bool {
