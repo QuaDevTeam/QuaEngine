@@ -135,6 +135,17 @@ impl NativeWindowSmokeApp {
         )?;
         let present_outcome = present_window_smoke_frame(runtime, allow_occluded_report)?;
         let input_metrics = self.input.metrics();
+        if product_frame.frame_number >= self.target_frame_count {
+            let shutdown = self
+                .product_loop
+                .shutdown_with_audio_teardown(&mut runtime.renderer)
+                .map_err(|error| {
+                    NativeWindowSmokeError::new(format!(
+                        "Native renderer smoke shutdown failed: {error}."
+                    ))
+                })?;
+            self.texture_metrics.record_shutdown_cleanup(&shutdown);
+        }
         let audio_metrics =
             NativeWindowSmokeAudioMetrics::from_null_backend(runtime.renderer.audio_backend());
 
