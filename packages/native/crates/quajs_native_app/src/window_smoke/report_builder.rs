@@ -1,9 +1,8 @@
-use winit::dpi::PhysicalSize;
-
 use super::frame::WindowFrameDimensions;
 use super::input::NativeWindowSmokeInputMetrics;
 use super::metrics::{NativeWindowSmokeAudioMetrics, NativeWindowSmokeTextureMetrics};
 use super::report::NativeWindowSmokeReport;
+use crate::product_window::NativeProductWindowPhysicalSize;
 
 pub(super) struct NativeWindowSmokeReportInput<'a> {
     pub adapter_name: &'a str,
@@ -19,7 +18,7 @@ pub(super) struct NativeWindowSmokeReportInput<'a> {
     pub texture_metrics: &'a NativeWindowSmokeTextureMetrics,
     pub audio_metrics: &'a NativeWindowSmokeAudioMetrics,
     pub input_metrics: &'a NativeWindowSmokeInputMetrics,
-    pub last_resize_physical_size: Option<PhysicalSize<u32>>,
+    pub last_resize_physical_size: Option<NativeProductWindowPhysicalSize>,
     pub dimensions: WindowFrameDimensions,
     pub revision: u64,
     pub pass_count: usize,
@@ -184,11 +183,11 @@ mod tests {
             texture_metrics: &texture_metrics,
             audio_metrics: &audio_metrics,
             input_metrics: &input_metrics,
-            last_resize_physical_size: Some(PhysicalSize::new(960, 540)),
+            last_resize_physical_size: Some(NativeProductWindowPhysicalSize::new(960, 540)),
             dimensions: WindowFrameDimensions {
                 logical_width: 480.0,
                 logical_height: 270.0,
-                physical_size: PhysicalSize::new(960, 540),
+                physical_size: winit::dpi::PhysicalSize::new(960, 540),
                 device_pixel_ratio: 2.0,
             },
             revision: 7,

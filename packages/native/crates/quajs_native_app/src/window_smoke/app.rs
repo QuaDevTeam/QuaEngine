@@ -4,29 +4,30 @@ use winit::dpi::{LogicalSize, PhysicalSize};
 use winit::event_loop::ActiveEventLoop;
 use winit::window::Window;
 
-use super::bootstrap::NativeWindowSmokeRuntime;
 use super::config::load_window_smoke_target_frame_count;
 use super::error::NativeWindowSmokeError;
 use super::frame::{frame_json_for_window, normalized_physical_size, window_frame_dimensions};
 use super::input::NativeWindowSmokeInputState;
 use super::metrics::{NativeWindowSmokeAudioMetrics, NativeWindowSmokeTextureMetrics};
-use super::present::present_window_smoke_frame;
 use super::report::NativeWindowSmokeReport;
 use super::report_builder::{build_window_smoke_report, NativeWindowSmokeReportInput};
-use super::resize::NativeWindowSmokeResizeState;
 use super::texture_host::create_window_smoke_texture_host;
 use crate::product_frame_scheduler::NativeProductFrameScheduler;
+use crate::product_window::{
+    NativeProductWindowInMemoryRuntime, NativeProductWindowPhysicalSize,
+    NativeProductWindowResizeState,
+};
 
 mod events;
 
 pub(super) struct NativeWindowSmokeApp {
     frame_source: String,
     window: Option<Arc<Window>>,
-    runtime: Option<NativeWindowSmokeRuntime>,
+    runtime: Option<NativeProductWindowInMemoryRuntime>,
     input: NativeWindowSmokeInputState,
     texture_metrics: NativeWindowSmokeTextureMetrics,
     frame_scheduler: NativeProductFrameScheduler,
-    resize_state: NativeWindowSmokeResizeState,
+    resize_state: NativeProductWindowResizeState,
     pub(super) report: Option<NativeWindowSmokeReport>,
     pub(super) error: Option<NativeWindowSmokeError>,
 }
@@ -42,7 +43,7 @@ impl NativeWindowSmokeApp {
             frame_scheduler: NativeProductFrameScheduler::new(
                 load_window_smoke_target_frame_count(),
             ),
-            resize_state: NativeWindowSmokeResizeState::default(),
+            resize_state: NativeProductWindowResizeState::default(),
             report: None,
             error: None,
         }
@@ -77,8 +78,17 @@ impl NativeWindowSmokeApp {
                 "Failed to create native renderer smoke wgpu surface: {error}."
             ))
         })?;
-        let runtime =
-            NativeWindowSmokeRuntime::bootstrap(&instance, surface, physical_size, texture_host)?;
+        let runtime = NativeProductWindowInMemoryRuntime::bootstrap(
+            &instance,
+            surface,
+            NativeProductWindowPhysicalSize::new(physical_size.width, physical_size.height),
+            texture_host,
+        )
+        .map_err(|error| {
+            NativeWindowSmokeError::new(format!(
+                "Failed to bootstrap native renderer smoke product window: {error}."
+            ))
+        })?;
 
         self.runtime = Some(runtime);
         self.window = Some(window.clone());
@@ -125,7 +135,13 @@ impl NativeWindowSmokeApp {
             self.input
                 .run_open_settings_probe(renderer, host, &frame_json)?;
         }
-        let present_outcome = present_window_smoke_frame(runtime, allow_occluded_report)?;
+        let present_outcome = runtime
+            .present_frame(allow_occluded_report)
+            .map_err(|error| {
+                NativeWindowSmokeError::new(format!(
+                    "Native renderer smoke surface present failed: {error}."
+                ))
+            })?;
         let input_metrics = self.input.metrics();
         if product_frame.frame_number >= self.frame_scheduler.target_frame_count() {
             let shutdown = runtime.shutdown_with_audio_teardown().map_err(|error| {
@@ -138,11 +154,12 @@ impl NativeWindowSmokeApp {
         let audio_metrics =
             NativeWindowSmokeAudioMetrics::from_null_backend(runtime.renderer().audio_backend());
 
+        let presentation = runtime.presentation();
         Ok(build_window_smoke_report(NativeWindowSmokeReportInput {
-            adapter_name: &runtime.adapter_name,
-            surface_format: &runtime.surface_format,
-            present_mode: &runtime.present_mode,
-            present_status: &present_outcome.present_status,
+            adapter_name: &presentation.adapter_name,
+            surface_format: &presentation.surface_format,
+            present_mode: &presentation.present_mode,
+            present_status: present_outcome.present_status,
             presented: present_outcome.presented,
             present_attempt_count: self.frame_scheduler.attempt_count(),
             target_frame_count: self.frame_scheduler.target_frame_count(),
@@ -167,7 +184,16 @@ impl NativeWindowSmokeApp {
             return Ok(());
         };
         let physical_size = normalized_physical_size(size);
-        let resize_report = runtime.resize_to_physical_size(physical_size)?;
+        let resize_report = runtime
+            .resize_to_physical_size(NativeProductWindowPhysicalSize::new(
+                physical_size.width,
+                physical_size.height,
+            ))
+            .map_err(|error| {
+                NativeWindowSmokeError::new(format!(
+                    "Failed to resize native renderer smoke product window: {error}."
+                ))
+            })?;
         self.resize_state.record_resize(resize_report);
         Ok(())
     }

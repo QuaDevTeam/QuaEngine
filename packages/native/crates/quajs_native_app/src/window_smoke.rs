@@ -1,14 +1,11 @@
 mod app;
-mod bootstrap;
 mod config;
 mod error;
 mod frame;
 mod input;
 mod metrics;
-mod present;
 mod report;
 mod report_builder;
-mod resize;
 mod texture_host;
 
 use app::NativeWindowSmokeApp;
