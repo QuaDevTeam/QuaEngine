@@ -163,16 +163,37 @@ impl NativeProductInputController {
     where
         H: NativeHostApi,
     {
-        match event.physical_key {
-            PhysicalKey::Code(code) => {
-                self.dispatch_keyboard_code(host, code, event.state, event.repeat)
+        let timestamp = native_input_timestamp_ms();
+        if let PhysicalKey::Code(code) = event.physical_key {
+            if let Some(payload) =
+                build_keyboard_input_command_payload(code, event.state, event.repeat, timestamp)
+            {
+                emit_native_renderer_intent(host, "user/input_command", Some(payload))?;
+                return Ok(NativeProductKeyboardEventReport {
+                    state: event.state,
+                    repeat: event.repeat,
+                    intent_emitted: true,
+                });
             }
-            PhysicalKey::Unidentified(_) => Ok(NativeProductKeyboardEventReport {
+        }
+        if let Some(payload) = build_keyboard_text_input_payload(
+            event.text.as_deref(),
+            event.state,
+            event.repeat,
+            timestamp,
+        ) {
+            emit_native_renderer_intent(host, "user/text_input", Some(payload))?;
+            return Ok(NativeProductKeyboardEventReport {
                 state: event.state,
                 repeat: event.repeat,
-                intent_emitted: false,
-            }),
+                intent_emitted: true,
+            });
         }
+        Ok(NativeProductKeyboardEventReport {
+            state: event.state,
+            repeat: event.repeat,
+            intent_emitted: false,
+        })
     }
 
     pub(crate) fn dispatch_keyboard_code<H>(
@@ -377,6 +398,35 @@ fn build_keyboard_input_command_payload(
     }))
 }
 
+fn build_keyboard_text_input_payload(
+    text: Option<&str>,
+    state: ElementState,
+    repeat: bool,
+    timestamp: u64,
+) -> Option<Value> {
+    if state != ElementState::Pressed {
+        return None;
+    }
+    let text = text?;
+    if !is_keyboard_commit_text(text) {
+        return None;
+    }
+    Some(json!({
+        "phase": "commit",
+        "source": "keyboard",
+        "timestamp": timestamp,
+        "text": text,
+        "metadata": {
+            "textByteCount": text.len(),
+            "repeat": repeat,
+        },
+    }))
+}
+
+fn is_keyboard_commit_text(text: &str) -> bool {
+    !text.is_empty() && text.chars().all(|character| !character.is_control())
+}
+
 fn build_ime_text_input_payload(event: &Ime, timestamp: u64) -> Value {
     match event {
         Ime::Enabled => json!({
@@ -575,6 +625,39 @@ mod tests {
             42,
         )
         .is_none());
+    }
+
+    #[test]
+    fn builds_keyboard_text_input_commit_payloads_for_printable_text() {
+        let payload =
+            build_keyboard_text_input_payload(Some("かな"), ElementState::Pressed, false, 42)
+                .expect("printable text commits");
+
+        assert_eq!(payload["phase"], "commit");
+        assert_eq!(payload["source"], "keyboard");
+        assert_eq!(payload["timestamp"], 42);
+        assert_eq!(payload["text"], "かな");
+        assert_eq!(payload["metadata"]["textByteCount"], "かな".len());
+        assert_eq!(payload["metadata"]["repeat"], false);
+
+        let repeat = build_keyboard_text_input_payload(Some("a"), ElementState::Pressed, true, 43)
+            .expect("text repeats commit");
+        assert_eq!(repeat["metadata"]["repeat"], true);
+    }
+
+    #[test]
+    fn skips_keyboard_text_input_for_releases_and_control_text() {
+        assert!(
+            build_keyboard_text_input_payload(Some("a"), ElementState::Released, false, 42,)
+                .is_none()
+        );
+        assert!(
+            build_keyboard_text_input_payload(Some("\r"), ElementState::Pressed, false, 42)
+                .is_none()
+        );
+        assert!(
+            build_keyboard_text_input_payload(Some(""), ElementState::Pressed, false, 42).is_none()
+        );
     }
 
     #[test]
