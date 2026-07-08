@@ -139,6 +139,9 @@ impl NativeProductAppLoop {
     }
 
     pub(crate) fn record_frame_retry_requested(&mut self) -> NativeProductAppLoopAction {
+        if !self.can_request_redraw() {
+            return self.lifecycle_tick_action();
+        }
         self.maybe_request_redraw()
     }
 
@@ -289,5 +292,21 @@ mod tests {
         assert!(action.tick_host_lifecycle);
         assert!(!action.request_redraw);
         assert_eq!(app_loop.snapshot().lifecycle_tick_request_count, 2);
+    }
+
+    #[test]
+    fn hidden_retry_ticks_host_lifecycle_until_redraw_is_available() {
+        let mut app_loop = NativeProductAppLoop::new();
+        app_loop.record_resumed();
+        app_loop.record_redraw_dispatch_started();
+        app_loop.record_visibility_changed(false);
+
+        let hidden_retry = app_loop.record_frame_retry_requested();
+
+        assert!(hidden_retry.tick_host_lifecycle);
+        assert!(!hidden_retry.request_redraw);
+        assert!(!app_loop.snapshot().redraw_pending);
+        assert_eq!(app_loop.snapshot().redraw_request_count, 1);
+        assert_eq!(app_loop.snapshot().lifecycle_tick_request_count, 3);
     }
 }
