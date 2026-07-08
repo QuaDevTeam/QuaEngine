@@ -58,7 +58,19 @@ pub(in crate::renderer::backend::wgpu::runtime_executor::real_device) fn create_
     target: &RealWgpuNativeRenderRuntimeTarget,
     layout: &wgpu::BindGroupLayout,
     cache_label: &str,
+    resource_ids: &[String],
+    decoded_textures: &BTreeMap<String, RealRuntimeDecodedTexture>,
 ) -> RealRuntimeTextureSamplerBindGroup {
+    if let Some((resource_id, decoded)) = find_decoded_texture(resource_ids, decoded_textures) {
+        return create_decoded_texture_sampler_bind_group(
+            target,
+            layout,
+            cache_label,
+            resource_id,
+            decoded,
+        );
+    }
+
     let rgba = builtin_text_atlas_rgba8();
     let (width, height) = builtin_text_atlas_dimensions();
     let extent = wgpu::Extent3d {

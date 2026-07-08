@@ -50,8 +50,13 @@ pub(super) fn create_real_bind_group(
             })
         }
         WgpuNativeRenderBindGroupLayout::TextAtlas => {
-            let texture_sampler =
-                create_text_atlas_bind_group(target, text_atlas_bind_group_layout, cache_label);
+            let texture_sampler = create_text_atlas_bind_group(
+                target,
+                text_atlas_bind_group_layout,
+                cache_label,
+                resource_ids,
+                decoded_textures,
+            );
             Ok(RealRuntimeBindGroup {
                 command_id: command_id.to_string(),
                 layout,

@@ -98,8 +98,11 @@ impl RealWgpuNativeRenderRuntimeDevice {
     ) -> usize {
         let before = self.bind_groups.len();
         self.bind_groups.retain(|_, bind_group| {
-            bind_group.layout != WgpuNativeRenderBindGroupLayout::TextureSampler
-                || !bind_group.resource_ids.iter().any(|id| id == resource_id)
+            !matches!(
+                bind_group.layout,
+                WgpuNativeRenderBindGroupLayout::TextureSampler
+                    | WgpuNativeRenderBindGroupLayout::TextAtlas
+            ) || !bind_group.resource_ids.iter().any(|id| id == resource_id)
         });
         before.saturating_sub(self.bind_groups.len())
     }
