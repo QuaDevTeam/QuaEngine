@@ -35,6 +35,25 @@ impl NativeProductFramePresentFailureKind {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum NativeProductSurfaceRecoveryStatus {
+    NotAttempted,
+    Reconfigured,
+    MissingSize,
+    Error,
+}
+
+impl NativeProductSurfaceRecoveryStatus {
+    pub(crate) fn label(self) -> &'static str {
+        match self {
+            Self::NotAttempted => "not-attempted",
+            Self::Reconfigured => "reconfigured",
+            Self::MissingSize => "missing-size",
+            Self::Error => "error",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct NativeProductFrameAttempt {
     pub(crate) allow_occluded_report: bool,
     pub(crate) attempt_number: usize,
@@ -50,6 +69,7 @@ pub(crate) struct NativeProductSurfaceRecoveryMetrics {
     pub(crate) surface_recovery_error_count: usize,
     pub(crate) last_present_failure_kind: Option<NativeProductFramePresentFailureKind>,
     pub(crate) last_recovery_action: Option<NativeProductFramePresentFailureAction>,
+    pub(crate) last_surface_recovery_status: Option<NativeProductSurfaceRecoveryStatus>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -136,6 +156,8 @@ impl NativeProductFrameScheduler {
             .recovery_metrics
             .surface_recovery_success_count
             .saturating_add(1);
+        self.recovery_metrics.last_surface_recovery_status =
+            Some(NativeProductSurfaceRecoveryStatus::Reconfigured);
     }
 
     pub(crate) fn record_surface_recovery_missing_size(&mut self) {
@@ -143,6 +165,8 @@ impl NativeProductFrameScheduler {
             .recovery_metrics
             .surface_recovery_missing_size_count
             .saturating_add(1);
+        self.recovery_metrics.last_surface_recovery_status =
+            Some(NativeProductSurfaceRecoveryStatus::MissingSize);
     }
 
     pub(crate) fn record_surface_recovery_error(&mut self) {
@@ -150,6 +174,8 @@ impl NativeProductFrameScheduler {
             .recovery_metrics
             .surface_recovery_error_count
             .saturating_add(1);
+        self.recovery_metrics.last_surface_recovery_status =
+            Some(NativeProductSurfaceRecoveryStatus::Error);
     }
 
     pub(crate) fn classify_present_failure(
@@ -284,6 +310,7 @@ mod tests {
                 surface_recovery_attempt_count: 2,
                 surface_recovery_success_count: 1,
                 surface_recovery_error_count: 1,
+                last_surface_recovery_status: Some(NativeProductSurfaceRecoveryStatus::Error),
                 ..NativeProductSurfaceRecoveryMetrics::default()
             }
         );
@@ -320,6 +347,10 @@ mod tests {
         assert_eq!(
             NativeProductFramePresentFailureAction::RecoverSurface.label(),
             "recover-surface"
+        );
+        assert_eq!(
+            NativeProductSurfaceRecoveryStatus::Reconfigured.label(),
+            "reconfigured"
         );
     }
 }

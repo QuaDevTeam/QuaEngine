@@ -68,6 +68,10 @@ pub(super) fn build_window_smoke_report(
             .recovery_metrics
             .last_recovery_action
             .map(|action| action.label().to_string()),
+        last_surface_recovery_status: input
+            .recovery_metrics
+            .last_surface_recovery_status
+            .map(|status| status.label().to_string()),
         texture_upload_pending_request_count: input
             .texture_metrics
             .upload_last_pending_request_count,
@@ -237,6 +241,9 @@ mod tests {
                 last_recovery_action: Some(
                     crate::product_frame_scheduler::NativeProductFramePresentFailureAction::RecoverSurface,
                 ),
+                last_surface_recovery_status: Some(
+                    crate::product_frame_scheduler::NativeProductSurfaceRecoveryStatus::Reconfigured,
+                ),
             },
             last_present_failure_kind: Some(NativeProductWindowPresentFailureKind::Outdated),
             texture_metrics: &texture_metrics,
@@ -287,6 +294,10 @@ mod tests {
         assert_eq!(
             report.last_surface_recovery_action.as_deref(),
             Some("recover-surface")
+        );
+        assert_eq!(
+            report.last_surface_recovery_status.as_deref(),
+            Some("reconfigured")
         );
         assert_eq!(report.texture_upload_pending_request_count, 2);
         assert_eq!(report.texture_lifecycle_tracked_package_count, 3);
