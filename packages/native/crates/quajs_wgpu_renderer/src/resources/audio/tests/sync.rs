@@ -20,6 +20,26 @@ fn skips_stopped_audio_tracks() {
 }
 
 #[test]
+fn keeps_stopping_audio_tracks_until_renderer_fade_out_finishes() {
+    let mut track = AudioTrackProjection::new("voice-1", AudioTrackKind::Voice, "voice/001.ogg");
+    track.playback_state = AudioTrackPlaybackState::Stopping;
+    track.fade_out_ms = Some(300.0);
+    let audio = AudioProjection::new(vec![track]);
+
+    let sync = plan_audio_resource_sync(&NativeResourceLedger::new(), Some(&audio));
+
+    assert_eq!(sync.upsert.len(), 2);
+    assert!(sync
+        .upsert
+        .iter()
+        .any(|record| { record.id == ResourceId::from("audio:buffer:voice:voice:voice/001.ogg") }));
+    assert!(sync
+        .upsert
+        .iter()
+        .any(|record| { record.id == ResourceId::from("audio:handle:voice:voice:voice-1") }));
+}
+
+#[test]
 fn retains_matching_audio_records_and_releases_stale_audio_only() {
     let audio = AudioProjection::new(vec![AudioTrackProjection::new(
         "voice-1",

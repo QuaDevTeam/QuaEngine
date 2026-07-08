@@ -29,6 +29,7 @@ impl AudioTrackKind {
 pub enum AudioTrackPlaybackState {
     Playing,
     Paused,
+    Stopping,
     Stopped,
 }
 

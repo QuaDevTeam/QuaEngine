@@ -155,11 +155,14 @@ function mergeAudioRequiredPackages(track: JsonRecord, requiredRuntimePackages: 
   return track
 }
 
-function nativeAudioPlaybackState(state: unknown): 'playing' | 'paused' | 'stopped' {
+function nativeAudioPlaybackState(state: unknown): 'playing' | 'paused' | 'stopping' | 'stopped' {
   if (state === 'paused') {
     return 'paused'
   }
-  if (state === 'idle' || state === 'stopping' || state === 'stopped') {
+  if (state === 'stopping') {
+    return 'stopping'
+  }
+  if (state === 'idle' || state === 'stopped') {
     return 'stopped'
   }
   return 'playing'

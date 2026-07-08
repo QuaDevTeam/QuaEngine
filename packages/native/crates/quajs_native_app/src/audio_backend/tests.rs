@@ -318,6 +318,7 @@ fn playback_label(state: AudioTrackPlaybackState) -> &'static str {
     match state {
         AudioTrackPlaybackState::Playing => "playing",
         AudioTrackPlaybackState::Paused => "paused",
+        AudioTrackPlaybackState::Stopping => "stopping",
         AudioTrackPlaybackState::Stopped => "stopped",
     }
 }

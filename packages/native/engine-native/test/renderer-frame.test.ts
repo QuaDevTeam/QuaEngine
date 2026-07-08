@@ -99,7 +99,7 @@ describe('native renderer frame serialization', () => {
           assetName: 'audio/ambient/rain.ogg',
           assetType: 'ambient',
           loadMode: 'streamed',
-          playbackState: 'stopped',
+          playbackState: 'stopping',
           volume: 0.12589254117941673,
           provenance: {
             requiredRuntimePackages: ['runtime.audio'],
