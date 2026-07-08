@@ -53,6 +53,8 @@ fn stream_state(asset_name: &str) -> VideoBackendStreamState {
         muted: false,
         volume: 1.0,
         playback_rate: 1.0,
+        seek_ms: None,
+        offset_ms: None,
         package_candidates: Default::default(),
         decoder_resource_id: ResourceId::from(format!("video:decoder:video:{asset_name}")),
         frame_queue_resource_id: ResourceId::from(format!("video:frame-queue:video:{asset_name}")),

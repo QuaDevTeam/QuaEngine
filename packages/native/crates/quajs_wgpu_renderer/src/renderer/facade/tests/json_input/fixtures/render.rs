@@ -141,6 +141,8 @@ pub(in super::super) fn json_frame_with_video_background_input() -> &'static str
             "muted": false,
             "volume": 0.65,
             "playbackRate": 1.25,
+            "seekMs": 1200,
+            "offsetMs": 50,
             "fit": "contain",
             "origin": "right 75%",
             "opacity": 0.85,

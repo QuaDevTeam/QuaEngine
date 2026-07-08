@@ -284,6 +284,8 @@ export interface ViewVideoBackgroundProjection {
   muted?: boolean
   volume?: number
   playbackRate?: number
+  seekMs?: number
+  offsetMs?: number
   poster?: string
   transition?: TransitionIntent
   metadata?: Readonly<Record<string, unknown>>

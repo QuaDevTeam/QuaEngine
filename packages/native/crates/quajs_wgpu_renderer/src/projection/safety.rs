@@ -11,6 +11,7 @@ pub(crate) const MAX_NATIVE_BACKGROUND_LOGICAL_DIMENSION: f64 = 1_000_000.0;
 pub(crate) const MAX_NATIVE_BACKGROUND_SCALE: f64 = 1_000.0;
 pub(crate) const MAX_NATIVE_BACKGROUND_ROTATION_DEGREES: f64 = 360_000.0;
 pub(crate) const MAX_NATIVE_VIDEO_PLAYBACK_RATE: f32 = 16.0;
+pub(crate) const MAX_NATIVE_VIDEO_POSITION_MS: f64 = 24.0 * 60.0 * 60.0 * 1000.0;
 
 pub(crate) const MAX_NATIVE_CHARACTER_LOGICAL_COORDINATE: f64 = 1_000_000.0;
 pub(crate) const MAX_NATIVE_CHARACTER_LOGICAL_DIMENSION: f64 = 1_000_000.0;
@@ -78,6 +79,12 @@ pub(crate) fn is_safe_native_video_volume(value: Option<f32>) -> bool {
 pub(crate) fn is_safe_native_video_playback_rate(value: Option<f32>) -> bool {
     value.is_none_or(|value| {
         value.is_finite() && value > 0.0 && value <= MAX_NATIVE_VIDEO_PLAYBACK_RATE
+    })
+}
+
+pub(crate) fn is_safe_optional_native_video_position_ms(value: Option<f64>) -> bool {
+    value.is_none_or(|value| {
+        value.is_finite() && value >= 0.0 && value <= MAX_NATIVE_VIDEO_POSITION_MS
     })
 }
 

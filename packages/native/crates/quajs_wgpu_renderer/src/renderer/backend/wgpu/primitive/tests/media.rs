@@ -76,6 +76,8 @@ fn skips_empty_param_resource_ids_when_no_resources_are_bound() {
                 muted: None,
                 volume: None,
                 playback_rate: None,
+                seek_ms: None,
+                offset_ms: None,
                 fit: MediaFit::Cover,
                 origin: MediaOrigin::default(),
                 source: LogicalRect::default(),
@@ -173,6 +175,8 @@ fn lowers_video_fallback_poster_with_image_resource_namespace() {
                 muted: Some(false),
                 volume: Some(0.75),
                 playback_rate: Some(1.25),
+                seek_ms: Some(1_200.0),
+                offset_ms: Some(50.0),
                 fit: MediaFit::Cover,
                 origin: MediaOrigin::default(),
                 source: LogicalRect::default(),
@@ -196,6 +200,8 @@ fn lowers_video_fallback_poster_with_image_resource_namespace() {
             muted,
             volume,
             playback_rate,
+            seek_ms,
+            offset_ms,
             fit,
             origin,
             source,
@@ -207,6 +213,8 @@ fn lowers_video_fallback_poster_with_image_resource_namespace() {
             && *muted == Some(false)
             && *volume == Some(0.75)
             && *playback_rate == Some(1.25)
+            && *seek_ms == Some(1_200.0)
+            && *offset_ms == Some(50.0)
             && *fit == MediaFit::Cover
             && origin == &MediaOrigin::default()
             && source == &LogicalRect::default()
@@ -238,6 +246,8 @@ fn lowers_video_frame_resource_without_fallback_reason() {
                 muted: Some(false),
                 volume: Some(0.75),
                 playback_rate: Some(1.25),
+                seek_ms: Some(1_200.0),
+                offset_ms: Some(50.0),
                 fit: MediaFit::Cover,
                 origin: MediaOrigin::default(),
                 source: LogicalRect::default(),
@@ -261,6 +271,8 @@ fn lowers_video_frame_resource_without_fallback_reason() {
             muted,
             volume,
             playback_rate,
+            seek_ms,
+            offset_ms,
             fit,
             origin,
             source,
@@ -271,6 +283,8 @@ fn lowers_video_frame_resource_without_fallback_reason() {
             && *muted == Some(false)
             && *volume == Some(0.75)
             && *playback_rate == Some(1.25)
+            && *seek_ms == Some(1_200.0)
+            && *offset_ms == Some(50.0)
             && *fit == MediaFit::Cover
             && origin == &MediaOrigin::default()
             && source == &LogicalRect::default()

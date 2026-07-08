@@ -399,6 +399,8 @@ fn prefers_video_poster_texture_when_available() {
             muted: Some(true),
             volume: Some(0.8),
             playback_rate: Some(1.0),
+            seek_ms: Some(1_200.0),
+            offset_ms: Some(50.0),
             fit: MediaFit::Fill,
             origin: MediaOrigin::default(),
             source: LogicalRect::default(),

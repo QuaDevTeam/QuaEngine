@@ -36,6 +36,8 @@ fn plans_load_and_start_commands_for_new_background_video() {
     assert_eq!(stream.id, "background:video");
     assert_eq!(stream.asset_type, "video");
     assert_eq!(stream.asset_name, "movie/opening.mp4");
+    assert_eq!(stream.seek_ms, None);
+    assert_eq!(stream.offset_ms, None);
     assert_eq!(
         stream.decoder_resource_id,
         ResourceId::from("video:decoder:video:movie/opening.mp4")
@@ -103,6 +105,8 @@ fn updates_stream_when_playback_policy_changes() {
     next_video.muted = Some(true);
     next_video.volume = Some(0.5);
     next_video.playback_rate = Some(1.25);
+    next_video.seek_ms = Some(1_200.0);
+    next_video.offset_ms = Some(50.0);
     let background = background(next_video);
 
     let plan = plan_video_backend_commands(&previous, Some(&background), &assets([]));
@@ -114,6 +118,29 @@ fn updates_stream_when_playback_policy_changes() {
     assert!(stream.muted);
     assert_eq!(stream.volume, 0.5);
     assert_eq!(stream.playback_rate, 1.25);
+    assert_eq!(stream.seek_ms, Some(1_200.0));
+    assert_eq!(stream.offset_ms, Some(50.0));
+}
+
+#[test]
+fn updates_stream_when_projected_video_position_changes() {
+    let mut previous = VideoBackendStreamStateMap::new();
+    previous.insert(
+        "background:video".to_string(),
+        stream_state_with_position("movie/opening.mp4", Some(1_000.0), None),
+    );
+    let mut next_video = video("movie/opening.mp4");
+    next_video.seek_ms = Some(1_500.0);
+    next_video.offset_ms = Some(125.0);
+    let background = background(next_video);
+
+    let plan = plan_video_backend_commands(&previous, Some(&background), &assets([]));
+
+    assert_eq!(plan.commands.len(), 1);
+    assert_eq!(plan.commands[0].kind, VideoBackendCommandKind::UpdateStream);
+    let stream = plan.commands[0].stream.as_ref().unwrap();
+    assert_eq!(stream.seek_ms, Some(1_500.0));
+    assert_eq!(stream.offset_ms, Some(125.0));
 }
 
 #[test]
@@ -217,6 +244,34 @@ fn stream_state(
     volume: f32,
     playback_rate: f32,
 ) -> VideoBackendStreamState {
+    stream_state_with_position_and_policy(
+        asset_name,
+        looped,
+        muted,
+        volume,
+        playback_rate,
+        None,
+        None,
+    )
+}
+
+fn stream_state_with_position(
+    asset_name: &str,
+    seek_ms: Option<f64>,
+    offset_ms: Option<f64>,
+) -> VideoBackendStreamState {
+    stream_state_with_position_and_policy(asset_name, false, false, 1.0, 1.0, seek_ms, offset_ms)
+}
+
+fn stream_state_with_position_and_policy(
+    asset_name: &str,
+    looped: bool,
+    muted: bool,
+    volume: f32,
+    playback_rate: f32,
+    seek_ms: Option<f64>,
+    offset_ms: Option<f64>,
+) -> VideoBackendStreamState {
     plan_video_backend_commands(
         &VideoBackendStreamStateMap::new(),
         Some(&background(BackgroundVideoProjection {
@@ -224,6 +279,8 @@ fn stream_state(
             muted: Some(muted),
             volume: Some(volume),
             playback_rate: Some(playback_rate),
+            seek_ms,
+            offset_ms,
             ..BackgroundVideoProjection::new(asset_name)
         })),
         &assets([]),

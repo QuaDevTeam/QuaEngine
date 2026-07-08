@@ -109,6 +109,29 @@ pub(in super::super) fn json_frame_with_zero_video_playback_rate_input() -> &'st
     "#
 }
 
+pub(in super::super) fn json_frame_with_unsafe_video_position_input(
+    field: &str,
+    value_json: &str,
+) -> String {
+    format!(
+        r#"
+        {{
+          "container": {{ "width": 1600, "height": 1000 }},
+          "view": {{
+            "background": {{
+              "mode": "video",
+              "layers": [],
+              "video": {{
+                "assetName": "video/opening.webm",
+                "{field}": {value_json}
+              }}
+            }}
+          }}
+        }}
+        "#
+    )
+}
+
 pub(in super::super) fn json_frame_with_oversized_background_origin_input() -> &'static str {
     r#"
     {
