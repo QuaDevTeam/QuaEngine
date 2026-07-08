@@ -82,6 +82,44 @@ fn renders_mixed_unsupported_glyphs_with_bitmap_fallback_geometry() {
 }
 
 #[test]
+fn does_not_render_combining_marks_as_bitmap_fallback_blocks() {
+    let plain_plan = WgpuNativeRenderBufferPlan::from_mesh_plan(&mesh_plan(vec![quad(
+        "ui:bitmap-plain-accent-base",
+        DrawBatchPipeline::Text,
+        DrawCommandKind::Text,
+        WgpuNativeRenderPaint::TextPlaceholder {
+            text: "e".to_string(),
+            color: rgba(0xff, 0xff, 0xff, 0xff),
+            literal: "#fff".to_string(),
+            style: text_style(21.0, TextAlign::Left, EdgeInsetsDrawParam::default()),
+        },
+        rect(10, 20, 220, 56),
+        Vec::new(),
+    )]));
+    let combined_plan = WgpuNativeRenderBufferPlan::from_mesh_plan(&mesh_plan(vec![quad(
+        "ui:bitmap-combining-accent",
+        DrawBatchPipeline::Text,
+        DrawCommandKind::Text,
+        WgpuNativeRenderPaint::TextPlaceholder {
+            text: "e\u{0301}".to_string(),
+            color: rgba(0xff, 0xff, 0xff, 0xff),
+            literal: "#fff".to_string(),
+            style: text_style(21.0, TextAlign::Left, EdgeInsetsDrawParam::default()),
+        },
+        rect(10, 20, 220, 56),
+        Vec::new(),
+    )]));
+
+    let plain_pass = &plain_plan.passes[0];
+    let combined_pass = &combined_plan.passes[0];
+    assert_eq!(combined_pass.vertex_count, plain_pass.vertex_count);
+    assert_eq!(
+        combined_pass.draw_calls[0].physical_bounds.width,
+        plain_pass.draw_calls[0].physical_bounds.width
+    );
+}
+
+#[test]
 fn reserves_fullwidth_cells_for_cjk_bitmap_fallback_glyphs() {
     let style = text_style(21.0, TextAlign::Left, EdgeInsetsDrawParam::default());
     let ascii_bounds = text_placeholder_bounds_for_text_with_style("AA", style.clone());

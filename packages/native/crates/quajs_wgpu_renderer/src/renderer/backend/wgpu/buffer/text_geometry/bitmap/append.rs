@@ -7,6 +7,7 @@ use crate::renderer::backend::wgpu::WgpuPhysicalRect;
 
 use super::super::super::geometry::{union_physical_rect, FloatRect};
 use super::super::super::types::WgpuNativeRenderBufferVertex;
+use super::super::width::is_zero_width_text_character;
 
 pub(super) fn append_bitmap_word(
     vertices: &mut Vec<WgpuNativeRenderBufferVertex>,
@@ -27,7 +28,7 @@ pub(super) fn append_bitmap_word(
         if cursor_x >= text_right {
             break;
         }
-        if !character.is_whitespace() {
+        if !character.is_whitespace() && !is_zero_width_text_character(character) {
             let glyph_bounds = if bitmap_glyph_rows(character).is_some() {
                 append_bitmap_glyph(
                     vertices,
