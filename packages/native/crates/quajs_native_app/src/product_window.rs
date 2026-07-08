@@ -1,7 +1,9 @@
 use std::fmt::{Display, Formatter};
 
 use quajs_native_runtime::{InMemoryNativeHostApi, NativeHostApi};
-use quajs_wgpu_renderer::audio::{NativeAudioBackendError, NullNativeAudioBackend};
+use quajs_wgpu_renderer::audio::NativeAudioBackendError;
+#[cfg(not(feature = "native-audio-rodio"))]
+use quajs_wgpu_renderer::audio::NullNativeAudioBackend;
 use quajs_wgpu_renderer::renderer::{
     configure_wgpu_surface_for_native_renderer, create_real_wgpu_surface_target,
     InMemoryWgpuNativeRenderRuntimeExecutor, NativeRenderer, RealWgpuNativeRenderRuntimeDevice,
@@ -9,6 +11,8 @@ use quajs_wgpu_renderer::renderer::{
     WgpuNativeRenderBackendConfig, WgpuNativeRenderRuntimeError, WgpuNativeSurfaceConfigRequest,
 };
 
+#[cfg(feature = "native-audio-rodio")]
+use crate::audio_backend::RodioNativeAudioBackend;
 use crate::product_frame_scheduler::NativeProductFramePresentFailureKind;
 use crate::product_loop::NativeProductLoopFrameResult;
 use crate::product_runtime::NativeProductRuntime;
@@ -21,14 +25,19 @@ pub(crate) type NativeProductWindowBackend = WgpuNativeRenderBackend<
     InMemoryWgpuNativeRenderRuntimeExecutor<RealWgpuNativeRenderRuntimeDevice>,
 >;
 
+#[cfg(feature = "native-audio-rodio")]
+pub(crate) type NativeProductWindowAudioBackend = RodioNativeAudioBackend;
+#[cfg(not(feature = "native-audio-rodio"))]
+pub(crate) type NativeProductWindowAudioBackend = NullNativeAudioBackend;
+
 pub(crate) type NativeProductWindowRenderer =
-    NativeRenderer<NativeProductWindowBackend, NullNativeAudioBackend>;
+    NativeRenderer<NativeProductWindowBackend, NativeProductWindowAudioBackend>;
 
 pub(crate) type NativeProductWindowInMemoryRuntime =
     NativeProductWindowRuntime<InMemoryNativeHostApi>;
 
 type RealWgpuProductRuntime<H> =
-    NativeProductRuntime<NativeProductWindowBackend, NullNativeAudioBackend, H>;
+    NativeProductRuntime<NativeProductWindowBackend, NativeProductWindowAudioBackend, H>;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct NativeProductWindowPhysicalSize {
@@ -265,11 +274,16 @@ where
             bootstrap.surface_config.config.width,
             bootstrap.surface_config.config.height,
         );
+        let audio_backend = create_product_window_audio_backend().map_err(|error| {
+            NativeProductWindowError::new(format!(
+                "failed to initialize native product window audio backend: {error}"
+            ))
+        })?;
 
         Ok(Self {
             surface,
             product: NativeProductRuntime::new(
-                NativeRenderer::with_null_audio_backend(backend),
+                NativeRenderer::with_audio_backend(backend, audio_backend),
                 host,
             ),
             adapter: bootstrap.adapter,
@@ -419,6 +433,18 @@ where
     ) -> Result<NativeProductWindowResizeReport, NativeProductWindowError> {
         self.resize_to_physical_size(self.configured_physical_size)
     }
+}
+
+#[cfg(feature = "native-audio-rodio")]
+fn create_product_window_audio_backend(
+) -> Result<NativeProductWindowAudioBackend, NativeAudioBackendError> {
+    RodioNativeAudioBackend::open_default()
+}
+
+#[cfg(not(feature = "native-audio-rodio"))]
+fn create_product_window_audio_backend(
+) -> Result<NativeProductWindowAudioBackend, NativeAudioBackendError> {
+    Ok(NullNativeAudioBackend::new())
 }
 
 fn classify_present_failure_message(message: &str) -> NativeProductWindowPresentFailureKind {
