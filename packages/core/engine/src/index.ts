@@ -252,6 +252,8 @@ export type {
   RendererInputCommand,
   RendererInputCommandPayload,
   RendererInputDevice,
+  RendererTextInputPayload,
+  RendererTextInputPhase,
   ResolvedAnimationTrackProjection,
   ResolvedFlowControlPolicy,
   ResolvedOverlayStackPlacement,

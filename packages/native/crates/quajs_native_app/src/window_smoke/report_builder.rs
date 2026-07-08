@@ -103,6 +103,7 @@ pub(super) fn build_window_smoke_report(
         ime_event_count: input.input_metrics.ime_event_count,
         ime_preedit_count: input.input_metrics.ime_preedit_count,
         ime_commit_count: input.input_metrics.ime_commit_count,
+        ime_intent_emit_count: input.input_metrics.ime_intent_emit_count,
         ime_last_text_byte_count: input.input_metrics.ime_last_text_byte_count,
         app_lifecycle_state: lifecycle_state_label(input.app_loop.lifecycle_state).to_string(),
         app_focused: input.app_loop.focused,
@@ -178,6 +179,7 @@ mod tests {
             ime_event_count: 4,
             ime_preedit_count: 2,
             ime_commit_count: 1,
+            ime_intent_emit_count: 3,
             ime_last_text_byte_count: Some(6),
             last_intent_type: Some("ui/intent".to_string()),
         };
@@ -255,6 +257,7 @@ mod tests {
         assert_eq!(report.ime_event_count, 4);
         assert_eq!(report.ime_preedit_count, 2);
         assert_eq!(report.ime_commit_count, 1);
+        assert_eq!(report.ime_intent_emit_count, 3);
         assert_eq!(report.ime_last_text_byte_count, Some(6));
         assert_eq!(report.app_lifecycle_state, "running");
         assert!(report.app_focused);

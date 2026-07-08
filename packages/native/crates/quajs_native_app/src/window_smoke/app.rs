@@ -235,6 +235,19 @@ impl NativeWindowSmokeApp {
             .dispatch_keyboard_event(window_loop.runtime_mut().host_mut(), event)
     }
 
+    fn dispatch_window_ime_event(
+        &mut self,
+        event: &winit::event::Ime,
+    ) -> Result<(), NativeWindowSmokeError> {
+        let Some(window_loop) = self.window_loop.as_mut() else {
+            self.input.record_ime_event(event);
+            return Ok(());
+        };
+
+        self.input
+            .dispatch_ime_event(window_loop.runtime_mut().host_mut(), event)
+    }
+
     fn request_redraw(&self) {
         if let Some(window) = &self.window {
             window.request_redraw();

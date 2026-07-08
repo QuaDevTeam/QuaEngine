@@ -14,6 +14,7 @@ fn exposes_foundational_native_wgpu_capabilities() {
     assert!(ids.contains(&"native-wgpu.text@1"));
     assert!(ids.contains(&"native-wgpu.ui.surface@1"));
     assert!(ids.contains(&"native-wgpu.input.pointer@1"));
+    assert!(ids.contains(&"native-wgpu.input.text@1"));
     assert!(capabilities
         .iter()
         .all(|capability| capability.owner_package == "@quajs/native-renderer"));

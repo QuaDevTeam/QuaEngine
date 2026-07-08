@@ -43,6 +43,7 @@ pub(super) struct NativeWindowSmokeInputMetrics {
     pub ime_event_count: usize,
     pub ime_preedit_count: usize,
     pub ime_commit_count: usize,
+    pub ime_intent_emit_count: usize,
     pub ime_last_text_byte_count: Option<usize>,
     pub last_intent_type: Option<String>,
 }
@@ -131,6 +132,23 @@ impl NativeWindowSmokeInputState {
 
     pub(super) fn record_ime_event(&mut self, event: &Ime) {
         let report = NativeProductInputController::summarize_ime_event(event);
+        self.record_ime_report(report);
+    }
+
+    pub(super) fn dispatch_ime_event(
+        &mut self,
+        host: &mut InMemoryNativeHostApi,
+        event: &Ime,
+    ) -> Result<(), NativeWindowSmokeError> {
+        let report = self
+            .product_input
+            .dispatch_ime_event(host, event)
+            .map_err(input_error)?;
+        self.record_ime_report(report);
+        Ok(())
+    }
+
+    fn record_ime_report(&mut self, report: crate::product_input::NativeProductImeEventReport) {
         self.metrics.ime_event_count = self.metrics.ime_event_count.saturating_add(1);
         match report.kind {
             NativeProductImeEventKind::Preedit => {
@@ -142,6 +160,10 @@ impl NativeWindowSmokeInputState {
                 self.metrics.ime_last_text_byte_count = report.text_byte_count;
             }
             NativeProductImeEventKind::Enabled | NativeProductImeEventKind::Disabled => {}
+        }
+        if report.intent_emitted {
+            self.metrics.ime_intent_emit_count =
+                self.metrics.ime_intent_emit_count.saturating_add(1);
         }
     }
 

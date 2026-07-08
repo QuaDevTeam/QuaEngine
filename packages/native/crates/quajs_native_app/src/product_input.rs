@@ -66,6 +66,7 @@ pub(crate) enum NativeProductImeEventKind {
 pub(crate) struct NativeProductImeEventReport {
     pub(crate) kind: NativeProductImeEventKind,
     pub(crate) text_byte_count: Option<usize>,
+    pub(crate) intent_emitted: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -191,20 +192,45 @@ impl NativeProductInputController {
             Ime::Enabled => NativeProductImeEventReport {
                 kind: NativeProductImeEventKind::Enabled,
                 text_byte_count: None,
+                intent_emitted: false,
             },
             Ime::Disabled => NativeProductImeEventReport {
                 kind: NativeProductImeEventKind::Disabled,
                 text_byte_count: None,
+                intent_emitted: false,
             },
             Ime::Preedit(text, _) => NativeProductImeEventReport {
                 kind: NativeProductImeEventKind::Preedit,
                 text_byte_count: Some(text.len()),
+                intent_emitted: false,
             },
             Ime::Commit(text) => NativeProductImeEventReport {
                 kind: NativeProductImeEventKind::Commit,
                 text_byte_count: Some(text.len()),
+                intent_emitted: false,
             },
         }
+    }
+
+    pub(crate) fn dispatch_ime_event<H>(
+        &mut self,
+        host: &mut H,
+        event: &Ime,
+    ) -> Result<NativeProductImeEventReport, NativeProductInputError>
+    where
+        H: NativeHostApi,
+    {
+        let mut report = Self::summarize_ime_event(event);
+        emit_native_renderer_intent(
+            host,
+            "user/text_input",
+            Some(build_ime_text_input_payload(
+                event,
+                native_input_timestamp_ms(),
+            )),
+        )?;
+        report.intent_emitted = true;
+        Ok(report)
     }
 
     pub(crate) fn cancel_pointer_interaction<B, A>(
@@ -298,6 +324,46 @@ fn build_keyboard_input_command_payload(
             "code": code_name,
         },
     }))
+}
+
+fn build_ime_text_input_payload(event: &Ime, timestamp: u64) -> Value {
+    match event {
+        Ime::Enabled => json!({
+            "phase": "enabled",
+            "source": "ime",
+            "timestamp": timestamp,
+        }),
+        Ime::Disabled => json!({
+            "phase": "disabled",
+            "source": "ime",
+            "timestamp": timestamp,
+        }),
+        Ime::Preedit(text, cursor) => {
+            let mut payload = json!({
+                "phase": "preedit",
+                "source": "ime",
+                "timestamp": timestamp,
+                "text": text,
+                "metadata": {
+                    "textByteCount": text.len(),
+                },
+            });
+            if let Some((start, end)) = cursor {
+                payload["cursorStart"] = json!(*start);
+                payload["cursorEnd"] = json!(*end);
+            }
+            payload
+        }
+        Ime::Commit(text) => json!({
+            "phase": "commit",
+            "source": "ime",
+            "timestamp": timestamp,
+            "text": text,
+            "metadata": {
+                "textByteCount": text.len(),
+            },
+        }),
+    }
 }
 
 fn resolve_keyboard_command(
@@ -521,6 +587,7 @@ mod tests {
             NativeProductImeEventReport {
                 kind: NativeProductImeEventKind::Preedit,
                 text_byte_count: Some("候補".len()),
+                intent_emitted: false,
             }
         );
         assert_eq!(
@@ -528,6 +595,7 @@ mod tests {
             NativeProductImeEventReport {
                 kind: NativeProductImeEventKind::Commit,
                 text_byte_count: Some("決定".len()),
+                intent_emitted: false,
             }
         );
         assert_eq!(
@@ -535,8 +603,61 @@ mod tests {
             NativeProductImeEventReport {
                 kind: NativeProductImeEventKind::Enabled,
                 text_byte_count: None,
+                intent_emitted: false,
             }
         );
+    }
+
+    #[test]
+    fn dispatches_ime_text_input_intents_without_retaining_text_in_report() {
+        let mut host = product_input_host();
+        let mut input = NativeProductInputController::new();
+
+        let preedit = input
+            .dispatch_ime_event(&mut host, &Ime::Preedit("候補".to_string(), Some((0, 1))))
+            .expect("preedit emits");
+        let commit = input
+            .dispatch_ime_event(&mut host, &Ime::Commit("決定".to_string()))
+            .expect("commit emits");
+        let disabled = input
+            .dispatch_ime_event(&mut host, &Ime::Disabled)
+            .expect("disabled emits");
+
+        assert_eq!(
+            preedit,
+            NativeProductImeEventReport {
+                kind: NativeProductImeEventKind::Preedit,
+                text_byte_count: Some("候補".len()),
+                intent_emitted: true,
+            }
+        );
+        assert_eq!(commit.kind, NativeProductImeEventKind::Commit);
+        assert_eq!(commit.text_byte_count, Some("決定".len()));
+        assert!(commit.intent_emitted);
+        assert_eq!(disabled.kind, NativeProductImeEventKind::Disabled);
+        assert_eq!(disabled.text_byte_count, None);
+        assert!(disabled.intent_emitted);
+
+        assert_eq!(
+            host.renderer_intents()
+                .iter()
+                .map(|intent| intent.r#type.as_str())
+                .collect::<Vec<_>>(),
+            vec!["user/text_input", "user/text_input", "user/text_input"]
+        );
+        let preedit_payload: serde_json::Value = serde_json::from_str(
+            host.renderer_intents()[0]
+                .payload_json
+                .as_deref()
+                .expect("preedit intent carries payload"),
+        )
+        .expect("payload parses");
+        assert_eq!(preedit_payload["phase"], "preedit");
+        assert_eq!(preedit_payload["source"], "ime");
+        assert_eq!(preedit_payload["text"], "候補");
+        assert_eq!(preedit_payload["cursorStart"], 0);
+        assert_eq!(preedit_payload["cursorEnd"], 1);
+        assert_eq!(preedit_payload["metadata"]["textByteCount"], "候補".len());
     }
 
     fn product_input_host() -> InMemoryNativeHostApi {
