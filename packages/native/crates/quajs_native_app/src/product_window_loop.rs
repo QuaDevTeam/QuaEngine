@@ -272,6 +272,20 @@ where
             .runtime
             .present_frame(attempt.allow_occluded_report)
             .map_err(NativeProductWindowLoopError::from_present_error)?;
+        if present_outcome.surface_refresh_recommended {
+            let state = &mut self.state;
+            let runtime = &mut self.runtime;
+            Self::refresh_presented_surface_with_recovery(state, || {
+                runtime
+                    .refresh_surface_configuration()
+                    .map(|report| report.physical_size)
+            })
+            .map_err(|error| {
+                NativeProductWindowLoopError::new(format!(
+                    "native product window suboptimal surface refresh failed: {error}"
+                ))
+            })?;
+        }
         let will_complete_target =
             self.state.completed_frame_count.saturating_add(1) >= self.state.target_frame_count();
         let shutdown = if will_complete_target {
@@ -375,6 +389,26 @@ where
                 ))
             }
         }
+    }
+
+    fn refresh_presented_surface_with_recovery<F>(
+        state: &mut NativeProductWindowLoopState,
+        mut refresh_surface: F,
+    ) -> Result<(), NativeProductWindowError>
+    where
+        F: FnMut() -> Result<NativeProductWindowPhysicalSize, NativeProductWindowError>,
+    {
+        state.record_surface_recovery_attempt();
+        let refreshed_physical_size = match refresh_surface() {
+            Ok(physical_size) => physical_size,
+            Err(error) => {
+                state.record_surface_recovery_error();
+                return Err(error);
+            }
+        };
+        state.record_resize(refreshed_physical_size);
+        state.record_surface_recovery_success();
+        Ok(())
     }
 }
 
@@ -558,6 +592,54 @@ mod tests {
         assert_eq!(
             metrics.last_surface_recovery_status,
             Some(NativeProductSurfaceRecoveryStatus::Reconfigured)
+        );
+    }
+
+    #[test]
+    fn presented_suboptimal_surface_refresh_records_recovery_metrics() {
+        let mut state = NativeProductWindowLoopState::new(1);
+
+        NativeProductWindowLoop::<InMemoryNativeHostApi>::refresh_presented_surface_with_recovery(
+            &mut state,
+            || Ok(NativeProductWindowPhysicalSize::new(960, 540)),
+        )
+        .expect("suboptimal surface refresh should succeed");
+
+        assert_eq!(state.resize_count(), 1);
+        assert_eq!(
+            state.last_resize_physical_size(),
+            Some(NativeProductWindowPhysicalSize::new(960, 540))
+        );
+        let metrics = state.recovery_metrics();
+        assert_eq!(metrics.present_failure_count, 0);
+        assert_eq!(metrics.surface_recovery_attempt_count, 1);
+        assert_eq!(metrics.surface_recovery_success_count, 1);
+        assert_eq!(
+            metrics.last_surface_recovery_status,
+            Some(NativeProductSurfaceRecoveryStatus::Reconfigured)
+        );
+    }
+
+    #[test]
+    fn presented_suboptimal_surface_refresh_records_recovery_error() {
+        let mut state = NativeProductWindowLoopState::new(1);
+
+        let error =
+            NativeProductWindowLoop::<InMemoryNativeHostApi>::refresh_presented_surface_with_recovery(
+                &mut state,
+                || Err(NativeProductWindowError::new("surface refresh failed")),
+            )
+            .expect_err("suboptimal surface refresh should fail");
+
+        assert_eq!(error.to_string(), "surface refresh failed");
+        assert_eq!(state.resize_count(), 0);
+        let metrics = state.recovery_metrics();
+        assert_eq!(metrics.surface_recovery_attempt_count, 1);
+        assert_eq!(metrics.surface_recovery_success_count, 0);
+        assert_eq!(metrics.surface_recovery_error_count, 1);
+        assert_eq!(
+            metrics.last_surface_recovery_status,
+            Some(NativeProductSurfaceRecoveryStatus::Error)
         );
     }
 
