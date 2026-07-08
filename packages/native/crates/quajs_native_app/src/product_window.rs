@@ -92,7 +92,7 @@ pub(crate) struct NativeProductWindowError {
 }
 
 impl NativeProductWindowError {
-    fn new(message: impl Into<String>) -> Self {
+    pub(crate) fn new(message: impl Into<String>) -> Self {
         Self {
             message: message.into(),
             present_failure: None,
