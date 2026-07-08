@@ -1,5 +1,6 @@
 mod audio;
 mod core;
+mod font;
 mod types;
 mod video;
 
@@ -11,11 +12,12 @@ pub use types::{
 };
 
 #[derive(Clone, Debug)]
-pub struct NativeRenderer<B, A = (), V = ()> {
+pub struct NativeRenderer<B, A = (), V = (), F = ()> {
     state: NativeRendererState,
     backend: B,
     audio_backend: Option<A>,
     video_backend: Option<V>,
+    font_backend: Option<F>,
 }
 
 #[cfg(test)]

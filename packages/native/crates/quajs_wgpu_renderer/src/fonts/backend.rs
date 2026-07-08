@@ -58,6 +58,12 @@ pub trait NativeFontBackend {
     fn apply_font_commands(&mut self, plan: &FontBackendCommandPlan) -> NativeFontBackendResult;
 }
 
+impl NativeFontBackend for () {
+    fn apply_font_commands(&mut self, _plan: &FontBackendCommandPlan) -> NativeFontBackendResult {
+        Ok(())
+    }
+}
+
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct NullNativeFontBackend {
     loaded_assets: Vec<FontBackendAssetLoad>,

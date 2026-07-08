@@ -1,5 +1,6 @@
 use quajs_native_runtime::NativeHostApi;
 use quajs_wgpu_renderer::audio::NativeAudioBackend;
+use quajs_wgpu_renderer::fonts::NativeFontBackend;
 use quajs_wgpu_renderer::renderer::{NativeRenderBackend, NativeRenderer};
 use quajs_wgpu_renderer::video::NativeVideoBackend;
 
@@ -34,9 +35,9 @@ impl NativeProductLoop {
         self.rendered_frame_count
     }
 
-    pub(crate) fn render_projection_json_with_media_teardown<B, A, V, H>(
+    pub(crate) fn render_projection_json_with_media_teardown<B, A, V, F, H>(
         &mut self,
-        renderer: &mut NativeRenderer<B, A, V>,
+        renderer: &mut NativeRenderer<B, A, V, F>,
         host: &H,
         input: &str,
     ) -> Result<NativeProductLoopFrameResult, NativeTextureJsonLifecycleFrameError>
@@ -44,6 +45,7 @@ impl NativeProductLoop {
         B: NativeRenderBackend + NativeTextureUploadSink,
         A: NativeAudioBackend,
         V: NativeVideoBackend,
+        F: NativeFontBackend,
         H: NativeHostApi,
     {
         let synced_frame = render_json_frame_with_host_texture_lifecycle_sync_and_media_teardown(
@@ -61,15 +63,16 @@ impl NativeProductLoop {
     }
 
     #[allow(dead_code)]
-    pub(crate) fn tick_host_lifecycle_with_media_teardown<B, A, V, H>(
+    pub(crate) fn tick_host_lifecycle_with_media_teardown<B, A, V, F, H>(
         &mut self,
-        renderer: &mut NativeRenderer<B, A, V>,
+        renderer: &mut NativeRenderer<B, A, V, F>,
         host: &H,
     ) -> Result<NativeTextureBundleLifecycleSyncReport, NativeTextureBundleLifecycleSyncError>
     where
         B: NativeRenderBackend + NativeTextureUploadSink,
         A: NativeAudioBackend,
         V: NativeVideoBackend,
+        F: NativeFontBackend,
         H: NativeHostApi,
     {
         sync_mounted_texture_bundle_lifecycle_from_host_and_media_teardown(
@@ -80,14 +83,15 @@ impl NativeProductLoop {
     }
 
     #[allow(dead_code)]
-    pub(crate) fn shutdown_with_media_teardown<B, A, V>(
+    pub(crate) fn shutdown_with_media_teardown<B, A, V, F>(
         &mut self,
-        renderer: &mut NativeRenderer<B, A, V>,
+        renderer: &mut NativeRenderer<B, A, V, F>,
     ) -> Result<NativeTextureCleanedClearResult, NativeTextureMediaTeardownError>
     where
         B: NativeRenderBackend + NativeTextureUploadSink,
         A: NativeAudioBackend,
         V: NativeVideoBackend,
+        F: NativeFontBackend,
     {
         let result = clear_renderer_with_host_texture_cleanup_and_media_teardown(renderer)?;
         self.texture_bundle_registry = NativeTextureBundleMountRegistry::new();

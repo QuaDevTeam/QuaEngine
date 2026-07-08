@@ -1,6 +1,7 @@
 use quajs_native_runtime::{NativeHostApi, NativeHostApiResult};
 
 use crate::audio::NullNativeAudioBackend;
+use crate::fonts::NullNativeFontBackend;
 use crate::input::{
     native_renderer_intent_from_hit, NativePointerEvent, NativePointerEventResolution,
     PointerIntentResolution, RendererIntentHit,
@@ -33,6 +34,7 @@ where
             backend,
             audio_backend: None,
             video_backend: None,
+            font_backend: None,
         }
     }
 
@@ -42,6 +44,7 @@ where
             backend,
             audio_backend: None,
             video_backend: None,
+            font_backend: None,
         }
     }
 
@@ -62,6 +65,23 @@ where
         )
     }
 
+    pub fn with_null_renderer_backends(
+        backend: B,
+    ) -> NativeRenderer<B, NullNativeAudioBackend, NullNativeVideoBackend, NullNativeFontBackend>
+    {
+        NativeRenderer::<
+            B,
+            NullNativeAudioBackend,
+            NullNativeVideoBackend,
+            NullNativeFontBackend,
+        >::with_audio_video_font_backend(
+            backend,
+            NullNativeAudioBackend::new(),
+            NullNativeVideoBackend::new(),
+            NullNativeFontBackend::new(),
+        )
+    }
+
     pub fn into_parts(self) -> (NativeRendererState, B) {
         (self.state, self.backend)
     }
@@ -77,6 +97,7 @@ where
             backend,
             audio_backend: Some(audio_backend),
             video_backend: None,
+            font_backend: None,
         }
     }
 
@@ -90,6 +111,7 @@ where
             backend,
             audio_backend: Some(audio_backend),
             video_backend: None,
+            font_backend: None,
         }
     }
 }
@@ -104,11 +126,42 @@ where
             backend,
             audio_backend: None,
             video_backend: Some(video_backend),
+            font_backend: None,
         }
     }
 }
 
-impl<B, A, V> NativeRenderer<B, A, V>
+impl<B, F> NativeRenderer<B, (), (), F>
+where
+    B: NativeRenderBackend,
+{
+    pub fn with_font_backend(backend: B, font_backend: F) -> Self {
+        Self {
+            state: NativeRendererState::new(),
+            backend,
+            audio_backend: None,
+            video_backend: None,
+            font_backend: Some(font_backend),
+        }
+    }
+}
+
+impl<B, A, F> NativeRenderer<B, A, (), F>
+where
+    B: NativeRenderBackend,
+{
+    pub fn with_audio_font_backend(backend: B, audio_backend: A, font_backend: F) -> Self {
+        Self {
+            state: NativeRendererState::new(),
+            backend,
+            audio_backend: Some(audio_backend),
+            video_backend: None,
+            font_backend: Some(font_backend),
+        }
+    }
+}
+
+impl<B, A, V> NativeRenderer<B, A, V, ()>
 where
     B: NativeRenderBackend,
 {
@@ -132,6 +185,43 @@ where
             backend,
             audio_backend: Some(audio_backend),
             video_backend: Some(video_backend),
+            font_backend: None,
+        }
+    }
+}
+
+impl<B, A, V, F> NativeRenderer<B, A, V, F>
+where
+    B: NativeRenderBackend,
+{
+    pub fn with_audio_video_font_backend(
+        backend: B,
+        audio_backend: A,
+        video_backend: V,
+        font_backend: F,
+    ) -> Self {
+        Self::with_state_audio_video_font_backend(
+            NativeRendererState::new(),
+            backend,
+            audio_backend,
+            video_backend,
+            font_backend,
+        )
+    }
+
+    pub fn with_state_audio_video_font_backend(
+        state: NativeRendererState,
+        backend: B,
+        audio_backend: A,
+        video_backend: V,
+        font_backend: F,
+    ) -> Self {
+        Self {
+            state,
+            backend,
+            audio_backend: Some(audio_backend),
+            video_backend: Some(video_backend),
+            font_backend: Some(font_backend),
         }
     }
 
@@ -169,6 +259,14 @@ where
 
     pub fn video_backend_mut(&mut self) -> Option<&mut V> {
         self.video_backend.as_mut()
+    }
+
+    pub fn font_backend(&self) -> Option<&F> {
+        self.font_backend.as_ref()
+    }
+
+    pub fn font_backend_mut(&mut self) -> Option<&mut F> {
+        self.font_backend.as_mut()
     }
 
     pub fn resources(&self) -> &NativeResourceLedger {
@@ -301,6 +399,18 @@ where
             self.backend,
             self.audio_backend,
             self.video_backend,
+        )
+    }
+
+    pub fn into_parts_with_renderer_backends(
+        self,
+    ) -> (NativeRendererState, B, Option<A>, Option<V>, Option<F>) {
+        (
+            self.state,
+            self.backend,
+            self.audio_backend,
+            self.video_backend,
+            self.font_backend,
         )
     }
 }

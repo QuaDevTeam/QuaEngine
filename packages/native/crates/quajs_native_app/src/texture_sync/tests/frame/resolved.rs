@@ -1,4 +1,5 @@
 use quajs_wgpu_renderer::audio::NullNativeAudioBackend;
+use quajs_wgpu_renderer::fonts::FontBackendCommandKind;
 use quajs_wgpu_renderer::renderer::NativeRenderer;
 use quajs_wgpu_renderer::resources::{NativeResourceKind, NativeResourceRecord, ResourceId};
 use quajs_wgpu_renderer::video::VideoBackendCommandKind;
@@ -9,8 +10,9 @@ use crate::texture_sync::{
 };
 
 use super::super::support::{
-    bundle, test_layout, view_with_audio_package, view_with_background, view_with_video_package,
-    AssetLoadingAudioBackend, AssetLoadingVideoBackend, RecordingAssetHost, TextureResidentBackend,
+    bundle, test_layout, view_with_audio_package, view_with_background, view_with_font_package,
+    view_with_video_package, AssetLoadingAudioBackend, AssetLoadingFontBackend,
+    AssetLoadingVideoBackend, RecordingAssetHost, TextureResidentBackend,
 };
 
 #[test]
@@ -306,6 +308,67 @@ fn video_asset_loading_backend_reads_package_assets_before_video_commands() {
 }
 
 #[test]
+fn font_asset_loading_backend_reads_package_assets_before_font_commands() {
+    let host = RecordingAssetHost::new()
+        .with_bundle(bundle("runtime-bundle", Some("runtime.fonts")))
+        .with_asset(
+            Some("runtime-bundle"),
+            "fonts/noto-serif-jp.woff2",
+            [13, 14, 15, 16],
+        );
+    let mut renderer = NativeRenderer::with_audio_font_backend(
+        TextureResidentBackend::default(),
+        NullNativeAudioBackend::new(),
+        AssetLoadingFontBackend::default(),
+    );
+    let mut registry = NativeTextureBundleMountRegistry::new();
+
+    let result = render_frame_with_host_texture_lifecycle_sync_and_media_teardown(
+        &mut registry,
+        &mut renderer,
+        &host,
+        test_layout(),
+        &view_with_font_package("runtime.fonts"),
+    )
+    .expect("font asset loading frame should render");
+
+    let report = result
+        .frame
+        .font_asset_report
+        .expect("asset-loading backend should request font assets");
+    assert_eq!(report.loaded_count, 1);
+    assert_eq!(report.load_face_command_count, 1);
+    assert_eq!(report.ignored_command_count, 1);
+    assert_eq!(
+        host.reads.borrow()[0].bundle_name.as_deref(),
+        Some("runtime-bundle")
+    );
+    assert_eq!(
+        host.reads.borrow()[0].asset_id.as_deref(),
+        Some("font:face:fonts:fonts/noto-serif-jp.woff2")
+    );
+    let font_backend = renderer.font_backend().unwrap();
+    assert_eq!(font_backend.events, vec!["loads", "commands"]);
+    assert_eq!(font_backend.loads.len(), 1);
+    assert_eq!(font_backend.loads[0].bytes, vec![13, 14, 15, 16]);
+    assert_eq!(
+        font_backend.loads[0].package_id.as_deref(),
+        Some("runtime.fonts")
+    );
+    assert_eq!(
+        font_backend.plans[0]
+            .commands
+            .iter()
+            .map(|command| command.kind.clone())
+            .collect::<Vec<_>>(),
+        vec![
+            FontBackendCommandKind::LoadFace,
+            FontBackendCommandKind::ActivateFace,
+        ]
+    );
+}
+
+#[test]
 fn missing_audio_asset_rolls_back_renderer_audio_state_for_asset_loading_backend() {
     let host =
         RecordingAssetHost::new().with_bundle(bundle("runtime-bundle", Some("runtime.menu")));
@@ -329,6 +392,34 @@ fn missing_audio_asset_rolls_back_renderer_audio_state_for_asset_loading_backend
     let audio_backend = renderer.audio_backend().unwrap();
     assert!(audio_backend.loads.is_empty());
     assert!(audio_backend.plans.is_empty());
+    assert_eq!(host.reads.borrow().len(), 1);
+}
+
+#[test]
+fn missing_font_asset_rolls_back_renderer_font_state_for_asset_loading_backend() {
+    let host =
+        RecordingAssetHost::new().with_bundle(bundle("runtime-bundle", Some("runtime.fonts")));
+    let mut renderer = NativeRenderer::with_audio_font_backend(
+        TextureResidentBackend::default(),
+        NullNativeAudioBackend::new(),
+        AssetLoadingFontBackend::default(),
+    );
+    let mut registry = NativeTextureBundleMountRegistry::new();
+
+    let error = render_frame_with_host_texture_lifecycle_sync_and_media_teardown(
+        &mut registry,
+        &mut renderer,
+        &host,
+        test_layout(),
+        &view_with_font_package("runtime.fonts"),
+    )
+    .expect_err("missing font bytes should fail before backend commands are applied");
+
+    assert!(error.to_string().contains("Native font asset sync failed"));
+    assert!(renderer.state().font_backend_faces().is_empty());
+    let font_backend = renderer.font_backend().unwrap();
+    assert!(font_backend.loads.is_empty());
+    assert!(font_backend.plans.is_empty());
     assert_eq!(host.reads.borrow().len(), 1);
 }
 

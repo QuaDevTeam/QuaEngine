@@ -2,6 +2,7 @@ use crate::audio::{
     plan_audio_backend_commands, plan_audio_backend_package_teardown_commands, NativeAudioBackend,
     NativeAudioBackendError, NativeAudioBackendResult,
 };
+use crate::fonts::NativeFontBackend;
 use crate::projection::view::ViewProjection;
 use crate::resources::{NativeAssetRequestPlan, NativeResourceRecord, PackageUnloadPlan};
 use crate::stage_layout::ResolvedStageLayout;
@@ -16,7 +17,7 @@ use super::{
     NativeRendererMediaBackendError,
 };
 
-impl<B, A, V> NativeRenderer<B, A, V>
+impl<B, A, V, F> NativeRenderer<B, A, V, F>
 where
     B: NativeRenderBackend,
     A: NativeAudioBackend,
@@ -105,9 +106,11 @@ where
     >
     where
         V: NativeVideoBackend,
+        F: NativeFontBackend,
     {
         self.apply_audio_teardown()?;
         self.apply_video_teardown()?;
+        self.apply_font_teardown()?;
         Ok(self.clear_with_host_cleanup())
     }
 
@@ -128,11 +131,13 @@ where
     ) -> Result<NativeRendererPackageRelease, NativeRendererMediaBackendError>
     where
         V: NativeVideoBackend,
+        F: NativeFontBackend,
     {
         let plan = self.plan_package_unload(package_id);
         if plan.can_unload() {
             self.apply_package_audio_teardown(&plan)?;
             self.apply_package_video_teardown(&plan)?;
+            self.apply_package_font_teardown(&plan)?;
         }
         Ok(self.release_package_resources(package_id))
     }

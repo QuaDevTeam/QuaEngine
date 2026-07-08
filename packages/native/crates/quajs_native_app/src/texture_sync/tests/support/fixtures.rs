@@ -8,6 +8,8 @@ use quajs_wgpu_renderer::projection::audio::{
 use quajs_wgpu_renderer::projection::background::BackgroundProjection;
 use quajs_wgpu_renderer::projection::background::{BackgroundMode, BackgroundVideoProjection};
 use quajs_wgpu_renderer::projection::common::PackageProvenance;
+use quajs_wgpu_renderer::projection::fonts::{FontFaceProjection, FontsProjection};
+use quajs_wgpu_renderer::projection::plugins::PluginProjection;
 use quajs_wgpu_renderer::projection::view::ViewProjection;
 use quajs_wgpu_renderer::renderer::NativeRenderer;
 use quajs_wgpu_renderer::resources::{
@@ -151,6 +153,17 @@ pub(crate) fn view_with_audio_package(package_id: &str) -> ViewProjection {
             content_package_id: Some(package_id.to_string()),
             required_runtime_packages: Default::default(),
         })])),
+        ..Default::default()
+    }
+}
+
+pub(crate) fn view_with_font_package(package_id: &str) -> ViewProjection {
+    ViewProjection {
+        plugins: Some(PluginProjection::fonts(FontsProjection::new(vec![
+            FontFaceProjection::new("Noto Serif JP", "fonts/noto-serif-jp.woff2")
+                .with_id("noto-serif-jp")
+                .with_provenance(provenance(package_id, [])),
+        ]))),
         ..Default::default()
     }
 }
