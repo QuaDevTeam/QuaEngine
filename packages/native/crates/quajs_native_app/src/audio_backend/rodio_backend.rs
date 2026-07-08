@@ -3,7 +3,8 @@ use std::fmt::{Debug, Formatter};
 use std::io::Cursor;
 
 use quajs_wgpu_renderer::audio::{
-    AudioBackendAssetLoad, AudioBackendTrackState, NativeAudioBackendError,
+    AudioBackendAssetLoad, AudioBackendTrackState, AudioBackendTrackStateMap,
+    NativeAudioBackendError,
 };
 use quajs_wgpu_renderer::projection::audio::AudioTrackPlaybackState;
 use rodio::{Decoder, DeviceSinkBuilder, MixerDeviceSink, Player};
@@ -100,5 +101,32 @@ impl NativeAudioPlaybackDriver for RodioAudioPlaybackDriver {
             player.stop();
         }
         Ok(())
+    }
+
+    fn drain_finished_tracks(
+        &mut self,
+        active_tracks: &AudioBackendTrackStateMap,
+    ) -> Result<Vec<AudioBackendTrackState>, String> {
+        let finished_ids: Vec<String> = active_tracks
+            .values()
+            .filter(|track| {
+                !track.looped
+                    && matches!(track.playback_state, AudioTrackPlaybackState::Playing)
+                    && self
+                        .players
+                        .get(&track.id)
+                        .map(Player::empty)
+                        .unwrap_or(false)
+            })
+            .map(|track| track.id.clone())
+            .collect();
+        let mut finished_tracks = Vec::with_capacity(finished_ids.len());
+        for track_id in finished_ids {
+            self.players.remove(&track_id);
+            if let Some(track) = active_tracks.get(&track_id) {
+                finished_tracks.push(track.clone());
+            }
+        }
+        Ok(finished_tracks)
     }
 }

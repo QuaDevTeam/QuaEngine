@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use quajs_wgpu_renderer::audio::{
     AudioBackendAssetLoad, AudioBackendCommand, AudioBackendCommandKind, AudioBackendCommandPlan,
     AudioBackendTrackState, AudioBackendTrackStateMap, NativeAudioBackend, NativeAudioBackendError,
-    NativeAudioBackendResult,
+    NativeAudioBackendEvent, NativeAudioBackendEventDrainResult, NativeAudioBackendResult,
 };
 use quajs_wgpu_renderer::resources::ResourceId;
 
@@ -19,6 +19,13 @@ pub(crate) trait NativeAudioPlaybackDriver {
     fn stop_track(&mut self, track: &AudioBackendTrackState) -> Result<(), String>;
 
     fn release_track(&mut self, track: &AudioBackendTrackState) -> Result<(), String>;
+
+    fn drain_finished_tracks(
+        &mut self,
+        _active_tracks: &AudioBackendTrackStateMap,
+    ) -> Result<Vec<AudioBackendTrackState>, String> {
+        Ok(Vec::new())
+    }
 }
 
 #[derive(Debug)]
@@ -92,6 +99,23 @@ where
         self.diagnostics.active_track_count = self.active_tracks.len();
         self.diagnostics.loaded_asset_count = self.loaded_assets.len();
         Ok(())
+    }
+
+    fn drain_audio_events(&mut self) -> NativeAudioBackendEventDrainResult {
+        let finished_tracks = self
+            .driver
+            .drain_finished_tracks(&self.active_tracks)
+            .map_err(NativeAudioBackendError::backend_rejected)?;
+        let mut events = Vec::with_capacity(finished_tracks.len());
+        for track in finished_tracks {
+            self.active_tracks.remove(&track.id);
+            events.push(NativeAudioBackendEvent::TrackEnded {
+                track,
+                reason: "natural".to_string(),
+            });
+        }
+        self.diagnostics.active_track_count = self.active_tracks.len();
+        Ok(events)
     }
 }
 

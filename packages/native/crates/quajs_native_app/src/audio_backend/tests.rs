@@ -1,6 +1,6 @@
 use quajs_wgpu_renderer::audio::{
     AudioBackendAssetLoad, AudioBackendCommand, AudioBackendCommandKind, AudioBackendCommandPlan,
-    AudioBackendTrackState, AudioBackendTrackStateMap, NativeAudioBackend,
+    AudioBackendTrackState, AudioBackendTrackStateMap, NativeAudioBackend, NativeAudioBackendEvent,
 };
 use quajs_wgpu_renderer::projection::audio::{
     AudioTrackKind, AudioTrackLoadMode, AudioTrackPlaybackState,
@@ -96,9 +96,57 @@ fn playback_backend_updates_stops_and_releases_active_tracks() {
     );
 }
 
+#[test]
+fn playback_backend_drains_finished_tracks_as_audio_events_once() {
+    let mut track = track("voice-line-1", "voice/ch01/line-1.ogg");
+    track.kind = AudioTrackKind::Voice;
+    track.asset_type = "voice".to_string();
+    track.looped = false;
+    let load = load_for_track(&track, [1, 2, 3, 4]);
+    let driver = RecordingPlaybackDriver {
+        finished_track_ids: vec![track.id.clone()],
+        ..Default::default()
+    };
+    let mut backend = NativeAudioPlaybackBackend::new(driver);
+    backend
+        .apply_audio_asset_loads(std::slice::from_ref(&load))
+        .expect("asset load should be recorded");
+    backend
+        .apply_audio_commands(&plan_with_commands(
+            [command(AudioBackendCommandKind::StartTrack, &track)],
+            [track.clone()],
+        ))
+        .expect("loaded audio track should start");
+
+    let events = backend
+        .drain_audio_events()
+        .expect("finished audio events should drain");
+    let second = backend
+        .drain_audio_events()
+        .expect("finished audio events should not repeat");
+
+    assert_eq!(
+        events,
+        vec![NativeAudioBackendEvent::TrackEnded {
+            track: track.clone(),
+            reason: "natural".to_string(),
+        }]
+    );
+    assert!(second.is_empty());
+    assert_eq!(backend.diagnostics().active_track_count, 0);
+    assert_eq!(
+        backend.driver().events,
+        vec![
+            "start:voice-line-1:voice/ch01/line-1.ogg:4",
+            "finished:voice-line-1",
+        ]
+    );
+}
+
 #[derive(Default, Debug)]
 struct RecordingPlaybackDriver {
     events: Vec<String>,
+    finished_track_ids: Vec<String>,
 }
 
 impl NativeAudioPlaybackDriver for RecordingPlaybackDriver {
@@ -133,6 +181,21 @@ impl NativeAudioPlaybackDriver for RecordingPlaybackDriver {
     fn release_track(&mut self, track: &AudioBackendTrackState) -> Result<(), String> {
         self.events.push(format!("release:{}", track.id));
         Ok(())
+    }
+
+    fn drain_finished_tracks(
+        &mut self,
+        active_tracks: &AudioBackendTrackStateMap,
+    ) -> Result<Vec<AudioBackendTrackState>, String> {
+        let finished_ids = std::mem::take(&mut self.finished_track_ids);
+        let mut finished_tracks = Vec::with_capacity(finished_ids.len());
+        for track_id in finished_ids {
+            if let Some(track) = active_tracks.get(&track_id) {
+                self.events.push(format!("finished:{track_id}"));
+                finished_tracks.push(track.clone());
+            }
+        }
+        Ok(finished_tracks)
     }
 }
 

@@ -1,5 +1,8 @@
-use quajs_native_runtime::NativeHostApi;
-use quajs_wgpu_renderer::audio::{NativeAudioBackend, NativeAudioBackendError};
+use quajs_native_runtime::{NativeHostApi, NativeHostApiError, NativeRendererIntent};
+use quajs_wgpu_renderer::audio::{
+    NativeAudioBackend, NativeAudioBackendError, NativeAudioBackendEvent,
+};
+use quajs_wgpu_renderer::projection::audio::{AudioTrackKind, AudioTrackLoadMode};
 use quajs_wgpu_renderer::renderer::{NativeRenderBackend, NativeRenderer};
 
 use crate::product_loop::{NativeProductLoop, NativeProductLoopFrameResult};
@@ -58,16 +61,24 @@ where
         &mut self,
         input: &str,
     ) -> Result<NativeProductLoopFrameResult, NativeTextureJsonLifecycleFrameError> {
-        self.product_loop
-            .render_projection_json_with_audio_teardown(&mut self.renderer, &self.host, input)
+        let result = self
+            .product_loop
+            .render_projection_json_with_audio_teardown(&mut self.renderer, &self.host, input)?;
+        self.emit_audio_backend_renderer_intents()
+            .map_err(native_audio_intent_error_to_json_frame_error)?;
+        Ok(result)
     }
 
     #[allow(dead_code)]
     pub(crate) fn tick_host_lifecycle_with_audio_teardown(
         &mut self,
     ) -> Result<NativeTextureBundleLifecycleSyncReport, NativeTextureBundleLifecycleSyncError> {
-        self.product_loop
-            .tick_host_lifecycle_with_audio_teardown(&mut self.renderer, &self.host)
+        let report = self
+            .product_loop
+            .tick_host_lifecycle_with_audio_teardown(&mut self.renderer, &self.host)?;
+        self.emit_audio_backend_renderer_intents()
+            .map_err(native_audio_intent_error_to_lifecycle_error)?;
+        Ok(report)
     }
 
     pub(crate) fn shutdown_with_audio_teardown(
@@ -81,6 +92,110 @@ where
     pub(crate) fn into_parts(self) -> (NativeRenderer<B, A>, H, NativeProductLoop) {
         (self.renderer, self.host, self.product_loop)
     }
+
+    fn emit_audio_backend_renderer_intents(
+        &mut self,
+    ) -> Result<usize, NativeProductAudioIntentError> {
+        let Some(audio_backend) = self.renderer.audio_backend_mut() else {
+            return Ok(0);
+        };
+        let events = audio_backend.drain_audio_events()?;
+        let mut emitted_count = 0;
+        for event in events {
+            let intent = native_audio_backend_event_to_renderer_intent(event)?;
+            self.host.emit_renderer_intent(intent)?;
+            emitted_count += 1;
+        }
+        Ok(emitted_count)
+    }
+}
+
+#[derive(Debug)]
+enum NativeProductAudioIntentError {
+    Audio(NativeAudioBackendError),
+    Host(NativeHostApiError),
+}
+
+impl From<NativeAudioBackendError> for NativeProductAudioIntentError {
+    fn from(error: NativeAudioBackendError) -> Self {
+        Self::Audio(error)
+    }
+}
+
+impl From<NativeHostApiError> for NativeProductAudioIntentError {
+    fn from(error: NativeHostApiError) -> Self {
+        Self::Host(error)
+    }
+}
+
+fn native_audio_intent_error_to_json_frame_error(
+    error: NativeProductAudioIntentError,
+) -> NativeTextureJsonLifecycleFrameError {
+    match error {
+        NativeProductAudioIntentError::Audio(error) => {
+            NativeTextureJsonLifecycleFrameError::Audio(error)
+        }
+        NativeProductAudioIntentError::Host(error) => {
+            NativeTextureJsonLifecycleFrameError::Host(error)
+        }
+    }
+}
+
+fn native_audio_intent_error_to_lifecycle_error(
+    error: NativeProductAudioIntentError,
+) -> NativeTextureBundleLifecycleSyncError {
+    match error {
+        NativeProductAudioIntentError::Audio(error) => {
+            NativeTextureBundleLifecycleSyncError::Audio(error)
+        }
+        NativeProductAudioIntentError::Host(error) => {
+            NativeTextureBundleLifecycleSyncError::Host(error)
+        }
+    }
+}
+
+fn native_audio_backend_event_to_renderer_intent(
+    event: NativeAudioBackendEvent,
+) -> Result<NativeRendererIntent, NativeAudioBackendError> {
+    match event {
+        NativeAudioBackendEvent::TrackEnded { track, reason } => {
+            let payload = serde_json::json!({
+                "channel": audio_track_kind_label(track.kind),
+                "id": track.id,
+                "assetKey": track.asset_name,
+                "reason": reason,
+                "metadata": {
+                    "assetType": track.asset_type,
+                    "loadMode": audio_track_load_mode_label(track.load_mode),
+                    "packageCandidates": track.package_candidates.into_iter().collect::<Vec<_>>(),
+                },
+            });
+            Ok(NativeRendererIntent {
+                r#type: "audio/ended".to_string(),
+                payload_json: Some(serde_json::to_string(&payload).map_err(|error| {
+                    NativeAudioBackendError::backend_rejected(format!(
+                        "native audio ended intent payload serialization failed: {error}"
+                    ))
+                })?),
+            })
+        }
+    }
+}
+
+fn audio_track_kind_label(kind: AudioTrackKind) -> &'static str {
+    match kind {
+        AudioTrackKind::Bgm => "bgm",
+        AudioTrackKind::Voice => "voice",
+        AudioTrackKind::Sfx => "sfx",
+        AudioTrackKind::Ambient => "ambient",
+    }
+}
+
+fn audio_track_load_mode_label(load_mode: AudioTrackLoadMode) -> &'static str {
+    match load_mode {
+        AudioTrackLoadMode::Buffered => "buffered",
+        AudioTrackLoadMode::Streamed => "streamed",
+    }
 }
 
 #[cfg(test)]
@@ -91,6 +206,13 @@ mod tests {
         NativeAssetReadRequest, NativeHostApiError, NativeHostApiResult, NativeHostInfo,
         NativeHostInfoBuilder, NativeMountedBundleInfo, NativePlatform, NativeProfile,
         NativeRendererIntent, NativeSignatureVerifyRequest,
+    };
+    use quajs_wgpu_renderer::audio::{
+        AudioBackendCommandPlan, AudioBackendTrackState, NativeAudioBackend,
+        NativeAudioBackendEvent, NativeAudioBackendResult,
+    };
+    use quajs_wgpu_renderer::projection::audio::{
+        AudioTrackKind, AudioTrackLoadMode, AudioTrackPlaybackState,
     };
     use quajs_wgpu_renderer::renderer::{
         NativeRenderBackendResult, NativeRenderFrameRef, NativeRenderSubmission,
@@ -166,6 +288,77 @@ mod tests {
             vec![ResourceId::from("images:runtime-menu.png")]
         );
         assert_eq!(runtime.host().list_calls.get(), 2);
+    }
+
+    #[test]
+    fn runtime_emits_native_audio_backend_events_after_projection_frames() {
+        let host = RuntimeHost::default().with_bundle("base-bundle", Some("base"));
+        let audio_backend = DrainingAudioBackend::with_ended_track(audio_track(
+            "voice-line-1",
+            AudioTrackKind::Voice,
+            "voice/ch01/line-1.ogg",
+        ));
+        let renderer = NativeRenderer::with_audio_backend(RuntimeBackend::default(), audio_backend);
+        let mut runtime = NativeProductRuntime::new(renderer, host);
+
+        let frame = runtime
+            .render_projection_json_with_audio_teardown(EMPTY_FRAME_JSON)
+            .expect("product runtime frame should render and emit audio intents");
+        runtime
+            .render_projection_json_with_audio_teardown(EMPTY_FRAME_JSON)
+            .expect("second product runtime frame should not re-emit drained audio intents");
+
+        assert_eq!(frame.frame_number, 1);
+        assert_eq!(runtime.rendered_frame_count(), 2);
+        assert_eq!(runtime.host().renderer_intents.len(), 1);
+        let intent = &runtime.host().renderer_intents[0];
+        assert_eq!(intent.r#type, "audio/ended");
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(
+                intent.payload_json.as_deref().expect("audio payload JSON"),
+            )
+            .expect("audio payload should decode"),
+            serde_json::json!({
+                "channel": "voice",
+                "id": "voice-line-1",
+                "assetKey": "voice/ch01/line-1.ogg",
+                "reason": "natural",
+                "metadata": {
+                    "assetType": "voice",
+                    "loadMode": "buffered",
+                    "packageCandidates": ["runtime.audio"],
+                },
+            }),
+        );
+    }
+
+    #[test]
+    fn runtime_emits_native_audio_backend_events_after_lifecycle_ticks() {
+        let host = RuntimeHost::default().with_bundle("base-bundle", Some("base"));
+        let audio_backend = DrainingAudioBackend::with_ended_track(audio_track(
+            "sfx-click",
+            AudioTrackKind::Sfx,
+            "sfx/click.ogg",
+        ));
+        let renderer = NativeRenderer::with_audio_backend(RuntimeBackend::default(), audio_backend);
+        let mut runtime = NativeProductRuntime::new(renderer, host);
+
+        let report = runtime
+            .tick_host_lifecycle_with_audio_teardown()
+            .expect("product runtime lifecycle tick should emit audio intents");
+
+        assert!(report.initial_sync);
+        assert_eq!(runtime.rendered_frame_count(), 0);
+        assert_eq!(runtime.host().renderer_intents.len(), 1);
+        let intent = &runtime.host().renderer_intents[0];
+        assert_eq!(intent.r#type, "audio/ended");
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(
+                intent.payload_json.as_deref().expect("audio payload JSON"),
+            )
+            .expect("audio payload should decode")["id"],
+            serde_json::json!("sfx-click"),
+        );
     }
 
     #[test]
@@ -257,6 +450,7 @@ mod tests {
     struct RuntimeHost {
         bundles: Vec<NativeMountedBundleInfo>,
         list_calls: Cell<usize>,
+        renderer_intents: Vec<NativeRendererIntent>,
     }
 
     impl RuntimeHost {
@@ -326,11 +520,64 @@ mod tests {
             ))
         }
 
-        fn emit_renderer_intent(
-            &mut self,
-            _event: NativeRendererIntent,
-        ) -> NativeHostApiResult<()> {
+        fn emit_renderer_intent(&mut self, event: NativeRendererIntent) -> NativeHostApiResult<()> {
+            self.renderer_intents.push(event);
             Ok(())
+        }
+    }
+
+    #[derive(Default)]
+    struct DrainingAudioBackend {
+        events: Vec<NativeAudioBackendEvent>,
+    }
+
+    impl DrainingAudioBackend {
+        fn with_ended_track(track: AudioBackendTrackState) -> Self {
+            Self {
+                events: vec![NativeAudioBackendEvent::TrackEnded {
+                    track,
+                    reason: "natural".to_string(),
+                }],
+            }
+        }
+    }
+
+    impl NativeAudioBackend for DrainingAudioBackend {
+        fn apply_audio_commands(
+            &mut self,
+            _plan: &AudioBackendCommandPlan,
+        ) -> NativeAudioBackendResult {
+            Ok(())
+        }
+
+        fn drain_audio_events(
+            &mut self,
+        ) -> quajs_wgpu_renderer::audio::NativeAudioBackendEventDrainResult {
+            Ok(std::mem::take(&mut self.events))
+        }
+    }
+
+    fn audio_track(id: &str, kind: AudioTrackKind, asset_name: &str) -> AudioBackendTrackState {
+        AudioBackendTrackState {
+            id: id.to_string(),
+            kind,
+            asset_type: kind.resource_prefix().to_string(),
+            asset_name: asset_name.to_string(),
+            load_mode: AudioTrackLoadMode::Buffered,
+            playback_state: AudioTrackPlaybackState::Playing,
+            looped: false,
+            volume: 1.0,
+            package_candidates: ["runtime.audio"].into_iter().map(String::from).collect(),
+            media_resource_id: ResourceId::from(format!(
+                "audio:buffer:{}:{}:{asset_name}",
+                kind.resource_prefix(),
+                kind.resource_prefix(),
+            )),
+            handle_resource_id: ResourceId::from(format!(
+                "audio:handle:{}:{}:{id}",
+                kind.resource_prefix(),
+                kind.resource_prefix(),
+            )),
         }
     }
 }

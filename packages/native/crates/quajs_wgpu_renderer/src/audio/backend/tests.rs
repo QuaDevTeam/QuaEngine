@@ -64,6 +64,13 @@ fn null_backend_can_record_asset_loads_for_backend_fixture_tests() {
     assert!(!backend.wants_audio_asset_loads());
 }
 
+#[test]
+fn null_backend_does_not_emit_audio_events() {
+    let mut backend = NullNativeAudioBackend::new();
+
+    assert!(backend.drain_audio_events().unwrap().is_empty());
+}
+
 fn plan_with_track(track: AudioBackendTrackState) -> AudioBackendCommandPlan {
     let mut next_tracks = AudioBackendTrackStateMap::new();
     next_tracks.insert(track.id.clone(), track.clone());
