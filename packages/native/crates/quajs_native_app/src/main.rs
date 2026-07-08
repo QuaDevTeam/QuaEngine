@@ -1,3 +1,5 @@
+#[cfg(any(test, feature = "native-audio-rodio"))]
+mod audio_backend;
 #[cfg(any(test, feature = "image-decode"))]
 mod audio_sync;
 #[cfg(any(test, feature = "image-decode"))]

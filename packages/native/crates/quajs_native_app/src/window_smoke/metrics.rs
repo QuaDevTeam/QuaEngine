@@ -1,3 +1,6 @@
+#[cfg(feature = "native-audio-rodio")]
+use crate::audio_backend::RodioNativeAudioBackend;
+#[cfg(any(test, not(feature = "native-audio-rodio")))]
 use quajs_wgpu_renderer::audio::NullNativeAudioBackend;
 
 use crate::texture_sync::{
@@ -85,6 +88,25 @@ impl NativeWindowSmokeTextureMetrics {
 }
 
 impl NativeWindowSmokeAudioMetrics {
+    #[cfg(not(feature = "native-audio-rodio"))]
+    pub(super) fn from_product_backend(backend: Option<&NullNativeAudioBackend>) -> Self {
+        Self::from_null_backend(backend)
+    }
+
+    #[cfg(feature = "native-audio-rodio")]
+    pub(super) fn from_product_backend(backend: Option<&RodioNativeAudioBackend>) -> Self {
+        let Some(backend) = backend else {
+            return Self::default();
+        };
+        let diagnostics = backend.diagnostics();
+        Self {
+            applied_plan_count: diagnostics.applied_plan_count,
+            applied_command_count: diagnostics.applied_command_count,
+            active_track_count: diagnostics.active_track_count,
+        }
+    }
+
+    #[cfg(any(test, not(feature = "native-audio-rodio")))]
     pub(super) fn from_null_backend(backend: Option<&NullNativeAudioBackend>) -> Self {
         let Some(backend) = backend else {
             return Self::default();
