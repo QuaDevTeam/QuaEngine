@@ -2,6 +2,9 @@ use quajs_wgpu_renderer::audio::{
     AudioBackendAssetLoad, AudioBackendCommandPlan, NativeAudioBackend, NativeAudioBackendError,
     NativeAudioBackendResult,
 };
+use quajs_wgpu_renderer::fonts::{
+    FontBackendAssetLoad, FontBackendCommandPlan, NativeFontBackend, NativeFontBackendResult,
+};
 use quajs_wgpu_renderer::renderer::{
     NativeRenderBackend, NativeRenderBackendResult, NativeRenderFrameRef, NativeRenderSubmission,
 };
@@ -102,6 +105,34 @@ impl NativeVideoBackend for AssetLoadingVideoBackend {
     }
 
     fn apply_video_commands(&mut self, plan: &VideoBackendCommandPlan) -> NativeVideoBackendResult {
+        self.events.push("commands");
+        self.plans.push(plan.clone());
+        Ok(())
+    }
+}
+
+#[derive(Default)]
+pub(crate) struct AssetLoadingFontBackend {
+    pub(crate) events: Vec<&'static str>,
+    pub(crate) loads: Vec<FontBackendAssetLoad>,
+    pub(crate) plans: Vec<FontBackendCommandPlan>,
+}
+
+impl NativeFontBackend for AssetLoadingFontBackend {
+    fn wants_font_asset_loads(&self) -> bool {
+        true
+    }
+
+    fn apply_font_asset_loads(
+        &mut self,
+        loads: &[FontBackendAssetLoad],
+    ) -> NativeFontBackendResult {
+        self.events.push("loads");
+        self.loads.extend(loads.iter().cloned());
+        Ok(())
+    }
+
+    fn apply_font_commands(&mut self, plan: &FontBackendCommandPlan) -> NativeFontBackendResult {
         self.events.push("commands");
         self.plans.push(plan.clone());
         Ok(())

@@ -8,7 +8,7 @@ use super::super::backend::NativeRenderBackend;
 use super::super::resource_update::NativeRendererFrameUpdate;
 use super::NativeRenderer;
 
-impl<B, A, V> NativeRenderer<B, A, V>
+impl<B, A, V, F> NativeRenderer<B, A, V, F>
 where
     B: NativeRenderBackend,
     V: NativeVideoBackend,

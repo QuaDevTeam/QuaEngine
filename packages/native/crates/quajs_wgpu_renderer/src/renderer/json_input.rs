@@ -3,6 +3,7 @@ use std::fmt::{Display, Formatter};
 use serde::{Deserialize, Serialize};
 
 use crate::audio::{NativeAudioBackend, NativeAudioBackendError};
+use crate::fonts::NativeFontBackendError;
 use crate::projection::view::ViewProjection;
 use crate::renderer::backend::{NativeRenderBackend, NativeRenderBackendError};
 use crate::renderer::facade::{
@@ -42,6 +43,7 @@ pub enum NativeRendererJsonFrameError {
     Render(NativeRenderBackendError),
     Audio(NativeAudioBackendError),
     Video(NativeVideoBackendError),
+    Font(NativeFontBackendError),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -80,6 +82,7 @@ impl From<NativeRendererFrameError> for NativeRendererJsonFrameError {
             NativeRendererFrameError::Render(error) => Self::Render(error),
             NativeRendererFrameError::Audio(error) => Self::Audio(error),
             NativeRendererFrameError::Video(error) => Self::Video(error),
+            NativeRendererFrameError::Font(error) => Self::Font(error),
         }
     }
 }
@@ -92,6 +95,7 @@ impl Display for NativeRendererJsonFrameError {
             Self::Render(error) => write!(formatter, "Render backend error: {error}"),
             Self::Audio(error) => write!(formatter, "Audio backend error: {error}"),
             Self::Video(error) => write!(formatter, "Video backend error: {error}"),
+            Self::Font(error) => write!(formatter, "Font backend error: {error}"),
         }
     }
 }
@@ -122,7 +126,7 @@ impl Display for NativeRendererJsonValidationError {
 
 impl std::error::Error for NativeRendererJsonValidationError {}
 
-impl<B, A, V> NativeRenderer<B, A, V>
+impl<B, A, V, F> NativeRenderer<B, A, V, F>
 where
     B: NativeRenderBackend,
 {
@@ -143,7 +147,7 @@ where
     }
 }
 
-impl<B, A, V> NativeRenderer<B, A, V>
+impl<B, A, V, F> NativeRenderer<B, A, V, F>
 where
     B: NativeRenderBackend,
     A: NativeAudioBackend,
