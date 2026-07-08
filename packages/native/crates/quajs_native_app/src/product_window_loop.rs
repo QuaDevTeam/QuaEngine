@@ -4,6 +4,7 @@ use quajs_native_runtime::{InMemoryNativeHostApi, NativeHostApi};
 
 use crate::product_frame_scheduler::{
     NativeProductFrameAttempt, NativeProductFramePresentFailureAction, NativeProductFrameScheduler,
+    NativeProductSurfaceRecoveryMetrics,
 };
 use crate::product_loop::NativeProductLoopFrameResult;
 use crate::product_window::{
@@ -79,6 +80,10 @@ impl NativeProductWindowLoopState {
         self.frame_scheduler.surface_recovery_count()
     }
 
+    fn recovery_metrics(&self) -> NativeProductSurfaceRecoveryMetrics {
+        self.frame_scheduler.recovery_metrics()
+    }
+
     fn resize_count(&self) -> usize {
         self.resize_state.count()
     }
@@ -107,13 +112,27 @@ impl NativeProductWindowLoopState {
             });
     }
 
-    fn record_surface_recovery(&mut self) {
-        self.frame_scheduler.record_surface_recovery();
+    fn record_surface_recovery_attempt(&mut self) {
+        self.frame_scheduler.record_surface_recovery_attempt();
     }
 
-    fn classify_redraw_failure(&self, message: &str) -> NativeProductFramePresentFailureAction {
-        self.frame_scheduler
-            .classify_present_failure(present_failure_kind_from_message(message))
+    fn record_surface_recovery_success(&mut self) {
+        self.frame_scheduler.record_surface_recovery_success();
+    }
+
+    fn record_surface_recovery_missing_size(&mut self) {
+        self.frame_scheduler.record_surface_recovery_missing_size();
+    }
+
+    fn record_surface_recovery_error(&mut self) {
+        self.frame_scheduler.record_surface_recovery_error();
+    }
+
+    fn classify_redraw_failure(&mut self, message: &str) -> NativeProductFramePresentFailureAction {
+        let failure = present_failure_kind_from_message(message);
+        let action = self.frame_scheduler.classify_present_failure(failure);
+        self.frame_scheduler.record_present_failure(failure, action);
+        action
     }
 }
 
@@ -152,6 +171,10 @@ where
 
     pub(crate) fn surface_recovery_count(&self) -> usize {
         self.state.surface_recovery_count()
+    }
+
+    pub(crate) fn recovery_metrics(&self) -> NativeProductSurfaceRecoveryMetrics {
+        self.state.recovery_metrics()
     }
 
     pub(crate) fn resize_count(&self) -> usize {
@@ -255,11 +278,16 @@ where
                 Ok(NativeProductWindowLoopFailureAction::RetryRedraw)
             }
             NativeProductFramePresentFailureAction::RecoverSurface => {
+                self.state.record_surface_recovery_attempt();
                 let Some(physical_size) = recovery_size else {
+                    self.state.record_surface_recovery_missing_size();
                     return Ok(NativeProductWindowLoopFailureAction::Fail);
                 };
-                self.resize_to_physical_size(physical_size)?;
-                self.state.record_surface_recovery();
+                if let Err(error) = self.resize_to_physical_size(physical_size) {
+                    self.state.record_surface_recovery_error();
+                    return Err(error);
+                }
+                self.state.record_surface_recovery_success();
                 Ok(NativeProductWindowLoopFailureAction::RetryRedraw)
             }
             NativeProductFramePresentFailureAction::Fail => {
@@ -307,7 +335,8 @@ mod tests {
         let mut state = NativeProductWindowLoopState::new(1);
 
         state.record_resize(NativeProductWindowPhysicalSize::new(800, 600));
-        state.record_surface_recovery();
+        state.record_surface_recovery_attempt();
+        state.record_surface_recovery_success();
 
         assert_eq!(state.resize_count(), 1);
         assert_eq!(
@@ -315,5 +344,32 @@ mod tests {
             Some(NativeProductWindowPhysicalSize::new(800, 600))
         );
         assert_eq!(state.surface_recovery_count(), 1);
+        assert_eq!(state.recovery_metrics().surface_recovery_attempt_count, 1);
+        assert_eq!(state.recovery_metrics().surface_recovery_success_count, 1);
+    }
+
+    #[test]
+    fn state_records_redraw_failure_classification_metrics() {
+        let mut state = NativeProductWindowLoopState::new(1);
+        state.begin_present_attempt();
+
+        assert_eq!(
+            state.classify_redraw_failure(
+                "native product window surface present failed: surface configuration is outdated"
+            ),
+            NativeProductFramePresentFailureAction::RecoverSurface,
+        );
+
+        let metrics = state.recovery_metrics();
+        assert_eq!(metrics.present_failure_count, 1);
+        assert_eq!(metrics.recoverable_surface_failure_count, 1);
+        assert_eq!(
+            metrics.last_present_failure_kind.map(|kind| kind.label()),
+            Some("recoverable-surface")
+        );
+        assert_eq!(
+            metrics.last_recovery_action.map(|action| action.label()),
+            Some("recover-surface")
+        );
     }
 }
