@@ -14,15 +14,11 @@ pub(super) fn present_window_smoke_frame(
     allow_occluded_report: bool,
 ) -> Result<NativeWindowSmokePresentOutcome, NativeWindowSmokeError> {
     let offscreen_submitted_command_buffer_count = runtime
-        .renderer
+        .renderer()
         .backend()
         .runtime_snapshot()
         .submitted_command_buffer_count;
-    let present_report = match runtime
-        .renderer
-        .backend_mut()
-        .present_frame_to_surface(&runtime.surface)
-    {
+    let present_report = match runtime.present_frame_to_surface() {
         Ok(report) => Some(report),
         Err(error) => {
             let error = NativeWindowSmokeError::new(format!(
