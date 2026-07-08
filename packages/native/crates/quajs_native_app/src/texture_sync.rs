@@ -18,7 +18,7 @@ pub use cleanup::{
     release_package_resources_with_host_texture_cleanup_and_audio_teardown,
     sync_texture_releases_from_host_cleanup, NativeTextureCleanedClearResult,
     NativeTextureCleanedPackageReleaseResult, NativeTextureHostCleanupSyncFailure,
-    NativeTextureHostCleanupSyncReport,
+    NativeTextureHostCleanupSyncReport, NativeTextureMediaTeardownError,
 };
 #[allow(unused_imports)]
 pub use frame::{

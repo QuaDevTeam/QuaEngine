@@ -52,7 +52,7 @@ pub use backend::{
 };
 pub use facade::{
     NativeRenderer, NativeRendererFrameError, NativeRendererFrameResult,
-    NativeRendererPointerEventDispatch,
+    NativeRendererMediaBackendError, NativeRendererPointerEventDispatch,
 };
 pub use json_input::{
     parse_native_renderer_json_frame_input, NativeRendererJsonFrameError,

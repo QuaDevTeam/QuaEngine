@@ -6,6 +6,7 @@ use quajs_wgpu_renderer::projection::audio::{
     AudioProjection, AudioTrackKind, AudioTrackMemoryEstimate, AudioTrackProjection,
 };
 use quajs_wgpu_renderer::projection::background::BackgroundProjection;
+use quajs_wgpu_renderer::projection::background::{BackgroundMode, BackgroundVideoProjection};
 use quajs_wgpu_renderer::projection::common::PackageProvenance;
 use quajs_wgpu_renderer::projection::view::ViewProjection;
 use quajs_wgpu_renderer::renderer::NativeRenderer;
@@ -81,6 +82,24 @@ pub(crate) fn view_with_background() -> ViewProjection {
         background: Some(BackgroundProjection {
             asset_name: Some("bg/school.png".to_string()),
             provenance: provenance("base", []),
+            ..Default::default()
+        }),
+        ..Default::default()
+    }
+}
+
+pub(crate) fn view_with_video_package(package_id: &str) -> ViewProjection {
+    ViewProjection {
+        background: Some(BackgroundProjection {
+            mode: BackgroundMode::Video,
+            video: Some(BackgroundVideoProjection {
+                looped: Some(true),
+                muted: Some(false),
+                volume: Some(0.5),
+                playback_rate: Some(1.0),
+                provenance: provenance(package_id, []),
+                ..BackgroundVideoProjection::new("video/opening.webm")
+            }),
             ..Default::default()
         }),
         ..Default::default()

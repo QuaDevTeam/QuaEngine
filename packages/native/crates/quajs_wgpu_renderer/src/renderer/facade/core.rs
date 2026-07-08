@@ -12,6 +12,7 @@ use crate::resources::{
     NativeTextureUploadSyncPlan, PackageUnloadPlan, ResourceBudget, ResourceBudgetViolation,
 };
 use crate::stage_layout::{ResolvedStageLayout, StageClientPoint, StageClientRectOrigin};
+use crate::video::NullNativeVideoBackend;
 
 use super::super::backend::{
     NativeRenderBackend, NativeRenderBackendError, NativeRenderBackendResult,
@@ -31,6 +32,7 @@ where
             state: NativeRendererState::new(),
             backend,
             audio_backend: None,
+            video_backend: None,
         }
     }
 
@@ -39,11 +41,25 @@ where
             state,
             backend,
             audio_backend: None,
+            video_backend: None,
         }
     }
 
     pub fn with_null_audio_backend(backend: B) -> NativeRenderer<B, NullNativeAudioBackend> {
-        NativeRenderer::with_audio_backend(backend, NullNativeAudioBackend::new())
+        NativeRenderer::<B, NullNativeAudioBackend>::with_audio_backend(
+            backend,
+            NullNativeAudioBackend::new(),
+        )
+    }
+
+    pub fn with_null_media_backend(
+        backend: B,
+    ) -> NativeRenderer<B, NullNativeAudioBackend, NullNativeVideoBackend> {
+        NativeRenderer::<B, NullNativeAudioBackend, NullNativeVideoBackend>::with_audio_video_backend(
+            backend,
+            NullNativeAudioBackend::new(),
+            NullNativeVideoBackend::new(),
+        )
     }
 
     pub fn into_parts(self) -> (NativeRendererState, B) {
@@ -51,12 +67,17 @@ where
     }
 }
 
-impl<B, A> NativeRenderer<B, A>
+impl<B, A> NativeRenderer<B, A, ()>
 where
     B: NativeRenderBackend,
 {
     pub fn with_audio_backend(backend: B, audio_backend: A) -> Self {
-        Self::with_state_and_audio_backend(NativeRendererState::new(), backend, audio_backend)
+        Self {
+            state: NativeRendererState::new(),
+            backend,
+            audio_backend: Some(audio_backend),
+            video_backend: None,
+        }
     }
 
     pub fn with_state_and_audio_backend(
@@ -68,6 +89,49 @@ where
             state,
             backend,
             audio_backend: Some(audio_backend),
+            video_backend: None,
+        }
+    }
+}
+
+impl<B, V> NativeRenderer<B, (), V>
+where
+    B: NativeRenderBackend,
+{
+    pub fn with_video_backend(backend: B, video_backend: V) -> Self {
+        Self {
+            state: NativeRendererState::new(),
+            backend,
+            audio_backend: None,
+            video_backend: Some(video_backend),
+        }
+    }
+}
+
+impl<B, A, V> NativeRenderer<B, A, V>
+where
+    B: NativeRenderBackend,
+{
+    pub fn with_audio_video_backend(backend: B, audio_backend: A, video_backend: V) -> Self {
+        Self::with_state_audio_video_backend(
+            NativeRendererState::new(),
+            backend,
+            audio_backend,
+            video_backend,
+        )
+    }
+
+    pub fn with_state_audio_video_backend(
+        state: NativeRendererState,
+        backend: B,
+        audio_backend: A,
+        video_backend: V,
+    ) -> Self {
+        Self {
+            state,
+            backend,
+            audio_backend: Some(audio_backend),
+            video_backend: Some(video_backend),
         }
     }
 
@@ -97,6 +161,14 @@ where
 
     pub fn audio_backend_mut(&mut self) -> Option<&mut A> {
         self.audio_backend.as_mut()
+    }
+
+    pub fn video_backend(&self) -> Option<&V> {
+        self.video_backend.as_ref()
+    }
+
+    pub fn video_backend_mut(&mut self) -> Option<&mut V> {
+        self.video_backend.as_mut()
     }
 
     pub fn resources(&self) -> &NativeResourceLedger {
@@ -221,5 +293,14 @@ where
 
     pub fn into_parts_with_audio(self) -> (NativeRendererState, B, Option<A>) {
         (self.state, self.backend, self.audio_backend)
+    }
+
+    pub fn into_parts_with_media(self) -> (NativeRendererState, B, Option<A>, Option<V>) {
+        (
+            self.state,
+            self.backend,
+            self.audio_backend,
+            self.video_backend,
+        )
     }
 }

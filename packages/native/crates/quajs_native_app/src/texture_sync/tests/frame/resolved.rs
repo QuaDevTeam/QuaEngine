@@ -1,6 +1,7 @@
 use quajs_wgpu_renderer::audio::NullNativeAudioBackend;
 use quajs_wgpu_renderer::renderer::NativeRenderer;
 use quajs_wgpu_renderer::resources::{NativeResourceKind, NativeResourceRecord, ResourceId};
+use quajs_wgpu_renderer::video::VideoBackendCommandKind;
 
 use crate::texture_sync::{
     render_frame_with_host_texture_lifecycle_sync_and_audio_teardown,
@@ -8,8 +9,8 @@ use crate::texture_sync::{
 };
 
 use super::super::support::{
-    bundle, test_layout, view_with_audio_package, view_with_background, AssetLoadingAudioBackend,
-    RecordingAssetHost, TextureResidentBackend,
+    bundle, test_layout, view_with_audio_package, view_with_background, view_with_video_package,
+    AssetLoadingAudioBackend, AssetLoadingVideoBackend, RecordingAssetHost, TextureResidentBackend,
 };
 
 #[test]
@@ -244,6 +245,67 @@ fn null_audio_backend_does_not_read_audio_assets() {
 }
 
 #[test]
+fn video_asset_loading_backend_reads_package_assets_before_video_commands() {
+    let host = RecordingAssetHost::new()
+        .with_bundle(bundle("runtime-bundle", Some("runtime.video")))
+        .with_asset(
+            Some("runtime-bundle"),
+            "video/opening.webm",
+            [9, 10, 11, 12],
+        );
+    let mut renderer = NativeRenderer::with_audio_video_backend(
+        TextureResidentBackend::default(),
+        NullNativeAudioBackend::new(),
+        AssetLoadingVideoBackend::default(),
+    );
+    let mut registry = NativeTextureBundleMountRegistry::new();
+
+    let result = render_frame_with_host_texture_lifecycle_sync_and_audio_teardown(
+        &mut registry,
+        &mut renderer,
+        &host,
+        test_layout(),
+        &view_with_video_package("runtime.video"),
+    )
+    .expect("video asset loading frame should render");
+
+    let report = result
+        .frame
+        .video_asset_report
+        .expect("asset-loading backend should request video assets");
+    assert_eq!(report.loaded_count, 1);
+    assert_eq!(report.load_asset_command_count, 1);
+    assert_eq!(report.ignored_command_count, 1);
+    assert_eq!(
+        host.reads.borrow()[0].bundle_name.as_deref(),
+        Some("runtime-bundle")
+    );
+    assert_eq!(
+        host.reads.borrow()[0].asset_id.as_deref(),
+        Some("video:decoder:video:video/opening.webm")
+    );
+    let video_backend = renderer.video_backend().unwrap();
+    assert_eq!(video_backend.events, vec!["loads", "commands"]);
+    assert_eq!(video_backend.loads.len(), 1);
+    assert_eq!(video_backend.loads[0].bytes, vec![9, 10, 11, 12]);
+    assert_eq!(
+        video_backend.loads[0].package_id.as_deref(),
+        Some("runtime.video")
+    );
+    assert_eq!(
+        video_backend.plans[0]
+            .commands
+            .iter()
+            .map(|command| command.kind.clone())
+            .collect::<Vec<_>>(),
+        vec![
+            VideoBackendCommandKind::LoadAsset,
+            VideoBackendCommandKind::StartStream,
+        ]
+    );
+}
+
+#[test]
 fn missing_audio_asset_rolls_back_renderer_audio_state_for_asset_loading_backend() {
     let host =
         RecordingAssetHost::new().with_bundle(bundle("runtime-bundle", Some("runtime.menu")));
@@ -267,5 +329,33 @@ fn missing_audio_asset_rolls_back_renderer_audio_state_for_asset_loading_backend
     let audio_backend = renderer.audio_backend().unwrap();
     assert!(audio_backend.loads.is_empty());
     assert!(audio_backend.plans.is_empty());
+    assert_eq!(host.reads.borrow().len(), 1);
+}
+
+#[test]
+fn missing_video_asset_rolls_back_renderer_video_state_for_asset_loading_backend() {
+    let host =
+        RecordingAssetHost::new().with_bundle(bundle("runtime-bundle", Some("runtime.video")));
+    let mut renderer = NativeRenderer::with_audio_video_backend(
+        TextureResidentBackend::default(),
+        NullNativeAudioBackend::new(),
+        AssetLoadingVideoBackend::default(),
+    );
+    let mut registry = NativeTextureBundleMountRegistry::new();
+
+    let error = render_frame_with_host_texture_lifecycle_sync_and_audio_teardown(
+        &mut registry,
+        &mut renderer,
+        &host,
+        test_layout(),
+        &view_with_video_package("runtime.video"),
+    )
+    .expect_err("missing video bytes should fail before backend commands are applied");
+
+    assert!(error.to_string().contains("Native video asset sync failed"));
+    assert!(renderer.state().video_backend_streams().is_empty());
+    let video_backend = renderer.video_backend().unwrap();
+    assert!(video_backend.loads.is_empty());
+    assert!(video_backend.plans.is_empty());
     assert_eq!(host.reads.borrow().len(), 1);
 }

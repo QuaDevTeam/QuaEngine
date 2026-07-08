@@ -6,6 +6,9 @@ use quajs_wgpu_renderer::renderer::{
     NativeRenderBackend, NativeRenderBackendResult, NativeRenderFrameRef, NativeRenderSubmission,
 };
 use quajs_wgpu_renderer::resources::{NativeTextureUploadRequest, ResourceId};
+use quajs_wgpu_renderer::video::{
+    NativeVideoBackend, NativeVideoBackendResult, VideoBackendAssetLoad, VideoBackendCommandPlan,
+};
 
 use crate::texture_sync::{NativeTextureUploadMetadata, NativeTextureUploadSink};
 
@@ -71,6 +74,34 @@ impl NativeAudioBackend for AssetLoadingAudioBackend {
     }
 
     fn apply_audio_commands(&mut self, plan: &AudioBackendCommandPlan) -> NativeAudioBackendResult {
+        self.events.push("commands");
+        self.plans.push(plan.clone());
+        Ok(())
+    }
+}
+
+#[derive(Default)]
+pub(crate) struct AssetLoadingVideoBackend {
+    pub(crate) events: Vec<&'static str>,
+    pub(crate) loads: Vec<VideoBackendAssetLoad>,
+    pub(crate) plans: Vec<VideoBackendCommandPlan>,
+}
+
+impl NativeVideoBackend for AssetLoadingVideoBackend {
+    fn wants_video_asset_loads(&self) -> bool {
+        true
+    }
+
+    fn apply_video_asset_loads(
+        &mut self,
+        loads: &[VideoBackendAssetLoad],
+    ) -> NativeVideoBackendResult {
+        self.events.push("loads");
+        self.loads.extend(loads.iter().cloned());
+        Ok(())
+    }
+
+    fn apply_video_commands(&mut self, plan: &VideoBackendCommandPlan) -> NativeVideoBackendResult {
         self.events.push("commands");
         self.plans.push(plan.clone());
         Ok(())

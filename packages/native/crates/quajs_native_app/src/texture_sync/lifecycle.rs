@@ -4,11 +4,12 @@ use std::fmt::{Display, Formatter};
 use quajs_native_runtime::{NativeHostApi, NativeHostApiError, NativeMountedBundleInfo};
 use quajs_wgpu_renderer::audio::{NativeAudioBackend, NativeAudioBackendError};
 use quajs_wgpu_renderer::renderer::{NativeRenderBackend, NativeRenderer};
+use quajs_wgpu_renderer::video::{NativeVideoBackend, NativeVideoBackendError};
 
 use super::cleanup::{
     release_package_resources_with_host_texture_cleanup,
     release_package_resources_with_host_texture_cleanup_and_audio_teardown,
-    NativeTextureCleanedPackageReleaseResult,
+    NativeTextureCleanedPackageReleaseResult, NativeTextureMediaTeardownError,
 };
 use super::types::NativeTextureUploadSink;
 
@@ -56,6 +57,7 @@ pub struct NativeTextureBundleLifecycleSyncReport {
 pub enum NativeTextureBundleLifecycleSyncError {
     Host(NativeHostApiError),
     Audio(NativeAudioBackendError),
+    Video(NativeVideoBackendError),
 }
 
 impl Display for NativeTextureBundleLifecycleSyncError {
@@ -69,6 +71,10 @@ impl Display for NativeTextureBundleLifecycleSyncError {
             Self::Audio(error) => write!(
                 formatter,
                 "Native texture bundle lifecycle audio teardown failed: {error}"
+            ),
+            Self::Video(error) => write!(
+                formatter,
+                "Native texture bundle lifecycle video teardown failed: {error}"
             ),
         }
     }
@@ -88,10 +94,25 @@ impl From<NativeAudioBackendError> for NativeTextureBundleLifecycleSyncError {
     }
 }
 
+impl From<NativeVideoBackendError> for NativeTextureBundleLifecycleSyncError {
+    fn from(error: NativeVideoBackendError) -> Self {
+        Self::Video(error)
+    }
+}
+
+impl From<NativeTextureMediaTeardownError> for NativeTextureBundleLifecycleSyncError {
+    fn from(error: NativeTextureMediaTeardownError) -> Self {
+        match error {
+            NativeTextureMediaTeardownError::Audio(error) => Self::Audio(error),
+            NativeTextureMediaTeardownError::Video(error) => Self::Video(error),
+        }
+    }
+}
+
 #[allow(dead_code)]
-pub fn sync_mounted_texture_bundle_lifecycle_from_host<B, A, H>(
+pub fn sync_mounted_texture_bundle_lifecycle_from_host<B, A, V, H>(
     registry: &mut NativeTextureBundleMountRegistry,
-    renderer: &mut NativeRenderer<B, A>,
+    renderer: &mut NativeRenderer<B, A, V>,
     host: &H,
 ) -> Result<NativeTextureBundleLifecycleSyncReport, NativeHostApiError>
 where
@@ -112,14 +133,15 @@ where
 }
 
 #[allow(dead_code)]
-pub fn sync_mounted_texture_bundle_lifecycle_from_host_and_audio_teardown<B, A, H>(
+pub fn sync_mounted_texture_bundle_lifecycle_from_host_and_audio_teardown<B, A, V, H>(
     registry: &mut NativeTextureBundleMountRegistry,
-    renderer: &mut NativeRenderer<B, A>,
+    renderer: &mut NativeRenderer<B, A, V>,
     host: &H,
 ) -> Result<NativeTextureBundleLifecycleSyncReport, NativeTextureBundleLifecycleSyncError>
 where
     B: NativeRenderBackend + NativeTextureUploadSink,
     A: NativeAudioBackend,
+    V: NativeVideoBackend,
     H: NativeHostApi,
 {
     let bundles = host.list_mounted_bundles()?;
@@ -136,16 +158,16 @@ where
     )
 }
 
-fn sync_mounted_texture_bundle_lifecycle_with_release<B, A, E, F>(
+fn sync_mounted_texture_bundle_lifecycle_with_release<B, A, V, E, F>(
     registry: &mut NativeTextureBundleMountRegistry,
-    renderer: &mut NativeRenderer<B, A>,
+    renderer: &mut NativeRenderer<B, A, V>,
     bundles: &[NativeMountedBundleInfo],
     mut release_package: F,
 ) -> Result<NativeTextureBundleLifecycleSyncReport, E>
 where
     B: NativeRenderBackend + NativeTextureUploadSink,
     F: FnMut(
-        &mut NativeRenderer<B, A>,
+        &mut NativeRenderer<B, A, V>,
         &str,
     ) -> Result<NativeTextureCleanedPackageReleaseResult, E>,
 {

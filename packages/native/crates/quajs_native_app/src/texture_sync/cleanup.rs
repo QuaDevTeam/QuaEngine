@@ -1,11 +1,14 @@
 use std::collections::BTreeSet;
+use std::fmt::{Display, Formatter};
 
 use quajs_wgpu_renderer::audio::{NativeAudioBackend, NativeAudioBackendError};
 use quajs_wgpu_renderer::renderer::NativeRendererHostCleanupRecord;
 use quajs_wgpu_renderer::renderer::{
-    NativeRenderBackend, NativeRenderer, NativeRendererPackageRelease,
+    NativeRenderBackend, NativeRenderer, NativeRendererMediaBackendError,
+    NativeRendererPackageRelease,
 };
 use quajs_wgpu_renderer::resources::{NativeResourceKind, NativeResourceRecord, ResourceId};
+use quajs_wgpu_renderer::video::{NativeVideoBackend, NativeVideoBackendError};
 
 use super::types::NativeTextureUploadSink;
 
@@ -55,6 +58,50 @@ pub struct NativeTextureCleanedClearResult {
     pub texture_cleanup_report: NativeTextureHostCleanupSyncReport,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum NativeTextureMediaTeardownError {
+    Audio(NativeAudioBackendError),
+    Video(NativeVideoBackendError),
+}
+
+impl Display for NativeTextureMediaTeardownError {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Audio(error) => write!(
+                formatter,
+                "Native texture media audio teardown failed: {error}"
+            ),
+            Self::Video(error) => write!(
+                formatter,
+                "Native texture media video teardown failed: {error}"
+            ),
+        }
+    }
+}
+
+impl std::error::Error for NativeTextureMediaTeardownError {}
+
+impl From<NativeAudioBackendError> for NativeTextureMediaTeardownError {
+    fn from(error: NativeAudioBackendError) -> Self {
+        Self::Audio(error)
+    }
+}
+
+impl From<NativeVideoBackendError> for NativeTextureMediaTeardownError {
+    fn from(error: NativeVideoBackendError) -> Self {
+        Self::Video(error)
+    }
+}
+
+impl From<NativeRendererMediaBackendError> for NativeTextureMediaTeardownError {
+    fn from(error: NativeRendererMediaBackendError) -> Self {
+        match error {
+            NativeRendererMediaBackendError::Audio(error) => Self::Audio(error),
+            NativeRendererMediaBackendError::Video(error) => Self::Video(error),
+        }
+    }
+}
+
 pub fn sync_texture_releases_from_host_cleanup<S>(
     sink: &mut S,
     cleanup: &[NativeRendererHostCleanupRecord],
@@ -99,8 +146,8 @@ where
 }
 
 #[allow(dead_code)]
-pub fn release_package_resources_with_host_texture_cleanup<B, A>(
-    renderer: &mut NativeRenderer<B, A>,
+pub fn release_package_resources_with_host_texture_cleanup<B, A, V>(
+    renderer: &mut NativeRenderer<B, A, V>,
     package_id: &str,
 ) -> NativeTextureCleanedPackageReleaseResult
 where
@@ -120,16 +167,17 @@ where
 }
 
 #[allow(dead_code)]
-pub fn release_package_resources_with_host_texture_cleanup_and_audio_teardown<B, A>(
-    renderer: &mut NativeRenderer<B, A>,
+pub fn release_package_resources_with_host_texture_cleanup_and_audio_teardown<B, A, V>(
+    renderer: &mut NativeRenderer<B, A, V>,
     package_id: &str,
-) -> Result<NativeTextureCleanedPackageReleaseResult, NativeAudioBackendError>
+) -> Result<NativeTextureCleanedPackageReleaseResult, NativeTextureMediaTeardownError>
 where
     B: NativeRenderBackend + NativeTextureUploadSink,
     A: NativeAudioBackend,
+    V: NativeVideoBackend,
 {
     let package_release =
-        renderer.release_package_resources_and_apply_audio_teardown(package_id)?;
+        renderer.release_package_resources_and_apply_media_teardown(package_id)?;
     let texture_cleanup_report = sync_texture_releases_from_host_cleanup(
         renderer.backend_mut(),
         &package_release.host_cleanup,
@@ -143,8 +191,8 @@ where
 }
 
 #[allow(dead_code)]
-pub fn clear_renderer_with_host_texture_cleanup<B, A>(
-    renderer: &mut NativeRenderer<B, A>,
+pub fn clear_renderer_with_host_texture_cleanup<B, A, V>(
+    renderer: &mut NativeRenderer<B, A, V>,
 ) -> NativeTextureCleanedClearResult
 where
     B: NativeRenderBackend + NativeTextureUploadSink,
@@ -161,15 +209,16 @@ where
 }
 
 #[allow(dead_code)]
-pub fn clear_renderer_with_host_texture_cleanup_and_audio_teardown<B, A>(
-    renderer: &mut NativeRenderer<B, A>,
-) -> Result<NativeTextureCleanedClearResult, NativeAudioBackendError>
+pub fn clear_renderer_with_host_texture_cleanup_and_audio_teardown<B, A, V>(
+    renderer: &mut NativeRenderer<B, A, V>,
+) -> Result<NativeTextureCleanedClearResult, NativeTextureMediaTeardownError>
 where
     B: NativeRenderBackend + NativeTextureUploadSink,
     A: NativeAudioBackend,
+    V: NativeVideoBackend,
 {
     let (released_resources, host_cleanup) =
-        renderer.clear_with_host_cleanup_and_audio_teardown()?;
+        renderer.clear_with_host_cleanup_and_media_teardown()?;
     let texture_cleanup_report =
         sync_texture_releases_from_host_cleanup(renderer.backend_mut(), &host_cleanup);
 
@@ -188,8 +237,8 @@ fn is_texture_cleanup_kind(kind: NativeResourceKind) -> bool {
     )
 }
 
-fn restore_failed_texture_cleanup_resources<B, A>(
-    renderer: &mut NativeRenderer<B, A>,
+fn restore_failed_texture_cleanup_resources<B, A, V>(
+    renderer: &mut NativeRenderer<B, A, V>,
     package_release: &NativeRendererPackageRelease,
     texture_cleanup_report: &NativeTextureHostCleanupSyncReport,
 ) where

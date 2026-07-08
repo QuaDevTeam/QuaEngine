@@ -16,6 +16,7 @@ use crate::renderer::resource_update::NativeRendererFrameUpdate;
 use crate::stage_layout::{
     resolve_stage_layout, ResolvedStageLayout, StageContainerInput, ViewLayoutInput,
 };
+use crate::video::{NativeVideoBackend, NativeVideoBackendError};
 
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -40,6 +41,7 @@ pub enum NativeRendererJsonFrameError {
     Validation(NativeRendererJsonValidationError),
     Render(NativeRenderBackendError),
     Audio(NativeAudioBackendError),
+    Video(NativeVideoBackendError),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -77,6 +79,7 @@ impl From<NativeRendererFrameError> for NativeRendererJsonFrameError {
         match error {
             NativeRendererFrameError::Render(error) => Self::Render(error),
             NativeRendererFrameError::Audio(error) => Self::Audio(error),
+            NativeRendererFrameError::Video(error) => Self::Video(error),
         }
     }
 }
@@ -88,6 +91,7 @@ impl Display for NativeRendererJsonFrameError {
             Self::Validation(error) => write!(formatter, "{error}"),
             Self::Render(error) => write!(formatter, "Render backend error: {error}"),
             Self::Audio(error) => write!(formatter, "Audio backend error: {error}"),
+            Self::Video(error) => write!(formatter, "Video backend error: {error}"),
         }
     }
 }
@@ -118,7 +122,7 @@ impl Display for NativeRendererJsonValidationError {
 
 impl std::error::Error for NativeRendererJsonValidationError {}
 
-impl<B, A> NativeRenderer<B, A>
+impl<B, A, V> NativeRenderer<B, A, V>
 where
     B: NativeRenderBackend,
 {
@@ -139,10 +143,11 @@ where
     }
 }
 
-impl<B, A> NativeRenderer<B, A>
+impl<B, A, V> NativeRenderer<B, A, V>
 where
     B: NativeRenderBackend,
     A: NativeAudioBackend,
+    V: NativeVideoBackend,
 {
     pub fn prepare_render_json_and_apply_audio_str(
         &mut self,

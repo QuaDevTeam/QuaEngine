@@ -5,14 +5,18 @@ use crate::audio::{
 use crate::projection::view::ViewProjection;
 use crate::resources::{NativeAssetRequestPlan, NativeResourceRecord, PackageUnloadPlan};
 use crate::stage_layout::ResolvedStageLayout;
+use crate::video::NativeVideoBackend;
 
 use super::super::backend::NativeRenderBackend;
 use super::super::resource_update::{
     NativeRendererFrameUpdate, NativeRendererHostCleanupRecord, NativeRendererPackageRelease,
 };
-use super::{NativeRenderer, NativeRendererFrameError, NativeRendererFrameResult};
+use super::{
+    NativeRenderer, NativeRendererFrameError, NativeRendererFrameResult,
+    NativeRendererMediaBackendError,
+};
 
-impl<B, A> NativeRenderer<B, A>
+impl<B, A, V> NativeRenderer<B, A, V>
 where
     B: NativeRenderBackend,
     A: NativeAudioBackend,
@@ -90,6 +94,23 @@ where
         Ok(self.clear_with_host_cleanup())
     }
 
+    pub fn clear_with_host_cleanup_and_media_teardown(
+        &mut self,
+    ) -> Result<
+        (
+            Vec<NativeResourceRecord>,
+            Vec<NativeRendererHostCleanupRecord>,
+        ),
+        NativeRendererMediaBackendError,
+    >
+    where
+        V: NativeVideoBackend,
+    {
+        self.apply_audio_teardown()?;
+        self.apply_video_teardown()?;
+        Ok(self.clear_with_host_cleanup())
+    }
+
     pub fn release_package_resources_and_apply_audio_teardown(
         &mut self,
         package_id: &str,
@@ -97,6 +118,21 @@ where
         let plan = self.plan_package_unload(package_id);
         if plan.can_unload() {
             self.apply_package_audio_teardown(&plan)?;
+        }
+        Ok(self.release_package_resources(package_id))
+    }
+
+    pub fn release_package_resources_and_apply_media_teardown(
+        &mut self,
+        package_id: &str,
+    ) -> Result<NativeRendererPackageRelease, NativeRendererMediaBackendError>
+    where
+        V: NativeVideoBackend,
+    {
+        let plan = self.plan_package_unload(package_id);
+        if plan.can_unload() {
+            self.apply_package_audio_teardown(&plan)?;
+            self.apply_package_video_teardown(&plan)?;
         }
         Ok(self.release_package_resources(package_id))
     }
