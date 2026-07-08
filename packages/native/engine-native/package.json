@@ -45,6 +45,9 @@
     "@quajs/native-contracts": "workspace:*"
   },
   "devDependencies": {
-    "@quajs/assets": "workspace:*"
+    "@quajs/assets": "workspace:*",
+    "@quajs/character": "workspace:*",
+    "@quajs/script-compiler": "workspace:*",
+    "typescript": "catalog:"
   }
 }
