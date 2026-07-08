@@ -54,10 +54,7 @@ impl ApplicationHandler for NativeWindowSmokeApp {
                 self.input.clear_cursor_position();
             }
             WindowEvent::Focused(focused) => {
-                if let Err(error) = self
-                    .input
-                    .dispatch_focus_event(&mut self.texture_host, focused)
-                {
+                if let Err(error) = self.dispatch_window_focus_event(focused) {
                     self.fail_and_exit(event_loop, error);
                     return;
                 }
@@ -67,10 +64,7 @@ impl ApplicationHandler for NativeWindowSmokeApp {
                 }
             }
             WindowEvent::KeyboardInput { event, .. } => {
-                if let Err(error) = self
-                    .input
-                    .dispatch_keyboard_event(&mut self.texture_host, &event)
-                {
+                if let Err(error) = self.dispatch_window_keyboard_event(&event) {
                     self.fail_and_exit(event_loop, error);
                 }
             }
@@ -103,7 +97,12 @@ impl ApplicationHandler for NativeWindowSmokeApp {
 
 impl NativeWindowSmokeApp {
     fn needs_more_frames(&self) -> bool {
-        self.product_loop.rendered_frame_count() < self.target_frame_count
+        let rendered_frame_count = self
+            .runtime
+            .as_ref()
+            .map(|runtime| runtime.rendered_frame_count())
+            .unwrap_or(0);
+        rendered_frame_count < self.target_frame_count
     }
 
     fn redraw_once_or_schedule_retry(&mut self) -> bool {

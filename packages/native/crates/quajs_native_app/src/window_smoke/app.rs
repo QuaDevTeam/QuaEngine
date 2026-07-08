@@ -16,7 +16,6 @@ use super::report::NativeWindowSmokeReport;
 use super::report_builder::{build_window_smoke_report, NativeWindowSmokeReportInput};
 use super::resize::NativeWindowSmokeResizeState;
 use super::texture_host::create_window_smoke_texture_host;
-use crate::product_loop::NativeProductLoop;
 
 mod events;
 
@@ -24,8 +23,6 @@ pub(super) struct NativeWindowSmokeApp {
     frame_source: String,
     window: Option<Arc<Window>>,
     runtime: Option<NativeWindowSmokeRuntime>,
-    texture_host: quajs_native_runtime::InMemoryNativeHostApi,
-    product_loop: NativeProductLoop,
     input: NativeWindowSmokeInputState,
     texture_metrics: NativeWindowSmokeTextureMetrics,
     present_loop: NativeWindowSmokePresentLoop,
@@ -41,8 +38,6 @@ impl NativeWindowSmokeApp {
             frame_source,
             window: None,
             runtime: None,
-            texture_host: create_window_smoke_texture_host(),
-            product_loop: NativeProductLoop::new(),
             input: NativeWindowSmokeInputState::default(),
             texture_metrics: NativeWindowSmokeTextureMetrics::default(),
             present_loop: NativeWindowSmokePresentLoop::default(),
@@ -72,6 +67,7 @@ impl NativeWindowSmokeApp {
                 })?,
         );
         let physical_size = normalized_physical_size(window.inner_size());
+        let texture_host = create_window_smoke_texture_host();
         let instance =
             wgpu::Instance::new(wgpu::InstanceDescriptor::new_with_display_handle_from_env(
                 Box::new(event_loop.owned_display_handle()),
@@ -81,7 +77,8 @@ impl NativeWindowSmokeApp {
                 "Failed to create native renderer smoke wgpu surface: {error}."
             ))
         })?;
-        let runtime = NativeWindowSmokeRuntime::bootstrap(&instance, surface, physical_size)?;
+        let runtime =
+            NativeWindowSmokeRuntime::bootstrap(&instance, surface, physical_size, texture_host)?;
 
         self.runtime = Some(runtime);
         self.window = Some(window.clone());
@@ -109,13 +106,8 @@ impl NativeWindowSmokeApp {
             dimensions.device_pixel_ratio,
         )?;
 
-        let product_frame = self
-            .product_loop
-            .render_projection_json_with_audio_teardown(
-                &mut runtime.renderer,
-                &self.texture_host,
-                &frame_json,
-            )
+        let product_frame = runtime
+            .render_projection_json_with_audio_teardown(&frame_json)
             .map_err(|error| {
                 NativeWindowSmokeError::new(format!("Native renderer smoke frame failed: {error}."))
             })?;
@@ -128,26 +120,23 @@ impl NativeWindowSmokeApp {
         );
         let synced_frame = synced_frame.frame;
         let frame_result = synced_frame.frame;
-        self.input.run_open_settings_probe(
-            &mut runtime.renderer,
-            &mut self.texture_host,
-            &frame_json,
-        )?;
+        {
+            let (renderer, host) = runtime.renderer_and_host_mut();
+            self.input
+                .run_open_settings_probe(renderer, host, &frame_json)?;
+        }
         let present_outcome = present_window_smoke_frame(runtime, allow_occluded_report)?;
         let input_metrics = self.input.metrics();
         if product_frame.frame_number >= self.target_frame_count {
-            let shutdown = self
-                .product_loop
-                .shutdown_with_audio_teardown(&mut runtime.renderer)
-                .map_err(|error| {
-                    NativeWindowSmokeError::new(format!(
-                        "Native renderer smoke shutdown failed: {error}."
-                    ))
-                })?;
+            let shutdown = runtime.shutdown_with_audio_teardown().map_err(|error| {
+                NativeWindowSmokeError::new(format!(
+                    "Native renderer smoke shutdown failed: {error}."
+                ))
+            })?;
             self.texture_metrics.record_shutdown_cleanup(&shutdown);
         }
         let audio_metrics =
-            NativeWindowSmokeAudioMetrics::from_null_backend(runtime.renderer.audio_backend());
+            NativeWindowSmokeAudioMetrics::from_null_backend(runtime.renderer().audio_backend());
 
         Ok(build_window_smoke_report(NativeWindowSmokeReportInput {
             adapter_name: &runtime.adapter_name,
@@ -195,19 +184,38 @@ impl NativeWindowSmokeApp {
             return Ok(());
         };
 
-        self.input.dispatch_pointer_event(
-            &mut runtime.renderer,
-            &mut self.texture_host,
-            phase,
-            point,
-            button,
-        )
+        let (renderer, host) = runtime.renderer_and_host_mut();
+        self.input
+            .dispatch_pointer_event(renderer, host, phase, point, button)
     }
 
     fn cancel_window_pointer_interaction(&mut self) {
         if let Some(runtime) = self.runtime.as_mut() {
-            self.input.cancel_pointer_interaction(&mut runtime.renderer);
+            self.input
+                .cancel_pointer_interaction(runtime.renderer_mut());
         }
+    }
+
+    fn dispatch_window_focus_event(&mut self, focused: bool) -> Result<(), NativeWindowSmokeError> {
+        let Some(runtime) = self.runtime.as_mut() else {
+            self.input.record_focus_event(focused);
+            return Ok(());
+        };
+
+        self.input.dispatch_focus_event(runtime.host_mut(), focused)
+    }
+
+    fn dispatch_window_keyboard_event(
+        &mut self,
+        event: &winit::event::KeyEvent,
+    ) -> Result<(), NativeWindowSmokeError> {
+        let Some(runtime) = self.runtime.as_mut() else {
+            self.input.record_keyboard_event(event);
+            return Ok(());
+        };
+
+        self.input
+            .dispatch_keyboard_event(runtime.host_mut(), event)
     }
 
     fn recover_surface_from_window_size(&mut self) -> Result<(), NativeWindowSmokeError> {
