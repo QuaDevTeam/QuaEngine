@@ -180,9 +180,9 @@ impl NativeWindowSmokeInputState {
         self.metrics.ime_last_cursor_end = report.composition.cursor_end;
     }
 
-    pub(super) fn cancel_pointer_interaction<B, A>(
+    pub(super) fn cancel_pointer_interaction<B, A, V, F>(
         &mut self,
-        renderer: &mut NativeRenderer<B, A>,
+        renderer: &mut NativeRenderer<B, A, V, F>,
     ) -> bool
     where
         B: NativeRenderBackend,
@@ -194,9 +194,9 @@ impl NativeWindowSmokeInputState {
         canceled
     }
 
-    pub(super) fn dispatch_pointer_event<B, A>(
+    pub(super) fn dispatch_pointer_event<B, A, V, F>(
         &mut self,
-        renderer: &mut NativeRenderer<B, A>,
+        renderer: &mut NativeRenderer<B, A, V, F>,
         host: &mut InMemoryNativeHostApi,
         phase: NativePointerEventPhase,
         point: StageClientPoint,
@@ -269,9 +269,9 @@ impl NativeWindowSmokeInputState {
         }
     }
 
-    pub(super) fn run_open_settings_probe<B, A>(
+    pub(super) fn run_open_settings_probe<B, A, V, F>(
         &mut self,
-        renderer: &mut NativeRenderer<B, A>,
+        renderer: &mut NativeRenderer<B, A, V, F>,
         host: &mut InMemoryNativeHostApi,
         frame_json: &str,
     ) -> Result<(), NativeWindowSmokeError>

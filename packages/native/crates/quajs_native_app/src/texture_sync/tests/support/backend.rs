@@ -3,7 +3,8 @@ use quajs_wgpu_renderer::audio::{
     NativeAudioBackendResult,
 };
 use quajs_wgpu_renderer::fonts::{
-    FontBackendAssetLoad, FontBackendCommandPlan, NativeFontBackend, NativeFontBackendResult,
+    FontBackendAssetLoad, FontBackendAtlasTexture, FontBackendCommandPlan, NativeFontBackend,
+    NativeFontBackendResult,
 };
 use quajs_wgpu_renderer::renderer::{
     NativeRenderBackend, NativeRenderBackendResult, NativeRenderFrameRef, NativeRenderSubmission,
@@ -18,6 +19,7 @@ use crate::texture_sync::{NativeTextureUploadMetadata, NativeTextureUploadSink};
 #[derive(Default)]
 pub(crate) struct RecordingTextureUploadSink {
     pub(crate) uploads: Vec<RecordedTextureUpload>,
+    pub(crate) decoded_uploads: Vec<RecordedDecodedTextureUpload>,
     fail: bool,
 }
 
@@ -36,6 +38,27 @@ impl NativeTextureUploadSink for RecordingTextureUploadSink {
         self.uploads.push(RecordedTextureUpload {
             resource_id: request.resource_id.clone(),
             bytes: bytes.to_vec(),
+            metadata,
+        });
+        Ok(())
+    }
+
+    fn upload_decoded_texture_rgba8(
+        &mut self,
+        resource_id: &ResourceId,
+        width: u32,
+        height: u32,
+        rgba: &[u8],
+        metadata: NativeTextureUploadMetadata,
+    ) -> Result<(), Self::Error> {
+        if self.fail {
+            return Err("upload failed".to_string());
+        }
+        self.decoded_uploads.push(RecordedDecodedTextureUpload {
+            resource_id: resource_id.clone(),
+            width,
+            height,
+            rgba: rgba.to_vec(),
             metadata,
         });
         Ok(())
@@ -116,6 +139,7 @@ pub(crate) struct AssetLoadingFontBackend {
     pub(crate) events: Vec<&'static str>,
     pub(crate) loads: Vec<FontBackendAssetLoad>,
     pub(crate) plans: Vec<FontBackendCommandPlan>,
+    pub(crate) atlas_textures: Vec<FontBackendAtlasTexture>,
 }
 
 impl NativeFontBackend for AssetLoadingFontBackend {
@@ -137,6 +161,10 @@ impl NativeFontBackend for AssetLoadingFontBackend {
         self.plans.push(plan.clone());
         Ok(())
     }
+
+    fn drain_font_atlas_textures(&mut self) -> Vec<FontBackendAtlasTexture> {
+        std::mem::take(&mut self.atlas_textures)
+    }
 }
 
 pub(crate) struct RecordedTextureUpload {
@@ -145,10 +173,19 @@ pub(crate) struct RecordedTextureUpload {
     pub(crate) metadata: NativeTextureUploadMetadata,
 }
 
+pub(crate) struct RecordedDecodedTextureUpload {
+    pub(crate) resource_id: ResourceId,
+    pub(crate) width: u32,
+    pub(crate) height: u32,
+    pub(crate) rgba: Vec<u8>,
+    pub(crate) metadata: NativeTextureUploadMetadata,
+}
+
 #[derive(Default)]
 pub(crate) struct TextureResidentBackend {
     pub(crate) submissions: Vec<NativeRenderSubmission>,
     pub(crate) uploads: Vec<RecordedTextureUpload>,
+    pub(crate) decoded_uploads: Vec<RecordedDecodedTextureUpload>,
     pub(crate) released_resource_ids: Vec<ResourceId>,
     pub(crate) resident_resource_ids: Vec<String>,
     pub(crate) fail_upload: bool,
@@ -186,6 +223,29 @@ impl NativeTextureUploadSink for TextureResidentBackend {
         });
         self.resident_resource_ids
             .push(request.resource_id.as_str().to_string());
+        Ok(())
+    }
+
+    fn upload_decoded_texture_rgba8(
+        &mut self,
+        resource_id: &ResourceId,
+        width: u32,
+        height: u32,
+        rgba: &[u8],
+        metadata: NativeTextureUploadMetadata,
+    ) -> Result<(), Self::Error> {
+        if self.fail_upload {
+            return Err("upload failed".to_string());
+        }
+        self.decoded_uploads.push(RecordedDecodedTextureUpload {
+            resource_id: resource_id.clone(),
+            width,
+            height,
+            rgba: rgba.to_vec(),
+            metadata,
+        });
+        self.resident_resource_ids
+            .push(resource_id.as_str().to_string());
         Ok(())
     }
 

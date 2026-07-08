@@ -2,6 +2,8 @@
 mod audio_backend;
 #[cfg(any(test, feature = "image-decode"))]
 mod audio_sync;
+#[cfg(feature = "native-font-ab-glyph")]
+mod font_backend;
 #[cfg(any(test, feature = "image-decode"))]
 mod font_sync;
 #[cfg(any(test, feature = "image-decode"))]

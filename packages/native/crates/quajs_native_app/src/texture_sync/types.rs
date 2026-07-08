@@ -19,9 +19,72 @@ pub trait NativeTextureUploadSink {
         metadata: NativeTextureUploadMetadata,
     ) -> Result<(), Self::Error>;
 
+    fn upload_decoded_texture_rgba8(
+        &mut self,
+        resource_id: &ResourceId,
+        width: u32,
+        height: u32,
+        rgba: &[u8],
+        metadata: NativeTextureUploadMetadata,
+    ) -> Result<(), Self::Error>;
+
     fn release_texture_resource(&mut self, _resource_id: &ResourceId) -> Result<bool, Self::Error> {
         Ok(false)
     }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct NativeFontAtlasTextureSyncReport {
+    pub pending_upload_count: usize,
+    pub release_candidate_count: usize,
+    pub uploaded_count: usize,
+    pub released_count: usize,
+    pub missing_release_count: usize,
+    pub invalid_atlas_count: usize,
+    pub upload_error_count: usize,
+    pub release_error_count: usize,
+    pub uploaded_resource_ids: Vec<ResourceId>,
+    pub released_resource_ids: Vec<ResourceId>,
+    pub missing_release_resource_ids: Vec<ResourceId>,
+    pub failures: Vec<NativeFontAtlasTextureSyncFailure>,
+    pub release_failures: Vec<NativeTextureReleaseHostSyncFailure>,
+}
+
+impl NativeFontAtlasTextureSyncReport {
+    #[allow(dead_code)]
+    pub fn is_ok(&self) -> bool {
+        self.failures.is_empty() && self.release_failures.is_empty()
+    }
+
+    pub(super) fn record_failure(&mut self, failure: NativeFontAtlasTextureSyncFailure) {
+        match failure.kind {
+            NativeFontAtlasTextureSyncFailureKind::InvalidAtlas => {
+                self.invalid_atlas_count += 1;
+            }
+            NativeFontAtlasTextureSyncFailureKind::UploadError => {
+                self.upload_error_count += 1;
+            }
+        }
+        self.failures.push(failure);
+    }
+
+    pub(super) fn record_release_failure(&mut self, failure: NativeTextureReleaseHostSyncFailure) {
+        self.release_error_count += 1;
+        self.release_failures.push(failure);
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct NativeFontAtlasTextureSyncFailure {
+    pub kind: NativeFontAtlasTextureSyncFailureKind,
+    pub resource_id: ResourceId,
+    pub message: String,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NativeFontAtlasTextureSyncFailureKind {
+    InvalidAtlas,
+    UploadError,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]

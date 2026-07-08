@@ -276,9 +276,9 @@ impl NativeProductInputController {
         Ok(report)
     }
 
-    pub(crate) fn cancel_pointer_interaction<B, A>(
+    pub(crate) fn cancel_pointer_interaction<B, A, V, F>(
         &mut self,
-        renderer: &mut NativeRenderer<B, A>,
+        renderer: &mut NativeRenderer<B, A, V, F>,
     ) -> bool
     where
         B: NativeRenderBackend,
@@ -286,9 +286,9 @@ impl NativeProductInputController {
         renderer.cancel_pointer_interaction(self.pointer_id)
     }
 
-    pub(crate) fn dispatch_pointer_event<B, A, H>(
+    pub(crate) fn dispatch_pointer_event<B, A, V, F, H>(
         &mut self,
-        renderer: &mut NativeRenderer<B, A>,
+        renderer: &mut NativeRenderer<B, A, V, F>,
         host: &mut H,
         phase: NativePointerEventPhase,
         point: StageClientPoint,

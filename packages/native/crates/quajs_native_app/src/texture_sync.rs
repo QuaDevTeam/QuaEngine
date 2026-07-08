@@ -41,7 +41,8 @@ pub use lifecycle::{
 };
 #[allow(unused_imports)]
 pub use types::{
-    NativeTextureReleaseHostSyncFailure, NativeTextureUploadHostSyncFailure,
-    NativeTextureUploadHostSyncFailureKind, NativeTextureUploadHostSyncReport,
-    NativeTextureUploadMetadata, NativeTextureUploadSink,
+    NativeFontAtlasTextureSyncFailure, NativeFontAtlasTextureSyncFailureKind,
+    NativeFontAtlasTextureSyncReport, NativeTextureReleaseHostSyncFailure,
+    NativeTextureUploadHostSyncFailure, NativeTextureUploadHostSyncFailureKind,
+    NativeTextureUploadHostSyncReport, NativeTextureUploadMetadata, NativeTextureUploadSink,
 };

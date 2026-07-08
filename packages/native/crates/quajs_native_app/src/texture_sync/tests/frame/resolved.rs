@@ -1,5 +1,5 @@
 use quajs_wgpu_renderer::audio::NullNativeAudioBackend;
-use quajs_wgpu_renderer::fonts::FontBackendCommandKind;
+use quajs_wgpu_renderer::fonts::{FontBackendAtlasTexture, FontBackendCommandKind};
 use quajs_wgpu_renderer::renderer::NativeRenderer;
 use quajs_wgpu_renderer::resources::{NativeResourceKind, NativeResourceRecord, ResourceId};
 use quajs_wgpu_renderer::video::VideoBackendCommandKind;
@@ -365,6 +365,65 @@ fn font_asset_loading_backend_reads_package_assets_before_font_commands() {
             FontBackendCommandKind::LoadFace,
             FontBackendCommandKind::ActivateFace,
         ]
+    );
+}
+
+#[test]
+fn font_asset_loading_backend_uploads_drained_font_atlas_and_resubmits_frame() {
+    let host = RecordingAssetHost::new()
+        .with_bundle(bundle("runtime-bundle", Some("runtime.fonts")))
+        .with_asset(
+            Some("runtime-bundle"),
+            "fonts/noto-serif-jp.woff2",
+            [13, 14, 15, 16],
+        );
+    let font_backend = AssetLoadingFontBackend {
+        atlas_textures: vec![FontBackendAtlasTexture::new(
+            "fonts:Noto Serif JP",
+            2,
+            2,
+            vec![255; 16],
+        )
+        .owned_by("runtime.fonts")],
+        ..Default::default()
+    };
+    let mut renderer = NativeRenderer::with_audio_font_backend(
+        TextureResidentBackend::default(),
+        NullNativeAudioBackend::new(),
+        font_backend,
+    );
+    let mut registry = NativeTextureBundleMountRegistry::new();
+
+    let result = render_frame_with_host_texture_lifecycle_sync_and_media_teardown(
+        &mut registry,
+        &mut renderer,
+        &host,
+        test_layout(),
+        &view_with_font_package("runtime.fonts"),
+    )
+    .expect("font atlas frame should render");
+
+    let atlas_report = result
+        .frame
+        .font_atlas_report
+        .expect("asset-loading backend should publish a font atlas report");
+    assert_eq!(atlas_report.pending_upload_count, 1);
+    assert_eq!(atlas_report.uploaded_count, 1);
+    assert_eq!(
+        atlas_report.uploaded_resource_ids,
+        vec![ResourceId::from("fonts:Noto Serif JP")]
+    );
+    assert!(result.frame.resubmitted_after_texture_upload);
+    assert_eq!(renderer.backend().submissions.len(), 2);
+    assert_eq!(renderer.backend().decoded_uploads.len(), 1);
+    let upload = &renderer.backend().decoded_uploads[0];
+    assert_eq!(upload.resource_id, ResourceId::from("fonts:Noto Serif JP"));
+    assert_eq!(upload.width, 2);
+    assert_eq!(upload.height, 2);
+    assert_eq!(upload.rgba, vec![255; 16]);
+    assert_eq!(
+        upload.metadata.owner_package_id.as_deref(),
+        Some("runtime.fonts")
     );
 }
 
