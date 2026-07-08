@@ -116,7 +116,7 @@ pub(crate) fn renderer_with_rejecting_audio_after_inactive_audio_frame(
     NativeRenderer::with_state_and_audio_backend(state, backend, RejectingAudioBackend)
 }
 
-fn view_with_audio_package(package_id: &str) -> ViewProjection {
+pub(crate) fn view_with_audio_package(package_id: &str) -> ViewProjection {
     ViewProjection {
         audio: Some(AudioProjection::new(vec![AudioTrackProjection::new(
             "bgm-main",

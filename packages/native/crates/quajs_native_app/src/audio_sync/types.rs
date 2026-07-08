@@ -1,6 +1,8 @@
 use std::collections::BTreeSet;
 
-use quajs_wgpu_renderer::audio::{AudioBackendCommand, AudioBackendTrackState};
+use quajs_wgpu_renderer::audio::{
+    AudioBackendAssetLoad, AudioBackendCommand, AudioBackendTrackState,
+};
 use quajs_wgpu_renderer::resources::ResourceId;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -11,13 +13,8 @@ pub struct NativeAudioAssetMetadata {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct NativeAudioAssetHostSyncLoad {
-    pub track_id: String,
-    pub resource_id: ResourceId,
-    pub asset_type: String,
-    pub asset_name: String,
+    pub backend_load: AudioBackendAssetLoad,
     pub bundle_name: Option<String>,
-    pub package_id: Option<String>,
-    pub bytes: Vec<u8>,
     pub metadata: NativeAudioAssetMetadata,
 }
 
@@ -43,6 +40,13 @@ impl NativeAudioAssetHostSyncReport {
     pub(super) fn record_loaded(&mut self, loaded: NativeAudioAssetHostSyncLoad) {
         self.loaded_count += 1;
         self.loaded_assets.push(loaded);
+    }
+
+    pub fn backend_asset_loads(&self) -> Vec<AudioBackendAssetLoad> {
+        self.loaded_assets
+            .iter()
+            .map(|load| load.backend_load.clone())
+            .collect()
     }
 
     pub(super) fn record_failure(&mut self, failure: NativeAudioAssetHostSyncFailure) {

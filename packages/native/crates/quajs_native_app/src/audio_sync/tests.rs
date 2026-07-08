@@ -38,12 +38,16 @@ fn loads_unscoped_audio_asset_when_track_has_no_package_candidates() {
         Some(track.media_resource_id.as_str())
     );
     let loaded = &report.loaded_assets[0];
-    assert_eq!(loaded.track_id, "bgm-main");
-    assert_eq!(loaded.bytes, vec![1, 2, 3]);
+    assert_eq!(loaded.backend_load.track_id, "bgm-main");
+    assert_eq!(loaded.backend_load.bytes, vec![1, 2, 3]);
     assert_eq!(loaded.bundle_name, None);
-    assert_eq!(loaded.package_id, None);
+    assert_eq!(loaded.backend_load.package_id, None);
     assert_eq!(loaded.metadata.owner_package_id, None);
     assert!(loaded.metadata.required_package_ids.is_empty());
+    assert_eq!(
+        report.backend_asset_loads(),
+        vec![loaded.backend_load.clone()]
+    );
 }
 
 #[test]
@@ -74,7 +78,10 @@ fn resolves_audio_assets_by_runtime_logical_or_bundle_name() {
             loaded.bundle_name.as_deref(),
             Some(mounted_bundle.name.as_str())
         );
-        assert_eq!(loaded.package_id.as_deref(), Some("runtime.menu"));
+        assert_eq!(
+            loaded.backend_load.package_id.as_deref(),
+            Some("runtime.menu")
+        );
         assert_eq!(
             loaded.metadata.owner_package_id.as_deref(),
             Some("runtime.menu")
@@ -105,7 +112,10 @@ fn falls_back_across_package_candidates_and_preserves_provenance() {
         Some("runtime-bundle")
     );
     let loaded = &report.loaded_assets[0];
-    assert_eq!(loaded.package_id.as_deref(), Some("runtime.menu"));
+    assert_eq!(
+        loaded.backend_load.package_id.as_deref(),
+        Some("runtime.menu")
+    );
     assert_eq!(
         loaded.metadata.owner_package_id.as_deref(),
         Some("runtime.menu")
