@@ -55,11 +55,11 @@ impl WgpuNativeRenderRuntimeDevice for RealWgpuNativeRenderRuntimeDevice {
     fn diagnostic_note(&self) -> &'static str {
         #[cfg(feature = "image-decode")]
         {
-            "real-wgpu feature is enabled and applies runtime plans to an attached wgpu::Device/Queue for buffer creation, queue writes, retained offscreen frame-target render passes, no-bind-group color fallback indexed drawing, uploaded decoded RGBA texture sampling, optional host-provided PNG/JPEG image byte decoding into RGBA textures, deterministic placeholder fallback, built-in bitmap TextAtlas sampling for TextPlaceholder draws, and command submission; swapchain presentation, automatic QuaAssets texture lookup/sync, real font shaping/fallback/font asset rasterization, video decode, and audio playback remain future backend work."
+            "real-wgpu feature is enabled and applies runtime plans to an attached wgpu::Device/Queue for buffer creation, queue writes, retained offscreen frame-target render passes, no-bind-group color fallback indexed drawing, uploaded decoded RGBA texture sampling, optional host-provided PNG/JPEG image byte decoding into RGBA textures, deterministic placeholder fallback, uploaded-or-built-in TextAtlas sampling for TextPlaceholder draws, and command submission; swapchain presentation, automatic QuaAssets texture lookup/sync, real font shaping/fallback/font asset rasterization, video decode, and audio playback remain future backend work."
         }
         #[cfg(not(feature = "image-decode"))]
         {
-            "real-wgpu feature is enabled and applies runtime plans to an attached wgpu::Device/Queue for buffer creation, queue writes, retained offscreen frame-target render passes, no-bind-group color fallback indexed drawing, uploaded decoded RGBA texture sampling with deterministic placeholder fallback, built-in bitmap TextAtlas sampling for TextPlaceholder draws, and command submission; swapchain presentation, automatic QuaAssets texture lookup/sync, encoded image decoding, real font shaping/fallback/font asset rasterization, video decode, and audio playback remain future backend work."
+            "real-wgpu feature is enabled and applies runtime plans to an attached wgpu::Device/Queue for buffer creation, queue writes, retained offscreen frame-target render passes, no-bind-group color fallback indexed drawing, uploaded decoded RGBA texture sampling with deterministic placeholder fallback, uploaded-or-built-in TextAtlas sampling for TextPlaceholder draws, and command submission; swapchain presentation, automatic QuaAssets texture lookup/sync, encoded image decoding, real font shaping/fallback/font asset rasterization, video decode, and audio playback remain future backend work."
         }
     }
 }
