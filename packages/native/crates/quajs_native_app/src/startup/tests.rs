@@ -1,7 +1,6 @@
 use std::cell::Cell;
 
 use quajs_native_runtime::{quickjs_runtime_version, NativeHostInfoBuilder};
-use quajs_wgpu_renderer::native_wgpu_capabilities;
 
 use crate::target_bundle::tests::native_manifest;
 
@@ -51,6 +50,35 @@ fn host_info_uses_signed_app_config_and_rust_renderer_capabilities() {
     );
     assert!(host_info.has_capability("native-wgpu.ui.surface@1"));
     assert!(host_info.has_capability("native-wgpu.input.pointer@1"));
+    assert_eq!(
+        host_info.has_capability("native-wgpu.audio@1"),
+        cfg!(all(
+            feature = "native-window",
+            feature = "native-audio-rodio"
+        ))
+    );
+}
+
+#[test]
+fn startup_capabilities_declare_audio_only_when_rodio_backend_is_enabled() {
+    let capabilities = native_startup_renderer_capabilities();
+    let audio = capabilities
+        .iter()
+        .find(|capability| capability.id == "native-wgpu.audio@1");
+
+    assert_eq!(
+        audio.is_some(),
+        cfg!(all(
+            feature = "native-window",
+            feature = "native-audio-rodio"
+        ))
+    );
+    if let Some(audio) = audio {
+        assert_eq!(audio.fallback, "reject-package");
+        assert_eq!(audio.projection_keys, vec!["view.plugins.audio"]);
+        assert_eq!(audio.asset_kinds, vec!["audio"]);
+        assert!(audio.intent_events.is_empty());
+    }
 }
 
 #[test]
@@ -79,7 +107,7 @@ fn rejects_renderer_manifest_drift_after_building_host_info() {
     native_renderer.capability_manifest_hash = Some("sha256:stale-capabilities".to_string());
     native_renderer
         .capability_ids
-        .push("native-wgpu.audio@1".to_string());
+        .push("native-wgpu.spatial-audio@1".to_string());
     let created = Cell::new(false);
     let error =
         create_native_startup_host_info_with(fixture_app_config(), Some(&manifest), |config| {
@@ -97,7 +125,7 @@ fn rejects_renderer_manifest_drift_after_building_host_info() {
         .contains("nativeRenderer.capabilityManifestHash \"sha256:stale-capabilities\""));
     assert!(error
         .to_string()
-        .contains("nativeRenderer.capabilityIds includes \"native-wgpu.audio@1\""));
+        .contains("nativeRenderer.capabilityIds includes \"native-wgpu.spatial-audio@1\""));
 }
 
 #[test]
@@ -121,7 +149,7 @@ fn rejects_renderer_backend_version_drift_after_building_host_info() {
                 .native_runtime_version(env!("CARGO_PKG_VERSION"))
                 .asset_adapter_version(env!("CARGO_PKG_VERSION"))
                 .store_adapter_version(env!("CARGO_PKG_VERSION"))
-                .capabilities(native_wgpu_capabilities())
+                .capabilities(native_startup_renderer_capabilities())
                 .build()
         })
         .expect_err("renderer backend version drift is rejected");
@@ -154,7 +182,7 @@ fn rejects_runtime_manifest_drift_after_building_host_info() {
                 .native_runtime_version(env!("CARGO_PKG_VERSION"))
                 .asset_adapter_version("assets-host")
                 .store_adapter_version("store-host")
-                .capabilities(native_wgpu_capabilities())
+                .capabilities(native_startup_renderer_capabilities())
                 .build()
         })
         .expect_err("runtime metadata drift is rejected");

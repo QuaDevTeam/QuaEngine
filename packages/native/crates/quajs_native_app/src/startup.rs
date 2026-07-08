@@ -3,8 +3,10 @@ mod runtime_manifest;
 
 use quajs_native_runtime::{
     current_platform, current_profile, quickjs_runtime_version, NativeHostInfo,
-    NativeHostInfoBuilder, NativePlatform, NativeProfile,
+    NativeHostInfoBuilder, NativePlatform, NativeProfile, RendererCapability,
 };
+#[cfg(all(feature = "native-window", feature = "native-audio-rodio"))]
+use quajs_wgpu_renderer::native_wgpu_audio_playback_capability;
 use quajs_wgpu_renderer::native_wgpu_capabilities;
 
 use renderer_manifest::validate_manifest_renderer_against_host;
@@ -67,8 +69,15 @@ fn create_host_info(config: NativeAppConfig) -> NativeHostInfo {
         .native_runtime_version(env!("CARGO_PKG_VERSION"))
         .asset_adapter_version(env!("CARGO_PKG_VERSION"))
         .store_adapter_version(env!("CARGO_PKG_VERSION"))
-        .capabilities(native_wgpu_capabilities())
+        .capabilities(native_startup_renderer_capabilities())
         .build()
+}
+
+pub(crate) fn native_startup_renderer_capabilities() -> Vec<RendererCapability> {
+    let mut capabilities = native_wgpu_capabilities();
+    #[cfg(all(feature = "native-window", feature = "native-audio-rodio"))]
+    capabilities.push(native_wgpu_audio_playback_capability());
+    capabilities
 }
 
 fn create_native_startup_host_info_with<F>(

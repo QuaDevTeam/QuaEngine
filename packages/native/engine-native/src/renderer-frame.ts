@@ -62,6 +62,7 @@ export function createNativeRendererViewProjection(view: NativeRendererEngineVie
     dialogue: createNativeDialogueProjection(view.dialogue),
     choices: createNativeChoiceSetProjection(view.choices),
     ui: createNativeUiProjection(view.ui),
+    audio: createNativeAudioProjection(asRecord(view.plugins)?.audio),
     plugins: createNativePluginProjection(view.plugins),
   })
 }
@@ -74,6 +75,111 @@ function createNativePluginProjection(plugins: unknown): JsonRecord | undefined 
   return omitUndefined({
     fonts: createNativeFontsProjection(record.fonts),
   })
+}
+
+function createNativeAudioProjection(audio: unknown): JsonRecord | undefined {
+  const record = asRecord(audio)
+  if (!record) {
+    return undefined
+  }
+  const requiredRuntimePackages = stringArray(record.requiredRuntimePackages)
+  const tracks = [
+    createNativeAudioTrack(record.bgm, 'bgm', record),
+    ...nativeAudioTrackList(record.voices, 'voice', record),
+    ...nativeAudioTrackList(record.sfx, 'sfx', record),
+    ...nativeAudioTrackList(record.ambients, 'ambient', record),
+  ].filter(isJsonRecord)
+
+  if (tracks.length === 0) {
+    return undefined
+  }
+
+  return omitUndefined({
+    tracks: tracks.map(track => mergeAudioRequiredPackages(track, requiredRuntimePackages)),
+  })
+}
+
+function nativeAudioTrackList(value: unknown, kind: string, audio: JsonRecord): JsonRecord[] {
+  return Array.isArray(value)
+    ? value.map(track => createNativeAudioTrack(track, kind, audio)).filter(isJsonRecord)
+    : []
+}
+
+function createNativeAudioTrack(track: unknown, kind: string, audio: JsonRecord): JsonRecord | undefined {
+  const record = asRecord(track)
+  if (!record) {
+    return undefined
+  }
+  const id = stringValue(record.id)
+  const assetName = stringValue(record.assetKey) || stringValue(record.assetName)
+  if (!id || !assetName) {
+    return undefined
+  }
+  const state = nativeAudioPlaybackState(record.state)
+  const volume = nativeAudioTrackVolume(record, audio, kind)
+  const provenance = createPackageProvenance(record)
+
+  return omitUndefined({
+    id,
+    kind,
+    assetName,
+    assetType: stringValue(record.assetType) || kind,
+    loadMode: nativeAudioLoadMode(record.loadMode),
+    playbackState: state,
+    looped: booleanValue(record.loop),
+    volume,
+    provenance,
+  })
+}
+
+function mergeAudioRequiredPackages(track: JsonRecord, requiredRuntimePackages: string[]): JsonRecord {
+  if (requiredRuntimePackages.length === 0) {
+    return track
+  }
+  const provenance = asRecord(track.provenance)
+  track.provenance = omitUndefined({
+    ...(provenance || {}),
+    requiredRuntimePackages: uniqueStrings([
+      ...stringArray(provenance?.requiredRuntimePackages),
+      ...requiredRuntimePackages,
+    ]),
+  })
+  return track
+}
+
+function nativeAudioPlaybackState(state: unknown): 'playing' | 'paused' | 'stopped' {
+  if (state === 'paused') {
+    return 'paused'
+  }
+  if (state === 'idle' || state === 'stopping' || state === 'stopped') {
+    return 'stopped'
+  }
+  return 'playing'
+}
+
+function nativeAudioLoadMode(value: unknown): 'buffered' | 'streamed' | undefined {
+  return value === 'streamed' || value === 'buffered' ? value : undefined
+}
+
+function nativeAudioTrackVolume(track: JsonRecord, audio: JsonRecord, kind: string): number {
+  const masterBus = asRecord(asRecord(audio.buses)?.master)
+  const kindBus = asRecord(asRecord(audio.buses)?.[kind])
+  return normalizedLinearGain([
+    finiteNumber(masterBus?.gainDb),
+    finiteNumber(kindBus?.gainDb),
+    finiteNumber(track.gainDb),
+  ])
+}
+
+function normalizedLinearGain(gainDbValues: Array<number | undefined>): number {
+  let totalGainDb = 0
+  for (const value of gainDbValues) {
+    totalGainDb += value ?? 0
+  }
+  if (!Number.isFinite(totalGainDb)) {
+    return 1
+  }
+  return Math.min(1, Math.max(0, 10 ** (totalGainDb / 20)))
 }
 
 function createNativeFontsProjection(fonts: unknown): JsonRecord | undefined {

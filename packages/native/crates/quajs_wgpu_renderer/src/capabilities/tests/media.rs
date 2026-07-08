@@ -1,3 +1,5 @@
+use crate::{native_wgpu_audio_playback_capability, native_wgpu_capabilities_with_audio_playback};
+
 use super::support::{capability, native_wgpu_capabilities};
 
 #[test]
@@ -43,4 +45,22 @@ fn omits_real_audio_capability_until_playback_backend_exists() {
         !capability.projection_keys.iter().any(|key| key == "audio")
             && !capability.asset_kinds.iter().any(|kind| kind == "audio")
     }));
+}
+
+#[test]
+fn audio_playback_capability_is_explicit_real_backend_contract() {
+    let audio = native_wgpu_audio_playback_capability();
+
+    assert_eq!(audio.id, "native-wgpu.audio@1");
+    assert_eq!(audio.fallback, "reject-package");
+    assert_eq!(audio.projection_keys, vec!["view.plugins.audio"]);
+    assert!(audio.asset_kinds.contains(&"audio".to_string()));
+    assert!(audio.intent_events.is_empty());
+    assert!(audio.qss_features.is_empty());
+    assert!(audio.qui_components.is_empty());
+
+    let capabilities = native_wgpu_capabilities_with_audio_playback();
+    assert!(capabilities
+        .iter()
+        .any(|capability| capability.id == "native-wgpu.audio@1"));
 }
