@@ -156,6 +156,11 @@ fn window_smoke_report_serializes_texture_lifecycle_metrics() {
         texture_lifecycle_release_attempt_count: 0,
         texture_lifecycle_released_package_count: 0,
         texture_lifecycle_texture_cleanup_error_count: 0,
+        texture_shutdown_count: 1,
+        texture_shutdown_released_resource_count: 3,
+        texture_shutdown_host_cleanup_count: 3,
+        texture_shutdown_released_count: 2,
+        texture_shutdown_cleanup_error_count: 0,
         audio_backend_applied_plan_count: 1,
         audio_backend_applied_command_count: 2,
         audio_backend_active_track_count: 0,
@@ -203,6 +208,11 @@ fn window_smoke_report_serializes_texture_lifecycle_metrics() {
     assert_eq!(value["textureLifecycleReleaseAttemptCount"], 0);
     assert_eq!(value["textureLifecycleReleasedPackageCount"], 0);
     assert_eq!(value["textureLifecycleTextureCleanupErrorCount"], 0);
+    assert_eq!(value["textureShutdownCount"], 1);
+    assert_eq!(value["textureShutdownReleasedResourceCount"], 3);
+    assert_eq!(value["textureShutdownHostCleanupCount"], 3);
+    assert_eq!(value["textureShutdownReleasedCount"], 2);
+    assert_eq!(value["textureShutdownCleanupErrorCount"], 0);
     assert_eq!(value["audioBackendAppliedPlanCount"], 1);
     assert_eq!(value["audioBackendAppliedCommandCount"], 2);
     assert_eq!(value["audioBackendActiveTrackCount"], 0);

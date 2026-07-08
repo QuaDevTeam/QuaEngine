@@ -73,6 +73,15 @@ pub(super) fn build_window_smoke_report(
         texture_lifecycle_texture_cleanup_error_count: input
             .texture_metrics
             .lifecycle_texture_cleanup_error_count,
+        texture_shutdown_count: input.texture_metrics.shutdown_count,
+        texture_shutdown_released_resource_count: input
+            .texture_metrics
+            .shutdown_released_resource_count,
+        texture_shutdown_host_cleanup_count: input.texture_metrics.shutdown_host_cleanup_count,
+        texture_shutdown_released_count: input.texture_metrics.shutdown_texture_released_count,
+        texture_shutdown_cleanup_error_count: input
+            .texture_metrics
+            .shutdown_texture_cleanup_error_count,
         audio_backend_applied_plan_count: input.audio_metrics.applied_plan_count,
         audio_backend_applied_command_count: input.audio_metrics.applied_command_count,
         audio_backend_active_track_count: input.audio_metrics.active_track_count,
@@ -129,6 +138,11 @@ mod tests {
             lifecycle_release_attempt_count: 4,
             lifecycle_released_package_count: 2,
             lifecycle_texture_cleanup_error_count: 1,
+            shutdown_count: 1,
+            shutdown_released_resource_count: 6,
+            shutdown_host_cleanup_count: 5,
+            shutdown_texture_released_count: 4,
+            shutdown_texture_cleanup_error_count: 1,
         };
         let input_metrics = NativeWindowSmokeInputMetrics {
             pointer_event_count: 6,
@@ -189,6 +203,11 @@ mod tests {
         assert_eq!(report.rendered_frame_count, 2);
         assert_eq!(report.texture_upload_pending_request_count, 2);
         assert_eq!(report.texture_lifecycle_tracked_package_count, 3);
+        assert_eq!(report.texture_shutdown_count, 1);
+        assert_eq!(report.texture_shutdown_released_resource_count, 6);
+        assert_eq!(report.texture_shutdown_host_cleanup_count, 5);
+        assert_eq!(report.texture_shutdown_released_count, 4);
+        assert_eq!(report.texture_shutdown_cleanup_error_count, 1);
         assert_eq!(report.audio_backend_applied_plan_count, 12);
         assert_eq!(report.audio_backend_applied_command_count, 13);
         assert_eq!(report.audio_backend_active_track_count, 2);

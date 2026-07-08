@@ -75,7 +75,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     #[cfg(feature = "native-window")]
     if let Some(report) = run_native_window_smoke_from_env()? {
         println!(
-            "Qua native window smoke: adapter={} surface={} size={}x{} status={} presented={} attempts={} targetFrames={} renderedFrames={} resizeCount={} surfaceRecoveryCount={} textureUploads={} textureUploadErrors={} textureUploadResubmits={} textureResubmitted={} textureLifecycleSyncs={} textureLifecycleInitialSyncs={} textureLifecycleTrackedPackages={} textureLifecycleReleaseAttempts={} textureLifecycleReleasedPackages={} textureLifecycleCleanupErrors={} pointerEvents={} pointerIntents={} pointerLastIntent={} passes={} commands={} submittedCommandBuffers={}",
+            "Qua native window smoke: adapter={} surface={} size={}x{} status={} presented={} attempts={} targetFrames={} renderedFrames={} resizeCount={} surfaceRecoveryCount={} textureUploads={} textureUploadErrors={} textureUploadResubmits={} textureResubmitted={} textureLifecycleSyncs={} textureLifecycleInitialSyncs={} textureLifecycleTrackedPackages={} textureLifecycleReleaseAttempts={} textureLifecycleReleasedPackages={} textureLifecycleCleanupErrors={} textureShutdowns={} textureShutdownReleasedResources={} textureShutdownReleasedTextures={} textureShutdownCleanupErrors={} pointerEvents={} pointerIntents={} pointerLastIntent={} passes={} commands={} submittedCommandBuffers={}",
             report.adapter_name,
             report.surface_format,
             report.physical_width,
@@ -97,6 +97,10 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             report.texture_lifecycle_release_attempt_count,
             report.texture_lifecycle_released_package_count,
             report.texture_lifecycle_texture_cleanup_error_count,
+            report.texture_shutdown_count,
+            report.texture_shutdown_released_resource_count,
+            report.texture_shutdown_released_count,
+            report.texture_shutdown_cleanup_error_count,
             report.pointer_event_count,
             report.pointer_intent_emit_count,
             report.pointer_last_intent_type.as_deref().unwrap_or("none"),

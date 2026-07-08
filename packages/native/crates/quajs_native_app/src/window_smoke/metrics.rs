@@ -1,8 +1,8 @@
 use quajs_wgpu_renderer::audio::NullNativeAudioBackend;
 
 use crate::texture_sync::{
-    NativeTextureBundleLifecycleSyncReport, NativeTextureHostCleanupSyncReport,
-    NativeTextureUploadHostSyncReport,
+    NativeTextureBundleLifecycleSyncReport, NativeTextureCleanedClearResult,
+    NativeTextureHostCleanupSyncReport, NativeTextureUploadHostSyncReport,
 };
 
 mod lifecycle;
@@ -25,6 +25,11 @@ pub(super) struct NativeWindowSmokeTextureMetrics {
     pub lifecycle_release_attempt_count: usize,
     pub lifecycle_released_package_count: usize,
     pub lifecycle_texture_cleanup_error_count: usize,
+    pub shutdown_count: usize,
+    pub shutdown_released_resource_count: usize,
+    pub shutdown_host_cleanup_count: usize,
+    pub shutdown_texture_released_count: usize,
+    pub shutdown_texture_cleanup_error_count: usize,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -53,6 +58,22 @@ impl NativeWindowSmokeTextureMetrics {
 
     pub(super) fn resubmitted_after_texture_upload(&self) -> bool {
         self.upload_resubmit_count > 0
+    }
+
+    pub(super) fn record_shutdown_cleanup(&mut self, cleanup: &NativeTextureCleanedClearResult) {
+        self.shutdown_count = self.shutdown_count.saturating_add(1);
+        self.shutdown_released_resource_count = self
+            .shutdown_released_resource_count
+            .saturating_add(cleanup.released_resources.len());
+        self.shutdown_host_cleanup_count = self
+            .shutdown_host_cleanup_count
+            .saturating_add(cleanup.host_cleanup.len());
+        self.shutdown_texture_released_count = self
+            .shutdown_texture_released_count
+            .saturating_add(cleanup.texture_cleanup_report.released_count);
+        self.shutdown_texture_cleanup_error_count = self
+            .shutdown_texture_cleanup_error_count
+            .saturating_add(cleanup.texture_cleanup_report.release_error_count);
     }
 }
 

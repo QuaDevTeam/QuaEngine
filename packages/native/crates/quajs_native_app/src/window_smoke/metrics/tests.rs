@@ -1,13 +1,13 @@
 use quajs_wgpu_renderer::audio::{
     AudioBackendCommandPlan, NativeAudioBackend, NullNativeAudioBackend,
 };
-use quajs_wgpu_renderer::resources::ResourceId;
+use quajs_wgpu_renderer::resources::{NativeResourceKind, NativeResourceRecord, ResourceId};
 
 use crate::texture_sync::{
-    NativeTextureBundleLifecycleSyncReport, NativeTextureHostCleanupSyncFailure,
-    NativeTextureHostCleanupSyncReport, NativeTextureReleaseHostSyncFailure,
-    NativeTextureUploadHostSyncFailure, NativeTextureUploadHostSyncFailureKind,
-    NativeTextureUploadHostSyncReport,
+    NativeTextureBundleLifecycleSyncReport, NativeTextureCleanedClearResult,
+    NativeTextureHostCleanupSyncFailure, NativeTextureHostCleanupSyncReport,
+    NativeTextureReleaseHostSyncFailure, NativeTextureUploadHostSyncFailure,
+    NativeTextureUploadHostSyncFailureKind, NativeTextureUploadHostSyncReport,
 };
 
 use super::*;
@@ -43,6 +43,51 @@ fn records_last_frame_upload_state_and_accumulates_counts() {
     assert_eq!(metrics.lifecycle_release_attempt_count, 1);
     assert_eq!(metrics.lifecycle_released_package_count, 1);
     assert_eq!(metrics.lifecycle_texture_cleanup_error_count, 2);
+}
+
+#[test]
+fn records_shutdown_cleanup_counts_separately_from_frame_texture_sync() {
+    let mut metrics = NativeWindowSmokeTextureMetrics::default();
+
+    metrics.record_shutdown_cleanup(&NativeTextureCleanedClearResult {
+        released_resources: vec![
+            NativeResourceRecord::new("images:bg.png", NativeResourceKind::Texture),
+            NativeResourceRecord::new("qss:menu.qss", NativeResourceKind::QssStyle),
+        ],
+        host_cleanup: vec![
+            quajs_wgpu_renderer::renderer::NativeRendererHostCleanupRecord {
+                resource_id: ResourceId::from("images:bg.png"),
+                kind: NativeResourceKind::Texture,
+                declarative_asset: false,
+                owner_package_id: Some("base".to_string()),
+                required_package_ids: Vec::new(),
+                memory: Default::default(),
+                label: None,
+            },
+            quajs_wgpu_renderer::renderer::NativeRendererHostCleanupRecord {
+                resource_id: ResourceId::from("qss:menu.qss"),
+                kind: NativeResourceKind::QssStyle,
+                declarative_asset: true,
+                owner_package_id: Some("base".to_string()),
+                required_package_ids: Vec::new(),
+                memory: Default::default(),
+                label: None,
+            },
+        ],
+        texture_cleanup_report: NativeTextureHostCleanupSyncReport {
+            released_count: 1,
+            release_error_count: 1,
+            ..Default::default()
+        },
+    });
+
+    assert_eq!(metrics.shutdown_count, 1);
+    assert_eq!(metrics.shutdown_released_resource_count, 2);
+    assert_eq!(metrics.shutdown_host_cleanup_count, 2);
+    assert_eq!(metrics.shutdown_texture_released_count, 1);
+    assert_eq!(metrics.shutdown_texture_cleanup_error_count, 1);
+    assert_eq!(metrics.upload_error_count, 0);
+    assert_eq!(metrics.lifecycle_sync_count, 0);
 }
 
 #[test]
