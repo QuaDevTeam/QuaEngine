@@ -134,7 +134,10 @@ pub(super) fn build_window_smoke_report(
         ime_preedit_count: input.input_metrics.ime_preedit_count,
         ime_commit_count: input.input_metrics.ime_commit_count,
         ime_intent_emit_count: input.input_metrics.ime_intent_emit_count,
+        ime_composition_active: input.input_metrics.ime_composition_active,
         ime_last_text_byte_count: input.input_metrics.ime_last_text_byte_count,
+        ime_last_cursor_start: input.input_metrics.ime_last_cursor_start,
+        ime_last_cursor_end: input.input_metrics.ime_last_cursor_end,
         app_lifecycle_state: lifecycle_state_label(input.app_loop.lifecycle_state).to_string(),
         app_focused: input.app_loop.focused,
         app_visible: input.app_loop.visible,
@@ -212,7 +215,10 @@ mod tests {
             ime_preedit_count: 2,
             ime_commit_count: 1,
             ime_intent_emit_count: 3,
+            ime_composition_active: true,
             ime_last_text_byte_count: Some(6),
+            ime_last_cursor_start: Some(1),
+            ime_last_cursor_end: Some(2),
             last_intent_type: Some("ui/intent".to_string()),
         };
         let audio_metrics = NativeWindowSmokeAudioMetrics {
@@ -332,7 +338,10 @@ mod tests {
         assert_eq!(report.ime_preedit_count, 2);
         assert_eq!(report.ime_commit_count, 1);
         assert_eq!(report.ime_intent_emit_count, 3);
+        assert!(report.ime_composition_active);
         assert_eq!(report.ime_last_text_byte_count, Some(6));
+        assert_eq!(report.ime_last_cursor_start, Some(1));
+        assert_eq!(report.ime_last_cursor_end, Some(2));
         assert_eq!(report.app_lifecycle_state, "running");
         assert!(report.app_focused);
         assert!(report.app_visible);

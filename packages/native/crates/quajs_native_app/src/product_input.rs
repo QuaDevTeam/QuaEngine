@@ -66,7 +66,19 @@ pub(crate) enum NativeProductImeEventKind {
 pub(crate) struct NativeProductImeEventReport {
     pub(crate) kind: NativeProductImeEventKind,
     pub(crate) text_byte_count: Option<usize>,
+    pub(crate) cursor_start: Option<usize>,
+    pub(crate) cursor_end: Option<usize>,
+    pub(crate) composition: NativeProductImeCompositionState,
     pub(crate) intent_emitted: bool,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) struct NativeProductImeCompositionState {
+    pub(crate) enabled: bool,
+    pub(crate) active: bool,
+    pub(crate) last_text_byte_count: Option<usize>,
+    pub(crate) cursor_start: Option<usize>,
+    pub(crate) cursor_end: Option<usize>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -78,6 +90,7 @@ pub(crate) struct NativeProductPointerDispatchReport {
 pub(crate) struct NativeProductInputController {
     cursor_client_point: Option<StageClientPoint>,
     pointer_id: u64,
+    ime_composition: NativeProductImeCompositionState,
 }
 
 impl Default for NativeProductInputController {
@@ -91,6 +104,7 @@ impl NativeProductInputController {
         Self {
             cursor_client_point: None,
             pointer_id: DEFAULT_NATIVE_PRODUCT_POINTER_ID,
+            ime_composition: NativeProductImeCompositionState::default(),
         }
     }
 
@@ -99,6 +113,7 @@ impl NativeProductInputController {
         Self {
             cursor_client_point: None,
             pointer_id,
+            ime_composition: NativeProductImeCompositionState::default(),
         }
     }
 
@@ -188,27 +203,34 @@ impl NativeProductInputController {
     }
 
     pub(crate) fn summarize_ime_event(event: &Ime) -> NativeProductImeEventReport {
-        match event {
-            Ime::Enabled => NativeProductImeEventReport {
-                kind: NativeProductImeEventKind::Enabled,
-                text_byte_count: None,
-                intent_emitted: false,
-            },
-            Ime::Disabled => NativeProductImeEventReport {
-                kind: NativeProductImeEventKind::Disabled,
-                text_byte_count: None,
-                intent_emitted: false,
-            },
-            Ime::Preedit(text, _) => NativeProductImeEventReport {
-                kind: NativeProductImeEventKind::Preedit,
-                text_byte_count: Some(text.len()),
-                intent_emitted: false,
-            },
-            Ime::Commit(text) => NativeProductImeEventReport {
-                kind: NativeProductImeEventKind::Commit,
-                text_byte_count: Some(text.len()),
-                intent_emitted: false,
-            },
+        let mut controller = Self::new();
+        controller.record_ime_event(event)
+    }
+
+    pub(crate) fn ime_composition(&self) -> NativeProductImeCompositionState {
+        self.ime_composition
+    }
+
+    pub(crate) fn record_ime_event(&mut self, event: &Ime) -> NativeProductImeEventReport {
+        let (kind, text_byte_count, cursor_range) = match event {
+            Ime::Enabled => (NativeProductImeEventKind::Enabled, None, None),
+            Ime::Disabled => (NativeProductImeEventKind::Disabled, None, None),
+            Ime::Preedit(text, cursor) => (
+                NativeProductImeEventKind::Preedit,
+                Some(text.len()),
+                *cursor,
+            ),
+            Ime::Commit(text) => (NativeProductImeEventKind::Commit, Some(text.len()), None),
+        };
+        self.ime_composition =
+            next_ime_composition_state(self.ime_composition, kind, text_byte_count, cursor_range);
+        NativeProductImeEventReport {
+            kind,
+            text_byte_count,
+            cursor_start: cursor_range.map(|(start, _)| start),
+            cursor_end: cursor_range.map(|(_, end)| end),
+            composition: self.ime_composition,
+            intent_emitted: false,
         }
     }
 
@@ -220,7 +242,7 @@ impl NativeProductInputController {
     where
         H: NativeHostApi,
     {
-        let mut report = Self::summarize_ime_event(event);
+        let mut report = self.record_ime_event(event);
         emit_native_renderer_intent(
             host,
             "user/text_input",
@@ -265,6 +287,35 @@ impl NativeProductInputController {
         Ok(NativeProductPointerDispatchReport {
             dispatched: dispatch.is_some(),
         })
+    }
+}
+
+fn next_ime_composition_state(
+    current: NativeProductImeCompositionState,
+    kind: NativeProductImeEventKind,
+    text_byte_count: Option<usize>,
+    cursor_range: Option<(usize, usize)>,
+) -> NativeProductImeCompositionState {
+    match kind {
+        NativeProductImeEventKind::Enabled => NativeProductImeCompositionState {
+            enabled: true,
+            ..NativeProductImeCompositionState::default()
+        },
+        NativeProductImeEventKind::Disabled => NativeProductImeCompositionState::default(),
+        NativeProductImeEventKind::Preedit => NativeProductImeCompositionState {
+            enabled: true,
+            active: text_byte_count.unwrap_or(0) > 0 || cursor_range.is_some(),
+            last_text_byte_count: text_byte_count,
+            cursor_start: cursor_range.map(|(start, _)| start),
+            cursor_end: cursor_range.map(|(_, end)| end),
+        },
+        NativeProductImeEventKind::Commit => NativeProductImeCompositionState {
+            enabled: current.enabled,
+            active: false,
+            last_text_byte_count: text_byte_count,
+            cursor_start: None,
+            cursor_end: None,
+        },
     }
 }
 
@@ -587,6 +638,15 @@ mod tests {
             NativeProductImeEventReport {
                 kind: NativeProductImeEventKind::Preedit,
                 text_byte_count: Some("候補".len()),
+                cursor_start: Some(0),
+                cursor_end: Some(1),
+                composition: NativeProductImeCompositionState {
+                    enabled: true,
+                    active: true,
+                    last_text_byte_count: Some("候補".len()),
+                    cursor_start: Some(0),
+                    cursor_end: Some(1),
+                },
                 intent_emitted: false,
             }
         );
@@ -595,6 +655,12 @@ mod tests {
             NativeProductImeEventReport {
                 kind: NativeProductImeEventKind::Commit,
                 text_byte_count: Some("決定".len()),
+                cursor_start: None,
+                cursor_end: None,
+                composition: NativeProductImeCompositionState {
+                    last_text_byte_count: Some("決定".len()),
+                    ..NativeProductImeCompositionState::default()
+                },
                 intent_emitted: false,
             }
         );
@@ -603,6 +669,12 @@ mod tests {
             NativeProductImeEventReport {
                 kind: NativeProductImeEventKind::Enabled,
                 text_byte_count: None,
+                cursor_start: None,
+                cursor_end: None,
+                composition: NativeProductImeCompositionState {
+                    enabled: true,
+                    ..NativeProductImeCompositionState::default()
+                },
                 intent_emitted: false,
             }
         );
@@ -628,15 +700,34 @@ mod tests {
             NativeProductImeEventReport {
                 kind: NativeProductImeEventKind::Preedit,
                 text_byte_count: Some("候補".len()),
+                cursor_start: Some(0),
+                cursor_end: Some(1),
+                composition: NativeProductImeCompositionState {
+                    enabled: true,
+                    active: true,
+                    last_text_byte_count: Some("候補".len()),
+                    cursor_start: Some(0),
+                    cursor_end: Some(1),
+                },
                 intent_emitted: true,
             }
         );
         assert_eq!(commit.kind, NativeProductImeEventKind::Commit);
         assert_eq!(commit.text_byte_count, Some("決定".len()));
+        assert!(!commit.composition.active);
+        assert_eq!(commit.composition.last_text_byte_count, Some("決定".len()));
         assert!(commit.intent_emitted);
         assert_eq!(disabled.kind, NativeProductImeEventKind::Disabled);
         assert_eq!(disabled.text_byte_count, None);
+        assert_eq!(
+            disabled.composition,
+            NativeProductImeCompositionState::default()
+        );
         assert!(disabled.intent_emitted);
+        assert_eq!(
+            input.ime_composition(),
+            NativeProductImeCompositionState::default()
+        );
 
         assert_eq!(
             host.renderer_intents()
