@@ -59,6 +59,28 @@ fn skips_stopped_projection_tracks() {
 }
 
 #[test]
+fn plans_stopping_projection_tracks_for_backend_fade_out() {
+    let mut stopping = track("bgm-main", "music/opening.ogg");
+    stopping.playback_state = AudioTrackPlaybackState::Stopping;
+    stopping.fade_out_ms = Some(300.0);
+    let audio = AudioProjection::new(vec![stopping]);
+
+    let plan =
+        plan_audio_backend_commands(&AudioBackendTrackStateMap::new(), Some(&audio), &assets([]));
+
+    assert_eq!(plan.commands.len(), 2);
+    assert_eq!(plan.commands[0].kind, AudioBackendCommandKind::LoadAsset);
+    assert_eq!(plan.commands[1].kind, AudioBackendCommandKind::StartTrack);
+    assert_eq!(
+        plan.next_tracks
+            .get("bgm-main")
+            .expect("stopping track stays active for fade out")
+            .playback_state,
+        AudioTrackPlaybackState::Stopping,
+    );
+}
+
+#[test]
 fn skips_tracks_with_empty_asset_names() {
     let audio = AudioProjection::new(vec![track("bgm-empty", ""), track("bgm-blank", "   ")]);
 

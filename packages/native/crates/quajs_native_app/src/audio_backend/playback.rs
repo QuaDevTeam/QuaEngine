@@ -26,6 +26,21 @@ pub(crate) trait NativeAudioPlaybackDriver {
     ) -> Result<Vec<AudioBackendTrackState>, String> {
         Ok(Vec::new())
     }
+
+    fn drain_audio_events(
+        &mut self,
+        active_tracks: &AudioBackendTrackStateMap,
+    ) -> Result<Vec<NativeAudioBackendEvent>, String> {
+        self.drain_finished_tracks(active_tracks).map(|tracks| {
+            tracks
+                .into_iter()
+                .map(|track| NativeAudioBackendEvent::TrackEnded {
+                    track,
+                    reason: "natural".to_string(),
+                })
+                .collect()
+        })
+    }
 }
 
 #[derive(Debug)]
@@ -102,17 +117,13 @@ where
     }
 
     fn drain_audio_events(&mut self) -> NativeAudioBackendEventDrainResult {
-        let finished_tracks = self
+        let events = self
             .driver
-            .drain_finished_tracks(&self.active_tracks)
+            .drain_audio_events(&self.active_tracks)
             .map_err(NativeAudioBackendError::backend_rejected)?;
-        let mut events = Vec::with_capacity(finished_tracks.len());
-        for track in finished_tracks {
+        for event in &events {
+            let NativeAudioBackendEvent::TrackEnded { track, .. } = event;
             self.active_tracks.remove(&track.id);
-            events.push(NativeAudioBackendEvent::TrackEnded {
-                track,
-                reason: "natural".to_string(),
-            });
         }
         self.diagnostics.active_track_count = self.active_tracks.len();
         Ok(events)
