@@ -45,4 +45,6 @@ pub use types::{
     NativeFontAtlasTextureSyncReport, NativeTextureReleaseHostSyncFailure,
     NativeTextureUploadHostSyncFailure, NativeTextureUploadHostSyncFailureKind,
     NativeTextureUploadHostSyncReport, NativeTextureUploadMetadata, NativeTextureUploadSink,
+    NativeVideoFrameTextureSyncFailure, NativeVideoFrameTextureSyncFailureKind,
+    NativeVideoFrameTextureSyncReport,
 };

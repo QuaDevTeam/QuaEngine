@@ -12,6 +12,7 @@ use quajs_wgpu_renderer::renderer::{
 use quajs_wgpu_renderer::resources::{NativeTextureUploadRequest, ResourceId};
 use quajs_wgpu_renderer::video::{
     NativeVideoBackend, NativeVideoBackendResult, VideoBackendAssetLoad, VideoBackendCommandPlan,
+    VideoBackendFrameResourceMap, VideoBackendFrameTexture,
 };
 
 use crate::texture_sync::{NativeTextureUploadMetadata, NativeTextureUploadSink};
@@ -111,6 +112,9 @@ pub(crate) struct AssetLoadingVideoBackend {
     pub(crate) events: Vec<&'static str>,
     pub(crate) loads: Vec<VideoBackendAssetLoad>,
     pub(crate) plans: Vec<VideoBackendCommandPlan>,
+    pub(crate) frame_resources: VideoBackendFrameResourceMap,
+    pub(crate) frame_textures: Vec<VideoBackendFrameTexture>,
+    pub(crate) frame_texture_releases: Vec<ResourceId>,
 }
 
 impl NativeVideoBackend for AssetLoadingVideoBackend {
@@ -131,6 +135,18 @@ impl NativeVideoBackend for AssetLoadingVideoBackend {
         self.events.push("commands");
         self.plans.push(plan.clone());
         Ok(())
+    }
+
+    fn video_frame_resources(&self) -> VideoBackendFrameResourceMap {
+        self.frame_resources.clone()
+    }
+
+    fn drain_video_frame_textures(&mut self) -> Vec<VideoBackendFrameTexture> {
+        std::mem::take(&mut self.frame_textures)
+    }
+
+    fn drain_video_frame_texture_releases(&mut self) -> Vec<ResourceId> {
+        std::mem::take(&mut self.frame_texture_releases)
     }
 }
 

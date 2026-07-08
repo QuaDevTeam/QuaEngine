@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::{Display, Formatter};
 
 use super::commands::{VideoBackendCommandPlan, VideoBackendStreamStateMap};
@@ -20,6 +20,58 @@ pub type VideoBackendFrameResourceMap = BTreeMap<String, VideoBackendFrameResour
 pub struct VideoBackendFrameResource {
     pub stream_id: String,
     pub resource_id: ResourceId,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct VideoBackendFrameTexture {
+    pub stream_id: String,
+    pub resource_id: ResourceId,
+    pub width: u32,
+    pub height: u32,
+    pub rgba: Vec<u8>,
+    pub owner_package_id: Option<String>,
+    pub required_package_ids: BTreeSet<String>,
+}
+
+impl VideoBackendFrameTexture {
+    pub fn new(
+        stream_id: impl Into<String>,
+        resource_id: impl Into<ResourceId>,
+        width: u32,
+        height: u32,
+        rgba: impl Into<Vec<u8>>,
+    ) -> Self {
+        Self {
+            stream_id: stream_id.into(),
+            resource_id: resource_id.into(),
+            width,
+            height,
+            rgba: rgba.into(),
+            owner_package_id: None,
+            required_package_ids: BTreeSet::new(),
+        }
+    }
+
+    pub fn owned_by(mut self, package_id: impl Into<String>) -> Self {
+        self.owner_package_id = Some(package_id.into());
+        self
+    }
+
+    pub fn require_package(mut self, package_id: impl Into<String>) -> Self {
+        self.required_package_ids.insert(package_id.into());
+        self
+    }
+
+    pub fn require_packages<I, S>(mut self, package_ids: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        for package_id in package_ids {
+            self.required_package_ids.insert(package_id.into());
+        }
+        self
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -68,6 +120,14 @@ pub trait NativeVideoBackend {
 
     fn video_frame_resources(&self) -> VideoBackendFrameResourceMap {
         VideoBackendFrameResourceMap::new()
+    }
+
+    fn drain_video_frame_textures(&mut self) -> Vec<VideoBackendFrameTexture> {
+        Vec::new()
+    }
+
+    fn drain_video_frame_texture_releases(&mut self) -> Vec<ResourceId> {
+        Vec::new()
     }
 }
 

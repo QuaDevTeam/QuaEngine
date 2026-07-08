@@ -13,7 +13,9 @@ use quajs_wgpu_renderer::renderer::{
 };
 use quajs_wgpu_renderer::resources::ResourceId;
 use quajs_wgpu_renderer::stage_layout::ResolvedStageLayout;
-use quajs_wgpu_renderer::video::{NativeVideoBackend, NativeVideoBackendError};
+use quajs_wgpu_renderer::video::{
+    NativeVideoBackend, NativeVideoBackendError, VideoBackendFrameTexture,
+};
 
 use crate::audio_sync::{sync_audio_assets_from_host, NativeAudioAssetHostSyncReport};
 use crate::font_sync::{sync_font_assets_from_host, NativeFontAssetHostSyncReport};
@@ -31,6 +33,8 @@ use super::types::{
     NativeFontAtlasTextureSyncFailure, NativeFontAtlasTextureSyncFailureKind,
     NativeFontAtlasTextureSyncReport, NativeTextureReleaseHostSyncFailure,
     NativeTextureUploadHostSyncReport, NativeTextureUploadMetadata, NativeTextureUploadSink,
+    NativeVideoFrameTextureSyncFailure, NativeVideoFrameTextureSyncFailureKind,
+    NativeVideoFrameTextureSyncReport,
 };
 
 #[derive(Clone, Debug, PartialEq)]
@@ -41,6 +45,7 @@ pub struct NativeTextureSyncedFrameResult {
     pub audio_asset_report: Option<NativeAudioAssetHostSyncReport>,
     pub video_asset_report: Option<NativeVideoAssetHostSyncReport>,
     pub font_asset_report: Option<NativeFontAssetHostSyncReport>,
+    pub video_frame_texture_report: Option<NativeVideoFrameTextureSyncReport>,
     pub font_atlas_report: Option<NativeFontAtlasTextureSyncReport>,
     pub resubmitted_after_texture_upload: bool,
 }
@@ -225,6 +230,7 @@ where
         None,
         None,
         None,
+        None,
     )
 }
 
@@ -307,6 +313,7 @@ where
         *renderer.state_mut() = previous_state;
         return Err(error.into());
     }
+    let video_frame_texture_report = sync_video_frame_textures_for_backend(renderer);
     let font_asset_report =
         match sync_font_assets_for_backend_if_needed(renderer, host, &update.font_backend_commands)
         {
@@ -334,6 +341,7 @@ where
         audio_asset_report,
         video_asset_report,
         font_asset_report,
+        Some(video_frame_texture_report),
         Some(font_atlas_report),
     )?;
     let bundle_lifecycle_report =
@@ -420,6 +428,7 @@ fn finish_texture_synced_frame<B, A, V, F, H>(
     audio_asset_report: Option<NativeAudioAssetHostSyncReport>,
     video_asset_report: Option<NativeVideoAssetHostSyncReport>,
     font_asset_report: Option<NativeFontAssetHostSyncReport>,
+    video_frame_texture_report: Option<NativeVideoFrameTextureSyncReport>,
     font_atlas_report: Option<NativeFontAtlasTextureSyncReport>,
 ) -> Result<NativeTextureSyncedFrameResult, NativeRenderBackendError>
 where
@@ -435,8 +444,15 @@ where
         .as_ref()
         .map(|report| report.uploaded_count > 0)
         .unwrap_or(false);
+    let video_frame_texture_uploaded = video_frame_texture_report
+        .as_ref()
+        .map(|report| report.uploaded_count > 0)
+        .unwrap_or(false);
 
-    if texture_upload_report.uploaded_count == 0 && !font_atlas_uploaded {
+    if texture_upload_report.uploaded_count == 0
+        && !font_atlas_uploaded
+        && !video_frame_texture_uploaded
+    {
         let mut frame = initial;
         if texture_upload_report.released_orphaned_count > 0 {
             frame.texture_upload_sync = renderer.texture_upload_sync_for_update(&frame.update);
@@ -448,6 +464,7 @@ where
             audio_asset_report,
             video_asset_report,
             font_asset_report,
+            video_frame_texture_report,
             font_atlas_report,
             resubmitted_after_texture_upload: false,
         });
@@ -468,6 +485,7 @@ where
         audio_asset_report,
         video_asset_report,
         font_asset_report,
+        video_frame_texture_report,
         font_atlas_report,
         resubmitted_after_texture_upload: true,
     })
@@ -595,6 +613,112 @@ where
     }
 
     report
+}
+
+fn sync_video_frame_textures_for_backend<B, A, V, F>(
+    renderer: &mut NativeRenderer<B, A, V, F>,
+) -> NativeVideoFrameTextureSyncReport
+where
+    B: NativeRenderBackend + NativeTextureUploadSink,
+    V: NativeVideoBackend,
+{
+    let Some(video_backend) = renderer.video_backend_mut() else {
+        return NativeVideoFrameTextureSyncReport::default();
+    };
+    let releases = video_backend.drain_video_frame_texture_releases();
+    let frames = video_backend.drain_video_frame_textures();
+    let mut report = NativeVideoFrameTextureSyncReport {
+        pending_upload_count: frames.len(),
+        release_candidate_count: releases.len(),
+        ..Default::default()
+    };
+
+    for resource_id in releases {
+        release_video_frame_texture(renderer.backend_mut(), resource_id, &mut report);
+    }
+    for frame in frames {
+        upload_video_frame_texture(renderer.backend_mut(), frame, &mut report);
+    }
+
+    report
+}
+
+fn release_video_frame_texture<S>(
+    sink: &mut S,
+    resource_id: ResourceId,
+    report: &mut NativeVideoFrameTextureSyncReport,
+) where
+    S: NativeTextureUploadSink,
+{
+    match sink.release_texture_resource(&resource_id) {
+        Ok(true) => {
+            report.released_count += 1;
+            report.released_resource_ids.push(resource_id);
+        }
+        Ok(false) => {
+            report.missing_release_count += 1;
+            report.missing_release_resource_ids.push(resource_id);
+        }
+        Err(error) => {
+            report.record_release_failure(NativeTextureReleaseHostSyncFailure {
+                resource_id,
+                message: error.to_string(),
+            });
+        }
+    }
+}
+
+fn upload_video_frame_texture<S>(
+    sink: &mut S,
+    frame: VideoBackendFrameTexture,
+    report: &mut NativeVideoFrameTextureSyncReport,
+) where
+    S: NativeTextureUploadSink,
+{
+    let expected_len = frame
+        .width
+        .checked_mul(frame.height)
+        .and_then(|pixel_count| pixel_count.checked_mul(4))
+        .map(|byte_len| byte_len as usize);
+    if frame.width == 0
+        || frame.height == 0
+        || expected_len
+            .map(|len| len != frame.rgba.len())
+            .unwrap_or(true)
+    {
+        report.record_failure(NativeVideoFrameTextureSyncFailure {
+            kind: NativeVideoFrameTextureSyncFailureKind::InvalidFrame,
+            stream_id: frame.stream_id,
+            resource_id: frame.resource_id,
+            message: "Native video frame texture must contain positive RGBA8 dimensions and matching byte length.".to_string(),
+        });
+        return;
+    }
+
+    let metadata = NativeTextureUploadMetadata {
+        owner_package_id: frame.owner_package_id,
+        required_package_ids: frame.required_package_ids,
+    };
+    match sink.upload_decoded_texture_rgba8(
+        &frame.resource_id,
+        frame.width,
+        frame.height,
+        &frame.rgba,
+        metadata,
+    ) {
+        Ok(()) => {
+            report.uploaded_count += 1;
+            report.uploaded_resource_ids.push(frame.resource_id);
+        }
+        Err(error) => {
+            report.record_failure(NativeVideoFrameTextureSyncFailure {
+                kind: NativeVideoFrameTextureSyncFailureKind::UploadError,
+                stream_id: frame.stream_id,
+                resource_id: frame.resource_id,
+                message: error.to_string(),
+            });
+        }
+    }
 }
 
 fn release_font_atlas_texture<S>(

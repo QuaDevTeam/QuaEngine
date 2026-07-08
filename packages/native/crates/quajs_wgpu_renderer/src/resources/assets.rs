@@ -162,6 +162,12 @@ where
         .requests
         .iter()
         .map(|request| request.resource_id.as_str().to_string())
+        .chain(
+            texture_uploads
+                .non_texture_resource_ids
+                .iter()
+                .map(|resource_id| resource_id.as_str().to_string()),
+        )
         .collect::<BTreeSet<_>>();
     let mut sync = NativeTextureUploadSyncPlan {
         skipped_resource_ids: texture_uploads.skipped_resource_ids.clone(),
