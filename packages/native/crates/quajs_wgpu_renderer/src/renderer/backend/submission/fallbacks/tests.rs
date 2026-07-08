@@ -80,6 +80,7 @@ fn graph_with_video_fallback() -> RenderGraph {
         .params(DrawCommandParams::Video(VideoDrawParams {
             asset_type: "video".to_string(),
             asset_name: "opening.mp4".to_string(),
+            frame_resource_id: None,
             poster_asset_name: Some("poster.png".to_string()),
             looped: Some(true),
             muted: Some(true),

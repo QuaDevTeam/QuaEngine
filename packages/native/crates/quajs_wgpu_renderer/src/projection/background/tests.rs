@@ -11,6 +11,9 @@ use crate::stage_layout::{
     resolve_stage_layout, ResolvedStageLayout, StageContainerInput, ViewLayoutInput,
     ViewLayoutOrientation,
 };
+use crate::video::{
+    VideoBackendFrameResource, VideoBackendFrameResourceMap, BACKGROUND_VIDEO_STREAM_ID,
+};
 
 #[test]
 fn builds_main_image_background_command() {
@@ -412,6 +415,7 @@ fn builds_video_fallback_command_with_poster_resource() {
     match &command.params {
         DrawCommandParams::Video(params) => {
             assert_eq!(params.asset_name, "movie/opening.mp4");
+            assert_eq!(params.frame_resource_id, None);
             assert_eq!(params.poster_asset_name.as_deref(), Some("poster/day.jpg"));
             assert_eq!(params.looped, Some(false));
             assert_eq!(params.muted, Some(false));
@@ -421,6 +425,47 @@ fn builds_video_fallback_command_with_poster_resource() {
                 params.fallback_reason.as_deref(),
                 Some("native video decode backend is not active")
             );
+        }
+        _ => panic!("expected video draw params"),
+    }
+}
+
+#[test]
+fn builds_video_frame_command_from_native_backend_resource() {
+    let layout = test_layout();
+    let background = BackgroundProjection {
+        mode: BackgroundMode::Video,
+        video: Some(BackgroundVideoProjection {
+            poster: Some("poster/day.jpg".to_string()),
+            provenance: provenance("runtime.video", ["base"]),
+            ..BackgroundVideoProjection::new("movie/opening.mp4")
+        }),
+        ..Default::default()
+    };
+    let frame_resource_id = ResourceId::from("video:texture-ring:video:movie/opening.mp4");
+    let frame_resources = VideoBackendFrameResourceMap::from([(
+        BACKGROUND_VIDEO_STREAM_ID.to_string(),
+        VideoBackendFrameResource {
+            stream_id: BACKGROUND_VIDEO_STREAM_ID.to_string(),
+            resource_id: frame_resource_id.clone(),
+        },
+    )]);
+
+    let commands = build_background_commands_with_video_frame_resources(
+        &layout,
+        &background,
+        &frame_resources,
+    );
+    let command = &commands[0];
+
+    assert_eq!(command.kind, DrawCommandKind::VideoFrame);
+    assert_eq!(command.resource_ids, vec![frame_resource_id.clone()]);
+    match &command.params {
+        DrawCommandParams::Video(params) => {
+            assert_eq!(params.asset_name, "movie/opening.mp4");
+            assert_eq!(params.frame_resource_id, Some(frame_resource_id));
+            assert_eq!(params.poster_asset_name.as_deref(), Some("poster/day.jpg"));
+            assert_eq!(params.fallback_reason, None);
         }
         _ => panic!("expected video draw params"),
     }

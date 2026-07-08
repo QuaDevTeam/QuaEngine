@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 
+use crate::resources::ResourceId;
 use serde_json::Value;
 
 use super::command::LogicalRect;
@@ -39,6 +40,7 @@ pub struct ImageDrawParams {
 pub struct VideoDrawParams {
     pub asset_type: String,
     pub asset_name: String,
+    pub frame_resource_id: Option<ResourceId>,
     pub poster_asset_name: Option<String>,
     pub looped: Option<bool>,
     pub muted: Option<bool>,

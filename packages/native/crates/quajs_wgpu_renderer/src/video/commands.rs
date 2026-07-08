@@ -12,7 +12,7 @@ use crate::resources::{NativeAssetRequestPlan, ResourceId};
 
 pub type VideoBackendStreamStateMap = BTreeMap<String, VideoBackendStreamState>;
 
-const BACKGROUND_VIDEO_STREAM_ID: &str = "background:video";
+pub const BACKGROUND_VIDEO_STREAM_ID: &str = "background:video";
 const NATIVE_VIDEO_ASSET_TYPE: &str = "video";
 
 #[derive(Clone, Debug, Default, PartialEq)]

@@ -34,6 +34,27 @@ fn infers_resource_kind_from_known_prefixes() {
         ),
         NativeResourceKind::VideoDecoder
     );
+    assert_eq!(
+        infer_resource_kind(
+            &ResourceId::from("video:decoder:video:opening.mp4"),
+            DrawCommandKind::VideoFrame
+        ),
+        NativeResourceKind::VideoDecoder
+    );
+    assert_eq!(
+        infer_resource_kind(
+            &ResourceId::from("video:frame-queue:video:opening.mp4"),
+            DrawCommandKind::VideoFrame
+        ),
+        NativeResourceKind::VideoFrameQueue
+    );
+    assert_eq!(
+        infer_resource_kind(
+            &ResourceId::from("video:texture-ring:video:opening.mp4"),
+            DrawCommandKind::VideoFrame
+        ),
+        NativeResourceKind::VideoTextureRing
+    );
 }
 
 #[test]
@@ -69,6 +90,8 @@ fn missing_resource_blocking_policy_matches_renderer_fallback_contract() {
     for kind in [
         NativeResourceKind::Texture,
         NativeResourceKind::VideoDecoder,
+        NativeResourceKind::VideoFrameQueue,
+        NativeResourceKind::VideoTextureRing,
         NativeResourceKind::AudioBuffer,
         NativeResourceKind::UiAst,
         NativeResourceKind::Other,

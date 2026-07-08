@@ -74,6 +74,7 @@ impl NativeRendererState {
         self.audio_backend_tracks.clear();
         self.font_backend_faces.clear();
         self.video_backend_streams.clear();
+        self.video_backend_frame_resources.clear();
         self.resources.clear()
     }
 

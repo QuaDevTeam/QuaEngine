@@ -119,18 +119,34 @@ fn primitive_kind_from_params(
             source: params.source,
             rotation_degrees: params.rotation_degrees,
         },
-        DrawCommandParams::Video(params) => WgpuNativeRenderPrimitiveKind::VideoFallback {
-            asset_type: params.asset_type.clone(),
-            asset_name: params.asset_name.clone(),
-            poster_asset_name: params.poster_asset_name.clone(),
-            looped: params.looped,
-            muted: params.muted,
-            volume: params.volume,
-            playback_rate: params.playback_rate,
-            fit: params.fit,
-            origin: params.origin,
-            source: params.source,
-            fallback_reason: params.fallback_reason.clone(),
+        DrawCommandParams::Video(params) => match &params.frame_resource_id {
+            Some(frame_resource_id) if params.fallback_reason.is_none() => {
+                WgpuNativeRenderPrimitiveKind::VideoFrame {
+                    asset_type: params.asset_type.clone(),
+                    asset_name: params.asset_name.clone(),
+                    frame_resource_id: frame_resource_id.clone(),
+                    looped: params.looped,
+                    muted: params.muted,
+                    volume: params.volume,
+                    playback_rate: params.playback_rate,
+                    fit: params.fit,
+                    origin: params.origin,
+                    source: params.source,
+                }
+            }
+            _ => WgpuNativeRenderPrimitiveKind::VideoFallback {
+                asset_type: params.asset_type.clone(),
+                asset_name: params.asset_name.clone(),
+                poster_asset_name: params.poster_asset_name.clone(),
+                looped: params.looped,
+                muted: params.muted,
+                volume: params.volume,
+                playback_rate: params.playback_rate,
+                fit: params.fit,
+                origin: params.origin,
+                source: params.source,
+                fallback_reason: params.fallback_reason.clone(),
+            },
         },
         DrawCommandParams::Character(params) => WgpuNativeRenderPrimitiveKind::Character {
             character_id: params.character_id.clone(),
@@ -186,11 +202,14 @@ fn resource_ids_from_params(params: &DrawCommandParams) -> Vec<ResourceId> {
                 .collect()
         }
         DrawCommandParams::Video(params) => {
-            let mut resources = optional_resource_id(&params.asset_type, &params.asset_name)
-                .into_iter()
-                .collect::<Vec<_>>();
-            if let Some(poster_asset_name) = &params.poster_asset_name {
-                resources.extend(optional_resource_id("images", poster_asset_name));
+            let mut resources = params.frame_resource_id.iter().cloned().collect::<Vec<_>>();
+            if resources.is_empty() {
+                resources.extend(optional_resource_id(&params.asset_type, &params.asset_name));
+            }
+            if params.frame_resource_id.is_none() {
+                if let Some(poster_asset_name) = &params.poster_asset_name {
+                    resources.extend(optional_resource_id("images", poster_asset_name));
+                }
             }
             resources
         }

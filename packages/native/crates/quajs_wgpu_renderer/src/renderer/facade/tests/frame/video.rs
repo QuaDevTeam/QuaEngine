@@ -5,8 +5,13 @@ use crate::projection::background::{
 };
 use crate::projection::common::PackageProvenance;
 use crate::projection::view::ViewProjection;
+use crate::render_graph::DrawCommandParams;
 use crate::renderer::NativeRenderer;
-use crate::video::{NullNativeVideoBackend, VideoBackendCommandKind};
+use crate::resources::{NativeResourceKind, ResourceId};
+use crate::video::{
+    NativeVideoBackend, NativeVideoBackendResult, NullNativeVideoBackend, VideoBackendCommandKind,
+    VideoBackendCommandPlan, VideoBackendFrameResource, VideoBackendFrameResourceMap,
+};
 
 use super::super::{test_layout, RecordingBackend};
 
@@ -41,6 +46,43 @@ fn can_apply_video_commands_through_explicit_video_backend() {
     assert!(video.active_streams().contains_key("background:video"));
 }
 
+#[test]
+fn uses_video_backend_frame_resource_on_next_prepared_frame() {
+    let mut renderer = NativeRenderer::with_video_backend(
+        RecordingBackend::default(),
+        PublishingVideoBackend::default(),
+    );
+
+    let update = renderer.prepare_frame(test_layout(), &view_with_background_video("runtime.fx"));
+    renderer
+        .apply_video_update(&update)
+        .expect("video backend should publish frame resources after stream start");
+
+    let next_update =
+        renderer.prepare_frame(test_layout(), &view_with_background_video("runtime.fx"));
+    let frame = renderer.state().frame().unwrap();
+    let command = &frame.graph.commands()[0];
+    let frame_resource_id = ResourceId::from("video:texture-ring:video:video/opening.webm");
+
+    assert_eq!(
+        next_update
+            .resource_sync
+            .upsert
+            .iter()
+            .find(|record| record.id == frame_resource_id)
+            .map(|record| record.kind),
+        Some(NativeResourceKind::VideoTextureRing)
+    );
+    assert_eq!(command.resource_ids, vec![frame_resource_id.clone()]);
+    match &command.params {
+        DrawCommandParams::Video(params) => {
+            assert_eq!(params.frame_resource_id, Some(frame_resource_id));
+            assert_eq!(params.fallback_reason, None);
+        }
+        _ => panic!("expected video draw params"),
+    }
+}
+
 fn view_with_background_video(package_id: &str) -> ViewProjection {
     ViewProjection {
         background: Some(BackgroundProjection {
@@ -56,6 +98,34 @@ fn view_with_background_video(package_id: &str) -> ViewProjection {
             ..Default::default()
         }),
         ..Default::default()
+    }
+}
+
+#[derive(Default)]
+struct PublishingVideoBackend {
+    frames: VideoBackendFrameResourceMap,
+}
+
+impl NativeVideoBackend for PublishingVideoBackend {
+    fn apply_video_commands(&mut self, plan: &VideoBackendCommandPlan) -> NativeVideoBackendResult {
+        self.frames = plan
+            .next_streams
+            .iter()
+            .map(|(stream_id, stream)| {
+                (
+                    stream_id.clone(),
+                    VideoBackendFrameResource {
+                        stream_id: stream_id.clone(),
+                        resource_id: stream.texture_ring_resource_id.clone(),
+                    },
+                )
+            })
+            .collect();
+        Ok(())
+    }
+
+    fn video_frame_resources(&self) -> VideoBackendFrameResourceMap {
+        self.frames.clone()
     }
 }
 

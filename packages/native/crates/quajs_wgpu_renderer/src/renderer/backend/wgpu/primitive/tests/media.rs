@@ -70,6 +70,7 @@ fn skips_empty_param_resource_ids_when_no_resources_are_bound() {
             DrawCommandParams::Video(VideoDrawParams {
                 asset_type: "video".to_string(),
                 asset_name: "".to_string(),
+                frame_resource_id: None,
                 poster_asset_name: Some("".to_string()),
                 looped: None,
                 muted: None,
@@ -166,6 +167,7 @@ fn lowers_video_fallback_poster_with_image_resource_namespace() {
             metadata: draw_metadata(DrawCommandParams::Video(VideoDrawParams {
                 asset_type: "video".to_string(),
                 asset_name: "opening.mp4".to_string(),
+                frame_resource_id: None,
                 poster_asset_name: Some("opening-poster.png".to_string()),
                 looped: Some(true),
                 muted: Some(false),
@@ -217,6 +219,63 @@ fn lowers_video_fallback_poster_with_image_resource_namespace() {
             ResourceId::from("images:opening-poster.png"),
         ]
     );
+}
+
+#[test]
+fn lowers_video_frame_resource_without_fallback_reason() {
+    let frame_resource_id = ResourceId::from("video:texture-ring:video:opening.mp4");
+    let plan = WgpuNativeRenderPrimitivePlan::from_execution_plan(&execution_plan(vec![
+        WgpuNativeRenderExecutionOperation::Draw {
+            command_id: "background:video".to_string(),
+            pipeline: DrawBatchPipeline::Video,
+            kind: DrawCommandKind::VideoFrame,
+            metadata: draw_metadata(DrawCommandParams::Video(VideoDrawParams {
+                asset_type: "video".to_string(),
+                asset_name: "opening.mp4".to_string(),
+                frame_resource_id: Some(frame_resource_id.clone()),
+                poster_asset_name: Some("opening-poster.png".to_string()),
+                looped: Some(true),
+                muted: Some(false),
+                volume: Some(0.75),
+                playback_rate: Some(1.25),
+                fit: MediaFit::Cover,
+                origin: MediaOrigin::default(),
+                source: LogicalRect::default(),
+                fallback_reason: None,
+            })),
+            physical_bounds: physical_rect(0, 0, 1280, 720),
+            clip_depth: 0,
+            resource_count: 1,
+        },
+    ]));
+
+    let primitive = &plan.passes[0].primitives[0];
+
+    assert!(matches!(
+        &primitive.kind,
+        WgpuNativeRenderPrimitiveKind::VideoFrame {
+            asset_type,
+            asset_name,
+            frame_resource_id: primitive_frame_resource_id,
+            looped,
+            muted,
+            volume,
+            playback_rate,
+            fit,
+            origin,
+            source,
+        } if asset_type == "video"
+            && asset_name == "opening.mp4"
+            && primitive_frame_resource_id == &frame_resource_id
+            && *looped == Some(true)
+            && *muted == Some(false)
+            && *volume == Some(0.75)
+            && *playback_rate == Some(1.25)
+            && *fit == MediaFit::Cover
+            && origin == &MediaOrigin::default()
+            && source == &LogicalRect::default()
+    ));
+    assert_eq!(primitive.resource_ids, vec![frame_resource_id]);
 }
 
 #[test]

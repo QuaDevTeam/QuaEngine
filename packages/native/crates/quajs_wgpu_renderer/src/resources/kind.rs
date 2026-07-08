@@ -6,6 +6,17 @@ pub(crate) fn infer_resource_kind(
     resource_id: &ResourceId,
     command_kind: DrawCommandKind,
 ) -> NativeResourceKind {
+    let resource_id_value = resource_id.as_str();
+    if resource_id_value.starts_with("video:texture-ring:") {
+        return NativeResourceKind::VideoTextureRing;
+    }
+    if resource_id_value.starts_with("video:frame-queue:") {
+        return NativeResourceKind::VideoFrameQueue;
+    }
+    if resource_id_value.starts_with("video:decoder:") {
+        return NativeResourceKind::VideoDecoder;
+    }
+
     match resource_prefix(resource_id) {
         Some(
             "image" | "images" | "character" | "characters" | "sprite" | "sprites" | "texture"

@@ -114,6 +114,18 @@ pub enum WgpuNativeRenderPrimitiveKind {
         source: LogicalRect,
         fallback_reason: Option<String>,
     },
+    VideoFrame {
+        asset_type: String,
+        asset_name: String,
+        frame_resource_id: ResourceId,
+        looped: Option<bool>,
+        muted: Option<bool>,
+        volume: Option<f32>,
+        playback_rate: Option<f32>,
+        fit: MediaFit,
+        origin: MediaOrigin,
+        source: LogicalRect,
+    },
     Character {
         character_id: String,
         sprite_asset_name: String,

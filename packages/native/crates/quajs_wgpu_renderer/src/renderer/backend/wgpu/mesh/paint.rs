@@ -72,6 +72,7 @@ pub(super) fn paint_from_primitive(
     match &primitive.kind {
         WgpuNativeRenderPrimitiveKind::Image { .. }
         | WgpuNativeRenderPrimitiveKind::VideoFallback { .. }
+        | WgpuNativeRenderPrimitiveKind::VideoFrame { .. }
         | WgpuNativeRenderPrimitiveKind::Character { .. } => (
             WgpuNativeRenderPaint::Texture {
                 resource_id: texture_resource_id(primitive),
@@ -192,6 +193,14 @@ fn texture_resource_id(primitive: &WgpuNativeRenderPrimitive) -> Option<Resource
             .find(|resource_id| resource_asset_name(resource_id) == poster_asset_name)
             .cloned()
             .or_else(|| Some(ResourceId::from(format!("images:{poster_asset_name}")))),
+        WgpuNativeRenderPrimitiveKind::VideoFrame {
+            frame_resource_id, ..
+        } => primitive
+            .resource_ids
+            .iter()
+            .find(|resource_id| *resource_id == frame_resource_id)
+            .cloned()
+            .or_else(|| Some(frame_resource_id.clone())),
         _ => primitive.resource_ids.first().cloned(),
     }
 }

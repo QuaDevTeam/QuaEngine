@@ -2,7 +2,7 @@ use std::collections::BTreeSet;
 
 use crate::audio::plan_audio_backend_commands;
 use crate::fonts::plan_font_backend_commands;
-use crate::frame::prepare_native_frame;
+use crate::frame::prepare_native_frame_with_video_frame_resources;
 use crate::projection::audio::AudioProjection;
 use crate::projection::fonts::FontsProjection;
 use crate::projection::view::ViewProjection;
@@ -27,7 +27,11 @@ impl NativeRendererState {
         layout: ResolvedStageLayout,
         view: &ViewProjection,
     ) -> NativeRendererFrameUpdate {
-        let frame = prepare_native_frame(layout, view);
+        let frame = prepare_native_frame_with_video_frame_resources(
+            layout,
+            view,
+            &self.video_backend_frame_resources,
+        );
         let resource_sync = plan_frame_resource_sync(&self.resources, &frame.resources);
         let texture_uploads = plan_texture_upload_requests(&frame.assets);
         let audio_resource_sync = plan_audio_resource_sync(&self.resources, view.audio.as_ref());
