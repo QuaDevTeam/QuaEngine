@@ -105,8 +105,16 @@ fn classifies_surface_present_errors_for_recovery_policy() {
             NativeProductWindowPresentFailureKind::Outdated,
         ),
         (
-            "Native renderer smoke frame failed: validation error.",
-            NativeProductWindowPresentFailureKind::Fatal,
+            "Native renderer smoke surface present failed: InvalidOperationOrder: cannot present frame because surface acquisition failed validation.",
+            NativeProductWindowPresentFailureKind::Validation,
+        ),
+        (
+            "Native renderer smoke surface present failed: device removed.",
+            NativeProductWindowPresentFailureKind::DeviceLost,
+        ),
+        (
+            "Native renderer smoke surface present failed: OutOfMemory.",
+            NativeProductWindowPresentFailureKind::OutOfMemory,
         ),
     ];
 

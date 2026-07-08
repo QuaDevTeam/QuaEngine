@@ -126,6 +126,9 @@ pub(crate) enum NativeProductWindowPresentFailureKind {
     Timeout,
     Lost,
     Outdated,
+    Validation,
+    DeviceLost,
+    OutOfMemory,
     Fatal,
 }
 
@@ -136,6 +139,9 @@ impl NativeProductWindowPresentFailureKind {
             Self::Timeout => "timeout",
             Self::Lost => "lost",
             Self::Outdated => "outdated",
+            Self::Validation => "validation",
+            Self::DeviceLost => "device-lost",
+            Self::OutOfMemory => "out-of-memory",
             Self::Fatal => "fatal",
         }
     }
@@ -146,7 +152,9 @@ impl NativeProductWindowPresentFailureKind {
                 NativeProductFramePresentFailureKind::OccludedOrTimedOut
             }
             Self::Lost | Self::Outdated => NativeProductFramePresentFailureKind::RecoverableSurface,
-            Self::Fatal => NativeProductFramePresentFailureKind::Fatal,
+            Self::Validation | Self::DeviceLost | Self::OutOfMemory | Self::Fatal => {
+                NativeProductFramePresentFailureKind::Fatal
+            }
         }
     }
 
@@ -414,17 +422,36 @@ where
 }
 
 fn classify_present_failure_message(message: &str) -> NativeProductWindowPresentFailureKind {
-    if message.contains("surface is occluded") {
+    let normalized = message.to_ascii_lowercase();
+    if normalized.contains("outofmemory")
+        || normalized.contains("out of memory")
+        || normalized.contains("out-of-memory")
+    {
+        return NativeProductWindowPresentFailureKind::OutOfMemory;
+    }
+    if normalized.contains("devicelost")
+        || normalized.contains("device lost")
+        || normalized.contains("device was lost")
+        || normalized.contains("device removed")
+    {
+        return NativeProductWindowPresentFailureKind::DeviceLost;
+    }
+    if normalized.contains("surface is occluded") {
         return NativeProductWindowPresentFailureKind::Occluded;
     }
-    if message.contains("surface acquisition timed out") {
+    if normalized.contains("surface acquisition timed out") {
         return NativeProductWindowPresentFailureKind::Timeout;
     }
-    if message.contains("surface was lost") {
+    if normalized.contains("surface was lost") {
         return NativeProductWindowPresentFailureKind::Lost;
     }
-    if message.contains("surface configuration is outdated") {
+    if normalized.contains("surface configuration is outdated") {
         return NativeProductWindowPresentFailureKind::Outdated;
+    }
+    if normalized.contains("surface acquisition failed validation")
+        || normalized.contains("validation")
+    {
+        return NativeProductWindowPresentFailureKind::Validation;
     }
     NativeProductWindowPresentFailureKind::Fatal
 }
@@ -585,10 +612,24 @@ mod tests {
         );
         assert_eq!(
             NativeProductWindowPresentFailure::from_message(
-                "native product window frame failed validation"
+                "InvalidOperationOrder: cannot present frame because surface acquisition failed validation."
             )
             .kind(),
-            NativeProductWindowPresentFailureKind::Fatal
+            NativeProductWindowPresentFailureKind::Validation
+        );
+        assert_eq!(
+            NativeProductWindowPresentFailure::from_message(
+                "native product window surface present failed: device removed"
+            )
+            .kind(),
+            NativeProductWindowPresentFailureKind::DeviceLost
+        );
+        assert_eq!(
+            NativeProductWindowPresentFailure::from_message(
+                "native product window surface present failed: OutOfMemory"
+            )
+            .kind(),
+            NativeProductWindowPresentFailureKind::OutOfMemory
         );
         assert_eq!(
             NativeProductWindowPresentFailure::from_message(
@@ -598,8 +639,23 @@ mod tests {
             NativeProductFramePresentFailureKind::RecoverableSurface
         );
         assert_eq!(
+            NativeProductWindowPresentFailure::from_message(
+                "native product window surface present failed: device removed"
+            )
+            .frame_failure_kind(),
+            NativeProductFramePresentFailureKind::Fatal
+        );
+        assert_eq!(
             NativeProductWindowPresentFailureKind::Outdated.label(),
             "outdated"
+        );
+        assert_eq!(
+            NativeProductWindowPresentFailureKind::DeviceLost.label(),
+            "device-lost"
+        );
+        assert_eq!(
+            NativeProductWindowPresentFailureKind::OutOfMemory.label(),
+            "out-of-memory"
         );
         assert_eq!(
             NativeProductWindowPresentFailureKind::Fatal.label(),
