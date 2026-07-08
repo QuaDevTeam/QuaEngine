@@ -1,4 +1,8 @@
 #[cfg(any(test, feature = "image-decode"))]
+mod audio_sync;
+#[cfg(any(test, feature = "image-decode"))]
+mod host_assets;
+#[cfg(any(test, feature = "image-decode"))]
 mod product_app_loop;
 #[cfg(feature = "native-window")]
 mod product_app_shell;
