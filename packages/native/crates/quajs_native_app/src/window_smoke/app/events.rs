@@ -164,7 +164,8 @@ impl NativeWindowSmokeApp {
         match window_loop.handle_redraw_failure(&present_failure, recovery_size) {
             Ok(report) if report.action == NativeProductWindowLoopFailureAction::RetryRedraw => {
                 let action = self.app_loop.record_frame_retry_requested();
-                self.apply_app_loop_action(event_loop, action) && action.request_redraw
+                self.apply_app_loop_action(event_loop, action)
+                    && (action.request_redraw || action.tick_host_lifecycle)
             }
             Ok(_) => {
                 self.error = Some(error);
