@@ -1,4 +1,6 @@
 #[cfg(any(test, feature = "image-decode"))]
+mod product_frame_scheduler;
+#[cfg(any(test, feature = "image-decode"))]
 mod product_loop;
 #[cfg(any(test, feature = "image-decode"))]
 mod product_runtime;
