@@ -88,13 +88,26 @@ impl NativeProductWindowResizeState {
 #[derive(Debug)]
 pub(crate) struct NativeProductWindowError {
     message: String,
+    present_failure: Option<NativeProductWindowPresentFailure>,
 }
 
 impl NativeProductWindowError {
     fn new(message: impl Into<String>) -> Self {
         Self {
             message: message.into(),
+            present_failure: None,
         }
+    }
+
+    fn from_present_failure(failure: NativeProductWindowPresentFailure) -> Self {
+        Self {
+            message: failure.to_string(),
+            present_failure: Some(failure),
+        }
+    }
+
+    pub(crate) fn present_failure(&self) -> Option<&NativeProductWindowPresentFailure> {
+        self.present_failure.as_ref()
     }
 }
 
@@ -105,6 +118,81 @@ impl Display for NativeProductWindowError {
 }
 
 impl std::error::Error for NativeProductWindowError {}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum NativeProductWindowPresentFailureKind {
+    Occluded,
+    Timeout,
+    Lost,
+    Outdated,
+    Fatal,
+}
+
+impl NativeProductWindowPresentFailureKind {
+    pub(crate) fn label(self) -> &'static str {
+        match self {
+            Self::Occluded => "occluded",
+            Self::Timeout => "timeout",
+            Self::Lost => "lost",
+            Self::Outdated => "outdated",
+            Self::Fatal => "fatal",
+        }
+    }
+
+    pub(crate) fn frame_failure_kind(self) -> NativeProductFramePresentFailureKind {
+        match self {
+            Self::Occluded | Self::Timeout => {
+                NativeProductFramePresentFailureKind::OccludedOrTimedOut
+            }
+            Self::Lost | Self::Outdated => NativeProductFramePresentFailureKind::RecoverableSurface,
+            Self::Fatal => NativeProductFramePresentFailureKind::Fatal,
+        }
+    }
+
+    fn is_occluded_or_timeout(self) -> bool {
+        matches!(self, Self::Occluded | Self::Timeout)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct NativeProductWindowPresentFailure {
+    kind: NativeProductWindowPresentFailureKind,
+    message: String,
+}
+
+impl NativeProductWindowPresentFailure {
+    pub(crate) fn from_message(message: impl Into<String>) -> Self {
+        let message = message.into();
+        Self {
+            kind: classify_present_failure_message(&message),
+            message,
+        }
+    }
+
+    fn from_runtime_error(error: WgpuNativeRenderRuntimeError) -> Self {
+        Self::from_message(format!(
+            "native product window surface present failed: {error}"
+        ))
+    }
+
+    pub(crate) fn kind(&self) -> NativeProductWindowPresentFailureKind {
+        self.kind
+    }
+
+    pub(crate) fn frame_failure_kind(&self) -> NativeProductFramePresentFailureKind {
+        self.kind.frame_failure_kind()
+    }
+
+    pub(crate) fn is_occluded_or_timeout(&self) -> bool {
+        self.kind.is_occluded_or_timeout()
+    }
+}
+
+impl Display for NativeProductWindowPresentFailure {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(&self.message)
+    }
+}
 
 #[derive(Debug)]
 pub(crate) struct NativeProductWindowRuntime<H> {
@@ -232,15 +320,11 @@ where
         let present_report = match self.present_frame_to_surface() {
             Ok(report) => Some(report),
             Err(error) => {
-                let error = NativeProductWindowError::new(format!(
-                    "native product window surface present failed: {error}"
-                ));
-                if allow_occluded_report
-                    && is_occluded_or_timeout_present_error_message(&error.to_string())
-                {
+                let failure = NativeProductWindowPresentFailure::from_runtime_error(error);
+                if allow_occluded_report && failure.is_occluded_or_timeout() {
                     None
                 } else {
-                    return Err(error);
+                    return Err(NativeProductWindowError::from_present_failure(failure));
                 }
             }
         };
@@ -315,24 +399,20 @@ where
     }
 }
 
-pub(crate) fn is_occluded_or_timeout_present_error_message(message: &str) -> bool {
-    message.contains("surface is occluded") || message.contains("surface acquisition timed out")
-}
-
-pub(crate) fn is_recoverable_surface_present_error_message(message: &str) -> bool {
-    message.contains("surface was lost") || message.contains("surface configuration is outdated")
-}
-
-pub(crate) fn present_failure_kind_from_message(
-    message: &str,
-) -> NativeProductFramePresentFailureKind {
-    if is_occluded_or_timeout_present_error_message(message) {
-        return NativeProductFramePresentFailureKind::OccludedOrTimedOut;
+fn classify_present_failure_message(message: &str) -> NativeProductWindowPresentFailureKind {
+    if message.contains("surface is occluded") {
+        return NativeProductWindowPresentFailureKind::Occluded;
     }
-    if is_recoverable_surface_present_error_message(message) {
-        return NativeProductFramePresentFailureKind::RecoverableSurface;
+    if message.contains("surface acquisition timed out") {
+        return NativeProductWindowPresentFailureKind::Timeout;
     }
-    NativeProductFramePresentFailureKind::Fatal
+    if message.contains("surface was lost") {
+        return NativeProductWindowPresentFailureKind::Lost;
+    }
+    if message.contains("surface configuration is outdated") {
+        return NativeProductWindowPresentFailureKind::Outdated;
+    }
+    NativeProductWindowPresentFailureKind::Fatal
 }
 
 fn present_outcome_from_report(
@@ -429,20 +509,67 @@ mod tests {
     #[test]
     fn classifies_surface_present_failures_without_smoke_error_types() {
         assert_eq!(
-            present_failure_kind_from_message(
+            NativeProductWindowPresentFailure::from_message(
                 "InvalidOperationOrder: cannot present frame because surface is occluded."
-            ),
-            NativeProductFramePresentFailureKind::OccludedOrTimedOut
+            )
+            .kind(),
+            NativeProductWindowPresentFailureKind::Occluded
         );
         assert_eq!(
-            present_failure_kind_from_message(
+            NativeProductWindowPresentFailure::from_message(
+                "InvalidOperationOrder: cannot present frame because surface acquisition timed out."
+            )
+            .kind(),
+            NativeProductWindowPresentFailureKind::Timeout
+        );
+        assert_eq!(
+            NativeProductWindowPresentFailure::from_message(
                 "InvalidOperationOrder: cannot present frame because surface was lost."
-            ),
+            )
+            .kind(),
+            NativeProductWindowPresentFailureKind::Lost
+        );
+        assert_eq!(
+            NativeProductWindowPresentFailure::from_message(
+                "InvalidOperationOrder: cannot present frame because surface configuration is outdated."
+            )
+            .kind(),
+            NativeProductWindowPresentFailureKind::Outdated
+        );
+        assert_eq!(
+            NativeProductWindowPresentFailure::from_message(
+                "native product window frame failed validation"
+            )
+            .kind(),
+            NativeProductWindowPresentFailureKind::Fatal
+        );
+        assert_eq!(
+            NativeProductWindowPresentFailure::from_message(
+                "InvalidOperationOrder: cannot present frame because surface was lost."
+            )
+            .frame_failure_kind(),
             NativeProductFramePresentFailureKind::RecoverableSurface
         );
         assert_eq!(
-            present_failure_kind_from_message("native product window frame failed validation"),
-            NativeProductFramePresentFailureKind::Fatal
+            NativeProductWindowPresentFailureKind::Outdated.label(),
+            "outdated"
+        );
+        assert_eq!(
+            NativeProductWindowPresentFailureKind::Fatal.label(),
+            "fatal"
+        );
+    }
+
+    #[test]
+    fn present_errors_preserve_structured_failure_kind() {
+        let failure = NativeProductWindowPresentFailure::from_message(
+            "native product window surface present failed: surface acquisition timed out",
+        );
+        let error = NativeProductWindowError::from_present_failure(failure);
+
+        assert_eq!(
+            error.present_failure().map(|failure| failure.kind()),
+            Some(NativeProductWindowPresentFailureKind::Timeout)
         );
     }
 }

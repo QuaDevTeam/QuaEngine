@@ -4,7 +4,7 @@ use winit::event_loop::ActiveEventLoop;
 use winit::window::WindowId;
 
 use super::NativeWindowSmokeApp;
-use crate::product_window::NativeProductWindowPhysicalSize;
+use crate::product_window::{NativeProductWindowPhysicalSize, NativeProductWindowPresentFailure};
 use crate::product_window_loop::NativeProductWindowLoopFailureAction;
 use crate::window_smoke::frame::normalized_physical_size;
 use crate::window_smoke::input::{pointer_button_from_winit, pointer_phase_from_element_state};
@@ -157,7 +157,11 @@ impl NativeWindowSmokeApp {
             self.error = Some(error);
             return false;
         };
-        match window_loop.handle_redraw_failure(&error.to_string(), recovery_size) {
+        let present_failure = error
+            .present_failure()
+            .cloned()
+            .unwrap_or_else(|| NativeProductWindowPresentFailure::from_message(error.to_string()));
+        match window_loop.handle_redraw_failure(&present_failure, recovery_size) {
             Ok(NativeProductWindowLoopFailureAction::RetryRedraw) => {
                 let action = self.app_loop.record_frame_retry_requested();
                 self.apply_app_loop_action(event_loop, action) && action.request_redraw

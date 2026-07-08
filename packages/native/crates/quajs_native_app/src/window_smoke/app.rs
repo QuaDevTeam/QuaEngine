@@ -120,9 +120,8 @@ impl NativeWindowSmokeApp {
         let window_loop = self.window_loop.as_ref().ok_or_else(|| {
             NativeWindowSmokeError::new("Native renderer smoke runtime is not initialized.")
         })?;
-        let loop_frame = product_frame_result.map_err(|error| {
-            NativeWindowSmokeError::new(format!("Native renderer smoke frame failed: {error}."))
-        })?;
+        let loop_frame =
+            product_frame_result.map_err(NativeWindowSmokeError::from_window_loop_error)?;
         let product_frame = loop_frame.product_frame;
         let synced_frame = product_frame.synced_frame;
         self.texture_metrics.record_texture_sync(
@@ -156,6 +155,7 @@ impl NativeWindowSmokeApp {
             resize_count: window_loop.resize_count(),
             surface_recovery_count: window_loop.surface_recovery_count(),
             recovery_metrics,
+            last_present_failure_kind: window_loop.last_present_failure_kind(),
             texture_metrics: &self.texture_metrics,
             audio_metrics: &audio_metrics,
             input_metrics,
