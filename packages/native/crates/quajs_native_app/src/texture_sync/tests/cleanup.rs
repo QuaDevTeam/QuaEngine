@@ -4,9 +4,9 @@ use quajs_wgpu_renderer::resources::{NativeResourceKind, NativeResourceRecord, R
 
 use crate::texture_sync::{
     clear_renderer_with_host_texture_cleanup,
-    clear_renderer_with_host_texture_cleanup_and_audio_teardown,
+    clear_renderer_with_host_texture_cleanup_and_media_teardown,
     release_package_resources_with_host_texture_cleanup,
-    release_package_resources_with_host_texture_cleanup_and_audio_teardown,
+    release_package_resources_with_host_texture_cleanup_and_media_teardown,
     sync_texture_releases_from_host_cleanup, NativeTextureMediaTeardownError,
 };
 
@@ -179,7 +179,7 @@ fn release_package_resources_with_host_texture_cleanup_audio_failure_preserves_h
             .owned_by("runtime.menu"),
     );
 
-    let error = release_package_resources_with_host_texture_cleanup_and_audio_teardown(
+    let error = release_package_resources_with_host_texture_cleanup_and_media_teardown(
         &mut renderer,
         "runtime.menu",
     )
@@ -284,8 +284,8 @@ fn clear_renderer_with_host_texture_cleanup_audio_failure_preserves_handles() {
         NativeResourceRecord::new("images:bg.png", NativeResourceKind::Texture).owned_by("base"),
     );
 
-    let error = clear_renderer_with_host_texture_cleanup_and_audio_teardown(&mut renderer)
-        .expect_err("audio teardown failure should stop host texture cleanup");
+    let error = clear_renderer_with_host_texture_cleanup_and_media_teardown(&mut renderer)
+        .expect_err("media teardown failure should stop host texture cleanup");
 
     assert_eq!(
         error,
@@ -309,7 +309,7 @@ fn clear_renderer_with_host_texture_cleanup_audio_failure_preserves_handles() {
 }
 
 #[test]
-fn clear_renderer_with_host_texture_cleanup_and_audio_teardown_releases_texture_handles() {
+fn clear_renderer_with_host_texture_cleanup_and_media_teardown_releases_texture_handles() {
     let mut renderer = NativeRenderer::with_null_audio_backend(TextureResidentBackend {
         resident_resource_ids: vec!["images:bg.png".to_string()],
         ..Default::default()
@@ -318,8 +318,8 @@ fn clear_renderer_with_host_texture_cleanup_and_audio_teardown_releases_texture_
         NativeResourceRecord::new("images:bg.png", NativeResourceKind::Texture).owned_by("base"),
     );
 
-    let result = clear_renderer_with_host_texture_cleanup_and_audio_teardown(&mut renderer)
-        .expect("empty audio teardown should not block renderer clear");
+    let result = clear_renderer_with_host_texture_cleanup_and_media_teardown(&mut renderer)
+        .expect("empty media teardown should not block renderer clear");
 
     assert_eq!(result.released_resources.len(), 1);
     assert_eq!(result.host_cleanup.len(), 1);

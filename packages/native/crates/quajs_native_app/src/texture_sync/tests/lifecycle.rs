@@ -9,9 +9,9 @@ use quajs_wgpu_renderer::resources::{NativeResourceKind, NativeResourceRecord, R
 
 use crate::texture_sync::{
     render_frame_with_host_texture_lifecycle_sync,
-    render_frame_with_host_texture_lifecycle_sync_and_audio_teardown,
+    render_frame_with_host_texture_lifecycle_sync_and_media_teardown,
     sync_mounted_texture_bundle_lifecycle_from_host,
-    sync_mounted_texture_bundle_lifecycle_from_host_and_audio_teardown,
+    sync_mounted_texture_bundle_lifecycle_from_host_and_media_teardown,
     NativeTextureBundleLifecycleSyncError, NativeTextureBundleMountRegistry,
     NativeTextureLifecycleFrameError,
 };
@@ -181,7 +181,7 @@ fn retains_unmounted_package_when_texture_cleanup_fails_and_retries() {
 }
 
 #[test]
-fn audio_teardown_lifecycle_releases_unmounted_package_textures() {
+fn media_teardown_lifecycle_releases_unmounted_package_textures() {
     let mounted_host =
         RecordingAssetHost::new().with_bundle(bundle("runtime-menu-bundle", Some("runtime.menu")));
     let unmounted_host = RecordingAssetHost::new();
@@ -195,19 +195,19 @@ fn audio_teardown_lifecycle_releases_unmounted_package_textures() {
             .owned_by("runtime.menu"),
     );
 
-    sync_mounted_texture_bundle_lifecycle_from_host_and_audio_teardown(
+    sync_mounted_texture_bundle_lifecycle_from_host_and_media_teardown(
         &mut registry,
         &mut renderer,
         &mounted_host,
     )
     .expect("initial mounted bundle baseline should sync");
 
-    let report = sync_mounted_texture_bundle_lifecycle_from_host_and_audio_teardown(
+    let report = sync_mounted_texture_bundle_lifecycle_from_host_and_media_teardown(
         &mut registry,
         &mut renderer,
         &unmounted_host,
     )
-    .expect("unmounted package should release renderer texture resources after audio teardown");
+    .expect("unmounted package should release renderer texture resources after media teardown");
 
     assert_eq!(report.removed_package_ids, vec!["runtime.menu"]);
     assert_eq!(report.released_package_ids, vec!["runtime.menu"]);
@@ -225,7 +225,7 @@ fn audio_teardown_lifecycle_releases_unmounted_package_textures() {
 }
 
 #[test]
-fn audio_teardown_lifecycle_failure_preserves_unmounted_package_handles_for_retry() {
+fn media_teardown_lifecycle_failure_preserves_unmounted_package_handles_for_retry() {
     let mounted_host =
         RecordingAssetHost::new().with_bundle(bundle("runtime-menu-bundle", Some("runtime.menu")));
     let unmounted_host = RecordingAssetHost::new();
@@ -242,19 +242,19 @@ fn audio_teardown_lifecycle_failure_preserves_unmounted_package_handles_for_retr
             .owned_by("runtime.menu"),
     );
 
-    sync_mounted_texture_bundle_lifecycle_from_host_and_audio_teardown(
+    sync_mounted_texture_bundle_lifecycle_from_host_and_media_teardown(
         &mut registry,
         &mut renderer,
         &mounted_host,
     )
     .expect("initial mounted bundle baseline should sync");
 
-    let error = sync_mounted_texture_bundle_lifecycle_from_host_and_audio_teardown(
+    let error = sync_mounted_texture_bundle_lifecycle_from_host_and_media_teardown(
         &mut registry,
         &mut renderer,
         &unmounted_host,
     )
-    .expect_err("audio teardown failure should stop lifecycle texture cleanup");
+    .expect_err("media teardown failure should stop lifecycle texture cleanup");
 
     assert_eq!(
         error,
@@ -401,7 +401,7 @@ fn frame_lifecycle_sync_releases_unmounted_package_after_projection_update() {
 }
 
 #[test]
-fn frame_lifecycle_audio_teardown_failure_preserves_bundle_tracking_for_retry() {
+fn frame_lifecycle_media_teardown_audio_failure_preserves_bundle_tracking_for_retry() {
     let mounted_host =
         RecordingAssetHost::new().with_bundle(bundle("runtime-menu-bundle", Some("runtime.menu")));
     let unmounted_host = RecordingAssetHost::new();
@@ -411,21 +411,21 @@ fn frame_lifecycle_audio_teardown_failure_preserves_bundle_tracking_for_retry() 
         "runtime.menu",
     );
 
-    sync_mounted_texture_bundle_lifecycle_from_host_and_audio_teardown(
+    sync_mounted_texture_bundle_lifecycle_from_host_and_media_teardown(
         &mut registry,
         &mut renderer,
         &mounted_host,
     )
     .expect("initial mounted bundle baseline should sync");
 
-    let error = render_frame_with_host_texture_lifecycle_sync_and_audio_teardown(
+    let error = render_frame_with_host_texture_lifecycle_sync_and_media_teardown(
         &mut registry,
         &mut renderer,
         &unmounted_host,
         test_layout(),
         &ViewProjection::default(),
     )
-    .expect_err("audio teardown failure should stop frame lifecycle cleanup");
+    .expect_err("media teardown failure should stop frame lifecycle cleanup");
 
     assert_eq!(
         error,

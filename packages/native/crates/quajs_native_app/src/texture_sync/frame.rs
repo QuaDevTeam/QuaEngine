@@ -18,7 +18,7 @@ use super::cleanup::{sync_texture_releases_from_host_cleanup, NativeTextureHostC
 use super::host::sync_pending_texture_uploads_from_host;
 use super::lifecycle::{
     sync_mounted_texture_bundle_lifecycle_from_host,
-    sync_mounted_texture_bundle_lifecycle_from_host_and_audio_teardown,
+    sync_mounted_texture_bundle_lifecycle_from_host_and_media_teardown,
     NativeTextureBundleLifecycleSyncError, NativeTextureBundleLifecycleSyncReport,
     NativeTextureBundleMountRegistry,
 };
@@ -69,11 +69,11 @@ impl Display for NativeTextureLifecycleFrameError {
             ),
             Self::Audio(error) => write!(
                 formatter,
-                "Native texture bundle lifecycle audio teardown failed: {error}"
+                "Native texture bundle lifecycle media backend sync failed for audio backend: {error}"
             ),
             Self::Video(error) => write!(
                 formatter,
-                "Native texture bundle lifecycle video backend sync failed: {error}"
+                "Native texture bundle lifecycle media backend sync failed for video backend: {error}"
             ),
         }
     }
@@ -92,11 +92,11 @@ impl Display for NativeTextureJsonLifecycleFrameError {
             ),
             Self::Audio(error) => write!(
                 formatter,
-                "Native texture bundle lifecycle audio teardown failed: {error}"
+                "Native texture bundle lifecycle media backend sync failed for audio backend: {error}"
             ),
             Self::Video(error) => write!(
                 formatter,
-                "Native texture bundle lifecycle video backend sync failed: {error}"
+                "Native texture bundle lifecycle media backend sync failed for video backend: {error}"
             ),
         }
     }
@@ -219,7 +219,7 @@ where
 }
 
 #[allow(dead_code)]
-pub fn render_frame_with_host_texture_lifecycle_sync_and_audio_teardown<B, A, V, H>(
+pub fn render_frame_with_host_texture_lifecycle_sync_and_media_teardown<B, A, V, H>(
     registry: &mut NativeTextureBundleMountRegistry,
     renderer: &mut NativeRenderer<B, A, V>,
     host: &H,
@@ -288,7 +288,7 @@ where
         video_asset_report,
     )?;
     let bundle_lifecycle_report =
-        sync_mounted_texture_bundle_lifecycle_from_host_and_audio_teardown(
+        sync_mounted_texture_bundle_lifecycle_from_host_and_media_teardown(
             registry, renderer, host,
         )?;
 
@@ -338,7 +338,7 @@ where
     )?)
 }
 
-pub fn render_json_frame_with_host_texture_lifecycle_sync_and_audio_teardown<B, A, V, H>(
+pub fn render_json_frame_with_host_texture_lifecycle_sync_and_media_teardown<B, A, V, H>(
     registry: &mut NativeTextureBundleMountRegistry,
     renderer: &mut NativeRenderer<B, A, V>,
     host: &H,
@@ -352,7 +352,7 @@ where
 {
     let input = parse_native_renderer_json_frame_input(input)?;
     Ok(
-        render_frame_with_host_texture_lifecycle_sync_and_audio_teardown(
+        render_frame_with_host_texture_lifecycle_sync_and_media_teardown(
             registry,
             renderer,
             host,

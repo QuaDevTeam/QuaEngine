@@ -4,9 +4,9 @@ use quajs_wgpu_renderer::renderer::{NativeRenderBackend, NativeRenderer};
 use quajs_wgpu_renderer::video::NativeVideoBackend;
 
 use crate::texture_sync::{
-    clear_renderer_with_host_texture_cleanup_and_audio_teardown,
-    render_json_frame_with_host_texture_lifecycle_sync_and_audio_teardown,
-    sync_mounted_texture_bundle_lifecycle_from_host_and_audio_teardown,
+    clear_renderer_with_host_texture_cleanup_and_media_teardown,
+    render_json_frame_with_host_texture_lifecycle_sync_and_media_teardown,
+    sync_mounted_texture_bundle_lifecycle_from_host_and_media_teardown,
     NativeTextureBundleLifecycleSyncError, NativeTextureBundleLifecycleSyncReport,
     NativeTextureBundleMountRegistry, NativeTextureCleanedClearResult,
     NativeTextureJsonLifecycleFrameError, NativeTextureLifecycleSyncedFrameResult,
@@ -34,7 +34,7 @@ impl NativeProductLoop {
         self.rendered_frame_count
     }
 
-    pub(crate) fn render_projection_json_with_audio_teardown<B, A, V, H>(
+    pub(crate) fn render_projection_json_with_media_teardown<B, A, V, H>(
         &mut self,
         renderer: &mut NativeRenderer<B, A, V>,
         host: &H,
@@ -46,7 +46,7 @@ impl NativeProductLoop {
         V: NativeVideoBackend,
         H: NativeHostApi,
     {
-        let synced_frame = render_json_frame_with_host_texture_lifecycle_sync_and_audio_teardown(
+        let synced_frame = render_json_frame_with_host_texture_lifecycle_sync_and_media_teardown(
             &mut self.texture_bundle_registry,
             renderer,
             host,
@@ -61,7 +61,7 @@ impl NativeProductLoop {
     }
 
     #[allow(dead_code)]
-    pub(crate) fn tick_host_lifecycle_with_audio_teardown<B, A, V, H>(
+    pub(crate) fn tick_host_lifecycle_with_media_teardown<B, A, V, H>(
         &mut self,
         renderer: &mut NativeRenderer<B, A, V>,
         host: &H,
@@ -72,7 +72,7 @@ impl NativeProductLoop {
         V: NativeVideoBackend,
         H: NativeHostApi,
     {
-        sync_mounted_texture_bundle_lifecycle_from_host_and_audio_teardown(
+        sync_mounted_texture_bundle_lifecycle_from_host_and_media_teardown(
             &mut self.texture_bundle_registry,
             renderer,
             host,
@@ -80,7 +80,7 @@ impl NativeProductLoop {
     }
 
     #[allow(dead_code)]
-    pub(crate) fn shutdown_with_audio_teardown<B, A, V>(
+    pub(crate) fn shutdown_with_media_teardown<B, A, V>(
         &mut self,
         renderer: &mut NativeRenderer<B, A, V>,
     ) -> Result<NativeTextureCleanedClearResult, NativeTextureMediaTeardownError>
@@ -89,7 +89,7 @@ impl NativeProductLoop {
         A: NativeAudioBackend,
         V: NativeVideoBackend,
     {
-        let result = clear_renderer_with_host_texture_cleanup_and_audio_teardown(renderer)?;
+        let result = clear_renderer_with_host_texture_cleanup_and_media_teardown(renderer)?;
         self.texture_bundle_registry = NativeTextureBundleMountRegistry::new();
         Ok(result)
     }
@@ -139,10 +139,10 @@ mod tests {
         let mut product_loop = NativeProductLoop::new();
 
         let first = product_loop
-            .render_projection_json_with_audio_teardown(&mut renderer, &host, EMPTY_FRAME_JSON)
+            .render_projection_json_with_media_teardown(&mut renderer, &host, EMPTY_FRAME_JSON)
             .expect("first projection frame should render");
         let second = product_loop
-            .render_projection_json_with_audio_teardown(&mut renderer, &host, EMPTY_FRAME_JSON)
+            .render_projection_json_with_media_teardown(&mut renderer, &host, EMPTY_FRAME_JSON)
             .expect("second projection frame should render");
 
         assert_eq!(first.frame_number, 1);
@@ -161,7 +161,7 @@ mod tests {
         let mut product_loop = NativeProductLoop::new();
 
         let error = product_loop
-            .render_projection_json_with_audio_teardown(&mut renderer, &host, "{}")
+            .render_projection_json_with_media_teardown(&mut renderer, &host, "{}")
             .expect_err("missing view projection should fail before lifecycle sync");
 
         assert!(error
@@ -179,7 +179,7 @@ mod tests {
         let mut product_loop = NativeProductLoop::new();
 
         let error = product_loop
-            .render_projection_json_with_audio_teardown(&mut renderer, &host, EMPTY_FRAME_JSON)
+            .render_projection_json_with_media_teardown(&mut renderer, &host, EMPTY_FRAME_JSON)
             .expect_err("host lifecycle sync failure should fail the product frame");
 
         assert!(error
@@ -206,10 +206,10 @@ mod tests {
         let mut product_loop = NativeProductLoop::new();
 
         let baseline = product_loop
-            .tick_host_lifecycle_with_audio_teardown(&mut renderer, &mounted_host)
+            .tick_host_lifecycle_with_media_teardown(&mut renderer, &mounted_host)
             .expect("initial lifecycle tick should establish mounted package baseline");
         let release = product_loop
-            .tick_host_lifecycle_with_audio_teardown(&mut renderer, &unmounted_host)
+            .tick_host_lifecycle_with_media_teardown(&mut renderer, &unmounted_host)
             .expect("later lifecycle tick should release unmounted package resources");
 
         assert!(baseline.initial_sync);
@@ -232,7 +232,7 @@ mod tests {
     }
 
     #[test]
-    fn shutdown_with_audio_teardown_clears_renderer_and_resets_bundle_registry() {
+    fn shutdown_with_media_teardown_clears_renderer_and_resets_bundle_registry() {
         let mounted_host =
             ProductLoopHost::default().with_bundle("runtime-bundle", Some("runtime.menu"));
         let empty_host = ProductLoopHost::default();
@@ -247,13 +247,13 @@ mod tests {
         let mut product_loop = NativeProductLoop::new();
 
         let baseline = product_loop
-            .tick_host_lifecycle_with_audio_teardown(&mut renderer, &mounted_host)
+            .tick_host_lifecycle_with_media_teardown(&mut renderer, &mounted_host)
             .expect("initial lifecycle tick should establish mounted package baseline");
         let shutdown = product_loop
-            .shutdown_with_audio_teardown(&mut renderer)
+            .shutdown_with_media_teardown(&mut renderer)
             .expect("shutdown should tear down renderer resources");
         let after_shutdown = product_loop
-            .tick_host_lifecycle_with_audio_teardown(&mut renderer, &empty_host)
+            .tick_host_lifecycle_with_media_teardown(&mut renderer, &empty_host)
             .expect("post-shutdown lifecycle tick should start from a fresh registry");
 
         assert!(baseline.initial_sync);
@@ -304,13 +304,13 @@ mod tests {
         let mut product_loop = NativeProductLoop::new();
 
         product_loop
-            .tick_host_lifecycle_with_audio_teardown(&mut renderer, &mounted_host)
+            .tick_host_lifecycle_with_media_teardown(&mut renderer, &mounted_host)
             .expect("initial lifecycle tick should establish mounted package baseline");
         let error = product_loop
-            .shutdown_with_audio_teardown(&mut renderer)
-            .expect_err("audio teardown failure should abort shutdown before clearing renderer");
+            .shutdown_with_media_teardown(&mut renderer)
+            .expect_err("media teardown failure should abort shutdown before clearing renderer");
         let retry = product_loop
-            .tick_host_lifecycle_with_audio_teardown(&mut renderer, &empty_host)
+            .tick_host_lifecycle_with_media_teardown(&mut renderer, &empty_host)
             .expect("preserved lifecycle baseline should let the next tick retry release");
 
         assert_eq!(

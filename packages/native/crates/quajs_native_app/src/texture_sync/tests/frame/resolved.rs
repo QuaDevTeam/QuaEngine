@@ -4,7 +4,7 @@ use quajs_wgpu_renderer::resources::{NativeResourceKind, NativeResourceRecord, R
 use quajs_wgpu_renderer::video::VideoBackendCommandKind;
 
 use crate::texture_sync::{
-    render_frame_with_host_texture_lifecycle_sync_and_audio_teardown,
+    render_frame_with_host_texture_lifecycle_sync_and_media_teardown,
     render_frame_with_host_texture_sync, NativeTextureBundleMountRegistry,
 };
 
@@ -180,7 +180,7 @@ fn audio_asset_loading_backend_reads_package_assets_before_audio_commands() {
     );
     let mut registry = NativeTextureBundleMountRegistry::new();
 
-    let result = render_frame_with_host_texture_lifecycle_sync_and_audio_teardown(
+    let result = render_frame_with_host_texture_lifecycle_sync_and_media_teardown(
         &mut registry,
         &mut renderer,
         &host,
@@ -223,7 +223,7 @@ fn null_audio_backend_does_not_read_audio_assets() {
     );
     let mut registry = NativeTextureBundleMountRegistry::new();
 
-    let result = render_frame_with_host_texture_lifecycle_sync_and_audio_teardown(
+    let result = render_frame_with_host_texture_lifecycle_sync_and_media_teardown(
         &mut registry,
         &mut renderer,
         &host,
@@ -260,7 +260,7 @@ fn video_asset_loading_backend_reads_package_assets_before_video_commands() {
     );
     let mut registry = NativeTextureBundleMountRegistry::new();
 
-    let result = render_frame_with_host_texture_lifecycle_sync_and_audio_teardown(
+    let result = render_frame_with_host_texture_lifecycle_sync_and_media_teardown(
         &mut registry,
         &mut renderer,
         &host,
@@ -315,7 +315,7 @@ fn missing_audio_asset_rolls_back_renderer_audio_state_for_asset_loading_backend
     );
     let mut registry = NativeTextureBundleMountRegistry::new();
 
-    let error = render_frame_with_host_texture_lifecycle_sync_and_audio_teardown(
+    let error = render_frame_with_host_texture_lifecycle_sync_and_media_teardown(
         &mut registry,
         &mut renderer,
         &host,
@@ -343,7 +343,7 @@ fn missing_video_asset_rolls_back_renderer_video_state_for_asset_loading_backend
     );
     let mut registry = NativeTextureBundleMountRegistry::new();
 
-    let error = render_frame_with_host_texture_lifecycle_sync_and_audio_teardown(
+    let error = render_frame_with_host_texture_lifecycle_sync_and_media_teardown(
         &mut registry,
         &mut renderer,
         &host,

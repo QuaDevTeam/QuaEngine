@@ -278,7 +278,7 @@ where
         let attempt = self.state.begin_present_attempt();
         let product_frame = self
             .runtime
-            .render_projection_json_with_audio_teardown(input)
+            .render_projection_json_with_media_teardown(input)
             .map_err(|error| {
                 NativeProductWindowLoopError::new(format!(
                     "native product window projection frame failed: {error}"
@@ -315,7 +315,7 @@ where
         let shutdown = if will_complete_target {
             Some(
                 self.runtime
-                    .shutdown_with_audio_teardown()
+                    .shutdown_with_media_teardown()
                     .map_err(|error| {
                         NativeProductWindowLoopError::new(format!(
                             "native product window shutdown failed: {error}"
@@ -343,11 +343,11 @@ where
         Ok(())
     }
 
-    pub(crate) fn tick_host_lifecycle_with_audio_teardown(
+    pub(crate) fn tick_host_lifecycle_with_media_teardown(
         &mut self,
     ) -> Result<NativeTextureBundleLifecycleSyncReport, NativeProductWindowLoopError> {
         self.runtime
-            .tick_host_lifecycle_with_audio_teardown()
+            .tick_host_lifecycle_with_media_teardown()
             .map_err(|error| {
                 NativeProductWindowLoopError::new(format!(
                     "native product window lifecycle tick failed: {error}"
