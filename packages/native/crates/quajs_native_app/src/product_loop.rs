@@ -4,6 +4,8 @@ use quajs_wgpu_renderer::renderer::{NativeRenderBackend, NativeRenderer};
 
 use crate::texture_sync::{
     render_json_frame_with_host_texture_lifecycle_sync_and_audio_teardown,
+    sync_mounted_texture_bundle_lifecycle_from_host_and_audio_teardown,
+    NativeTextureBundleLifecycleSyncError, NativeTextureBundleLifecycleSyncReport,
     NativeTextureBundleMountRegistry, NativeTextureJsonLifecycleFrameError,
     NativeTextureLifecycleSyncedFrameResult, NativeTextureUploadSink,
 };
@@ -53,6 +55,24 @@ impl NativeProductLoop {
             synced_frame,
         })
     }
+
+    #[allow(dead_code)]
+    pub(crate) fn tick_host_lifecycle_with_audio_teardown<B, A, H>(
+        &mut self,
+        renderer: &mut NativeRenderer<B, A>,
+        host: &H,
+    ) -> Result<NativeTextureBundleLifecycleSyncReport, NativeTextureBundleLifecycleSyncError>
+    where
+        B: NativeRenderBackend + NativeTextureUploadSink,
+        A: NativeAudioBackend,
+        H: NativeHostApi,
+    {
+        sync_mounted_texture_bundle_lifecycle_from_host_and_audio_teardown(
+            &mut self.texture_bundle_registry,
+            renderer,
+            host,
+        )
+    }
 }
 
 #[cfg(test)]
@@ -67,7 +87,9 @@ mod tests {
     use quajs_wgpu_renderer::renderer::{
         NativeRenderBackendResult, NativeRenderFrameRef, NativeRenderSubmission,
     };
-    use quajs_wgpu_renderer::resources::{NativeTextureUploadRequest, ResourceId};
+    use quajs_wgpu_renderer::resources::{
+        NativeResourceKind, NativeResourceRecord, NativeTextureUploadRequest, ResourceId,
+    };
 
     use super::*;
 
@@ -135,9 +157,52 @@ mod tests {
         assert_eq!(host.list_calls.get(), 1);
     }
 
+    #[test]
+    fn lifecycle_tick_syncs_host_mounts_without_rendering_projection_frames() {
+        let mounted_host =
+            ProductLoopHost::default().with_bundle("runtime-bundle", Some("runtime.menu"));
+        let unmounted_host = ProductLoopHost::default();
+        let mut renderer = NativeRenderer::with_null_audio_backend(ProductLoopBackend {
+            resident_resource_ids: vec!["images:runtime-menu.png".to_string()],
+            ..Default::default()
+        });
+        renderer.state_mut().resources_mut().insert(
+            NativeResourceRecord::new("images:runtime-menu.png", NativeResourceKind::Texture)
+                .owned_by("runtime.menu"),
+        );
+        let mut product_loop = NativeProductLoop::new();
+
+        let baseline = product_loop
+            .tick_host_lifecycle_with_audio_teardown(&mut renderer, &mounted_host)
+            .expect("initial lifecycle tick should establish mounted package baseline");
+        let release = product_loop
+            .tick_host_lifecycle_with_audio_teardown(&mut renderer, &unmounted_host)
+            .expect("later lifecycle tick should release unmounted package resources");
+
+        assert!(baseline.initial_sync);
+        assert_eq!(baseline.tracked_package_ids, vec!["runtime.menu"]);
+        assert!(!release.initial_sync);
+        assert_eq!(release.removed_package_ids, vec!["runtime.menu"]);
+        assert_eq!(release.released_package_ids, vec!["runtime.menu"]);
+        assert_eq!(release.release_attempt_count, 1);
+        assert_eq!(release.released_resource_count, 1);
+        assert_eq!(product_loop.rendered_frame_count(), 0);
+        assert!(renderer.backend().submissions.is_empty());
+        assert!(renderer.resources().is_empty());
+        assert!(renderer.backend().resident_resource_ids.is_empty());
+        assert_eq!(
+            renderer.backend().released_resource_ids,
+            vec![ResourceId::from("images:runtime-menu.png")]
+        );
+        assert_eq!(mounted_host.list_calls.get(), 1);
+        assert_eq!(unmounted_host.list_calls.get(), 1);
+    }
+
     #[derive(Default)]
     struct ProductLoopBackend {
         submissions: Vec<NativeRenderSubmission>,
+        resident_resource_ids: Vec<String>,
+        released_resource_ids: Vec<ResourceId>,
     }
 
     impl NativeRenderBackend for ProductLoopBackend {
@@ -145,6 +210,10 @@ mod tests {
             let submission = frame.submission();
             self.submissions.push(submission.clone());
             Ok(submission)
+        }
+
+        fn resident_texture_resource_ids(&self) -> Vec<String> {
+            self.resident_resource_ids.clone()
         }
     }
 
@@ -162,9 +231,16 @@ mod tests {
 
         fn release_texture_resource(
             &mut self,
-            _resource_id: &ResourceId,
+            resource_id: &ResourceId,
         ) -> Result<bool, Self::Error> {
-            Ok(false)
+            let before = self.resident_resource_ids.len();
+            self.resident_resource_ids
+                .retain(|resident| resident != resource_id.as_str());
+            if self.resident_resource_ids.len() == before {
+                return Ok(false);
+            }
+            self.released_resource_ids.push(resource_id.clone());
+            Ok(true)
         }
     }
 
