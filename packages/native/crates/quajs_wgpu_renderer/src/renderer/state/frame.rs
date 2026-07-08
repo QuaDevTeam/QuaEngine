@@ -13,6 +13,7 @@ use crate::resources::{
     plan_frame_resource_sync, plan_texture_upload_requests,
 };
 use crate::stage_layout::ResolvedStageLayout;
+use crate::video::plan_video_backend_commands;
 
 use super::NativeRendererState;
 
@@ -32,6 +33,11 @@ impl NativeRendererState {
             view.audio.as_ref(),
             &audio_assets,
         );
+        let video_backend_commands = plan_video_backend_commands(
+            &self.video_backend_streams,
+            view.background.as_ref(),
+            &frame.assets,
+        );
         let mut released_resources = apply_resource_sync(&mut self.resources, &resource_sync);
         let audio_released_resources =
             apply_audio_resource_sync(&mut self.resources, &audio_resource_sync);
@@ -45,6 +51,7 @@ impl NativeRendererState {
         self.revision = self.revision.saturating_add(1);
         self.active_audio_resource_ids = active_audio_resource_ids(view.audio.as_ref());
         self.audio_backend_tracks = audio_backend_commands.next_tracks.clone();
+        self.video_backend_streams = video_backend_commands.next_streams.clone();
         self.frame = Some(frame);
 
         NativeRendererFrameUpdate {
@@ -58,6 +65,7 @@ impl NativeRendererState {
             audio_resource_sync_summary,
             audio_assets,
             audio_backend_commands,
+            video_backend_commands,
         }
     }
 }

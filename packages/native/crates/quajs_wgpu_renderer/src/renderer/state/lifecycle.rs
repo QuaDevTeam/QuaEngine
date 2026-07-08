@@ -71,6 +71,7 @@ impl NativeRendererState {
         self.pointer_interaction.clear();
         self.active_audio_resource_ids.clear();
         self.audio_backend_tracks.clear();
+        self.video_backend_streams.clear();
         self.resources.clear()
     }
 

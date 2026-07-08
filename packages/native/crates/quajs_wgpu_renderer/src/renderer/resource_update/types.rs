@@ -6,6 +6,7 @@ use crate::resources::{
     NativeResourceRecord, NativeTextureUploadRequestPlan, PackageUnloadBlockerReason,
     PackageUnloadPlan, ResourceId, ResourceMemory,
 };
+use crate::video::VideoBackendCommandPlan;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct NativeRendererFrameUpdate {
@@ -19,6 +20,7 @@ pub struct NativeRendererFrameUpdate {
     pub audio_resource_sync_summary: NativeRendererFrameAudioResourceSyncSummary,
     pub audio_assets: NativeAssetRequestPlan,
     pub audio_backend_commands: AudioBackendCommandPlan,
+    pub video_backend_commands: VideoBackendCommandPlan,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
