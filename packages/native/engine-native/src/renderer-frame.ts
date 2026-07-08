@@ -85,6 +85,7 @@ function createNativeAudioProjection(audio: unknown): JsonRecord | undefined {
   const requiredRuntimePackages = stringArray(record.requiredRuntimePackages)
   const tracks = [
     createNativeAudioTrack(record.bgm, 'bgm', record),
+    ...nativeAudioTrackList(record.bgmOutgoing, 'bgm', record),
     ...nativeAudioTrackList(record.voices, 'voice', record),
     ...nativeAudioTrackList(record.sfx, 'sfx', record),
     ...nativeAudioTrackList(record.ambients, 'ambient', record),

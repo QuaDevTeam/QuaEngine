@@ -328,8 +328,9 @@ export async function configureAudioChapterWithEngine(
     const bgmOptions = await withResolvedAudioDuration(engine, options.bgm, withCurrentRuntimeAudioPackage(engine, mergeBgmOptions(options.defaults?.bgm, {
       id: next.bgm?.id || 'bgm',
       chapterId,
-    })))
-    next.bgm = createBgmProjection(options.bgm, bgmOptions, next)
+    }, next)))
+    next.bgmOutgoing = createOutgoingBgmTracks(next, bgmOptions.crossfadeMs)
+    next.bgm = ensureUniqueBgmTrackId(createBgmProjection(options.bgm, bgmOptions, next), next.bgmOutgoing)
   }
 
   await setAudioProjection(engine, next)
@@ -359,12 +360,14 @@ export async function playBGMWithEngine(
 ): Promise<void> {
   const projection = getAudioProjection(engine)
   const bgmOptions = await withResolvedAudioDuration(engine, assetKey, withCurrentRuntimeAudioPackage(engine, mergeBgmOptions(projection.chapter?.defaults?.bgm, options, projection)))
-  const next = createBgmProjection(assetKey, bgmOptions, projection)
+  const outgoing = createOutgoingBgmTracks(projection, bgmOptions.crossfadeMs)
+  const next = ensureUniqueBgmTrackId(createBgmProjection(assetKey, bgmOptions, projection), outgoing)
   await setAudioProjection(engine, {
     ...projection,
     revision: projection.revision + 1,
     chapter: mergeChapterProjection(projection.chapter, options.chapterId),
     bgm: next,
+    bgmOutgoing: outgoing,
   })
 }
 
@@ -541,6 +544,7 @@ export async function stopRuntimePackageAudioWithEngine(
   next.voices = next.voices.map(stopTrack)
   next.sfx = next.sfx.map(stopTrack)
   next.ambients = next.ambients.map(stopTrack)
+  next.bgmOutgoing = (next.bgmOutgoing || []).map(stopTrack)
   if (next.bgm) {
     next.bgm = stopTrack(next.bgm)
   }
@@ -566,9 +570,11 @@ export async function clearRuntimePackageAudioWithEngine(
   next.voices = next.voices.filter(track => !trackRequiresPackage(track, packageId))
   next.sfx = next.sfx.filter(track => !trackRequiresPackage(track, packageId))
   next.ambients = next.ambients.filter(track => !trackRequiresPackage(track, packageId))
+  next.bgmOutgoing = (next.bgmOutgoing || []).filter(track => !trackRequiresPackage(track, packageId))
   changed ||= next.voices.length !== projection.voices.length
     || next.sfx.length !== projection.sfx.length
     || next.ambients.length !== projection.ambients.length
+    || next.bgmOutgoing.length !== (projection.bgmOutgoing || []).length
   if (next.bgm && trackRequiresPackage(next.bgm, packageId)) {
     next.bgm = undefined
     changed = true
@@ -618,6 +624,7 @@ function collectActiveAudioRequiredRuntimePackages(projection: AudioViewProjecti
   return uniqueStrings([
     ...runtimePackagesFromMetadata(projection.chapter?.metadata),
     ...(projection.bgm ? requiredRuntimePackagesFromActiveTrack(projection.bgm) : []),
+    ...(projection.bgmOutgoing || []).flatMap(requiredRuntimePackagesFromActiveTrack),
     ...projection.voices.flatMap(requiredRuntimePackagesFromActiveTrack),
     ...projection.sfx.flatMap(requiredRuntimePackagesFromActiveTrack),
     ...projection.ambients.flatMap(requiredRuntimePackagesFromActiveTrack),
@@ -625,7 +632,7 @@ function collectActiveAudioRequiredRuntimePackages(projection: AudioViewProjecti
 }
 
 function requiredRuntimePackagesFromActiveTrack(track: AudioTrackProjection): string[] {
-  if (track.state === 'stopping' || track.state === 'stopped') {
+  if (track.state === 'stopped') {
     return []
   }
   return uniqueStrings([
@@ -790,6 +797,7 @@ function mergeAudioProjectionDefaults(
       sfx: mergeAudioBusProjection(base.buses.sfx, patch.buses?.sfx),
       ambient: mergeAudioBusProjection(base.buses.ambient, patch.buses?.ambient),
     },
+    bgmOutgoing: patch.bgmOutgoing ? patch.bgmOutgoing.map(track => ({ ...track })) : base.bgmOutgoing,
     voices: patch.voices ? patch.voices.map(track => ({ ...track })) : base.voices,
     sfx: patch.sfx ? patch.sfx.map(track => ({ ...track })) : base.sfx,
     ambients: patch.ambients ? patch.ambients.map(track => ({ ...track })) : base.ambients,
@@ -869,7 +877,7 @@ function mergeBgmOptions(
     loop: options.loop ?? defaults?.loop ?? true,
     durationMs: options.durationMs ?? defaults?.durationMs,
     gainDb: options.gainDb ?? defaults?.gainDb,
-    fadeInMs: options.fadeInMs ?? defaults?.fadeInMs,
+    fadeInMs: options.fadeInMs ?? defaults?.fadeInMs ?? options.crossfadeMs ?? defaults?.crossfadeMs,
     fadeOutMs: options.fadeOutMs ?? defaults?.fadeOutMs,
     crossfadeMs: options.crossfadeMs ?? defaults?.crossfadeMs,
     playAt: resolveAudioPlayAt(options.playAt, options.delayMs ?? defaults?.delayMs),
@@ -1073,6 +1081,35 @@ function updateTrackList(tracks: readonly AudioTrackProjection[], nextTrack: Aud
   ]
 }
 
+function createOutgoingBgmTracks(
+  projection: AudioViewProjection,
+  crossfadeMs?: number,
+): AudioTrackProjection[] {
+  const existing = (projection.bgmOutgoing || []).filter(track => track.state !== 'stopped')
+  if (!projection.bgm || !isPositiveFiniteNumber(crossfadeMs)) {
+    return existing
+  }
+  return updateTrackList(existing, {
+    ...projection.bgm,
+    state: 'stopping',
+    fadeOutMs: crossfadeMs,
+    crossfadeMs,
+  })
+}
+
+function ensureUniqueBgmTrackId(
+  track: AudioTrackProjection,
+  existing: readonly AudioTrackProjection[],
+): AudioTrackProjection {
+  if (!existing.some(item => item.id === track.id)) {
+    return track
+  }
+  return {
+    ...track,
+    id: nextAudioTrackId('bgm'),
+  }
+}
+
 function trackRequiresPackage(track: AudioTrackProjection, packageId: string): boolean {
   return track.contentPackageId === packageId || metadataRequiresPackage(track.metadata, packageId)
 }
@@ -1213,6 +1250,7 @@ function mutateTracks(
     projection.voices = projection.voices.map(mapper)
     projection.sfx = projection.sfx.map(mapper)
     projection.ambients = projection.ambients.map(mapper)
+    projection.bgmOutgoing = (projection.bgmOutgoing || []).map(mapper)
     if (projection.bgm) {
       projection.bgm = mapper(projection.bgm)
     }
@@ -1231,12 +1269,14 @@ function mutateTracks(
     return
   }
   if (target === 'bgm') {
+    projection.bgmOutgoing = (projection.bgmOutgoing || []).map(mapper)
     projection.bgm = projection.bgm ? mapper(projection.bgm) : projection.bgm
     return
   }
   projection.voices = projection.voices.map(track => track.id === target || track.lineId === target ? mapper(track) : track)
   projection.sfx = projection.sfx.map(track => track.id === target || track.lineId === target ? mapper(track) : track)
   projection.ambients = projection.ambients.map(track => track.id === target || track.lineId === target ? mapper(track) : track)
+  projection.bgmOutgoing = (projection.bgmOutgoing || []).map(track => track.id === target || track.lineId === target ? mapper(track) : track)
   if (projection.bgm && (projection.bgm.id === target || projection.bgm.lineId === target)) {
     projection.bgm = mapper(projection.bgm)
   }
@@ -1323,6 +1363,11 @@ function handleTrackEnded(engine: QuaEngineInterface, payload: AudioTrackEventPa
   if (payload.channel === 'bgm') {
     if (next.bgm && next.bgm.id === payload.id) {
       next.bgm = undefined
+      changed = true
+    }
+    const outgoing = (next.bgmOutgoing || []).filter(track => track.id !== payload.id)
+    if (outgoing.length !== (next.bgmOutgoing || []).length) {
+      next.bgmOutgoing = outgoing
       changed = true
     }
   }

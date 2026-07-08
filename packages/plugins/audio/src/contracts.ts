@@ -108,6 +108,7 @@ export interface AudioViewProjection {
     ambient: AudioBusProjection
   }
   bgm?: AudioTrackProjection
+  bgmOutgoing: readonly AudioTrackProjection[]
   voices: readonly AudioTrackProjection[]
   sfx: readonly AudioTrackProjection[]
   ambients: readonly AudioTrackProjection[]
@@ -281,6 +282,7 @@ export function createInitialAudioProjection(): AudioViewProjection {
       sfx: { gainDb: 0 },
       ambient: { gainDb: 0 },
     },
+    bgmOutgoing: [],
     voices: [],
     sfx: [],
     ambients: [],
@@ -317,6 +319,7 @@ export function cloneAudioProjection(projection: AudioViewProjection): AudioView
       ambient: cloneAudioBusProjection(projection.buses.ambient),
     },
     bgm: projection.bgm ? cloneAudioTrackProjection(projection.bgm) : undefined,
+    bgmOutgoing: (projection.bgmOutgoing || []).map(track => cloneAudioTrackProjection(track)),
     voices: projection.voices.map(track => cloneAudioTrackProjection(track)),
     sfx: projection.sfx.map(track => cloneAudioTrackProjection(track)),
     ambients: projection.ambients.map(track => cloneAudioTrackProjection(track)),

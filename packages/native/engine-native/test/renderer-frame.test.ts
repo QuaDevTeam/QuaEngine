@@ -33,6 +33,19 @@ describe('native renderer frame serialization', () => {
               requiredRuntimePackages: ['base.audio'],
             },
           },
+          bgmOutgoing: [
+            {
+              id: 'bgm-old',
+              assetKey: 'audio/bgm/old.ogg',
+              state: 'stopping',
+              fadeOutMs: 450,
+              crossfadeMs: 450,
+              contentPackageId: 'runtime.audio.old',
+              metadata: {
+                requiredRuntimePackages: ['base.audio.old'],
+              },
+            },
+          ],
           voices: [
             {
               id: 'voice-1',
@@ -80,6 +93,20 @@ describe('native renderer frame serialization', () => {
           provenance: {
             contentPackageId: 'runtime.audio',
             requiredRuntimePackages: ['base.audio', 'runtime.audio'],
+          },
+        },
+        {
+          id: 'bgm-old',
+          kind: 'bgm',
+          assetName: 'audio/bgm/old.ogg',
+          assetType: 'bgm',
+          playbackState: 'stopping',
+          volume: 0.251188643150958,
+          fadeOutMs: 450,
+          crossfadeMs: 450,
+          provenance: {
+            contentPackageId: 'runtime.audio.old',
+            requiredRuntimePackages: ['base.audio.old', 'runtime.audio'],
           },
         },
         {
