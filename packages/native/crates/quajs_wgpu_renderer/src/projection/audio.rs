@@ -78,6 +78,22 @@ pub struct AudioTrackProjection {
     pub looped: bool,
     #[serde(default = "default_one_f32")]
     pub volume: f32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub duration_ms: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fade_in_ms: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fade_out_ms: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub crossfade_ms: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub play_at: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub delay_ms: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub seek_ms: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub offset_ms: Option<f64>,
     #[serde(default)]
     pub memory: AudioTrackMemoryEstimate,
     #[serde(default, skip_serializing_if = "PackageProvenance::is_empty")]
@@ -95,6 +111,14 @@ impl AudioTrackProjection {
             playback_state: AudioTrackPlaybackState::Playing,
             looped: false,
             volume: 1.0,
+            duration_ms: None,
+            fade_in_ms: None,
+            fade_out_ms: None,
+            crossfade_ms: None,
+            play_at: None,
+            delay_ms: None,
+            seek_ms: None,
+            offset_ms: None,
             memory: AudioTrackMemoryEstimate::default(),
             provenance: PackageProvenance::default(),
         }

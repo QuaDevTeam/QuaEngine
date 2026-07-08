@@ -97,6 +97,56 @@ fn playback_backend_updates_stops_and_releases_active_tracks() {
 }
 
 #[test]
+fn playback_backend_forwards_timing_controls_to_driver_state() {
+    let mut track = track("bgm-main", "music/opening.ogg");
+    track.duration_ms = Some(2_400.0);
+    track.fade_in_ms = Some(150.0);
+    track.crossfade_ms = Some(300.0);
+    track.play_at = Some(1_700_000_000_750.0);
+    track.delay_ms = Some(750.0);
+    track.seek_ms = Some(1_200.0);
+    track.offset_ms = Some(50.0);
+    let load = load_for_track(&track, [1, 2, 3, 4]);
+    let mut backend = NativeAudioPlaybackBackend::new(RecordingPlaybackDriver::default());
+
+    backend
+        .apply_audio_asset_loads(std::slice::from_ref(&load))
+        .expect("asset load should be recorded");
+    backend
+        .apply_audio_commands(&plan_with_commands(
+            [command(AudioBackendCommandKind::StartTrack, &track)],
+            [track.clone()],
+        ))
+        .expect("loaded audio track should start");
+
+    let mut updated = track.clone();
+    updated.seek_ms = Some(1_500.0);
+    updated.fade_out_ms = Some(450.0);
+    backend
+        .apply_audio_commands(&plan_with_commands(
+            [command(AudioBackendCommandKind::UpdateTrack, &updated)],
+            [updated],
+        ))
+        .expect("active audio track should update");
+
+    assert_eq!(
+        backend.driver().started_tracks[0].duration_ms,
+        Some(2_400.0)
+    );
+    assert_eq!(backend.driver().started_tracks[0].fade_in_ms, Some(150.0));
+    assert_eq!(backend.driver().started_tracks[0].crossfade_ms, Some(300.0));
+    assert_eq!(
+        backend.driver().started_tracks[0].play_at,
+        Some(1_700_000_000_750.0)
+    );
+    assert_eq!(backend.driver().started_tracks[0].delay_ms, Some(750.0));
+    assert_eq!(backend.driver().started_tracks[0].seek_ms, Some(1_200.0));
+    assert_eq!(backend.driver().started_tracks[0].offset_ms, Some(50.0));
+    assert_eq!(backend.driver().updated_tracks[0].seek_ms, Some(1_500.0));
+    assert_eq!(backend.driver().updated_tracks[0].fade_out_ms, Some(450.0));
+}
+
+#[test]
 fn playback_backend_drains_finished_tracks_as_audio_events_once() {
     let mut track = track("voice-line-1", "voice/ch01/line-1.ogg");
     track.kind = AudioTrackKind::Voice;
@@ -147,6 +197,8 @@ fn playback_backend_drains_finished_tracks_as_audio_events_once() {
 struct RecordingPlaybackDriver {
     events: Vec<String>,
     finished_track_ids: Vec<String>,
+    started_tracks: Vec<AudioBackendTrackState>,
+    updated_tracks: Vec<AudioBackendTrackState>,
 }
 
 impl NativeAudioPlaybackDriver for RecordingPlaybackDriver {
@@ -155,6 +207,7 @@ impl NativeAudioPlaybackDriver for RecordingPlaybackDriver {
         track: &AudioBackendTrackState,
         load: &AudioBackendAssetLoad,
     ) -> Result<(), String> {
+        self.started_tracks.push(track.clone());
         self.events.push(format!(
             "start:{}:{}:{}",
             track.id,
@@ -165,6 +218,7 @@ impl NativeAudioPlaybackDriver for RecordingPlaybackDriver {
     }
 
     fn update_track(&mut self, track: &AudioBackendTrackState) -> Result<(), String> {
+        self.updated_tracks.push(track.clone());
         self.events.push(format!(
             "update:{}:{}",
             track.id,
@@ -209,6 +263,14 @@ fn track(id: &str, asset_name: &str) -> AudioBackendTrackState {
         playback_state: AudioTrackPlaybackState::Playing,
         looped: true,
         volume: 0.8,
+        duration_ms: None,
+        fade_in_ms: None,
+        fade_out_ms: None,
+        crossfade_ms: None,
+        play_at: None,
+        delay_ms: None,
+        seek_ms: None,
+        offset_ms: None,
         package_candidates: ["runtime.audio"].into_iter().map(String::from).collect(),
         media_resource_id: ResourceId::from(format!("audio:buffer:bgm:bgm:{asset_name}")),
         handle_resource_id: ResourceId::from(format!("audio:handle:bgm:bgm:{id}")),

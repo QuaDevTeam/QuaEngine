@@ -9,7 +9,8 @@ use crate::projection::view::ViewProjection;
 use crate::renderer::json_input::NativeRendererJsonValidationError;
 
 use super::audio_numbers::{
-    invalid_native_json_audio_memory_reason, invalid_native_json_audio_volume_reason,
+    invalid_native_json_audio_memory_reason, invalid_native_json_audio_timing_reason,
+    invalid_native_json_audio_volume_reason,
 };
 use super::character_numbers::{
     invalid_native_json_character_opacity_reason, invalid_native_json_character_position_reason,
@@ -65,6 +66,7 @@ impl JsonProjectionValidator {
                     &format!("view.audio.tracks[{index}].memory"),
                     &track.memory,
                 );
+                self.validate_audio_timing(&format!("view.audio.tracks[{index}]"), track);
                 self.validate_provenance(
                     &format!("view.audio.tracks[{index}].provenance"),
                     &track.provenance,
@@ -218,6 +220,20 @@ impl JsonProjectionValidator {
 
     fn validate_audio_memory(&mut self, path: &str, memory: &AudioTrackMemoryEstimate) {
         if let Some((field, value, reason)) = invalid_native_json_audio_memory_reason(memory) {
+            self.errors.push(NativeRendererJsonValidationError {
+                path: format!("{path}.{field}"),
+                asset_name: value,
+                reason,
+            });
+        }
+    }
+
+    fn validate_audio_timing(
+        &mut self,
+        path: &str,
+        track: &crate::projection::audio::AudioTrackProjection,
+    ) {
+        if let Some((field, value, reason)) = invalid_native_json_audio_timing_reason(track) {
             self.errors.push(NativeRendererJsonValidationError {
                 path: format!("{path}.{field}"),
                 asset_name: value,

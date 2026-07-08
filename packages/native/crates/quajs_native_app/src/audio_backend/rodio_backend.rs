@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 use std::fmt::{Debug, Formatter};
 use std::io::Cursor;
+use std::time::Duration;
 
 use quajs_wgpu_renderer::audio::{
     AudioBackendAssetLoad, AudioBackendTrackState, AudioBackendTrackStateMap,
@@ -46,13 +47,38 @@ impl RodioAudioPlaybackDriver {
         })
     }
 
-    fn apply_track_controls(player: &Player, track: &AudioBackendTrackState) {
+    fn apply_track_controls(
+        player: &Player,
+        track: &AudioBackendTrackState,
+        apply_initial_offset: bool,
+    ) -> Result<(), String> {
         player.set_volume(track.volume.max(0.0));
+        if let Some(seek_ms) = track.seek_ms.or(if apply_initial_offset {
+            track.offset_ms
+        } else {
+            None
+        }) {
+            if !seek_ms.is_finite() || seek_ms < 0.0 {
+                return Err(format!(
+                    "native audio track \"{}\" has an unsafe seek position",
+                    track.id
+                ));
+            }
+            player
+                .try_seek(Duration::from_secs_f64(seek_ms / 1000.0))
+                .map_err(|error| {
+                    format!(
+                        "failed to seek native audio track \"{}\": {error}",
+                        track.id
+                    )
+                })?;
+        }
         match track.playback_state {
             AudioTrackPlaybackState::Playing => player.play(),
             AudioTrackPlaybackState::Paused => player.pause(),
             AudioTrackPlaybackState::Stopped => player.stop(),
         }
+        Ok(())
     }
 }
 
@@ -73,7 +99,7 @@ impl NativeAudioPlaybackDriver for RodioAudioPlaybackDriver {
                 .map_err(|error| format!("failed to decode native audio asset: {error}"))?;
             player.append(source);
         }
-        Self::apply_track_controls(&player, track);
+        Self::apply_track_controls(&player, track, true)?;
         self.players.insert(track.id.clone(), player);
         Ok(())
     }
@@ -85,7 +111,7 @@ impl NativeAudioPlaybackDriver for RodioAudioPlaybackDriver {
                 track.id
             ));
         };
-        Self::apply_track_controls(player, track);
+        Self::apply_track_controls(player, track, false)?;
         Ok(())
     }
 

@@ -108,7 +108,15 @@ pub(in super::super) fn json_frame_with_audio_input() -> &'static str {
               "loadMode": "buffered",
               "playbackState": "playing",
               "looped": true,
-              "volume": 0.8
+              "volume": 0.8,
+              "durationMs": 2400,
+              "fadeInMs": 150,
+              "fadeOutMs": 300,
+              "crossfadeMs": 450,
+              "playAt": 1700000000750,
+              "delayMs": 750,
+              "seekMs": 1200,
+              "offsetMs": 50
             }
           ]
         }

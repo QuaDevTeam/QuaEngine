@@ -128,6 +128,14 @@ function createNativeAudioTrack(track: unknown, kind: string, audio: JsonRecord)
     playbackState: state,
     looped: booleanValue(record.loop),
     volume,
+    durationMs: finiteNumber(record.durationMs),
+    fadeInMs: finiteNumber(record.fadeInMs),
+    fadeOutMs: finiteNumber(record.fadeOutMs),
+    crossfadeMs: finiteNumber(record.crossfadeMs),
+    playAt: finiteNumber(record.playAt),
+    delayMs: finiteNumber(record.delayMs),
+    seekMs: finiteNumber(record.seekMs),
+    offsetMs: finiteNumber(record.offsetMs),
     provenance,
   })
 }

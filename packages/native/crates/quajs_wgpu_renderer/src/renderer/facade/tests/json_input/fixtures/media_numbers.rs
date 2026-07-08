@@ -289,6 +289,35 @@ pub(in super::super) fn json_frame_with_oversized_audio_memory_input() -> &'stat
     "#
 }
 
+pub(in super::super) fn json_frame_with_unsafe_audio_timing_input(
+    field: &str,
+    value_json: &str,
+) -> String {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "audio": {
+          "tracks": [
+            {
+              "id": "bgm-main",
+              "kind": "bgm",
+              "assetName": "music/opening.ogg",
+              "assetType": "bgm",
+              "loadMode": "buffered",
+              "playbackState": "playing",
+              "__AUDIO_TIMING_FIELD__": __AUDIO_TIMING_VALUE__,
+              "volume": 0.8
+            }
+          ]
+        }
+      }
+    }
+    "#
+    .replace("__AUDIO_TIMING_FIELD__", field)
+    .replace("__AUDIO_TIMING_VALUE__", value_json)
+}
+
 pub(in super::super) fn json_frame_with_web_audio_alias_field_input(
     field: &str,
     value_json: &str,
