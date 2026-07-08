@@ -208,6 +208,21 @@ fn json_frame_background_number_validation_rejects_unsafe_resolved_values() {
         other => panic!("expected unsafe video playbackRate validation error, got {other:?}"),
     }
 
+    for (field, value_json, reason) in [
+        ("seekMs", "-1", "must not be negative"),
+        ("offsetMs", "86400001", "exceeds"),
+    ] {
+        let input = json_frame_with_unsafe_video_position_input(field, value_json);
+        let error = renderer.prepare_frame_json_str(&input).unwrap_err();
+        match error {
+            NativeRendererJsonFrameError::Validation(validation) => {
+                assert_eq!(validation.path, format!("view.background.video.{field}"));
+                assert!(validation.reason.contains(reason));
+            }
+            other => panic!("expected unsafe video position validation error, got {other:?}"),
+        }
+    }
+
     assert_eq!(renderer.state().revision(), 0);
     assert!(renderer.state().frame().is_none());
 }

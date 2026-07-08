@@ -146,6 +146,10 @@ pub struct BackgroundVideoProjection {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub playback_rate: Option<f32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub seek_ms: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub offset_ms: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub poster: Option<String>,
     #[serde(default = "default_background_fit")]
     pub fit: BackgroundFit,
@@ -165,6 +169,8 @@ impl BackgroundVideoProjection {
             muted: None,
             volume: None,
             playback_rate: None,
+            seek_ms: None,
+            offset_ms: None,
             poster: None,
             fit: BackgroundFit::Cover,
             origin: None,

@@ -6,7 +6,7 @@ use crate::projection::background::{
 use crate::projection::common::{is_safe_native_asset_ref, PackageProvenance};
 use crate::projection::safety::{
     is_safe_native_background_origin, is_safe_native_opacity, is_safe_native_video_playback_rate,
-    is_safe_native_video_volume,
+    is_safe_native_video_volume, is_safe_optional_native_video_position_ms,
 };
 use crate::resources::{NativeAssetRequestPlan, ResourceId};
 
@@ -53,6 +53,8 @@ pub struct VideoBackendStreamState {
     pub muted: bool,
     pub volume: f32,
     pub playback_rate: f32,
+    pub seek_ms: Option<f64>,
+    pub offset_ms: Option<f64>,
     pub package_candidates: BTreeSet<String>,
     pub decoder_resource_id: ResourceId,
     pub frame_queue_resource_id: ResourceId,
@@ -159,6 +161,8 @@ fn video_backend_stream_states(
         || !is_safe_native_background_origin(video.origin.as_deref())
         || !is_safe_native_video_volume(video.volume)
         || !is_safe_native_video_playback_rate(video.playback_rate)
+        || !is_safe_optional_native_video_position_ms(video.seek_ms)
+        || !is_safe_optional_native_video_position_ms(video.offset_ms)
     {
         return BTreeMap::new();
     }
@@ -184,6 +188,8 @@ fn video_backend_stream_state(
         muted: video.muted.unwrap_or(false),
         volume: video.volume.unwrap_or(1.0),
         playback_rate: video.playback_rate.unwrap_or(1.0),
+        seek_ms: video.seek_ms,
+        offset_ms: video.offset_ms,
         package_candidates,
         decoder_resource_id: video_decoder_resource_id(&video.asset_name),
         frame_queue_resource_id: video_frame_queue_resource_id(&video.asset_name),
@@ -247,6 +253,8 @@ fn stream_playback_changed(
         || previous.muted != next.muted
         || (previous.volume - next.volume).abs() > f32::EPSILON
         || (previous.playback_rate - next.playback_rate).abs() > f32::EPSILON
+        || previous.seek_ms != next.seek_ms
+        || previous.offset_ms != next.offset_ms
         || previous.package_candidates != next.package_candidates
 }
 

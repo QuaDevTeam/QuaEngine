@@ -137,19 +137,30 @@ where
     C: NativeVideoClock,
 {
     fn start_stream(&mut self, stream: &VideoBackendStreamState) {
-        let Some(active) = self.decode_stream(stream) else {
+        let now = self.clock.now();
+        let Some(active) = self.decode_stream(stream, now) else {
             return;
         };
+        let initial_frame_index = active.frame_index_at(now).unwrap_or(0);
         let previous = self.active_streams.insert(stream.id.clone(), active);
         if let Some(previous) = previous {
             self.release_texture_resource_if_unused(previous.stream.texture_ring_resource_id);
         }
-        self.publish_frame(&stream.id, 0);
+        self.publish_frame(&stream.id, initial_frame_index);
     }
 
     fn update_stream(&mut self, stream: &VideoBackendStreamState) {
         if let Some(active) = self.active_streams.get_mut(&stream.id) {
+            let now = self.clock.now();
+            let current_position_ms = active.position_ms_at(now);
+            let previous_seek_ms = active.stream.seek_ms;
             active.stream = stream.clone();
+            active.anchor_at(now, current_position_ms);
+            if previous_seek_ms != stream.seek_ms {
+                if let Some(seek_ms) = stream.seek_ms {
+                    active.seek_to(now, seek_ms);
+                }
+            }
             return;
         }
         self.start_stream(stream);
@@ -182,7 +193,11 @@ where
         }
     }
 
-    fn decode_stream(&self, stream: &VideoBackendStreamState) -> Option<ActiveGifStream> {
+    fn decode_stream(
+        &self,
+        stream: &VideoBackendStreamState,
+        started_at: Duration,
+    ) -> Option<ActiveGifStream> {
         let Some(load) = self.loaded_assets.get(&stream.decoder_resource_id) else {
             return None;
         };
@@ -193,7 +208,7 @@ where
         Some(ActiveGifStream::new(
             stream.clone(),
             frames,
-            self.clock.now(),
+            started_at,
             package_metadata,
         ))
     }
@@ -236,7 +251,8 @@ struct ActiveGifStream {
     stream: VideoBackendStreamState,
     frames: Vec<DecodedGifFrame>,
     total_duration_ms: f64,
-    started_at: Duration,
+    anchor_time: Duration,
+    anchor_position_ms: f64,
     last_published_index: Option<usize>,
     package_metadata: VideoFramePackageMetadata,
 }
@@ -249,14 +265,26 @@ impl ActiveGifStream {
         package_metadata: VideoFramePackageMetadata,
     ) -> Self {
         let total_duration_ms = frames.iter().map(|frame| frame.duration_ms).sum::<f64>();
+        let anchor_position_ms = stream.seek_ms.or(stream.offset_ms).unwrap_or(0.0);
         Self {
             stream,
             frames,
             total_duration_ms,
-            started_at,
+            anchor_time: started_at,
+            anchor_position_ms,
             last_published_index: None,
             package_metadata,
         }
+    }
+
+    fn anchor_at(&mut self, now: Duration, position_ms: f64) {
+        self.anchor_time = now;
+        self.anchor_position_ms = safe_video_position_ms(position_ms);
+    }
+
+    fn seek_to(&mut self, now: Duration, position_ms: f64) {
+        self.anchor_at(now, position_ms);
+        self.last_published_index = None;
     }
 
     fn frame_index_at(&self, now: Duration) -> Option<usize> {
@@ -267,23 +295,7 @@ impl ActiveGifStream {
             return Some(0);
         }
 
-        let playback_rate =
-            if self.stream.playback_rate.is_finite() && self.stream.playback_rate > f32::EPSILON {
-                self.stream.playback_rate as f64
-            } else {
-                1.0
-            };
-        let elapsed_ms = now
-            .saturating_sub(self.started_at)
-            .as_secs_f64()
-            .mul_add(1000.0 * playback_rate, 0.0);
-        let position_ms = if self.stream.looped {
-            elapsed_ms % self.total_duration_ms
-        } else if elapsed_ms >= self.total_duration_ms {
-            self.total_duration_ms
-        } else {
-            elapsed_ms
-        };
+        let position_ms = self.position_ms_at(now);
 
         let mut cursor_ms = 0.0;
         for (index, frame) in self.frames.iter().enumerate() {
@@ -293,6 +305,39 @@ impl ActiveGifStream {
             }
         }
         Some(self.frames.len() - 1)
+    }
+
+    fn position_ms_at(&self, now: Duration) -> f64 {
+        if self.total_duration_ms <= 0.0 {
+            return 0.0;
+        }
+        let elapsed_ms = now
+            .saturating_sub(self.anchor_time)
+            .as_secs_f64()
+            .mul_add(1000.0 * self.playback_rate(), self.anchor_position_ms);
+        if self.stream.looped {
+            elapsed_ms % self.total_duration_ms
+        } else if elapsed_ms >= self.total_duration_ms {
+            self.total_duration_ms
+        } else {
+            elapsed_ms
+        }
+    }
+
+    fn playback_rate(&self) -> f64 {
+        if self.stream.playback_rate.is_finite() && self.stream.playback_rate > f32::EPSILON {
+            self.stream.playback_rate as f64
+        } else {
+            1.0
+        }
+    }
+}
+
+fn safe_video_position_ms(position_ms: f64) -> f64 {
+    if position_ms.is_finite() && position_ms >= 0.0 {
+        position_ms
+    } else {
+        0.0
     }
 }
 
@@ -546,6 +591,62 @@ mod tests {
         assert_eq!(frames[0].rgba, vec![0x00, 0x00, 0xff, 0xff]);
     }
 
+    #[test]
+    fn starts_gif_stream_at_projected_offset_when_seek_is_absent() {
+        let clock = ManualClock::default();
+        let mut backend = GifNativeVideoBackend::with_clock(clock);
+        let mut stream = stream_state(["runtime-pack"]);
+        stream.offset_ms = Some(25.0);
+        backend
+            .apply_video_asset_loads(&[VideoBackendAssetLoad {
+                stream_id: stream.id.clone(),
+                resource_id: stream.decoder_resource_id.clone(),
+                asset_type: stream.asset_type.clone(),
+                asset_name: stream.asset_name.clone(),
+                package_id: Some("runtime-pack".to_string()),
+                bytes: two_frame_gif_bytes(),
+            }])
+            .unwrap();
+
+        backend
+            .apply_video_commands(&plan_for(&stream, VideoBackendCommandKind::StartStream))
+            .unwrap();
+        let frames = backend.drain_video_frame_textures();
+
+        assert_eq!(frames.len(), 1);
+        assert_eq!(frames[0].rgba, vec![0x00, 0x00, 0xff, 0xff]);
+    }
+
+    #[test]
+    fn updates_gif_stream_to_projected_seek_position() {
+        let clock = ManualClock::default();
+        let mut backend = GifNativeVideoBackend::with_clock(clock);
+        let mut stream = stream_state(["runtime-pack"]);
+        backend
+            .apply_video_asset_loads(&[VideoBackendAssetLoad {
+                stream_id: stream.id.clone(),
+                resource_id: stream.decoder_resource_id.clone(),
+                asset_type: stream.asset_type.clone(),
+                asset_name: stream.asset_name.clone(),
+                package_id: Some("runtime-pack".to_string()),
+                bytes: two_frame_gif_bytes(),
+            }])
+            .unwrap();
+        backend
+            .apply_video_commands(&plan_for(&stream, VideoBackendCommandKind::StartStream))
+            .unwrap();
+        backend.drain_video_frame_textures();
+
+        stream.seek_ms = Some(25.0);
+        backend
+            .apply_video_commands(&update_plan_for(&stream))
+            .unwrap();
+        let frames = backend.drain_video_frame_textures();
+
+        assert_eq!(frames.len(), 1);
+        assert_eq!(frames[0].rgba, vec![0x00, 0x00, 0xff, 0xff]);
+    }
+
     #[derive(Clone, Debug, Default)]
     struct ManualClock {
         now: Rc<Cell<Duration>>,
@@ -595,6 +696,8 @@ mod tests {
             muted: true,
             volume: 1.0,
             playback_rate: 1.0,
+            seek_ms: None,
+            offset_ms: None,
             package_candidates: packages.into_iter().map(ToString::to_string).collect(),
             decoder_resource_id: ResourceId::from("video:decoder:video:movies/opening.gif"),
             frame_queue_resource_id: ResourceId::from("video:frame-queue:video:movies/opening.gif"),
@@ -622,6 +725,18 @@ mod tests {
     fn tick_plan_for(stream: &VideoBackendStreamState) -> VideoBackendCommandPlan {
         VideoBackendCommandPlan {
             commands: Vec::new(),
+            next_streams: BTreeMap::from([(stream.id.clone(), stream.clone())]),
+            skipped_asset_resource_ids: Vec::new(),
+        }
+    }
+
+    fn update_plan_for(stream: &VideoBackendStreamState) -> VideoBackendCommandPlan {
+        VideoBackendCommandPlan {
+            commands: vec![VideoBackendCommand {
+                stream_id: stream.id.clone(),
+                kind: VideoBackendCommandKind::UpdateStream,
+                stream: Some(stream.clone()),
+            }],
             next_streams: BTreeMap::from([(stream.id.clone(), stream.clone())]),
             skipped_asset_resource_ids: Vec::new(),
         }

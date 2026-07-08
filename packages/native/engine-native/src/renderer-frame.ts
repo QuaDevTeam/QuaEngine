@@ -465,6 +465,8 @@ function createNativeBackgroundVideoProjection(video: unknown): JsonRecord | und
     muted: booleanValue(record.muted),
     volume: finiteNumber(record.volume),
     playbackRate: finiteNumber(record.playbackRate),
+    seekMs: finiteNumber(record.seekMs),
+    offsetMs: finiteNumber(record.offsetMs),
     poster: stringValue(record.poster),
     fit: stringValue(record.fit),
     origin: stringValue(record.origin),

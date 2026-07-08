@@ -218,6 +218,8 @@ fn background_video_command(
         muted: video.muted,
         volume: video.volume,
         playback_rate: video.playback_rate,
+        seek_ms: video.seek_ms,
+        offset_ms: video.offset_ms,
         fit: media_fit(video.fit),
         origin: media_origin(video.origin.as_deref()),
         source: full_stage_rect(layout),

@@ -46,6 +46,8 @@ pub struct VideoDrawParams {
     pub muted: Option<bool>,
     pub volume: Option<f32>,
     pub playback_rate: Option<f32>,
+    pub seek_ms: Option<f64>,
+    pub offset_ms: Option<f64>,
     pub fit: MediaFit,
     pub origin: MediaOrigin,
     pub source: LogicalRect,

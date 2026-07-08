@@ -1,7 +1,7 @@
 use crate::projection::safety::{
     MAX_NATIVE_BACKGROUND_LOGICAL_COORDINATE, MAX_NATIVE_BACKGROUND_LOGICAL_DIMENSION,
     MAX_NATIVE_BACKGROUND_ROTATION_DEGREES, MAX_NATIVE_BACKGROUND_SCALE,
-    MAX_NATIVE_VIDEO_PLAYBACK_RATE,
+    MAX_NATIVE_VIDEO_PLAYBACK_RATE, MAX_NATIVE_VIDEO_POSITION_MS,
 };
 
 pub(super) fn invalid_native_json_background_geometry_reason(
@@ -43,6 +43,26 @@ pub(super) fn invalid_native_json_video_playback_rate_reason(value: Option<f32>)
     }
     if value > MAX_NATIVE_VIDEO_PLAYBACK_RATE {
         return Some("video playbackRate exceeds native renderer limits".to_string());
+    }
+    None
+}
+
+pub(super) fn invalid_native_json_video_position_reason(
+    field: &'static str,
+    value: Option<f64>,
+) -> Option<(&'static str, String)> {
+    let value = value?;
+    if !value.is_finite() {
+        return Some((field, format!("video {field} must be finite")));
+    }
+    if value < 0.0 {
+        return Some((field, format!("video {field} must not be negative")));
+    }
+    if value > MAX_NATIVE_VIDEO_POSITION_MS {
+        return Some((
+            field,
+            format!("video {field} exceeds native renderer limits"),
+        ));
     }
     None
 }
@@ -219,6 +239,28 @@ mod tests {
             MAX_NATIVE_VIDEO_PLAYBACK_RATE + 1.0
         ))
         .unwrap()
+        .contains("exceeds"));
+
+        assert_eq!(
+            invalid_native_json_video_position_reason("seekMs", None),
+            None
+        );
+        assert_eq!(
+            invalid_native_json_video_position_reason("seekMs", Some(MAX_NATIVE_VIDEO_POSITION_MS)),
+            None
+        );
+        assert!(
+            invalid_native_json_video_position_reason("seekMs", Some(-1.0))
+                .unwrap()
+                .1
+                .contains("must not be negative")
+        );
+        assert!(invalid_native_json_video_position_reason(
+            "offsetMs",
+            Some(MAX_NATIVE_VIDEO_POSITION_MS + 1.0),
+        )
+        .unwrap()
+        .1
         .contains("exceeds"));
     }
 

@@ -247,6 +247,8 @@ fn renders_video_background_json_as_poster_fallback_projection() {
             assert_eq!(params.muted, Some(false));
             assert_eq!(params.volume, Some(0.65));
             assert_eq!(params.playback_rate, Some(1.25));
+            assert_eq!(params.seek_ms, Some(1_200.0));
+            assert_eq!(params.offset_ms, Some(50.0));
             assert_eq!(params.fit, MediaFit::Contain);
             assert_eq!(params.origin.x, 1.0);
             assert_eq!(params.origin.y, 0.75);

@@ -86,6 +86,8 @@ fn graph_with_video_fallback() -> RenderGraph {
             muted: Some(true),
             volume: Some(0.5),
             playback_rate: Some(1.25),
+            seek_ms: Some(1_200.0),
+            offset_ms: Some(50.0),
             fit: MediaFit::Cover,
             origin: MediaOrigin::default(),
             source: rect(),
