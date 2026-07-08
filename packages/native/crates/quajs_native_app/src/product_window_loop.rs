@@ -118,6 +118,10 @@ impl NativeProductWindowLoopState {
         self.frame_scheduler.surface_recovery_count()
     }
 
+    fn device_recovery_count(&self) -> usize {
+        self.frame_scheduler.device_recovery_count()
+    }
+
     fn recovery_metrics(&self) -> NativeProductSurfaceRecoveryMetrics {
         self.frame_scheduler.recovery_metrics()
     }
@@ -170,6 +174,22 @@ impl NativeProductWindowLoopState {
         self.frame_scheduler.record_surface_recovery_error();
     }
 
+    fn record_device_recovery_attempt(&mut self) {
+        self.frame_scheduler.record_device_recovery_attempt();
+    }
+
+    fn record_device_recovery_success(&mut self) {
+        self.frame_scheduler.record_device_recovery_success();
+    }
+
+    fn record_device_recovery_missing_size(&mut self) {
+        self.frame_scheduler.record_device_recovery_missing_size();
+    }
+
+    fn record_device_recovery_error(&mut self) {
+        self.frame_scheduler.record_device_recovery_error();
+    }
+
     fn classify_redraw_failure(
         &mut self,
         failure: &NativeProductWindowPresentFailure,
@@ -218,6 +238,10 @@ where
 
     pub(crate) fn surface_recovery_count(&self) -> usize {
         self.state.surface_recovery_count()
+    }
+
+    pub(crate) fn device_recovery_count(&self) -> usize {
+        self.state.device_recovery_count()
     }
 
     pub(crate) fn recovery_metrics(&self) -> NativeProductSurfaceRecoveryMetrics {
@@ -338,21 +362,31 @@ where
     ) -> Result<NativeProductWindowLoopFailureReport, NativeProductWindowError> {
         let state = &mut self.state;
         let runtime = &mut self.runtime;
-        Self::handle_redraw_failure_with_recovery(state, failure, recovery_size, |physical_size| {
-            runtime
-                .resize_to_physical_size(physical_size)
-                .map(|report| report.physical_size)
-        })
+        Self::handle_redraw_failure_with_recovery(
+            state,
+            failure,
+            recovery_size,
+            |action, physical_size| match action {
+                NativeProductFramePresentFailureAction::RecoverSurface => runtime
+                    .resize_to_physical_size(physical_size)
+                    .map(|report| report.physical_size),
+                NativeProductFramePresentFailureAction::RecoverDevice => runtime
+                    .recover_device_for_physical_size(physical_size)
+                    .map(|report| report.physical_size),
+                _ => unreachable!("non-recovery present failure actions must not recover"),
+            },
+        )
     }
 
     fn handle_redraw_failure_with_recovery<F>(
         state: &mut NativeProductWindowLoopState,
         failure: &NativeProductWindowPresentFailure,
         recovery_size: Option<NativeProductWindowPhysicalSize>,
-        mut recover_surface: F,
+        mut recover: F,
     ) -> Result<NativeProductWindowLoopFailureReport, NativeProductWindowError>
     where
         F: FnMut(
+            NativeProductFramePresentFailureAction,
             NativeProductWindowPhysicalSize,
         ) -> Result<NativeProductWindowPhysicalSize, NativeProductWindowError>,
     {
@@ -370,7 +404,10 @@ where
                         NativeProductSurfaceRecoveryStatus::MissingSize,
                     ));
                 };
-                let resized_physical_size = match recover_surface(physical_size) {
+                let resized_physical_size = match recover(
+                    NativeProductFramePresentFailureAction::RecoverSurface,
+                    physical_size,
+                ) {
                     Ok(resized_physical_size) => resized_physical_size,
                     Err(error) => {
                         state.record_surface_recovery_error();
@@ -381,6 +418,30 @@ where
                 state.record_surface_recovery_success();
                 Ok(NativeProductWindowLoopFailureReport::retry_redraw(
                     NativeProductSurfaceRecoveryStatus::Reconfigured,
+                ))
+            }
+            NativeProductFramePresentFailureAction::RecoverDevice => {
+                state.record_device_recovery_attempt();
+                let Some(physical_size) = recovery_size else {
+                    state.record_device_recovery_missing_size();
+                    return Ok(NativeProductWindowLoopFailureReport::fail(
+                        NativeProductSurfaceRecoveryStatus::MissingSize,
+                    ));
+                };
+                let recovered_physical_size = match recover(
+                    NativeProductFramePresentFailureAction::RecoverDevice,
+                    physical_size,
+                ) {
+                    Ok(recovered_physical_size) => recovered_physical_size,
+                    Err(error) => {
+                        state.record_device_recovery_error();
+                        return Err(error);
+                    }
+                };
+                state.record_resize(recovered_physical_size);
+                state.record_device_recovery_success();
+                Ok(NativeProductWindowLoopFailureReport::retry_redraw(
+                    NativeProductSurfaceRecoveryStatus::DeviceRebuilt,
                 ))
             }
             NativeProductFramePresentFailureAction::Fail => {
@@ -511,7 +572,7 @@ mod tests {
                 &mut state,
                 &failure,
                 None,
-                |_| unreachable!("occluded redraw retry must not attempt surface recovery"),
+                |_, _| unreachable!("occluded redraw retry must not attempt recovery"),
             )
             .expect("occluded redraw retry should produce a retry report");
 
@@ -539,7 +600,7 @@ mod tests {
                 &mut state,
                 &failure,
                 None,
-                |_| unreachable!("missing recovery size must not attempt surface resize"),
+                |_, _| unreachable!("missing recovery size must not attempt recovery"),
             )
             .expect("missing recovery size should produce a failure report");
 
@@ -573,7 +634,13 @@ mod tests {
                 &mut state,
                 &failure,
                 Some(recovery_size),
-                Ok,
+                |action, physical_size| {
+                    assert_eq!(
+                        action,
+                        NativeProductFramePresentFailureAction::RecoverSurface
+                    );
+                    Ok(physical_size)
+                },
             )
             .expect("successful recovery should produce a retry report");
 
@@ -644,11 +711,11 @@ mod tests {
     }
 
     #[test]
-    fn redraw_failure_report_fails_fatal_without_surface_recovery() {
+    fn redraw_failure_report_fails_fatal_without_recovery() {
         let mut state = NativeProductWindowLoopState::new(1);
         state.begin_present_attempt();
         let failure = NativeProductWindowPresentFailure::from_message(
-            "native product window surface present failed: device removed",
+            "native product window surface present failed: OutOfMemory",
         );
 
         let report =
@@ -656,7 +723,7 @@ mod tests {
                 &mut state,
                 &failure,
                 Some(NativeProductWindowPhysicalSize::new(1280, 720)),
-                |_| unreachable!("fatal present failures must not attempt surface recovery"),
+                |_, _| unreachable!("fatal present failures must not attempt recovery"),
             )
             .expect("fatal present failure should produce a failure report");
 
@@ -669,5 +736,58 @@ mod tests {
         );
         assert_eq!(state.recovery_metrics().surface_recovery_attempt_count, 0);
         assert_eq!(state.recovery_metrics().last_surface_recovery_status, None);
+    }
+
+    #[test]
+    fn redraw_failure_report_retries_after_device_recovery() {
+        let mut state = NativeProductWindowLoopState::new(1);
+        state.begin_present_attempt();
+        let recovery_size = NativeProductWindowPhysicalSize::new(1280, 720);
+        let recovered_size = NativeProductWindowPhysicalSize::new(1920, 1080);
+        let failure = NativeProductWindowPresentFailure::from_message(
+            "native product window surface present failed: device removed",
+        );
+
+        let report =
+            NativeProductWindowLoop::<InMemoryNativeHostApi>::handle_redraw_failure_with_recovery(
+                &mut state,
+                &failure,
+                Some(recovery_size),
+                |action, _| {
+                    assert_eq!(
+                        action,
+                        NativeProductFramePresentFailureAction::RecoverDevice
+                    );
+                    Ok(recovered_size)
+                },
+            )
+            .expect("successful device recovery should produce a retry report");
+
+        assert_eq!(
+            report,
+            NativeProductWindowLoopFailureReport {
+                action: NativeProductWindowLoopFailureAction::RetryRedraw,
+                surface_recovery_status: NativeProductSurfaceRecoveryStatus::DeviceRebuilt,
+            }
+        );
+        assert_eq!(state.resize_count(), 1);
+        assert_eq!(state.last_resize_physical_size(), Some(recovered_size));
+        let metrics = state.recovery_metrics();
+        assert_eq!(metrics.present_failure_count, 1);
+        assert_eq!(metrics.recoverable_device_failure_count, 1);
+        assert_eq!(metrics.device_recovery_attempt_count, 1);
+        assert_eq!(metrics.device_recovery_success_count, 1);
+        assert_eq!(
+            metrics.last_present_failure_kind,
+            Some(crate::product_frame_scheduler::NativeProductFramePresentFailureKind::RecoverableDevice)
+        );
+        assert_eq!(
+            metrics.last_recovery_action,
+            Some(NativeProductFramePresentFailureAction::RecoverDevice)
+        );
+        assert_eq!(
+            metrics.last_device_recovery_status,
+            Some(NativeProductSurfaceRecoveryStatus::DeviceRebuilt)
+        );
     }
 }

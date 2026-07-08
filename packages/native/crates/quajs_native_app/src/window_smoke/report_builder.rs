@@ -19,6 +19,7 @@ pub(super) struct NativeWindowSmokeReportInput<'a> {
     pub rendered_frame_count: usize,
     pub resize_count: usize,
     pub surface_recovery_count: usize,
+    pub device_recovery_count: usize,
     pub recovery_metrics: NativeProductSurfaceRecoveryMetrics,
     pub last_present_failure_kind: Option<NativeProductWindowPresentFailureKind>,
     pub texture_metrics: &'a NativeWindowSmokeTextureMetrics,
@@ -55,8 +56,16 @@ pub(super) fn build_window_smoke_report(
             .recovery_metrics
             .surface_recovery_missing_size_count,
         surface_recovery_error_count: input.recovery_metrics.surface_recovery_error_count,
+        device_recovery_count: input.device_recovery_count,
+        device_recovery_attempt_count: input.recovery_metrics.device_recovery_attempt_count,
+        device_recovery_success_count: input.recovery_metrics.device_recovery_success_count,
+        device_recovery_missing_size_count: input
+            .recovery_metrics
+            .device_recovery_missing_size_count,
+        device_recovery_error_count: input.recovery_metrics.device_recovery_error_count,
         present_failure_count: input.recovery_metrics.present_failure_count,
         recoverable_surface_failure_count: input.recovery_metrics.recoverable_surface_failure_count,
+        recoverable_device_failure_count: input.recovery_metrics.recoverable_device_failure_count,
         last_present_failure_kind: input
             .recovery_metrics
             .last_present_failure_kind
@@ -64,13 +73,17 @@ pub(super) fn build_window_smoke_report(
         last_surface_present_failure_kind: input
             .last_present_failure_kind
             .map(|kind| kind.label().to_string()),
-        last_surface_recovery_action: input
+        last_recovery_action: input
             .recovery_metrics
             .last_recovery_action
             .map(|action| action.label().to_string()),
         last_surface_recovery_status: input
             .recovery_metrics
             .last_surface_recovery_status
+            .map(|status| status.label().to_string()),
+        last_device_recovery_status: input
+            .recovery_metrics
+            .last_device_recovery_status
             .map(|status| status.label().to_string()),
         texture_upload_pending_request_count: input
             .texture_metrics
@@ -238,21 +251,30 @@ mod tests {
             rendered_frame_count: 2,
             resize_count: 3,
             surface_recovery_count: 1,
+            device_recovery_count: 1,
             recovery_metrics: NativeProductSurfaceRecoveryMetrics {
                 present_failure_count: 2,
                 recoverable_surface_failure_count: 1,
+                recoverable_device_failure_count: 1,
                 surface_recovery_attempt_count: 2,
                 surface_recovery_success_count: 1,
                 surface_recovery_missing_size_count: 1,
                 surface_recovery_error_count: 0,
+                device_recovery_attempt_count: 2,
+                device_recovery_success_count: 1,
+                device_recovery_missing_size_count: 0,
+                device_recovery_error_count: 1,
                 last_present_failure_kind: Some(
-                    crate::product_frame_scheduler::NativeProductFramePresentFailureKind::RecoverableSurface,
+                    crate::product_frame_scheduler::NativeProductFramePresentFailureKind::RecoverableDevice,
                 ),
                 last_recovery_action: Some(
-                    crate::product_frame_scheduler::NativeProductFramePresentFailureAction::RecoverSurface,
+                    crate::product_frame_scheduler::NativeProductFramePresentFailureAction::RecoverDevice,
                 ),
                 last_surface_recovery_status: Some(
                     crate::product_frame_scheduler::NativeProductSurfaceRecoveryStatus::Reconfigured,
+                ),
+                last_device_recovery_status: Some(
+                    crate::product_frame_scheduler::NativeProductSurfaceRecoveryStatus::DeviceRebuilt,
                 ),
             },
             last_present_failure_kind: Some(NativeProductWindowPresentFailureKind::Outdated),
@@ -291,23 +313,32 @@ mod tests {
         assert_eq!(report.surface_recovery_success_count, 1);
         assert_eq!(report.surface_recovery_missing_size_count, 1);
         assert_eq!(report.surface_recovery_error_count, 0);
+        assert_eq!(report.device_recovery_count, 1);
+        assert_eq!(report.device_recovery_attempt_count, 2);
+        assert_eq!(report.device_recovery_success_count, 1);
+        assert_eq!(report.device_recovery_error_count, 1);
         assert_eq!(report.present_failure_count, 2);
         assert_eq!(report.recoverable_surface_failure_count, 1);
+        assert_eq!(report.recoverable_device_failure_count, 1);
         assert_eq!(
             report.last_present_failure_kind.as_deref(),
-            Some("recoverable-surface")
+            Some("recoverable-device")
         );
         assert_eq!(
             report.last_surface_present_failure_kind.as_deref(),
             Some("outdated")
         );
         assert_eq!(
-            report.last_surface_recovery_action.as_deref(),
-            Some("recover-surface")
+            report.last_recovery_action.as_deref(),
+            Some("recover-device")
         );
         assert_eq!(
             report.last_surface_recovery_status.as_deref(),
             Some("reconfigured")
+        );
+        assert_eq!(
+            report.last_device_recovery_status.as_deref(),
+            Some("device-rebuilt")
         );
         assert_eq!(report.texture_upload_pending_request_count, 2);
         assert_eq!(report.texture_lifecycle_tracked_package_count, 3);

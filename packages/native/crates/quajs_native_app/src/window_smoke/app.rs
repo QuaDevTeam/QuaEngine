@@ -153,6 +153,7 @@ impl NativeWindowSmokeApp {
             rendered_frame_count,
             resize_count: window_loop.resize_count(),
             surface_recovery_count: window_loop.surface_recovery_count(),
+            device_recovery_count: window_loop.device_recovery_count(),
             recovery_metrics,
             last_present_failure_kind: window_loop.last_present_failure_kind(),
             texture_metrics: &self.texture_metrics,

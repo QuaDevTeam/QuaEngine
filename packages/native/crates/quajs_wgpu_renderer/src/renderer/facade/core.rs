@@ -87,6 +87,10 @@ where
         &mut self.backend
     }
 
+    pub fn replace_backend(&mut self, backend: B) -> B {
+        std::mem::replace(&mut self.backend, backend)
+    }
+
     pub fn audio_backend(&self) -> Option<&A> {
         self.audio_backend.as_ref()
     }

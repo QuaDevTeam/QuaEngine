@@ -4,6 +4,7 @@ pub(crate) const DEFAULT_MAX_PRESENT_ATTEMPTS: usize = 8;
 pub(crate) enum NativeProductFramePresentFailureAction {
     RetryRedraw,
     RecoverSurface,
+    RecoverDevice,
     Fail,
 }
 
@@ -12,6 +13,7 @@ impl NativeProductFramePresentFailureAction {
         match self {
             Self::RetryRedraw => "retry-redraw",
             Self::RecoverSurface => "recover-surface",
+            Self::RecoverDevice => "recover-device",
             Self::Fail => "fail",
         }
     }
@@ -21,6 +23,7 @@ impl NativeProductFramePresentFailureAction {
 pub(crate) enum NativeProductFramePresentFailureKind {
     OccludedOrTimedOut,
     RecoverableSurface,
+    RecoverableDevice,
     Fatal,
 }
 
@@ -29,6 +32,7 @@ impl NativeProductFramePresentFailureKind {
         match self {
             Self::OccludedOrTimedOut => "occluded-or-timed-out",
             Self::RecoverableSurface => "recoverable-surface",
+            Self::RecoverableDevice => "recoverable-device",
             Self::Fatal => "fatal",
         }
     }
@@ -38,6 +42,7 @@ impl NativeProductFramePresentFailureKind {
 pub(crate) enum NativeProductSurfaceRecoveryStatus {
     NotAttempted,
     Reconfigured,
+    DeviceRebuilt,
     MissingSize,
     Error,
 }
@@ -47,6 +52,7 @@ impl NativeProductSurfaceRecoveryStatus {
         match self {
             Self::NotAttempted => "not-attempted",
             Self::Reconfigured => "reconfigured",
+            Self::DeviceRebuilt => "device-rebuilt",
             Self::MissingSize => "missing-size",
             Self::Error => "error",
         }
@@ -63,13 +69,19 @@ pub(crate) struct NativeProductFrameAttempt {
 pub(crate) struct NativeProductSurfaceRecoveryMetrics {
     pub(crate) present_failure_count: usize,
     pub(crate) recoverable_surface_failure_count: usize,
+    pub(crate) recoverable_device_failure_count: usize,
     pub(crate) surface_recovery_attempt_count: usize,
     pub(crate) surface_recovery_success_count: usize,
     pub(crate) surface_recovery_missing_size_count: usize,
     pub(crate) surface_recovery_error_count: usize,
+    pub(crate) device_recovery_attempt_count: usize,
+    pub(crate) device_recovery_success_count: usize,
+    pub(crate) device_recovery_missing_size_count: usize,
+    pub(crate) device_recovery_error_count: usize,
     pub(crate) last_present_failure_kind: Option<NativeProductFramePresentFailureKind>,
     pub(crate) last_recovery_action: Option<NativeProductFramePresentFailureAction>,
     pub(crate) last_surface_recovery_status: Option<NativeProductSurfaceRecoveryStatus>,
+    pub(crate) last_device_recovery_status: Option<NativeProductSurfaceRecoveryStatus>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -109,6 +121,10 @@ impl NativeProductFrameScheduler {
         self.recovery_metrics.surface_recovery_success_count
     }
 
+    pub(crate) fn device_recovery_count(&self) -> usize {
+        self.recovery_metrics.device_recovery_success_count
+    }
+
     pub(crate) fn recovery_metrics(&self) -> NativeProductSurfaceRecoveryMetrics {
         self.recovery_metrics
     }
@@ -138,6 +154,12 @@ impl NativeProductFrameScheduler {
             self.recovery_metrics.recoverable_surface_failure_count = self
                 .recovery_metrics
                 .recoverable_surface_failure_count
+                .saturating_add(1);
+        }
+        if failure == NativeProductFramePresentFailureKind::RecoverableDevice {
+            self.recovery_metrics.recoverable_device_failure_count = self
+                .recovery_metrics
+                .recoverable_device_failure_count
                 .saturating_add(1);
         }
         self.recovery_metrics.last_present_failure_kind = Some(failure);
@@ -178,6 +200,40 @@ impl NativeProductFrameScheduler {
             Some(NativeProductSurfaceRecoveryStatus::Error);
     }
 
+    pub(crate) fn record_device_recovery_attempt(&mut self) {
+        self.recovery_metrics.device_recovery_attempt_count = self
+            .recovery_metrics
+            .device_recovery_attempt_count
+            .saturating_add(1);
+    }
+
+    pub(crate) fn record_device_recovery_success(&mut self) {
+        self.recovery_metrics.device_recovery_success_count = self
+            .recovery_metrics
+            .device_recovery_success_count
+            .saturating_add(1);
+        self.recovery_metrics.last_device_recovery_status =
+            Some(NativeProductSurfaceRecoveryStatus::DeviceRebuilt);
+    }
+
+    pub(crate) fn record_device_recovery_missing_size(&mut self) {
+        self.recovery_metrics.device_recovery_missing_size_count = self
+            .recovery_metrics
+            .device_recovery_missing_size_count
+            .saturating_add(1);
+        self.recovery_metrics.last_device_recovery_status =
+            Some(NativeProductSurfaceRecoveryStatus::MissingSize);
+    }
+
+    pub(crate) fn record_device_recovery_error(&mut self) {
+        self.recovery_metrics.device_recovery_error_count = self
+            .recovery_metrics
+            .device_recovery_error_count
+            .saturating_add(1);
+        self.recovery_metrics.last_device_recovery_status =
+            Some(NativeProductSurfaceRecoveryStatus::Error);
+    }
+
     pub(crate) fn classify_present_failure(
         &self,
         failure: NativeProductFramePresentFailureKind,
@@ -192,6 +248,9 @@ impl NativeProductFrameScheduler {
             }
             NativeProductFramePresentFailureKind::RecoverableSurface => {
                 NativeProductFramePresentFailureAction::RecoverSurface
+            }
+            NativeProductFramePresentFailureKind::RecoverableDevice => {
+                NativeProductFramePresentFailureAction::RecoverDevice
             }
             NativeProductFramePresentFailureKind::Fatal => {
                 NativeProductFramePresentFailureAction::Fail
@@ -269,6 +328,11 @@ mod tests {
             NativeProductFramePresentFailureAction::RecoverSurface,
         );
         assert_eq!(
+            scheduler
+                .classify_present_failure(NativeProductFramePresentFailureKind::RecoverableDevice,),
+            NativeProductFramePresentFailureAction::RecoverDevice,
+        );
+        assert_eq!(
             scheduler.classify_present_failure(NativeProductFramePresentFailureKind::Fatal),
             NativeProductFramePresentFailureAction::Fail,
         );
@@ -290,6 +354,11 @@ mod tests {
             scheduler.classify_present_failure(
                 NativeProductFramePresentFailureKind::RecoverableSurface,
             ),
+            NativeProductFramePresentFailureAction::Fail,
+        );
+        assert_eq!(
+            scheduler
+                .classify_present_failure(NativeProductFramePresentFailureKind::RecoverableDevice,),
             NativeProductFramePresentFailureAction::Fail,
         );
     }
@@ -351,6 +420,53 @@ mod tests {
         assert_eq!(
             NativeProductSurfaceRecoveryStatus::Reconfigured.label(),
             "reconfigured"
+        );
+    }
+
+    #[test]
+    fn records_device_recoveries_as_transient_scheduler_metrics() {
+        let mut scheduler = NativeProductFrameScheduler::new(1);
+        scheduler.begin_present_attempt();
+        let action = scheduler
+            .classify_present_failure(NativeProductFramePresentFailureKind::RecoverableDevice);
+
+        scheduler.record_present_failure(
+            NativeProductFramePresentFailureKind::RecoverableDevice,
+            action,
+        );
+        scheduler.record_device_recovery_attempt();
+        scheduler.record_device_recovery_success();
+        scheduler.record_device_recovery_attempt();
+        scheduler.record_device_recovery_error();
+
+        assert_eq!(scheduler.device_recovery_count(), 1);
+        assert_eq!(
+            scheduler.recovery_metrics(),
+            NativeProductSurfaceRecoveryMetrics {
+                present_failure_count: 1,
+                recoverable_device_failure_count: 1,
+                device_recovery_attempt_count: 2,
+                device_recovery_success_count: 1,
+                device_recovery_error_count: 1,
+                last_present_failure_kind: Some(
+                    NativeProductFramePresentFailureKind::RecoverableDevice
+                ),
+                last_recovery_action: Some(NativeProductFramePresentFailureAction::RecoverDevice),
+                last_device_recovery_status: Some(NativeProductSurfaceRecoveryStatus::Error),
+                ..NativeProductSurfaceRecoveryMetrics::default()
+            }
+        );
+        assert_eq!(
+            NativeProductFramePresentFailureKind::RecoverableDevice.label(),
+            "recoverable-device"
+        );
+        assert_eq!(
+            NativeProductFramePresentFailureAction::RecoverDevice.label(),
+            "recover-device"
+        );
+        assert_eq!(
+            NativeProductSurfaceRecoveryStatus::DeviceRebuilt.label(),
+            "device-rebuilt"
         );
     }
 }
