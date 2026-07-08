@@ -10,6 +10,8 @@ use quajs_wgpu_renderer::renderer::{
 };
 use quajs_wgpu_renderer::stage_layout::ResolvedStageLayout;
 
+use crate::audio_sync::{sync_audio_assets_from_host, NativeAudioAssetHostSyncReport};
+
 use super::cleanup::{sync_texture_releases_from_host_cleanup, NativeTextureHostCleanupSyncReport};
 use super::host::sync_pending_texture_uploads_from_host;
 use super::lifecycle::{
@@ -25,6 +27,7 @@ pub struct NativeTextureSyncedFrameResult {
     pub frame: NativeRendererFrameResult,
     pub texture_host_cleanup_report: NativeTextureHostCleanupSyncReport,
     pub texture_upload_report: NativeTextureUploadHostSyncReport,
+    pub audio_asset_report: Option<NativeAudioAssetHostSyncReport>,
     pub resubmitted_after_texture_upload: bool,
 }
 
@@ -166,6 +169,7 @@ where
             texture_upload_sync,
         },
         texture_host_cleanup_report,
+        None,
     )
 }
 
@@ -204,12 +208,45 @@ where
     A: NativeAudioBackend,
     H: NativeHostApi,
 {
-    let initial = renderer.prepare_render_and_apply_audio(layout, view)?;
-    let texture_host_cleanup_report = sync_texture_releases_from_host_cleanup(
-        renderer.backend_mut(),
-        &initial.update.host_cleanup,
-    );
-    let frame = finish_texture_synced_frame(renderer, host, initial, texture_host_cleanup_report)?;
+    let previous_state = renderer.state().clone();
+    let update = renderer.prepare_frame(layout, view);
+    let texture_host_cleanup_report =
+        sync_texture_releases_from_host_cleanup(renderer.backend_mut(), &update.host_cleanup);
+    let submission = match renderer.render_frame() {
+        Ok(submission) => submission,
+        Err(error) => {
+            *renderer.state_mut() = previous_state;
+            return Err(error.into());
+        }
+    };
+    let texture_upload_sync = renderer.texture_upload_sync_for_update(&update);
+    let audio_asset_report = match sync_audio_assets_for_backend_if_needed(
+        renderer,
+        host,
+        &update.audio_backend_commands,
+    ) {
+        Ok(report) => report,
+        Err(error) => {
+            *renderer.state_mut() = previous_state;
+            return Err(error.into());
+        }
+    };
+    if let Err(error) = renderer.apply_audio_update(&update) {
+        *renderer.state_mut() = previous_state;
+        return Err(error.into());
+    }
+
+    let frame = finish_texture_synced_frame(
+        renderer,
+        host,
+        NativeRendererFrameResult {
+            update,
+            submission,
+            texture_upload_sync,
+        },
+        texture_host_cleanup_report,
+        audio_asset_report,
+    )?;
     let bundle_lifecycle_report =
         sync_mounted_texture_bundle_lifecycle_from_host_and_audio_teardown(
             registry, renderer, host,
@@ -289,6 +326,7 @@ fn finish_texture_synced_frame<B, A, H>(
     host: &H,
     initial: NativeRendererFrameResult,
     texture_host_cleanup_report: NativeTextureHostCleanupSyncReport,
+    audio_asset_report: Option<NativeAudioAssetHostSyncReport>,
 ) -> Result<NativeTextureSyncedFrameResult, NativeRenderBackendError>
 where
     B: NativeRenderBackend + NativeTextureUploadSink,
@@ -309,6 +347,7 @@ where
             frame,
             texture_host_cleanup_report,
             texture_upload_report,
+            audio_asset_report,
             resubmitted_after_texture_upload: false,
         });
     }
@@ -325,6 +364,51 @@ where
         },
         texture_host_cleanup_report,
         texture_upload_report,
+        audio_asset_report,
         resubmitted_after_texture_upload: true,
     })
+}
+
+fn sync_audio_assets_for_backend_if_needed<B, A, H>(
+    renderer: &mut NativeRenderer<B, A>,
+    host: &H,
+    plan: &quajs_wgpu_renderer::audio::AudioBackendCommandPlan,
+) -> Result<Option<NativeAudioAssetHostSyncReport>, NativeAudioBackendError>
+where
+    B: NativeRenderBackend,
+    A: NativeAudioBackend,
+    H: NativeHostApi,
+{
+    let wants_asset_loads = renderer
+        .audio_backend()
+        .map(NativeAudioBackend::wants_audio_asset_loads)
+        .unwrap_or(false);
+    if !wants_asset_loads {
+        return Ok(None);
+    }
+
+    let report = sync_audio_assets_from_host(host, plan);
+    if !report.is_ok() {
+        return Err(NativeAudioBackendError::backend_rejected(
+            audio_asset_sync_failure_message(&report),
+        ));
+    }
+    let backend_loads = report.backend_asset_loads();
+    if let Some(audio_backend) = renderer.audio_backend_mut() {
+        audio_backend.apply_audio_asset_loads(&backend_loads)?;
+    }
+
+    Ok(Some(report))
+}
+
+fn audio_asset_sync_failure_message(report: &NativeAudioAssetHostSyncReport) -> String {
+    let Some(failure) = report.failures.first() else {
+        return "Native audio asset sync failed.".to_string();
+    };
+    let track = failure.track_id.as_deref().unwrap_or("unknown");
+    let asset = failure.asset_name.as_deref().unwrap_or("unknown");
+    format!(
+        "Native audio asset sync failed for track \"{track}\" asset \"{asset}\": {}",
+        failure.message
+    )
 }

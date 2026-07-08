@@ -1,7 +1,7 @@
 use super::*;
 use crate::audio::{
-    AudioBackendCommand, AudioBackendCommandKind, AudioBackendCommandPlan, AudioBackendTrackState,
-    AudioBackendTrackStateMap,
+    AudioBackendAssetLoad, AudioBackendCommand, AudioBackendCommandKind, AudioBackendCommandPlan,
+    AudioBackendTrackState, AudioBackendTrackStateMap,
 };
 use crate::projection::audio::{AudioTrackKind, AudioTrackLoadMode, AudioTrackPlaybackState};
 use crate::resources::ResourceId;
@@ -19,6 +19,7 @@ fn null_backend_records_plans_and_active_tracks() {
     assert_eq!(
         backend.diagnostics(),
         NullNativeAudioBackendDiagnostics {
+            loaded_asset_count: 0,
             applied_plan_count: 1,
             applied_command_count: 2,
             active_track_count: 1,
@@ -40,6 +41,27 @@ fn null_backend_replaces_active_tracks_with_plan_state() {
     assert!(backend.active_tracks().is_empty());
     assert_eq!(backend.applied_plans().len(), 2);
     assert_eq!(backend.diagnostics().active_track_count, 0);
+}
+
+#[test]
+fn null_backend_can_record_asset_loads_for_backend_fixture_tests() {
+    let mut backend = NullNativeAudioBackend::new();
+    let load = AudioBackendAssetLoad {
+        track_id: "bgm-main".to_string(),
+        resource_id: ResourceId::from("audio:buffer:bgm:bgm:music/opening.ogg"),
+        asset_type: "bgm".to_string(),
+        asset_name: "music/opening.ogg".to_string(),
+        package_id: Some("runtime.audio".to_string()),
+        bytes: vec![1, 2, 3, 4],
+    };
+
+    backend
+        .apply_audio_asset_loads(std::slice::from_ref(&load))
+        .unwrap();
+
+    assert_eq!(backend.loaded_assets(), &[load]);
+    assert_eq!(backend.diagnostics().loaded_asset_count, 1);
+    assert!(!backend.wants_audio_asset_loads());
 }
 
 fn plan_with_track(track: AudioBackendTrackState) -> AudioBackendCommandPlan {

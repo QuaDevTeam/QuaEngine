@@ -1,6 +1,6 @@
 use quajs_native_runtime::{NativeAssetReadRequest, NativeHostApi, NativeHostApiError};
 use quajs_wgpu_renderer::audio::{
-    AudioBackendCommandKind, AudioBackendCommandPlan, AudioBackendTrackState,
+    AudioBackendAssetLoad, AudioBackendCommandKind, AudioBackendCommandPlan, AudioBackendTrackState,
 };
 
 use crate::host_assets::{
@@ -41,13 +41,15 @@ pub fn sync_audio_assets_from_host(
         match read_audio_asset_bytes(host, track) {
             Ok(read) => {
                 report.record_loaded(NativeAudioAssetHostSyncLoad {
-                    track_id: track.id.clone(),
-                    resource_id: track.media_resource_id.clone(),
-                    asset_type: track.asset_type.clone(),
-                    asset_name: track.asset_name.clone(),
+                    backend_load: AudioBackendAssetLoad {
+                        track_id: track.id.clone(),
+                        resource_id: track.media_resource_id.clone(),
+                        asset_type: track.asset_type.clone(),
+                        asset_name: track.asset_name.clone(),
+                        package_id: read.package_id.clone(),
+                        bytes: read.bytes,
+                    },
                     bundle_name: read.bundle_name.clone(),
-                    package_id: read.package_id.clone(),
-                    bytes: read.bytes,
                     metadata: metadata_from_track(track, read.package_id.as_deref()),
                 });
             }

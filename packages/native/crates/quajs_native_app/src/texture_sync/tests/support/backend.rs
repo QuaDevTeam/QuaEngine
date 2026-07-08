@@ -1,5 +1,6 @@
 use quajs_wgpu_renderer::audio::{
-    AudioBackendCommandPlan, NativeAudioBackend, NativeAudioBackendError, NativeAudioBackendResult,
+    AudioBackendAssetLoad, AudioBackendCommandPlan, NativeAudioBackend, NativeAudioBackendError,
+    NativeAudioBackendResult,
 };
 use quajs_wgpu_renderer::renderer::{
     NativeRenderBackend, NativeRenderBackendResult, NativeRenderFrameRef, NativeRenderSubmission,
@@ -45,6 +46,34 @@ impl NativeAudioBackend for RejectingAudioBackend {
         Err(NativeAudioBackendError::backend_rejected(
             "test audio backend rejected plan",
         ))
+    }
+}
+
+#[derive(Default)]
+pub(crate) struct AssetLoadingAudioBackend {
+    pub(crate) events: Vec<&'static str>,
+    pub(crate) loads: Vec<AudioBackendAssetLoad>,
+    pub(crate) plans: Vec<AudioBackendCommandPlan>,
+}
+
+impl NativeAudioBackend for AssetLoadingAudioBackend {
+    fn wants_audio_asset_loads(&self) -> bool {
+        true
+    }
+
+    fn apply_audio_asset_loads(
+        &mut self,
+        loads: &[AudioBackendAssetLoad],
+    ) -> NativeAudioBackendResult {
+        self.events.push("loads");
+        self.loads.extend(loads.iter().cloned());
+        Ok(())
+    }
+
+    fn apply_audio_commands(&mut self, plan: &AudioBackendCommandPlan) -> NativeAudioBackendResult {
+        self.events.push("commands");
+        self.plans.push(plan.clone());
+        Ok(())
     }
 }
 
