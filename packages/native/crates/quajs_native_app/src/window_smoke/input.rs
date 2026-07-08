@@ -46,7 +46,10 @@ pub(super) struct NativeWindowSmokeInputMetrics {
     pub ime_preedit_count: usize,
     pub ime_commit_count: usize,
     pub ime_intent_emit_count: usize,
+    pub ime_composition_active: bool,
     pub ime_last_text_byte_count: Option<usize>,
+    pub ime_last_cursor_start: Option<usize>,
+    pub ime_last_cursor_end: Option<usize>,
     pub last_intent_type: Option<String>,
 }
 
@@ -133,7 +136,7 @@ impl NativeWindowSmokeInputState {
     }
 
     pub(super) fn record_ime_event(&mut self, event: &Ime) {
-        let report = NativeProductInputController::summarize_ime_event(event);
+        let report = self.product_input.record_ime_event(event);
         self.record_ime_report(report);
     }
 
@@ -172,6 +175,9 @@ impl NativeWindowSmokeInputState {
             self.metrics.ime_intent_emit_count =
                 self.metrics.ime_intent_emit_count.saturating_add(1);
         }
+        self.metrics.ime_composition_active = report.composition.active;
+        self.metrics.ime_last_cursor_start = report.composition.cursor_start;
+        self.metrics.ime_last_cursor_end = report.composition.cursor_end;
     }
 
     pub(super) fn cancel_pointer_interaction<B, A>(
@@ -384,6 +390,9 @@ mod tests {
         assert_eq!(input.metrics().ime_preedit_count, 1);
         assert_eq!(input.metrics().ime_commit_count, 1);
         assert_eq!(input.metrics().ime_last_text_byte_count, Some("決定".len()));
+        assert!(!input.metrics().ime_composition_active);
+        assert_eq!(input.metrics().ime_last_cursor_start, None);
+        assert_eq!(input.metrics().ime_last_cursor_end, None);
         assert_eq!(input.metrics().last_intent_type, None);
     }
 

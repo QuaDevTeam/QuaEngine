@@ -192,7 +192,10 @@ fn window_smoke_report_serializes_texture_lifecycle_metrics() {
         ime_preedit_count: 0,
         ime_commit_count: 0,
         ime_intent_emit_count: 0,
+        ime_composition_active: false,
         ime_last_text_byte_count: None,
+        ime_last_cursor_start: None,
+        ime_last_cursor_end: None,
         app_lifecycle_state: "running".to_string(),
         app_focused: true,
         app_visible: true,
@@ -261,7 +264,10 @@ fn window_smoke_report_serializes_texture_lifecycle_metrics() {
     assert_eq!(value["imePreeditCount"], 0);
     assert_eq!(value["imeCommitCount"], 0);
     assert_eq!(value["imeIntentEmitCount"], 0);
+    assert_eq!(value["imeCompositionActive"], false);
     assert!(value["imeLastTextByteCount"].is_null());
+    assert!(value["imeLastCursorStart"].is_null());
+    assert!(value["imeLastCursorEnd"].is_null());
     assert_eq!(value["appLifecycleState"], "running");
     assert_eq!(value["appFocused"], true);
     assert_eq!(value["appVisible"], true);
