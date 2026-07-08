@@ -171,6 +171,15 @@ fn window_smoke_report_serializes_texture_lifecycle_metrics() {
         ime_preedit_count: 0,
         ime_commit_count: 0,
         ime_last_text_byte_count: None,
+        app_lifecycle_state: "running".to_string(),
+        app_focused: true,
+        app_visible: true,
+        app_redraw_pending: false,
+        app_resume_count: 1,
+        app_suspend_count: 0,
+        app_visibility_change_count: 0,
+        app_lifecycle_tick_request_count: 1,
+        app_redraw_request_count: 2,
         last_resize_physical_width: None,
         last_resize_physical_height: None,
         logical_width: 960.0,
@@ -218,4 +227,13 @@ fn window_smoke_report_serializes_texture_lifecycle_metrics() {
     assert_eq!(value["imePreeditCount"], 0);
     assert_eq!(value["imeCommitCount"], 0);
     assert!(value["imeLastTextByteCount"].is_null());
+    assert_eq!(value["appLifecycleState"], "running");
+    assert_eq!(value["appFocused"], true);
+    assert_eq!(value["appVisible"], true);
+    assert_eq!(value["appRedrawPending"], false);
+    assert_eq!(value["appResumeCount"], 1);
+    assert_eq!(value["appSuspendCount"], 0);
+    assert_eq!(value["appVisibilityChangeCount"], 0);
+    assert_eq!(value["appLifecycleTickRequestCount"], 1);
+    assert_eq!(value["appRedrawRequestCount"], 2);
 }

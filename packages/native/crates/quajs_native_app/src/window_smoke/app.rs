@@ -12,6 +12,7 @@ use super::metrics::{NativeWindowSmokeAudioMetrics, NativeWindowSmokeTextureMetr
 use super::report::NativeWindowSmokeReport;
 use super::report_builder::{build_window_smoke_report, NativeWindowSmokeReportInput};
 use super::texture_host::create_window_smoke_texture_host;
+use crate::product_app_loop::{NativeProductAppLoop, NativeProductAppLoopAction};
 use crate::product_window::{NativeProductWindowInMemoryRuntime, NativeProductWindowPhysicalSize};
 use crate::product_window_loop::NativeProductWindowInMemoryLoop;
 
@@ -21,6 +22,7 @@ pub(super) struct NativeWindowSmokeApp {
     frame_source: String,
     window: Option<Arc<Window>>,
     window_loop: Option<NativeProductWindowInMemoryLoop>,
+    app_loop: NativeProductAppLoop,
     input: NativeWindowSmokeInputState,
     texture_metrics: NativeWindowSmokeTextureMetrics,
     pub(super) report: Option<NativeWindowSmokeReport>,
@@ -33,6 +35,7 @@ impl NativeWindowSmokeApp {
             frame_source,
             window: None,
             window_loop: None,
+            app_loop: NativeProductAppLoop::new(),
             input: NativeWindowSmokeInputState::default(),
             texture_metrics: NativeWindowSmokeTextureMetrics::default(),
             report: None,
@@ -86,7 +89,6 @@ impl NativeWindowSmokeApp {
             load_window_smoke_target_frame_count(),
         ));
         self.window = Some(window.clone());
-        window.request_redraw();
 
         Ok(())
     }
@@ -155,6 +157,7 @@ impl NativeWindowSmokeApp {
             texture_metrics: &self.texture_metrics,
             audio_metrics: &audio_metrics,
             input_metrics,
+            app_loop: self.app_loop.snapshot(),
             last_resize_physical_size: window_loop.last_resize_physical_size(),
             dimensions,
             revision: frame_result.update.revision,
@@ -236,6 +239,38 @@ impl NativeWindowSmokeApp {
         if let Some(window) = &self.window {
             window.request_redraw();
         }
+    }
+
+    fn apply_app_loop_action(
+        &mut self,
+        event_loop: &ActiveEventLoop,
+        action: NativeProductAppLoopAction,
+    ) -> bool {
+        if action.tick_host_lifecycle {
+            if let Err(error) = self.tick_host_lifecycle_once() {
+                self.fail_and_exit(event_loop, error);
+                return false;
+            }
+        }
+        if action.request_redraw {
+            self.request_redraw();
+        }
+        true
+    }
+
+    fn tick_host_lifecycle_once(&mut self) -> Result<(), NativeWindowSmokeError> {
+        let Some(window_loop) = self.window_loop.as_mut() else {
+            return Ok(());
+        };
+        let report = window_loop
+            .tick_host_lifecycle_with_audio_teardown()
+            .map_err(|error| {
+                NativeWindowSmokeError::new(format!(
+                    "Native renderer smoke lifecycle tick failed: {error}."
+                ))
+            })?;
+        self.texture_metrics.record_lifecycle_sync(&report);
+        Ok(())
     }
 
     fn fail_and_exit(&mut self, event_loop: &ActiveEventLoop, error: NativeWindowSmokeError) {
