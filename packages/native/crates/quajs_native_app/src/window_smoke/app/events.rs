@@ -13,7 +13,15 @@ impl ApplicationHandler for NativeWindowSmokeApp {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         if let Err(error) = self.initialize(event_loop) {
             self.fail_and_exit(event_loop, error);
+            return;
         }
+        let action = self.app_loop.record_resumed();
+        self.apply_app_loop_action(event_loop, action);
+    }
+
+    fn suspended(&mut self, event_loop: &ActiveEventLoop) {
+        let action = self.app_loop.record_suspended();
+        self.apply_app_loop_action(event_loop, action);
     }
 
     fn window_event(
@@ -32,7 +40,8 @@ impl ApplicationHandler for NativeWindowSmokeApp {
                 if let Err(error) = self.resize_surface(size) {
                     self.fail_and_exit(event_loop, error);
                 } else {
-                    self.request_redraw();
+                    let action = self.app_loop.record_surface_changed();
+                    self.apply_app_loop_action(event_loop, action);
                 }
             }
             WindowEvent::ScaleFactorChanged { .. } => {
@@ -41,9 +50,18 @@ impl ApplicationHandler for NativeWindowSmokeApp {
                     if let Err(error) = self.resize_surface(size) {
                         self.fail_and_exit(event_loop, error);
                     } else {
-                        self.request_redraw();
+                        let action = self.app_loop.record_surface_changed();
+                        self.apply_app_loop_action(event_loop, action);
                     }
                 }
+            }
+            WindowEvent::Occluded(occluded) => {
+                let action = self.app_loop.record_visibility_changed(!occluded);
+                if occluded {
+                    self.cancel_window_pointer_interaction();
+                    self.input.clear_cursor_position();
+                }
+                self.apply_app_loop_action(event_loop, action);
             }
             WindowEvent::CursorMoved { position, .. } => {
                 if let Some(window) = &self.window {
@@ -64,6 +82,8 @@ impl ApplicationHandler for NativeWindowSmokeApp {
                     self.cancel_window_pointer_interaction();
                     self.input.clear_cursor_position();
                 }
+                let action = self.app_loop.record_focus_changed(focused);
+                self.apply_app_loop_action(event_loop, action);
             }
             WindowEvent::KeyboardInput { event, .. } => {
                 if let Err(error) = self.dispatch_window_keyboard_event(&event) {
@@ -81,7 +101,12 @@ impl ApplicationHandler for NativeWindowSmokeApp {
                 }
             }
             WindowEvent::RedrawRequested => {
-                if self.needs_more_frames() && self.redraw_once_or_schedule_retry() {
+                if !self.needs_more_frames() {
+                    event_loop.exit();
+                    return;
+                }
+                self.app_loop.record_redraw_dispatch_started();
+                if self.redraw_once_or_schedule_retry(event_loop) {
                     return;
                 }
                 event_loop.exit();
@@ -90,10 +115,9 @@ impl ApplicationHandler for NativeWindowSmokeApp {
         }
     }
 
-    fn about_to_wait(&mut self, _event_loop: &ActiveEventLoop) {
-        if self.needs_more_frames() {
-            self.request_redraw();
-        }
+    fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+        let action = self.app_loop.about_to_wait(self.needs_more_frames());
+        self.apply_app_loop_action(event_loop, action);
     }
 }
 
@@ -105,23 +129,22 @@ impl NativeWindowSmokeApp {
             .unwrap_or(true)
     }
 
-    fn redraw_once_or_schedule_retry(&mut self) -> bool {
+    fn redraw_once_or_schedule_retry(&mut self, event_loop: &ActiveEventLoop) -> bool {
         match self.render_once() {
             Ok(report) => {
                 self.report = Some(report);
-                if self.needs_more_frames() {
-                    self.request_redraw();
-                    true
-                } else {
-                    false
-                }
+                let action = self
+                    .app_loop
+                    .record_frame_completed(self.needs_more_frames());
+                self.apply_app_loop_action(event_loop, action) && action.request_redraw
             }
-            Err(error) => self.handle_redraw_failure(error),
+            Err(error) => self.handle_redraw_failure(event_loop, error),
         }
     }
 
     fn handle_redraw_failure(
         &mut self,
+        event_loop: &ActiveEventLoop,
         error: crate::window_smoke::NativeWindowSmokeError,
     ) -> bool {
         let recovery_size = self.window.as_ref().map(|window| {
@@ -134,8 +157,8 @@ impl NativeWindowSmokeApp {
         };
         match window_loop.handle_redraw_failure(&error.to_string(), recovery_size) {
             Ok(NativeProductWindowLoopFailureAction::RetryRedraw) => {
-                self.request_redraw();
-                true
+                let action = self.app_loop.record_frame_retry_requested();
+                self.apply_app_loop_action(event_loop, action) && action.request_redraw
             }
             Ok(NativeProductWindowLoopFailureAction::Fail) => {
                 self.error = Some(error);

@@ -2,6 +2,7 @@ use super::frame::WindowFrameDimensions;
 use super::input::NativeWindowSmokeInputMetrics;
 use super::metrics::{NativeWindowSmokeAudioMetrics, NativeWindowSmokeTextureMetrics};
 use super::report::NativeWindowSmokeReport;
+use crate::product_app_loop::{NativeProductAppLifecycleState, NativeProductAppLoopSnapshot};
 use crate::product_window::NativeProductWindowPhysicalSize;
 
 pub(super) struct NativeWindowSmokeReportInput<'a> {
@@ -18,6 +19,7 @@ pub(super) struct NativeWindowSmokeReportInput<'a> {
     pub texture_metrics: &'a NativeWindowSmokeTextureMetrics,
     pub audio_metrics: &'a NativeWindowSmokeAudioMetrics,
     pub input_metrics: &'a NativeWindowSmokeInputMetrics,
+    pub app_loop: NativeProductAppLoopSnapshot,
     pub last_resize_physical_size: Option<NativeProductWindowPhysicalSize>,
     pub dimensions: WindowFrameDimensions,
     pub revision: u64,
@@ -102,6 +104,15 @@ pub(super) fn build_window_smoke_report(
         ime_preedit_count: input.input_metrics.ime_preedit_count,
         ime_commit_count: input.input_metrics.ime_commit_count,
         ime_last_text_byte_count: input.input_metrics.ime_last_text_byte_count,
+        app_lifecycle_state: lifecycle_state_label(input.app_loop.lifecycle_state).to_string(),
+        app_focused: input.app_loop.focused,
+        app_visible: input.app_loop.visible,
+        app_redraw_pending: input.app_loop.redraw_pending,
+        app_resume_count: input.app_loop.resume_count,
+        app_suspend_count: input.app_loop.suspend_count,
+        app_visibility_change_count: input.app_loop.visibility_change_count,
+        app_lifecycle_tick_request_count: input.app_loop.lifecycle_tick_request_count,
+        app_redraw_request_count: input.app_loop.redraw_request_count,
         last_resize_physical_width: input.last_resize_physical_size.map(|size| size.width),
         last_resize_physical_height: input.last_resize_physical_size.map(|size| size.height),
         logical_width: input.dimensions.logical_width,
@@ -114,6 +125,13 @@ pub(super) fn build_window_smoke_report(
         batch_count: input.batch_count,
         command_count: input.command_count,
         submitted_command_buffer_count: input.submitted_command_buffer_count,
+    }
+}
+
+fn lifecycle_state_label(state: NativeProductAppLifecycleState) -> &'static str {
+    match state {
+        NativeProductAppLifecycleState::Suspended => "suspended",
+        NativeProductAppLifecycleState::Running => "running",
     }
 }
 
@@ -183,6 +201,17 @@ mod tests {
             texture_metrics: &texture_metrics,
             audio_metrics: &audio_metrics,
             input_metrics: &input_metrics,
+            app_loop: NativeProductAppLoopSnapshot {
+                lifecycle_state: NativeProductAppLifecycleState::Running,
+                focused: true,
+                visible: true,
+                redraw_pending: false,
+                resume_count: 1,
+                suspend_count: 0,
+                visibility_change_count: 2,
+                lifecycle_tick_request_count: 3,
+                redraw_request_count: 4,
+            },
             last_resize_physical_size: Some(NativeProductWindowPhysicalSize::new(960, 540)),
             dimensions: WindowFrameDimensions {
                 logical_width: 480.0,
@@ -227,6 +256,14 @@ mod tests {
         assert_eq!(report.ime_preedit_count, 2);
         assert_eq!(report.ime_commit_count, 1);
         assert_eq!(report.ime_last_text_byte_count, Some(6));
+        assert_eq!(report.app_lifecycle_state, "running");
+        assert!(report.app_focused);
+        assert!(report.app_visible);
+        assert!(!report.app_redraw_pending);
+        assert_eq!(report.app_resume_count, 1);
+        assert_eq!(report.app_visibility_change_count, 2);
+        assert_eq!(report.app_lifecycle_tick_request_count, 3);
+        assert_eq!(report.app_redraw_request_count, 4);
         assert_eq!(report.last_resize_physical_width, Some(960));
         assert_eq!(report.logical_width, 480.0);
         assert!(report.resubmitted_after_texture_upload);

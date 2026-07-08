@@ -12,7 +12,10 @@ use quajs_wgpu_renderer::renderer::{
 use crate::product_frame_scheduler::NativeProductFramePresentFailureKind;
 use crate::product_loop::NativeProductLoopFrameResult;
 use crate::product_runtime::NativeProductRuntime;
-use crate::texture_sync::{NativeTextureCleanedClearResult, NativeTextureJsonLifecycleFrameError};
+use crate::texture_sync::{
+    NativeTextureBundleLifecycleSyncError, NativeTextureBundleLifecycleSyncReport,
+    NativeTextureCleanedClearResult, NativeTextureJsonLifecycleFrameError,
+};
 
 pub(crate) type NativeProductWindowBackend = WgpuNativeRenderBackend<
     InMemoryWgpuNativeRenderRuntimeExecutor<RealWgpuNativeRenderRuntimeDevice>,
@@ -203,6 +206,12 @@ where
     ) -> Result<NativeProductLoopFrameResult, NativeTextureJsonLifecycleFrameError> {
         self.product
             .render_projection_json_with_audio_teardown(input)
+    }
+
+    pub(crate) fn tick_host_lifecycle_with_audio_teardown(
+        &mut self,
+    ) -> Result<NativeTextureBundleLifecycleSyncReport, NativeTextureBundleLifecycleSyncError> {
+        self.product.tick_host_lifecycle_with_audio_teardown()
     }
 
     pub(crate) fn shutdown_with_audio_teardown(

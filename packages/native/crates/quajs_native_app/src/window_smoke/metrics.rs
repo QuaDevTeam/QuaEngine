@@ -56,6 +56,13 @@ impl NativeWindowSmokeTextureMetrics {
         lifecycle::record_lifecycle_sync(self, lifecycle);
     }
 
+    pub(super) fn record_lifecycle_sync(
+        &mut self,
+        lifecycle: &NativeTextureBundleLifecycleSyncReport,
+    ) {
+        lifecycle::record_lifecycle_sync(self, lifecycle);
+    }
+
     pub(super) fn resubmitted_after_texture_upload(&self) -> bool {
         self.upload_resubmit_count > 0
     }

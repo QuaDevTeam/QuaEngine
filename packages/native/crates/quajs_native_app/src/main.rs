@@ -1,4 +1,6 @@
 #[cfg(any(test, feature = "image-decode"))]
+mod product_app_loop;
+#[cfg(any(test, feature = "image-decode"))]
 mod product_frame_scheduler;
 #[cfg(feature = "native-window")]
 mod product_input;
@@ -85,7 +87,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     #[cfg(feature = "native-window")]
     if let Some(report) = run_native_window_smoke_from_env()? {
         println!(
-            "Qua native window smoke: adapter={} surface={} size={}x{} status={} presented={} attempts={} targetFrames={} renderedFrames={} resizeCount={} surfaceRecoveryCount={} textureUploads={} textureUploadErrors={} textureUploadResubmits={} textureResubmitted={} textureLifecycleSyncs={} textureLifecycleInitialSyncs={} textureLifecycleTrackedPackages={} textureLifecycleReleaseAttempts={} textureLifecycleReleasedPackages={} textureLifecycleCleanupErrors={} textureShutdowns={} textureShutdownReleasedResources={} textureShutdownReleasedTextures={} textureShutdownCleanupErrors={} pointerEvents={} pointerIntents={} pointerLastIntent={} passes={} commands={} submittedCommandBuffers={}",
+            "Qua native window smoke: adapter={} surface={} size={}x{} status={} presented={} attempts={} targetFrames={} renderedFrames={} resizeCount={} surfaceRecoveryCount={} appLifecycle={} appLifecycleTicks={} appRedrawRequests={} textureUploads={} textureUploadErrors={} textureUploadResubmits={} textureResubmitted={} textureLifecycleSyncs={} textureLifecycleInitialSyncs={} textureLifecycleTrackedPackages={} textureLifecycleReleaseAttempts={} textureLifecycleReleasedPackages={} textureLifecycleCleanupErrors={} textureShutdowns={} textureShutdownReleasedResources={} textureShutdownReleasedTextures={} textureShutdownCleanupErrors={} pointerEvents={} pointerIntents={} pointerLastIntent={} passes={} commands={} submittedCommandBuffers={}",
             report.adapter_name,
             report.surface_format,
             report.physical_width,
@@ -97,6 +99,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             report.rendered_frame_count,
             report.resize_count,
             report.surface_recovery_count,
+            report.app_lifecycle_state,
+            report.app_lifecycle_tick_request_count,
+            report.app_redraw_request_count,
             report.texture_upload_uploaded_count,
             report.texture_upload_error_count,
             report.texture_upload_resubmit_count,

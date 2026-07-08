@@ -11,7 +11,9 @@ use crate::product_window::{
     NativeProductWindowPresentOutcome, NativeProductWindowRenderer, NativeProductWindowResizeState,
     NativeProductWindowRuntime,
 };
-use crate::texture_sync::NativeTextureCleanedClearResult;
+use crate::texture_sync::{
+    NativeTextureBundleLifecycleSyncReport, NativeTextureCleanedClearResult,
+};
 
 pub(crate) type NativeProductWindowInMemoryLoop = NativeProductWindowLoop<InMemoryNativeHostApi>;
 
@@ -229,6 +231,18 @@ where
         let report = self.runtime.resize_to_physical_size(physical_size)?;
         self.state.record_resize(report.physical_size);
         Ok(())
+    }
+
+    pub(crate) fn tick_host_lifecycle_with_audio_teardown(
+        &mut self,
+    ) -> Result<NativeTextureBundleLifecycleSyncReport, NativeProductWindowLoopError> {
+        self.runtime
+            .tick_host_lifecycle_with_audio_teardown()
+            .map_err(|error| {
+                NativeProductWindowLoopError::new(format!(
+                    "native product window lifecycle tick failed: {error}"
+                ))
+            })
     }
 
     pub(crate) fn handle_redraw_failure(
