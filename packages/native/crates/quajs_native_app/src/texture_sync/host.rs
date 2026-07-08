@@ -1,9 +1,7 @@
-use std::collections::BTreeSet;
-
-use quajs_native_runtime::{
-    NativeAssetReadRequest, NativeHostApi, NativeHostApiError, NativeMountedBundleInfo,
-};
+use quajs_native_runtime::{NativeAssetReadRequest, NativeHostApi, NativeHostApiError};
 use quajs_wgpu_renderer::resources::{NativeTextureUploadRequest, NativeTextureUploadSyncPlan};
+
+use crate::host_assets::{resolve_native_asset_read_candidates, NativeAssetBundleCandidate};
 
 use super::metadata::{ordered_package_candidates, upload_metadata_from_request};
 use super::types::{
@@ -107,10 +105,7 @@ struct NativeTextureAssetRead {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-struct NativeTextureAssetReadCandidate {
-    bundle_name: Option<String>,
-    package_id: Option<String>,
-}
+struct NativeTextureAssetReadCandidate(NativeAssetBundleCandidate);
 
 fn read_texture_asset_bytes(
     host: &impl NativeHostApi,
@@ -122,7 +117,7 @@ fn read_texture_asset_bytes(
     for candidate in candidates {
         let read_request = NativeAssetReadRequest {
             url: request.asset_name.clone(),
-            bundle_name: candidate.bundle_name.clone(),
+            bundle_name: candidate.0.bundle_name.clone(),
             asset_id: Some(request.resource_id.as_str().to_string()),
         };
 
@@ -130,16 +125,16 @@ fn read_texture_asset_bytes(
             Ok(bytes) => {
                 return Ok(NativeTextureAssetRead {
                     bytes,
-                    bundle_name: candidate.bundle_name,
-                    package_id: candidate.package_id,
+                    bundle_name: candidate.0.bundle_name,
+                    package_id: candidate.0.package_id,
                 });
             }
             Err(NativeHostApiError::AssetNotFound(_)) => {
                 last_missing = Some(failure(
                     NativeTextureUploadHostSyncFailureKind::MissingAsset,
                     request,
-                    candidate.bundle_name,
-                    candidate.package_id,
+                    candidate.0.bundle_name,
+                    candidate.0.package_id,
                     format!(
                         "Native texture asset \"{}\" was not found.",
                         request.asset_name
@@ -150,8 +145,8 @@ fn read_texture_asset_bytes(
                 return Err(failure(
                     NativeTextureUploadHostSyncFailureKind::HostError,
                     request,
-                    candidate.bundle_name,
-                    candidate.package_id,
+                    candidate.0.bundle_name,
+                    candidate.0.package_id,
                     error.message(),
                 ));
             }
@@ -178,13 +173,22 @@ fn read_candidates(
 ) -> Result<Vec<NativeTextureAssetReadCandidate>, NativeTextureUploadHostSyncFailure> {
     let package_ids = ordered_package_candidates(request);
     if package_ids.is_empty() {
-        return Ok(vec![NativeTextureAssetReadCandidate {
-            bundle_name: None,
-            package_id: None,
-        }]);
+        return Ok(resolve_native_asset_read_candidates(host, &[])
+            .map_err(|error| {
+                failure(
+                    NativeTextureUploadHostSyncFailureKind::HostError,
+                    request,
+                    None,
+                    None,
+                    error.message(),
+                )
+            })?
+            .into_iter()
+            .map(NativeTextureAssetReadCandidate)
+            .collect());
     }
 
-    let mounted_bundles = host.list_mounted_bundles().map_err(|error| {
+    let candidates = resolve_native_asset_read_candidates(host, &package_ids).map_err(|error| {
         failure(
             NativeTextureUploadHostSyncFailureKind::HostError,
             request,
@@ -193,23 +197,6 @@ fn read_candidates(
             error.message(),
         )
     })?;
-    let mut candidates = Vec::new();
-    let mut seen = BTreeSet::new();
-
-    for package_id in &package_ids {
-        for bundle in &mounted_bundles {
-            if !bundle_matches_package(bundle, package_id) {
-                continue;
-            }
-            let key = format!("{}|{package_id}", bundle.name);
-            if seen.insert(key) {
-                candidates.push(NativeTextureAssetReadCandidate {
-                    bundle_name: Some(bundle.name.clone()),
-                    package_id: Some(package_id.clone()),
-                });
-            }
-        }
-    }
 
     if candidates.is_empty() {
         return Err(failure(
@@ -225,11 +212,8 @@ fn read_candidates(
         ));
     }
 
-    Ok(candidates)
-}
-
-fn bundle_matches_package(bundle: &NativeMountedBundleInfo, package_id: &str) -> bool {
-    bundle.runtime_package_id.as_deref() == Some(package_id)
-        || bundle.logical_name.as_deref() == Some(package_id)
-        || bundle.name == package_id
+    Ok(candidates
+        .into_iter()
+        .map(NativeTextureAssetReadCandidate)
+        .collect())
 }
