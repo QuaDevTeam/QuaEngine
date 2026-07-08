@@ -587,7 +587,7 @@ where
     Ok(Some(report))
 }
 
-fn sync_font_atlas_textures_for_backend<B, A, V, F>(
+pub(super) fn sync_font_atlas_textures_for_backend<B, A, V, F>(
     renderer: &mut NativeRenderer<B, A, V, F>,
 ) -> NativeFontAtlasTextureSyncReport
 where

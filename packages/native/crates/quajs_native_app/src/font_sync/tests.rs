@@ -225,6 +225,7 @@ fn face<const N: usize>(
 ) -> FontBackendFaceState {
     FontBackendFaceState {
         id: id.to_string(),
+        order: 0,
         family: family.to_string(),
         asset_type: "fonts".to_string(),
         asset_name: asset_name.to_string(),

@@ -79,6 +79,7 @@ fn records_shutdown_cleanup_counts_separately_from_frame_texture_sync() {
             release_error_count: 1,
             ..Default::default()
         },
+        font_atlas_report: None,
     });
 
     assert_eq!(metrics.shutdown_count, 1);

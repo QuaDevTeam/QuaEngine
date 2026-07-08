@@ -156,6 +156,7 @@ pub(crate) struct AssetLoadingFontBackend {
     pub(crate) loads: Vec<FontBackendAssetLoad>,
     pub(crate) plans: Vec<FontBackendCommandPlan>,
     pub(crate) atlas_textures: Vec<FontBackendAtlasTexture>,
+    pub(crate) atlas_texture_releases: Vec<ResourceId>,
 }
 
 impl NativeFontBackend for AssetLoadingFontBackend {
@@ -180,6 +181,10 @@ impl NativeFontBackend for AssetLoadingFontBackend {
 
     fn drain_font_atlas_textures(&mut self) -> Vec<FontBackendAtlasTexture> {
         std::mem::take(&mut self.atlas_textures)
+    }
+
+    fn drain_font_atlas_texture_releases(&mut self) -> Vec<ResourceId> {
+        std::mem::take(&mut self.atlas_texture_releases)
     }
 }
 
