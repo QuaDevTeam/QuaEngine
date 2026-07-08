@@ -2,11 +2,12 @@ use std::collections::BTreeMap;
 
 use ab_glyph::{point, Font, FontArc, PxScale};
 use quajs_wgpu_renderer::fonts::{
-    native_text_atlas_cell_x, native_text_atlas_cell_y, native_text_atlas_dimensions,
-    FontBackendAssetLoad, FontBackendAtlasTexture, FontBackendCommandKind, FontBackendCommandPlan,
-    FontBackendFaceState, NativeFontBackend, NativeFontBackendResult, NATIVE_TEXT_ATLAS_CHARS,
-    NATIVE_TEXT_ATLAS_GLYPH_HEIGHT, NATIVE_TEXT_ATLAS_GLYPH_WIDTH, NATIVE_TEXT_ATLAS_PADDING,
-    NATIVE_TEXT_ATLAS_SOLID_MASK_INDEX,
+    native_text_atlas_cell_x, native_text_atlas_cell_y, native_text_atlas_char_at,
+    native_text_atlas_char_index, native_text_atlas_dimensions,
+    native_text_atlas_extended_char_count, FontBackendAssetLoad, FontBackendAtlasTexture,
+    FontBackendCommandKind, FontBackendCommandPlan, FontBackendFaceState, NativeFontBackend,
+    NativeFontBackendResult, NATIVE_TEXT_ATLAS_CHARS, NATIVE_TEXT_ATLAS_GLYPH_HEIGHT,
+    NATIVE_TEXT_ATLAS_GLYPH_WIDTH, NATIVE_TEXT_ATLAS_PADDING, NATIVE_TEXT_ATLAS_SOLID_MASK_INDEX,
 };
 use quajs_wgpu_renderer::resources::ResourceId;
 
@@ -114,7 +115,10 @@ fn rasterize_font_asset(
     let font = FontArc::try_from_vec(load.bytes.clone()).ok()?;
     let (width, height) = atlas_dimensions();
     let mut rgba = vec![0; width as usize * height as usize * 4];
-    for (index, character) in NATIVE_TEXT_ATLAS_CHARS.iter().copied().enumerate() {
+    for index in 0..NATIVE_TEXT_ATLAS_SOLID_MASK_INDEX {
+        let Some(character) = native_text_atlas_char_at(index) else {
+            continue;
+        };
         rasterize_glyph(&font, character, index, &mut rgba, width as usize);
     }
     write_solid_mask_cell(&mut rgba, width as usize);
@@ -137,6 +141,7 @@ fn rasterize_glyph(
         .glyph_id(character)
         .with_scale_and_position(PxScale::from(RASTER_SCALE), point(0.0, 0.0));
     let Some(outlined) = font.outline_glyph(glyph) else {
+        write_fallback_glyph_cell(index, rgba, atlas_width);
         return;
     };
     let bounds = outlined.px_bounds();
@@ -165,6 +170,16 @@ fn rasterize_glyph(
             alpha,
         );
     });
+}
+
+fn write_fallback_glyph_cell(index: usize, rgba: &mut [u8], atlas_width: usize) {
+    let cell_x = native_text_atlas_cell_x(index) + NATIVE_TEXT_ATLAS_PADDING;
+    let cell_y = native_text_atlas_cell_y(index) + NATIVE_TEXT_ATLAS_PADDING;
+    for y in 0..NATIVE_TEXT_ATLAS_GLYPH_HEIGHT {
+        for x in 0..NATIVE_TEXT_ATLAS_GLYPH_WIDTH {
+            write_atlas_pixel(rgba, atlas_width, cell_x + x, cell_y + y, 0xff);
+        }
+    }
 }
 
 fn write_solid_mask_cell(rgba: &mut [u8], atlas_width: usize) {
@@ -215,9 +230,10 @@ mod tests {
         assert_eq!(atlas_dimensions(), native_text_atlas_dimensions());
         assert_eq!(
             NATIVE_TEXT_ATLAS_SOLID_MASK_INDEX,
-            NATIVE_TEXT_ATLAS_CHARS.len()
+            NATIVE_TEXT_ATLAS_CHARS.len() + native_text_atlas_extended_char_count()
         );
         assert!(NATIVE_TEXT_ATLAS_CHARS.contains(&'A'));
         assert!(NATIVE_TEXT_ATLAS_CHARS.contains(&'a'));
+        assert!(native_text_atlas_char_index('界').is_some());
     }
 }

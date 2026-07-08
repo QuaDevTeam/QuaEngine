@@ -120,11 +120,13 @@ fn does_not_render_combining_marks_as_bitmap_fallback_blocks() {
 }
 
 #[test]
-fn reserves_fullwidth_cells_for_cjk_bitmap_fallback_glyphs() {
+fn reserves_fullwidth_cells_for_cjk_bitmap_atlas_glyphs() {
     let style = text_style(21.0, TextAlign::Left, EdgeInsetsDrawParam::default());
     let ascii_bounds = text_placeholder_bounds_for_text_with_style("AA", style.clone());
+    let cjk_index = crate::fonts::native_text_atlas_char_index('開').unwrap();
+    assert_ne!(cjk_index, crate::fonts::NATIVE_TEXT_ATLAS_SOLID_MASK_INDEX);
     let cjk_plan = WgpuNativeRenderBufferPlan::from_mesh_plan(&mesh_plan(vec![quad(
-        "ui:bitmap-cjk-fallback",
+        "ui:bitmap-cjk-atlas",
         DrawBatchPipeline::Text,
         DrawCommandKind::Text,
         WgpuNativeRenderPaint::TextPlaceholder {

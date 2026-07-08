@@ -1,6 +1,6 @@
 use crate::fonts::{
-    native_text_atlas_cell_x, native_text_atlas_cell_y, native_text_atlas_char_index,
-    native_text_atlas_dimensions, NATIVE_TEXT_ATLAS_CHARS, NATIVE_TEXT_ATLAS_GLYPH_HEIGHT,
+    native_text_atlas_cell_x, native_text_atlas_cell_y, native_text_atlas_char_at,
+    native_text_atlas_char_index, native_text_atlas_dimensions, NATIVE_TEXT_ATLAS_GLYPH_HEIGHT,
     NATIVE_TEXT_ATLAS_GLYPH_WIDTH, NATIVE_TEXT_ATLAS_PADDING, NATIVE_TEXT_ATLAS_SOLID_MASK_INDEX,
 };
 
@@ -22,11 +22,15 @@ pub(crate) fn builtin_text_atlas_dimensions() -> (u32, u32) {
 pub(crate) fn builtin_text_atlas_rgba8() -> Vec<u8> {
     let (width, height) = builtin_text_atlas_dimensions();
     let mut rgba = vec![0; width as usize * height as usize * 4];
-    for (index, character) in NATIVE_TEXT_ATLAS_CHARS.iter().copied().enumerate() {
-        let Some(rows) = bitmap_glyph_rows(character) else {
+    for index in 0..NATIVE_TEXT_ATLAS_SOLID_MASK_INDEX {
+        let Some(character) = native_text_atlas_char_at(index) else {
             continue;
         };
-        write_atlas_cell(&mut rgba, width as usize, index, rows);
+        if let Some(rows) = bitmap_glyph_rows(character) {
+            write_atlas_cell(&mut rgba, width as usize, index, rows);
+        } else {
+            write_solid_atlas_cell(&mut rgba, width as usize, index);
+        }
     }
     write_solid_mask_cell(&mut rgba, width as usize);
     rgba
@@ -70,10 +74,13 @@ fn write_atlas_cell(
 
 #[cfg(feature = "real-wgpu")]
 fn write_solid_mask_cell(rgba: &mut [u8], atlas_width: usize) {
-    let x =
-        native_text_atlas_cell_x(NATIVE_TEXT_ATLAS_SOLID_MASK_INDEX) + NATIVE_TEXT_ATLAS_PADDING;
-    let y =
-        native_text_atlas_cell_y(NATIVE_TEXT_ATLAS_SOLID_MASK_INDEX) + NATIVE_TEXT_ATLAS_PADDING;
+    write_solid_atlas_cell(rgba, atlas_width, NATIVE_TEXT_ATLAS_SOLID_MASK_INDEX);
+}
+
+#[cfg(feature = "real-wgpu")]
+fn write_solid_atlas_cell(rgba: &mut [u8], atlas_width: usize, index: usize) {
+    let x = native_text_atlas_cell_x(index) + NATIVE_TEXT_ATLAS_PADDING;
+    let y = native_text_atlas_cell_y(index) + NATIVE_TEXT_ATLAS_PADDING;
     for row_index in 0..BITMAP_GLYPH_HEIGHT {
         for column_index in 0..BITMAP_GLYPH_WIDTH {
             write_atlas_pixel(
@@ -421,5 +428,14 @@ mod tests {
 
         assert_ne!(upper, lower);
         assert_ne!(bitmap_glyph_rows('A'), bitmap_glyph_rows('a'));
+    }
+
+    #[test]
+    fn cjk_characters_use_dedicated_text_atlas_slots() {
+        let cjk = bitmap_glyph_uv_bounds('界').unwrap();
+        let solid = bitmap_solid_uv_bounds();
+
+        assert_ne!(cjk, solid);
+        assert!(bitmap_glyph_rows('界').is_none());
     }
 }

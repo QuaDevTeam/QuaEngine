@@ -1,6 +1,5 @@
 use super::glyphs::{
-    bitmap_glyph_rows, bitmap_glyph_uv_bounds, bitmap_solid_uv_bounds, BitmapAtlasUvBounds,
-    BITMAP_GLYPH_HEIGHT,
+    bitmap_glyph_uv_bounds, bitmap_solid_uv_bounds, BitmapAtlasUvBounds, BITMAP_GLYPH_HEIGHT,
 };
 use super::metrics::{bitmap_glyph_advance, bitmap_glyph_width};
 use crate::renderer::backend::wgpu::WgpuPhysicalRect;
@@ -29,7 +28,7 @@ pub(super) fn append_bitmap_word(
             break;
         }
         if !character.is_whitespace() && !is_zero_width_text_character(character) {
-            let glyph_bounds = if bitmap_glyph_rows(character).is_some() {
+            let glyph_bounds = if bitmap_glyph_uv_bounds(character).is_some() {
                 append_bitmap_glyph(
                     vertices,
                     indices,
