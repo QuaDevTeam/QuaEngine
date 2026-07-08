@@ -2,25 +2,15 @@ use std::collections::BTreeMap;
 
 use ab_glyph::{point, Font, FontArc, PxScale};
 use quajs_wgpu_renderer::fonts::{
+    native_text_atlas_cell_x, native_text_atlas_cell_y, native_text_atlas_dimensions,
     FontBackendAssetLoad, FontBackendAtlasTexture, FontBackendCommandKind, FontBackendCommandPlan,
-    FontBackendFaceState, NativeFontBackend, NativeFontBackendResult,
+    FontBackendFaceState, NativeFontBackend, NativeFontBackendResult, NATIVE_TEXT_ATLAS_CHARS,
+    NATIVE_TEXT_ATLAS_GLYPH_HEIGHT, NATIVE_TEXT_ATLAS_GLYPH_WIDTH, NATIVE_TEXT_ATLAS_PADDING,
+    NATIVE_TEXT_ATLAS_SOLID_MASK_INDEX,
 };
 use quajs_wgpu_renderer::resources::ResourceId;
 
-const ATLAS_COLUMNS: usize = 16;
-const ATLAS_PADDING: usize = 1;
-const GLYPH_WIDTH: usize = 5;
-const GLYPH_HEIGHT: usize = 7;
-const CELL_WIDTH: usize = GLYPH_WIDTH + ATLAS_PADDING * 2;
-const CELL_HEIGHT: usize = GLYPH_HEIGHT + ATLAS_PADDING * 2;
 const RASTER_SCALE: f32 = 32.0;
-const ATLAS_CHARS: &[char] = &[
-    'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S',
-    'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.', ',',
-    ':', ';', '!', '?', '-', '_', '+', '=', '/', '\\', '(', ')', '[', ']', '\'', '"', '#', '$',
-    '%', '&', '@', '*', '^', '`', '{', '|', '}', '~', '<', '>',
-];
-const SOLID_MASK_INDEX: usize = ATLAS_CHARS.len();
 
 #[derive(Debug, Default)]
 pub(crate) struct SimpleNativeFontAtlasBackend {
@@ -124,7 +114,7 @@ fn rasterize_font_asset(
     let font = FontArc::try_from_vec(load.bytes.clone()).ok()?;
     let (width, height) = atlas_dimensions();
     let mut rgba = vec![0; width as usize * height as usize * 4];
-    for (index, character) in ATLAS_CHARS.iter().copied().enumerate() {
+    for (index, character) in NATIVE_TEXT_ATLAS_CHARS.iter().copied().enumerate() {
         rasterize_glyph(&font, character, index, &mut rgba, width as usize);
     }
     write_solid_mask_cell(&mut rgba, width as usize);
@@ -152,19 +142,20 @@ fn rasterize_glyph(
     let bounds = outlined.px_bounds();
     let bounds_width = bounds.width().ceil().max(1.0);
     let bounds_height = bounds.height().ceil().max(1.0);
-    let cell_x = atlas_cell_x(index) + ATLAS_PADDING;
-    let cell_y = atlas_cell_y(index) + ATLAS_PADDING;
+    let cell_x = native_text_atlas_cell_x(index) + NATIVE_TEXT_ATLAS_PADDING;
+    let cell_y = native_text_atlas_cell_y(index) + NATIVE_TEXT_ATLAS_PADDING;
 
     outlined.draw(|x, y, coverage| {
         if coverage <= 0.0 {
             return;
         }
-        let target_x = ((x as f32 / bounds_width) * GLYPH_WIDTH as f32)
+        let target_x = ((x as f32 / bounds_width) * NATIVE_TEXT_ATLAS_GLYPH_WIDTH as f32)
             .floor()
-            .clamp(0.0, (GLYPH_WIDTH - 1) as f32) as usize;
-        let target_y = ((y as f32 / bounds_height) * GLYPH_HEIGHT as f32)
+            .clamp(0.0, (NATIVE_TEXT_ATLAS_GLYPH_WIDTH - 1) as f32) as usize;
+        let target_y = ((y as f32 / bounds_height) * NATIVE_TEXT_ATLAS_GLYPH_HEIGHT as f32)
             .floor()
-            .clamp(0.0, (GLYPH_HEIGHT - 1) as f32) as usize;
+            .clamp(0.0, (NATIVE_TEXT_ATLAS_GLYPH_HEIGHT - 1) as f32)
+            as usize;
         let alpha = (coverage.clamp(0.0, 1.0) * 255.0).round() as u8;
         blend_atlas_pixel(
             rgba,
@@ -177,10 +168,12 @@ fn rasterize_glyph(
 }
 
 fn write_solid_mask_cell(rgba: &mut [u8], atlas_width: usize) {
-    let cell_x = atlas_cell_x(SOLID_MASK_INDEX) + ATLAS_PADDING;
-    let cell_y = atlas_cell_y(SOLID_MASK_INDEX) + ATLAS_PADDING;
-    for y in 0..GLYPH_HEIGHT {
-        for x in 0..GLYPH_WIDTH {
+    let cell_x =
+        native_text_atlas_cell_x(NATIVE_TEXT_ATLAS_SOLID_MASK_INDEX) + NATIVE_TEXT_ATLAS_PADDING;
+    let cell_y =
+        native_text_atlas_cell_y(NATIVE_TEXT_ATLAS_SOLID_MASK_INDEX) + NATIVE_TEXT_ATLAS_PADDING;
+    for y in 0..NATIVE_TEXT_ATLAS_GLYPH_HEIGHT {
+        for x in 0..NATIVE_TEXT_ATLAS_GLYPH_WIDTH {
             write_atlas_pixel(rgba, atlas_width, cell_x + x, cell_y + y, 0xff);
         }
     }
@@ -198,20 +191,7 @@ fn write_atlas_pixel(rgba: &mut [u8], atlas_width: usize, x: usize, y: usize, al
 }
 
 fn atlas_dimensions() -> (u32, u32) {
-    let cell_count = ATLAS_CHARS.len() + 1;
-    let rows = cell_count.div_ceil(ATLAS_COLUMNS);
-    (
-        (ATLAS_COLUMNS * CELL_WIDTH) as u32,
-        (rows * CELL_HEIGHT) as u32,
-    )
-}
-
-fn atlas_cell_x(index: usize) -> usize {
-    (index % ATLAS_COLUMNS) * CELL_WIDTH
-}
-
-fn atlas_cell_y(index: usize) -> usize {
-    (index / ATLAS_COLUMNS) * CELL_HEIGHT
+    native_text_atlas_dimensions()
 }
 
 fn font_family_resource_id(family: &str) -> ResourceId {
@@ -223,5 +203,21 @@ fn single_package_candidate(face: &FontBackendFaceState) -> Option<String> {
         face.package_candidates.iter().next().cloned()
     } else {
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn product_font_backend_uses_renderer_text_atlas_contract() {
+        assert_eq!(atlas_dimensions(), native_text_atlas_dimensions());
+        assert_eq!(
+            NATIVE_TEXT_ATLAS_SOLID_MASK_INDEX,
+            NATIVE_TEXT_ATLAS_CHARS.len()
+        );
+        assert!(NATIVE_TEXT_ATLAS_CHARS.contains(&'A'));
+        assert!(NATIVE_TEXT_ATLAS_CHARS.contains(&'a'));
     }
 }
