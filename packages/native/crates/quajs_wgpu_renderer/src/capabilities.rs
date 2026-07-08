@@ -142,6 +142,24 @@ pub fn native_wgpu_capabilities() -> Vec<RendererCapability> {
     ]
 }
 
+pub fn native_wgpu_capabilities_with_audio_playback() -> Vec<RendererCapability> {
+    let mut capabilities = native_wgpu_capabilities();
+    capabilities.push(native_wgpu_audio_playback_capability());
+    capabilities
+}
+
+pub fn native_wgpu_audio_playback_capability() -> RendererCapability {
+    capability(
+        "native-wgpu.audio@1",
+        &["view.plugins.audio"],
+        &[],
+        &["audio"],
+        &[],
+        &[],
+        "reject-package",
+    )
+}
+
 fn capability(
     id: &str,
     projection_keys: &[&str],

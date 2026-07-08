@@ -190,5 +190,7 @@ fn current_platform_value() -> &'static str {
 }
 
 fn native_capability_manifest_hash() -> String {
-    quajs_native_runtime::capability_manifest_hash(&quajs_wgpu_renderer::native_wgpu_capabilities())
+    quajs_native_runtime::capability_manifest_hash(
+        &crate::startup::native_startup_renderer_capabilities(),
+    )
 }
