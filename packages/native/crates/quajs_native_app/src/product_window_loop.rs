@@ -8,9 +8,9 @@ use crate::product_frame_scheduler::{
 };
 use crate::product_loop::NativeProductLoopFrameResult;
 use crate::product_window::{
-    present_failure_kind_from_message, NativeProductWindowError, NativeProductWindowPhysicalSize,
-    NativeProductWindowPresentOutcome, NativeProductWindowRenderer, NativeProductWindowResizeState,
-    NativeProductWindowRuntime,
+    NativeProductWindowError, NativeProductWindowPhysicalSize, NativeProductWindowPresentFailure,
+    NativeProductWindowPresentFailureKind, NativeProductWindowPresentOutcome,
+    NativeProductWindowRenderer, NativeProductWindowResizeState, NativeProductWindowRuntime,
 };
 use crate::texture_sync::{
     NativeTextureBundleLifecycleSyncReport, NativeTextureCleanedClearResult,
@@ -34,13 +34,27 @@ pub(crate) struct NativeProductWindowLoopFrameResult {
 #[derive(Debug)]
 pub(crate) struct NativeProductWindowLoopError {
     message: String,
+    present_failure: Option<NativeProductWindowPresentFailure>,
 }
 
 impl NativeProductWindowLoopError {
     fn new(message: impl Into<String>) -> Self {
         Self {
             message: message.into(),
+            present_failure: None,
         }
+    }
+
+    fn from_present_error(error: NativeProductWindowError) -> Self {
+        let present_failure = error.present_failure().cloned();
+        Self {
+            message: error.to_string(),
+            present_failure,
+        }
+    }
+
+    pub(crate) fn present_failure(&self) -> Option<&NativeProductWindowPresentFailure> {
+        self.present_failure.as_ref()
     }
 }
 
@@ -57,6 +71,7 @@ struct NativeProductWindowLoopState {
     frame_scheduler: NativeProductFrameScheduler,
     resize_state: NativeProductWindowResizeState,
     completed_frame_count: usize,
+    last_present_failure_kind: Option<NativeProductWindowPresentFailureKind>,
 }
 
 impl NativeProductWindowLoopState {
@@ -65,6 +80,7 @@ impl NativeProductWindowLoopState {
             frame_scheduler: NativeProductFrameScheduler::new(target_frame_count),
             resize_state: NativeProductWindowResizeState::default(),
             completed_frame_count: 0,
+            last_present_failure_kind: None,
         }
     }
 
@@ -82,6 +98,10 @@ impl NativeProductWindowLoopState {
 
     fn recovery_metrics(&self) -> NativeProductSurfaceRecoveryMetrics {
         self.frame_scheduler.recovery_metrics()
+    }
+
+    fn last_present_failure_kind(&self) -> Option<NativeProductWindowPresentFailureKind> {
+        self.last_present_failure_kind
     }
 
     fn resize_count(&self) -> usize {
@@ -128,10 +148,15 @@ impl NativeProductWindowLoopState {
         self.frame_scheduler.record_surface_recovery_error();
     }
 
-    fn classify_redraw_failure(&mut self, message: &str) -> NativeProductFramePresentFailureAction {
-        let failure = present_failure_kind_from_message(message);
-        let action = self.frame_scheduler.classify_present_failure(failure);
-        self.frame_scheduler.record_present_failure(failure, action);
+    fn classify_redraw_failure(
+        &mut self,
+        failure: &NativeProductWindowPresentFailure,
+    ) -> NativeProductFramePresentFailureAction {
+        let failure_kind = failure.frame_failure_kind();
+        let action = self.frame_scheduler.classify_present_failure(failure_kind);
+        self.frame_scheduler
+            .record_present_failure(failure_kind, action);
+        self.last_present_failure_kind = Some(failure.kind());
         action
     }
 }
@@ -177,6 +202,12 @@ where
         self.state.recovery_metrics()
     }
 
+    pub(crate) fn last_present_failure_kind(
+        &self,
+    ) -> Option<NativeProductWindowPresentFailureKind> {
+        self.state.last_present_failure_kind()
+    }
+
     pub(crate) fn resize_count(&self) -> usize {
         self.state.resize_count()
     }
@@ -218,11 +249,7 @@ where
         let present_outcome = self
             .runtime
             .present_frame(attempt.allow_occluded_report)
-            .map_err(|error| {
-                NativeProductWindowLoopError::new(format!(
-                    "native product window surface present failed: {error}"
-                ))
-            })?;
+            .map_err(NativeProductWindowLoopError::from_present_error)?;
         let will_complete_target =
             self.state.completed_frame_count.saturating_add(1) >= self.state.target_frame_count();
         let shutdown = if will_complete_target {
@@ -270,10 +297,10 @@ where
 
     pub(crate) fn handle_redraw_failure(
         &mut self,
-        error_message: &str,
+        failure: &NativeProductWindowPresentFailure,
         recovery_size: Option<NativeProductWindowPhysicalSize>,
     ) -> Result<NativeProductWindowLoopFailureAction, NativeProductWindowError> {
-        match self.state.classify_redraw_failure(error_message) {
+        match self.state.classify_redraw_failure(failure) {
             NativeProductFramePresentFailureAction::RetryRedraw => {
                 Ok(NativeProductWindowLoopFailureAction::RetryRedraw)
             }
@@ -321,12 +348,17 @@ mod tests {
     fn state_classifies_recoverable_surface_failures_until_final_attempt() {
         let mut state = NativeProductWindowLoopState::new(1);
         state.begin_present_attempt();
+        let failure = NativeProductWindowPresentFailure::from_message(
+            "native product window surface present failed: surface was lost",
+        );
 
         assert_eq!(
-            state.classify_redraw_failure(
-                "native product window surface present failed: surface was lost"
-            ),
+            state.classify_redraw_failure(&failure),
             NativeProductFramePresentFailureAction::RecoverSurface,
+        );
+        assert_eq!(
+            state.last_present_failure_kind(),
+            Some(NativeProductWindowPresentFailureKind::Lost)
         );
     }
 
@@ -352,11 +384,12 @@ mod tests {
     fn state_records_redraw_failure_classification_metrics() {
         let mut state = NativeProductWindowLoopState::new(1);
         state.begin_present_attempt();
+        let failure = NativeProductWindowPresentFailure::from_message(
+            "native product window surface present failed: surface configuration is outdated",
+        );
 
         assert_eq!(
-            state.classify_redraw_failure(
-                "native product window surface present failed: surface configuration is outdated"
-            ),
+            state.classify_redraw_failure(&failure),
             NativeProductFramePresentFailureAction::RecoverSurface,
         );
 
@@ -370,6 +403,10 @@ mod tests {
         assert_eq!(
             metrics.last_recovery_action.map(|action| action.label()),
             Some("recover-surface")
+        );
+        assert_eq!(
+            state.last_present_failure_kind().map(|kind| kind.label()),
+            Some("outdated")
         );
     }
 }

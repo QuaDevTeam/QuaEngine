@@ -10,7 +10,7 @@ use super::frame::{
 };
 use super::report::NativeWindowSmokeReport;
 use crate::product_window::{
-    is_occluded_or_timeout_present_error_message, is_recoverable_surface_present_error_message,
+    NativeProductWindowPresentFailure, NativeProductWindowPresentFailureKind,
 };
 
 #[test]
@@ -86,35 +86,36 @@ fn derives_window_frame_dimensions_from_physical_size_and_scale() {
 }
 
 #[test]
-fn detects_occluded_or_timeout_present_errors() {
-    assert!(is_occluded_or_timeout_present_error_message(
-        "Native renderer smoke surface present failed: InvalidOperationOrder: cannot present frame because surface is occluded."
-    ));
-    assert!(is_occluded_or_timeout_present_error_message(
-        "Native renderer smoke surface present failed: InvalidOperationOrder: cannot present frame because surface acquisition timed out."
-    ));
-    assert!(!is_occluded_or_timeout_present_error_message(
-        "Native renderer smoke surface present failed: InvalidOperationOrder: cannot present frame because surface was lost."
-    ));
-    assert!(!is_occluded_or_timeout_present_error_message(
-        "Native renderer smoke frame failed: validation error."
-    ));
-}
+fn classifies_surface_present_errors_for_recovery_policy() {
+    let cases = [
+        (
+            "Native renderer smoke surface present failed: InvalidOperationOrder: cannot present frame because surface is occluded.",
+            NativeProductWindowPresentFailureKind::Occluded,
+        ),
+        (
+            "Native renderer smoke surface present failed: InvalidOperationOrder: cannot present frame because surface acquisition timed out.",
+            NativeProductWindowPresentFailureKind::Timeout,
+        ),
+        (
+            "Native renderer smoke surface present failed: InvalidOperationOrder: cannot present frame because surface was lost.",
+            NativeProductWindowPresentFailureKind::Lost,
+        ),
+        (
+            "Native renderer smoke surface present failed: InvalidOperationOrder: cannot present frame because surface configuration is outdated.",
+            NativeProductWindowPresentFailureKind::Outdated,
+        ),
+        (
+            "Native renderer smoke frame failed: validation error.",
+            NativeProductWindowPresentFailureKind::Fatal,
+        ),
+    ];
 
-#[test]
-fn detects_recoverable_surface_present_errors() {
-    assert!(is_recoverable_surface_present_error_message(
-        "Native renderer smoke surface present failed: InvalidOperationOrder: cannot present frame because surface was lost."
-    ));
-    assert!(is_recoverable_surface_present_error_message(
-        "Native renderer smoke surface present failed: InvalidOperationOrder: cannot present frame because surface configuration is outdated."
-    ));
-    assert!(!is_recoverable_surface_present_error_message(
-        "Native renderer smoke surface present failed: InvalidOperationOrder: cannot present frame because surface is occluded."
-    ));
-    assert!(!is_recoverable_surface_present_error_message(
-        "Native renderer smoke frame failed: validation error."
-    ));
+    for (message, kind) in cases {
+        assert_eq!(
+            NativeProductWindowPresentFailure::from_message(message).kind(),
+            kind
+        );
+    }
 }
 
 #[test]
@@ -138,6 +139,7 @@ fn window_smoke_report_serializes_texture_lifecycle_metrics() {
         present_failure_count: 3,
         recoverable_surface_failure_count: 2,
         last_present_failure_kind: Some("recoverable-surface".to_string()),
+        last_surface_present_failure_kind: Some("outdated".to_string()),
         last_surface_recovery_action: Some("recover-surface".to_string()),
         texture_upload_pending_request_count: 0,
         texture_upload_already_resident_count: 2,
@@ -214,6 +216,7 @@ fn window_smoke_report_serializes_texture_lifecycle_metrics() {
     assert_eq!(value["presentFailureCount"], 3);
     assert_eq!(value["recoverableSurfaceFailureCount"], 2);
     assert_eq!(value["lastPresentFailureKind"], "recoverable-surface");
+    assert_eq!(value["lastSurfacePresentFailureKind"], "outdated");
     assert_eq!(value["lastSurfaceRecoveryAction"], "recover-surface");
     assert_eq!(value["textureLifecycleSyncCount"], 1);
     assert_eq!(value["textureLifecycleInitialSyncCount"], 1);

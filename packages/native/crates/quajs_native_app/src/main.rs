@@ -87,7 +87,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     #[cfg(feature = "native-window")]
     if let Some(report) = run_native_window_smoke_from_env()? {
         println!(
-            "Qua native window smoke: adapter={} surface={} size={}x{} status={} presented={} attempts={} targetFrames={} renderedFrames={} resizeCount={} surfaceRecoveryCount={} surfaceRecoveryAttempts={} surfaceRecoverySuccesses={} surfaceRecoveryMissingSize={} surfaceRecoveryErrors={} presentFailures={} recoverableSurfaceFailures={} lastPresentFailure={} lastSurfaceRecoveryAction={} appLifecycle={} appLifecycleTicks={} appRedrawRequests={} textureUploads={} textureUploadErrors={} textureUploadResubmits={} textureResubmitted={} textureLifecycleSyncs={} textureLifecycleInitialSyncs={} textureLifecycleTrackedPackages={} textureLifecycleReleaseAttempts={} textureLifecycleReleasedPackages={} textureLifecycleCleanupErrors={} textureShutdowns={} textureShutdownReleasedResources={} textureShutdownReleasedTextures={} textureShutdownCleanupErrors={} pointerEvents={} pointerIntents={} pointerLastIntent={} passes={} commands={} submittedCommandBuffers={}",
+            "Qua native window smoke: adapter={} surface={} size={}x{} status={} presented={} attempts={} targetFrames={} renderedFrames={} resizeCount={} surfaceRecoveryCount={} surfaceRecoveryAttempts={} surfaceRecoverySuccesses={} surfaceRecoveryMissingSize={} surfaceRecoveryErrors={} presentFailures={} recoverableSurfaceFailures={} lastPresentFailure={} lastSurfacePresentFailure={} lastSurfaceRecoveryAction={} appLifecycle={} appLifecycleTicks={} appRedrawRequests={} textureUploads={} textureUploadErrors={} textureUploadResubmits={} textureResubmitted={} textureLifecycleSyncs={} textureLifecycleInitialSyncs={} textureLifecycleTrackedPackages={} textureLifecycleReleaseAttempts={} textureLifecycleReleasedPackages={} textureLifecycleCleanupErrors={} textureShutdowns={} textureShutdownReleasedResources={} textureShutdownReleasedTextures={} textureShutdownCleanupErrors={} pointerEvents={} pointerIntents={} pointerLastIntent={} passes={} commands={} submittedCommandBuffers={}",
             report.adapter_name,
             report.surface_format,
             report.physical_width,
@@ -106,6 +106,10 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             report.present_failure_count,
             report.recoverable_surface_failure_count,
             report.last_present_failure_kind.as_deref().unwrap_or("none"),
+            report
+                .last_surface_present_failure_kind
+                .as_deref()
+                .unwrap_or("none"),
             report
                 .last_surface_recovery_action
                 .as_deref()

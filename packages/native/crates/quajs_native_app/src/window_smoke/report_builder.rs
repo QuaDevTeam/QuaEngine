@@ -4,7 +4,9 @@ use super::metrics::{NativeWindowSmokeAudioMetrics, NativeWindowSmokeTextureMetr
 use super::report::NativeWindowSmokeReport;
 use crate::product_app_loop::{NativeProductAppLifecycleState, NativeProductAppLoopSnapshot};
 use crate::product_frame_scheduler::NativeProductSurfaceRecoveryMetrics;
-use crate::product_window::NativeProductWindowPhysicalSize;
+use crate::product_window::{
+    NativeProductWindowPhysicalSize, NativeProductWindowPresentFailureKind,
+};
 
 pub(super) struct NativeWindowSmokeReportInput<'a> {
     pub adapter_name: &'a str,
@@ -18,6 +20,7 @@ pub(super) struct NativeWindowSmokeReportInput<'a> {
     pub resize_count: usize,
     pub surface_recovery_count: usize,
     pub recovery_metrics: NativeProductSurfaceRecoveryMetrics,
+    pub last_present_failure_kind: Option<NativeProductWindowPresentFailureKind>,
     pub texture_metrics: &'a NativeWindowSmokeTextureMetrics,
     pub audio_metrics: &'a NativeWindowSmokeAudioMetrics,
     pub input_metrics: &'a NativeWindowSmokeInputMetrics,
@@ -56,6 +59,9 @@ pub(super) fn build_window_smoke_report(
         recoverable_surface_failure_count: input.recovery_metrics.recoverable_surface_failure_count,
         last_present_failure_kind: input
             .recovery_metrics
+            .last_present_failure_kind
+            .map(|kind| kind.label().to_string()),
+        last_surface_present_failure_kind: input
             .last_present_failure_kind
             .map(|kind| kind.label().to_string()),
         last_surface_recovery_action: input
@@ -232,6 +238,7 @@ mod tests {
                     crate::product_frame_scheduler::NativeProductFramePresentFailureAction::RecoverSurface,
                 ),
             },
+            last_present_failure_kind: Some(NativeProductWindowPresentFailureKind::Outdated),
             texture_metrics: &texture_metrics,
             audio_metrics: &audio_metrics,
             input_metrics: &input_metrics,
@@ -272,6 +279,10 @@ mod tests {
         assert_eq!(
             report.last_present_failure_kind.as_deref(),
             Some("recoverable-surface")
+        );
+        assert_eq!(
+            report.last_surface_present_failure_kind.as_deref(),
+            Some("outdated")
         );
         assert_eq!(
             report.last_surface_recovery_action.as_deref(),
