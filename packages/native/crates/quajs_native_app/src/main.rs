@@ -1,5 +1,7 @@
 #[cfg(any(test, feature = "image-decode"))]
 mod product_app_loop;
+#[cfg(feature = "native-window")]
+mod product_app_shell;
 #[cfg(any(test, feature = "image-decode"))]
 mod product_frame_scheduler;
 #[cfg(feature = "native-window")]
