@@ -1,6 +1,6 @@
 use std::fmt::{Display, Formatter};
 
-use super::commands::{AudioBackendCommandPlan, AudioBackendTrackStateMap};
+use super::commands::{AudioBackendCommandPlan, AudioBackendTrackState, AudioBackendTrackStateMap};
 use crate::resources::ResourceId;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -42,6 +42,16 @@ impl Display for NativeAudioBackendError {
 impl std::error::Error for NativeAudioBackendError {}
 
 pub type NativeAudioBackendResult = Result<(), NativeAudioBackendError>;
+pub type NativeAudioBackendEventDrainResult =
+    Result<Vec<NativeAudioBackendEvent>, NativeAudioBackendError>;
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum NativeAudioBackendEvent {
+    TrackEnded {
+        track: AudioBackendTrackState,
+        reason: String,
+    },
+}
 
 pub trait NativeAudioBackend {
     fn wants_audio_asset_loads(&self) -> bool {
@@ -56,6 +66,10 @@ pub trait NativeAudioBackend {
     }
 
     fn apply_audio_commands(&mut self, plan: &AudioBackendCommandPlan) -> NativeAudioBackendResult;
+
+    fn drain_audio_events(&mut self) -> NativeAudioBackendEventDrainResult {
+        Ok(Vec::new())
+    }
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
