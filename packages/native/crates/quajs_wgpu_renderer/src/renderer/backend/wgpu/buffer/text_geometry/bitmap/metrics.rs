@@ -1,6 +1,6 @@
 use super::super::super::super::primitive::WgpuNativeRenderTextStyle;
 use super::super::super::geometry::FloatRect;
-use super::super::width::text_character_width_factor;
+use super::super::width::{is_zero_width_text_character, text_character_width_factor};
 use super::glyphs::BITMAP_GLYPH_WIDTH;
 use crate::render_graph::{FontStyleDrawParam, TextDecorationDrawParam};
 
@@ -41,8 +41,11 @@ pub(super) fn bitmap_word_width(
     letter_spacing: f32,
     weight_scale: f32,
 ) -> f32 {
-    let count = word.chars().count();
-    if count == 0 {
+    let visible_count = word
+        .chars()
+        .filter(|character| !is_zero_width_text_character(*character))
+        .count();
+    if visible_count == 0 {
         return 0.0;
     }
 
@@ -50,7 +53,7 @@ pub(super) fn bitmap_word_width(
         .chars()
         .map(|character| bitmap_glyph_width(character, pixel, weight_scale))
         .sum::<f32>();
-    let inner_gaps = count.saturating_sub(1) as f32 * (pixel + letter_spacing);
+    let inner_gaps = visible_count.saturating_sub(1) as f32 * (pixel + letter_spacing);
     glyph_width + inner_gaps
 }
 
@@ -86,7 +89,12 @@ pub(super) fn bitmap_glyph_advance(
     letter_spacing: f32,
     weight_scale: f32,
 ) -> f32 {
-    bitmap_glyph_width(character, pixel, weight_scale) + pixel + letter_spacing
+    let width = bitmap_glyph_width(character, pixel, weight_scale);
+    if width <= 0.0 {
+        0.0
+    } else {
+        width + pixel + letter_spacing
+    }
 }
 
 pub(super) fn bitmap_ellipsis_width(pixel: f32) -> f32 {
@@ -123,4 +131,18 @@ pub(super) fn bitmap_ellipsis_rects(
 
 fn bitmap_word_gap(pixel: f32, letter_spacing: f32, weight_scale: f32) -> f32 {
     (pixel * 3.0 * weight_scale + letter_spacing).max(pixel)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn combining_marks_do_not_expand_bitmap_word_width() {
+        assert_eq!(
+            bitmap_word_width("e\u{0301}", 2.0, 1.0, 1.0),
+            bitmap_word_width("e", 2.0, 1.0, 1.0)
+        );
+        assert_eq!(bitmap_word_width("\u{0301}", 2.0, 1.0, 1.0), 0.0);
+    }
 }

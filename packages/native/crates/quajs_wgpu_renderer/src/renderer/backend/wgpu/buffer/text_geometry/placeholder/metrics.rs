@@ -1,4 +1,4 @@
-use super::super::width::text_character_width_factor;
+use super::super::width::{is_zero_width_text_character, text_character_width_factor};
 use crate::render_graph::{FontStyleDrawParam, FontWeightDrawParam, TextAlign};
 
 pub(in crate::renderer::backend::wgpu::buffer::text_geometry) fn max_visible_lines(
@@ -38,13 +38,16 @@ pub(in crate::renderer::backend::wgpu::buffer::text_geometry) fn placeholder_wor
     letter_spacing: f32,
     weight_scale: f32,
 ) -> f32 {
-    let character_count = word.chars().count();
-    let text_units = word
+    let visible_character_count = word
         .chars()
-        .map(text_character_width_factor)
-        .sum::<f32>()
-        .max(1.0);
-    let spacing = character_count.saturating_sub(1) as f32 * letter_spacing;
+        .filter(|character| !is_zero_width_text_character(*character))
+        .count();
+    if visible_character_count == 0 {
+        return 0.0;
+    }
+
+    let text_units = word.chars().map(text_character_width_factor).sum::<f32>();
+    let spacing = visible_character_count.saturating_sub(1) as f32 * letter_spacing;
     ((text_units * font_size * 0.52 + spacing) * weight_scale)
         .max(font_size * 0.75 * weight_scale)
         .max(1.0)
@@ -133,4 +136,18 @@ pub(super) fn placeholder_ellipsis_dot_gap(font_size: f32) -> f32 {
 
 fn placeholder_word_gap(font_size: f32, letter_spacing: f32, weight_scale: f32) -> f32 {
     (font_size * 0.35 * weight_scale + letter_spacing).max(1.0)
+}
+
+#[cfg(test)]
+mod width_tests {
+    use super::*;
+
+    #[test]
+    fn combining_marks_do_not_expand_placeholder_word_width() {
+        assert_eq!(
+            placeholder_word_width("e\u{0301}", 20.0, 2.0, 1.0),
+            placeholder_word_width("e", 20.0, 2.0, 1.0)
+        );
+        assert_eq!(placeholder_word_width("\u{0301}", 20.0, 2.0, 1.0), 0.0);
+    }
 }
