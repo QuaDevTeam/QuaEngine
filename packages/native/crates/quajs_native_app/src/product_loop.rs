@@ -1,6 +1,7 @@
 use quajs_native_runtime::NativeHostApi;
-use quajs_wgpu_renderer::audio::{NativeAudioBackend, NativeAudioBackendError};
+use quajs_wgpu_renderer::audio::NativeAudioBackend;
 use quajs_wgpu_renderer::renderer::{NativeRenderBackend, NativeRenderer};
+use quajs_wgpu_renderer::video::NativeVideoBackend;
 
 use crate::texture_sync::{
     clear_renderer_with_host_texture_cleanup_and_audio_teardown,
@@ -9,7 +10,7 @@ use crate::texture_sync::{
     NativeTextureBundleLifecycleSyncError, NativeTextureBundleLifecycleSyncReport,
     NativeTextureBundleMountRegistry, NativeTextureCleanedClearResult,
     NativeTextureJsonLifecycleFrameError, NativeTextureLifecycleSyncedFrameResult,
-    NativeTextureUploadSink,
+    NativeTextureMediaTeardownError, NativeTextureUploadSink,
 };
 
 #[derive(Debug, Default)]
@@ -33,15 +34,16 @@ impl NativeProductLoop {
         self.rendered_frame_count
     }
 
-    pub(crate) fn render_projection_json_with_audio_teardown<B, A, H>(
+    pub(crate) fn render_projection_json_with_audio_teardown<B, A, V, H>(
         &mut self,
-        renderer: &mut NativeRenderer<B, A>,
+        renderer: &mut NativeRenderer<B, A, V>,
         host: &H,
         input: &str,
     ) -> Result<NativeProductLoopFrameResult, NativeTextureJsonLifecycleFrameError>
     where
         B: NativeRenderBackend + NativeTextureUploadSink,
         A: NativeAudioBackend,
+        V: NativeVideoBackend,
         H: NativeHostApi,
     {
         let synced_frame = render_json_frame_with_host_texture_lifecycle_sync_and_audio_teardown(
@@ -59,14 +61,15 @@ impl NativeProductLoop {
     }
 
     #[allow(dead_code)]
-    pub(crate) fn tick_host_lifecycle_with_audio_teardown<B, A, H>(
+    pub(crate) fn tick_host_lifecycle_with_audio_teardown<B, A, V, H>(
         &mut self,
-        renderer: &mut NativeRenderer<B, A>,
+        renderer: &mut NativeRenderer<B, A, V>,
         host: &H,
     ) -> Result<NativeTextureBundleLifecycleSyncReport, NativeTextureBundleLifecycleSyncError>
     where
         B: NativeRenderBackend + NativeTextureUploadSink,
         A: NativeAudioBackend,
+        V: NativeVideoBackend,
         H: NativeHostApi,
     {
         sync_mounted_texture_bundle_lifecycle_from_host_and_audio_teardown(
@@ -77,13 +80,14 @@ impl NativeProductLoop {
     }
 
     #[allow(dead_code)]
-    pub(crate) fn shutdown_with_audio_teardown<B, A>(
+    pub(crate) fn shutdown_with_audio_teardown<B, A, V>(
         &mut self,
-        renderer: &mut NativeRenderer<B, A>,
-    ) -> Result<NativeTextureCleanedClearResult, NativeAudioBackendError>
+        renderer: &mut NativeRenderer<B, A, V>,
+    ) -> Result<NativeTextureCleanedClearResult, NativeTextureMediaTeardownError>
     where
         B: NativeRenderBackend + NativeTextureUploadSink,
         A: NativeAudioBackend,
+        V: NativeVideoBackend,
     {
         let result = clear_renderer_with_host_texture_cleanup_and_audio_teardown(renderer)?;
         self.texture_bundle_registry = NativeTextureBundleMountRegistry::new();
@@ -101,7 +105,8 @@ mod tests {
         NativeRendererIntent, NativeSignatureVerifyRequest,
     };
     use quajs_wgpu_renderer::audio::{
-        AudioBackendCommandPlan, NativeAudioBackendResult, NullNativeAudioBackend,
+        AudioBackendCommandPlan, NativeAudioBackendError, NativeAudioBackendResult,
+        NullNativeAudioBackend,
     };
     use quajs_wgpu_renderer::projection::audio::{
         AudioProjection, AudioTrackKind, AudioTrackMemoryEstimate, AudioTrackProjection,
@@ -310,7 +315,9 @@ mod tests {
 
         assert_eq!(
             error,
-            NativeAudioBackendError::backend_rejected("test audio backend rejected plan")
+            NativeTextureMediaTeardownError::Audio(NativeAudioBackendError::backend_rejected(
+                "test audio backend rejected plan"
+            ))
         );
         assert_eq!(retry.release_attempt_count, 1);
         assert_eq!(retry.removed_package_ids, vec!["runtime.menu"]);

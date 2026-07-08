@@ -58,6 +58,15 @@ pub trait NativeVideoBackend {
     fn apply_video_commands(&mut self, plan: &VideoBackendCommandPlan) -> NativeVideoBackendResult;
 }
 
+impl NativeVideoBackend for () {
+    fn apply_video_commands(
+        &mut self,
+        _plan: &VideoBackendCommandPlan,
+    ) -> NativeVideoBackendResult {
+        Ok(())
+    }
+}
+
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct NullNativeVideoBackend {
     loaded_assets: Vec<VideoBackendAssetLoad>,

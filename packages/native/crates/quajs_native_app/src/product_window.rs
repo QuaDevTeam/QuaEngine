@@ -1,7 +1,6 @@
 use std::fmt::{Display, Formatter};
 
 use quajs_native_runtime::{InMemoryNativeHostApi, NativeHostApi};
-use quajs_wgpu_renderer::audio::NativeAudioBackendError;
 #[cfg(not(feature = "native-audio-rodio"))]
 use quajs_wgpu_renderer::audio::NullNativeAudioBackend;
 use quajs_wgpu_renderer::renderer::{
@@ -19,6 +18,7 @@ use crate::product_runtime::NativeProductRuntime;
 use crate::texture_sync::{
     NativeTextureBundleLifecycleSyncError, NativeTextureBundleLifecycleSyncReport,
     NativeTextureCleanedClearResult, NativeTextureJsonLifecycleFrameError,
+    NativeTextureMediaTeardownError,
 };
 
 pub(crate) type NativeProductWindowBackend = WgpuNativeRenderBackend<
@@ -336,7 +336,7 @@ where
 
     pub(crate) fn shutdown_with_audio_teardown(
         &mut self,
-    ) -> Result<NativeTextureCleanedClearResult, NativeAudioBackendError> {
+    ) -> Result<NativeTextureCleanedClearResult, NativeTextureMediaTeardownError> {
         self.product.shutdown_with_audio_teardown()
     }
 

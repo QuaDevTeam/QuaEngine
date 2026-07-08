@@ -4,27 +4,30 @@ use quajs_wgpu_renderer::audio::{
 };
 use quajs_wgpu_renderer::projection::audio::{AudioTrackKind, AudioTrackLoadMode};
 use quajs_wgpu_renderer::renderer::{NativeRenderBackend, NativeRenderer};
+use quajs_wgpu_renderer::video::NativeVideoBackend;
 
 use crate::product_loop::{NativeProductLoop, NativeProductLoopFrameResult};
 use crate::texture_sync::{
     NativeTextureBundleLifecycleSyncError, NativeTextureBundleLifecycleSyncReport,
-    NativeTextureCleanedClearResult, NativeTextureJsonLifecycleFrameError, NativeTextureUploadSink,
+    NativeTextureCleanedClearResult, NativeTextureJsonLifecycleFrameError,
+    NativeTextureMediaTeardownError, NativeTextureUploadSink,
 };
 
 #[derive(Debug)]
-pub(crate) struct NativeProductRuntime<B, A, H> {
-    renderer: NativeRenderer<B, A>,
+pub(crate) struct NativeProductRuntime<B, A, H, V = ()> {
+    renderer: NativeRenderer<B, A, V>,
     host: H,
     product_loop: NativeProductLoop,
 }
 
-impl<B, A, H> NativeProductRuntime<B, A, H>
+impl<B, A, H, V> NativeProductRuntime<B, A, H, V>
 where
     B: NativeRenderBackend + NativeTextureUploadSink,
     A: NativeAudioBackend,
+    V: NativeVideoBackend,
     H: NativeHostApi,
 {
-    pub(crate) fn new(renderer: NativeRenderer<B, A>, host: H) -> Self {
+    pub(crate) fn new(renderer: NativeRenderer<B, A, V>, host: H) -> Self {
         Self {
             renderer,
             host,
@@ -36,15 +39,15 @@ where
         self.product_loop.rendered_frame_count()
     }
 
-    pub(crate) fn renderer(&self) -> &NativeRenderer<B, A> {
+    pub(crate) fn renderer(&self) -> &NativeRenderer<B, A, V> {
         &self.renderer
     }
 
-    pub(crate) fn renderer_mut(&mut self) -> &mut NativeRenderer<B, A> {
+    pub(crate) fn renderer_mut(&mut self) -> &mut NativeRenderer<B, A, V> {
         &mut self.renderer
     }
 
-    pub(crate) fn renderer_and_host_mut(&mut self) -> (&mut NativeRenderer<B, A>, &mut H) {
+    pub(crate) fn renderer_and_host_mut(&mut self) -> (&mut NativeRenderer<B, A, V>, &mut H) {
         (&mut self.renderer, &mut self.host)
     }
 
@@ -83,13 +86,13 @@ where
 
     pub(crate) fn shutdown_with_audio_teardown(
         &mut self,
-    ) -> Result<NativeTextureCleanedClearResult, NativeAudioBackendError> {
+    ) -> Result<NativeTextureCleanedClearResult, NativeTextureMediaTeardownError> {
         self.product_loop
             .shutdown_with_audio_teardown(&mut self.renderer)
     }
 
     #[allow(dead_code)]
-    pub(crate) fn into_parts(self) -> (NativeRenderer<B, A>, H, NativeProductLoop) {
+    pub(crate) fn into_parts(self) -> (NativeRenderer<B, A, V>, H, NativeProductLoop) {
         (self.renderer, self.host, self.product_loop)
     }
 

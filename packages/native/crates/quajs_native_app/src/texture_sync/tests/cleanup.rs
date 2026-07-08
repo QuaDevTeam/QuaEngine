@@ -7,7 +7,7 @@ use crate::texture_sync::{
     clear_renderer_with_host_texture_cleanup_and_audio_teardown,
     release_package_resources_with_host_texture_cleanup,
     release_package_resources_with_host_texture_cleanup_and_audio_teardown,
-    sync_texture_releases_from_host_cleanup,
+    sync_texture_releases_from_host_cleanup, NativeTextureMediaTeardownError,
 };
 
 use super::support::{
@@ -187,7 +187,9 @@ fn release_package_resources_with_host_texture_cleanup_audio_failure_preserves_h
 
     assert_eq!(
         error,
-        NativeAudioBackendError::backend_rejected("test audio backend rejected plan")
+        NativeTextureMediaTeardownError::Audio(NativeAudioBackendError::backend_rejected(
+            "test audio backend rejected plan"
+        ))
     );
     assert!(renderer
         .resources()
@@ -287,7 +289,9 @@ fn clear_renderer_with_host_texture_cleanup_audio_failure_preserves_handles() {
 
     assert_eq!(
         error,
-        NativeAudioBackendError::backend_rejected("test audio backend rejected plan")
+        NativeTextureMediaTeardownError::Audio(NativeAudioBackendError::backend_rejected(
+            "test audio backend rejected plan"
+        ))
     );
     assert!(renderer
         .resources()

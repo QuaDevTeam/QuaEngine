@@ -9,8 +9,10 @@ use quajs_wgpu_renderer::renderer::{
     NativeRendererJsonFrameError,
 };
 use quajs_wgpu_renderer::stage_layout::ResolvedStageLayout;
+use quajs_wgpu_renderer::video::{NativeVideoBackend, NativeVideoBackendError};
 
 use crate::audio_sync::{sync_audio_assets_from_host, NativeAudioAssetHostSyncReport};
+use crate::video_sync::{sync_video_assets_from_host, NativeVideoAssetHostSyncReport};
 
 use super::cleanup::{sync_texture_releases_from_host_cleanup, NativeTextureHostCleanupSyncReport};
 use super::host::sync_pending_texture_uploads_from_host;
@@ -28,6 +30,7 @@ pub struct NativeTextureSyncedFrameResult {
     pub texture_host_cleanup_report: NativeTextureHostCleanupSyncReport,
     pub texture_upload_report: NativeTextureUploadHostSyncReport,
     pub audio_asset_report: Option<NativeAudioAssetHostSyncReport>,
+    pub video_asset_report: Option<NativeVideoAssetHostSyncReport>,
     pub resubmitted_after_texture_upload: bool,
 }
 
@@ -44,6 +47,7 @@ pub enum NativeTextureLifecycleFrameError {
     Render(NativeRenderBackendError),
     Host(NativeHostApiError),
     Audio(NativeAudioBackendError),
+    Video(NativeVideoBackendError),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -51,6 +55,7 @@ pub enum NativeTextureJsonLifecycleFrameError {
     Json(NativeRendererJsonFrameError),
     Host(NativeHostApiError),
     Audio(NativeAudioBackendError),
+    Video(NativeVideoBackendError),
 }
 
 impl Display for NativeTextureLifecycleFrameError {
@@ -65,6 +70,10 @@ impl Display for NativeTextureLifecycleFrameError {
             Self::Audio(error) => write!(
                 formatter,
                 "Native texture bundle lifecycle audio teardown failed: {error}"
+            ),
+            Self::Video(error) => write!(
+                formatter,
+                "Native texture bundle lifecycle video backend sync failed: {error}"
             ),
         }
     }
@@ -84,6 +93,10 @@ impl Display for NativeTextureJsonLifecycleFrameError {
             Self::Audio(error) => write!(
                 formatter,
                 "Native texture bundle lifecycle audio teardown failed: {error}"
+            ),
+            Self::Video(error) => write!(
+                formatter,
+                "Native texture bundle lifecycle video backend sync failed: {error}"
             ),
         }
     }
@@ -109,11 +122,18 @@ impl From<NativeAudioBackendError> for NativeTextureLifecycleFrameError {
     }
 }
 
+impl From<NativeVideoBackendError> for NativeTextureLifecycleFrameError {
+    fn from(error: NativeVideoBackendError) -> Self {
+        Self::Video(error)
+    }
+}
+
 impl From<NativeRendererFrameError> for NativeTextureLifecycleFrameError {
     fn from(error: NativeRendererFrameError) -> Self {
         match error {
             NativeRendererFrameError::Render(error) => Self::Render(error),
             NativeRendererFrameError::Audio(error) => Self::Audio(error),
+            NativeRendererFrameError::Video(error) => Self::Video(error),
         }
     }
 }
@@ -123,6 +143,7 @@ impl From<NativeTextureBundleLifecycleSyncError> for NativeTextureLifecycleFrame
         match error {
             NativeTextureBundleLifecycleSyncError::Host(error) => Self::Host(error),
             NativeTextureBundleLifecycleSyncError::Audio(error) => Self::Audio(error),
+            NativeTextureBundleLifecycleSyncError::Video(error) => Self::Video(error),
         }
     }
 }
@@ -141,12 +162,13 @@ impl From<NativeTextureLifecycleFrameError> for NativeTextureJsonLifecycleFrameE
             }
             NativeTextureLifecycleFrameError::Host(error) => Self::Host(error),
             NativeTextureLifecycleFrameError::Audio(error) => Self::Audio(error),
+            NativeTextureLifecycleFrameError::Video(error) => Self::Video(error),
         }
     }
 }
 
-pub fn render_frame_with_host_texture_sync<B, A, H>(
-    renderer: &mut NativeRenderer<B, A>,
+pub fn render_frame_with_host_texture_sync<B, A, V, H>(
+    renderer: &mut NativeRenderer<B, A, V>,
     host: &H,
     layout: ResolvedStageLayout,
     view: &ViewProjection,
@@ -170,13 +192,14 @@ where
         },
         texture_host_cleanup_report,
         None,
+        None,
     )
 }
 
 #[allow(dead_code)]
-pub fn render_frame_with_host_texture_lifecycle_sync<B, A, H>(
+pub fn render_frame_with_host_texture_lifecycle_sync<B, A, V, H>(
     registry: &mut NativeTextureBundleMountRegistry,
-    renderer: &mut NativeRenderer<B, A>,
+    renderer: &mut NativeRenderer<B, A, V>,
     host: &H,
     layout: ResolvedStageLayout,
     view: &ViewProjection,
@@ -196,9 +219,9 @@ where
 }
 
 #[allow(dead_code)]
-pub fn render_frame_with_host_texture_lifecycle_sync_and_audio_teardown<B, A, H>(
+pub fn render_frame_with_host_texture_lifecycle_sync_and_audio_teardown<B, A, V, H>(
     registry: &mut NativeTextureBundleMountRegistry,
-    renderer: &mut NativeRenderer<B, A>,
+    renderer: &mut NativeRenderer<B, A, V>,
     host: &H,
     layout: ResolvedStageLayout,
     view: &ViewProjection,
@@ -206,6 +229,7 @@ pub fn render_frame_with_host_texture_lifecycle_sync_and_audio_teardown<B, A, H>
 where
     B: NativeRenderBackend + NativeTextureUploadSink,
     A: NativeAudioBackend,
+    V: NativeVideoBackend,
     H: NativeHostApi,
 {
     let previous_state = renderer.state().clone();
@@ -235,6 +259,21 @@ where
         *renderer.state_mut() = previous_state;
         return Err(error.into());
     }
+    let video_asset_report = match sync_video_assets_for_backend_if_needed(
+        renderer,
+        host,
+        &update.video_backend_commands,
+    ) {
+        Ok(report) => report,
+        Err(error) => {
+            *renderer.state_mut() = previous_state;
+            return Err(error.into());
+        }
+    };
+    if let Err(error) = renderer.apply_video_update(&update) {
+        *renderer.state_mut() = previous_state;
+        return Err(error.into());
+    }
 
     let frame = finish_texture_synced_frame(
         renderer,
@@ -246,6 +285,7 @@ where
         },
         texture_host_cleanup_report,
         audio_asset_report,
+        video_asset_report,
     )?;
     let bundle_lifecycle_report =
         sync_mounted_texture_bundle_lifecycle_from_host_and_audio_teardown(
@@ -259,8 +299,8 @@ where
 }
 
 #[allow(dead_code)]
-pub fn render_json_frame_with_host_texture_sync<B, A, H>(
-    renderer: &mut NativeRenderer<B, A>,
+pub fn render_json_frame_with_host_texture_sync<B, A, V, H>(
+    renderer: &mut NativeRenderer<B, A, V>,
     host: &H,
     input: &str,
 ) -> Result<NativeTextureSyncedFrameResult, NativeRendererJsonFrameError>
@@ -278,9 +318,9 @@ where
 }
 
 #[allow(dead_code)]
-pub fn render_json_frame_with_host_texture_lifecycle_sync<B, A, H>(
+pub fn render_json_frame_with_host_texture_lifecycle_sync<B, A, V, H>(
     registry: &mut NativeTextureBundleMountRegistry,
-    renderer: &mut NativeRenderer<B, A>,
+    renderer: &mut NativeRenderer<B, A, V>,
     host: &H,
     input: &str,
 ) -> Result<NativeTextureLifecycleSyncedFrameResult, NativeTextureJsonLifecycleFrameError>
@@ -298,15 +338,16 @@ where
     )?)
 }
 
-pub fn render_json_frame_with_host_texture_lifecycle_sync_and_audio_teardown<B, A, H>(
+pub fn render_json_frame_with_host_texture_lifecycle_sync_and_audio_teardown<B, A, V, H>(
     registry: &mut NativeTextureBundleMountRegistry,
-    renderer: &mut NativeRenderer<B, A>,
+    renderer: &mut NativeRenderer<B, A, V>,
     host: &H,
     input: &str,
 ) -> Result<NativeTextureLifecycleSyncedFrameResult, NativeTextureJsonLifecycleFrameError>
 where
     B: NativeRenderBackend + NativeTextureUploadSink,
     A: NativeAudioBackend,
+    V: NativeVideoBackend,
     H: NativeHostApi,
 {
     let input = parse_native_renderer_json_frame_input(input)?;
@@ -321,12 +362,13 @@ where
     )
 }
 
-fn finish_texture_synced_frame<B, A, H>(
-    renderer: &mut NativeRenderer<B, A>,
+fn finish_texture_synced_frame<B, A, V, H>(
+    renderer: &mut NativeRenderer<B, A, V>,
     host: &H,
     initial: NativeRendererFrameResult,
     texture_host_cleanup_report: NativeTextureHostCleanupSyncReport,
     audio_asset_report: Option<NativeAudioAssetHostSyncReport>,
+    video_asset_report: Option<NativeVideoAssetHostSyncReport>,
 ) -> Result<NativeTextureSyncedFrameResult, NativeRenderBackendError>
 where
     B: NativeRenderBackend + NativeTextureUploadSink,
@@ -348,6 +390,7 @@ where
             texture_host_cleanup_report,
             texture_upload_report,
             audio_asset_report,
+            video_asset_report,
             resubmitted_after_texture_upload: false,
         });
     }
@@ -365,12 +408,13 @@ where
         texture_host_cleanup_report,
         texture_upload_report,
         audio_asset_report,
+        video_asset_report,
         resubmitted_after_texture_upload: true,
     })
 }
 
-fn sync_audio_assets_for_backend_if_needed<B, A, H>(
-    renderer: &mut NativeRenderer<B, A>,
+fn sync_audio_assets_for_backend_if_needed<B, A, V, H>(
+    renderer: &mut NativeRenderer<B, A, V>,
     host: &H,
     plan: &quajs_wgpu_renderer::audio::AudioBackendCommandPlan,
 ) -> Result<Option<NativeAudioAssetHostSyncReport>, NativeAudioBackendError>
@@ -401,6 +445,38 @@ where
     Ok(Some(report))
 }
 
+fn sync_video_assets_for_backend_if_needed<B, A, V, H>(
+    renderer: &mut NativeRenderer<B, A, V>,
+    host: &H,
+    plan: &quajs_wgpu_renderer::video::VideoBackendCommandPlan,
+) -> Result<Option<NativeVideoAssetHostSyncReport>, NativeVideoBackendError>
+where
+    B: NativeRenderBackend,
+    V: NativeVideoBackend,
+    H: NativeHostApi,
+{
+    let wants_asset_loads = renderer
+        .video_backend()
+        .map(NativeVideoBackend::wants_video_asset_loads)
+        .unwrap_or(false);
+    if !wants_asset_loads {
+        return Ok(None);
+    }
+
+    let report = sync_video_assets_from_host(host, plan);
+    if !report.is_ok() {
+        return Err(NativeVideoBackendError::backend_rejected(
+            video_asset_sync_failure_message(&report),
+        ));
+    }
+    let backend_loads = report.backend_asset_loads();
+    if let Some(video_backend) = renderer.video_backend_mut() {
+        video_backend.apply_video_asset_loads(&backend_loads)?;
+    }
+
+    Ok(Some(report))
+}
+
 fn audio_asset_sync_failure_message(report: &NativeAudioAssetHostSyncReport) -> String {
     let Some(failure) = report.failures.first() else {
         return "Native audio asset sync failed.".to_string();
@@ -409,6 +485,18 @@ fn audio_asset_sync_failure_message(report: &NativeAudioAssetHostSyncReport) -> 
     let asset = failure.asset_name.as_deref().unwrap_or("unknown");
     format!(
         "Native audio asset sync failed for track \"{track}\" asset \"{asset}\": {}",
+        failure.message
+    )
+}
+
+fn video_asset_sync_failure_message(report: &NativeVideoAssetHostSyncReport) -> String {
+    let Some(failure) = report.failures.first() else {
+        return "Native video asset sync failed.".to_string();
+    };
+    let stream = failure.stream_id.as_deref().unwrap_or("unknown");
+    let asset = failure.asset_name.as_deref().unwrap_or("unknown");
+    format!(
+        "Native video asset sync failed for stream \"{stream}\" asset \"{asset}\": {}",
         failure.message
     )
 }
