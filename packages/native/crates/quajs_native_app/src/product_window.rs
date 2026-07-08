@@ -56,6 +56,7 @@ pub(crate) struct NativeProductWindowPresentation {
 pub(crate) struct NativeProductWindowPresentOutcome {
     pub(crate) present_status: &'static str,
     pub(crate) presented: bool,
+    pub(crate) surface_refresh_recommended: bool,
     pub(crate) submitted_command_buffer_count: usize,
 }
 
@@ -201,6 +202,7 @@ pub(crate) struct NativeProductWindowRuntime<H> {
     adapter: wgpu::Adapter,
     backend_config: WgpuNativeRenderBackendConfig,
     presentation: NativeProductWindowPresentation,
+    configured_physical_size: NativeProductWindowPhysicalSize,
 }
 
 impl<H> NativeProductWindowRuntime<H>
@@ -251,6 +253,10 @@ where
             surface_format: format!("{:?}", bootstrap.surface_config.config.format),
             present_mode: format!("{:?}", bootstrap.surface_config.config.present_mode),
         };
+        let configured_physical_size = NativeProductWindowPhysicalSize::new(
+            bootstrap.surface_config.config.width,
+            bootstrap.surface_config.config.height,
+        );
 
         Ok(Self {
             surface,
@@ -261,6 +267,7 @@ where
             adapter: bootstrap.adapter,
             backend_config,
             presentation,
+            configured_physical_size,
         })
     }
 
@@ -389,13 +396,20 @@ where
 
         self.presentation.surface_format = format!("{:?}", surface_config.config.format);
         self.presentation.present_mode = format!("{:?}", surface_config.config.present_mode);
+        self.configured_physical_size = NativeProductWindowPhysicalSize::new(
+            surface_config.config.width,
+            surface_config.config.height,
+        );
 
         Ok(NativeProductWindowResizeReport {
-            physical_size: NativeProductWindowPhysicalSize::new(
-                surface_config.config.width,
-                surface_config.config.height,
-            ),
+            physical_size: self.configured_physical_size,
         })
+    }
+
+    pub(crate) fn refresh_surface_configuration(
+        &mut self,
+    ) -> Result<NativeProductWindowResizeReport, NativeProductWindowError> {
+        self.resize_to_physical_size(self.configured_physical_size)
     }
 }
 
@@ -431,10 +445,17 @@ fn present_outcome_from_report(
         .as_ref()
         .map(|report| report.copy.submitted_command_buffer_count)
         .unwrap_or(offscreen_submitted_command_buffer_count);
+    let surface_refresh_recommended = present_report
+        .as_ref()
+        .map(|report| {
+            report.status == quajs_wgpu_renderer::renderer::RealWgpuSurfacePresentStatus::Suboptimal
+        })
+        .unwrap_or(false);
 
     NativeProductWindowPresentOutcome {
         present_status,
         presented,
+        surface_refresh_recommended,
         submitted_command_buffer_count,
     }
 }
@@ -494,6 +515,31 @@ mod tests {
 
         assert_eq!(outcome.present_status, "Presented");
         assert!(outcome.presented);
+        assert!(!outcome.surface_refresh_recommended);
+        assert_eq!(outcome.submitted_command_buffer_count, 4);
+    }
+
+    #[test]
+    fn present_outcome_marks_suboptimal_surface_for_refresh() {
+        let outcome = present_outcome_from_report(
+            Some(RealWgpuSurfacePresentReport {
+                copy: RealWgpuFrameCopyReport {
+                    extent: wgpu::Extent3d {
+                        width: 960,
+                        height: 540,
+                        depth_or_array_layers: 1,
+                    },
+                    color_format: wgpu::TextureFormat::Bgra8UnormSrgb,
+                    submitted_command_buffer_count: 4,
+                },
+                status: RealWgpuSurfacePresentStatus::Suboptimal,
+            }),
+            3,
+        );
+
+        assert_eq!(outcome.present_status, "Suboptimal");
+        assert!(outcome.presented);
+        assert!(outcome.surface_refresh_recommended);
         assert_eq!(outcome.submitted_command_buffer_count, 4);
     }
 
@@ -503,6 +549,7 @@ mod tests {
 
         assert_eq!(outcome.present_status, "OccludedAfterRetry");
         assert!(!outcome.presented);
+        assert!(!outcome.surface_refresh_recommended);
         assert_eq!(outcome.submitted_command_buffer_count, 3);
     }
 
