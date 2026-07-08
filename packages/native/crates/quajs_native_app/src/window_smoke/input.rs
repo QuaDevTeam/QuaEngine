@@ -1,9 +1,5 @@
-use quajs_native_runtime::{
-    InMemoryNativeHostApi, NativeHostApi, NativeHostApiError, NativeRendererIntent,
-};
-use quajs_wgpu_renderer::input::{
-    NativePointerButton, NativePointerEvent, NativePointerEventPhase,
-};
+use quajs_native_runtime::InMemoryNativeHostApi;
+use quajs_wgpu_renderer::input::{NativePointerButton, NativePointerEventPhase};
 use quajs_wgpu_renderer::renderer::{
     parse_native_renderer_json_frame_input, NativeRenderBackend, NativeRenderer,
 };
@@ -12,18 +8,20 @@ use quajs_wgpu_renderer::stage_layout::{
 };
 use winit::dpi::PhysicalPosition;
 use winit::event::{ElementState, Ime, KeyEvent};
-use winit::keyboard::{KeyCode, PhysicalKey};
+#[cfg(test)]
+use winit::keyboard::KeyCode;
+
+use crate::product_input::{
+    NativeProductFocusEventReport, NativeProductImeEventKind, NativeProductInputController,
+    NativeProductInputError, NativeProductKeyboardEventReport,
+};
 
 use super::error::NativeWindowSmokeError;
 
-mod conversion;
-mod keyboard;
+pub(super) use crate::product_input::{
+    pointer_button_from_winit, pointer_phase_from_element_state,
+};
 
-use conversion::logical_client_point_from_physical;
-pub(super) use conversion::{pointer_button_from_winit, pointer_phase_from_element_state};
-use keyboard::build_keyboard_input_command_payload;
-
-const WINDOW_SMOKE_POINTER_ID: u64 = 1;
 const WINDOW_SMOKE_OPEN_SETTINGS_CENTER: StageLogicalPoint =
     StageLogicalPoint { x: 408.0, y: 354.0 };
 
@@ -51,13 +49,13 @@ pub(super) struct NativeWindowSmokeInputMetrics {
 
 #[derive(Clone, Debug, Default)]
 pub(super) struct NativeWindowSmokeInputState {
-    cursor_client_point: Option<StageClientPoint>,
+    product_input: NativeProductInputController,
     metrics: NativeWindowSmokeInputMetrics,
 }
 
 impl NativeWindowSmokeInputState {
     pub(super) fn cursor_client_point(&self) -> Option<StageClientPoint> {
-        self.cursor_client_point
+        self.product_input.cursor_client_point()
     }
 
     pub(super) fn metrics(&self) -> &NativeWindowSmokeInputMetrics {
@@ -69,13 +67,12 @@ impl NativeWindowSmokeInputState {
         position: PhysicalPosition<f64>,
         scale_factor: f64,
     ) -> StageClientPoint {
-        let point = logical_client_point_from_physical(position, scale_factor);
-        self.cursor_client_point = Some(point);
-        point
+        self.product_input
+            .update_cursor_position(position, scale_factor)
     }
 
     pub(super) fn clear_cursor_position(&mut self) {
-        self.cursor_client_point = None;
+        self.product_input.clear_cursor_position();
     }
 
     pub(super) fn record_focus_event(&mut self, focused: bool) {
@@ -91,15 +88,11 @@ impl NativeWindowSmokeInputState {
         host: &mut InMemoryNativeHostApi,
         focused: bool,
     ) -> Result<(), NativeWindowSmokeError> {
-        self.record_focus_event(focused);
-        let event_type = if focused {
-            "window/focus"
-        } else {
-            "window/blur"
-        };
-        emit_native_renderer_intent(host, event_type, None)?;
-        self.metrics.focus_intent_emit_count =
-            self.metrics.focus_intent_emit_count.saturating_add(1);
+        let report = self
+            .product_input
+            .dispatch_focus_event(host, focused)
+            .map_err(input_error)?;
+        self.record_focus_report(report);
         Ok(())
     }
 
@@ -112,17 +105,15 @@ impl NativeWindowSmokeInputState {
         host: &mut InMemoryNativeHostApi,
         event: &KeyEvent,
     ) -> Result<(), NativeWindowSmokeError> {
-        match event.physical_key {
-            PhysicalKey::Code(code) => {
-                self.dispatch_keyboard_code(host, code, event.state, event.repeat)
-            }
-            PhysicalKey::Unidentified(_) => {
-                self.record_keyboard_event(event);
-                Ok(())
-            }
-        }
+        let report = self
+            .product_input
+            .dispatch_keyboard_event(host, event)
+            .map_err(input_error)?;
+        self.record_keyboard_report(report);
+        Ok(())
     }
 
+    #[cfg(test)]
     fn dispatch_keyboard_code(
         &mut self,
         host: &mut InMemoryNativeHostApi,
@@ -130,30 +121,27 @@ impl NativeWindowSmokeInputState {
         state: ElementState,
         repeat: bool,
     ) -> Result<(), NativeWindowSmokeError> {
-        self.record_keyboard_state(state, repeat);
-        let Some(payload) =
-            build_keyboard_input_command_payload(code, state, repeat, native_input_timestamp_ms())
-        else {
-            return Ok(());
-        };
-        emit_native_renderer_intent(host, "user/input_command", Some(payload))?;
-        self.metrics.keyboard_intent_emit_count =
-            self.metrics.keyboard_intent_emit_count.saturating_add(1);
+        let report = self
+            .product_input
+            .dispatch_keyboard_code(host, code, state, repeat)
+            .map_err(input_error)?;
+        self.record_keyboard_report(report);
         Ok(())
     }
 
     pub(super) fn record_ime_event(&mut self, event: &Ime) {
+        let report = NativeProductInputController::summarize_ime_event(event);
         self.metrics.ime_event_count = self.metrics.ime_event_count.saturating_add(1);
-        match event {
-            Ime::Preedit(text, _) => {
+        match report.kind {
+            NativeProductImeEventKind::Preedit => {
                 self.metrics.ime_preedit_count = self.metrics.ime_preedit_count.saturating_add(1);
-                self.metrics.ime_last_text_byte_count = Some(text.len());
+                self.metrics.ime_last_text_byte_count = report.text_byte_count;
             }
-            Ime::Commit(text) => {
+            NativeProductImeEventKind::Commit => {
                 self.metrics.ime_commit_count = self.metrics.ime_commit_count.saturating_add(1);
-                self.metrics.ime_last_text_byte_count = Some(text.len());
+                self.metrics.ime_last_text_byte_count = report.text_byte_count;
             }
-            Ime::Enabled | Ime::Disabled => {}
+            NativeProductImeEventKind::Enabled | NativeProductImeEventKind::Disabled => {}
         }
     }
 
@@ -164,7 +152,7 @@ impl NativeWindowSmokeInputState {
     where
         B: NativeRenderBackend,
     {
-        let canceled = renderer.cancel_pointer_interaction(WINDOW_SMOKE_POINTER_ID);
+        let canceled = self.product_input.cancel_pointer_interaction(renderer);
         if canceled {
             self.metrics.pointer_cancel_count = self.metrics.pointer_cancel_count.saturating_add(1);
         }
@@ -184,14 +172,12 @@ impl NativeWindowSmokeInputState {
     {
         self.metrics.pointer_event_count = self.metrics.pointer_event_count.saturating_add(1);
         let before_intent_count = host.renderer_intents().len();
-        let event = NativePointerEvent::new(phase, point, StageClientRectOrigin::default())
-            .with_pointer_id(WINDOW_SMOKE_POINTER_ID)
-            .with_button(button);
-        let dispatch = renderer
-            .pointer_event_and_emit_intent(event, host)
-            .map_err(pointer_host_error)?;
+        let dispatch = self
+            .product_input
+            .dispatch_pointer_event(renderer, host, phase, point, button)
+            .map_err(input_error)?;
 
-        if dispatch.is_some() {
+        if dispatch.dispatched {
             self.metrics.pointer_dispatch_count =
                 self.metrics.pointer_dispatch_count.saturating_add(1);
         }
@@ -229,6 +215,22 @@ impl NativeWindowSmokeInputState {
         if repeat {
             self.metrics.keyboard_repeat_count =
                 self.metrics.keyboard_repeat_count.saturating_add(1);
+        }
+    }
+
+    fn record_focus_report(&mut self, report: NativeProductFocusEventReport) {
+        self.record_focus_event(report.focused);
+        if report.intent_emitted {
+            self.metrics.focus_intent_emit_count =
+                self.metrics.focus_intent_emit_count.saturating_add(1);
+        }
+    }
+
+    fn record_keyboard_report(&mut self, report: NativeProductKeyboardEventReport) {
+        self.record_keyboard_state(report.state, report.repeat);
+        if report.intent_emitted {
+            self.metrics.keyboard_intent_emit_count =
+                self.metrics.keyboard_intent_emit_count.saturating_add(1);
         }
     }
 
@@ -274,38 +276,10 @@ impl NativeWindowSmokeInputState {
     }
 }
 
-fn pointer_host_error(error: NativeHostApiError) -> NativeWindowSmokeError {
+fn input_error(error: NativeProductInputError) -> NativeWindowSmokeError {
     NativeWindowSmokeError::new(format!(
-        "Native renderer smoke input intent failed: {}.",
-        error.message()
+        "Native renderer smoke input intent failed: {error}."
     ))
-}
-
-fn emit_native_renderer_intent(
-    host: &mut InMemoryNativeHostApi,
-    event_type: impl Into<String>,
-    payload: Option<serde_json::Value>,
-) -> Result<(), NativeWindowSmokeError> {
-    let payload_json = payload
-        .map(|value| serde_json::to_string(&value))
-        .transpose()
-        .map_err(|error| {
-            NativeWindowSmokeError::new(format!(
-                "Native renderer smoke input intent payload serialization failed: {error}."
-            ))
-        })?;
-    host.emit_renderer_intent(NativeRendererIntent {
-        r#type: event_type.into(),
-        payload_json,
-    })
-    .map_err(pointer_host_error)
-}
-
-fn native_input_timestamp_ms() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|duration| duration.as_millis().min(u128::from(u64::MAX)) as u64)
-        .unwrap_or(0)
 }
 
 #[cfg(test)]
