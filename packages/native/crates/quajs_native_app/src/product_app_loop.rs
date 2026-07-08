@@ -114,11 +114,13 @@ impl NativeProductAppLoop {
         self.lifecycle_and_maybe_redraw(true)
     }
 
+    #[cfg_attr(not(feature = "native-window"), allow(dead_code))]
     pub(crate) fn record_focus_changed(&mut self, focused: bool) -> NativeProductAppLoopAction {
         self.focused = focused;
         self.maybe_request_redraw()
     }
 
+    #[cfg_attr(not(feature = "native-window"), allow(dead_code))]
     pub(crate) fn record_surface_changed(&mut self) -> NativeProductAppLoopAction {
         self.maybe_request_redraw()
     }

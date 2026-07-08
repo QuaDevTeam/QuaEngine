@@ -49,6 +49,7 @@ where
         &mut self.renderer
     }
 
+    #[cfg_attr(not(feature = "native-window"), allow(dead_code))]
     pub(crate) fn renderer_and_host_mut(&mut self) -> (&mut NativeRenderer<B, A, V, F>, &mut H) {
         (&mut self.renderer, &mut self.host)
     }

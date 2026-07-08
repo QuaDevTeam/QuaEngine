@@ -40,9 +40,11 @@ impl NativeProductFramePresentFailureKind {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum NativeProductSurfaceRecoveryStatus {
+    #[cfg_attr(not(feature = "native-window"), allow(dead_code))]
     NotAttempted,
     Reconfigured,
     DeviceRebuilt,
+    #[cfg_attr(not(feature = "native-window"), allow(dead_code))]
     MissingSize,
     Error,
 }
@@ -182,6 +184,7 @@ impl NativeProductFrameScheduler {
             Some(NativeProductSurfaceRecoveryStatus::Reconfigured);
     }
 
+    #[cfg_attr(not(feature = "native-window"), allow(dead_code))]
     pub(crate) fn record_surface_recovery_missing_size(&mut self) {
         self.recovery_metrics.surface_recovery_missing_size_count = self
             .recovery_metrics
@@ -216,6 +219,7 @@ impl NativeProductFrameScheduler {
             Some(NativeProductSurfaceRecoveryStatus::DeviceRebuilt);
     }
 
+    #[cfg_attr(not(feature = "native-window"), allow(dead_code))]
     pub(crate) fn record_device_recovery_missing_size(&mut self) {
         self.recovery_metrics.device_recovery_missing_size_count = self
             .recovery_metrics
