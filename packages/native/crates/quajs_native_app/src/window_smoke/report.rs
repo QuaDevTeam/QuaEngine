@@ -23,6 +23,7 @@ pub struct NativeWindowSmokeReport {
     pub last_present_failure_kind: Option<String>,
     pub last_surface_present_failure_kind: Option<String>,
     pub last_surface_recovery_action: Option<String>,
+    pub last_surface_recovery_status: Option<String>,
     pub texture_upload_pending_request_count: usize,
     pub texture_upload_already_resident_count: usize,
     pub texture_upload_uploaded_count: usize,

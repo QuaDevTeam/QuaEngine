@@ -141,6 +141,7 @@ fn window_smoke_report_serializes_texture_lifecycle_metrics() {
         last_present_failure_kind: Some("recoverable-surface".to_string()),
         last_surface_present_failure_kind: Some("outdated".to_string()),
         last_surface_recovery_action: Some("recover-surface".to_string()),
+        last_surface_recovery_status: Some("reconfigured".to_string()),
         texture_upload_pending_request_count: 0,
         texture_upload_already_resident_count: 2,
         texture_upload_uploaded_count: 2,
@@ -218,6 +219,7 @@ fn window_smoke_report_serializes_texture_lifecycle_metrics() {
     assert_eq!(value["lastPresentFailureKind"], "recoverable-surface");
     assert_eq!(value["lastSurfacePresentFailureKind"], "outdated");
     assert_eq!(value["lastSurfaceRecoveryAction"], "recover-surface");
+    assert_eq!(value["lastSurfaceRecoveryStatus"], "reconfigured");
     assert_eq!(value["textureLifecycleSyncCount"], 1);
     assert_eq!(value["textureLifecycleInitialSyncCount"], 1);
     assert_eq!(value["textureLifecycleObservedBundleCount"], 2);
