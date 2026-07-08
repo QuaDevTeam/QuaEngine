@@ -11,11 +11,11 @@ use super::frame::{frame_json_for_window, normalized_physical_size, window_frame
 use super::input::NativeWindowSmokeInputState;
 use super::metrics::{NativeWindowSmokeAudioMetrics, NativeWindowSmokeTextureMetrics};
 use super::present::present_window_smoke_frame;
-use super::present_loop::NativeWindowSmokePresentLoop;
 use super::report::NativeWindowSmokeReport;
 use super::report_builder::{build_window_smoke_report, NativeWindowSmokeReportInput};
 use super::resize::NativeWindowSmokeResizeState;
 use super::texture_host::create_window_smoke_texture_host;
+use crate::product_frame_scheduler::NativeProductFrameScheduler;
 
 mod events;
 
@@ -25,9 +25,8 @@ pub(super) struct NativeWindowSmokeApp {
     runtime: Option<NativeWindowSmokeRuntime>,
     input: NativeWindowSmokeInputState,
     texture_metrics: NativeWindowSmokeTextureMetrics,
-    present_loop: NativeWindowSmokePresentLoop,
+    frame_scheduler: NativeProductFrameScheduler,
     resize_state: NativeWindowSmokeResizeState,
-    target_frame_count: usize,
     pub(super) report: Option<NativeWindowSmokeReport>,
     pub(super) error: Option<NativeWindowSmokeError>,
 }
@@ -40,9 +39,10 @@ impl NativeWindowSmokeApp {
             runtime: None,
             input: NativeWindowSmokeInputState::default(),
             texture_metrics: NativeWindowSmokeTextureMetrics::default(),
-            present_loop: NativeWindowSmokePresentLoop::default(),
+            frame_scheduler: NativeProductFrameScheduler::new(
+                load_window_smoke_target_frame_count(),
+            ),
             resize_state: NativeWindowSmokeResizeState::default(),
-            target_frame_count: load_window_smoke_target_frame_count(),
             report: None,
             error: None,
         }
@@ -127,7 +127,7 @@ impl NativeWindowSmokeApp {
         }
         let present_outcome = present_window_smoke_frame(runtime, allow_occluded_report)?;
         let input_metrics = self.input.metrics();
-        if product_frame.frame_number >= self.target_frame_count {
+        if product_frame.frame_number >= self.frame_scheduler.target_frame_count() {
             let shutdown = runtime.shutdown_with_audio_teardown().map_err(|error| {
                 NativeWindowSmokeError::new(format!(
                     "Native renderer smoke shutdown failed: {error}."
@@ -144,11 +144,11 @@ impl NativeWindowSmokeApp {
             present_mode: &runtime.present_mode,
             present_status: &present_outcome.present_status,
             presented: present_outcome.presented,
-            present_attempt_count: self.present_loop.attempt_count(),
-            target_frame_count: self.target_frame_count,
+            present_attempt_count: self.frame_scheduler.attempt_count(),
+            target_frame_count: self.frame_scheduler.target_frame_count(),
             rendered_frame_count: product_frame.frame_number,
             resize_count: self.resize_state.count(),
-            surface_recovery_count: self.present_loop.surface_recovery_count(),
+            surface_recovery_count: self.frame_scheduler.surface_recovery_count(),
             texture_metrics: &self.texture_metrics,
             audio_metrics: &audio_metrics,
             input_metrics,
@@ -222,7 +222,7 @@ impl NativeWindowSmokeApp {
         let size = self.window.as_ref().map(|window| window.inner_size());
         if let Some(size) = size {
             self.resize_surface(size)?;
-            self.present_loop.record_surface_recovery();
+            self.frame_scheduler.record_surface_recovery();
         }
         Ok(())
     }

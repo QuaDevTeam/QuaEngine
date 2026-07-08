@@ -1,0 +1,201 @@
+pub(crate) const DEFAULT_MAX_PRESENT_ATTEMPTS: usize = 8;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum NativeProductFramePresentFailureAction {
+    RetryRedraw,
+    RecoverSurface,
+    Fail,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum NativeProductFramePresentFailureKind {
+    OccludedOrTimedOut,
+    RecoverableSurface,
+    Fatal,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct NativeProductFrameAttempt {
+    pub(crate) allow_occluded_report: bool,
+    pub(crate) attempt_number: usize,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct NativeProductFrameScheduler {
+    target_frame_count: usize,
+    max_present_attempts: usize,
+    attempt_count: usize,
+    surface_recovery_count: usize,
+}
+
+impl NativeProductFrameScheduler {
+    pub(crate) fn new(target_frame_count: usize) -> Self {
+        Self::with_max_present_attempts(target_frame_count, DEFAULT_MAX_PRESENT_ATTEMPTS)
+    }
+
+    pub(crate) fn with_max_present_attempts(
+        target_frame_count: usize,
+        max_present_attempts: usize,
+    ) -> Self {
+        Self {
+            target_frame_count: target_frame_count.max(1),
+            max_present_attempts: max_present_attempts.max(1),
+            attempt_count: 0,
+            surface_recovery_count: 0,
+        }
+    }
+
+    pub(crate) fn target_frame_count(&self) -> usize {
+        self.target_frame_count
+    }
+
+    pub(crate) fn attempt_count(&self) -> usize {
+        self.attempt_count
+    }
+
+    pub(crate) fn surface_recovery_count(&self) -> usize {
+        self.surface_recovery_count
+    }
+
+    pub(crate) fn needs_more_frames(&self, rendered_frame_count: usize) -> bool {
+        rendered_frame_count < self.target_frame_count
+    }
+
+    pub(crate) fn begin_present_attempt(&mut self) -> NativeProductFrameAttempt {
+        self.attempt_count = self.attempt_count.saturating_add(1);
+        NativeProductFrameAttempt {
+            allow_occluded_report: self.attempt_count >= self.max_present_attempts,
+            attempt_number: self.attempt_count,
+        }
+    }
+
+    pub(crate) fn record_surface_recovery(&mut self) {
+        self.surface_recovery_count = self.surface_recovery_count.saturating_add(1);
+    }
+
+    pub(crate) fn classify_present_failure(
+        &self,
+        failure: NativeProductFramePresentFailureKind,
+    ) -> NativeProductFramePresentFailureAction {
+        if self.attempt_count >= self.max_present_attempts {
+            return NativeProductFramePresentFailureAction::Fail;
+        }
+
+        match failure {
+            NativeProductFramePresentFailureKind::OccludedOrTimedOut => {
+                NativeProductFramePresentFailureAction::RetryRedraw
+            }
+            NativeProductFramePresentFailureKind::RecoverableSurface => {
+                NativeProductFramePresentFailureAction::RecoverSurface
+            }
+            NativeProductFramePresentFailureKind::Fatal => {
+                NativeProductFramePresentFailureAction::Fail
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn defaults_zero_targets_to_one_projection_frame() {
+        let scheduler = NativeProductFrameScheduler::new(0);
+
+        assert_eq!(scheduler.target_frame_count(), 1);
+        assert!(scheduler.needs_more_frames(0));
+        assert!(!scheduler.needs_more_frames(1));
+    }
+
+    #[test]
+    fn reports_more_frames_until_the_target_count_is_reached() {
+        let scheduler = NativeProductFrameScheduler::new(3);
+
+        assert!(scheduler.needs_more_frames(0));
+        assert!(scheduler.needs_more_frames(2));
+        assert!(!scheduler.needs_more_frames(3));
+        assert!(!scheduler.needs_more_frames(4));
+    }
+
+    #[test]
+    fn allows_occluded_report_only_on_the_final_present_attempt() {
+        let mut scheduler = NativeProductFrameScheduler::with_max_present_attempts(1, 3);
+
+        assert_eq!(
+            scheduler.begin_present_attempt(),
+            NativeProductFrameAttempt {
+                attempt_number: 1,
+                allow_occluded_report: false,
+            },
+        );
+        assert_eq!(
+            scheduler.begin_present_attempt(),
+            NativeProductFrameAttempt {
+                attempt_number: 2,
+                allow_occluded_report: false,
+            },
+        );
+        assert_eq!(
+            scheduler.begin_present_attempt(),
+            NativeProductFrameAttempt {
+                attempt_number: 3,
+                allow_occluded_report: true,
+            },
+        );
+        assert_eq!(scheduler.attempt_count(), 3);
+    }
+
+    #[test]
+    fn classifies_retry_recover_and_fatal_present_failures() {
+        let mut scheduler = NativeProductFrameScheduler::with_max_present_attempts(1, 3);
+        scheduler.begin_present_attempt();
+
+        assert_eq!(
+            scheduler.classify_present_failure(
+                NativeProductFramePresentFailureKind::OccludedOrTimedOut,
+            ),
+            NativeProductFramePresentFailureAction::RetryRedraw,
+        );
+        assert_eq!(
+            scheduler.classify_present_failure(
+                NativeProductFramePresentFailureKind::RecoverableSurface,
+            ),
+            NativeProductFramePresentFailureAction::RecoverSurface,
+        );
+        assert_eq!(
+            scheduler.classify_present_failure(NativeProductFramePresentFailureKind::Fatal),
+            NativeProductFramePresentFailureAction::Fail,
+        );
+    }
+
+    #[test]
+    fn final_attempt_turns_retryable_failures_into_terminal_failures() {
+        let mut scheduler = NativeProductFrameScheduler::with_max_present_attempts(1, 2);
+        scheduler.begin_present_attempt();
+        scheduler.begin_present_attempt();
+
+        assert_eq!(
+            scheduler.classify_present_failure(
+                NativeProductFramePresentFailureKind::OccludedOrTimedOut,
+            ),
+            NativeProductFramePresentFailureAction::Fail,
+        );
+        assert_eq!(
+            scheduler.classify_present_failure(
+                NativeProductFramePresentFailureKind::RecoverableSurface,
+            ),
+            NativeProductFramePresentFailureAction::Fail,
+        );
+    }
+
+    #[test]
+    fn records_surface_recoveries_as_transient_scheduler_metrics() {
+        let mut scheduler = NativeProductFrameScheduler::new(1);
+
+        scheduler.record_surface_recovery();
+        scheduler.record_surface_recovery();
+
+        assert_eq!(scheduler.surface_recovery_count(), 2);
+    }
+}

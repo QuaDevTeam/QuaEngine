@@ -2,6 +2,7 @@ use quajs_wgpu_renderer::renderer::RealWgpuSurfacePresentReport;
 
 use super::bootstrap::NativeWindowSmokeRuntime;
 use super::error::NativeWindowSmokeError;
+use crate::product_frame_scheduler::NativeProductFramePresentFailureKind;
 
 pub(super) struct NativeWindowSmokePresentOutcome {
     pub present_status: String,
@@ -53,6 +54,18 @@ pub(super) fn is_occluded_or_timeout_present_error(error: &NativeWindowSmokeErro
 pub(super) fn is_recoverable_surface_present_error(error: &NativeWindowSmokeError) -> bool {
     let message = error.to_string();
     message.contains("surface was lost") || message.contains("surface configuration is outdated")
+}
+
+pub(super) fn present_failure_kind(
+    error: &NativeWindowSmokeError,
+) -> NativeProductFramePresentFailureKind {
+    if is_occluded_or_timeout_present_error(error) {
+        return NativeProductFramePresentFailureKind::OccludedOrTimedOut;
+    }
+    if is_recoverable_surface_present_error(error) {
+        return NativeProductFramePresentFailureKind::RecoverableSurface;
+    }
+    NativeProductFramePresentFailureKind::Fatal
 }
 
 fn present_outcome_from_report(

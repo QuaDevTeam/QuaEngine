@@ -6,7 +6,6 @@ mod frame;
 mod input;
 mod metrics;
 mod present;
-mod present_loop;
 mod report;
 mod report_builder;
 mod resize;

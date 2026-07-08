@@ -4,8 +4,9 @@ use winit::event_loop::ActiveEventLoop;
 use winit::window::WindowId;
 
 use super::NativeWindowSmokeApp;
+use crate::product_frame_scheduler::NativeProductFramePresentFailureAction;
 use crate::window_smoke::input::{pointer_button_from_winit, pointer_phase_from_element_state};
-use crate::window_smoke::present_loop::NativeWindowSmokePresentFailureAction;
+use crate::window_smoke::present::present_failure_kind;
 
 impl ApplicationHandler for NativeWindowSmokeApp {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
@@ -102,12 +103,12 @@ impl NativeWindowSmokeApp {
             .as_ref()
             .map(|runtime| runtime.rendered_frame_count())
             .unwrap_or(0);
-        rendered_frame_count < self.target_frame_count
+        self.frame_scheduler.needs_more_frames(rendered_frame_count)
     }
 
     fn redraw_once_or_schedule_retry(&mut self) -> bool {
-        let allow_occluded_report = self.present_loop.next_attempt_allows_occluded_report();
-        match self.render_once(allow_occluded_report) {
+        let attempt = self.frame_scheduler.begin_present_attempt();
+        match self.render_once(attempt.allow_occluded_report) {
             Ok(report) => {
                 self.report = Some(report);
                 if self.needs_more_frames() {
@@ -125,12 +126,15 @@ impl NativeWindowSmokeApp {
         &mut self,
         error: crate::window_smoke::NativeWindowSmokeError,
     ) -> bool {
-        match self.present_loop.classify_failure(&error) {
-            NativeWindowSmokePresentFailureAction::RetryRedraw => {
+        match self
+            .frame_scheduler
+            .classify_present_failure(present_failure_kind(&error))
+        {
+            NativeProductFramePresentFailureAction::RetryRedraw => {
                 self.request_redraw();
                 true
             }
-            NativeWindowSmokePresentFailureAction::RecoverSurface => {
+            NativeProductFramePresentFailureAction::RecoverSurface => {
                 if let Err(recovery_error) = self.recover_surface_from_window_size() {
                     self.error = Some(recovery_error);
                     false
@@ -139,7 +143,7 @@ impl NativeWindowSmokeApp {
                     true
                 }
             }
-            NativeWindowSmokePresentFailureAction::Fail => {
+            NativeProductFramePresentFailureAction::Fail => {
                 self.error = Some(error);
                 false
             }
