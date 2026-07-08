@@ -15,7 +15,7 @@ fn image_capability_declares_image_fit_and_origin_features() {
 }
 
 #[test]
-fn video_capability_is_poster_fallback_only_until_decode_backend_exists() {
+fn video_capability_stays_projection_scoped_for_optional_frame_backends() {
     let capabilities = native_wgpu_capabilities();
     let video = capability(&capabilities, "native-wgpu.video@1");
 

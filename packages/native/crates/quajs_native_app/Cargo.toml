@@ -9,11 +9,13 @@ version.workspace = true
 default = []
 image-decode = ["quajs_wgpu_renderer/image-decode"]
 native-font-ab-glyph = ["dep:ab_glyph"]
+native-video-gif = ["dep:image"]
 native-audio-rodio = ["dep:rodio"]
 quickjs-rquickjs = ["quajs_native_runtime/quickjs-rquickjs"]
 native-window = [
   "image-decode",
   "native-font-ab-glyph",
+  "native-video-gif",
   "dep:pollster",
   "dep:wgpu",
   "dep:winit",
@@ -22,6 +24,7 @@ native-window = [
 
 [dependencies]
 ab_glyph = { version = "0.2", optional = true }
+image = { version = "0.25", optional = true, default-features = false, features = ["gif"] }
 quajs_native_runtime = { path = "../quajs_native_runtime" }
 quajs_wgpu_renderer = { path = "../quajs_wgpu_renderer" }
 pollster = { version = "0.4.0", optional = true }

@@ -31,6 +31,8 @@ mod startup;
 mod target_bundle;
 #[cfg(any(test, feature = "image-decode"))]
 mod texture_sync;
+#[cfg(feature = "native-video-gif")]
+mod video_backend;
 #[cfg(any(test, feature = "image-decode"))]
 mod video_sync;
 #[cfg(feature = "native-window")]
