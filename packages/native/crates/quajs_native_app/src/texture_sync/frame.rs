@@ -2,13 +2,16 @@ use std::fmt::{Display, Formatter};
 
 use quajs_native_runtime::{NativeHostApi, NativeHostApiError};
 use quajs_wgpu_renderer::audio::{NativeAudioBackend, NativeAudioBackendError};
-use quajs_wgpu_renderer::fonts::{NativeFontBackend, NativeFontBackendError};
+use quajs_wgpu_renderer::fonts::{
+    FontBackendAtlasTexture, NativeFontBackend, NativeFontBackendError,
+};
 use quajs_wgpu_renderer::projection::view::ViewProjection;
 use quajs_wgpu_renderer::renderer::{
     parse_native_renderer_json_frame_input, NativeRenderBackend, NativeRenderBackendError,
     NativeRenderer, NativeRendererFrameError, NativeRendererFrameResult,
     NativeRendererJsonFrameError,
 };
+use quajs_wgpu_renderer::resources::ResourceId;
 use quajs_wgpu_renderer::stage_layout::ResolvedStageLayout;
 use quajs_wgpu_renderer::video::{NativeVideoBackend, NativeVideoBackendError};
 
@@ -24,7 +27,11 @@ use super::lifecycle::{
     NativeTextureBundleLifecycleSyncError, NativeTextureBundleLifecycleSyncReport,
     NativeTextureBundleMountRegistry,
 };
-use super::types::{NativeTextureUploadHostSyncReport, NativeTextureUploadSink};
+use super::types::{
+    NativeFontAtlasTextureSyncFailure, NativeFontAtlasTextureSyncFailureKind,
+    NativeFontAtlasTextureSyncReport, NativeTextureReleaseHostSyncFailure,
+    NativeTextureUploadHostSyncReport, NativeTextureUploadMetadata, NativeTextureUploadSink,
+};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct NativeTextureSyncedFrameResult {
@@ -34,6 +41,7 @@ pub struct NativeTextureSyncedFrameResult {
     pub audio_asset_report: Option<NativeAudioAssetHostSyncReport>,
     pub video_asset_report: Option<NativeVideoAssetHostSyncReport>,
     pub font_asset_report: Option<NativeFontAssetHostSyncReport>,
+    pub font_atlas_report: Option<NativeFontAtlasTextureSyncReport>,
     pub resubmitted_after_texture_upload: bool,
 }
 
@@ -216,6 +224,7 @@ where
         None,
         None,
         None,
+        None,
     )
 }
 
@@ -311,6 +320,7 @@ where
         *renderer.state_mut() = previous_state;
         return Err(error.into());
     }
+    let font_atlas_report = sync_font_atlas_textures_for_backend(renderer);
 
     let frame = finish_texture_synced_frame(
         renderer,
@@ -324,6 +334,7 @@ where
         audio_asset_report,
         video_asset_report,
         font_asset_report,
+        Some(font_atlas_report),
     )?;
     let bundle_lifecycle_report =
         sync_mounted_texture_bundle_lifecycle_from_host_and_media_teardown(
@@ -409,6 +420,7 @@ fn finish_texture_synced_frame<B, A, V, F, H>(
     audio_asset_report: Option<NativeAudioAssetHostSyncReport>,
     video_asset_report: Option<NativeVideoAssetHostSyncReport>,
     font_asset_report: Option<NativeFontAssetHostSyncReport>,
+    font_atlas_report: Option<NativeFontAtlasTextureSyncReport>,
 ) -> Result<NativeTextureSyncedFrameResult, NativeRenderBackendError>
 where
     B: NativeRenderBackend + NativeTextureUploadSink,
@@ -419,8 +431,12 @@ where
         renderer.backend_mut(),
         &initial.texture_upload_sync,
     );
+    let font_atlas_uploaded = font_atlas_report
+        .as_ref()
+        .map(|report| report.uploaded_count > 0)
+        .unwrap_or(false);
 
-    if texture_upload_report.uploaded_count == 0 {
+    if texture_upload_report.uploaded_count == 0 && !font_atlas_uploaded {
         let mut frame = initial;
         if texture_upload_report.released_orphaned_count > 0 {
             frame.texture_upload_sync = renderer.texture_upload_sync_for_update(&frame.update);
@@ -432,6 +448,7 @@ where
             audio_asset_report,
             video_asset_report,
             font_asset_report,
+            font_atlas_report,
             resubmitted_after_texture_upload: false,
         });
     }
@@ -451,6 +468,7 @@ where
         audio_asset_report,
         video_asset_report,
         font_asset_report,
+        font_atlas_report,
         resubmitted_after_texture_upload: true,
     })
 }
@@ -549,6 +567,110 @@ where
     }
 
     Ok(Some(report))
+}
+
+fn sync_font_atlas_textures_for_backend<B, A, V, F>(
+    renderer: &mut NativeRenderer<B, A, V, F>,
+) -> NativeFontAtlasTextureSyncReport
+where
+    B: NativeRenderBackend + NativeTextureUploadSink,
+    F: NativeFontBackend,
+{
+    let Some(font_backend) = renderer.font_backend_mut() else {
+        return NativeFontAtlasTextureSyncReport::default();
+    };
+    let releases = font_backend.drain_font_atlas_texture_releases();
+    let atlases = font_backend.drain_font_atlas_textures();
+    let mut report = NativeFontAtlasTextureSyncReport {
+        pending_upload_count: atlases.len(),
+        release_candidate_count: releases.len(),
+        ..Default::default()
+    };
+
+    for resource_id in releases {
+        release_font_atlas_texture(renderer.backend_mut(), resource_id, &mut report);
+    }
+    for atlas in atlases {
+        upload_font_atlas_texture(renderer.backend_mut(), atlas, &mut report);
+    }
+
+    report
+}
+
+fn release_font_atlas_texture<S>(
+    sink: &mut S,
+    resource_id: ResourceId,
+    report: &mut NativeFontAtlasTextureSyncReport,
+) where
+    S: NativeTextureUploadSink,
+{
+    match sink.release_texture_resource(&resource_id) {
+        Ok(true) => {
+            report.released_count += 1;
+            report.released_resource_ids.push(resource_id);
+        }
+        Ok(false) => {
+            report.missing_release_count += 1;
+            report.missing_release_resource_ids.push(resource_id);
+        }
+        Err(error) => {
+            report.record_release_failure(NativeTextureReleaseHostSyncFailure {
+                resource_id,
+                message: error.to_string(),
+            });
+        }
+    }
+}
+
+fn upload_font_atlas_texture<S>(
+    sink: &mut S,
+    atlas: FontBackendAtlasTexture,
+    report: &mut NativeFontAtlasTextureSyncReport,
+) where
+    S: NativeTextureUploadSink,
+{
+    let expected_len = atlas
+        .width
+        .checked_mul(atlas.height)
+        .and_then(|pixel_count| pixel_count.checked_mul(4))
+        .map(|byte_len| byte_len as usize);
+    if atlas.width == 0
+        || atlas.height == 0
+        || expected_len
+            .map(|len| len != atlas.rgba.len())
+            .unwrap_or(true)
+    {
+        report.record_failure(NativeFontAtlasTextureSyncFailure {
+            kind: NativeFontAtlasTextureSyncFailureKind::InvalidAtlas,
+            resource_id: atlas.resource_id,
+            message: "Native font atlas texture must contain positive RGBA8 dimensions and matching byte length.".to_string(),
+        });
+        return;
+    }
+
+    let metadata = NativeTextureUploadMetadata {
+        owner_package_id: atlas.owner_package_id,
+        required_package_ids: atlas.required_package_ids,
+    };
+    match sink.upload_decoded_texture_rgba8(
+        &atlas.resource_id,
+        atlas.width,
+        atlas.height,
+        &atlas.rgba,
+        metadata,
+    ) {
+        Ok(()) => {
+            report.uploaded_count += 1;
+            report.uploaded_resource_ids.push(atlas.resource_id);
+        }
+        Err(error) => {
+            report.record_failure(NativeFontAtlasTextureSyncFailure {
+                kind: NativeFontAtlasTextureSyncFailureKind::UploadError,
+                resource_id: atlas.resource_id,
+                message: error.to_string(),
+            });
+        }
+    }
 }
 
 fn audio_asset_sync_failure_message(report: &NativeAudioAssetHostSyncReport) -> String {

@@ -1,3 +1,4 @@
+use std::collections::BTreeSet;
 use std::fmt::{Display, Formatter};
 
 use super::commands::{FontBackendCommandPlan, FontBackendFaceStateMap};
@@ -43,6 +44,55 @@ impl std::error::Error for NativeFontBackendError {}
 
 pub type NativeFontBackendResult = Result<(), NativeFontBackendError>;
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct FontBackendAtlasTexture {
+    pub resource_id: ResourceId,
+    pub width: u32,
+    pub height: u32,
+    pub rgba: Vec<u8>,
+    pub owner_package_id: Option<String>,
+    pub required_package_ids: BTreeSet<String>,
+}
+
+impl FontBackendAtlasTexture {
+    pub fn new(
+        resource_id: impl Into<ResourceId>,
+        width: u32,
+        height: u32,
+        rgba: impl Into<Vec<u8>>,
+    ) -> Self {
+        Self {
+            resource_id: resource_id.into(),
+            width,
+            height,
+            rgba: rgba.into(),
+            owner_package_id: None,
+            required_package_ids: BTreeSet::new(),
+        }
+    }
+
+    pub fn owned_by(mut self, package_id: impl Into<String>) -> Self {
+        self.owner_package_id = Some(package_id.into());
+        self
+    }
+
+    pub fn require_package(mut self, package_id: impl Into<String>) -> Self {
+        self.required_package_ids.insert(package_id.into());
+        self
+    }
+
+    pub fn require_packages<I, S>(mut self, package_ids: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        for package_id in package_ids {
+            self.required_package_ids.insert(package_id.into());
+        }
+        self
+    }
+}
+
 pub trait NativeFontBackend {
     fn wants_font_asset_loads(&self) -> bool {
         false
@@ -56,6 +106,14 @@ pub trait NativeFontBackend {
     }
 
     fn apply_font_commands(&mut self, plan: &FontBackendCommandPlan) -> NativeFontBackendResult;
+
+    fn drain_font_atlas_textures(&mut self) -> Vec<FontBackendAtlasTexture> {
+        Vec::new()
+    }
+
+    fn drain_font_atlas_texture_releases(&mut self) -> Vec<ResourceId> {
+        Vec::new()
+    }
 }
 
 impl NativeFontBackend for () {

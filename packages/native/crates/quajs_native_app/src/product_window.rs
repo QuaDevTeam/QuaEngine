@@ -13,6 +13,7 @@ use quajs_wgpu_renderer::renderer::{
 
 #[cfg(feature = "native-audio-rodio")]
 use crate::audio_backend::RodioNativeAudioBackend;
+use crate::font_backend::SimpleNativeFontAtlasBackend;
 use crate::product_frame_scheduler::NativeProductFramePresentFailureKind;
 use crate::product_loop::NativeProductLoopFrameResult;
 use crate::product_runtime::NativeProductRuntime;
@@ -31,14 +32,25 @@ pub(crate) type NativeProductWindowAudioBackend = RodioNativeAudioBackend;
 #[cfg(not(feature = "native-audio-rodio"))]
 pub(crate) type NativeProductWindowAudioBackend = NullNativeAudioBackend;
 
-pub(crate) type NativeProductWindowRenderer =
-    NativeRenderer<NativeProductWindowBackend, NativeProductWindowAudioBackend>;
+pub(crate) type NativeProductWindowFontBackend = SimpleNativeFontAtlasBackend;
+
+pub(crate) type NativeProductWindowRenderer = NativeRenderer<
+    NativeProductWindowBackend,
+    NativeProductWindowAudioBackend,
+    (),
+    NativeProductWindowFontBackend,
+>;
 
 pub(crate) type NativeProductWindowInMemoryRuntime =
     NativeProductWindowRuntime<InMemoryNativeHostApi>;
 
-type RealWgpuProductRuntime<H> =
-    NativeProductRuntime<NativeProductWindowBackend, NativeProductWindowAudioBackend, H>;
+type RealWgpuProductRuntime<H> = NativeProductRuntime<
+    NativeProductWindowBackend,
+    NativeProductWindowAudioBackend,
+    H,
+    (),
+    NativeProductWindowFontBackend,
+>;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct NativeProductWindowPhysicalSize {
@@ -282,12 +294,13 @@ where
                 "failed to initialize native product window audio backend: {error}"
             ))
         })?;
+        let font_backend = create_product_window_font_backend();
 
         Ok(Self {
             instance: instance.clone(),
             surface,
             product: NativeProductRuntime::new(
-                NativeRenderer::with_audio_backend(backend, audio_backend),
+                NativeRenderer::with_audio_font_backend(backend, audio_backend, font_backend),
                 host,
             ),
             adapter: bootstrap.adapter,
@@ -491,6 +504,10 @@ fn create_product_window_audio_backend(
 fn create_product_window_audio_backend(
 ) -> Result<NativeProductWindowAudioBackend, NativeAudioBackendError> {
     Ok(NullNativeAudioBackend::new())
+}
+
+fn create_product_window_font_backend() -> NativeProductWindowFontBackend {
+    SimpleNativeFontAtlasBackend::new()
 }
 
 fn classify_present_failure_message(message: &str) -> NativeProductWindowPresentFailureKind {

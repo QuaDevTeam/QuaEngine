@@ -386,6 +386,19 @@ mod tests {
             Ok(())
         }
 
+        fn upload_decoded_texture_rgba8(
+            &mut self,
+            resource_id: &ResourceId,
+            _width: u32,
+            _height: u32,
+            _rgba: &[u8],
+            _metadata: crate::texture_sync::NativeTextureUploadMetadata,
+        ) -> Result<(), Self::Error> {
+            self.resident_resource_ids
+                .push(resource_id.as_str().to_string());
+            Ok(())
+        }
+
         fn release_texture_resource(
             &mut self,
             resource_id: &ResourceId,
