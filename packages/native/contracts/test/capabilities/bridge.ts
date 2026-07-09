@@ -26,6 +26,9 @@ describe('native host bridge adapter contracts', () => {
       codeBytes: 36,
       totalBytes: 39,
     } as const
+    const rendererIntents = [
+      createNativeRendererIntent({ type: 'choice/select', payload: { choiceId: 'stay' } }),
+    ]
     const host = createNativeHostApiFromBridge(async (request) => {
       requests.push(request)
       switch (request.method) {
@@ -45,6 +48,8 @@ describe('native host bridge adapter contracts', () => {
         case 'deleteStorage':
         case 'emitRendererIntent':
           return { ok: true }
+        case 'drainRendererIntents':
+          return { ok: true, payload: { type: 'rendererIntents', value: rendererIntents } }
         case 'listStorageKeys':
           return { ok: true, payload: { type: 'storageKeys', value: ['profile/save-1'] } }
         case 'hashBytes':
@@ -253,6 +258,7 @@ describe('native host bridge adapter contracts', () => {
       totalBytes: 0,
     })
     await expect(host.listMountedBundles?.()).resolves.toEqual([{ name: 'base' }])
+    await expect(host.drainRendererIntents?.()).resolves.toEqual(rendererIntents)
     host.emitRendererIntent?.(createNativeRendererIntent({ type: 'ui/intent', payload: { action: 'close' } }))
 
     expect(requests).toEqual(expect.arrayContaining([
@@ -293,6 +299,7 @@ describe('native host bridge adapter contracts', () => {
       { method: 'releaseQuickJsPackageNamespaces', params: { packageId: 'runtime.chapter.native-ui' } },
       { method: 'getQuickJsNamespaceSummary' },
       { method: 'getQuickJsPackageNamespaceSummary', params: { packageId: 'runtime.chapter.native-ui' } },
+      { method: 'drainRendererIntents' },
       { method: 'emitRendererIntent', params: { type: 'ui/intent', payloadJson: '{"action":"close"}' } },
     ]))
   })

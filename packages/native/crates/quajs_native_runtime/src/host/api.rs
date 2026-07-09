@@ -141,6 +141,7 @@ pub trait NativeHostApi {
     fn verify_signature(&self, request: &NativeSignatureVerifyRequest)
         -> NativeHostApiResult<bool>;
     fn emit_renderer_intent(&mut self, event: NativeRendererIntent) -> NativeHostApiResult<()>;
+    fn drain_renderer_intents(&mut self) -> NativeHostApiResult<Vec<NativeRendererIntent>>;
 }
 
 #[derive(Debug, Clone)]
@@ -242,6 +243,10 @@ impl NativeHostApi for InMemoryNativeHostApi {
     fn emit_renderer_intent(&mut self, event: NativeRendererIntent) -> NativeHostApiResult<()> {
         self.renderer_intents.push(event);
         Ok(())
+    }
+
+    fn drain_renderer_intents(&mut self) -> NativeHostApiResult<Vec<NativeRendererIntent>> {
+        Ok(std::mem::take(&mut self.renderer_intents))
     }
 }
 

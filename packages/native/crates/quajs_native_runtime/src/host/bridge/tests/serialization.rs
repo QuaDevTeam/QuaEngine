@@ -1,7 +1,7 @@
 use crate::host::bridge::{
     NativeAssetReadRequest, NativeHostApiRequest, NativeHostApiResponse,
     NativeHostApiResponsePayload, NativeQuickJsReleaseNamespaceRequest,
-    NativeQuickJsReleasePackageRequest,
+    NativeQuickJsReleasePackageRequest, NativeRendererIntent,
 };
 use crate::quickjs::{QuickJsModuleExportCallRequest, QuickJsModuleExportCallResponse};
 
@@ -91,5 +91,26 @@ fn serializes_bridge_requests_and_responses_with_ts_field_names() {
     assert_eq!(
         package_summary["params"]["packageId"],
         "runtime.chapter.native-ui"
+    );
+
+    let drain_request = serde_json::to_value(NativeHostApiRequest::DrainRendererIntents).unwrap();
+    assert_eq!(drain_request["method"], "drainRendererIntents");
+    assert!(drain_request.get("params").is_none());
+
+    let intent_response = serde_json::to_value(NativeHostApiResponse::success(
+        NativeHostApiResponsePayload::RendererIntents(vec![NativeRendererIntent {
+            r#type: "choice/select".to_string(),
+            payload_json: Some("{\"choiceId\":\"stay\"}".to_string()),
+        }]),
+    ))
+    .unwrap();
+    assert_eq!(intent_response["payload"]["type"], "rendererIntents");
+    assert_eq!(
+        intent_response["payload"]["value"][0]["type"],
+        "choice/select"
+    );
+    assert_eq!(
+        intent_response["payload"]["value"][0]["payloadJson"],
+        "{\"choiceId\":\"stay\"}"
     );
 }

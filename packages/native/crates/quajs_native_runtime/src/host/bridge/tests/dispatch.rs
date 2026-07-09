@@ -92,6 +92,19 @@ fn dispatches_host_info_assets_storage_and_renderer_intents() {
         host.renderer_intents()[0].payload_json.as_deref(),
         Some("{\"action\":\"close\"}")
     );
+
+    let drained =
+        dispatch_native_host_api_request(&mut host, NativeHostApiRequest::DrainRendererIntents);
+    assert_eq!(
+        drained.payload,
+        Some(NativeHostApiResponsePayload::RendererIntents(vec![
+            NativeRendererIntent {
+                r#type: "ui/intent".to_string(),
+                payload_json: Some("{\"action\":\"close\"}".to_string()),
+            }
+        ]))
+    );
+    assert!(host.renderer_intents().is_empty());
 }
 
 #[test]
@@ -107,6 +120,10 @@ fn serializes_renderer_intent_requests_with_ts_wire_fields() {
     assert_eq!(json["params"]["type"], "choice/select");
     assert_eq!(json["params"]["payloadJson"], "{\"choiceId\":\"stay\"}");
     assert!(json["params"].get("payload_json").is_none());
+
+    let drain_json = serde_json::to_value(NativeHostApiRequest::DrainRendererIntents).unwrap();
+    assert_eq!(drain_json["method"], "drainRendererIntents");
+    assert!(drain_json.get("params").is_none());
 }
 
 #[test]
