@@ -1,6 +1,12 @@
 import { MemoryAssetStorage } from '@quajs/assets'
 import type { ViewChoiceProjection } from '@quajs/engine'
+import type { QuaNativeHostInfo, TargetBundleManifest } from '@quajs/native-contracts'
 import { emitRenderToLogic, QuaEngine, RenderToLogicEvents } from '@quajs/engine'
+import {
+  getTargetCorePluginFamily,
+  getTargetCoreResolverId,
+  NATIVE_TARGET_BOOTSTRAP,
+} from '@quajs/native-contracts'
 import { setBackgroundWithEngine } from '@quajs/plugin-background'
 import {
   backgroundDecoratorMappings,
@@ -20,6 +26,36 @@ describe('@quajs/engine-native runtime product smoke', () => {
   afterEach(() => {
     QuaEngine.resetInstance()
   })
+
+  it('gates the real native QuickJS bridge with target bundle manifest runtime metadata', async () => {
+    const probe = await createRealNativeQuickJsBridge()
+    const targetBundleManifest = createNativeTargetBundleManifestFromHostInfo(probe.startupHostInfo)
+    await probe.close()
+
+    const bridge = await createRealNativeQuickJsBridge({ targetBundleManifest })
+    try {
+      expect(bridge.startupHostInfo.runtime).toEqual(targetBundleManifest.nativeRuntime)
+      expect(bridge.startupHostInfo.renderer.capabilityManifestHash).toBe(
+        targetBundleManifest.nativeRenderer?.capabilityManifestHash,
+      )
+      expect(bridge.requests[0]).toEqual(expect.objectContaining({
+        method: 'getHostInfo',
+      }))
+    }
+    finally {
+      await bridge.close()
+    }
+
+    await expect(createRealNativeQuickJsBridge({
+      targetBundleManifest: {
+        ...targetBundleManifest,
+        nativeRuntime: {
+          ...targetBundleManifest.nativeRuntime!,
+          quickjsVersion: 'stale-quickjs',
+        },
+      },
+    })).rejects.toThrow(/nativeRuntime\.quickjsVersion "stale-quickjs" does not match host runtime value/)
+  }, 180_000)
 
   it('loads a runtime QPK through real native QuickJS and renders the engine projection in Rust', async () => {
     const bridge = await createRealNativeQuickJsBridge()
@@ -799,4 +835,49 @@ function setUint64LE(view: DataView, offset: number, value: number): void {
 
 function utf8(value: string): Uint8Array {
   return new TextEncoder().encode(value)
+}
+
+function createNativeTargetBundleManifestFromHostInfo(hostInfo: QuaNativeHostInfo): TargetBundleManifest {
+  const rendererEntry = { specifier: '@quajs/native-renderer/builtin', target: 'native' as const }
+  return {
+    schemaVersion: 1,
+    target: 'native',
+    profile: hostInfo.app.profile,
+    platform: hostInfo.app.platform,
+    app: {
+      bundleId: hostInfo.app.bundleId,
+      version: hostInfo.app.version,
+      buildNumber: hostInfo.app.buildNumber,
+      icon: 'AppIcon.icns',
+    },
+    nativeRenderer: {
+      packageName: hostInfo.renderer.packageName,
+      version: hostInfo.renderer.version,
+      backend: hostInfo.renderer.backend,
+      ...(hostInfo.renderer.backendVersion ? { backendVersion: hostInfo.renderer.backendVersion } : {}),
+      capabilityIds: hostInfo.renderer.capabilities.map(capability => capability.id),
+      capabilityManifestHash: hostInfo.renderer.capabilityManifestHash,
+    },
+    nativeRuntime: { ...hostInfo.runtime },
+    targetCoreResolver: getTargetCoreResolverId('native'),
+    selectedCorePluginFamily: getTargetCorePluginFamily('native'),
+    selectedCoreAdapters: NATIVE_TARGET_BOOTSTRAP.coreAdapters,
+    dependencies: [
+      '@quajs/engine',
+      '@quajs/pipeline',
+      ...NATIVE_TARGET_BOOTSTRAP.coreAdapters,
+    ],
+    rendererEntries: [rendererEntry],
+    runtimePackages: [],
+    projectGraphs: [{
+      id: `native.${hostInfo.app.profile}.${hostInfo.app.platform}.post-bundle`,
+      kind: 'post-bundle',
+      references: [
+        '@quajs/engine',
+        '@quajs/pipeline',
+        ...NATIVE_TARGET_BOOTSTRAP.coreAdapters,
+        rendererEntry,
+      ],
+    }],
+  }
 }

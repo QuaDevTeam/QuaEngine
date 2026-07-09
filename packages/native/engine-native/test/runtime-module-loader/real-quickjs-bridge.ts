@@ -1,4 +1,10 @@
-import type { NativeHostApiRequest, NativeHostApiResponse, QuaNativeHostApi } from '@quajs/native-contracts'
+import type {
+  NativeHostApiRequest,
+  NativeHostApiResponse,
+  QuaNativeHostApi,
+  QuaNativeHostInfo,
+  TargetBundleManifest,
+} from '@quajs/native-contracts'
 import type { ChildProcessWithoutNullStreams } from 'node:child_process'
 import { spawn } from 'node:child_process'
 import { once } from 'node:events'
@@ -18,6 +24,11 @@ export interface RealNativeQuickJsBridge {
   close: () => Promise<void>
   host: QuaNativeHostApi
   requests: NativeHostApiRequest[]
+  startupHostInfo: QuaNativeHostInfo
+}
+
+export interface CreateRealNativeQuickJsBridgeOptions {
+  targetBundleManifest?: TargetBundleManifest
 }
 
 const CURRENT_DIR = fileURLToPath(new URL('.', import.meta.url))
@@ -34,8 +45,16 @@ const NATIVE_CARGO_ARGS = [
 ]
 const RENDERER_SMOKE_JSON_PREFIX = 'Qua native renderer smoke json: '
 
-export async function createRealNativeQuickJsBridge(): Promise<RealNativeQuickJsBridge> {
-  const child = spawnNativeApp({ QUA_NATIVE_QUICKJS_BRIDGE: '1' })
+export async function createRealNativeQuickJsBridge(
+  options: CreateRealNativeQuickJsBridgeOptions = {},
+): Promise<RealNativeQuickJsBridge> {
+  const manifestPath = options.targetBundleManifest
+    ? await writeNativeTargetBundleManifest(options.targetBundleManifest)
+    : undefined
+  const child = spawnNativeApp({
+    QUA_NATIVE_QUICKJS_BRIDGE: '1',
+    ...(manifestPath ? { QUA_NATIVE_TARGET_BUNDLE_MANIFEST: manifestPath } : {}),
+  })
   const stderr: string[] = []
   const pending: PendingBridgeRequest[] = []
   const requests: NativeHostApiRequest[] = []
@@ -87,24 +106,30 @@ export async function createRealNativeQuickJsBridge(): Promise<RealNativeQuickJs
 
   const host = createNativeHostApiFromBridge(dispatch)
   try {
-    await host.getHostInfo()
+    const startupHostInfo = await host.getHostInfo()
+    return {
+      host,
+      requests,
+      startupHostInfo,
+      async close() {
+        stdout.close()
+        try {
+          if (!closed) {
+            child.stdin.end()
+            await waitForExitOrKill(child)
+          }
+        }
+        finally {
+          await cleanupNativeTargetBundleManifest(manifestPath)
+        }
+      },
+    }
   }
   catch (error) {
     child.stdin.end()
     child.kill('SIGKILL')
+    await cleanupNativeTargetBundleManifest(manifestPath)
     throw error
-  }
-
-  return {
-    host,
-    requests,
-    async close() {
-      stdout.close()
-      if (closed)
-        return
-      child.stdin.end()
-      await waitForExitOrKill(child)
-    },
   }
 }
 
@@ -174,8 +199,25 @@ function nativeAppEnv(extraEnv: Record<string, string>): NodeJS.ProcessEnv {
     ...process.env,
     ...extraEnv,
   }
-  delete env.QUA_NATIVE_TARGET_BUNDLE_MANIFEST
+  if (!('QUA_NATIVE_TARGET_BUNDLE_MANIFEST' in extraEnv)) {
+    delete env.QUA_NATIVE_TARGET_BUNDLE_MANIFEST
+  }
   return env
+}
+
+async function writeNativeTargetBundleManifest(manifest: TargetBundleManifest): Promise<string> {
+  const manifestPath = join(
+    tmpdir(),
+    `quajs-engine-native-target-bundle-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}.json`,
+  )
+  await writeFile(manifestPath, JSON.stringify(manifest), 'utf8')
+  return manifestPath
+}
+
+async function cleanupNativeTargetBundleManifest(manifestPath: string | undefined): Promise<void> {
+  if (manifestPath) {
+    await rm(manifestPath, { force: true })
+  }
 }
 
 async function waitForExitOrKill(child: ChildProcessWithoutNullStreams): Promise<void> {
