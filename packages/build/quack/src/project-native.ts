@@ -21,6 +21,11 @@ import { join } from 'node:path'
 import { isDeepStrictEqual } from 'node:util'
 import { createTargetCoreSelection } from '@quajs/native-contracts'
 import {
+  hasQuaProjectNativeCargoFeature,
+  QUA_NATIVE_QUICKJS_CARGO_FEATURE,
+  type QuaProjectNativeBuildConfig,
+} from './project-native-build'
+import {
   emitQuaTargetBundleManifest,
   QUA_TARGET_BUNDLE_MANIFEST_FILE,
 } from './project-target-bundle'
@@ -42,7 +47,7 @@ export interface QuaProjectNativeArtifactPlan {
   }
   layout: QuaProjectLayoutInput
   assetTarget?: AssetBundleTarget
-  build: Record<string, unknown>
+  build: QuaProjectNativeBuildConfig
 }
 
 export interface QuaProjectNativeTargetBundleManifestOptions {
@@ -94,6 +99,7 @@ export function createQuaProjectNativeTargetBundleManifest(
   plan: QuaProjectNativeArtifactPlan,
   options: QuaProjectNativeTargetBundleManifestOptions,
 ): TargetBundleManifest {
+  assertNativeQuickJsCargoFeature(plan, options.nativeRuntime)
   const targetCore = createTargetCoreSelection('native')
   const dependencies = options.dependencies || []
   const rendererEntries = options.rendererEntries || []
@@ -134,6 +140,21 @@ export async function emitQuaProjectNativeTargetBundleManifest(
     manifest,
     manifestPath,
   })
+}
+
+function assertNativeQuickJsCargoFeature(
+  plan: QuaProjectNativeArtifactPlan,
+  nativeRuntime: TargetBundleNativeRuntimeInfo,
+): void {
+  if (nativeRuntime.quickjsVersion === 'unsupported') {
+    return
+  }
+  if (hasQuaProjectNativeCargoFeature(plan.build, QUA_NATIVE_QUICKJS_CARGO_FEATURE)) {
+    return
+  }
+  throw new Error(
+    `Native ${plan.profile}/${plan.platform} artifact declares QuickJS runtime "${nativeRuntime.quickjsVersion}" but targets.native.build.cargoFeatures does not include "${QUA_NATIVE_QUICKJS_CARGO_FEATURE}". Add that Cargo feature or emit nativeRuntime.quickjsVersion: "unsupported" for no-QuickJS builds.`,
+  )
 }
 
 function sanitizePathSegment(value: string): string {

@@ -26,6 +26,7 @@ import {
   mergeQuaProjectAssetTargets,
   normalizeQuaProjectConfig,
   QUA_NATIVE_TARGET_BUNDLE_MANIFEST_FILE,
+  QUA_NATIVE_QUICKJS_CARGO_FEATURE,
   QUA_TARGET_BUNDLE_MANIFEST_FILE,
   syncQuaProjectCocos,
 } from '../src/project'
@@ -249,6 +250,9 @@ describe('qua project config', () => {
             buildNumber: '42',
             icon: 'assets/app/icon.png',
           },
+          build: {
+            features: `native-window ${QUA_NATIVE_QUICKJS_CARGO_FEATURE} ${QUA_NATIVE_QUICKJS_CARGO_FEATURE}`,
+          },
         },
       },
     })
@@ -264,6 +268,9 @@ describe('qua project config', () => {
         version: '1.0.0',
         buildNumber: '42',
         icon: 'assets/app/icon.png',
+      },
+      build: {
+        cargoFeatures: ['native-window', QUA_NATIVE_QUICKJS_CARGO_FEATURE],
       },
     })
   })
@@ -290,6 +297,7 @@ describe('qua project config', () => {
           },
           build: {
             hardening: true,
+            cargoFeatures: ['native-window', QUA_NATIVE_QUICKJS_CARGO_FEATURE],
           },
         },
       },
@@ -322,6 +330,7 @@ describe('qua project config', () => {
       },
       build: {
         hardening: true,
+        cargoFeatures: ['native-window', QUA_NATIVE_QUICKJS_CARGO_FEATURE],
       },
     })
     expect(new Set(plans.map(plan => plan.versionSegment))).toEqual(new Set(['1.2.3-beta-build-42']))
@@ -341,6 +350,7 @@ describe('qua project config', () => {
           platforms: ['macos'],
           profiles: ['release'],
           outputDir: 'dist/native-apps',
+          build: nativeQuickJsBuild(),
           app: {
             icon: 'assets/app/AppIcon.icns',
           },
@@ -410,6 +420,65 @@ describe('qua project config', () => {
     })
   })
 
+  it('requires quickjs-rquickjs Cargo feature when a native artifact declares QuickJS support', () => {
+    const project = normalizeQuaProjectConfig({
+      ...createProjectConfig(),
+      targets: {
+        native: {
+          platforms: ['macos'],
+          profiles: ['release'],
+          outputDir: 'dist/native-apps',
+          app: {
+            icon: 'assets/app/AppIcon.icns',
+          },
+        },
+      },
+    })
+    const [plan] = createQuaProjectNativeArtifactPlans(project)
+
+    expect(() => createQuaProjectNativeTargetBundleManifest(plan, {
+      nativeRenderer: createTestNativeRendererInfo(),
+      nativeRuntime: createTestNativeRuntimeInfo(),
+      dependencies: [
+        '@quajs/engine',
+        '@quajs/pipeline',
+        ...NATIVE_TARGET_BOOTSTRAP.coreAdapters,
+      ],
+    })).toThrow(`targets.native.build.cargoFeatures does not include "${QUA_NATIVE_QUICKJS_CARGO_FEATURE}"`)
+  })
+
+  it('allows no-QuickJS native artifacts to emit unsupported QuickJS runtime metadata', () => {
+    const project = normalizeQuaProjectConfig({
+      ...createProjectConfig(),
+      targets: {
+        native: {
+          platforms: ['macos'],
+          profiles: ['release'],
+          outputDir: 'dist/native-apps',
+          app: {
+            icon: 'assets/app/AppIcon.icns',
+          },
+        },
+      },
+    })
+    const [plan] = createQuaProjectNativeArtifactPlans(project)
+    const manifest = createQuaProjectNativeTargetBundleManifest(plan, {
+      nativeRenderer: createTestNativeRendererInfo(),
+      nativeRuntime: createTestNativeRuntimeInfo({ quickjsVersion: 'unsupported' }),
+      dependencies: [
+        '@quajs/engine',
+        '@quajs/pipeline',
+        ...NATIVE_TARGET_BOOTSTRAP.coreAdapters,
+      ],
+    })
+
+    expect(validateTargetBundleManifest(manifest, { expectedTarget: 'native' })).toMatchObject({
+      ok: true,
+      diagnostics: [],
+    })
+    expect(manifest.nativeRuntime.quickjsVersion).toBe('unsupported')
+  })
+
   it('rejects native project template graphs that redeclare target core adapters', () => {
     const project = normalizeQuaProjectConfig({
       ...createProjectConfig(),
@@ -418,6 +487,7 @@ describe('qua project config', () => {
           platforms: ['macos'],
           profiles: ['release'],
           outputDir: 'dist/native-apps',
+          build: nativeQuickJsBuild(),
           app: {
             icon: 'assets/app/AppIcon.icns',
           },
@@ -470,6 +540,7 @@ describe('qua project config', () => {
           platforms: ['macos'],
           profiles: ['release'],
           outputDir: join(root, 'dist/native-apps'),
+          build: nativeQuickJsBuild(),
           app: {
             icon: 'assets/app/AppIcon.icns',
           },
@@ -521,6 +592,7 @@ describe('qua project config', () => {
           platforms: ['macos'],
           profiles: ['release'],
           outputDir: join(root, 'dist/native-apps'),
+          build: nativeQuickJsBuild(),
           app: {
             icon: 'assets/app/AppIcon.icns',
           },
@@ -564,6 +636,7 @@ describe('qua project config', () => {
           platforms: ['macos'],
           profiles: ['debug'],
           outputDir: join(root, 'dist/native-apps'),
+          build: nativeQuickJsBuild(),
           app: {
             icon: 'assets/app/AppIcon.icns',
           },
@@ -607,6 +680,7 @@ describe('qua project config', () => {
           platforms: ['macos'],
           profiles: ['release'],
           outputDir: join(root, 'dist/native-apps'),
+          build: nativeQuickJsBuild(),
           app: {
             icon: 'assets/app/AppIcon.icns',
           },
@@ -1076,13 +1150,23 @@ function createTestNativeRendererInfo() {
   }, payload => `sha256:test-${payload.length}`)
 }
 
-function createTestNativeRuntimeInfo() {
+function createTestNativeRuntimeInfo(overrides: Partial<{
+  quickjsVersion: string
+  nativeRuntimeVersion: string
+  assetAdapterVersion: string
+  storeAdapterVersion: string
+}> = {}) {
   return createTargetBundleNativeRuntimeInfo({
     quickjsVersion: '2025-04-26',
     nativeRuntimeVersion: '0.1.0',
     assetAdapterVersion: '0.1.0',
     storeAdapterVersion: '0.1.0',
+    ...overrides,
   })
+}
+
+function nativeQuickJsBuild() {
+  return { cargoFeatures: [QUA_NATIVE_QUICKJS_CARGO_FEATURE] }
 }
 
 function createTargetBundleManifestFixture(target: QuaTargetBootstrap): TargetBundleManifest {

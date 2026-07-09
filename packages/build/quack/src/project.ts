@@ -6,7 +6,18 @@ import type {
 import { access, copyFile, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { basename, dirname, extname, isAbsolute, join, relative, resolve } from 'node:path'
 import { parse as parseYaml } from 'yaml'
+import {
+  normalizeQuaProjectNativeBuildConfig,
+  type QuaProjectNativeBuildConfig,
+} from './project-native-build'
 
+export {
+  hasQuaProjectNativeCargoFeature,
+  normalizeQuaProjectNativeBuildConfig,
+  normalizeQuaProjectNativeCargoFeatures,
+  QUA_NATIVE_QUICKJS_CARGO_FEATURE,
+  type QuaProjectNativeBuildConfig,
+} from './project-native-build'
 export {
   createQuaProjectNativeArtifactPlans,
   createQuaProjectNativeTargetBundleManifest,
@@ -112,7 +123,7 @@ export interface QuaProjectNativeTargetConfig {
     icon?: string
   }
   assetTarget?: AssetBundleTarget
-  build?: Record<string, unknown>
+  build?: QuaProjectNativeBuildConfig
 }
 
 export interface QuaProjectTargetsConfig {
@@ -176,7 +187,7 @@ export interface NormalizedQuaProjectNativeTarget {
     icon?: string
   }
   assetTarget?: AssetBundleTarget
-  build: Record<string, unknown>
+  build: QuaProjectNativeBuildConfig
 }
 
 export interface NormalizedQuaProjectConfig {
@@ -1037,7 +1048,7 @@ function normalizeNativeTarget(
       icon: stringValue(app.icon),
     },
     assetTarget: asRecord(record.assetTarget) as AssetBundleTarget | undefined,
-    build: asRecord(record.build) || {},
+    build: normalizeQuaProjectNativeBuildConfig(record.build),
   }
 }
 
