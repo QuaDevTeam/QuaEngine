@@ -126,7 +126,7 @@ describe('@quajs/engine-native runtime trust policy guards', () => {
         renderers: {
           native: {
             renderer: '@quajs/native-renderer',
-            qssFeatures: ['gap'],
+            qssFeatures: ['flex-direction'],
             nativeCode: false,
           },
         },
@@ -140,7 +140,7 @@ describe('@quajs/engine-native runtime trust policy guards', () => {
         algorithm: 'ed25519',
         keyId: 'test-key',
       },
-    }))).rejects.toThrow(/Required native QSS feature "gap" is not available/)
+    }))).rejects.toThrow(/Required native QSS feature "flex-direction" is not available/)
 
     expect(host.getHostInfo).not.toHaveBeenCalled()
     expect(host.verifySignature).not.toHaveBeenCalled()
@@ -163,7 +163,7 @@ describe('@quajs/engine-native runtime trust policy guards', () => {
           metadata: {
             nativeRenderer: {
               renderer: '@quajs/native-renderer',
-              qssFeatures: ['background-color', 'gap'],
+              qssFeatures: ['background-color', 'flex-direction'],
               quiComponents: ['Panel', 'VirtualList'],
               nativeCode: false,
             },
@@ -179,7 +179,7 @@ describe('@quajs/engine-native runtime trust policy guards', () => {
         algorithm: 'ed25519',
         keyId: 'test-key',
       },
-    }))).rejects.toThrow(/Required native QSS feature "gap" is not available.*Required native QUI component "VirtualList" is not available/)
+    }))).rejects.toThrow(/Required native QSS feature "flex-direction" is not available.*Required native QUI component "VirtualList" is not available/)
 
     expect(host.getHostInfo).not.toHaveBeenCalled()
     expect(host.verifySignature).not.toHaveBeenCalled()
@@ -351,7 +351,7 @@ describe('@quajs/engine-native runtime trust policy guards', () => {
           renderer: '@quajs/native-renderer',
           version: '^0.1.0',
           capabilities: ['native-wgpu.ui.surface@1'],
-          qssFeatures: ['background-color', 'gap'],
+          qssFeatures: ['background-color', 'flex-direction'],
           quiComponents: ['Panel', 'VirtualList'],
           nativeCode: false,
         },
@@ -365,7 +365,7 @@ describe('@quajs/engine-native runtime trust policy guards', () => {
         algorithm: 'ed25519',
         keyId: 'test-key',
       },
-    }))).rejects.toThrow(/Required native QSS feature "gap" is not available.*Required native QUI component "VirtualList" is not available/)
+    }))).rejects.toThrow(/Required native QSS feature "flex-direction" is not available.*Required native QUI component "VirtualList" is not available/)
 
     expect(host.getHostInfo).not.toHaveBeenCalled()
     expect(host.verifySignature).not.toHaveBeenCalled()
@@ -385,7 +385,7 @@ describe('@quajs/engine-native runtime trust policy guards', () => {
         nativeRenderer: {
           renderer: '@quajs/native-renderer',
           version: '^0.1.0',
-          optionalQssFeatures: ['color', 'gap'],
+          optionalQssFeatures: ['color', 'box-shadow'],
           optionalQuiComponents: ['Panel', 'Drawer'],
           nativeCode: false,
         },
