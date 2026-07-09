@@ -3364,6 +3364,107 @@ mod tests {
     }
 
     #[test]
+    fn bridge_helper_exports_cover_official_decorator_modules() {
+        let expected = [
+            (
+                "@quajs/character/animation",
+                &[
+                    "playCharacterEnterWithEngine",
+                    "playCharacterFadeWithEngine",
+                    "playCharacterExitWithEngine",
+                ][..],
+            ),
+            (
+                "@quajs/plugin-achievement",
+                &[
+                    "unlockAchievementWithEngine",
+                    "openAchievementBoardWithEngine",
+                ][..],
+            ),
+            (
+                "@quajs/plugin-animation",
+                &[
+                    "registerAnimationWithEngine",
+                    "playTimelineWithEngine",
+                    "playAnimationWithEngine",
+                ][..],
+            ),
+            (
+                "@quajs/plugin-audio",
+                &[
+                    "configureAudioChapterWithEngine",
+                    "playVoiceWithEngine",
+                    "playBGMWithEngine",
+                    "playSFXWithEngine",
+                    "playAmbientWithEngine",
+                    "setAudioGainWithEngine",
+                    "setAudioEqWithEngine",
+                    "setAudioAutomationWithEngine",
+                    "stopAudioWithEngine",
+                    "pauseAudioWithEngine",
+                    "resumeAudioWithEngine",
+                    "seekAudioWithEngine",
+                    "stopVoiceWithEngine",
+                    "stopBGMWithEngine",
+                    "stopSFXWithEngine",
+                    "stopAmbientWithEngine",
+                ][..],
+            ),
+            (
+                "@quajs/plugin-background",
+                &[
+                    "setBackgroundWithEngine",
+                    "clearBackgroundWithEngine",
+                    "setVideoBackgroundWithEngine",
+                    "setLayeredBackgroundWithEngine",
+                    "addBackgroundLayerWithEngine",
+                    "removeBackgroundLayerWithEngine",
+                    "clearBackgroundLayersWithEngine",
+                    "transitionBackgroundWithEngine",
+                    "transitionBackgroundLayerWithEngine",
+                    "showCgOverlayWithEngine",
+                    "hideCgOverlayWithEngine",
+                ][..],
+            ),
+            ("@quajs/plugin-backlog", &["setBacklogPolicyWithEngine"][..]),
+            (
+                "@quajs/plugin-gallery",
+                &["unlockGalleryEntryWithEngine", "openGallerySceneWithEngine"][..],
+            ),
+            (
+                "@quajs/plugin-inventory",
+                &[
+                    "grantInventoryItemWithEngine",
+                    "consumeInventoryItemWithEngine",
+                    "setInventoryItemQuantityWithEngine",
+                ][..],
+            ),
+            (
+                "@quajs/story-graph",
+                &[
+                    "setStoryMetadataWithEngine",
+                    "emitStoryEventWithEngine",
+                    "setStoryChapterSelectWithEngine",
+                ][..],
+            ),
+        ];
+
+        for (module, exports) in expected {
+            let actual = native_quickjs_bridge_helper_exports(module)
+                .unwrap_or_else(|| panic!("{module} helper exports are registered"));
+
+            for export in exports {
+                assert!(
+                    actual.contains(export),
+                    "{module} should expose {export} through the native QuickJS helper bridge",
+                );
+            }
+        }
+
+        assert!(native_quickjs_bridge_helper_exports("@quajs/plugin-settings").is_none());
+    }
+
+    #[test]
     fn evaluates_es_module_and_keeps_namespace_handle_until_release() {
         let mut evaluator = RquickJsModuleEvaluator::new().unwrap();
         let request = request_for_code(
