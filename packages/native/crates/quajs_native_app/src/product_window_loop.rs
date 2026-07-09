@@ -790,4 +790,88 @@ mod tests {
             Some(NativeProductSurfaceRecoveryStatus::DeviceRebuilt)
         );
     }
+
+    #[test]
+    fn redraw_failure_report_fails_recoverable_device_without_size() {
+        let mut state = NativeProductWindowLoopState::new(1);
+        state.begin_present_attempt();
+        let failure = NativeProductWindowPresentFailure::from_message(
+            "native product window surface present failed: device was lost",
+        );
+
+        let report =
+            NativeProductWindowLoop::<InMemoryNativeHostApi>::handle_redraw_failure_with_recovery(
+                &mut state,
+                &failure,
+                None,
+                |_, _| unreachable!("missing recovery size must not attempt device recovery"),
+            )
+            .expect("missing device recovery size should produce a failure report");
+
+        assert_eq!(
+            report,
+            NativeProductWindowLoopFailureReport {
+                action: NativeProductWindowLoopFailureAction::Fail,
+                surface_recovery_status: NativeProductSurfaceRecoveryStatus::MissingSize,
+            }
+        );
+        assert_eq!(state.resize_count(), 0);
+        let metrics = state.recovery_metrics();
+        assert_eq!(metrics.present_failure_count, 1);
+        assert_eq!(metrics.recoverable_device_failure_count, 1);
+        assert_eq!(metrics.device_recovery_attempt_count, 1);
+        assert_eq!(metrics.device_recovery_missing_size_count, 1);
+        assert_eq!(metrics.device_recovery_success_count, 0);
+        assert_eq!(
+            metrics.last_device_recovery_status,
+            Some(NativeProductSurfaceRecoveryStatus::MissingSize)
+        );
+        assert_eq!(
+            state.last_present_failure_kind(),
+            Some(NativeProductWindowPresentFailureKind::DeviceLost)
+        );
+    }
+
+    #[test]
+    fn redraw_failure_report_records_device_recovery_error() {
+        let mut state = NativeProductWindowLoopState::new(1);
+        state.begin_present_attempt();
+        let recovery_size = NativeProductWindowPhysicalSize::new(1280, 720);
+        let failure = NativeProductWindowPresentFailure::from_message(
+            "native product window surface present failed: device removed",
+        );
+
+        let error =
+            NativeProductWindowLoop::<InMemoryNativeHostApi>::handle_redraw_failure_with_recovery(
+                &mut state,
+                &failure,
+                Some(recovery_size),
+                |action, physical_size| {
+                    assert_eq!(
+                        action,
+                        NativeProductFramePresentFailureAction::RecoverDevice
+                    );
+                    assert_eq!(physical_size, recovery_size);
+                    Err(NativeProductWindowError::new("device rebuild failed"))
+                },
+            )
+            .expect_err("device recovery backend failures should bubble out");
+
+        assert_eq!(error.to_string(), "device rebuild failed");
+        assert_eq!(state.resize_count(), 0);
+        let metrics = state.recovery_metrics();
+        assert_eq!(metrics.present_failure_count, 1);
+        assert_eq!(metrics.recoverable_device_failure_count, 1);
+        assert_eq!(metrics.device_recovery_attempt_count, 1);
+        assert_eq!(metrics.device_recovery_error_count, 1);
+        assert_eq!(metrics.device_recovery_success_count, 0);
+        assert_eq!(
+            metrics.last_device_recovery_status,
+            Some(NativeProductSurfaceRecoveryStatus::Error)
+        );
+        assert_eq!(
+            metrics.last_recovery_action,
+            Some(NativeProductFramePresentFailureAction::RecoverDevice)
+        );
+    }
 }
