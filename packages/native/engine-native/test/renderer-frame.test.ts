@@ -79,6 +79,7 @@ describe('native renderer frame serialization', () => {
           kind: 'bgm',
           assetName: 'audio/bgm/opening.ogg',
           assetType: 'bgm',
+          loadMode: 'buffered',
           playbackState: 'playing',
           looped: true,
           volume: 0.5011872336272722,
@@ -100,6 +101,7 @@ describe('native renderer frame serialization', () => {
           kind: 'bgm',
           assetName: 'audio/bgm/old.ogg',
           assetType: 'bgm',
+          loadMode: 'buffered',
           playbackState: 'stopping',
           volume: 0.251188643150958,
           fadeOutMs: 450,
@@ -114,6 +116,7 @@ describe('native renderer frame serialization', () => {
           kind: 'voice',
           assetName: 'voice/ch01/mira-001.ogg',
           assetType: 'voice',
+          loadMode: 'buffered',
           playbackState: 'paused',
           volume: 0.5011872336272722,
           provenance: {

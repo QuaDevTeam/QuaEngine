@@ -47,6 +47,7 @@
   "devDependencies": {
     "@quajs/assets": "workspace:*",
     "@quajs/character": "workspace:*",
+    "@quajs/plugin-audio": "workspace:*",
     "@quajs/plugin-background": "workspace:*",
     "@quajs/script-compiler": "workspace:*",
     "typescript": "catalog:"
