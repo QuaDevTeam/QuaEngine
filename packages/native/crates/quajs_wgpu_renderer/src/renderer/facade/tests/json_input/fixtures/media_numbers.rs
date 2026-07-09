@@ -262,6 +262,29 @@ pub(in super::super) fn json_frame_with_oversized_character_rotation_input() -> 
     "#
 }
 
+pub(in super::super) fn json_frame_with_unsupported_background_video_field_input(
+    field: &str,
+    value_json: &str,
+) -> String {
+    r#"
+    {
+      "container": { "width": 1600, "height": 1000 },
+      "view": {
+        "background": {
+          "mode": "video",
+          "layers": [],
+          "video": {
+            "assetName": "movies/opening.webm",
+            "__VIDEO_FIELD__": __VIDEO_FIELD_VALUE__
+          }
+        }
+      }
+    }
+    "#
+    .replace("__VIDEO_FIELD__", field)
+    .replace("__VIDEO_FIELD_VALUE__", value_json)
+}
+
 pub(in super::super) fn json_frame_with_oversized_audio_volume_input() -> &'static str {
     r#"
     {
