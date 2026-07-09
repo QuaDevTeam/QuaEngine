@@ -21,7 +21,11 @@ import {
   createNativeRuntimeAdapters,
 } from './helpers'
 import { NativeHostPlugin } from '../../src'
-import { createRealNativeQuickJsBridge, runNativeRendererSmokeFrame } from './real-quickjs-bridge'
+import {
+  createRealNativeProductBridge,
+  createRealNativeQuickJsBridge,
+  runNativeRendererSmokeFrame,
+} from './real-quickjs-bridge'
 
 describe('@quajs/engine-native runtime product smoke', () => {
   afterEach(() => {
@@ -68,6 +72,62 @@ describe('@quajs/engine-native runtime product smoke', () => {
         },
       },
     })).rejects.toThrow(/nativeRenderer\.capabilityIds omits host renderer capability "native-wgpu\.input\.text@1"/)
+  }, 180_000)
+
+  it('drives the real native product bridge from a TS-owned projection frame', async () => {
+    const bridge = await createRealNativeProductBridge()
+    try {
+      const frame = createNativeRendererJsonFrameInput({
+        dialogue: {
+          text: 'Product bridge frame from TS',
+          mode: 'narration',
+          contentPackageId: 'runtime.product.bridge',
+        },
+        ui: {
+          visible: true,
+          overlays: [],
+        },
+      }, {
+        container: { width: 1600, height: 1000 },
+        layout: { preset: 'landscape' },
+      })
+
+      const rendered = await bridge.bridge.renderProjectionFrame(frame)
+      const lifecycle = await bridge.bridge.tickLifecycle()
+      const drained = await bridge.bridge.drainRendererIntents()
+      const shutdown = await bridge.bridge.shutdown()
+
+      expect(bridge.startupHostInfo.runtime.nativeRuntimeVersion).toBeTruthy()
+      expect(rendered).toEqual(expect.objectContaining({
+        frameNumber: 1,
+        renderedFrameCount: 1,
+        commandCount: expect.any(Number),
+        missingResourceCount: 0,
+        textureLifecycleInitialSync: true,
+        rendererIntents: [],
+      }))
+      expect(rendered.commandCount).toBeGreaterThan(0)
+      expect(lifecycle).toEqual(expect.objectContaining({
+        renderedFrameCount: 1,
+        initialSync: false,
+        rendererIntents: [],
+      }))
+      expect(drained).toEqual([])
+      expect(shutdown).toEqual(expect.objectContaining({
+        renderedFrameCount: 1,
+        rendererIntents: [],
+      }))
+      expect(bridge.requests).toEqual(expect.arrayContaining([
+        { method: 'getHostInfo' },
+        expect.objectContaining({ method: 'renderProjectionFrame' }),
+        { method: 'tickLifecycle' },
+        { method: 'drainRendererIntents' },
+        { method: 'shutdown' },
+      ]))
+    }
+    finally {
+      await bridge.close()
+    }
   }, 180_000)
 
   it('loads a runtime QPK through real native QuickJS and renders the engine projection in Rust', async () => {
