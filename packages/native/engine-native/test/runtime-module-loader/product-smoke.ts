@@ -252,7 +252,7 @@ const runtimeLabel = scope.runtimeLabel || 'native QuickJS'
   }
 })
 The native route greets \${displayName}.
-Mira: Compiled QuaScript is running inside \${runtimeLabel}.
+Mira: Compiled QuaScript is running inside \${runtimeLabel} with \${$t('runtime.native.qs.translation', { fallback: 'translated text' })}.
 - Stay with compiled QS if scope.allowStay
 - Leave if false
 `
@@ -329,7 +329,7 @@ Mira: Compiled QuaScript is running inside \${runtimeLabel}.
       })
       const runningState = trackRunningScript(running)
       await advancePastDialogue(engine, 'The native route greets Mira.', runningState)
-      await advancePastDialogue(engine, 'Compiled QuaScript is running inside real rquickjs.', runningState)
+      await advancePastDialogue(engine, 'Compiled QuaScript is running inside real rquickjs with translated text.', runningState)
       const choices = await waitForChoiceProjection(engine, 'stay-with-compiled-qs', runningState)
 
       expect(state).toEqual(expect.objectContaining({
@@ -362,7 +362,7 @@ Mira: Compiled QuaScript is running inside \${runtimeLabel}.
       expect(engine.getViewState().dialogue).toEqual(expect.objectContaining({
         visible: true,
         characterName: 'Mira',
-        text: 'Compiled QuaScript is running inside real rquickjs.',
+        text: 'Compiled QuaScript is running inside real rquickjs with translated text.',
       }))
 
       const evaluationRequest = bridge.requests.find(request => request.method === 'evaluateQuickJsModule')
@@ -382,6 +382,10 @@ Mira: Compiled QuaScript is running inside \${runtimeLabel}.
       }
       expect(bridge.requests.some(request => request.method === 'callQuickJsGameStepRun')).toBe(true)
       expect(bridge.requests.some(request => request.method === 'resumeQuickJsGameStepRun')).toBe(true)
+      expect(bridge.requests.some(request =>
+        request.method === 'resumeQuickJsGameStepRun'
+        && request.params.payloadJson === '"translated text"',
+      )).toBe(true)
       expect(engine.getViewState().background).toEqual(expect.objectContaining({
         mode: 'image',
         assetName: 'bg/native-route.png',
@@ -405,7 +409,7 @@ Mira: Compiled QuaScript is running inside \${runtimeLabel}.
         },
       }))
       expect(frame.view.dialogue).toEqual(expect.objectContaining({
-        text: 'Compiled QuaScript is running inside real rquickjs.',
+        text: 'Compiled QuaScript is running inside real rquickjs with translated text.',
         provenance: {
           contentPackageId: 'runtime.native.qs.story',
         },
