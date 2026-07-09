@@ -13,7 +13,8 @@ use crate::texture_sync::{
 use super::support::{
     renderer_with_rejecting_audio_after_audio_frame,
     renderer_with_rejecting_audio_after_inactive_audio_frame, test_layout, view_with_font_package,
-    AssetLoadingFontBackend, TextureResidentBackend,
+    view_with_video_package, AssetLoadingFontBackend, AssetLoadingVideoBackend,
+    TextureResidentBackend,
 };
 
 #[test]
@@ -248,6 +249,44 @@ fn release_package_resources_with_media_teardown_syncs_font_atlas_releases() {
 }
 
 #[test]
+fn release_package_resources_with_media_teardown_syncs_video_frame_texture_releases() {
+    let frame_resource_id = ResourceId::from("video:texture-ring:video:video/opening.webm");
+    let video_backend = AssetLoadingVideoBackend {
+        frame_texture_releases: vec![frame_resource_id.clone()],
+        ..Default::default()
+    };
+    let mut renderer = NativeRenderer::with_audio_video_backend(
+        TextureResidentBackend {
+            resident_resource_ids: vec![frame_resource_id.as_str().to_string()],
+            ..Default::default()
+        },
+        NullNativeAudioBackend::new(),
+        video_backend,
+    );
+    let update = renderer.prepare_frame(test_layout(), &view_with_video_package("runtime.video"));
+    renderer
+        .apply_video_update(&update)
+        .expect("video frame should seed package-owned video backend streams");
+
+    let result = release_package_resources_with_host_texture_cleanup_and_media_teardown(
+        &mut renderer,
+        "runtime.video",
+    )
+    .expect("video package teardown should release pending frame textures");
+
+    let frame_report = result
+        .video_frame_texture_report
+        .expect("media teardown should report video frame texture sync");
+    assert_eq!(frame_report.release_candidate_count, 1);
+    assert_eq!(frame_report.released_count, 1);
+    assert_eq!(
+        frame_report.released_resource_ids,
+        vec![frame_resource_id.clone()]
+    );
+    assert!(renderer.backend().resident_resource_ids.is_empty());
+}
+
+#[test]
 fn clear_renderer_with_host_texture_cleanup_releases_texture_handles() {
     let mut renderer = NativeRenderer::new(TextureResidentBackend {
         resident_resource_ids: vec![
@@ -366,6 +405,38 @@ fn clear_renderer_with_host_texture_cleanup_and_media_teardown_releases_texture_
         vec![ResourceId::from("images:bg.png")]
     );
     assert!(renderer.resources().is_empty());
+    assert!(renderer.backend().resident_resource_ids.is_empty());
+}
+
+#[test]
+fn clear_renderer_with_media_teardown_syncs_video_frame_texture_releases() {
+    let frame_resource_id = ResourceId::from("video:texture-ring:video:video/opening.webm");
+    let video_backend = AssetLoadingVideoBackend {
+        frame_texture_releases: vec![frame_resource_id.clone()],
+        ..Default::default()
+    };
+    let mut renderer = NativeRenderer::with_audio_video_backend(
+        TextureResidentBackend {
+            resident_resource_ids: vec![frame_resource_id.as_str().to_string()],
+            ..Default::default()
+        },
+        NullNativeAudioBackend::new(),
+        video_backend,
+    );
+    let update = renderer.prepare_frame(test_layout(), &view_with_video_package("runtime.video"));
+    renderer
+        .apply_video_update(&update)
+        .expect("video frame should seed active video backend streams");
+
+    let result = clear_renderer_with_host_texture_cleanup_and_media_teardown(&mut renderer)
+        .expect("renderer clear should release pending video frame textures");
+
+    let frame_report = result
+        .video_frame_texture_report
+        .expect("media teardown should report video frame texture sync");
+    assert_eq!(frame_report.release_candidate_count, 1);
+    assert_eq!(frame_report.released_count, 1);
+    assert_eq!(frame_report.released_resource_ids, vec![frame_resource_id]);
     assert!(renderer.backend().resident_resource_ids.is_empty());
 }
 

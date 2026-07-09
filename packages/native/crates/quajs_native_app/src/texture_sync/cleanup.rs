@@ -11,8 +11,10 @@ use quajs_wgpu_renderer::renderer::{
 use quajs_wgpu_renderer::resources::{NativeResourceKind, NativeResourceRecord, ResourceId};
 use quajs_wgpu_renderer::video::{NativeVideoBackend, NativeVideoBackendError};
 
-use super::frame::sync_font_atlas_textures_for_backend;
-use super::types::{NativeFontAtlasTextureSyncReport, NativeTextureUploadSink};
+use super::frame::{sync_font_atlas_textures_for_backend, sync_video_frame_textures_for_backend};
+use super::types::{
+    NativeFontAtlasTextureSyncReport, NativeTextureUploadSink, NativeVideoFrameTextureSyncReport,
+};
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct NativeTextureHostCleanupSyncReport {
@@ -51,6 +53,7 @@ pub struct NativeTextureHostCleanupSyncFailure {
 pub struct NativeTextureCleanedPackageReleaseResult {
     pub package_release: NativeRendererPackageRelease,
     pub texture_cleanup_report: NativeTextureHostCleanupSyncReport,
+    pub video_frame_texture_report: Option<NativeVideoFrameTextureSyncReport>,
     pub font_atlas_report: Option<NativeFontAtlasTextureSyncReport>,
 }
 
@@ -59,6 +62,7 @@ pub struct NativeTextureCleanedClearResult {
     pub released_resources: Vec<NativeResourceRecord>,
     pub host_cleanup: Vec<NativeRendererHostCleanupRecord>,
     pub texture_cleanup_report: NativeTextureHostCleanupSyncReport,
+    pub video_frame_texture_report: Option<NativeVideoFrameTextureSyncReport>,
     pub font_atlas_report: Option<NativeFontAtlasTextureSyncReport>,
 }
 
@@ -179,6 +183,7 @@ where
     NativeTextureCleanedPackageReleaseResult {
         package_release,
         texture_cleanup_report,
+        video_frame_texture_report: None,
         font_atlas_report: None,
     }
 }
@@ -201,11 +206,13 @@ where
         &package_release.host_cleanup,
     );
     restore_failed_texture_cleanup_resources(renderer, &package_release, &texture_cleanup_report);
+    let video_frame_texture_report = sync_video_frame_textures_for_backend(renderer);
     let font_atlas_report = sync_font_atlas_textures_for_backend(renderer);
 
     Ok(NativeTextureCleanedPackageReleaseResult {
         package_release,
         texture_cleanup_report,
+        video_frame_texture_report: Some(video_frame_texture_report),
         font_atlas_report: Some(font_atlas_report),
     })
 }
@@ -225,6 +232,7 @@ where
         released_resources,
         host_cleanup,
         texture_cleanup_report,
+        video_frame_texture_report: None,
         font_atlas_report: None,
     }
 }
@@ -243,12 +251,14 @@ where
         renderer.clear_with_host_cleanup_and_media_teardown()?;
     let texture_cleanup_report =
         sync_texture_releases_from_host_cleanup(renderer.backend_mut(), &host_cleanup);
+    let video_frame_texture_report = sync_video_frame_textures_for_backend(renderer);
     let font_atlas_report = sync_font_atlas_textures_for_backend(renderer);
 
     Ok(NativeTextureCleanedClearResult {
         released_resources,
         host_cleanup,
         texture_cleanup_report,
+        video_frame_texture_report: Some(video_frame_texture_report),
         font_atlas_report: Some(font_atlas_report),
     })
 }

@@ -615,7 +615,7 @@ where
     report
 }
 
-fn sync_video_frame_textures_for_backend<B, A, V, F>(
+pub(super) fn sync_video_frame_textures_for_backend<B, A, V, F>(
     renderer: &mut NativeRenderer<B, A, V, F>,
 ) -> NativeVideoFrameTextureSyncReport
 where
