@@ -84,11 +84,24 @@ fn check_manifest_renderer_capabilities(
     host_info: &NativeHostInfo,
     diagnostics: &mut Vec<String>,
 ) {
+    let manifest_capability_ids: std::collections::HashSet<&str> = renderer
+        .capability_ids
+        .iter()
+        .map(|capability_id| capability_id.as_str())
+        .collect();
     for capability_id in &renderer.capability_ids {
         if !host_info.has_capability(capability_id) {
             diagnostics.push(format!(
                 "Native target bundle manifest nativeRenderer.capabilityIds includes \"{}\", but the host renderer does not provide it.",
                 capability_id
+            ));
+        }
+    }
+    for capability in &host_info.renderer.capabilities {
+        if !manifest_capability_ids.contains(capability.id.as_str()) {
+            diagnostics.push(format!(
+                "Native target bundle manifest nativeRenderer.capabilityIds omits host renderer capability \"{}\".",
+                capability.id
             ));
         }
     }

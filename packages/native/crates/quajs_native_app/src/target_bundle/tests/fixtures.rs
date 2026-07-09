@@ -23,11 +23,7 @@ pub(crate) fn native_manifest_json() -> serde_json::Value {
             "packageName": "@quajs/native-renderer",
             "version": "0.1.0",
             "backend": "wgpu",
-            "capabilityIds": [
-                "native-wgpu.stage-layout@1",
-                "native-wgpu.ui.surface@1",
-                "native-wgpu.input.pointer@1"
-            ],
+            "capabilityIds": native_capability_ids(),
             "capabilityManifestHash": native_capability_manifest_hash()
         },
         "nativeRuntime": {
@@ -102,11 +98,7 @@ pub(crate) fn native_manifest() -> NativeTargetBundleManifest {
             version: Some("0.1.0".to_string()),
             backend: Some("wgpu".to_string()),
             backend_version: None,
-            capability_ids: vec![
-                "native-wgpu.stage-layout@1".to_string(),
-                "native-wgpu.ui.surface@1".to_string(),
-                "native-wgpu.input.pointer@1".to_string(),
-            ],
+            capability_ids: native_capability_ids(),
             capability_manifest_hash: Some(native_capability_manifest_hash()),
         }),
         native_runtime: Some(TargetBundleNativeRuntimeInfo {
@@ -187,6 +179,13 @@ fn current_profile_value() -> &'static str {
 
 fn current_platform_value() -> &'static str {
     platform_manifest_value(quajs_native_runtime::current_platform())
+}
+
+fn native_capability_ids() -> Vec<String> {
+    crate::startup::native_startup_renderer_capabilities()
+        .into_iter()
+        .map(|capability| capability.id)
+        .collect()
 }
 
 fn native_capability_manifest_hash() -> String {

@@ -50,6 +50,7 @@ fn host_info_uses_signed_app_config_and_rust_renderer_capabilities() {
     );
     assert!(host_info.has_capability("native-wgpu.ui.surface@1"));
     assert!(host_info.has_capability("native-wgpu.input.pointer@1"));
+    assert!(host_info.has_capability("native-wgpu.input.text@1"));
     assert_eq!(
         host_info.has_capability("native-wgpu.audio@1"),
         cfg!(all(
@@ -126,6 +127,30 @@ fn rejects_renderer_manifest_drift_after_building_host_info() {
     assert!(error
         .to_string()
         .contains("nativeRenderer.capabilityIds includes \"native-wgpu.spatial-audio@1\""));
+}
+
+#[test]
+fn rejects_renderer_manifest_that_omits_host_capabilities_after_building_host_info() {
+    let mut manifest = native_manifest();
+    let native_renderer = manifest
+        .native_renderer
+        .as_mut()
+        .expect("native renderer metadata exists");
+    native_renderer
+        .capability_ids
+        .retain(|capability_id| capability_id != "native-wgpu.input.text@1");
+    let created = Cell::new(false);
+    let error =
+        create_native_startup_host_info_with(fixture_app_config(), Some(&manifest), |config| {
+            created.set(true);
+            create_host_info(config)
+        })
+        .expect_err("omitted renderer capability metadata is rejected");
+
+    assert!(created.get());
+    assert!(error.to_string().contains(
+        "nativeRenderer.capabilityIds omits host renderer capability \"native-wgpu.input.text@1\""
+    ));
 }
 
 #[test]

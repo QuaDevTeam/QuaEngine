@@ -76,6 +76,32 @@ describe('@quajs/engine-native target bootstrap', () => {
     )).toEqual([])
   })
 
+  it('rejects emitted native renderer capability metadata that omits host capabilities', async () => {
+    const manifest = createNativeTargetBundleManifest()
+    manifest.nativeRenderer = {
+      ...manifest.nativeRenderer!,
+      capabilityIds: manifest.nativeRenderer!.capabilityIds.filter(
+        capabilityId => capabilityId !== 'native-wgpu.input.text@1',
+      ),
+    }
+    const host = createHost()
+    const plugin = new NativeHostPlugin({
+      host,
+      targetBundleManifest: manifest,
+    })
+
+    expect(checkNativeRendererManifestCompatibility(
+      createHostInfo(),
+      manifest.nativeRenderer,
+    )).toEqual([
+      'Native target bundle manifest renderer capabilityIds is missing host capability "native-wgpu.input.text@1".',
+    ])
+    await expect(plugin.init({} as any)).rejects.toThrow(
+      /Native manifest compatibility validation failed.*capabilityIds is missing host capability "native-wgpu\.input\.text@1"/,
+    )
+    expect(plugin.getHostInfo()).toBeUndefined()
+  })
+
   it('checks emitted native runtime metadata against the native host info', () => {
     expect(checkNativeRuntimeManifestCompatibility(
       createHostInfo(),

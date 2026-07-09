@@ -82,10 +82,18 @@ export function checkNativeRendererManifestCompatibility(
   }
 
   const hostCapabilityIds = new Set(hostInfo.renderer.capabilities.map(capability => capability.id))
+  const manifestCapabilityIds = new Set(manifestRenderer.capabilityIds || [])
   for (const capabilityId of manifestRenderer.capabilityIds || []) {
     if (!hostCapabilityIds.has(capabilityId)) {
       diagnostics.push(
         `Native target bundle manifest renderer capability "${capabilityId}" is not provided by the native host.`,
+      )
+    }
+  }
+  for (const capability of hostInfo.renderer.capabilities) {
+    if (!manifestCapabilityIds.has(capability.id)) {
+      diagnostics.push(
+        `Native target bundle manifest renderer capabilityIds is missing host capability "${capability.id}".`,
       )
     }
   }

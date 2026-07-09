@@ -46,6 +46,15 @@ export const CAPABILITIES: QuaNativeHostInfo['renderer']['capabilities'] = [
     intentEvents: ['choice/select', 'ui/intent'],
     fallback: 'reject-package',
   },
+  {
+    id: 'native-wgpu.input.text@1',
+    target: 'native',
+    version: '1.0.0',
+    ownerPackage: '@quajs/native-renderer',
+    projectionKeys: [],
+    intentEvents: ['user/text_input'],
+    fallback: 'reject-package',
+  },
 ]
 
 export const CAPABILITY_MANIFEST_HASH = createNativeCapabilityManifestHash(
@@ -145,6 +154,7 @@ export function createNativeTargetBundleManifest(
         'native-wgpu.ui.surface@1',
         'native-wgpu.video@1',
         'native-wgpu.input.pointer@1',
+        'native-wgpu.input.text@1',
       ],
       capabilityManifestHash: CAPABILITY_MANIFEST_HASH,
     },
