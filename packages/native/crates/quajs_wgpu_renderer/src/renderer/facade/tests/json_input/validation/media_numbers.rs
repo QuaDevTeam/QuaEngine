@@ -87,6 +87,36 @@ fn json_frame_audio_projection_validation_rejects_web_audio_alias_fields() {
 }
 
 #[test]
+fn json_frame_background_video_validation_rejects_unsupported_playback_state_fields() {
+    let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
+
+    for (field, value_json) in [
+        ("playbackState", r#""paused""#),
+        ("state", r#""stopped""#),
+        ("playing", "false"),
+    ] {
+        let input = json_frame_with_unsupported_background_video_field_input(field, value_json);
+        let error = renderer.prepare_frame_json_str(&input).unwrap_err();
+        match error {
+            NativeRendererJsonFrameError::Validation(validation) => {
+                assert_eq!(validation.path, format!("view.background.video.{field}"));
+                assert_eq!(validation.asset_name, field);
+                assert!(validation
+                    .reason
+                    .contains("native background video projection"));
+                assert!(validation.reason.contains("playbackRate/seekMs/offsetMs"));
+            }
+            other => panic!(
+                "expected unsupported background video field validation error, got {other:?}"
+            ),
+        }
+    }
+
+    assert_eq!(renderer.state().revision(), 0);
+    assert!(renderer.state().frame().is_none());
+}
+
+#[test]
 fn json_frame_audio_projection_validation_requires_explicit_bridge_fields() {
     let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
 
