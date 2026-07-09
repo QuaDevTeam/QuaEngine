@@ -1,8 +1,11 @@
 import type {
   NativeHostApiRequest,
   NativeHostApiResponse,
+  NativeProductBridgeRequest,
+  NativeProductBridgeResponse,
   QuaNativeHostApi,
   QuaNativeHostInfo,
+  QuaNativeProductBridge,
   TargetBundleManifest,
 } from '@quajs/native-contracts'
 import type { ChildProcessWithoutNullStreams } from 'node:child_process'
@@ -13,11 +16,11 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { createInterface } from 'node:readline'
 import { fileURLToPath } from 'node:url'
-import { createNativeHostApiFromBridge } from '@quajs/native-contracts'
+import { createNativeHostApiFromBridge, createNativeProductBridgeFromBridge } from '@quajs/native-contracts'
 
-interface PendingBridgeRequest {
+interface PendingBridgeRequest<TResponse> {
   reject: (error: Error) => void
-  resolve: (response: NativeHostApiResponse) => void
+  resolve: (response: TResponse) => void
 }
 
 export interface RealNativeQuickJsBridge {
@@ -31,9 +34,20 @@ export interface CreateRealNativeQuickJsBridgeOptions {
   targetBundleManifest?: TargetBundleManifest
 }
 
+export interface RealNativeProductBridge {
+  close: () => Promise<void>
+  bridge: QuaNativeProductBridge
+  requests: NativeProductBridgeRequest[]
+  startupHostInfo: QuaNativeHostInfo
+}
+
+export interface CreateRealNativeProductBridgeOptions {
+  targetBundleManifest?: TargetBundleManifest
+}
+
 const CURRENT_DIR = fileURLToPath(new URL('.', import.meta.url))
 const REPO_ROOT = resolve(CURRENT_DIR, '../../../../..')
-const NATIVE_CARGO_ARGS = [
+const NATIVE_QUICKJS_CARGO_ARGS = [
   'run',
   '--quiet',
   '--manifest-path',
@@ -42,6 +56,16 @@ const NATIVE_CARGO_ARGS = [
   'quajs_native_app',
   '--features',
   'quickjs-rquickjs',
+]
+const NATIVE_PRODUCT_CARGO_ARGS = [
+  'run',
+  '--quiet',
+  '--manifest-path',
+  'packages/native/Cargo.toml',
+  '-p',
+  'quajs_native_app',
+  '--features',
+  'image-decode',
 ]
 const RENDERER_SMOKE_JSON_PREFIX = 'Qua native renderer smoke json: '
 
@@ -56,7 +80,7 @@ export async function createRealNativeQuickJsBridge(
     ...(manifestPath ? { QUA_NATIVE_TARGET_BUNDLE_MANIFEST: manifestPath } : {}),
   })
   const stderr: string[] = []
-  const pending: PendingBridgeRequest[] = []
+  const pending: PendingBridgeRequest<NativeHostApiResponse>[] = []
   const requests: NativeHostApiRequest[] = []
   let closed = false
 
@@ -133,6 +157,94 @@ export async function createRealNativeQuickJsBridge(
   }
 }
 
+export async function createRealNativeProductBridge(
+  options: CreateRealNativeProductBridgeOptions = {},
+): Promise<RealNativeProductBridge> {
+  const manifestPath = options.targetBundleManifest
+    ? await writeNativeTargetBundleManifest(options.targetBundleManifest)
+    : undefined
+  const child = spawnNativeApp({
+    QUA_NATIVE_PRODUCT_BRIDGE: '1',
+    ...(manifestPath ? { QUA_NATIVE_TARGET_BUNDLE_MANIFEST: manifestPath } : {}),
+  }, NATIVE_PRODUCT_CARGO_ARGS)
+  const stderr: string[] = []
+  const pending: PendingBridgeRequest<NativeProductBridgeResponse>[] = []
+  const requests: NativeProductBridgeRequest[] = []
+  let closed = false
+
+  child.stderr.setEncoding('utf8')
+  child.stderr.on('data', chunk => stderr.push(chunk))
+  child.on('error', (error) => {
+    closed = true
+    rejectPending(pending, new Error(`Native product bridge failed to start: ${error.message}`))
+  })
+
+  const stdout = createInterface({ input: child.stdout })
+  stdout.on('line', (line) => {
+    const next = pending.shift()
+    if (!next)
+      return
+    try {
+      next.resolve(JSON.parse(line) as NativeProductBridgeResponse)
+    }
+    catch (error) {
+      next.reject(new Error(`Native product bridge returned invalid JSON: ${String(error)}. Line: ${line}`))
+    }
+  })
+
+  child.on('exit', (code, signal) => {
+    closed = true
+    const error = new Error(`Native product bridge exited before replying: code=${code ?? 'none'} signal=${signal ?? 'none'} stderr=${stderr.join('').trim()}`)
+    rejectPending(pending, error)
+  })
+
+  const dispatch = (request: NativeProductBridgeRequest): Promise<NativeProductBridgeResponse> => {
+    if (closed) {
+      return Promise.reject(new Error(`Native product bridge is closed. stderr=${stderr.join('').trim()}`))
+    }
+    requests.push(request)
+    return new Promise((resolve, reject) => {
+      pending.push({ resolve, reject })
+      child.stdin.write(`${JSON.stringify(request)}\n`, (error) => {
+        if (!error)
+          return
+        const index = pending.findIndex(entry => entry.resolve === resolve)
+        if (index >= 0)
+          pending.splice(index, 1)
+        reject(error)
+      })
+    })
+  }
+
+  const bridge = createNativeProductBridgeFromBridge(dispatch)
+  try {
+    const startupHostInfo = await bridge.getHostInfo()
+    return {
+      bridge,
+      requests,
+      startupHostInfo,
+      async close() {
+        stdout.close()
+        try {
+          if (!closed) {
+            child.stdin.end()
+            await waitForExitOrKill(child)
+          }
+        }
+        finally {
+          await cleanupNativeTargetBundleManifest(manifestPath)
+        }
+      },
+    }
+  }
+  catch (error) {
+    child.stdin.end()
+    child.kill('SIGKILL')
+    await cleanupNativeTargetBundleManifest(manifestPath)
+    throw error
+  }
+}
+
 export async function runNativeRendererSmokeFrame(frame: unknown): Promise<Record<string, unknown>> {
   const framePath = join(
     tmpdir(),
@@ -154,9 +266,12 @@ export async function runNativeRendererSmokeFrame(frame: unknown): Promise<Recor
   }
 }
 
-function spawnNativeApp(extraEnv: Record<string, string>): ChildProcessWithoutNullStreams {
+function spawnNativeApp(
+  extraEnv: Record<string, string>,
+  cargoArgs: string[] = NATIVE_QUICKJS_CARGO_ARGS,
+): ChildProcessWithoutNullStreams {
   const env = nativeAppEnv(extraEnv)
-  return spawn('cargo', NATIVE_CARGO_ARGS, {
+  return spawn('cargo', cargoArgs, {
     cwd: REPO_ROOT,
     env,
     stdio: ['pipe', 'pipe', 'pipe'],
@@ -188,7 +303,7 @@ function runNativeApp(extraEnv: Record<string, string>): Promise<{ stdout: strin
   })
 }
 
-function rejectPending(pending: PendingBridgeRequest[], error: Error): void {
+function rejectPending<TResponse>(pending: PendingBridgeRequest<TResponse>[], error: Error): void {
   while (pending.length > 0) {
     pending.shift()!.reject(error)
   }
