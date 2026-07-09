@@ -43,6 +43,14 @@ pub(crate) struct GifNativeVideoBackend<C = SystemNativeVideoClock> {
     active_streams: BTreeMap<String, ActiveGifStream>,
     pending_frames: Vec<VideoBackendFrameTexture>,
     pending_releases: Vec<ResourceId>,
+    applied_asset_load_count: usize,
+    applied_plan_count: usize,
+    applied_command_count: usize,
+    decoded_stream_count: usize,
+    decode_failure_count: usize,
+    missing_asset_count: usize,
+    published_frame_count: usize,
+    released_texture_count: usize,
 }
 
 impl GifNativeVideoBackend<SystemNativeVideoClock> {
@@ -68,8 +76,49 @@ where
             active_streams: BTreeMap::new(),
             pending_frames: Vec::new(),
             pending_releases: Vec::new(),
+            applied_asset_load_count: 0,
+            applied_plan_count: 0,
+            applied_command_count: 0,
+            decoded_stream_count: 0,
+            decode_failure_count: 0,
+            missing_asset_count: 0,
+            published_frame_count: 0,
+            released_texture_count: 0,
         }
     }
+
+    pub(crate) fn diagnostics(&self) -> GifNativeVideoBackendDiagnostics {
+        GifNativeVideoBackendDiagnostics {
+            loaded_asset_count: self.applied_asset_load_count,
+            resident_asset_count: self.loaded_assets.len(),
+            applied_plan_count: self.applied_plan_count,
+            applied_command_count: self.applied_command_count,
+            active_stream_count: self.active_streams.len(),
+            decoded_stream_count: self.decoded_stream_count,
+            decode_failure_count: self.decode_failure_count,
+            missing_asset_count: self.missing_asset_count,
+            published_frame_count: self.published_frame_count,
+            pending_frame_count: self.pending_frames.len(),
+            released_texture_count: self.released_texture_count,
+            pending_release_count: self.pending_releases.len(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub(crate) struct GifNativeVideoBackendDiagnostics {
+    pub(crate) loaded_asset_count: usize,
+    pub(crate) resident_asset_count: usize,
+    pub(crate) applied_plan_count: usize,
+    pub(crate) applied_command_count: usize,
+    pub(crate) active_stream_count: usize,
+    pub(crate) decoded_stream_count: usize,
+    pub(crate) decode_failure_count: usize,
+    pub(crate) missing_asset_count: usize,
+    pub(crate) published_frame_count: usize,
+    pub(crate) pending_frame_count: usize,
+    pub(crate) released_texture_count: usize,
+    pub(crate) pending_release_count: usize,
 }
 
 impl<C> NativeVideoBackend for GifNativeVideoBackend<C>
@@ -84,6 +133,7 @@ where
         &mut self,
         loads: &[VideoBackendAssetLoad],
     ) -> NativeVideoBackendResult {
+        self.applied_asset_load_count = self.applied_asset_load_count.saturating_add(loads.len());
         for load in loads {
             self.loaded_assets
                 .insert(load.resource_id.clone(), load.clone());
@@ -92,6 +142,10 @@ where
     }
 
     fn apply_video_commands(&mut self, plan: &VideoBackendCommandPlan) -> NativeVideoBackendResult {
+        self.applied_plan_count = self.applied_plan_count.saturating_add(1);
+        self.applied_command_count = self
+            .applied_command_count
+            .saturating_add(plan.commands.len());
         for command in &plan.commands {
             let Some(stream) = &command.stream else {
                 continue;
@@ -194,17 +248,20 @@ where
     }
 
     fn decode_stream(
-        &self,
+        &mut self,
         stream: &VideoBackendStreamState,
         started_at: Duration,
     ) -> Option<ActiveGifStream> {
         let Some(load) = self.loaded_assets.get(&stream.decoder_resource_id) else {
+            self.missing_asset_count = self.missing_asset_count.saturating_add(1);
             return None;
         };
         let Some(frames) = decode_gif_frames(load) else {
+            self.decode_failure_count = self.decode_failure_count.saturating_add(1);
             return None;
         };
         let package_metadata = package_metadata_for_stream(stream, load);
+        self.decoded_stream_count = self.decoded_stream_count.saturating_add(1);
         Some(ActiveGifStream::new(
             stream.clone(),
             frames,
@@ -233,6 +290,7 @@ where
         active.last_published_index = Some(frame_index);
 
         self.pending_frames.push(frame);
+        self.published_frame_count = self.published_frame_count.saturating_add(1);
     }
 
     fn release_texture_resource_if_unused(&mut self, resource_id: ResourceId) {
@@ -242,6 +300,7 @@ where
             .any(|active| active.stream.texture_ring_resource_id == resource_id)
         {
             self.pending_releases.push(resource_id);
+            self.released_texture_count = self.released_texture_count.saturating_add(1);
         }
     }
 }
@@ -459,6 +518,17 @@ mod tests {
             frames[0].required_package_ids,
             BTreeSet::from(["base-pack".to_string()])
         );
+        let diagnostics = backend.diagnostics();
+        assert_eq!(diagnostics.loaded_asset_count, 1);
+        assert_eq!(diagnostics.resident_asset_count, 1);
+        assert_eq!(diagnostics.applied_plan_count, 1);
+        assert_eq!(diagnostics.applied_command_count, 1);
+        assert_eq!(diagnostics.active_stream_count, 1);
+        assert_eq!(diagnostics.decoded_stream_count, 1);
+        assert_eq!(diagnostics.decode_failure_count, 0);
+        assert_eq!(diagnostics.missing_asset_count, 0);
+        assert_eq!(diagnostics.published_frame_count, 1);
+        assert_eq!(diagnostics.pending_frame_count, 0);
     }
 
     #[test]
@@ -482,6 +552,39 @@ mod tests {
 
         assert!(backend.video_frame_resources().is_empty());
         assert!(backend.drain_video_frame_textures().is_empty());
+        let diagnostics = backend.diagnostics();
+        assert_eq!(diagnostics.loaded_asset_count, 1);
+        assert_eq!(diagnostics.resident_asset_count, 1);
+        assert_eq!(diagnostics.applied_plan_count, 1);
+        assert_eq!(diagnostics.applied_command_count, 1);
+        assert_eq!(diagnostics.active_stream_count, 0);
+        assert_eq!(diagnostics.decoded_stream_count, 0);
+        assert_eq!(diagnostics.decode_failure_count, 1);
+        assert_eq!(diagnostics.missing_asset_count, 0);
+        assert_eq!(diagnostics.published_frame_count, 0);
+    }
+
+    #[test]
+    fn records_missing_video_asset_attempts_without_failing_frame() {
+        let mut backend = GifNativeVideoBackend::new();
+        let stream = stream_state(["runtime-pack"]);
+
+        backend
+            .apply_video_commands(&plan_for(&stream, VideoBackendCommandKind::StartStream))
+            .unwrap();
+
+        assert!(backend.video_frame_resources().is_empty());
+        assert!(backend.drain_video_frame_textures().is_empty());
+        let diagnostics = backend.diagnostics();
+        assert_eq!(diagnostics.loaded_asset_count, 0);
+        assert_eq!(diagnostics.resident_asset_count, 0);
+        assert_eq!(diagnostics.applied_plan_count, 1);
+        assert_eq!(diagnostics.applied_command_count, 1);
+        assert_eq!(diagnostics.active_stream_count, 0);
+        assert_eq!(diagnostics.decoded_stream_count, 0);
+        assert_eq!(diagnostics.decode_failure_count, 0);
+        assert_eq!(diagnostics.missing_asset_count, 1);
+        assert_eq!(diagnostics.published_frame_count, 0);
     }
 
     #[test]
@@ -512,6 +615,11 @@ mod tests {
             backend.drain_video_frame_texture_releases(),
             vec![stream.texture_ring_resource_id]
         );
+        let diagnostics = backend.diagnostics();
+        assert_eq!(diagnostics.active_stream_count, 0);
+        assert_eq!(diagnostics.resident_asset_count, 0);
+        assert_eq!(diagnostics.released_texture_count, 1);
+        assert_eq!(diagnostics.pending_release_count, 0);
     }
 
     #[test]

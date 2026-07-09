@@ -103,7 +103,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     #[cfg(feature = "native-window")]
     if let Some(report) = run_native_window_smoke_from_env()? {
         println!(
-            "Qua native window smoke: adapter={} surface={} size={}x{} status={} presented={} attempts={} targetFrames={} renderedFrames={} resizeCount={} surfaceRecoveryCount={} surfaceRecoveryAttempts={} surfaceRecoverySuccesses={} surfaceRecoveryMissingSize={} surfaceRecoveryErrors={} deviceRecoveryCount={} deviceRecoveryAttempts={} deviceRecoverySuccesses={} deviceRecoveryMissingSize={} deviceRecoveryErrors={} presentFailures={} recoverableSurfaceFailures={} recoverableDeviceFailures={} lastPresentFailure={} lastSurfacePresentFailure={} lastRecoveryAction={} lastSurfaceRecoveryStatus={} lastDeviceRecoveryStatus={} appLifecycle={} appLifecycleTicks={} appRedrawRequests={} textureUploads={} textureUploadErrors={} textureUploadResubmits={} textureResubmitted={} textureLifecycleSyncs={} textureLifecycleInitialSyncs={} textureLifecycleTrackedPackages={} textureLifecycleReleaseAttempts={} textureLifecycleReleasedPackages={} textureLifecycleCleanupErrors={} textureShutdowns={} textureShutdownReleasedResources={} textureShutdownReleasedTextures={} textureShutdownCleanupErrors={} textureShutdownVideoFrameUploads={} textureShutdownVideoFrameReleases={} textureShutdownVideoFrameErrors={} textureShutdownFontAtlasUploads={} textureShutdownFontAtlasReleases={} textureShutdownFontAtlasErrors={} pointerEvents={} pointerIntents={} pointerLastIntent={} imeEvents={} imeEnabled={} imeDisabled={} imePreedit={} imeCommit={} passes={} commands={} submittedCommandBuffers={}",
+            "Qua native window smoke: adapter={} surface={} size={}x{} status={} presented={} attempts={} targetFrames={} renderedFrames={} resizeCount={} surfaceRecoveryCount={} surfaceRecoveryAttempts={} surfaceRecoverySuccesses={} surfaceRecoveryMissingSize={} surfaceRecoveryErrors={} deviceRecoveryCount={} deviceRecoveryAttempts={} deviceRecoverySuccesses={} deviceRecoveryMissingSize={} deviceRecoveryErrors={} presentFailures={} recoverableSurfaceFailures={} recoverableDeviceFailures={} lastPresentFailure={} lastSurfacePresentFailure={} lastRecoveryAction={} lastSurfaceRecoveryStatus={} lastDeviceRecoveryStatus={} appLifecycle={} appLifecycleTicks={} appRedrawRequests={} textureUploads={} textureUploadErrors={} textureUploadResubmits={} textureResubmitted={} textureLifecycleSyncs={} textureLifecycleInitialSyncs={} textureLifecycleTrackedPackages={} textureLifecycleReleaseAttempts={} textureLifecycleReleasedPackages={} textureLifecycleCleanupErrors={} textureShutdowns={} textureShutdownReleasedResources={} textureShutdownReleasedTextures={} textureShutdownCleanupErrors={} textureShutdownVideoFrameUploads={} textureShutdownVideoFrameReleases={} textureShutdownVideoFrameErrors={} textureShutdownFontAtlasUploads={} textureShutdownFontAtlasReleases={} textureShutdownFontAtlasErrors={} audioBackendPlans={} audioBackendCommands={} audioBackendTracks={} videoBackendLoads={} videoBackendResidentAssets={} videoBackendPlans={} videoBackendCommands={} videoBackendActiveStreams={} videoBackendDecodedStreams={} videoBackendDecodeFailures={} videoBackendMissingAssets={} videoBackendPublishedFrames={} videoBackendReleasedTextures={} pointerEvents={} pointerIntents={} pointerLastIntent={} imeEvents={} imeEnabled={} imeDisabled={} imePreedit={} imeCommit={} passes={} commands={} submittedCommandBuffers={}",
             report.adapter_name,
             report.surface_format,
             report.physical_width,
@@ -164,6 +164,19 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             report.texture_shutdown_font_atlas_uploaded_count,
             report.texture_shutdown_font_atlas_released_count,
             report.texture_shutdown_font_atlas_error_count,
+            report.audio_backend_applied_plan_count,
+            report.audio_backend_applied_command_count,
+            report.audio_backend_active_track_count,
+            report.video_backend_loaded_asset_count,
+            report.video_backend_resident_asset_count,
+            report.video_backend_applied_plan_count,
+            report.video_backend_applied_command_count,
+            report.video_backend_active_stream_count,
+            report.video_backend_decoded_stream_count,
+            report.video_backend_decode_failure_count,
+            report.video_backend_missing_asset_count,
+            report.video_backend_published_frame_count,
+            report.video_backend_released_texture_count,
             report.pointer_event_count,
             report.pointer_intent_emit_count,
             report.pointer_last_intent_type.as_deref().unwrap_or("none"),
