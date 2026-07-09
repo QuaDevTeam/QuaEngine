@@ -702,6 +702,9 @@ importers:
       '@quajs/character':
         specifier: workspace:*
         version: link:../../game/character
+      '@quajs/plugin-background':
+        specifier: workspace:*
+        version: link:../../plugins/background
       '@quajs/script-compiler':
         specifier: workspace:*
         version: link:../../build/script-compiler
