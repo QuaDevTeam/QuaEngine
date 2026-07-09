@@ -13,6 +13,8 @@ mod product_app_loop;
 #[cfg(feature = "native-window")]
 mod product_app_shell;
 #[cfg(any(test, feature = "image-decode"))]
+mod product_bridge;
+#[cfg(any(test, feature = "image-decode"))]
 mod product_frame_scheduler;
 #[cfg(feature = "native-window")]
 mod product_input;
@@ -52,6 +54,16 @@ fn main() {
 }
 
 fn run() -> Result<(), Box<dyn std::error::Error>> {
+    if env_flag_enabled("QUA_NATIVE_QUICKJS_BRIDGE")
+        && env_flag_enabled("QUA_NATIVE_PRODUCT_BRIDGE")
+    {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "Native bridge modes are exclusive; set only one of QUA_NATIVE_QUICKJS_BRIDGE or QUA_NATIVE_PRODUCT_BRIDGE.",
+        )
+        .into());
+    }
+
     #[cfg(feature = "quickjs-rquickjs")]
     if quickjs_bridge::is_quickjs_bridge_requested() {
         quickjs_bridge::run_quickjs_bridge_from_stdio()?;
@@ -62,6 +74,20 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         return Err(std::io::Error::new(
             std::io::ErrorKind::Unsupported,
             "Native QuickJS bridge requires the quickjs-rquickjs Cargo feature.",
+        )
+        .into());
+    }
+
+    #[cfg(feature = "image-decode")]
+    if product_bridge::is_product_bridge_requested() {
+        product_bridge::run_product_bridge_from_stdio()?;
+        return Ok(());
+    }
+    #[cfg(not(feature = "image-decode"))]
+    if env_flag_enabled("QUA_NATIVE_PRODUCT_BRIDGE") {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::Unsupported,
+            "Native product bridge requires the image-decode Cargo feature.",
         )
         .into());
     }
@@ -195,4 +221,14 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         );
     }
     Ok(())
+}
+
+fn env_flag_enabled(name: &str) -> bool {
+    match std::env::var_os(name) {
+        Some(value) => {
+            let value = value.to_string_lossy();
+            value != "0" && !value.is_empty()
+        }
+        None => false,
+    }
 }
