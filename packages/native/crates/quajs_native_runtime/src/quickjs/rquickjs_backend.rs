@@ -1309,13 +1309,7 @@ impl QuickJsModuleEvaluator for RquickJsModuleEvaluator {
                         Some(error.to_string()),
                     )
                 })?;
-            let steps_array = steps_value.into_array().ok_or_else(|| {
-                call_error(
-                    QuickJsEvaluationErrorCode::InvalidStepFactoryResult,
-                    "QuickJS GameStep factory must return a GameStep array.".to_string(),
-                    None,
-                )
-            })?;
+            let steps_array = game_step_factory_result_array(steps_value)?;
 
             let mut handles = Vec::new();
             for index in 0..steps_array.len() {
@@ -2316,6 +2310,38 @@ fn factory_args_from_scope_json<'js>(
         })?;
     }
     Ok(args)
+}
+
+fn game_step_factory_result_array<'js>(
+    value: Value<'js>,
+) -> Result<Array<'js>, QuickJsEvaluationError> {
+    let resolved = if let Some(promise) = value.as_promise() {
+        promise.finish::<Value<'js>>().map_err(|error| match error {
+            Error::WouldBlock => call_error(
+                QuickJsEvaluationErrorCode::InvalidStepFactoryResult,
+                "QuickJS GameStep factory Promise did not settle.".to_string(),
+                Some(
+                    "Native QuickJS script factories may be async only when their Promise resolves inside QuickJS without a host continuation."
+                        .to_string(),
+                ),
+            ),
+            _ => call_error(
+                QuickJsEvaluationErrorCode::InvalidStepFactoryResult,
+                "QuickJS GameStep factory Promise rejected or could not be resolved.".to_string(),
+                Some(error.to_string()),
+            ),
+        })?
+    } else {
+        value
+    };
+
+    resolved.into_array().ok_or_else(|| {
+        call_error(
+            QuickJsEvaluationErrorCode::InvalidStepFactoryResult,
+            "QuickJS GameStep factory must return a GameStep array.".to_string(),
+            None,
+        )
+    })
 }
 
 fn step_context_object<'js>(
@@ -3545,6 +3571,64 @@ mod tests {
         assert_eq!(args[0]["speaker"], "Alice");
         assert_eq!(args[0]["avatar"]["type"], "images");
         assert_eq!(args[0]["avatar"]["name"], "alice.png");
+    }
+
+    #[test]
+    fn game_step_factory_accepts_async_resolved_step_arrays() {
+        let mut evaluator = RquickJsModuleEvaluator::new().unwrap();
+        let response = evaluator
+            .evaluate_module(&request_for_code(
+                "scripts/async-factory.js",
+                r#"
+                export default async function opening(scope = {}) {
+                    const suffix = await Promise.resolve(scope.suffix || 'native');
+                    return [{
+                        uuid: 'intro.async-factory',
+                        metadata: {
+                            point: { nodeId: 'async-' + suffix }
+                        },
+                        run(ctx) {
+                            ctx.engine.showDialogue({
+                                text: 'Async factory resolved for ' + suffix,
+                                mode: 'narration'
+                            });
+                        }
+                    }];
+                }
+                "#,
+            ))
+            .unwrap();
+        let module_namespace_id = response.module_namespace_id.unwrap();
+        let steps = evaluator
+            .call_game_step_factory(&QuickJsGameStepFactoryCallRequest {
+                module_namespace_id,
+                export_name: "default".to_string(),
+                scope_json: Some("{\"suffix\":\"quickjs\"}".to_string()),
+            })
+            .unwrap()
+            .steps
+            .unwrap();
+
+        assert_eq!(steps.len(), 1);
+        assert_eq!(steps[0].uuid, "intro.async-factory");
+        assert_eq!(
+            steps[0].metadata_json.as_deref(),
+            Some("{\"point\":{\"nodeId\":\"async-quickjs\"}}")
+        );
+
+        let run = evaluator
+            .call_game_step_run(&QuickJsGameStepRunRequest {
+                run_handle_id: steps[0].run_handle_id.clone(),
+                ctx_json: Some("{\"stepId\":\"intro.async-factory\"}".to_string()),
+            })
+            .unwrap();
+        let commands = run.commands.unwrap();
+        assert_eq!(commands.len(), 1);
+        assert_eq!(commands[0].method, "showDialogue");
+        let args: serde_json::Value =
+            serde_json::from_str(commands[0].args_json.as_deref().unwrap()).unwrap();
+        assert_eq!(args[0]["text"], "Async factory resolved for quickjs");
+        assert_eq!(args[0]["mode"], "narration");
     }
 
     #[test]
