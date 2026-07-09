@@ -1,7 +1,11 @@
 #[cfg(feature = "native-audio-rodio")]
 use crate::audio_backend::RodioNativeAudioBackend;
+#[cfg(feature = "native-video-gif")]
+use crate::video_backend::GifNativeVideoBackend;
 #[cfg(any(test, not(feature = "native-audio-rodio")))]
 use quajs_wgpu_renderer::audio::NullNativeAudioBackend;
+#[cfg(any(test, not(feature = "native-video-gif")))]
+use quajs_wgpu_renderer::video::NullNativeVideoBackend;
 
 use crate::texture_sync::{
     NativeTextureBundleLifecycleSyncReport, NativeTextureCleanedClearResult,
@@ -46,6 +50,22 @@ pub(super) struct NativeWindowSmokeAudioMetrics {
     pub applied_plan_count: usize,
     pub applied_command_count: usize,
     pub active_track_count: usize,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub(super) struct NativeWindowSmokeVideoMetrics {
+    pub loaded_asset_count: usize,
+    pub resident_asset_count: usize,
+    pub applied_plan_count: usize,
+    pub applied_command_count: usize,
+    pub active_stream_count: usize,
+    pub decoded_stream_count: usize,
+    pub decode_failure_count: usize,
+    pub missing_asset_count: usize,
+    pub published_frame_count: usize,
+    pub pending_frame_count: usize,
+    pub released_texture_count: usize,
+    pub pending_release_count: usize,
 }
 
 impl NativeWindowSmokeTextureMetrics {
@@ -150,6 +170,51 @@ impl NativeWindowSmokeAudioMetrics {
             applied_plan_count: diagnostics.applied_plan_count,
             applied_command_count: diagnostics.applied_command_count,
             active_track_count: diagnostics.active_track_count,
+        }
+    }
+}
+
+impl NativeWindowSmokeVideoMetrics {
+    #[cfg(not(feature = "native-video-gif"))]
+    pub(super) fn from_product_backend(backend: Option<&NullNativeVideoBackend>) -> Self {
+        Self::from_null_backend(backend)
+    }
+
+    #[cfg(feature = "native-video-gif")]
+    pub(super) fn from_product_backend(backend: Option<&GifNativeVideoBackend>) -> Self {
+        let Some(backend) = backend else {
+            return Self::default();
+        };
+        let diagnostics = backend.diagnostics();
+        Self {
+            loaded_asset_count: diagnostics.loaded_asset_count,
+            resident_asset_count: diagnostics.resident_asset_count,
+            applied_plan_count: diagnostics.applied_plan_count,
+            applied_command_count: diagnostics.applied_command_count,
+            active_stream_count: diagnostics.active_stream_count,
+            decoded_stream_count: diagnostics.decoded_stream_count,
+            decode_failure_count: diagnostics.decode_failure_count,
+            missing_asset_count: diagnostics.missing_asset_count,
+            published_frame_count: diagnostics.published_frame_count,
+            pending_frame_count: diagnostics.pending_frame_count,
+            released_texture_count: diagnostics.released_texture_count,
+            pending_release_count: diagnostics.pending_release_count,
+        }
+    }
+
+    #[cfg(any(test, not(feature = "native-video-gif")))]
+    pub(super) fn from_null_backend(backend: Option<&NullNativeVideoBackend>) -> Self {
+        let Some(backend) = backend else {
+            return Self::default();
+        };
+        let diagnostics = backend.diagnostics();
+        Self {
+            loaded_asset_count: diagnostics.loaded_asset_count,
+            resident_asset_count: diagnostics.loaded_asset_count,
+            applied_plan_count: diagnostics.applied_plan_count,
+            applied_command_count: diagnostics.applied_command_count,
+            active_stream_count: diagnostics.active_stream_count,
+            ..Default::default()
         }
     }
 }

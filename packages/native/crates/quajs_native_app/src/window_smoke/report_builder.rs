@@ -1,6 +1,8 @@
 use super::frame::WindowFrameDimensions;
 use super::input::NativeWindowSmokeInputMetrics;
-use super::metrics::{NativeWindowSmokeAudioMetrics, NativeWindowSmokeTextureMetrics};
+use super::metrics::{
+    NativeWindowSmokeAudioMetrics, NativeWindowSmokeTextureMetrics, NativeWindowSmokeVideoMetrics,
+};
 use super::report::NativeWindowSmokeReport;
 use crate::product_app_loop::{NativeProductAppLifecycleState, NativeProductAppLoopSnapshot};
 use crate::product_frame_scheduler::NativeProductSurfaceRecoveryMetrics;
@@ -24,6 +26,7 @@ pub(super) struct NativeWindowSmokeReportInput<'a> {
     pub last_present_failure_kind: Option<NativeProductWindowPresentFailureKind>,
     pub texture_metrics: &'a NativeWindowSmokeTextureMetrics,
     pub audio_metrics: &'a NativeWindowSmokeAudioMetrics,
+    pub video_metrics: &'a NativeWindowSmokeVideoMetrics,
     pub input_metrics: &'a NativeWindowSmokeInputMetrics,
     pub app_loop: NativeProductAppLoopSnapshot,
     pub last_resize_physical_size: Option<NativeProductWindowPhysicalSize>,
@@ -145,6 +148,18 @@ pub(super) fn build_window_smoke_report(
         audio_backend_applied_plan_count: input.audio_metrics.applied_plan_count,
         audio_backend_applied_command_count: input.audio_metrics.applied_command_count,
         audio_backend_active_track_count: input.audio_metrics.active_track_count,
+        video_backend_loaded_asset_count: input.video_metrics.loaded_asset_count,
+        video_backend_resident_asset_count: input.video_metrics.resident_asset_count,
+        video_backend_applied_plan_count: input.video_metrics.applied_plan_count,
+        video_backend_applied_command_count: input.video_metrics.applied_command_count,
+        video_backend_active_stream_count: input.video_metrics.active_stream_count,
+        video_backend_decoded_stream_count: input.video_metrics.decoded_stream_count,
+        video_backend_decode_failure_count: input.video_metrics.decode_failure_count,
+        video_backend_missing_asset_count: input.video_metrics.missing_asset_count,
+        video_backend_published_frame_count: input.video_metrics.published_frame_count,
+        video_backend_pending_frame_count: input.video_metrics.pending_frame_count,
+        video_backend_released_texture_count: input.video_metrics.released_texture_count,
+        video_backend_pending_release_count: input.video_metrics.pending_release_count,
         pointer_event_count: input.input_metrics.pointer_event_count,
         pointer_dispatch_count: input.input_metrics.pointer_dispatch_count,
         pointer_intent_emit_count: input.input_metrics.pointer_intent_emit_count,
@@ -263,6 +278,20 @@ mod tests {
             applied_command_count: 13,
             active_track_count: 2,
         };
+        let video_metrics = NativeWindowSmokeVideoMetrics {
+            loaded_asset_count: 14,
+            resident_asset_count: 1,
+            applied_plan_count: 15,
+            applied_command_count: 16,
+            active_stream_count: 1,
+            decoded_stream_count: 2,
+            decode_failure_count: 3,
+            missing_asset_count: 4,
+            published_frame_count: 5,
+            pending_frame_count: 0,
+            released_texture_count: 6,
+            pending_release_count: 0,
+        };
 
         let report = build_window_smoke_report(NativeWindowSmokeReportInput {
             adapter_name: "adapter",
@@ -304,6 +333,7 @@ mod tests {
             last_present_failure_kind: Some(NativeProductWindowPresentFailureKind::Outdated),
             texture_metrics: &texture_metrics,
             audio_metrics: &audio_metrics,
+            video_metrics: &video_metrics,
             input_metrics: &input_metrics,
             app_loop: NativeProductAppLoopSnapshot {
                 lifecycle_state: NativeProductAppLifecycleState::Running,
@@ -386,6 +416,18 @@ mod tests {
         assert_eq!(report.audio_backend_applied_plan_count, 12);
         assert_eq!(report.audio_backend_applied_command_count, 13);
         assert_eq!(report.audio_backend_active_track_count, 2);
+        assert_eq!(report.video_backend_loaded_asset_count, 14);
+        assert_eq!(report.video_backend_resident_asset_count, 1);
+        assert_eq!(report.video_backend_applied_plan_count, 15);
+        assert_eq!(report.video_backend_applied_command_count, 16);
+        assert_eq!(report.video_backend_active_stream_count, 1);
+        assert_eq!(report.video_backend_decoded_stream_count, 2);
+        assert_eq!(report.video_backend_decode_failure_count, 3);
+        assert_eq!(report.video_backend_missing_asset_count, 4);
+        assert_eq!(report.video_backend_published_frame_count, 5);
+        assert_eq!(report.video_backend_pending_frame_count, 0);
+        assert_eq!(report.video_backend_released_texture_count, 6);
+        assert_eq!(report.video_backend_pending_release_count, 0);
         assert_eq!(
             report.pointer_last_intent_type.as_deref(),
             Some("ui/intent")

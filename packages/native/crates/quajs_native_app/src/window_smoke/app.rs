@@ -8,7 +8,9 @@ use super::config::load_window_smoke_target_frame_count;
 use super::error::NativeWindowSmokeError;
 use super::frame::{frame_json_for_window, normalized_physical_size, window_frame_dimensions};
 use super::input::NativeWindowSmokeInputState;
-use super::metrics::{NativeWindowSmokeAudioMetrics, NativeWindowSmokeTextureMetrics};
+use super::metrics::{
+    NativeWindowSmokeAudioMetrics, NativeWindowSmokeTextureMetrics, NativeWindowSmokeVideoMetrics,
+};
 use super::report::NativeWindowSmokeReport;
 use super::report_builder::{build_window_smoke_report, NativeWindowSmokeReportInput};
 use super::texture_host::create_window_smoke_texture_host;
@@ -139,6 +141,8 @@ impl NativeWindowSmokeApp {
         let rendered_frame_count = runtime.rendered_frame_count();
         let audio_metrics =
             NativeWindowSmokeAudioMetrics::from_product_backend(runtime.renderer().audio_backend());
+        let video_metrics =
+            NativeWindowSmokeVideoMetrics::from_product_backend(runtime.renderer().video_backend());
         let recovery_metrics = window_loop.recovery_metrics();
 
         let presentation = runtime.presentation();
@@ -158,6 +162,7 @@ impl NativeWindowSmokeApp {
             last_present_failure_kind: window_loop.last_present_failure_kind(),
             texture_metrics: &self.texture_metrics,
             audio_metrics: &audio_metrics,
+            video_metrics: &video_metrics,
             input_metrics,
             app_loop: product_shell.app_loop().snapshot(),
             last_resize_physical_size: window_loop.last_resize_physical_size(),

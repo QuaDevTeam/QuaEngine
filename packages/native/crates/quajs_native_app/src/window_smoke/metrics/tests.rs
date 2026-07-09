@@ -1,7 +1,13 @@
+use std::collections::{BTreeMap, BTreeSet};
+
 use quajs_wgpu_renderer::audio::{
     AudioBackendCommandPlan, NativeAudioBackend, NullNativeAudioBackend,
 };
 use quajs_wgpu_renderer::resources::{NativeResourceKind, NativeResourceRecord, ResourceId};
+use quajs_wgpu_renderer::video::{
+    NativeVideoBackend, NullNativeVideoBackend, VideoBackendAssetLoad, VideoBackendCommand,
+    VideoBackendCommandKind, VideoBackendCommandPlan, VideoBackendStreamState,
+};
 
 use crate::texture_sync::{
     NativeFontAtlasTextureSyncReport, NativeTextureBundleLifecycleSyncReport,
@@ -133,6 +139,48 @@ fn derives_audio_metrics_from_null_backend_diagnostics() {
     );
 }
 
+#[test]
+fn derives_video_metrics_from_null_backend_diagnostics() {
+    let mut backend = NullNativeVideoBackend::new();
+    let stream = video_stream_state();
+    backend
+        .apply_video_asset_loads(&[VideoBackendAssetLoad {
+            stream_id: stream.id.clone(),
+            resource_id: stream.decoder_resource_id.clone(),
+            asset_type: stream.asset_type.clone(),
+            asset_name: stream.asset_name.clone(),
+            package_id: Some("base".to_string()),
+            bytes: vec![1, 2, 3],
+        }])
+        .expect("null backend should accept video asset loads");
+    backend
+        .apply_video_commands(&VideoBackendCommandPlan {
+            commands: vec![VideoBackendCommand {
+                stream_id: stream.id.clone(),
+                kind: VideoBackendCommandKind::StartStream,
+                stream: Some(stream.clone()),
+            }],
+            next_streams: BTreeMap::from([(stream.id.clone(), stream)]),
+            skipped_asset_resource_ids: Vec::new(),
+        })
+        .expect("null backend should accept video command plans");
+
+    let metrics = NativeWindowSmokeVideoMetrics::from_null_backend(Some(&backend));
+
+    assert_eq!(metrics.loaded_asset_count, 1);
+    assert_eq!(metrics.resident_asset_count, 1);
+    assert_eq!(metrics.applied_plan_count, 1);
+    assert_eq!(metrics.applied_command_count, 1);
+    assert_eq!(metrics.active_stream_count, 1);
+    assert_eq!(metrics.decoded_stream_count, 0);
+    assert_eq!(metrics.decode_failure_count, 0);
+    assert_eq!(metrics.missing_asset_count, 0);
+    assert_eq!(
+        NativeWindowSmokeVideoMetrics::from_null_backend(None),
+        NativeWindowSmokeVideoMetrics::default()
+    );
+}
+
 fn upload_report(
     pending: usize,
     resident: usize,
@@ -195,5 +243,23 @@ fn lifecycle_report(
         released_package_ids: released.iter().map(|id| id.to_string()).collect(),
         texture_cleanup_error_count,
         ..Default::default()
+    }
+}
+
+fn video_stream_state() -> VideoBackendStreamState {
+    VideoBackendStreamState {
+        id: "background:video".to_string(),
+        asset_type: "video".to_string(),
+        asset_name: "movies/opening.gif".to_string(),
+        looped: true,
+        muted: true,
+        volume: 1.0,
+        playback_rate: 1.0,
+        seek_ms: None,
+        offset_ms: None,
+        package_candidates: BTreeSet::from(["base".to_string()]),
+        decoder_resource_id: ResourceId::from("video:decoder:video:movies/opening.gif"),
+        frame_queue_resource_id: ResourceId::from("video:frame-queue:video:movies/opening.gif"),
+        texture_ring_resource_id: ResourceId::from("video:texture-ring:video:movies/opening.gif"),
     }
 }

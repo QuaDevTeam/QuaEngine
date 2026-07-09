@@ -185,6 +185,18 @@ fn window_smoke_report_serializes_texture_lifecycle_metrics() {
         audio_backend_applied_plan_count: 1,
         audio_backend_applied_command_count: 2,
         audio_backend_active_track_count: 0,
+        video_backend_loaded_asset_count: 3,
+        video_backend_resident_asset_count: 1,
+        video_backend_applied_plan_count: 4,
+        video_backend_applied_command_count: 5,
+        video_backend_active_stream_count: 1,
+        video_backend_decoded_stream_count: 2,
+        video_backend_decode_failure_count: 1,
+        video_backend_missing_asset_count: 1,
+        video_backend_published_frame_count: 2,
+        video_backend_pending_frame_count: 0,
+        video_backend_released_texture_count: 1,
+        video_backend_pending_release_count: 0,
         pointer_event_count: 0,
         pointer_dispatch_count: 0,
         pointer_intent_emit_count: 1,
@@ -275,6 +287,18 @@ fn window_smoke_report_serializes_texture_lifecycle_metrics() {
     assert_eq!(value["audioBackendAppliedPlanCount"], 1);
     assert_eq!(value["audioBackendAppliedCommandCount"], 2);
     assert_eq!(value["audioBackendActiveTrackCount"], 0);
+    assert_eq!(value["videoBackendLoadedAssetCount"], 3);
+    assert_eq!(value["videoBackendResidentAssetCount"], 1);
+    assert_eq!(value["videoBackendAppliedPlanCount"], 4);
+    assert_eq!(value["videoBackendAppliedCommandCount"], 5);
+    assert_eq!(value["videoBackendActiveStreamCount"], 1);
+    assert_eq!(value["videoBackendDecodedStreamCount"], 2);
+    assert_eq!(value["videoBackendDecodeFailureCount"], 1);
+    assert_eq!(value["videoBackendMissingAssetCount"], 1);
+    assert_eq!(value["videoBackendPublishedFrameCount"], 2);
+    assert_eq!(value["videoBackendPendingFrameCount"], 0);
+    assert_eq!(value["videoBackendReleasedTextureCount"], 1);
+    assert_eq!(value["videoBackendPendingReleaseCount"], 0);
     assert_eq!(value["pointerCancelCount"], 0);
     assert_eq!(value["focusGainCount"], 0);
     assert_eq!(value["focusLossCount"], 0);
