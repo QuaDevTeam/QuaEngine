@@ -79,6 +79,7 @@ fn records_shutdown_cleanup_counts_separately_from_frame_texture_sync() {
             release_error_count: 1,
             ..Default::default()
         },
+        video_frame_texture_report: None,
         font_atlas_report: None,
     });
 
