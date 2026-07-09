@@ -543,6 +543,10 @@ mod tests {
             self.renderer_intents.push(event);
             Ok(())
         }
+
+        fn drain_renderer_intents(&mut self) -> NativeHostApiResult<Vec<NativeRendererIntent>> {
+            Ok(std::mem::take(&mut self.renderer_intents))
+        }
     }
 
     #[derive(Default)]

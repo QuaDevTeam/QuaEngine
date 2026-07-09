@@ -551,5 +551,9 @@ mod tests {
         ) -> NativeHostApiResult<()> {
             Ok(())
         }
+
+        fn drain_renderer_intents(&mut self) -> NativeHostApiResult<Vec<NativeRendererIntent>> {
+            Ok(Vec::new())
+        }
     }
 }

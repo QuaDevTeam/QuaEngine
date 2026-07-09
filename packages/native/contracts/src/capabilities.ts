@@ -137,6 +137,7 @@ export type NativeHostApiRequest =
   | { method: 'getQuickJsNamespaceSummary' }
   | { method: 'getQuickJsPackageNamespaceSummary', params: NativeQuickJsReleasePackageRequest }
   | { method: 'emitRendererIntent', params: NativeRendererIntent }
+  | { method: 'drainRendererIntents' }
 
 export interface NativeHostApiStorageKeyRequest {
   key: string
@@ -180,6 +181,7 @@ export interface NativeHostApiResponseValueByType {
   quickJsNamespace: NativeQuickJsModuleNamespaceRecord | null | undefined
   quickJsNamespaces: NativeQuickJsModuleNamespaceRecord[]
   quickJsNamespaceSummary: NativeQuickJsModuleNamespaceSummary
+  rendererIntents: NativeRendererIntent[]
 }
 
 export type NativeHostApiResponsePayload = {
@@ -218,6 +220,7 @@ export interface QuaNativeHostApi {
   getQuickJsNamespaceSummary?: () => Promise<NativeQuickJsModuleNamespaceSummary>
   getQuickJsPackageNamespaceSummary?: (packageId: string) => Promise<NativeQuickJsModuleNamespaceSummary>
   emitRendererIntent?: (event: NativeRendererIntent) => void
+  drainRendererIntents?: () => Promise<NativeRendererIntent[]>
 }
 
 export function createNativeRendererIntent(input: NativeRendererIntentInput): NativeRendererIntent {

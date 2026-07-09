@@ -119,6 +119,12 @@ describe('native host wire contracts', () => {
         packageId: 'runtime.chapter.native-ui',
       },
     })
+
+    expect(createNativeHostApiRequest({
+      method: 'drainRendererIntents',
+    })).toEqual({
+      method: 'drainRendererIntents',
+    })
   })
 
   it('accepts host bridge responses with typed payloads and errors', () => {
@@ -142,5 +148,17 @@ describe('native host wire contracts', () => {
     expect(errorResponse.error.code).toBe('assetNotFound')
     expect(nativeWireBytesToUint8Array([4, 5, 6])).toEqual(new Uint8Array([4, 5, 6]))
     expect(nativeWireBytesToUint8Array(undefined)).toBeUndefined()
+
+    const intentResponse = {
+      ok: true,
+      payload: {
+        type: 'rendererIntents',
+        value: [createNativeRendererIntent({ type: 'choice/select', payload: { choiceId: 'stay' } })],
+      },
+    } as const
+    expect(intentResponse.payload.value[0]).toEqual({
+      type: 'choice/select',
+      payloadJson: '{"choiceId":"stay"}',
+    })
   })
 })

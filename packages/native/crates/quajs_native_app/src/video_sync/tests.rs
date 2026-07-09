@@ -258,6 +258,10 @@ impl NativeHostApi for RecordingVideoHost {
     fn emit_renderer_intent(&mut self, _event: NativeRendererIntent) -> NativeHostApiResult<()> {
         Ok(())
     }
+
+    fn drain_renderer_intents(&mut self) -> NativeHostApiResult<Vec<NativeRendererIntent>> {
+        Ok(Vec::new())
+    }
 }
 
 fn stream<const N: usize>(asset_name: &str, packages: [&str; N]) -> VideoBackendStreamState {

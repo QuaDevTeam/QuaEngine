@@ -215,6 +215,10 @@ impl NativeHostApi for RecordingFontHost {
     fn emit_renderer_intent(&mut self, _event: NativeRendererIntent) -> NativeHostApiResult<()> {
         Ok(())
     }
+
+    fn drain_renderer_intents(&mut self) -> NativeHostApiResult<Vec<NativeRendererIntent>> {
+        Ok(Vec::new())
+    }
 }
 
 fn face<const N: usize>(

@@ -339,4 +339,8 @@ impl NativeHostApi for FailingRendererIntentHost {
             "renderer intent sink unavailable".to_string(),
         ))
     }
+
+    fn drain_renderer_intents(&mut self) -> NativeHostApiResult<Vec<NativeRendererIntent>> {
+        Ok(std::mem::take(&mut self.attempted_intents))
+    }
 }

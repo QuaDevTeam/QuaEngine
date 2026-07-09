@@ -86,6 +86,14 @@ fn in_memory_host_reads_assets_storage_bundles_and_intents_without_external_io()
     })
     .unwrap();
     assert_eq!(host.renderer_intents().len(), 1);
+    assert_eq!(
+        host.drain_renderer_intents().unwrap(),
+        vec![NativeRendererIntent {
+            r#type: "ui/intent".to_string(),
+            payload_json: None,
+        }]
+    );
+    assert!(host.renderer_intents().is_empty());
 }
 
 #[test]

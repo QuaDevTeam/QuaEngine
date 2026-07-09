@@ -120,6 +120,7 @@ export function createNativeHostApiFromBridge(dispatch: NativeHostBridgeDispatch
     emitRendererIntent(event) {
       void callVoid(dispatch, { method: 'emitRendererIntent', params: event })
     },
+    drainRendererIntents: () => call({ method: 'drainRendererIntents' }, 'rendererIntents'),
   }
 }
 

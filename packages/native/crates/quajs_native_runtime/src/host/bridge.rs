@@ -40,6 +40,7 @@ pub enum NativeHostApiRequest {
     GetQuickJsNamespaceSummary,
     GetQuickJsPackageNamespaceSummary(NativeQuickJsReleasePackageRequest),
     EmitRendererIntent(NativeRendererIntent),
+    DrainRendererIntents,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
@@ -108,6 +109,7 @@ pub enum NativeHostApiResponsePayload {
     QuickJsNamespace(Option<QuickJsModuleNamespaceRecord>),
     QuickJsNamespaces(Vec<QuickJsModuleNamespaceRecord>),
     QuickJsNamespaceSummary(QuickJsModuleNamespaceSummary),
+    RendererIntents(Vec<NativeRendererIntent>),
 }
 
 impl NativeHostApiResponse {
@@ -260,6 +262,11 @@ pub fn dispatch_native_host_api_request_with_quickjs_registry(
         NativeHostApiRequest::EmitRendererIntent(event) => host
             .emit_renderer_intent(event)
             .map(|_| NativeHostApiResponse::empty())
+            .unwrap_or_else(|error| NativeHostApiResponse::error(error.to_info())),
+        NativeHostApiRequest::DrainRendererIntents => host
+            .drain_renderer_intents()
+            .map(NativeHostApiResponsePayload::RendererIntents)
+            .map(NativeHostApiResponse::success)
             .unwrap_or_else(|error| NativeHostApiResponse::error(error.to_info())),
     }
 }
