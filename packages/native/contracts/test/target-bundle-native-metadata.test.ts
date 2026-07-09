@@ -42,6 +42,7 @@ describe('target bundle native metadata validation', () => {
         'native-wgpu.stage-layout@1',
         'native-wgpu.ui.surface@1',
         'native-wgpu.input.pointer@1',
+        'native-wgpu.input.text@1',
       ],
       capabilityManifestHash: expect.stringMatching(/^sha256:fixture-/),
     })

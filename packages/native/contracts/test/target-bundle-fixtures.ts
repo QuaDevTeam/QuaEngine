@@ -51,6 +51,15 @@ export const NATIVE_RENDERER_CAPABILITIES = [
     quiComponents: ['Button', 'Panel'],
     fallback: 'reject-package',
   },
+  {
+    id: 'native-wgpu.input.text@1',
+    target: 'native',
+    version: '1.0.0',
+    ownerPackage: '@quajs/native-renderer',
+    projectionKeys: [],
+    intentEvents: ['user/text_input'],
+    fallback: 'reject-package',
+  },
 ] as const
 
 export function targetDependencies(target: QuaTargetBootstrap): TargetBundleManifest['dependencies'] {

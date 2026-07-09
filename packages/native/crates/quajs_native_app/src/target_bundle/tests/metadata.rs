@@ -200,6 +200,7 @@ fn rejects_blank_native_renderer_identity_metadata() {
     let renderer = manifest.native_renderer.as_mut().unwrap();
     renderer.version = Some("  ".to_string());
     renderer.capability_manifest_hash = Some("\t".to_string());
+    let blank_capability_index = renderer.capability_ids.len();
     renderer.capability_ids.push(" ".to_string());
 
     let error = validate_native_target_bundle_manifest(&manifest, None)
@@ -214,13 +215,12 @@ fn rejects_blank_native_renderer_identity_metadata() {
         .iter()
         .any(|diagnostic| diagnostic
             .contains("nativeRenderer.capabilityManifestHash must not be empty")));
-    assert!(
-        error
-            .diagnostics()
-            .iter()
-            .any(|diagnostic| diagnostic
-                .contains("nativeRenderer.capabilityIds[3] must not be empty"))
-    );
+    assert!(error
+        .diagnostics()
+        .iter()
+        .any(|diagnostic| diagnostic.contains(&format!(
+            "nativeRenderer.capabilityIds[{blank_capability_index}] must not be empty"
+        ))));
 }
 
 #[test]

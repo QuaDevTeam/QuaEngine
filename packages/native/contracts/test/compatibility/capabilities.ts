@@ -157,6 +157,56 @@ describe('checkNativeCompatibility capabilities and resources', () => {
     ])
   })
 
+  it('accepts text input intent events through the text input capability', () => {
+    const result = checkNativeCompatibility({
+      hostInfo: createHostInfo(),
+      pluginId: 'runtime.native-text-input',
+      compatibility: {
+        capabilities: ['native-wgpu.input.text@1'],
+        intentEvents: ['user/text_input'],
+        nativeCode: false,
+      },
+    })
+
+    expect(result).toEqual({
+      ok: true,
+      diagnostics: [],
+    })
+  })
+
+  it('rejects text input intent events when only pointer input is available', () => {
+    const result = checkNativeCompatibility({
+      hostInfo: createHostInfo({
+        capabilities: [
+          {
+            id: 'native-wgpu.input.pointer@1',
+            target: 'native',
+            version: '1.0.0',
+            ownerPackage: '@quajs/native-renderer',
+            projectionKeys: ['view.choices', 'view.ui.overlays'],
+            intentEvents: ['choice/select', 'ui/intent'],
+            fallback: 'reject-package',
+          },
+        ],
+      }),
+      pluginId: 'runtime.native-text-input',
+      compatibility: {
+        intentEvents: ['user/text_input'],
+        nativeCode: false,
+      },
+    })
+
+    expect(result.ok).toBe(false)
+    expect(result.diagnostics).toEqual([
+      expect.objectContaining({
+        code: 'NATIVE_REQUIRED_INTENT_EVENT_MISSING',
+        severity: 'error',
+        pluginId: 'runtime.native-text-input',
+        required: 'user/text_input',
+      }),
+    ])
+  })
+
   it('warns for missing optional native intent events without failing activation', () => {
     const result = checkNativeCompatibility({
       hostInfo: createHostInfo({
