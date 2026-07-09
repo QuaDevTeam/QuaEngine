@@ -82,7 +82,8 @@ describe('@quajs/engine-native runtime product smoke', () => {
       import { playBGMWithEngine } from '@quajs/plugin-audio';
       import { choiceText, sharedLabel } from './shared.js';
 
-      export default function nativeStory(scope = {}) {
+      export default async function nativeStory(scope = {}) {
+        const runtimeLabel = await Promise.resolve(sharedLabel);
         return [{
           uuid: 'runtime.native.story.step.1',
           metadata: {
@@ -92,7 +93,7 @@ describe('@quajs/engine-native runtime product smoke', () => {
             const playerName = await resolveQuaText(ctx, [scope.playerName || 'Player']);
             await ctx.pipeline.emit('plugin/native_product_smoke', {
               playerName,
-              via: sharedLabel
+              via: runtimeLabel
             });
             const listener = context => {
               if (context.event.payload.value === 42) {
@@ -116,7 +117,7 @@ describe('@quajs/engine-native runtime product smoke', () => {
               }
             });
             await ctx.engine.showDialogue({
-              text: 'Native line for ' + playerName + ' via ' + sharedLabel,
+              text: 'Native line for ' + playerName + ' via ' + runtimeLabel,
               mode: 'narration'
             });
             await ctx.engine.showChoices([
