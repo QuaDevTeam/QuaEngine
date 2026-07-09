@@ -210,6 +210,8 @@ Prefer light checks while disk is tight:
 
 ```bash
 pnpm native:verify --no-bench --no-window # includes default Rust runtime plus quickjs-rquickjs runtime/app bridge tests
+pnpm -C packages/build/quack exec vitest project-config.test.ts --run
+pnpm -C packages/build/quack typecheck
 pnpm --filter @quajs/native-contracts typecheck
 pnpm --filter @quajs/native-contracts test -- --run
 pnpm --filter @quajs/engine-native test -- --run
