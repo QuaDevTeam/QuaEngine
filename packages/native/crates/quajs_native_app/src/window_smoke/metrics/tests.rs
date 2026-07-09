@@ -4,10 +4,11 @@ use quajs_wgpu_renderer::audio::{
 use quajs_wgpu_renderer::resources::{NativeResourceKind, NativeResourceRecord, ResourceId};
 
 use crate::texture_sync::{
-    NativeTextureBundleLifecycleSyncReport, NativeTextureCleanedClearResult,
-    NativeTextureHostCleanupSyncFailure, NativeTextureHostCleanupSyncReport,
-    NativeTextureReleaseHostSyncFailure, NativeTextureUploadHostSyncFailure,
-    NativeTextureUploadHostSyncFailureKind, NativeTextureUploadHostSyncReport,
+    NativeFontAtlasTextureSyncReport, NativeTextureBundleLifecycleSyncReport,
+    NativeTextureCleanedClearResult, NativeTextureHostCleanupSyncFailure,
+    NativeTextureHostCleanupSyncReport, NativeTextureReleaseHostSyncFailure,
+    NativeTextureUploadHostSyncFailure, NativeTextureUploadHostSyncFailureKind,
+    NativeTextureUploadHostSyncReport, NativeVideoFrameTextureSyncReport,
 };
 
 use super::*;
@@ -79,8 +80,24 @@ fn records_shutdown_cleanup_counts_separately_from_frame_texture_sync() {
             release_error_count: 1,
             ..Default::default()
         },
-        video_frame_texture_report: None,
-        font_atlas_report: None,
+        video_frame_texture_report: Some(NativeVideoFrameTextureSyncReport {
+            uploaded_count: 2,
+            released_count: 3,
+            missing_release_count: 1,
+            invalid_frame_count: 1,
+            upload_error_count: 1,
+            release_error_count: 1,
+            ..Default::default()
+        }),
+        font_atlas_report: Some(NativeFontAtlasTextureSyncReport {
+            uploaded_count: 4,
+            released_count: 5,
+            missing_release_count: 1,
+            invalid_atlas_count: 1,
+            upload_error_count: 1,
+            release_error_count: 1,
+            ..Default::default()
+        }),
     });
 
     assert_eq!(metrics.shutdown_count, 1);
@@ -88,6 +105,12 @@ fn records_shutdown_cleanup_counts_separately_from_frame_texture_sync() {
     assert_eq!(metrics.shutdown_host_cleanup_count, 2);
     assert_eq!(metrics.shutdown_texture_released_count, 1);
     assert_eq!(metrics.shutdown_texture_cleanup_error_count, 1);
+    assert_eq!(metrics.shutdown_video_frame_texture_uploaded_count, 2);
+    assert_eq!(metrics.shutdown_video_frame_texture_released_count, 3);
+    assert_eq!(metrics.shutdown_video_frame_texture_error_count, 4);
+    assert_eq!(metrics.shutdown_font_atlas_uploaded_count, 4);
+    assert_eq!(metrics.shutdown_font_atlas_released_count, 5);
+    assert_eq!(metrics.shutdown_font_atlas_error_count, 4);
     assert_eq!(metrics.upload_error_count, 0);
     assert_eq!(metrics.lifecycle_sync_count, 0);
 }

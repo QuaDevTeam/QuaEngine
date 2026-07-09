@@ -124,6 +124,24 @@ pub(super) fn build_window_smoke_report(
         texture_shutdown_cleanup_error_count: input
             .texture_metrics
             .shutdown_texture_cleanup_error_count,
+        texture_shutdown_video_frame_texture_uploaded_count: input
+            .texture_metrics
+            .shutdown_video_frame_texture_uploaded_count,
+        texture_shutdown_video_frame_texture_released_count: input
+            .texture_metrics
+            .shutdown_video_frame_texture_released_count,
+        texture_shutdown_video_frame_texture_error_count: input
+            .texture_metrics
+            .shutdown_video_frame_texture_error_count,
+        texture_shutdown_font_atlas_uploaded_count: input
+            .texture_metrics
+            .shutdown_font_atlas_uploaded_count,
+        texture_shutdown_font_atlas_released_count: input
+            .texture_metrics
+            .shutdown_font_atlas_released_count,
+        texture_shutdown_font_atlas_error_count: input
+            .texture_metrics
+            .shutdown_font_atlas_error_count,
         audio_backend_applied_plan_count: input.audio_metrics.applied_plan_count,
         audio_backend_applied_command_count: input.audio_metrics.applied_command_count,
         audio_backend_active_track_count: input.audio_metrics.active_track_count,
@@ -207,6 +225,12 @@ mod tests {
             shutdown_host_cleanup_count: 5,
             shutdown_texture_released_count: 4,
             shutdown_texture_cleanup_error_count: 1,
+            shutdown_video_frame_texture_uploaded_count: 2,
+            shutdown_video_frame_texture_released_count: 3,
+            shutdown_video_frame_texture_error_count: 1,
+            shutdown_font_atlas_uploaded_count: 4,
+            shutdown_font_atlas_released_count: 5,
+            shutdown_font_atlas_error_count: 2,
         };
         let input_metrics = NativeWindowSmokeInputMetrics {
             pointer_event_count: 6,
@@ -347,6 +371,18 @@ mod tests {
         assert_eq!(report.texture_shutdown_host_cleanup_count, 5);
         assert_eq!(report.texture_shutdown_released_count, 4);
         assert_eq!(report.texture_shutdown_cleanup_error_count, 1);
+        assert_eq!(
+            report.texture_shutdown_video_frame_texture_uploaded_count,
+            2
+        );
+        assert_eq!(
+            report.texture_shutdown_video_frame_texture_released_count,
+            3
+        );
+        assert_eq!(report.texture_shutdown_video_frame_texture_error_count, 1);
+        assert_eq!(report.texture_shutdown_font_atlas_uploaded_count, 4);
+        assert_eq!(report.texture_shutdown_font_atlas_released_count, 5);
+        assert_eq!(report.texture_shutdown_font_atlas_error_count, 2);
         assert_eq!(report.audio_backend_applied_plan_count, 12);
         assert_eq!(report.audio_backend_applied_command_count, 13);
         assert_eq!(report.audio_backend_active_track_count, 2);
