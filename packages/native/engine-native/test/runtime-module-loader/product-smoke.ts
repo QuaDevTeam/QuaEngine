@@ -43,6 +43,17 @@ describe('@quajs/engine-native runtime product smoke', () => {
               playerName,
               via: sharedLabel
             });
+            const listener = context => {
+              if (context.event.payload.value === 42) {
+                ctx.pipeline.off('plugin/native_listener_probe', listener);
+              }
+            };
+            ctx.pipeline.on('plugin/native_listener_probe', listener);
+            await ctx.engine.showDialogue({
+              text: 'Native listener armed',
+              mode: 'narration'
+            });
+            await ctx.engine.waitFor('plugin/native_listener_probe');
             await ctx.engine.showDialogue({
               text: 'Native line for ' + playerName + ' via ' + sharedLabel,
               mode: 'narration'
@@ -108,7 +119,11 @@ describe('@quajs/engine-native runtime product smoke', () => {
         customPipelineEvents.push(context.event.payload)
       })
       const state = await engine.loadRuntimePackage('native-story.qpk')
-      await engine.runScriptModule('runtime.native.story', { playerName: 'Mira' })
+      const running = engine.runScriptModule('runtime.native.story', { playerName: 'Mira' })
+      const runningState = trackRunningScript(running)
+      await waitForDialogueProjection(engine, 'Native listener armed', runningState)
+      await engine.getPipeline().emit('plugin/native_listener_probe', { value: 42 })
+      await running
 
       expect(state).toEqual(expect.objectContaining({
         id: 'runtime.native.story',
@@ -161,6 +176,23 @@ describe('@quajs/engine-native runtime product smoke', () => {
         playerName: 'Mira',
         via: 'real-rquickjs',
       }])
+      const listenerDispatches = bridge.requests.filter(request => request.method === 'dispatchQuickJsPipelineListener')
+      expect(listenerDispatches).toHaveLength(1)
+      const listenerParams = listenerDispatches[0]?.method === 'dispatchQuickJsPipelineListener'
+        ? listenerDispatches[0].params
+        : undefined
+      expect(listenerParams).toEqual(expect.objectContaining({
+        subscriptionId: expect.stringMatching(/^quickjs:rquickjs:/),
+      }))
+      expect(JSON.parse(listenerParams?.contextJson ?? '{}')).toEqual(expect.objectContaining({
+        event: expect.objectContaining({
+          payload: { value: 42 },
+          type: 'plugin/native_listener_probe',
+        }),
+      }))
+      await engine.getPipeline().emit('plugin/native_listener_probe', { value: 99 })
+      await nextMacrotask()
+      expect(bridge.requests.filter(request => request.method === 'dispatchQuickJsPipelineListener')).toHaveLength(1)
 
       expect(engine.getViewState().dialogue).toEqual(expect.objectContaining({
         visible: true,
