@@ -50,6 +50,11 @@ export interface NativeRendererIntentBridgeOptions {
   onError?: (error: unknown, event: NativeRendererIntent) => void
 }
 
+export interface NativeRendererIntentDrainResult {
+  drainedCount: number
+  dispatchResults: readonly NativeRendererIntentDispatchResult[]
+}
+
 export type NativeRendererIntentBridgeDisposer = () => void
 
 export async function emitNativeRendererIntentToPipeline(
@@ -82,6 +87,42 @@ export async function emitNativeRendererIntentToPipeline(
         emittedEvents: [],
         ignoredReason: 'unknown-intent-type',
       }
+  }
+}
+
+export async function drainNativeRendererIntentsToPipeline(
+  host: QuaNativeHostApi,
+  pipeline: NativeRendererIntentPipeline,
+  options: NativeRendererIntentBridgeOptions = {},
+): Promise<NativeRendererIntentDrainResult> {
+  if (!host.drainRendererIntents) {
+    return {
+      drainedCount: 0,
+      dispatchResults: [],
+    }
+  }
+
+  const intents = await host.drainRendererIntents()
+  const dispatchResults: NativeRendererIntentDispatchResult[] = []
+  for (const event of intents) {
+    try {
+      const result = await emitNativeRendererIntentToPipeline(pipeline, event)
+      dispatchResults.push(result)
+      if (!result.handled) {
+        options.onError?.(
+          new Error(`Native renderer intent "${event.type}" was not handled by the native engine bridge.`),
+          event,
+        )
+      }
+    }
+    catch (error) {
+      options.onError?.(error, event)
+    }
+  }
+
+  return {
+    drainedCount: intents.length,
+    dispatchResults,
   }
 }
 

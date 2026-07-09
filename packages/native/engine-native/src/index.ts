@@ -23,12 +23,14 @@ export {
   createNativeRuntimeTrustPolicy,
 } from './runtime-adapters'
 export {
+  drainNativeRendererIntentsToPipeline,
   emitNativeRendererIntentToPipeline,
   installNativeRendererIntentBridge,
 } from './renderer-intents'
 export type {
   NativeRendererIntentBridgeDisposer,
   NativeRendererIntentBridgeOptions,
+  NativeRendererIntentDrainResult,
   NativeRendererIntentDispatchResult,
   NativeRendererIntentEmittedEvent,
 } from './renderer-intents'

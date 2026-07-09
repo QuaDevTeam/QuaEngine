@@ -1,6 +1,6 @@
 import type { EngineContext, EnginePlugin } from '@quajs/engine'
 import { emitRenderToLogic, LogicToRenderEvents, onLogicToRender, RenderToLogicEvents } from '@quajs/engine'
-import type { NativeRendererIntentBridgeDisposer } from './renderer-intents'
+import type { NativeRendererIntentBridgeDisposer, NativeRendererIntentDrainResult } from './renderer-intents'
 import type {
   ExclusiveTargetBootstrapValidationResult,
   NativeRendererIntent,
@@ -20,7 +20,7 @@ import {
   formatNativeTargetBootstrapError,
   formatNativeTargetBundleManifestError,
 } from './native-manifest-validation'
-import { installNativeRendererIntentBridge } from './renderer-intents'
+import { drainNativeRendererIntentsToPipeline, installNativeRendererIntentBridge } from './renderer-intents'
 import type { NativeQuickJsPipelineSubscriptionBridge } from './runtime-module-loader'
 
 export interface NativeHostPluginOptions {
@@ -43,6 +43,7 @@ export class NativeHostPlugin implements EnginePlugin {
   private quickJsCleanupErrors: Error[] = []
   private disposeRendererIntentBridge?: NativeRendererIntentBridgeDisposer
   private disposeRuntimePackageUnloadListener?: () => void
+  private rendererIntentPipeline?: NonNullable<EngineContext['pipeline']>
 
   constructor(private readonly options: NativeHostPluginOptions) {
     this.hostInfo = options.info
@@ -54,6 +55,7 @@ export class NativeHostPlugin implements EnginePlugin {
     this.validateNativeManifestCompatibility(hostInfo)
     this.hostInfo = hostInfo
     if (context.pipeline) {
+      this.rendererIntentPipeline = context.pipeline
       this.disposeRendererIntentBridge?.()
       this.disposeRendererIntentBridge = installNativeRendererIntentBridge(
         this.options.host,
@@ -78,6 +80,7 @@ export class NativeHostPlugin implements EnginePlugin {
     this.disposeRendererIntentBridge = undefined
     this.disposeRuntimePackageUnloadListener?.()
     this.disposeRuntimePackageUnloadListener = undefined
+    this.rendererIntentPipeline = undefined
     this.options.quickJsPipelineSubscriptionBridge?.dispose()
   }
 
@@ -103,6 +106,26 @@ export class NativeHostPlugin implements EnginePlugin {
 
   getTargetBundleManifestValidation(): TargetBundleManifestValidationResult | undefined {
     return this.targetBundleManifestValidation
+  }
+
+  async drainRendererIntents(): Promise<NativeRendererIntentDrainResult> {
+    const pipeline = this.rendererIntentPipeline
+    if (!pipeline) {
+      return {
+        drainedCount: 0,
+        dispatchResults: [],
+      }
+    }
+
+    return await drainNativeRendererIntentsToPipeline(
+      this.options.host,
+      pipeline,
+      {
+        onError: (error, event) => {
+          void this.recordRendererIntentError(pipeline, error, event)
+        },
+      },
+    )
   }
 
   private async resolveHostInfo(): Promise<QuaNativeHostInfo> {
