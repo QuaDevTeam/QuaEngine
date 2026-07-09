@@ -92,6 +92,7 @@ function createTypeScriptSteps(options: VerifyOptions): VerifyStep[] {
     pnpmFilterStep('native-ui-compiler tests', '@quajs/native-ui-compiler', ['test', '--', '--run'], 'ts'),
     pnpmFilterStep('native-language-server tests', '@quajs/native-language-server', ['test', '--', '--run'], 'ts'),
     pnpmPackageStep('native-vscode tests', 'packages/native/vscode', ['test', '--', '--run'], 'ts'),
+    pnpmPackageExecStep('quack native packaging tests', 'packages/build/quack', ['vitest', 'project-config.test.ts', '--run'], 'ts'),
     pnpmPackageStep('native-contracts typecheck', 'packages/native/contracts', ['typecheck'], 'ts'),
     pnpmPackageStep('engine-native typecheck', 'packages/native/engine-native', ['typecheck'], 'ts'),
     pnpmPackageStep('assets-native typecheck', 'packages/native/assets-native', ['typecheck'], 'ts'),
@@ -100,6 +101,7 @@ function createTypeScriptSteps(options: VerifyOptions): VerifyStep[] {
     pnpmPackageStep('native-language-server typecheck', 'packages/native/language-server', ['typecheck'], 'ts'),
     pnpmPackageStep('native-vscode typecheck', 'packages/native/vscode', ['typecheck'], 'ts'),
     pnpmPackageStep('native-vscode build', 'packages/native/vscode', ['build'], 'ts'),
+    pnpmPackageStep('quack typecheck', 'packages/build/quack', ['typecheck'], 'ts'),
   ]
 
   if (!options.noBench) {
@@ -159,6 +161,16 @@ function pnpmPackageStep(label: string, packageDir: string, scriptArgs: string[]
     label,
     command: pnpmCommand(),
     args: ['-C', packageDir, ...scriptArgs],
+    cwd: repoRoot,
+    group,
+  }
+}
+
+function pnpmPackageExecStep(label: string, packageDir: string, execArgs: string[], group: VerifyStep['group']): VerifyStep {
+  return {
+    label,
+    command: pnpmCommand(),
+    args: ['-C', packageDir, 'exec', ...execArgs],
     cwd: repoRoot,
     group,
   }
