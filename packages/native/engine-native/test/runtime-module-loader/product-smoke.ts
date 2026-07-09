@@ -296,9 +296,13 @@ describe('@quajs/engine-native runtime product smoke', () => {
       verifySignature,
     }
     const qsSource = `
+<script lang="ts">
+import { formatRuntimeLabel } from './qs-shared.js'
+</script>
+
 <script setup lang="ts">
 const displayName = scope.playerName || 'Player'
-const runtimeLabel = scope.runtimeLabel || 'native QuickJS'
+const runtimeLabel = formatRuntimeLabel(scope.runtimeLabel || 'native QuickJS')
 </script>
 
 @SetBackground('bg/native-route.png', {
@@ -318,6 +322,11 @@ Mira: Compiled QuaScript is running inside \${runtimeLabel} with \${$t('runtime.
       stableSeed: 'native-qs-product-smoke',
       version: '1.0.0',
     })
+    const qsSharedCode = `
+      export function formatRuntimeLabel(value) {
+        return value + ' via qs-shared';
+      }
+    `
     const manifest = createRuntimeBundleManifest({
       id: 'runtime.native.qs.story',
       version: '1.0.0',
@@ -326,6 +335,11 @@ Mira: Compiled QuaScript is running inside \${runtimeLabel} with \${$t('runtime.
         id: 'runtime.native.qs.story',
         version: '1.0.0',
         assetName: 'compiled-story.js',
+        metadata: {
+          nativeQuickJs: {
+            imports: ['qs-shared.js'],
+          },
+        },
       }],
       metadata: {
         nativeRenderer: {
@@ -341,6 +355,7 @@ Mira: Compiled QuaScript is running inside \${runtimeLabel} with \${$t('runtime.
     })
     const qpk = createQpkBundle(manifest, new Map([
       ['assets/scripts/compiled-story.js', utf8(storyCode)],
+      ['assets/scripts/qs-shared.js', utf8(qsSharedCode)],
     ]))
     try {
       const adapters = createNativeRuntimeAdapters(host, {
@@ -391,7 +406,7 @@ Mira: Compiled QuaScript is running inside \${runtimeLabel} with \${$t('runtime.
       })
       const runningState = trackRunningScript(running)
       await advancePastDialogue(engine, 'The native route greets Mira.', runningState)
-      await advancePastDialogue(engine, 'Compiled QuaScript is running inside real rquickjs with translated text.', runningState)
+      await advancePastDialogue(engine, 'Compiled QuaScript is running inside real rquickjs via qs-shared with translated text.', runningState)
       const choices = await waitForChoiceProjection(engine, 'stay-with-compiled-qs', runningState)
 
       expect(state).toEqual(expect.objectContaining({
@@ -424,7 +439,7 @@ Mira: Compiled QuaScript is running inside \${runtimeLabel} with \${$t('runtime.
       expect(engine.getViewState().dialogue).toEqual(expect.objectContaining({
         visible: true,
         characterName: 'Mira',
-        text: 'Compiled QuaScript is running inside real rquickjs with translated text.',
+        text: 'Compiled QuaScript is running inside real rquickjs via qs-shared with translated text.',
       }))
 
       const evaluationRequest = bridge.requests.find(request => request.method === 'evaluateQuickJsModule')
@@ -437,11 +452,16 @@ Mira: Compiled QuaScript is running inside \${runtimeLabel} with \${$t('runtime.
             code: storyCode,
             packageId: 'runtime.native.qs.story',
           }),
+          moduleGraph: [{
+            assetName: 'qs-shared.js',
+            bundleName: 'runtime.native.qs.story',
+            packageId: 'runtime.native.qs.story',
+            kind: 'script',
+            code: qsSharedCode,
+            bytes: Array.from(utf8(qsSharedCode)),
+          }],
         }),
       }))
-      if (evaluationRequest?.method === 'evaluateQuickJsModule') {
-        expect(evaluationRequest.params.moduleGraph ?? []).toEqual([])
-      }
       expect(bridge.requests.some(request => request.method === 'callQuickJsGameStepRun')).toBe(true)
       expect(bridge.requests.some(request => request.method === 'resumeQuickJsGameStepRun')).toBe(true)
       expect(bridge.requests.some(request =>
@@ -471,7 +491,7 @@ Mira: Compiled QuaScript is running inside \${runtimeLabel} with \${$t('runtime.
         },
       }))
       expect(frame.view.dialogue).toEqual(expect.objectContaining({
-        text: 'Compiled QuaScript is running inside real rquickjs with translated text.',
+        text: 'Compiled QuaScript is running inside real rquickjs via qs-shared with translated text.',
         provenance: {
           contentPackageId: 'runtime.native.qs.story',
         },
