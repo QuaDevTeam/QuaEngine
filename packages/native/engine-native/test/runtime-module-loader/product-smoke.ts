@@ -13,6 +13,7 @@ import {
   createNativeRendererJsonFrameInput,
   createNativeRuntimeAdapters,
 } from './helpers'
+import { NativeHostPlugin } from '../../src'
 import { createRealNativeQuickJsBridge, runNativeRendererSmokeFrame } from './real-quickjs-bridge'
 
 describe('@quajs/engine-native runtime product smoke', () => {
@@ -102,6 +103,10 @@ describe('@quajs/engine-native runtime product smoke', () => {
     ]))
     try {
       const adapters = createNativeRuntimeAdapters(host, { requireSignature: true })
+      const nativeHostPlugin = new NativeHostPlugin({
+        host,
+        quickJsPipelineSubscriptionBridge: adapters.quickJsPipelineSubscriptionBridge,
+      })
       const engine = new QuaEngine({
         assets: {
           endpoint: 'https://cdn.example.com',
@@ -113,6 +118,7 @@ describe('@quajs/engine-native runtime product smoke', () => {
         trustPolicy: adapters.trustPolicy,
       })
       const customPipelineEvents: unknown[] = []
+      engine.use(nativeHostPlugin)
 
       await engine.init()
       engine.getPipeline().on('plugin/native_product_smoke', context => {
@@ -268,11 +274,14 @@ describe('@quajs/engine-native runtime product smoke', () => {
         validationErrorCount: 0,
       }))
 
-      const released = await host.releaseQuickJsPackageNamespaces!('runtime.native.story')
-      expect(released).toEqual([expect.objectContaining({
+      await engine.unloadRuntimePackage('runtime.native.story', { force: true })
+      expect(nativeHostPlugin.getReleasedQuickJsPackageNamespaces()).toEqual([expect.objectContaining({
         packageId: 'runtime.native.story',
         assetName: 'story.js',
       })])
+      await expect(host.getQuickJsPackageNamespaceSummary!('runtime.native.story')).resolves.toEqual(expect.objectContaining({
+        namespaceCount: 0,
+      }))
     }
     finally {
       await bridge.close()
@@ -340,6 +349,10 @@ Mira: Compiled QuaScript is running inside \${runtimeLabel} with \${$t('runtime.
           '@quajs/plugin-background': { setBackgroundWithEngine },
         },
       })
+      const nativeHostPlugin = new NativeHostPlugin({
+        host,
+        quickJsPipelineSubscriptionBridge: adapters.quickJsPipelineSubscriptionBridge,
+      })
       const engine = new QuaEngine({
         assets: {
           endpoint: 'https://cdn.example.com',
@@ -350,6 +363,7 @@ Mira: Compiled QuaScript is running inside \${runtimeLabel} with \${$t('runtime.
         runtimeModuleLoader: adapters.runtimeModuleLoader,
         trustPolicy: adapters.trustPolicy,
       })
+      engine.use(nativeHostPlugin)
 
       await engine.init()
       engine.registerStoryTargetResolver((target) => {
@@ -502,11 +516,14 @@ Mira: Compiled QuaScript is running inside \${runtimeLabel} with \${$t('runtime.
         scriptModuleVersion: '1.0.0',
       }))
 
-      const released = await host.releaseQuickJsPackageNamespaces!('runtime.native.qs.story')
-      expect(released).toEqual([expect.objectContaining({
+      await engine.unloadRuntimePackage('runtime.native.qs.story', { force: true })
+      expect(nativeHostPlugin.getReleasedQuickJsPackageNamespaces()).toEqual([expect.objectContaining({
         packageId: 'runtime.native.qs.story',
         assetName: 'compiled-story.js',
       })])
+      await expect(host.getQuickJsPackageNamespaceSummary!('runtime.native.qs.story')).resolves.toEqual(expect.objectContaining({
+        namespaceCount: 0,
+      }))
     }
     finally {
       await bridge.close()
