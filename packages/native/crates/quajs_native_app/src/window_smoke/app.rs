@@ -266,6 +266,16 @@ impl NativeWindowSmokeApp {
         )
     }
 
+    fn cancel_window_ime_composition(&mut self) -> Result<(), NativeWindowSmokeError> {
+        let Some(product_shell) = self.product_shell.as_mut() else {
+            self.input.record_ime_composition_cancelled();
+            return Ok(());
+        };
+
+        self.input
+            .cancel_ime_composition(product_shell.window_loop_mut().runtime_mut().host_mut())
+    }
+
     fn request_redraw(&self) {
         if let Some(window) = &self.window {
             window.request_redraw();

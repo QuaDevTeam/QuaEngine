@@ -153,6 +153,26 @@ impl NativeWindowSmokeInputState {
         Ok(())
     }
 
+    pub(super) fn record_ime_composition_cancelled(&mut self) {
+        if let Some(report) = self.product_input.record_ime_composition_cancelled() {
+            self.record_ime_report(report);
+        }
+    }
+
+    pub(super) fn cancel_ime_composition(
+        &mut self,
+        host: &mut InMemoryNativeHostApi,
+    ) -> Result<(), NativeWindowSmokeError> {
+        if let Some(report) = self
+            .product_input
+            .cancel_ime_composition(host)
+            .map_err(input_error)?
+        {
+            self.record_ime_report(report);
+        }
+        Ok(())
+    }
+
     fn record_ime_report(&mut self, report: crate::product_input::NativeProductImeEventReport) {
         self.metrics.ime_event_count = self.metrics.ime_event_count.saturating_add(1);
         match report.kind {
@@ -394,6 +414,56 @@ mod tests {
         assert_eq!(input.metrics().ime_last_cursor_start, None);
         assert_eq!(input.metrics().ime_last_cursor_end, None);
         assert_eq!(input.metrics().last_intent_type, None);
+    }
+
+    #[test]
+    fn cancels_ime_composition_through_native_host_once() {
+        let mut host = create_window_smoke_texture_host();
+        let mut input = NativeWindowSmokeInputState::default();
+
+        input
+            .dispatch_ime_event(&mut host, &Ime::Preedit("候補".to_string(), Some((0, 1))))
+            .expect("preedit emits");
+
+        assert_eq!(input.metrics().ime_event_count, 1);
+        assert_eq!(input.metrics().ime_preedit_count, 1);
+        assert_eq!(input.metrics().ime_intent_emit_count, 1);
+        assert!(input.metrics().ime_composition_active);
+        assert_eq!(input.metrics().ime_last_cursor_start, Some(0));
+        assert_eq!(input.metrics().ime_last_cursor_end, Some(1));
+
+        input
+            .cancel_ime_composition(&mut host)
+            .expect("cancellation emits");
+
+        assert_eq!(input.metrics().ime_event_count, 2);
+        assert_eq!(input.metrics().ime_preedit_count, 1);
+        assert_eq!(input.metrics().ime_disabled_count, 1);
+        assert_eq!(input.metrics().ime_intent_emit_count, 2);
+        assert_eq!(input.metrics().ime_last_text_byte_count, Some("候補".len()));
+        assert!(!input.metrics().ime_composition_active);
+        assert_eq!(input.metrics().ime_last_cursor_start, None);
+        assert_eq!(input.metrics().ime_last_cursor_end, None);
+        assert_eq!(host.renderer_intents().len(), 2);
+
+        let disabled_payload: serde_json::Value = serde_json::from_str(
+            host.renderer_intents()[1]
+                .payload_json
+                .as_deref()
+                .expect("disabled intent carries payload"),
+        )
+        .expect("payload parses");
+        assert_eq!(disabled_payload["phase"], "disabled");
+        assert_eq!(disabled_payload["source"], "ime");
+        assert!(disabled_payload.get("text").is_none());
+
+        input
+            .cancel_ime_composition(&mut host)
+            .expect("second cancellation is a no-op");
+        assert_eq!(input.metrics().ime_event_count, 2);
+        assert_eq!(input.metrics().ime_disabled_count, 1);
+        assert_eq!(input.metrics().ime_intent_emit_count, 2);
+        assert_eq!(host.renderer_intents().len(), 2);
     }
 
     #[test]
