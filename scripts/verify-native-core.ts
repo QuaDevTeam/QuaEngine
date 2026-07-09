@@ -124,7 +124,9 @@ function createRustSteps(options: VerifyOptions): VerifyStep[] {
     cargoStep('quajs_wgpu_renderer tests', ['test', '--manifest-path', 'packages/native/Cargo.toml', '-p', 'quajs_wgpu_renderer'], cargoEnv),
     cargoStep('quajs_wgpu_renderer real-wgpu-noop tests', ['test', '--manifest-path', 'packages/native/Cargo.toml', '-p', 'quajs_wgpu_renderer', '--features', 'real-wgpu-noop', 'real_device', '--', '--nocapture'], cargoEnv),
     cargoStep('quajs_native_runtime tests', ['test', '--manifest-path', 'packages/native/Cargo.toml', '-p', 'quajs_native_runtime'], cargoEnv),
+    cargoStep('quajs_native_runtime quickjs-rquickjs tests', ['test', '--manifest-path', 'packages/native/Cargo.toml', '-p', 'quajs_native_runtime', '--features', 'quickjs-rquickjs', 'quickjs'], cargoEnv),
     cargoStep('quajs_native_app tests', ['test', '--manifest-path', 'packages/native/Cargo.toml', '-p', 'quajs_native_app'], cargoEnv),
+    cargoStep('quajs_native_app quickjs bridge tests', ['test', '--manifest-path', 'packages/native/Cargo.toml', '-p', 'quajs_native_app', '--features', 'quickjs-rquickjs', 'quickjs'], cargoEnv),
   ]
 
   if (!options.noBench) {
