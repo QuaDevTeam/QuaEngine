@@ -39,6 +39,10 @@ describe('@quajs/engine-native runtime product smoke', () => {
           },
           async run(ctx) {
             const playerName = await resolveQuaText(ctx, [scope.playerName || 'Player']);
+            await ctx.pipeline.emit('plugin/native_product_smoke', {
+              playerName,
+              via: sharedLabel
+            });
             await ctx.engine.showDialogue({
               text: 'Native line for ' + playerName + ' via ' + sharedLabel,
               mode: 'narration'
@@ -97,8 +101,12 @@ describe('@quajs/engine-native runtime product smoke', () => {
         runtimeModuleLoader: adapters.runtimeModuleLoader,
         trustPolicy: adapters.trustPolicy,
       })
+      const customPipelineEvents: unknown[] = []
 
       await engine.init()
+      engine.getPipeline().on('plugin/native_product_smoke', context => {
+        customPipelineEvents.push(context.event.payload)
+      })
       const state = await engine.loadRuntimePackage('native-story.qpk')
       await engine.runScriptModule('runtime.native.story', { playerName: 'Mira' })
 
@@ -145,6 +153,14 @@ describe('@quajs/engine-native runtime product smoke', () => {
       }))
       expect(factoryParams?.moduleNamespaceId).toMatch(/^quickjs:rquickjs:/)
       expect(bridge.requests.some(request => request.method === 'callQuickJsGameStepRun')).toBe(true)
+      expect(bridge.requests.some(request =>
+        request.method === 'resumeQuickJsGameStepRun'
+        && request.params.payloadJson === undefined,
+      )).toBe(true)
+      expect(customPipelineEvents).toEqual([{
+        playerName: 'Mira',
+        via: 'real-rquickjs',
+      }])
 
       expect(engine.getViewState().dialogue).toEqual(expect.objectContaining({
         visible: true,
