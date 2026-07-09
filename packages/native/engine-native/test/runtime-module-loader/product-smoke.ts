@@ -1,6 +1,11 @@
 import { MemoryAssetStorage } from '@quajs/assets'
 import type { ViewChoiceProjection } from '@quajs/engine'
 import { emitRenderToLogic, QuaEngine, RenderToLogicEvents } from '@quajs/engine'
+import { setBackgroundWithEngine } from '@quajs/plugin-background'
+import {
+  backgroundDecoratorMappings,
+  createBackgroundDecoratorCompiler,
+} from '@quajs/plugin-background/script-compiler'
 import { compileQuaScriptModuleToTsAsync } from '@quajs/script-compiler'
 import ts from 'typescript'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -239,6 +244,13 @@ const displayName = scope.playerName || 'Player'
 const runtimeLabel = scope.runtimeLabel || 'native QuickJS'
 </script>
 
+@SetBackground('bg/native-route.png', {
+  fit: 'cover',
+  metadata: {
+    contentPackageId: 'runtime.native.qs.story',
+    requiredRuntimePackages: ['runtime.native.qs.story']
+  }
+})
 The native route greets \${displayName}.
 Mira: Compiled QuaScript is running inside \${runtimeLabel}.
 - Stay with compiled QS if scope.allowStay
@@ -274,7 +286,12 @@ Mira: Compiled QuaScript is running inside \${runtimeLabel}.
       ['assets/scripts/compiled-story.js', utf8(storyCode)],
     ]))
     try {
-      const adapters = createNativeRuntimeAdapters(host, { requireSignature: true })
+      const adapters = createNativeRuntimeAdapters(host, {
+        requireSignature: true,
+        quickJsHelperModules: {
+          '@quajs/plugin-background': { setBackgroundWithEngine },
+        },
+      })
       const engine = new QuaEngine({
         assets: {
           endpoint: 'https://cdn.example.com',
@@ -364,10 +381,29 @@ Mira: Compiled QuaScript is running inside \${runtimeLabel}.
         expect(evaluationRequest.params.moduleGraph ?? []).toEqual([])
       }
       expect(bridge.requests.some(request => request.method === 'callQuickJsGameStepRun')).toBe(true)
+      expect(bridge.requests.some(request => request.method === 'resumeQuickJsGameStepRun')).toBe(true)
+      expect(engine.getViewState().background).toEqual(expect.objectContaining({
+        mode: 'image',
+        assetName: 'bg/native-route.png',
+        fit: 'cover',
+        metadata: expect.objectContaining({
+          contentPackageId: 'runtime.native.qs.story',
+          requiredRuntimePackages: ['runtime.native.qs.story'],
+        }),
+      }))
 
       const frame = createNativeRendererJsonFrameInput(engine.getViewState(), {
         container: { width: 1600, height: 1000, devicePixelRatio: 1 },
       })
+      expect(frame.view.background).toEqual(expect.objectContaining({
+        mode: 'image',
+        assetName: 'bg/native-route.png',
+        fit: 'cover',
+        provenance: {
+          contentPackageId: 'runtime.native.qs.story',
+          requiredRuntimePackages: ['runtime.native.qs.story'],
+        },
+      }))
       expect(frame.view.dialogue).toEqual(expect.objectContaining({
         text: 'Compiled QuaScript is running inside real rquickjs.',
         provenance: {
@@ -432,6 +468,8 @@ async function compileQuaScriptToRuntimeJs(
 ): Promise<string> {
   const compiledTs = await compileQuaScriptModuleToTsAsync(source, {
     autoCollectDecorators: false,
+    decoratorCompilers: [createBackgroundDecoratorCompiler()],
+    decoratorMappings: backgroundDecoratorMappings,
     hotReload: false,
     runtimeModule,
   })
