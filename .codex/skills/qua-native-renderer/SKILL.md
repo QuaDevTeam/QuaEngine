@@ -208,7 +208,7 @@ Shared engine/game/plugin packages may be reused only when platform-neutral.
 Prefer light checks while disk is tight:
 
 ```bash
-pnpm native:verify --no-bench --no-window
+pnpm native:verify --no-bench --no-window # includes default Rust runtime plus quickjs-rquickjs runtime/app bridge tests
 pnpm --filter @quajs/native-contracts typecheck
 pnpm --filter @quajs/native-contracts test -- --run
 pnpm --filter @quajs/engine-native test -- --run
@@ -228,6 +228,7 @@ pnpm -C packages/native/benchmarks typecheck
 pnpm -C packages/native/benchmarks test
 pnpm --filter @quajs/native-benchmarks bench:smoke
 cargo test --manifest-path packages/native/Cargo.toml --workspace
+cargo test --manifest-path packages/native/Cargo.toml -p quajs_native_runtime --features quickjs-rquickjs quickjs
 cargo test --manifest-path packages/native/Cargo.toml -p quajs_native_app --features quickjs-rquickjs quickjs
 cargo test --manifest-path packages/native/Cargo.toml -p quajs_wgpu_renderer --features bench-smoke
 ```
