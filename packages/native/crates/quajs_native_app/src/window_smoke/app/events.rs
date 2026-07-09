@@ -81,6 +81,10 @@ impl ApplicationHandler for NativeWindowSmokeApp {
             }
             WindowEvent::Occluded(occluded) => {
                 if occluded {
+                    if let Err(error) = self.cancel_window_ime_composition() {
+                        self.fail_and_exit(event_loop, error);
+                        return;
+                    }
                     self.cancel_window_pointer_interaction();
                     self.input.clear_cursor_position();
                 }
@@ -102,6 +106,10 @@ impl ApplicationHandler for NativeWindowSmokeApp {
                     return;
                 }
                 if !focused {
+                    if let Err(error) = self.cancel_window_ime_composition() {
+                        self.fail_and_exit(event_loop, error);
+                        return;
+                    }
                     self.cancel_window_pointer_interaction();
                     self.input.clear_cursor_position();
                 }

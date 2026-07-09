@@ -276,6 +276,45 @@ impl NativeProductInputController {
         Ok(report)
     }
 
+    pub(crate) fn record_ime_composition_cancelled(
+        &mut self,
+    ) -> Option<NativeProductImeEventReport> {
+        if self.ime_composition == NativeProductImeCompositionState::default() {
+            return None;
+        }
+        self.ime_composition = NativeProductImeCompositionState::default();
+        Some(NativeProductImeEventReport {
+            kind: NativeProductImeEventKind::Disabled,
+            text_byte_count: None,
+            cursor_start: None,
+            cursor_end: None,
+            composition: self.ime_composition,
+            intent_emitted: false,
+        })
+    }
+
+    pub(crate) fn cancel_ime_composition<H>(
+        &mut self,
+        host: &mut H,
+    ) -> Result<Option<NativeProductImeEventReport>, NativeProductInputError>
+    where
+        H: NativeHostApi,
+    {
+        let Some(mut report) = self.record_ime_composition_cancelled() else {
+            return Ok(None);
+        };
+        emit_native_renderer_intent(
+            host,
+            "user/text_input",
+            Some(build_ime_text_input_payload(
+                &Ime::Disabled,
+                native_input_timestamp_ms(),
+            )),
+        )?;
+        report.intent_emitted = true;
+        Ok(Some(report))
+    }
+
     pub(crate) fn cancel_pointer_interaction<B, A, V, F>(
         &mut self,
         renderer: &mut NativeRenderer<B, A, V, F>,
@@ -832,6 +871,86 @@ mod tests {
         assert_eq!(preedit_payload["cursorStart"], 0);
         assert_eq!(preedit_payload["cursorEnd"], 1);
         assert_eq!(preedit_payload["metadata"]["textByteCount"], "候補".len());
+    }
+
+    #[test]
+    fn records_ime_composition_cancellation_without_retaining_text() {
+        let mut input = NativeProductInputController::new();
+        input.record_ime_event(&Ime::Enabled);
+        input.record_ime_event(&Ime::Preedit("候補".to_string(), Some((0, 1))));
+
+        let cancelled = input
+            .record_ime_composition_cancelled()
+            .expect("active composition should be cancelled");
+
+        assert_eq!(
+            cancelled,
+            NativeProductImeEventReport {
+                kind: NativeProductImeEventKind::Disabled,
+                text_byte_count: None,
+                cursor_start: None,
+                cursor_end: None,
+                composition: NativeProductImeCompositionState::default(),
+                intent_emitted: false,
+            }
+        );
+        assert_eq!(
+            input.ime_composition(),
+            NativeProductImeCompositionState::default()
+        );
+        assert!(input.record_ime_composition_cancelled().is_none());
+    }
+
+    #[test]
+    fn cancels_ime_composition_through_native_host_once() {
+        let mut host = product_input_host();
+        let mut input = NativeProductInputController::new();
+
+        input
+            .dispatch_ime_event(&mut host, &Ime::Enabled)
+            .expect("enabled emits");
+        input
+            .dispatch_ime_event(&mut host, &Ime::Preedit("候補".to_string(), Some((0, 1))))
+            .expect("preedit emits");
+
+        let cancelled = input
+            .cancel_ime_composition(&mut host)
+            .expect("cancellation emits")
+            .expect("active composition should be cancelled");
+
+        assert_eq!(
+            cancelled,
+            NativeProductImeEventReport {
+                kind: NativeProductImeEventKind::Disabled,
+                text_byte_count: None,
+                cursor_start: None,
+                cursor_end: None,
+                composition: NativeProductImeCompositionState::default(),
+                intent_emitted: true,
+            }
+        );
+        assert_eq!(
+            input.ime_composition(),
+            NativeProductImeCompositionState::default()
+        );
+        assert_eq!(host.renderer_intents().len(), 3);
+        assert!(input
+            .cancel_ime_composition(&mut host)
+            .expect("second cancellation is a no-op")
+            .is_none());
+        assert_eq!(host.renderer_intents().len(), 3);
+
+        let disabled_payload: serde_json::Value = serde_json::from_str(
+            host.renderer_intents()[2]
+                .payload_json
+                .as_deref()
+                .expect("disabled intent carries payload"),
+        )
+        .expect("payload parses");
+        assert_eq!(disabled_payload["phase"], "disabled");
+        assert_eq!(disabled_payload["source"], "ime");
+        assert!(disabled_payload.get("text").is_none());
+        assert!(disabled_payload["timestamp"].as_u64().is_some());
     }
 
     fn product_input_host() -> InMemoryNativeHostApi {
