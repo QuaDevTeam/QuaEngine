@@ -55,6 +55,18 @@ describe('@quajs/engine-native runtime product smoke', () => {
         },
       },
     })).rejects.toThrow(/nativeRuntime\.quickjsVersion "stale-quickjs" does not match host runtime value/)
+
+    await expect(createRealNativeQuickJsBridge({
+      targetBundleManifest: {
+        ...targetBundleManifest,
+        nativeRenderer: {
+          ...targetBundleManifest.nativeRenderer!,
+          capabilityIds: targetBundleManifest.nativeRenderer!.capabilityIds.filter(
+            capabilityId => capabilityId !== 'native-wgpu.input.text@1',
+          ),
+        },
+      },
+    })).rejects.toThrow(/nativeRenderer\.capabilityIds omits host renderer capability "native-wgpu\.input\.text@1"/)
   }, 180_000)
 
   it('loads a runtime QPK through real native QuickJS and renders the engine projection in Rust', async () => {
