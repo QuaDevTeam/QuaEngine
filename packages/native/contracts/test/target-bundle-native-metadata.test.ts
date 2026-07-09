@@ -22,13 +22,13 @@ describe('target bundle native metadata validation', () => {
       capabilities: [
         ...NATIVE_RENDERER_CAPABILITIES,
         {
-          id: 'native-wgpu.video@1',
+          id: 'native-wgpu.audio@1',
           target: 'native',
           version: '1.0.0',
           ownerPackage: '@quajs/native-renderer',
-          projectionKeys: ['background.video'],
-          assetKinds: ['video', 'images'],
-          fallback: 'warn-once',
+          projectionKeys: ['view.plugins.audio'],
+          assetKinds: ['audio'],
+          fallback: 'reject-package',
         },
       ],
     }, sha256Fixture)
@@ -40,13 +40,16 @@ describe('target bundle native metadata validation', () => {
       backendVersion: 'wgpu-0.20',
       capabilityIds: [
         'native-wgpu.stage-layout@1',
+        'native-wgpu.image@1',
+        'native-wgpu.video@1',
+        'native-wgpu.text@1',
         'native-wgpu.ui.surface@1',
         'native-wgpu.input.pointer@1',
         'native-wgpu.input.text@1',
       ],
       capabilityManifestHash: expect.stringMatching(/^sha256:fixture-/),
     })
-    expect(changedRenderer.capabilityIds).toContain('native-wgpu.video@1')
+    expect(changedRenderer.capabilityIds).toContain('native-wgpu.audio@1')
     expect(changedRenderer.capabilityManifestHash).not.toBe(renderer.capabilityManifestHash)
   })
 
