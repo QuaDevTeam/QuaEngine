@@ -33,6 +33,12 @@ pub(super) struct NativeWindowSmokeTextureMetrics {
     pub shutdown_host_cleanup_count: usize,
     pub shutdown_texture_released_count: usize,
     pub shutdown_texture_cleanup_error_count: usize,
+    pub shutdown_video_frame_texture_uploaded_count: usize,
+    pub shutdown_video_frame_texture_released_count: usize,
+    pub shutdown_video_frame_texture_error_count: usize,
+    pub shutdown_font_atlas_uploaded_count: usize,
+    pub shutdown_font_atlas_released_count: usize,
+    pub shutdown_font_atlas_error_count: usize,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -84,6 +90,34 @@ impl NativeWindowSmokeTextureMetrics {
         self.shutdown_texture_cleanup_error_count = self
             .shutdown_texture_cleanup_error_count
             .saturating_add(cleanup.texture_cleanup_report.release_error_count);
+        if let Some(video_report) = &cleanup.video_frame_texture_report {
+            self.shutdown_video_frame_texture_uploaded_count = self
+                .shutdown_video_frame_texture_uploaded_count
+                .saturating_add(video_report.uploaded_count);
+            self.shutdown_video_frame_texture_released_count = self
+                .shutdown_video_frame_texture_released_count
+                .saturating_add(video_report.released_count);
+            self.shutdown_video_frame_texture_error_count = self
+                .shutdown_video_frame_texture_error_count
+                .saturating_add(video_report.missing_release_count)
+                .saturating_add(video_report.invalid_frame_count)
+                .saturating_add(video_report.upload_error_count)
+                .saturating_add(video_report.release_error_count);
+        }
+        if let Some(font_report) = &cleanup.font_atlas_report {
+            self.shutdown_font_atlas_uploaded_count = self
+                .shutdown_font_atlas_uploaded_count
+                .saturating_add(font_report.uploaded_count);
+            self.shutdown_font_atlas_released_count = self
+                .shutdown_font_atlas_released_count
+                .saturating_add(font_report.released_count);
+            self.shutdown_font_atlas_error_count = self
+                .shutdown_font_atlas_error_count
+                .saturating_add(font_report.missing_release_count)
+                .saturating_add(font_report.invalid_atlas_count)
+                .saturating_add(font_report.upload_error_count)
+                .saturating_add(font_report.release_error_count);
+        }
     }
 }
 
