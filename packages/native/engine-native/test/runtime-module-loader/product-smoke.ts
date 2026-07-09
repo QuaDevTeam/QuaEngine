@@ -7,6 +7,7 @@ import {
   getTargetCoreResolverId,
   NATIVE_TARGET_BOOTSTRAP,
 } from '@quajs/native-contracts'
+import { playBGMWithEngine } from '@quajs/plugin-audio'
 import { setBackgroundWithEngine } from '@quajs/plugin-background'
 import {
   backgroundDecoratorMappings,
@@ -78,6 +79,7 @@ describe('@quajs/engine-native runtime product smoke', () => {
     }
     const storyCode = `
       import { resolveQuaText } from '@quajs/engine';
+      import { playBGMWithEngine } from '@quajs/plugin-audio';
       import { choiceText, sharedLabel } from './shared.js';
 
       export default function nativeStory(scope = {}) {
@@ -103,6 +105,16 @@ describe('@quajs/engine-native runtime product smoke', () => {
               mode: 'narration'
             });
             await ctx.engine.waitFor('plugin/native_listener_probe');
+            await playBGMWithEngine(ctx.engine, 'audio/bgm/native-theme.ogg', {
+              id: 'native-product-bgm',
+              contentPackageId: 'runtime.native.story',
+              durationMs: 2400,
+              fadeInMs: 120,
+              seekMs: 300,
+              metadata: {
+                requiredRuntimePackages: ['runtime.native.story']
+              }
+            });
             await ctx.engine.showDialogue({
               text: 'Native line for ' + playerName + ' via ' + sharedLabel,
               mode: 'narration'
@@ -138,6 +150,7 @@ describe('@quajs/engine-native runtime product smoke', () => {
           packageName: '@quajs/native-renderer',
           versionRange: '>=0.1.0',
           capabilityIds: ['native-wgpu.input.pointer@1'],
+          optionalCapabilityIds: ['native-wgpu.audio@1'],
           intentEvents: ['choice/select'],
           nativeCode: false,
         },
@@ -150,7 +163,12 @@ describe('@quajs/engine-native runtime product smoke', () => {
       ['assets/scripts/shared.js', utf8(sharedCode)],
     ]))
     try {
-      const adapters = createNativeRuntimeAdapters(host, { requireSignature: true })
+      const adapters = createNativeRuntimeAdapters(host, {
+        requireSignature: true,
+        quickJsHelperModules: {
+          '@quajs/plugin-audio': { playBGMWithEngine },
+        },
+      })
       const nativeHostPlugin = new NativeHostPlugin({
         host,
         quickJsPipelineSubscriptionBridge: adapters.quickJsPipelineSubscriptionBridge,
@@ -309,7 +327,35 @@ describe('@quajs/engine-native runtime product smoke', () => {
         visible: true,
         overlays: [],
       })
-      expect(frame.view.audio).toBeUndefined()
+      expect(engine.getViewState().plugins?.audio).toEqual(expect.objectContaining({
+        bgm: expect.objectContaining({
+          id: 'native-product-bgm',
+          assetKey: 'audio/bgm/native-theme.ogg',
+          contentPackageId: 'runtime.native.story',
+          state: 'playing',
+        }),
+        requiredRuntimePackages: ['runtime.native.story'],
+      }))
+      expect(frame.view.audio).toEqual({
+        tracks: [
+          expect.objectContaining({
+            id: 'native-product-bgm',
+            kind: 'bgm',
+            assetName: 'audio/bgm/native-theme.ogg',
+            assetType: 'bgm',
+            loadMode: 'buffered',
+            playbackState: 'playing',
+            looped: true,
+            durationMs: 2400,
+            fadeInMs: 120,
+            seekMs: 300,
+            provenance: {
+              contentPackageId: 'runtime.native.story',
+              requiredRuntimePackages: ['runtime.native.story'],
+            },
+          }),
+        ],
+      })
       expect(JSON.parse(JSON.stringify(frame))).toEqual(expect.objectContaining({
         view: expect.any(Object),
       }))
