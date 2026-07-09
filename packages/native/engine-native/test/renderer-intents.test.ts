@@ -2,7 +2,7 @@ import type { QuaNativeHostApi, QuaNativeHostInfo } from '@quajs/native-contract
 import { RenderToLogicEvents } from '@quajs/engine'
 import { createNativeRendererIntent } from '@quajs/native-contracts'
 import { describe, expect, it, vi } from 'vitest'
-import { emitNativeRendererIntentToPipeline, NativeHostPlugin } from '../src'
+import { drainNativeRendererIntentsToPipeline, emitNativeRendererIntentToPipeline, NativeHostPlugin } from '../src'
 
 function createHostInfo(): QuaNativeHostInfo {
   return {
@@ -292,6 +292,51 @@ describe('@quajs/engine-native renderer intents', () => {
       { type: RenderToLogicEvents.WINDOW_BLUR, payload: {} },
       { type: RenderToLogicEvents.WINDOW_FOCUS, payload: {} },
     ])
+  })
+
+  it('drains native host renderer intent ledgers into the existing pipeline', async () => {
+    const host = createHost()
+    host.drainRendererIntents = vi.fn(async () => [
+      createNativeRendererIntent({ type: 'choice/select', payload: { choiceId: 'stay' } }),
+      createNativeRendererIntent({ type: 'native/debug_probe', payload: { value: 1 } }),
+    ])
+    const pipeline = createTestPipeline()
+    const received: unknown[] = []
+    const errors: Array<{ message: string, type: string }> = []
+    pipeline.on(RenderToLogicEvents.USER_CHOICE_SELECT, context => received.push(context.event.payload))
+
+    const result = await drainNativeRendererIntentsToPipeline(host, pipeline as any, {
+      onError: (error, event) => {
+        errors.push({
+          message: error instanceof Error ? error.message : String(error),
+          type: event.type,
+        })
+      },
+    })
+
+    expect(host.drainRendererIntents).toHaveBeenCalledTimes(1)
+    expect(result).toEqual({
+      drainedCount: 2,
+      dispatchResults: [
+        {
+          handled: true,
+          emittedEvents: [{
+            type: RenderToLogicEvents.USER_CHOICE_SELECT,
+            payload: { choiceId: 'stay' },
+          }],
+        },
+        {
+          handled: false,
+          emittedEvents: [],
+          ignoredReason: 'unknown-intent-type',
+        },
+      ],
+    })
+    expect(received).toEqual([{ choiceId: 'stay' }])
+    expect(errors).toEqual([{
+      message: 'Native renderer intent "native/debug_probe" was not handled by the native engine bridge.',
+      type: 'native/debug_probe',
+    }])
   })
 
   it('forwards native audio renderer intents into the existing audio pipeline events', async () => {
@@ -768,6 +813,40 @@ describe('@quajs/engine-native renderer intents', () => {
     await flushMicrotasks()
 
     expect(received).toEqual([{ choiceId: 'left' }])
+  })
+
+  it('drains native host renderer intents through the plugin without bouncing through host emit callbacks', async () => {
+    const host = createHost()
+    const previousEmitRendererIntent = vi.fn()
+    host.emitRendererIntent = previousEmitRendererIntent
+    host.drainRendererIntents = vi.fn(async () => [
+      createNativeRendererIntent({
+        type: 'choice/select',
+        payload: { choiceId: 'from-rust-ledger' },
+      }),
+    ])
+    const pipeline = createTestPipeline()
+    const received: unknown[] = []
+    pipeline.on(RenderToLogicEvents.USER_CHOICE_SELECT, context => received.push(context.event.payload))
+
+    const plugin = new NativeHostPlugin({ host })
+    await plugin.init({ pipeline } as any)
+    const result = await plugin.drainRendererIntents()
+    await flushMicrotasks()
+
+    expect(result).toEqual({
+      drainedCount: 1,
+      dispatchResults: [{
+        handled: true,
+        emittedEvents: [{
+          type: RenderToLogicEvents.USER_CHOICE_SELECT,
+          payload: { choiceId: 'from-rust-ledger' },
+        }],
+      }],
+    })
+    expect(received).toEqual([{ choiceId: 'from-rust-ledger' }])
+    expect(host.drainRendererIntents).toHaveBeenCalledTimes(1)
+    expect(previousEmitRendererIntent).not.toHaveBeenCalled()
   })
 
   it('chains and restores existing native renderer intent callbacks without creating a second dispatch path', async () => {
