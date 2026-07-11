@@ -28,12 +28,16 @@ import { createNativeRendererJsonFrameInput } from './renderer-frame'
 import type { NativeSceneTransitionProjection } from './scene-transition'
 import { NativeSceneTransitionController } from './scene-transition'
 import { NativeDialogueTypewriterController } from './dialogue-typewriter'
+import type { NativeSavePreviewCaptureProvider } from './save-preview-capture'
+import { installNativeSavePreviewCaptureResponder } from './save-preview-capture'
 
 export interface NativeHostPluginOptions {
+  captureSavePreview?: NativeSavePreviewCaptureProvider
   featureSurfaces?: readonly NativeRendererFeatureSurfaceEntry[]
   host: QuaNativeHostApi
   info?: QuaNativeHostInfo
   quickJsPipelineSubscriptionBridge?: NativeQuickJsPipelineSubscriptionBridge
+  rendererId?: string
   requestRender?: () => void
   targetBootstrapPackages?: readonly string[]
   targetBundleManifest?: TargetBundleManifest
@@ -51,6 +55,7 @@ export class NativeHostPlugin implements EnginePlugin {
   private quickJsCleanupErrors: Error[] = []
   private disposeRendererIntentBridge?: NativeRendererIntentBridgeDisposer
   private disposeRuntimePackageUnloadListener?: () => void
+  private disposeSavePreviewCaptureResponder?: () => void
   private rendererIntentPipeline?: NonNullable<EngineContext['pipeline']>
   private readonly sceneTransitionController: NativeSceneTransitionController
   private readonly dialogueTypewriterController: NativeDialogueTypewriterController
@@ -95,6 +100,14 @@ export class NativeHostPlugin implements EnginePlugin {
         LogicToRenderEvents.RUNTIME_PACKAGE_UNLOAD,
         async payload => this.releaseQuickJsPackageNamespaces(context.pipeline!, payload.packageId),
       )
+      this.disposeSavePreviewCaptureResponder?.()
+      this.disposeSavePreviewCaptureResponder = installNativeSavePreviewCaptureResponder(
+        context.pipeline,
+        {
+          capture: this.options.captureSavePreview,
+          rendererId: this.options.rendererId,
+        },
+      )
       this.sceneTransitionController.setup(context.pipeline)
     }
   }
@@ -104,6 +117,8 @@ export class NativeHostPlugin implements EnginePlugin {
     this.disposeRendererIntentBridge = undefined
     this.disposeRuntimePackageUnloadListener?.()
     this.disposeRuntimePackageUnloadListener = undefined
+    this.disposeSavePreviewCaptureResponder?.()
+    this.disposeSavePreviewCaptureResponder = undefined
     this.sceneTransitionController.destroy()
     this.dialogueTypewriterController.destroy()
     this.rendererIntentPipeline = undefined
