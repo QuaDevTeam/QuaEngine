@@ -16,6 +16,7 @@ image-decode = ["real-wgpu", "dep:image"]
 
 [dependencies]
 quajs_native_runtime = { path = "../quajs_native_runtime" }
+rustybuzz.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 wgpu = { version = "29.0.3", optional = true, default-features = false, features = ["std", "wgsl"] }

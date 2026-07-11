@@ -1,4 +1,6 @@
-use crate::fonts::{FontBackendAtlasLayout, FontBackendAtlasLayoutMap};
+use crate::fonts::{
+    FontBackendAtlasGlyph, FontBackendAtlasLayout, FontBackendAtlasLayoutMap, FontBackendShapedRun,
+};
 use crate::render_graph::{
     FontStyleDrawParam, TextAlign, TextDecorationDrawParam, TextTransformDrawParam,
     WhiteSpaceDrawParam,
@@ -75,53 +77,55 @@ pub(super) fn atlas_text_geometry(
             TextAlign::Left | TextAlign::Justify => content_rect.x,
         };
         let baseline = start_y + line_index as f32 * line_height + layout.ascent * scale;
-        for character in line.chars() {
-            let Some(glyph) = layout.glyphs.get(&character) else {
-                continue;
-            };
-            if glyph.width > 0.0 && glyph.height > 0.0 && !character.is_whitespace() {
-                let sample_count = if embolden_offset > 0.0 { 2 } else { 1 };
-                for sample_index in 0..sample_count {
-                    let source = FloatRect {
-                        x: cursor_x
-                            + glyph.bearing_x * scale
-                            + embolden_offset * sample_index as f32,
-                        y: baseline + glyph.bearing_y * scale,
-                        width: glyph.width * scale,
-                        height: glyph.height * scale,
-                    };
-                    if let Some((clipped, uv_top_left, uv_bottom_right)) = clip_glyph(
-                        source,
-                        content_rect,
-                        glyph.uv_top_left,
-                        glyph.uv_bottom_right,
-                    ) {
-                        let first_vertex = vertices.len() as u32;
-                        vertices.extend(glyph_vertices(
-                            clipped,
-                            uv_top_left,
-                            uv_bottom_right,
-                            color,
-                        ));
-                        indices.extend_from_slice(&[
-                            first_vertex,
-                            first_vertex + 1,
-                            first_vertex + 2,
-                            first_vertex,
-                            first_vertex + 2,
-                            first_vertex + 3,
-                        ]);
-                        let rect = physical_rect_from_float(clipped);
-                        physical_bounds = Some(match physical_bounds {
-                            Some(current) => union_physical_rect(current, rect),
-                            None => rect,
-                        });
-                    }
+        if let Some(run) = shape_text(&line, layout) {
+            for (index, shaped) in run.glyphs.iter().enumerate() {
+                let glyph = &layout.glyphs_by_id[&shaped.glyph_id];
+                physical_bounds = append_atlas_glyph(
+                    glyph,
+                    cursor_x + shaped.x_offset * scale,
+                    baseline - shaped.y_offset * scale,
+                    scale,
+                    embolden_offset,
+                    content_rect,
+                    color,
+                    &mut vertices,
+                    &mut indices,
+                    physical_bounds,
+                );
+                let cluster_ends = run
+                    .glyphs
+                    .get(index + 1)
+                    .map(|next| next.cluster != shaped.cluster)
+                    .unwrap_or(true);
+                cursor_x +=
+                    shaped.x_advance * scale + if cluster_ends { letter_spacing } else { 0.0 };
+                if cursor_x >= content_rect.right() {
+                    break;
                 }
             }
-            cursor_x += glyph.advance * scale + letter_spacing;
-            if cursor_x >= content_rect.right() {
-                break;
+        } else {
+            for character in line.chars() {
+                let Some(glyph) = layout.glyphs.get(&character) else {
+                    continue;
+                };
+                if !character.is_whitespace() {
+                    physical_bounds = append_atlas_glyph(
+                        glyph,
+                        cursor_x,
+                        baseline,
+                        scale,
+                        embolden_offset,
+                        content_rect,
+                        color,
+                        &mut vertices,
+                        &mut indices,
+                        physical_bounds,
+                    );
+                }
+                cursor_x += glyph.advance * scale + letter_spacing;
+                if cursor_x >= content_rect.right() {
+                    break;
+                }
             }
         }
     }
@@ -134,6 +138,22 @@ pub(super) fn atlas_text_geometry(
         },
         layout.resource_id.clone(),
     ))
+}
+
+pub(in crate::renderer::backend::wgpu::buffer) fn atlas_text_is_shaped(
+    text: &str,
+    style: &WgpuNativeRenderTextStyle,
+    atlases: &FontBackendAtlasLayoutMap,
+) -> bool {
+    if !matches!(style.font_style, FontStyleDrawParam::Normal)
+        || !matches!(style.text_decoration, TextDecorationDrawParam::None)
+    {
+        return false;
+    }
+    let Some(layout) = select_layout(style, atlases) else {
+        return false;
+    };
+    shape_text(&transform_text(text, style.text_transform), layout).is_some()
 }
 
 fn select_layout<'a>(
@@ -229,6 +249,10 @@ fn measure_text(
     scale: f32,
     letter_spacing: f32,
 ) -> f32 {
+    if let Some(run) = shape_text(text, layout) {
+        return run.advance() * scale
+            + run.cluster_count().saturating_sub(1) as f32 * letter_spacing;
+    }
     let mut width = 0.0;
     let mut count = 0usize;
     for character in text.chars() {
@@ -238,6 +262,68 @@ fn measure_text(
         }
     }
     width + count.saturating_sub(1) as f32 * letter_spacing
+}
+
+fn shape_text(text: &str, layout: &FontBackendAtlasLayout) -> Option<FontBackendShapedRun> {
+    let run = layout
+        .shaping_face
+        .as_ref()?
+        .shape(text, layout.raster_size)?;
+    run.glyphs
+        .iter()
+        .all(|glyph| glyph.glyph_id != 0 && layout.glyphs_by_id.contains_key(&glyph.glyph_id))
+        .then_some(run)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn append_atlas_glyph(
+    glyph: &FontBackendAtlasGlyph,
+    cursor_x: f32,
+    baseline: f32,
+    scale: f32,
+    embolden_offset: f32,
+    content_rect: FloatRect,
+    color: [f32; 4],
+    vertices: &mut Vec<WgpuNativeRenderBufferVertex>,
+    indices: &mut Vec<u32>,
+    physical_bounds: Option<WgpuPhysicalRect>,
+) -> Option<WgpuPhysicalRect> {
+    if glyph.width <= 0.0 || glyph.height <= 0.0 {
+        return physical_bounds;
+    }
+    let mut physical_bounds = physical_bounds;
+    let sample_count = if embolden_offset > 0.0 { 2 } else { 1 };
+    for sample_index in 0..sample_count {
+        let source = FloatRect {
+            x: cursor_x + glyph.bearing_x * scale + embolden_offset * sample_index as f32,
+            y: baseline + glyph.bearing_y * scale,
+            width: glyph.width * scale,
+            height: glyph.height * scale,
+        };
+        if let Some((clipped, uv_top_left, uv_bottom_right)) = clip_glyph(
+            source,
+            content_rect,
+            glyph.uv_top_left,
+            glyph.uv_bottom_right,
+        ) {
+            let first_vertex = vertices.len() as u32;
+            vertices.extend(glyph_vertices(clipped, uv_top_left, uv_bottom_right, color));
+            indices.extend_from_slice(&[
+                first_vertex,
+                first_vertex + 1,
+                first_vertex + 2,
+                first_vertex,
+                first_vertex + 2,
+                first_vertex + 3,
+            ]);
+            let rect = physical_rect_from_float(clipped);
+            physical_bounds = Some(match physical_bounds {
+                Some(current) => union_physical_rect(current, rect),
+                None => rect,
+            });
+        }
+    }
+    physical_bounds
 }
 
 fn clip_glyph(
@@ -313,6 +399,7 @@ fn vertex(position: [f32; 2], uv: [f32; 2], color: [f32; 4]) -> WgpuNativeRender
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeMap;
+    use std::path::PathBuf;
 
     use super::*;
     use crate::fonts::FontBackendAtlasGlyph;
@@ -345,6 +432,8 @@ mod tests {
                     height: 20.0,
                 },
             )]),
+            glyphs_by_id: BTreeMap::new(),
+            shaping_face: None,
         };
         let atlases = BTreeMap::from([(resource_id.clone(), layout)]);
         let regular = style(None);
@@ -383,6 +472,67 @@ mod tests {
         assert!(bold_geometry.physical_bounds.width > regular_geometry.physical_bounds.width);
         assert_eq!(regular_resource, resource_id);
         assert_eq!(bold_resource, resource_id);
+    }
+
+    #[test]
+    fn emits_one_atlas_quad_per_shaped_ligature_glyph() {
+        let bytes = std::fs::read(demo_font_path()).expect("demo font bytes");
+        let shaping_face = crate::fonts::FontBackendShapingFace::new(bytes, 0).unwrap();
+        let run = shaping_face.shape("ffi", 20.0).unwrap();
+        assert!(run.glyphs.len() < 3);
+        let resource_id = ResourceId::from("fonts:Noto Sans");
+        let glyphs_by_id = run
+            .glyphs
+            .iter()
+            .map(|shaped| {
+                (
+                    shaped.glyph_id,
+                    FontBackendAtlasGlyph {
+                        uv_top_left: [0.0, 0.0],
+                        uv_bottom_right: [0.5, 0.5],
+                        advance: shaped.x_advance,
+                        bearing_x: 0.0,
+                        bearing_y: -16.0,
+                        width: 12.0,
+                        height: 20.0,
+                    },
+                )
+            })
+            .collect();
+        let layout = FontBackendAtlasLayout {
+            resource_id: resource_id.clone(),
+            family: "Noto Sans".to_string(),
+            raster_size: 20.0,
+            ascent: 16.0,
+            descent: -4.0,
+            line_height: 24.0,
+            is_default: true,
+            glyphs: BTreeMap::new(),
+            glyphs_by_id,
+            shaping_face: Some(shaping_face),
+        };
+        let atlases = BTreeMap::from([(resource_id, layout)]);
+        let (geometry, _) = atlas_text_geometry(
+            WgpuPhysicalRect {
+                x: 0,
+                y: 0,
+                width: 120,
+                height: 40,
+            },
+            "ffi",
+            &style(None),
+            [1.0; 4],
+            1.0,
+            &atlases,
+        )
+        .unwrap();
+
+        assert_eq!(geometry.vertices.len() / 4, run.glyphs.len());
+    }
+
+    fn demo_font_path() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../../../demo/assets/fonts/NotoSans-Regular.ttf")
     }
 
     fn style(font_weight: Option<FontWeightDrawParam>) -> WgpuNativeRenderTextStyle {

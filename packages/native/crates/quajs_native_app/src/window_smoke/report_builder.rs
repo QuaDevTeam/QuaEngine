@@ -39,6 +39,7 @@ pub(super) struct NativeWindowSmokeReportInput<'a> {
     pub submitted_command_buffer_count: usize,
     pub font_atlas_uploaded_count: usize,
     pub font_atlas_text_draw_count: usize,
+    pub shaped_text_draw_count: usize,
     pub bitmap_text_draw_count: usize,
     pub font_atlas_resource_ids: Vec<String>,
     pub linear_sampled_texture_bind_group_count: usize,
@@ -109,6 +110,7 @@ pub(super) fn build_window_smoke_report(
         font_atlas_uploaded_count: input.font_atlas_uploaded_count,
         font_atlas_error_count: input.texture_metrics.font_atlas_error_count,
         font_atlas_text_draw_count: input.font_atlas_text_draw_count,
+        shaped_text_draw_count: input.shaped_text_draw_count,
         bitmap_text_draw_count: input.bitmap_text_draw_count,
         font_atlas_resource_ids: input.font_atlas_resource_ids,
         linear_sampled_texture_bind_group_count: input.linear_sampled_texture_bind_group_count,
@@ -405,6 +407,7 @@ mod tests {
             submitted_command_buffer_count: 11,
             font_atlas_uploaded_count: 5,
             font_atlas_text_draw_count: 6,
+            shaped_text_draw_count: 5,
             bitmap_text_draw_count: 0,
             font_atlas_resource_ids: vec!["fonts:Noto Sans".to_string()],
             linear_sampled_texture_bind_group_count: 4,
@@ -417,6 +420,7 @@ mod tests {
         assert_eq!(report.rendered_frame_count, 2);
         assert_eq!(report.font_atlas_uploaded_count, 5);
         assert_eq!(report.font_atlas_text_draw_count, 6);
+        assert_eq!(report.shaped_text_draw_count, 5);
         assert_eq!(report.bitmap_text_draw_count, 0);
         assert_eq!(report.font_atlas_resource_ids, vec!["fonts:Noto Sans"]);
         assert_eq!(report.linear_sampled_texture_bind_group_count, 4);

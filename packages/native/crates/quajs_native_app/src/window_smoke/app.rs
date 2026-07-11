@@ -166,13 +166,19 @@ impl NativeWindowSmokeApp {
             self.texture_metrics.record_shutdown_cleanup(&shutdown);
         }
         let runtime = window_loop.runtime();
-        let (font_atlas_text_draw_count, bitmap_text_draw_count, font_atlas_resource_ids) = runtime
+        let (
+            font_atlas_text_draw_count,
+            shaped_text_draw_count,
+            bitmap_text_draw_count,
+            font_atlas_resource_ids,
+        ) = runtime
             .renderer()
             .backend()
             .last_buffer_plan()
             .map(|plan| {
                 (
                     plan.font_atlas_text_draw_count(),
+                    plan.shaped_text_draw_count,
                     plan.bitmap_text_draw_count(),
                     plan.font_atlas_resource_ids(),
                 )
@@ -222,6 +228,7 @@ impl NativeWindowSmokeApp {
                 .submitted_command_buffer_count,
             font_atlas_uploaded_count,
             font_atlas_text_draw_count,
+            shaped_text_draw_count,
             bitmap_text_draw_count,
             font_atlas_resource_ids,
             linear_sampled_texture_bind_group_count: texture_sampler_diagnostics

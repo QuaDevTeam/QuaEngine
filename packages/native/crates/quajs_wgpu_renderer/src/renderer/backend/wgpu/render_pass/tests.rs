@@ -230,6 +230,7 @@ fn buffer_plan(
             .iter()
             .filter(|quad| quad.reason == WgpuNativeRenderSkippedQuadReason::InvalidPaint)
             .count(),
+        shaped_text_draw_count: 0,
         passes: vec![WgpuNativeRenderBufferPass {
             pass_index: 0,
             plane: Some(RenderPlane::Overlay),

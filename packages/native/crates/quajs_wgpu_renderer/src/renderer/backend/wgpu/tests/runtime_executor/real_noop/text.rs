@@ -87,6 +87,8 @@ fn real_noop_backend_rebuilds_text_atlas_bind_group_after_font_upload() {
                     )
                 })
                 .collect(),
+            glyphs_by_id: Default::default(),
+            shaping_face: None,
         });
 
     renderer.prepare_and_render(layout, &view).unwrap();
