@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 
 use crate::stage_layout::{StageClientPoint, StageClientRectOrigin};
 
+use super::control::NativeUiControlInteractionState;
 use super::{PointerIntentResolution, RendererIntentHit};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -68,6 +69,7 @@ pub struct NativePointerInteractionState {
     active_presses: BTreeMap<u64, NativePointerPress>,
     hovered_command_id: Option<String>,
     focused_command_id: Option<String>,
+    pub(crate) controls: NativeUiControlInteractionState,
 }
 
 impl NativePointerInteractionState {
@@ -101,6 +103,7 @@ impl NativePointerInteractionState {
         self.hovered_command_id.is_some()
             || self.focused_command_id.is_some()
             || !self.active_presses.is_empty()
+            || self.controls.has_feedback()
     }
 
     pub fn cancel_pointer(&mut self, pointer_id: u64) -> bool {
@@ -113,6 +116,7 @@ impl NativePointerInteractionState {
         self.active_presses.clear();
         self.hovered_command_id = None;
         self.focused_command_id = None;
+        self.controls.clear();
     }
 }
 

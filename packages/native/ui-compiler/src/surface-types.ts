@@ -46,10 +46,54 @@ export interface NativeUiSurfaceIntentProjection {
   metadata?: Record<string, NativeQuiActionArgumentValue>
 }
 
+export interface NativeUiSurfaceControlOptionProjection {
+  intent: NativeUiSurfaceIntentProjection
+  label: string
+}
+
+export interface NativeUiSurfaceRangeControlProjection {
+  kind: 'range'
+  options: readonly NativeUiSurfaceControlOptionProjection[]
+  parts: {
+    progress: string
+    thumb: string
+    thumbHalo?: string
+    value: string
+  }
+  selectedIndex: number
+}
+
+export interface NativeUiSurfaceSelectControlProjection {
+  kind: 'select'
+  options: readonly NativeUiSurfaceControlOptionProjection[]
+  parts: {
+    chevron: string
+    value: string
+  }
+  selectedIndex: number
+}
+
+export interface NativeUiSurfaceSwitchControlProjection {
+  kind: 'switch'
+  options: readonly NativeUiSurfaceControlOptionProjection[]
+  parts: {
+    thumb: string
+    track: string
+    value: string
+  }
+  selectedIndex: number
+}
+
+export type NativeUiSurfaceControlProjection
+  = | NativeUiSurfaceRangeControlProjection
+    | NativeUiSurfaceSelectControlProjection
+    | NativeUiSurfaceSwitchControlProjection
+
 export interface NativeUiSurfaceNodeProjection {
   bounds: NativeUiSurfaceRect
   children?: NativeUiSurfaceNodeProjection[]
   clipChildren?: boolean
+  control?: NativeUiSurfaceControlProjection
   id: string
   image?: NativeQssBackgroundImageValue
   intent?: NativeUiSurfaceIntentProjection

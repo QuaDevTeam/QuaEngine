@@ -79,11 +79,15 @@ describe('settings native renderer feature', () => {
     const skipValue = findNode(surface.root, 'settings-field--quajs-plugin-settings-skipMode-select-value')
     const confirmValue = findNode(surface.root, 'settings-field--quajs-plugin-settings-confirmBeforeQuit-value')
     const confirmTrack = findNode(surface.root, 'settings-field--quajs-plugin-settings-confirmBeforeQuit-switch-track')
+    const speedControl = findNode(surface.root, 'settings-field--quajs-plugin-settings-textSpeedCps-slider-control')
     const speedValue = findNode(surface.root, 'settings-field--quajs-plugin-settings-textSpeedCps-value')
     const speedTrack = findNode(surface.root, 'settings-field--quajs-plugin-settings-textSpeedCps-slider-track')
     const groupLabel = findNode(surface.root, 'settings-group--quajs-plugin-settings-flow-label')
     const panel = findNode(surface.root, 'settings-panel')
     const title = findNode(surface.root, 'settings-title')
+    const close = findNode(surface.root, 'settings-close')
+    const skip = findNode(surface.root, 'settings-field--quajs-plugin-settings-skipMode-select')
+    const skipChevron = findNode(surface.root, 'settings-field--quajs-plugin-settings-skipMode-select-chevron')
 
     expect(surface.key).toBe(SETTINGS_NATIVE_SURFACE_KEY)
     expect(overlay).toEqual(expect.objectContaining({
@@ -91,14 +95,31 @@ describe('settings native renderer feature', () => {
       stackPriority: 2,
       zIndex: 64,
     }))
-    expect(confirm?.intent?.metadata?.patchJson).toBe('{"confirmBeforeQuit":false}')
-    expect(speed?.intent?.metadata?.patchJson).toBe('{"textSpeedCps":37}')
+    expect(confirm?.intent).toBeUndefined()
+    expect(confirmTrack?.control).toEqual(expect.objectContaining({
+      kind: 'switch',
+      selectedIndex: 1,
+      options: expect.arrayContaining([
+        expect.objectContaining({ label: 'OFF', intent: expect.objectContaining({ metadata: expect.objectContaining({ patchJson: '{"confirmBeforeQuit":false}' }) }) }),
+      ]),
+    }))
+    expect(speed?.intent).toBeUndefined()
+    expect(speedControl?.control).toEqual(expect.objectContaining({
+      kind: 'range',
+      selectedIndex: 31,
+      options: expect.arrayContaining([
+        expect.objectContaining({ label: '37 cps', intent: expect.objectContaining({ metadata: expect.objectContaining({ patchJson: '{"textSpeedCps":37}' }) }) }),
+      ]),
+    }))
     expect(nickname?.intent).toBeUndefined()
     expect(confirmValue?.text).toBe('ON')
     expect(confirmTrack?.style?.borderRadius).toBe(12)
     expect(speedValue?.text).toBe('36 cps')
     expect(speedTrack?.style?.backgroundColor).toBe('rgba(233,192,111,0.78)')
     expect(skipValue?.text).toBe('All Text')
+    expect(skip?.control).toEqual(expect.objectContaining({ kind: 'select', selectedIndex: 1 }))
+    expect(skipChevron?.text).toBe('⌄')
+    expect(close?.text).toBe('×')
     expect(groupLabel?.text).toBe('FLOW CONTROL')
     expect(groupLabel?.style?.fontSize).toBe(15)
     expect(panel?.bounds.height).toBe(552)

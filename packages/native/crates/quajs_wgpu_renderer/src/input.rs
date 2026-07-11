@@ -1,3 +1,4 @@
+pub(crate) mod control;
 pub mod event;
 pub mod intent;
 pub mod pointer;

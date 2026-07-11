@@ -13,8 +13,9 @@ pub use style::{
     BorderDrawParams, CharacterAnchor, CharacterDrawParams, DrawCommandParams, EdgeInsetsDrawParam,
     FontStyleDrawParam, FontWeightDrawParam, ImageDrawParams, MediaFit, MediaOrigin,
     PanelDrawParams, RendererIntent, TextAlign, TextDecorationDrawParam, TextDrawParams,
-    TextOverflowDrawParam, TextTransformDrawParam, UiButtonDrawParams, UiSurfaceDrawParams,
-    VideoDrawParams, WhiteSpaceDrawParam,
+    TextOverflowDrawParam, TextTransformDrawParam, UiButtonDrawParams, UiControlDrawParam,
+    UiControlOptionDrawParam, UiControlPartsDrawParam, UiSurfaceDrawParams, VideoDrawParams,
+    WhiteSpaceDrawParam,
 };
 pub use summary::{
     RenderGraphPackageSummary, RenderGraphResourceSummary, RenderGraphSummary, RenderPlaneSummary,

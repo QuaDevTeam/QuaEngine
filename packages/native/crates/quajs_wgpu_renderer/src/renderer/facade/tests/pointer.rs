@@ -2,6 +2,7 @@ use super::*;
 use crate::input::{NativePointerButton, NativePointerEvent, NativePointerEventPhase};
 use quajs_native_runtime::NativeHostInfoBuilder;
 
+mod controls;
 mod events;
 mod hit;
 mod host_emit;

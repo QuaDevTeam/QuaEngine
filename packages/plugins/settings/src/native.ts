@@ -1,6 +1,7 @@
 import type { NativeRendererFeatureSurfaceContext, NativeRendererFeatureSurfaceEntry } from '@quajs/engine-native'
 import type {
   NativePackageProvenance,
+  NativeUiSurfaceControlOptionProjection,
   NativeUiSurfaceNodeProjection,
   NativeUiSurfaceRect,
 } from '@quajs/native-ui-compiler'
@@ -171,7 +172,7 @@ function createSettingsRoot(
             width: 44,
             height: 43,
           }, {
-            text: 'X',
+            text: '×',
             intent: uiIntent(ACTIONS.close, { targetId: SETTINGS_ELEMENT_ID }),
             provenance,
             style: headerButtonStyle(28),
@@ -278,16 +279,9 @@ function createFieldNode(
   inherited: NativePackageProvenance,
 ): NativeUiSurfaceNodeProjection {
   const provenance = mergeProvenance(inherited, scopeProvenance(scope))
-  const nextValue = nextFieldValue(field)
   const label = field.control.label || field.name
   const value = stringifySettingsInputValue(field)
   const error = field.errors[0]?.message
-  const intent = !field.readonly && nextValue.available
-    ? uiIntent(ACTIONS.update, {
-        patchJson: JSON.stringify(createSettingsValuePatch(scope.source, field.path, nextValue.value)),
-        scope: scope.scope,
-      })
-    : undefined
   const description = error || field.schema.description || field.control.description
   const valueText = formatNativeSettingsValue(field, value)
   const id = `settings-field-${safeId(scope.scope)}-${safeId(field.pathKey)}`
@@ -298,7 +292,6 @@ function createFieldNode(
     height: bounds.height - 24,
   }
   return node(id, 'Box', bounds, {
-    intent,
     provenance,
     children: [
       node(`${id}-divider`, 'Divider', {
@@ -340,13 +333,14 @@ function createFieldNode(
             },
           })]
         : []),
-      ...createControlNodes(id, field, valueText, controlBounds, provenance),
+      ...createControlNodes(id, scope, field, valueText, controlBounds, provenance),
     ],
   })
 }
 
 function createControlNodes(
   id: string,
+  scope: SettingsScopeFormProjection,
   field: SettingsFieldFormProjection,
   valueText: string,
   bounds: NativeUiSurfaceRect,
@@ -354,19 +348,20 @@ function createControlNodes(
 ): NativeUiSurfaceNodeProjection[] {
   const control = settingsFieldControlKind(field)
   if (control === 'slider' || control === 'range' || control === 'number') {
-    return createSliderControlNodes(id, field, valueText, bounds, provenance)
+    return createSliderControlNodes(id, scope, field, valueText, bounds, provenance)
   }
   if (control === 'select' || control === 'radio') {
-    return createSelectControlNodes(id, valueText, bounds, provenance)
+    return createSelectControlNodes(id, scope, field, valueText, bounds, provenance)
   }
   if (control === 'switch' || control === 'checkbox') {
-    return createSwitchControlNodes(id, Boolean(field.value), bounds, provenance)
+    return createSwitchControlNodes(id, scope, field, Boolean(field.value), bounds, provenance)
   }
   return [valueNode(id, valueText, bounds, provenance, field.readonly)]
 }
 
 function createSliderControlNodes(
   id: string,
+  scope: SettingsScopeFormProjection,
   field: SettingsFieldFormProjection,
   valueText: string,
   bounds: NativeUiSurfaceRect,
@@ -381,47 +376,71 @@ function createSliderControlNodes(
   const trackWidth = Math.max(40, bounds.width - outputWidth - 16)
   const trackY = bounds.y + bounds.height / 2 - 2
   const thumbX = trackX + trackWidth * progress
+  const options = field.readonly ? [] : createRangeControlOptions(scope, field, min, max)
+  const selectedIndex = nearestNumericOptionIndex(options, current)
   return [
-    node(`${id}-slider-track`, 'Box', {
+    node(`${id}-slider-control`, 'Box', {
       x: trackX,
-      y: trackY,
+      y: bounds.y,
       width: trackWidth,
-      height: 4,
+      height: bounds.height,
     }, {
+      control: options.length > 0 ? {
+        kind: 'range',
+        options: options.map(option => ({ label: option.label, intent: option.intent })),
+        parts: {
+          progress: `${id}-slider-progress`,
+          thumb: `${id}-slider-thumb`,
+          thumbHalo: `${id}-slider-thumb-halo`,
+          value: `${id}-value`,
+        },
+        selectedIndex,
+      } : undefined,
       provenance,
-      style: { backgroundColor: 'rgba(233,192,111,0.78)', borderRadius: 2 },
-    }),
-    node(`${id}-slider-progress`, 'Box', {
-      x: trackX,
-      y: trackY,
-      width: Math.max(2, trackWidth * progress),
-      height: 4,
-    }, {
-      provenance,
-      style: { backgroundColor: 'rgba(129,229,255,0.46)', borderRadius: 2 },
-    }),
-    node(`${id}-slider-thumb-halo`, 'Box', {
-      x: thumbX - 10,
-      y: trackY - 8,
-      width: 20,
-      height: 20,
-    }, {
-      provenance,
-      style: { backgroundColor: 'rgba(242,206,119,0.16)', borderRadius: 10 },
-    }),
-    node(`${id}-slider-thumb`, 'Box', {
-      x: thumbX - 6,
-      y: trackY - 4,
-      width: 12,
-      height: 12,
-    }, {
-      provenance,
-      style: {
-        backgroundColor: '#f2ce77',
-        borderColor: 'rgba(3,4,7,0.82)',
-        borderRadius: 6,
-        borderWidth: 1,
-      },
+      style: { backgroundColor: 'transparent' },
+      children: [
+        node(`${id}-slider-track`, 'Box', {
+          x: trackX,
+          y: trackY,
+          width: trackWidth,
+          height: 4,
+        }, {
+          provenance,
+          style: { backgroundColor: 'rgba(233,192,111,0.78)', borderRadius: 2 },
+        }),
+        node(`${id}-slider-progress`, 'Box', {
+          x: trackX,
+          y: trackY,
+          width: Math.max(2, trackWidth * progress),
+          height: 4,
+        }, {
+          provenance,
+          style: { backgroundColor: 'rgba(129,229,255,0.46)', borderRadius: 2 },
+        }),
+        node(`${id}-slider-thumb-halo`, 'Box', {
+          x: thumbX - 10,
+          y: trackY - 8,
+          width: 20,
+          height: 20,
+        }, {
+          provenance,
+          style: { backgroundColor: 'rgba(242,206,119,0.16)', borderRadius: 10 },
+        }),
+        node(`${id}-slider-thumb`, 'Box', {
+          x: thumbX - 6,
+          y: trackY - 4,
+          width: 12,
+          height: 12,
+        }, {
+          provenance,
+          style: {
+            backgroundColor: '#f2ce77',
+            borderColor: 'rgba(3,4,7,0.82)',
+            borderRadius: 6,
+            borderWidth: 1,
+          },
+        }),
+      ],
     }),
     valueNode(id, valueText, {
       x: bounds.x + bounds.width - outputWidth,
@@ -434,16 +453,28 @@ function createSliderControlNodes(
 
 function createSelectControlNodes(
   id: string,
+  scope: SettingsScopeFormProjection,
+  field: SettingsFieldFormProjection,
   valueText: string,
   bounds: NativeUiSurfaceRect,
   provenance: NativePackageProvenance,
 ): NativeUiSurfaceNodeProjection[] {
+  const options = field.readonly
+    ? []
+    : createSettingsOptions(field).map(option => controlOption(scope, field, option.value, option.label || String(option.value)))
+  const selectedIndex = Math.max(0, options.findIndex(option => settingsValuesEqual(option.value, field.value)))
   return [node(`${id}-select`, 'Panel', {
     x: bounds.x,
     y: bounds.y + 1,
     width: bounds.width,
     height: bounds.height - 2,
   }, {
+    control: options.length > 0 ? {
+      kind: 'select',
+      options: options.map(option => ({ label: option.label, intent: option.intent })),
+      parts: { chevron: `${id}-select-chevron`, value: `${id}-select-value` },
+      selectedIndex,
+    } : undefined,
     provenance,
     style: {
       backgroundColor: 'rgba(5,7,11,0.72)',
@@ -468,7 +499,7 @@ function createSelectControlNodes(
         width: 20,
         height: 24,
       }, {
-        text: 'v',
+        text: '⌄',
         provenance,
         style: { color: 'rgba(255,248,234,0.72)', fontSize: 15, textAlign: 'center' },
       }),
@@ -478,13 +509,27 @@ function createSelectControlNodes(
 
 function createSwitchControlNodes(
   id: string,
+  scope: SettingsScopeFormProjection,
+  field: SettingsFieldFormProjection,
   checked: boolean,
   bounds: NativeUiSurfaceRect,
   provenance: NativePackageProvenance,
 ): NativeUiSurfaceNodeProjection[] {
   const track = { x: bounds.x + 6, y: bounds.y + 10, width: 42, height: 23 }
+  const options = field.readonly
+    ? []
+    : [
+        controlOption(scope, field, false, 'OFF'),
+        controlOption(scope, field, true, 'ON'),
+      ]
   return [
     node(`${id}-switch-track`, 'Box', track, {
+      control: options.length > 0 ? {
+        kind: 'switch',
+        options: options.map(option => ({ label: option.label, intent: option.intent })),
+        parts: { track: `${id}-switch-track`, thumb: `${id}-switch-thumb`, value: `${id}-value` },
+        selectedIndex: checked ? 1 : 0,
+      } : undefined,
       provenance,
       style: {
         backgroundColor: checked ? 'rgba(129,229,255,0.16)' : 'rgba(255,255,255,0.06)',
@@ -565,27 +610,51 @@ function flattenField(field: SettingsFieldFormProjection): SettingsFieldFormProj
   return field.children?.length ? field.children.flatMap(flattenField) : [field]
 }
 
-function nextFieldValue(field: SettingsFieldFormProjection): { available: boolean, value?: unknown } {
-  const control = settingsFieldControlKind(field)
-  if (control === 'switch' || control === 'checkbox') {
-    return { available: true, value: !field.value }
+interface NativeSettingsControlOption extends NativeUiSurfaceControlOptionProjection {
+  value: unknown
+}
+
+function controlOption(
+  scope: SettingsScopeFormProjection,
+  field: SettingsFieldFormProjection,
+  value: unknown,
+  label: string,
+): NativeSettingsControlOption {
+  return {
+    label,
+    value,
+    intent: uiIntent(ACTIONS.update, {
+      patchJson: JSON.stringify(createSettingsValuePatch(scope.source, field.path, value)),
+      scope: scope.scope,
+    }),
   }
-  if (control === 'select' || control === 'radio') {
-    const options = createSettingsOptions(field)
-    if (options.length === 0) {
-      return { available: false }
+}
+
+function createRangeControlOptions(
+  scope: SettingsScopeFormProjection,
+  field: SettingsFieldFormProjection,
+  min: number,
+  max: number,
+): NativeSettingsControlOption[] {
+  const step = Math.max(Number.EPSILON, finiteNumber(field.control.step) ?? finiteNumber(field.schema.multipleOf) ?? 1)
+  const count = Math.min(512, Math.max(1, Math.floor((max - min) / step) + 1))
+  return Array.from({ length: count }, (_, index) => {
+    const value = index === count - 1 ? max : Math.min(max, min + step * index)
+    return controlOption(scope, field, value, formatNativeSettingsValue(field, String(value)))
+  })
+}
+
+function nearestNumericOptionIndex(options: readonly NativeSettingsControlOption[], value: number): number {
+  let nearestIndex = 0
+  let nearestDistance = Number.POSITIVE_INFINITY
+  options.forEach((option, index) => {
+    const distance = Math.abs(Number(option.value) - value)
+    if (distance < nearestDistance) {
+      nearestDistance = distance
+      nearestIndex = index
     }
-    const index = options.findIndex(option => settingsValuesEqual(option.value, field.value))
-    return { available: true, value: (options[(index + 1) % options.length] || options[0]).value }
-  }
-  if (control === 'slider' || control === 'range' || control === 'number') {
-    const min = finiteNumber(field.control.min) ?? finiteNumber(field.schema.minimum) ?? 0
-    const max = finiteNumber(field.control.max) ?? finiteNumber(field.schema.maximum) ?? Math.max(min + 10, Number(field.value) || 0)
-    const step = finiteNumber(field.control.step) ?? finiteNumber(field.schema.multipleOf) ?? 1
-    const current = finiteNumber(field.value) ?? min
-    return { available: true, value: current + step > max ? min : current + step }
-  }
-  return { available: false }
+  })
+  return nearestIndex
 }
 
 function settingsOverlay(view: Readonly<Record<string, unknown>>) {

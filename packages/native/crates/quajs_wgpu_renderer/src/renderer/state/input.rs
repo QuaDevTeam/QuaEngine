@@ -27,14 +27,18 @@ impl NativeRendererState {
         &mut self,
         event: NativePointerEvent,
     ) -> Option<NativePointerEventResolution> {
-        self.pointer_intent(event.point, event.container_rect)
-            .map(|pointer| {
-                resolve_pointer_event_with_interaction(
-                    &mut self.pointer_interaction,
-                    event,
-                    pointer,
-                )
-            })
+        let frame = self.frame.as_ref()?;
+        let pointer = frame.pointer_intent(event.point, event.container_rect);
+        let pointer = self
+            .pointer_interaction
+            .controls
+            .resolve_pointer(&frame.graph, pointer);
+        let mut resolution =
+            resolve_pointer_event_with_interaction(&mut self.pointer_interaction, event, pointer);
+        self.pointer_interaction
+            .controls
+            .apply_event(&frame.graph, &mut resolution);
+        Some(resolution)
     }
 
     pub fn cancel_pointer_interaction(&mut self, pointer_id: u64) -> bool {

@@ -115,7 +115,9 @@ Runtime packages may register settings scopes. Package unload unregisters packag
 
 Renderer settings UI emits update/reset intents. Validation, persistence, apply hooks, and final projection rebuilds happen in the settings bridge.
 
-Native products explicitly register `createSettingsNativeRendererFeature()` in the same feature-surface list used for frame serialization and `NativeHostPlugin`. It projects exposed form fields in logical safe-area coordinates, cycles switch/select/numeric controls through explicit `settings-update` intents, keeps unsupported text/complex controls read-only, preserves runtime scope provenance, and delegates validation/persistence/apply behavior to the settings bridge.
+Native products explicitly register `createSettingsNativeRendererFeature()` in the same feature-surface list used for frame serialization and `NativeHostPlugin`. It projects exposed form fields in logical safe-area coordinates, gives switch/select/numeric controls bounded semantic `settings-update` options, keeps unsupported text/complex controls read-only, preserves runtime scope provenance, and delegates validation/persistence/apply behavior to the settings bridge.
+
+Native range, select, and switch projections include renderer-only control descriptors. Each descriptor contains the current option index, visual part ids, and bounded final options whose intents already contain the validated settings patch. Rust owns drag drafts and select popovers locally, then emits only the selected option intent on commit; the settings plugin remains the authority that validates, persists, applies, and reprojects the accepted value.
 
 The official native settings surface uses the same compact centered panel hierarchy as Web: group headings and separators, label/description copy, slider track/progress/thumb geometry for ranges, framed option labels for selects, switch track/thumb geometry for booleans, readable option labels instead of stored tokens, and structured `boxShadow` / `textShadow` style IR. These are render-only nodes; the parent field row retains the allowlisted settings intent and the renderer must not persist field values locally.
 

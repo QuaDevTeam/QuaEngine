@@ -8,7 +8,9 @@ use crate::render_graph::{
 };
 
 use super::super::types::{UiOverlayProjection, UiSurfaceNodeKind, UiSurfaceNodeProjection};
-use super::helpers::{apply_provenance, node_rect, renderer_intent, SurfaceNodeOffset};
+use super::helpers::{
+    apply_provenance, node_rect, renderer_control, renderer_intent, SurfaceNodeOffset,
+};
 use nodes::{
     button_node_command, image_node_command, surface_panel_node_command, text_node_command,
 };
@@ -239,6 +241,10 @@ pub(super) fn surface_node_command(
         ),
         UiSurfaceNodeKind::Scroll => unreachable!("scroll nodes are expanded before command build"),
     };
+
+    if let Some(control) = renderer_control(overlay, node) {
+        command = command.interactive(true).control(control);
+    }
 
     command = command
         .z_index(z_base.saturating_add(node.z_index))

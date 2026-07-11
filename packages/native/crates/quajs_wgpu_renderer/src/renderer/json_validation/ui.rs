@@ -1,9 +1,10 @@
 use std::collections::BTreeSet;
 
 use crate::projection::ui::{
-    UiIntentProjection, UiOverlaySurfaceProjection, UiProjection, UiSurfaceImageProjection,
-    UiSurfaceNodeProjection, UiSurfaceResolvedStyle,
+    UiIntentProjection, UiOverlaySurfaceProjection, UiProjection, UiSurfaceControlProjection,
+    UiSurfaceImageProjection, UiSurfaceNodeProjection, UiSurfaceResolvedStyle,
 };
+use crate::renderer::json_input::NativeRendererJsonValidationError;
 
 use super::ui_intent::validate_native_json_ui_intent_projection;
 use super::JsonProjectionValidator;
@@ -162,12 +163,79 @@ impl JsonProjectionValidator {
         if let Some(intent) = &node.intent {
             self.validate_ui_intent(&format!("{path}.intent"), intent);
         }
+        if let Some(control) = &node.control {
+            self.validate_ui_control(control, &format!("{path}.control"));
+        }
         self.validate_ui_style(&format!("{path}.style"), &node.style);
         for (index, child) in node.children.iter().enumerate() {
             self.validate_ui_surface_node(
                 child,
                 &format!("{path}.children[{index}]"),
                 surface_node_ids,
+            );
+        }
+    }
+
+    fn validate_ui_control(&mut self, control: &UiSurfaceControlProjection, path: &str) {
+        let (options, selected_index, part_ids) = match control {
+            UiSurfaceControlProjection::Range {
+                options,
+                parts,
+                selected_index,
+            } => (
+                options,
+                *selected_index,
+                vec![
+                    parts.progress.as_str(),
+                    parts.thumb.as_str(),
+                    parts.value.as_str(),
+                ]
+                .into_iter()
+                .chain(parts.thumb_halo.as_deref())
+                .collect::<Vec<_>>(),
+            ),
+            UiSurfaceControlProjection::Select {
+                options,
+                parts,
+                selected_index,
+            } => (
+                options,
+                *selected_index,
+                vec![parts.chevron.as_str(), parts.value.as_str()],
+            ),
+            UiSurfaceControlProjection::Switch {
+                options,
+                parts,
+                selected_index,
+            } => (
+                options,
+                *selected_index,
+                vec![
+                    parts.track.as_str(),
+                    parts.thumb.as_str(),
+                    parts.value.as_str(),
+                ],
+            ),
+        };
+
+        if options.is_empty() || options.len() > 512 || selected_index >= options.len() {
+            self.errors.push(NativeRendererJsonValidationError {
+                path: path.to_string(),
+                asset_name: String::new(),
+                reason: "native UI controls require 1..=512 options and an in-range selectedIndex"
+                    .to_string(),
+            });
+            return;
+        }
+        for (index, option) in options.iter().enumerate() {
+            self.validate_ui_text(&format!("{path}.options[{index}].label"), &option.label);
+            self.validate_ui_intent(&format!("{path}.options[{index}].intent"), &option.intent);
+        }
+        for (index, part_id) in part_ids.into_iter().enumerate() {
+            self.validate_ui_dispatch_identifier(
+                &format!("{path}.parts[{index}]"),
+                part_id,
+                "UI control part ids",
             );
         }
     }
