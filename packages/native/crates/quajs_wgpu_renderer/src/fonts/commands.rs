@@ -49,6 +49,8 @@ pub struct FontBackendFaceState {
     pub stretch: Option<String>,
     pub display: Option<String>,
     pub unicode_range: Option<String>,
+    pub feature_settings: Option<String>,
+    pub variation_settings: Option<String>,
     pub package_candidates: BTreeSet<String>,
     pub face_resource_id: ResourceId,
 }
@@ -167,6 +169,8 @@ fn font_backend_face_state(
         stretch: face.stretch.clone(),
         display: face.display.clone(),
         unicode_range: face.unicode_range.clone(),
+        feature_settings: face.feature_settings.clone(),
+        variation_settings: face.variation_settings.clone(),
         package_candidates,
         face_resource_id: font_face_resource_id(face),
     }
@@ -197,6 +201,8 @@ fn face_identity_changed(previous: &FontBackendFaceState, next: &FontBackendFace
         || previous.stretch != next.stretch
         || previous.display != next.display
         || previous.unicode_range != next.unicode_range
+        || previous.feature_settings != next.feature_settings
+        || previous.variation_settings != next.variation_settings
         || previous.package_candidates != next.package_candidates
         || previous.face_resource_id != next.face_resource_id
 }

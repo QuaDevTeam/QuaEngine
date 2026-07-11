@@ -1,10 +1,11 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use ab_glyph::{point, Font, FontArc, GlyphId, PxScale, ScaleFont};
+use ab_glyph::{point, Font, FontArc, FontVec, GlyphId, PxScale, ScaleFont, VariableFont};
 use quajs_wgpu_renderer::fonts::{
-    FontBackendAssetLoad, FontBackendAtlasGlyph, FontBackendAtlasLayout, FontBackendAtlasTexture,
-    FontBackendCommandKind, FontBackendCommandPlan, FontBackendFaceState, FontBackendShapingFace,
-    NativeFontBackend, NativeFontBackendResult,
+    FontBackendAssetLoad, FontBackendAtlasFaceLayout, FontBackendAtlasGlyph,
+    FontBackendAtlasLayout, FontBackendAtlasTexture, FontBackendCommandKind,
+    FontBackendCommandPlan, FontBackendFaceState, FontBackendShapingFace, NativeFontBackend,
+    NativeFontBackendResult,
 };
 use quajs_wgpu_renderer::frame::PreparedNativeFrame;
 use quajs_wgpu_renderer::render_graph::{DrawCommandParams, TextTransformDrawParam};
@@ -14,6 +15,7 @@ const RASTER_SCALE: f32 = 64.0;
 const GLYPH_CELL_SIZE: usize = 80;
 const GLYPH_CELL_PADDING: usize = 6;
 const GLYPH_ATLAS_COLUMNS: usize = 16;
+const MAX_DECODED_FONT_BYTES: usize = 64 * 1024 * 1024;
 
 #[derive(Debug, Default)]
 pub(crate) struct SimpleNativeFontAtlasBackend {
@@ -42,8 +44,12 @@ impl NativeFontBackend for SimpleNativeFontAtlasBackend {
         loads: &[FontBackendAssetLoad],
     ) -> NativeFontBackendResult {
         for load in loads {
-            self.loaded_assets
-                .insert(load.face_id.clone(), load.clone());
+            let Some(bytes) = decode_font_asset_bytes(&load.bytes) else {
+                continue;
+            };
+            let mut load = load.clone();
+            load.bytes = bytes;
+            self.loaded_assets.insert(load.face_id.clone(), load);
         }
         Ok(())
     }
@@ -128,12 +134,38 @@ impl NativeFontBackend for SimpleNativeFontAtlasBackend {
     }
 }
 
+fn decode_font_asset_bytes(bytes: &[u8]) -> Option<Vec<u8>> {
+    if bytes.len() > MAX_DECODED_FONT_BYTES {
+        return None;
+    }
+    match bytes.get(..4) {
+        Some(b"wOFF") => decode_webfont(bytes, wuff::decompress_woff1),
+        Some(b"wOF2") => decode_webfont(bytes, wuff::decompress_woff2),
+        _ => Some(bytes.to_vec()),
+    }
+}
+
+fn decode_webfont(
+    bytes: &[u8],
+    decode: impl FnOnce(&[u8]) -> Result<Vec<u8>, wuff::WuffErr>,
+) -> Option<Vec<u8>> {
+    let declared_size = bytes
+        .get(16..20)
+        .and_then(|size| <[u8; 4]>::try_from(size).ok())
+        .map(u32::from_be_bytes)? as usize;
+    if declared_size == 0 || declared_size > MAX_DECODED_FONT_BYTES {
+        return None;
+    }
+    let decoded = decode(bytes).ok()?;
+    (decoded.len() == declared_size).then_some(decoded)
+}
+
 impl SimpleNativeFontAtlasBackend {
     fn load_face(&mut self, face: &FontBackendFaceState) {
         let Some(load) = self.loaded_assets.get(&face.id) else {
             return;
         };
-        if FontArc::try_from_vec(load.bytes.clone()).is_err() {
+        if font_arc_for_face(load, face).is_none() {
             return;
         }
         self.active_faces.insert(face.id.clone(), face.clone());
@@ -196,7 +228,7 @@ impl SimpleNativeFontAtlasBackend {
             .filter(|face| face.family == family)
             .filter_map(|face| {
                 let load = self.loaded_assets.get(&face.id)?;
-                let font = FontArc::try_from_vec(load.bytes.clone()).ok()?;
+                let font = font_arc_for_face(load, face)?;
                 Some(LoadedFontFace {
                     face: face.clone(),
                     font,
@@ -263,26 +295,42 @@ fn rasterize_font_family(
     texts: &BTreeSet<String>,
     is_default: bool,
 ) -> FontBackendAtlasTexture {
-    let shaping_face = FontBackendShapingFace::new(faces[0].font.font_data().to_vec(), 0);
-    let shaped_glyph_ids = shaping_face
-        .as_ref()
-        .map(|face| collect_shaped_glyph_ids(face, texts))
-        .unwrap_or_default();
+    let shaping_faces = faces
+        .iter()
+        .map(|loaded| {
+            FontBackendShapingFace::new(loaded.font.font_data().to_vec(), 0).map(|shaping| {
+                shaping.with_settings(
+                    loaded.face.feature_settings.as_deref(),
+                    loaded.face.variation_settings.as_deref(),
+                )
+            })
+        })
+        .collect::<Vec<_>>();
+    let shaped_glyph_ids = shaping_faces
+        .iter()
+        .map(|face| {
+            face.as_ref()
+                .map(|face| collect_shaped_glyph_ids(face, texts))
+                .unwrap_or_default()
+        })
+        .collect::<Vec<_>>();
     let character_keys = characters
         .iter()
         .copied()
         .map(|character| (character, family_glyph_key(faces, character)))
         .collect::<BTreeMap<_, _>>();
     let mut keys = character_keys.values().copied().collect::<BTreeSet<_>>();
-    keys.extend(
-        shaped_glyph_ids
-            .iter()
-            .copied()
-            .map(|glyph_id| RasterGlyphKey::Face {
-                face_index: 0,
-                glyph_id,
-            }),
-    );
+    for (face_index, glyph_ids) in shaped_glyph_ids.iter().enumerate() {
+        keys.extend(
+            glyph_ids
+                .iter()
+                .copied()
+                .map(|glyph_id| RasterGlyphKey::Face {
+                    face_index,
+                    glyph_id,
+                }),
+        );
+    }
 
     let rows = keys.len().div_ceil(GLYPH_ATLAS_COLUMNS).max(1);
     let width = (GLYPH_ATLAS_COLUMNS * GLYPH_CELL_SIZE) as u32;
@@ -317,14 +365,43 @@ fn rasterize_font_family(
         .into_iter()
         .filter_map(|(character, key)| Some((character, rasterized.get(&key)?.clone())))
         .collect();
-    let glyphs_by_id = shaped_glyph_ids
+    let face_layouts = shaping_faces
         .into_iter()
+        .enumerate()
+        .filter_map(|(face_index, shaping_face)| {
+            let shaping_face = shaping_face?;
+            let glyphs_by_id = shaped_glyph_ids[face_index]
+                .iter()
+                .filter_map(|glyph_id| {
+                    let key = RasterGlyphKey::Face {
+                        face_index,
+                        glyph_id: *glyph_id,
+                    };
+                    Some((*glyph_id, rasterized.get(&key)?.clone()))
+                })
+                .collect();
+            Some(FontBackendAtlasFaceLayout {
+                face_id: faces[face_index].face.id.clone(),
+                style: faces[face_index].face.style.clone(),
+                weight: faces[face_index].face.weight.clone(),
+                glyphs_by_id,
+                shaping_face: Box::new(shaping_face),
+            })
+        })
+        .collect::<Vec<_>>();
+    let shaping_face = face_layouts.first().map(|face| {
+        (*face.shaping_face)
+            .clone()
+            .with_atlas_faces(face_layouts.clone())
+    });
+    let glyphs_by_id = shaped_glyph_ids[0]
+        .iter()
         .filter_map(|glyph_id| {
             let key = RasterGlyphKey::Face {
                 face_index: 0,
-                glyph_id,
+                glyph_id: *glyph_id,
             };
-            Some((glyph_id, rasterized.get(&key)?.clone()))
+            Some((*glyph_id, rasterized.get(&key)?.clone()))
         })
         .collect();
 
@@ -407,6 +484,26 @@ fn family_glyph_key(faces: &[LoadedFontFace], character: char) -> RasterGlyphKey
             })
         })
         .unwrap_or(RasterGlyphKey::Missing)
+}
+
+fn font_arc_for_face(load: &FontBackendAssetLoad, face: &FontBackendFaceState) -> Option<FontArc> {
+    let mut font = FontVec::try_from_vec(load.bytes.clone()).ok()?;
+    if let Some(settings) = face.variation_settings.as_deref() {
+        for variation in settings.split(',').filter_map(parse_variation_axis) {
+            font.set_variation(&variation.0, variation.1);
+        }
+    }
+    Some(FontArc::new(font))
+}
+
+fn parse_variation_axis(value: &str) -> Option<([u8; 4], f32)> {
+    let mut parts = value.trim().split_whitespace();
+    let tag = parts.next()?.trim_matches(['\'', '"']).as_bytes();
+    let value = parts.next()?.parse().ok()?;
+    if tag.len() != 4 || parts.next().is_some() {
+        return None;
+    }
+    Some((tag.try_into().ok()?, value))
 }
 
 fn rasterize_font_glyph(
@@ -608,6 +705,8 @@ mod tests {
                 stretch: None,
                 display: None,
                 unicode_range: None,
+                feature_settings: None,
+                variation_settings: None,
                 package_candidates: BTreeSet::from(["base.fonts".to_string()]),
                 face_resource_id: ResourceId::from("font:face:fonts:fonts/NotoSans-Regular.ttf"),
             },
@@ -646,6 +745,66 @@ mod tests {
             .iter()
             .all(|glyph| layout.glyphs_by_id.contains_key(&glyph.glyph_id)));
         assert!(atlas.rgba.iter().skip(3).step_by(4).any(|alpha| *alpha > 0));
+    }
+
+    #[test]
+    fn product_font_backend_keeps_each_family_face_in_one_atlas() {
+        let bytes = std::fs::read(demo_font_path()).expect("demo font bytes");
+        let regular_face = demo_face("noto-regular", "400", "fonts/NotoSans-Regular.ttf");
+        let bold_face = demo_face("noto-bold", "700", "fonts/NotoSans-Bold.ttf");
+        let faces = vec![
+            LoadedFontFace {
+                face: regular_face,
+                font: FontArc::try_from_vec(bytes.clone()).unwrap(),
+                owner_package_id: Some("base.fonts".to_string()),
+            },
+            LoadedFontFace {
+                face: bold_face,
+                font: FontArc::try_from_vec(bytes).unwrap(),
+                owner_package_id: Some("base.fonts".to_string()),
+            },
+        ];
+        let text = "office".to_string();
+
+        let atlas = rasterize_font_family(
+            "Noto Sans",
+            &faces,
+            &text.chars().collect(),
+            &BTreeSet::from([text]),
+            true,
+        );
+        let atlas_faces = atlas
+            .layout
+            .as_ref()
+            .unwrap()
+            .shaping_face
+            .as_ref()
+            .unwrap()
+            .atlas_faces();
+
+        assert_eq!(atlas_faces.len(), 2);
+        assert_eq!(atlas_faces[0].weight.as_deref(), Some("400"));
+        assert_eq!(atlas_faces[1].weight.as_deref(), Some("700"));
+        assert!(atlas_faces.iter().all(|face| !face.glyphs_by_id.is_empty()));
+    }
+
+    #[test]
+    fn font_asset_decoder_preserves_sfnt_and_rejects_unsafe_webfont_headers() {
+        let sfnt = std::fs::read(demo_font_path()).expect("demo font bytes");
+        assert_eq!(
+            decode_font_asset_bytes(&sfnt).as_deref(),
+            Some(sfnt.as_slice())
+        );
+
+        let mut oversized = vec![0; 20];
+        oversized[..4].copy_from_slice(b"wOF2");
+        oversized[16..20].copy_from_slice(&((MAX_DECODED_FONT_BYTES as u32) + 1).to_be_bytes());
+        assert!(decode_font_asset_bytes(&oversized).is_none());
+
+        let mut malformed = vec![0; 20];
+        malformed[..4].copy_from_slice(b"wOFF");
+        malformed[16..20].copy_from_slice(&1024u32.to_be_bytes());
+        assert!(decode_font_asset_bytes(&malformed).is_none());
     }
 
     #[test]
@@ -713,6 +872,25 @@ mod tests {
             .join("../../../../demo/assets/fonts/NotoSans-Regular.ttf")
     }
 
+    fn demo_face(id: &str, weight: &str, asset_name: &str) -> FontBackendFaceState {
+        FontBackendFaceState {
+            id: id.to_string(),
+            order: usize::from(weight == "700"),
+            family: "Noto Sans".to_string(),
+            asset_type: "fonts".to_string(),
+            asset_name: asset_name.to_string(),
+            style: Some("normal".to_string()),
+            weight: Some(weight.to_string()),
+            stretch: None,
+            display: None,
+            unicode_range: None,
+            feature_settings: None,
+            variation_settings: None,
+            package_candidates: BTreeSet::from(["base.fonts".to_string()]),
+            face_resource_id: ResourceId::from(format!("font:face:fonts:{asset_name}")),
+        }
+    }
+
     #[cfg(target_os = "macos")]
     fn font_supports_character(bytes: &[u8], character: char) -> bool {
         let Ok(font) = FontArc::try_from_vec(bytes.to_vec()) else {
@@ -738,6 +916,8 @@ mod tests {
             stretch: None,
             display: None,
             unicode_range: None,
+            feature_settings: None,
+            variation_settings: None,
             package_candidates: Default::default(),
             face_resource_id: ResourceId::from(format!("font:face:fonts:{asset_name}")),
         }

@@ -8,7 +8,7 @@ version.workspace = true
 [features]
 default = []
 image-decode = ["quajs_wgpu_renderer/image-decode"]
-native-font-ab-glyph = ["dep:ab_glyph"]
+native-font-ab-glyph = ["dep:ab_glyph", "dep:wuff"]
 native-video-gif = ["dep:image"]
 native-audio-rodio = ["dep:rodio"]
 quickjs-rquickjs = ["quajs_native_runtime/quickjs-rquickjs"]
@@ -33,3 +33,4 @@ serde.workspace = true
 serde_json.workspace = true
 wgpu = { version = "29.0.3", optional = true, default-features = false, features = ["std", "wgsl"] }
 winit = { version = "0.30.12", optional = true }
+wuff = { version = "0.2.6", optional = true }
