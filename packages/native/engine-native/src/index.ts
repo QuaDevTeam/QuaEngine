@@ -9,6 +9,14 @@ export {
 } from './native-host-plugin'
 export type { NativeHostPluginOptions } from './native-host-plugin'
 export {
+  NativeDialogueTypewriterController,
+  sliceNativeRichTextContent,
+} from './dialogue-typewriter'
+export type {
+  NativeDialogueTypewriterControllerOptions,
+  NativeDialogueTypewriterProjectResult,
+} from './dialogue-typewriter'
+export {
   DEFAULT_NATIVE_SCENE_TRANSITION_DURATION,
   NativeSceneTransitionController,
   normalizeNativeSceneTransition,

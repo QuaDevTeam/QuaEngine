@@ -27,6 +27,7 @@ import type { CreateNativeRendererJsonFrameInputOptions, NativeRendererEngineVie
 import { createNativeRendererJsonFrameInput } from './renderer-frame'
 import type { NativeSceneTransitionProjection } from './scene-transition'
 import { NativeSceneTransitionController } from './scene-transition'
+import { NativeDialogueTypewriterController } from './dialogue-typewriter'
 
 export interface NativeHostPluginOptions {
   featureSurfaces?: readonly NativeRendererFeatureSurfaceEntry[]
@@ -52,6 +53,7 @@ export class NativeHostPlugin implements EnginePlugin {
   private disposeRuntimePackageUnloadListener?: () => void
   private rendererIntentPipeline?: NonNullable<EngineContext['pipeline']>
   private readonly sceneTransitionController: NativeSceneTransitionController
+  private readonly dialogueTypewriterController: NativeDialogueTypewriterController
 
   constructor(private readonly options: NativeHostPluginOptions) {
     this.hostInfo = options.info
@@ -62,6 +64,9 @@ export class NativeHostPlugin implements EnginePlugin {
         if (pipeline)
           void this.recordSceneTransitionError(pipeline, error, sceneId)
       },
+    })
+    this.dialogueTypewriterController = new NativeDialogueTypewriterController({
+      requestRender: options.requestRender,
     })
   }
 
@@ -78,6 +83,7 @@ export class NativeHostPlugin implements EnginePlugin {
         context.pipeline,
         {
           featureSurfaces: this.options.featureSurfaces,
+          interceptInputCommand: payload => this.interceptInputCommand(payload),
           onError: (error, event) => {
             void this.recordRendererIntentError(context.pipeline!, error, event)
           },
@@ -99,6 +105,7 @@ export class NativeHostPlugin implements EnginePlugin {
     this.disposeRuntimePackageUnloadListener?.()
     this.disposeRuntimePackageUnloadListener = undefined
     this.sceneTransitionController.destroy()
+    this.dialogueTypewriterController.destroy()
     this.rendererIntentPipeline = undefined
     this.options.quickJsPipelineSubscriptionBridge?.dispose()
   }
@@ -138,6 +145,7 @@ export class NativeHostPlugin implements EnginePlugin {
     return createNativeRendererJsonFrameInput(view, {
       ...options,
       sceneTransition: options.sceneTransition ?? this.getSceneTransitionSnapshot(options.now),
+      dialogueTypewriter: options.dialogueTypewriter ?? this.dialogueTypewriterController,
     })
   }
 
@@ -155,11 +163,21 @@ export class NativeHostPlugin implements EnginePlugin {
       pipeline,
       {
         featureSurfaces: this.options.featureSurfaces,
+        interceptInputCommand: payload => this.interceptInputCommand(payload),
         onError: (error, event) => {
           void this.recordRendererIntentError(pipeline, error, event)
         },
       },
     )
+  }
+
+  private interceptInputCommand(payload: {
+    command: string
+    pressed?: boolean
+  }): boolean {
+    return payload.command === 'advance'
+      && payload.pressed !== false
+      && this.dialogueTypewriterController.revealNow()
   }
 
   private async resolveHostInfo(): Promise<QuaNativeHostInfo> {
