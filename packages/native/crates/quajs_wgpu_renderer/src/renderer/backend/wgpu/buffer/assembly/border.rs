@@ -56,7 +56,7 @@ pub(in crate::renderer::backend::wgpu::buffer) fn append_border_buffers(
             required_package_ids: quad.required_package_ids.clone(),
             resource_ids: Vec::new(),
         };
-        append_geometry_buffers(geometry, first_vertex, vertices, indices);
+        append_geometry_buffers(geometry, vertices, indices);
         draw_calls.push(WgpuNativeRenderDrawCall::from_quad_range(
             &border_quad,
             first_vertex,

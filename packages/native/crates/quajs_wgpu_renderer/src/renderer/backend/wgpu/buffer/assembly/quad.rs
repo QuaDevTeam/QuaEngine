@@ -46,7 +46,7 @@ pub(in crate::renderer::backend::wgpu::buffer) fn append_quad_buffers(
                 required_package_ids: quad.required_package_ids.clone(),
                 resource_ids: quad.resource_ids.clone(),
             };
-            append_geometry_buffers(geometry, first_vertex, vertices, indices);
+            append_geometry_buffers(geometry, vertices, indices);
             draw_calls.push(WgpuNativeRenderDrawCall::from_quad_range(
                 &placeholder_quad,
                 first_vertex,
@@ -61,7 +61,7 @@ pub(in crate::renderer::backend::wgpu::buffer) fn append_quad_buffers(
     let vertex_color = vertex_color_from_quad(quad);
     if should_tessellate_rounded_quad(quad) {
         if let Some(geometry) = rounded_quad_geometry(quad, vertex_color) {
-            append_geometry_buffers(geometry, first_vertex, vertices, indices);
+            append_geometry_buffers(geometry, vertices, indices);
             draw_calls.push(WgpuNativeRenderDrawCall::from_quad_range(
                 quad,
                 first_vertex,
@@ -78,11 +78,7 @@ pub(in crate::renderer::backend::wgpu::buffer) fn append_quad_buffers(
             .iter()
             .map(|vertex| WgpuNativeRenderBufferVertex::from_mesh_vertex(vertex, vertex_color)),
     );
-    indices.extend(
-        quad.indices
-            .iter()
-            .map(|index| first_vertex.saturating_add(*index as u32)),
-    );
+    indices.extend(quad.indices.iter().map(|index| *index as u32));
     draw_calls.push(WgpuNativeRenderDrawCall::from_quad(
         quad,
         first_vertex,

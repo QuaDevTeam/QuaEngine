@@ -38,7 +38,7 @@ fn packs_visible_quads_into_contiguous_vertex_and_index_buffers() {
     assert_eq!(pass.vertex_count, 8);
     assert_eq!(pass.index_count, 12);
     assert_eq!(pass.draw_call_count, 2);
-    assert_eq!(pass.indices, vec![0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7]);
+    assert_eq!(pass.indices, vec![0, 1, 2, 0, 2, 3, 0, 1, 2, 0, 2, 3]);
     assert_eq!(
         pass.vertices[0],
         WgpuNativeRenderBufferVertex {
@@ -77,6 +77,7 @@ fn packs_visible_quads_into_contiguous_vertex_and_index_buffers() {
     assert_eq!(pass.draw_calls[1].command_id, "background:main");
     assert_eq!(pass.draw_calls[1].first_vertex, 4);
     assert_eq!(pass.draw_calls[1].first_index, 6);
+    assert_eq!(&pass.indices[6..12], &[0, 1, 2, 0, 2, 3]);
     assert_eq!(
         pass.draw_calls[1].resource_ids,
         vec![ResourceId::from("images:bg/school.png")]

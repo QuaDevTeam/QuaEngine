@@ -6,13 +6,25 @@ const BUTTON_HEIGHT: f64 = 84.0;
 const BUTTON_GAP: f64 = 18.0;
 
 pub fn choices_panel_bounds(layout: &ResolvedStageLayout, choice_count: usize) -> LogicalRect {
+    choices_panel_bounds_with_bottom(
+        layout,
+        choice_count,
+        layout.safe_area.y + layout.safe_area.height - layout.logical_height * 0.08,
+    )
+}
+
+pub fn choices_panel_bounds_with_bottom(
+    layout: &ResolvedStageLayout,
+    choice_count: usize,
+    bottom: f64,
+) -> LogicalRect {
     let safe = layout.safe_area;
     let width = safe.width.min(MAX_PANEL_WIDTH);
     let count = choice_count.max(1) as f64;
     let height = count * BUTTON_HEIGHT + (count - 1.0) * BUTTON_GAP;
     LogicalRect {
         x: safe.x + (safe.width - width) / 2.0,
-        y: safe.y + safe.height - height - layout.logical_height * 0.08,
+        y: (bottom - height).max(safe.y),
         width,
         height,
     }
