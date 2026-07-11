@@ -266,14 +266,17 @@ where
         self.state.needs_more_frames()
     }
 
-    pub(crate) fn render_projection_json_frame<F, E>(
+    pub(crate) fn render_projection_json_frame<F, E, A, AE>(
         &mut self,
         input: &str,
         before_present: F,
+        after_present: A,
     ) -> Result<NativeProductWindowLoopFrameResult, NativeProductWindowLoopError>
     where
         F: FnOnce(&mut NativeProductWindowRenderer, &mut H) -> Result<(), E>,
         E: Display,
+        A: FnOnce(&NativeProductWindowRuntime<H>) -> Result<(), AE>,
+        AE: Display,
     {
         let attempt = self.state.begin_present_attempt();
         let product_frame = self
@@ -310,6 +313,11 @@ where
                 ))
             })?;
         }
+        after_present(&self.runtime).map_err(|error| {
+            NativeProductWindowLoopError::new(format!(
+                "native product window after-present hook failed: {error}"
+            ))
+        })?;
         let will_complete_target =
             self.state.completed_frame_count.saturating_add(1) >= self.state.target_frame_count();
         let shutdown = if will_complete_target {

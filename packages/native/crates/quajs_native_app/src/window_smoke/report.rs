@@ -116,4 +116,11 @@ pub struct NativeWindowSmokeReport {
     pub batch_count: usize,
     pub command_count: usize,
     pub submitted_command_buffer_count: usize,
+    pub frame_capture_mime_type: Option<String>,
+    pub frame_capture_byte_count: usize,
+    pub frame_capture_width: Option<u32>,
+    pub frame_capture_height: Option<u32>,
+    pub frame_capture_png_signature_valid: bool,
+    pub frame_capture_visible_pixel_count: usize,
+    pub frame_capture_colored_pixel_count: usize,
 }

@@ -16,6 +16,8 @@ pub struct RealWgpuEncodedFrameCapture {
     pub height: u32,
     pub mime_type: &'static str,
     pub bytes: Vec<u8>,
+    pub visible_pixel_count: usize,
+    pub colored_pixel_count: usize,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -148,6 +150,16 @@ impl RealWgpuNativeRenderRuntimeDevice {
         use image::ImageEncoder;
 
         let capture = self.capture_frame_rgba8()?;
+        let visible_pixel_count = capture
+            .rgba8
+            .chunks_exact(4)
+            .filter(|pixel| pixel[3] > 0)
+            .count();
+        let colored_pixel_count = capture
+            .rgba8
+            .chunks_exact(4)
+            .filter(|pixel| pixel[3] > 0 && pixel[..3].iter().any(|channel| *channel > 0))
+            .count();
         let mut bytes = Vec::new();
         image::codecs::png::PngEncoder::new(&mut bytes)
             .write_image(
@@ -166,6 +178,8 @@ impl RealWgpuNativeRenderRuntimeDevice {
             height: capture.height,
             mime_type: "image/png",
             bytes,
+            visible_pixel_count,
+            colored_pixel_count,
         })
     }
 }
