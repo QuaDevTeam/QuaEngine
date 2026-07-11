@@ -17,6 +17,7 @@ import {
   projectUiOverlay,
 } from '@quajs/render-core'
 import type { NativeRendererFeatureSurfaceEntry } from './feature-surfaces'
+import type { NativeDialogueTypewriterController } from './dialogue-typewriter'
 import type { NativeSceneTransitionProjection } from './scene-transition'
 import { createNativeRendererFeatureSurfaceOverlays } from './feature-surfaces'
 
@@ -58,6 +59,7 @@ export type NativeRendererEngineViewProjection = Readonly<JsonRecord & {
 export interface CreateNativeRendererJsonFrameInputOptions {
   container?: NativeRendererStageContainerInput
   featureSurfaces?: readonly NativeRendererFeatureSurfaceEntry[]
+  dialogueTypewriter?: NativeDialogueTypewriterController
   layout?: unknown
   now?: number
   sceneTransition?: Readonly<NativeSceneTransitionProjection>
@@ -70,6 +72,7 @@ export function createNativeRendererJsonFrameInput(
   const frame: NativeRendererJsonFrameInput = {
     view: createNativeRendererViewProjection(view, {
       featureSurfaces: options.featureSurfaces,
+      dialogueTypewriter: options.dialogueTypewriter,
       now: options.now,
       sceneTransition: options.sceneTransition,
     }),
@@ -86,6 +89,7 @@ export function createNativeRendererJsonFrameInput(
 }
 
 export interface CreateNativeRendererViewProjectionOptions {
+  dialogueTypewriter?: NativeDialogueTypewriterController
   featureSurfaces?: readonly NativeRendererFeatureSurfaceEntry[]
   now?: number
   sceneTransition?: Readonly<NativeSceneTransitionProjection>
@@ -101,6 +105,7 @@ export function createNativeRendererViewProjection(
   const background = projectNativeBackground(view.background, animations, now)
   const characters = projectNativeCharacters(view.characters, animations, now)
   const dialogue = projectNativeDialogue(view.dialogue, plugins?.dialogue, animations, now)
+  const visibleDialogue = projectNativeDialogueTypewriter(dialogue, options.dialogueTypewriter, now)
   const effects = projectNativeEffects(view.effects, animations, now)
   const choices = projectNativeChoices(view.choices, plugins?.choices, animations, now)
   const ui = projectNativeUi(view.ui, animations, now)
@@ -115,7 +120,7 @@ export function createNativeRendererViewProjection(
     characters: Array.isArray(characters)
       ? characters.map(createNativeCharacterProjection).filter(isJsonRecord)
       : undefined,
-    dialogue: createNativeDialogueProjection(dialogue),
+    dialogue: createNativeDialogueProjection(visibleDialogue),
     effects: effects.length > 0
       ? effects.map(createNativeEffectProjection).filter(isJsonRecord)
       : undefined,
@@ -124,6 +129,17 @@ export function createNativeRendererViewProjection(
     audio: createNativeAudioProjection(audio),
     plugins: createNativePluginProjection(view.plugins),
   })
+}
+
+function projectNativeDialogueTypewriter(
+  dialogue: unknown,
+  controller: NativeDialogueTypewriterController | undefined,
+  now: number,
+): unknown {
+  const record = asRecord(dialogue)
+  return record && controller
+    ? controller.project(record as unknown as Readonly<ViewDialogueProjection>, now).dialogue
+    : dialogue
 }
 
 function projectNativeEffects(

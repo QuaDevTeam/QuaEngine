@@ -31,6 +31,7 @@
     "native:smoke:gallery": "node --experimental-strip-types scripts/native-dev.mjs --smoke --panel=gallery",
     "native:smoke:settings": "node --experimental-strip-types scripts/native-dev.mjs --smoke --panel=settings",
     "native:smoke:transition": "node --experimental-strip-types scripts/native-dev.mjs --smoke --panel=transition",
+    "native:smoke:typewriter": "node --experimental-strip-types scripts/native-dev.mjs --smoke --panel=typewriter",
     "build": "vite build",
     "preview": "vite preview",
     "assets:build": "quack workspace:bundle --all",

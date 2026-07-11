@@ -209,6 +209,16 @@ function installWatchers() {
 }
 
 async function validateNativeFeatureFrame(panelName) {
+  if (panelName === 'typewriter') {
+    const frame = JSON.parse(await readFile(FRAME_PATH, 'utf8'))
+    const text = frame.view?.dialogue?.text
+    const fullText = 'The Tokyo uplink is down. Mara, confirm the last human signal.'
+    if (typeof text !== 'string' || text.length <= 0 || text.length >= fullText.length || !fullText.startsWith(text)) {
+      throw new Error('Native demo frame did not project a partial typewriter dialogue line.')
+    }
+    console.log(`Native demo frame validated typewriter projection (${text.length}/${fullText.length} code units).`)
+    return
+  }
   if (panelName === 'effects') {
     const frame = JSON.parse(await readFile(FRAME_PATH, 'utf8'))
     const effect = frame.view?.effects?.find?.(entry => entry?.id === 'demo.native.flash')

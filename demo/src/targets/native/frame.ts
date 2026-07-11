@@ -1,7 +1,12 @@
 import { createCharacter, clearCharacterRuntime, configureCharacterRuntime } from '@quajs/character'
 import { createMemoryAssetsAdapter } from '@quajs/assets-memory'
 import { QuaEngine } from '@quajs/engine'
-import { createNativeRendererJsonFrameInput, type NativeRendererEngineViewProjection } from '@quajs/engine-native'
+import {
+  createNativeRendererJsonFrameInput,
+  NativeDialogueTypewriterController,
+  type NativeRendererEngineViewProjection,
+} from '@quajs/engine-native'
+import type { ViewDialogueProjection } from '@quajs/render-core'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -32,7 +37,9 @@ export async function createDemoNativeFrame(outputPath = DEFAULT_FRAME_PATH): Pr
       },
       dialogue: {
         typewriter: {
-          enabled: false,
+          enabled: true,
+          durationMs: 1600,
+          revealOnAdvance: true,
         },
       },
     },
@@ -104,9 +111,16 @@ export async function createDemoNativeFrame(outputPath = DEFAULT_FRAME_PATH): Pr
 
     const view = runtime.engine.getViewState()
     const animationStartedAt = view.animations[0]?.startedAt ?? Date.now()
+    const dialogueTypewriter = nativePanel === 'typewriter'
+      ? new NativeDialogueTypewriterController()
+      : undefined
+    if (dialogueTypewriter) {
+      dialogueTypewriter.project(view.dialogue as Readonly<ViewDialogueProjection>, animationStartedAt)
+    }
     const frame = createNativeRendererJsonFrameInput(view as unknown as NativeRendererEngineViewProjection, {
+      dialogueTypewriter,
       featureSurfaces: DEMO_NATIVE_FEATURE_SURFACES,
-      now: animationStartedAt + 900,
+      now: nativePanel === 'typewriter' ? animationStartedAt + 600 : animationStartedAt + 900,
       sceneTransition: nativePanel === 'transition'
         ? {
             active: true,
@@ -179,6 +193,7 @@ async function openNativeDemoPanel(
     case '':
     case 'transition':
     case 'effects':
+    case 'typewriter':
       break
     default:
       throw new Error(`Unsupported native demo panel "${panel}".`)
