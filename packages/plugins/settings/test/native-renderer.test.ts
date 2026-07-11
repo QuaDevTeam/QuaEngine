@@ -40,23 +40,30 @@ describe('settings native renderer feature', () => {
           revision: 1,
           scopes: {
             '@quajs/plugin-settings': {
-              defaults: { confirmBeforeQuit: true, nickname: 'Player', textSpeedCps: 36 },
+              defaults: { confirmBeforeQuit: true, nickname: 'Player', skipMode: 'all', textSpeedCps: 36 },
               packageId: 'runtime.settings',
               schema: {
                 type: 'object',
                 properties: {
                   confirmBeforeQuit: { type: 'boolean', title: 'Confirm Before Quit' },
                   nickname: { type: 'string', title: 'Nickname' },
+                  skipMode: { type: 'string', title: 'Skip Mode', enum: ['read', 'all'] },
                   textSpeedCps: { type: 'number', title: 'Text Speed', minimum: 5, maximum: 120, multipleOf: 1 },
                 },
               },
               ui: {
+                groups: { flow: { label: 'Flow Control' } },
                 controls: {
                   confirmBeforeQuit: { control: 'switch' },
-                  textSpeedCps: { control: 'slider', min: 5, max: 120, step: 1 },
+                  skipMode: {
+                    control: 'select',
+                    group: 'flow',
+                    options: [{ label: 'Read Text', value: 'read' }, { label: 'All Text', value: 'all' }],
+                  },
+                  textSpeedCps: { control: 'slider', group: 'flow', min: 5, max: 120, step: 1 },
                 },
               },
-              values: { confirmBeforeQuit: true, nickname: 'Player', textSpeedCps: 36 },
+              values: { confirmBeforeQuit: true, nickname: 'Player', skipMode: 'all', textSpeedCps: 36 },
             },
           },
           updatedAt: 1,
@@ -69,8 +76,12 @@ describe('settings native renderer feature', () => {
     const confirm = findNode(surface.root, 'settings-field--quajs-plugin-settings-confirmBeforeQuit')
     const speed = findNode(surface.root, 'settings-field--quajs-plugin-settings-textSpeedCps')
     const nickname = findNode(surface.root, 'settings-field--quajs-plugin-settings-nickname')
+    const skipValue = findNode(surface.root, 'settings-field--quajs-plugin-settings-skipMode-select-value')
     const confirmValue = findNode(surface.root, 'settings-field--quajs-plugin-settings-confirmBeforeQuit-value')
+    const confirmTrack = findNode(surface.root, 'settings-field--quajs-plugin-settings-confirmBeforeQuit-switch-track')
     const speedValue = findNode(surface.root, 'settings-field--quajs-plugin-settings-textSpeedCps-value')
+    const speedTrack = findNode(surface.root, 'settings-field--quajs-plugin-settings-textSpeedCps-slider-track')
+    const groupLabel = findNode(surface.root, 'settings-group--quajs-plugin-settings-flow-label')
     const panel = findNode(surface.root, 'settings-panel')
     const title = findNode(surface.root, 'settings-title')
 
@@ -84,7 +95,11 @@ describe('settings native renderer feature', () => {
     expect(speed?.intent?.metadata?.patchJson).toBe('{"textSpeedCps":37}')
     expect(nickname?.intent).toBeUndefined()
     expect(confirmValue?.text).toBe('ON')
+    expect(confirmTrack?.style?.borderRadius).toBe(12)
     expect(speedValue?.text).toBe('36 cps')
+    expect(speedTrack?.style?.backgroundColor).toBe('rgba(233,192,111,0.78)')
+    expect(skipValue?.text).toBe('All Text')
+    expect(groupLabel?.text).toBe('FLOW CONTROL')
     expect(panel?.style?.boxShadow).toEqual(expect.objectContaining({ blurRadius: 48, offsetY: 18 }))
     expect(title?.style?.textShadow).toEqual(expect.objectContaining({ blurRadius: 10, offsetY: 2 }))
     expect(confirm?.provenance).toEqual({
