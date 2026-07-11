@@ -11,7 +11,9 @@
 .qua-renderer {
   position: relative;
   width: 100%;
-  min-height: 100dvh;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
   overflow: hidden;
   isolation: isolate;
   --qua-css-safe-area-top: env(safe-area-inset-top, 0px);
