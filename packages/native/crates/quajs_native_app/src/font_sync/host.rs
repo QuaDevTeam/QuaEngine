@@ -4,7 +4,8 @@ use quajs_wgpu_renderer::fonts::{
 };
 
 use crate::host_assets::{
-    ordered_package_candidates, resolve_native_asset_read_candidates, NativeAssetBundleCandidate,
+    native_asset_read_urls, ordered_package_candidates, resolve_native_asset_read_candidates,
+    NativeAssetBundleCandidate,
 };
 
 use super::types::{
@@ -72,38 +73,40 @@ fn read_font_asset_bytes(
     let candidates = read_candidates(host, face)?;
     let mut last_missing: Option<NativeFontAssetHostSyncFailure> = None;
 
-    for candidate in candidates {
-        let read_request = NativeAssetReadRequest {
-            url: face.asset_name.clone(),
-            bundle_name: candidate.bundle_name.clone(),
-            asset_id: Some(face.face_resource_id.as_str().to_string()),
-        };
+    for url in native_asset_read_urls(&face.asset_type, &face.asset_name) {
+        for candidate in &candidates {
+            let read_request = NativeAssetReadRequest {
+                url: url.clone(),
+                bundle_name: candidate.bundle_name.clone(),
+                asset_id: Some(face.face_resource_id.as_str().to_string()),
+            };
 
-        match host.read_asset_bytes(&read_request) {
-            Ok(bytes) => {
-                return Ok(NativeFontAssetRead {
-                    bytes,
-                    bundle_name: candidate.bundle_name,
-                    package_id: candidate.package_id,
-                });
-            }
-            Err(NativeHostApiError::AssetNotFound(_)) => {
-                last_missing = Some(failure_from_face(
-                    NativeFontAssetHostSyncFailureKind::MissingAsset,
-                    face,
-                    candidate.bundle_name,
-                    candidate.package_id,
-                    format!("Native font asset \"{}\" was not found.", face.asset_name),
-                ));
-            }
-            Err(error) => {
-                return Err(failure_from_face(
-                    NativeFontAssetHostSyncFailureKind::HostError,
-                    face,
-                    candidate.bundle_name,
-                    candidate.package_id,
-                    error.message(),
-                ));
+            match host.read_asset_bytes(&read_request) {
+                Ok(bytes) => {
+                    return Ok(NativeFontAssetRead {
+                        bytes,
+                        bundle_name: candidate.bundle_name.clone(),
+                        package_id: candidate.package_id.clone(),
+                    });
+                }
+                Err(NativeHostApiError::AssetNotFound(_)) => {
+                    last_missing = Some(failure_from_face(
+                        NativeFontAssetHostSyncFailureKind::MissingAsset,
+                        face,
+                        candidate.bundle_name.clone(),
+                        candidate.package_id.clone(),
+                        format!("Native font asset \"{}\" was not found.", face.asset_name),
+                    ));
+                }
+                Err(error) => {
+                    return Err(failure_from_face(
+                        NativeFontAssetHostSyncFailureKind::HostError,
+                        face,
+                        candidate.bundle_name.clone(),
+                        candidate.package_id.clone(),
+                        error.message(),
+                    ));
+                }
             }
         }
     }

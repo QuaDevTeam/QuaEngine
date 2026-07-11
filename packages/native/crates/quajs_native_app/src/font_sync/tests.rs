@@ -48,6 +48,21 @@ fn loads_unscoped_font_asset_when_face_has_no_package_candidates() {
 }
 
 #[test]
+fn loads_font_from_quack_qpk_asset_path_after_logical_name_misses() {
+    let face = face("inter", "Inter", "fonts/inter.woff2", []);
+    let host = RecordingFontHost::new().with_asset(None, "assets/fonts/inter.woff2", [1, 2, 3]);
+    let plan = plan([command(FontBackendCommandKind::LoadFace, Some(face))]);
+
+    let report = sync_font_assets_from_host(&host, &plan);
+
+    assert!(report.is_ok());
+    assert_eq!(report.loaded_count, 1);
+    assert_eq!(host.reads.borrow().len(), 2);
+    assert_eq!(host.reads.borrow()[0].url, "fonts/inter.woff2");
+    assert_eq!(host.reads.borrow()[1].url, "assets/fonts/inter.woff2");
+}
+
+#[test]
 fn resolves_font_assets_by_runtime_logical_or_bundle_name() {
     let cases = [
         bundle("runtime-bundle", None, Some("runtime.fonts")),

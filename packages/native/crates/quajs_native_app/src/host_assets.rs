@@ -54,6 +54,18 @@ pub(crate) fn resolve_native_asset_read_candidates(
     Ok(candidates)
 }
 
+pub(crate) fn native_asset_read_urls(asset_type: &str, asset_name: &str) -> Vec<String> {
+    let mut urls = vec![asset_name.to_string()];
+    let base_name = strip_query_hash(asset_name);
+    let type_prefix = format!("{asset_type}/");
+    let relative_name = base_name.strip_prefix(&type_prefix).unwrap_or(base_name);
+    let qpk_url = format!("assets/{asset_type}/{relative_name}");
+    if qpk_url != asset_name {
+        urls.push(qpk_url);
+    }
+    urls
+}
+
 pub(crate) fn validate_native_asset_type(
     asset_domain: &str,
     asset_type: &str,

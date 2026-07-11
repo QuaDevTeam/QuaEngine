@@ -50,6 +50,34 @@ fn uploads_pending_texture_from_owner_package_bundle_with_metadata() {
 }
 
 #[test]
+fn loads_texture_from_quack_qpk_asset_path_after_logical_name_misses() {
+    let host = RecordingAssetHost::new()
+        .with_bundle(bundle("base-bundle", Some("base")))
+        .with_asset(
+            Some("base-bundle"),
+            "assets/images/ui/panel.png",
+            [1, 2, 3, 4],
+        );
+    let mut sink = RecordingTextureUploadSink::default();
+    let sync = sync_plan([texture_request(
+        "images:ui/panel.png",
+        "images",
+        "ui/panel.png",
+        ["base"],
+        [],
+        ["base"],
+    )]);
+
+    let report = sync_pending_texture_uploads_from_host(&host, &mut sink, &sync);
+
+    assert!(report.is_ok());
+    assert_eq!(report.uploaded_count, 1);
+    assert_eq!(host.reads.borrow().len(), 2);
+    assert_eq!(host.reads.borrow()[0].url, "ui/panel.png");
+    assert_eq!(host.reads.borrow()[1].url, "assets/images/ui/panel.png");
+}
+
+#[test]
 fn falls_back_to_required_package_bundle_without_losing_projection_package() {
     let host = RecordingAssetHost::new()
         .with_bundle(bundle("base-bundle", Some("base")))
