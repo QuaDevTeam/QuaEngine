@@ -134,6 +134,11 @@ describe('native renderer frame serialization', () => {
         playbackRate: 1,
         resolvedTracks: [
           {
+            target: 'effect:alarm',
+            property: 'opacity',
+            keyframes: [{ at: 0, value: 0 }, { at: 1_000, value: 0.6, easing: 'linear' }],
+          },
+          {
             target: 'character:mira',
             property: 'position.x',
             keyframes: [{ at: 0, value: 800 }, { at: 1_000, value: 1_200, easing: 'linear' }],
@@ -160,11 +165,33 @@ describe('native renderer frame serialization', () => {
           },
         ],
       }],
+      effects: [{
+        id: 'alarm',
+        type: 'flash',
+        intensity: 0.8,
+        options: {
+          color: '#ffffff',
+          contentPackageId: 'runtime.effects',
+          requiredRuntimePackages: ['base.effects'],
+        },
+      }],
     }
 
     const frame = createNativeRendererJsonFrameInput(view, { now: 1_500 })
 
     expect(frame.view.background).toEqual(expect.objectContaining({ scale: 1.1 }))
+    expect(frame.view.effects).toEqual([
+      expect.objectContaining({
+        id: 'alarm',
+        type: 'flash',
+        opacity: 0.3,
+        color: '#ffffff',
+        provenance: {
+          contentPackageId: 'runtime.effects',
+          requiredRuntimePackages: ['base.effects'],
+        },
+      }),
+    ])
     expect(frame.view.characters).toEqual([
       expect.objectContaining({
         id: 'mira',

@@ -27,6 +27,7 @@
     "native:smoke": "node --experimental-strip-types scripts/native-dev.mjs --smoke",
     "native:smoke:achievement": "node --experimental-strip-types scripts/native-dev.mjs --smoke --panel=achievement",
     "native:smoke:backlog": "node --experimental-strip-types scripts/native-dev.mjs --smoke --panel=backlog",
+    "native:smoke:effects": "node --experimental-strip-types scripts/native-dev.mjs --smoke --panel=effects",
     "native:smoke:gallery": "node --experimental-strip-types scripts/native-dev.mjs --smoke --panel=gallery",
     "native:smoke:settings": "node --experimental-strip-types scripts/native-dev.mjs --smoke --panel=settings",
     "native:smoke:transition": "node --experimental-strip-types scripts/native-dev.mjs --smoke --panel=transition",

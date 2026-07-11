@@ -35,6 +35,10 @@ impl RenderGraph {
         &self.commands
     }
 
+    pub(crate) fn commands_mut(&mut self) -> &mut [DrawCommand] {
+        &mut self.commands
+    }
+
     pub fn commands_for_plane(&self, plane: RenderPlane) -> impl Iterator<Item = &DrawCommand> {
         self.commands
             .iter()

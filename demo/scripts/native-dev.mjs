@@ -209,6 +209,15 @@ function installWatchers() {
 }
 
 async function validateNativeFeatureFrame(panelName) {
+  if (panelName === 'effects') {
+    const frame = JSON.parse(await readFile(FRAME_PATH, 'utf8'))
+    const effect = frame.view?.effects?.find?.(entry => entry?.id === 'demo.native.flash')
+    if (effect?.type !== 'flash' || effect?.opacity !== 0.24) {
+      throw new Error('Native demo frame did not project the expected engine effect.')
+    }
+    console.log('Native demo frame validated engine effect projection.')
+    return
+  }
   if (panelName === 'transition') {
     const frame = JSON.parse(await readFile(FRAME_PATH, 'utf8'))
     if (frame.view?.sceneTransition?.type !== 'wipe' || frame.view?.sceneTransition?.progress !== 0.5) {

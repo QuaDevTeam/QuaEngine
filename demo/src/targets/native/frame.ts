@@ -90,6 +90,17 @@ export async function createDemoNativeFrame(outputPath = DEFAULT_FRAME_PATH): Pr
     await runtime.engine.showUI('native-dev-status', createNativeDevSurface())
     const nativePanel = process.env.QUA_NATIVE_DEMO_PANEL
     await openNativeDemoPanel(runtime, nativePanel)
+    if (nativePanel === 'effects') {
+      await runtime.engine.applyEffect({
+        id: 'demo.native.flash',
+        type: 'flash',
+        intensity: 0.24,
+        options: {
+          color: '#71d7f3',
+          opacity: 0.24,
+        },
+      })
+    }
 
     const view = runtime.engine.getViewState()
     const animationStartedAt = view.animations[0]?.startedAt ?? Date.now()
@@ -167,6 +178,7 @@ async function openNativeDemoPanel(
     case undefined:
     case '':
     case 'transition':
+    case 'effects':
       break
     default:
       throw new Error(`Unsupported native demo panel "${panel}".`)
