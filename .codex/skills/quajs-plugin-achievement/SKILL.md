@@ -34,6 +34,7 @@ Renderer entries:
 - `@quajs/renderer-web/plugins/achievement`
 - `@quajs/renderer-vue/plugins/achievement`
 - `@quajs/renderer-cocos/plugins/achievement`
+- `@quajs/plugin-achievement/native` through `createAchievementNativeRendererFeature()`
 
 ## Register Definitions
 
@@ -113,6 +114,8 @@ Decorators:
 ## Renderer Boundary
 
 Achievement board selection, filter updates, close requests, and notification dismissal are render-to-logic intents. The plugin updates engine-owned projection; renderer components do not decide unlock/progress state.
+
+Native products explicitly register `createAchievementNativeRendererFeature()` in the same feature-surface list used for frame serialization and `NativeHostPlugin`. It emits separate safe-area board and toast overlays, preserves QPK provenance, masks locked hidden achievement details, and allowlists only existing board/filter/notification pipeline intents.
 
 Achievement overlay placement is plugin projection metadata. `AchievementOpenOptions` and `AchievementProjection` accept `overlayStack`, `stackPriority`, and `zIndex`; the board defaults to `overlay` stack with achievement board zIndex `80`. `AchievementNotificationOptions` and `AchievementNotificationProjection` also accept placement fields; toast notifications default to `toast` stack with zIndex `0`. Web-family renderers should render board and toast as separate official overlay roots, and Cocos should keep board/toast in separate layers so the two stacks do not mix.
 

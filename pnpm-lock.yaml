@@ -888,6 +888,12 @@ importers:
       '@quajs/engine':
         specifier: workspace:*
         version: link:../../core/engine
+      '@quajs/engine-native':
+        specifier: workspace:*
+        version: link:../../native/engine-native
+      '@quajs/native-ui-compiler':
+        specifier: workspace:*
+        version: link:../../native/ui-compiler
       '@quajs/pipeline':
         specifier: workspace:*
         version: link:../../core/pipeline

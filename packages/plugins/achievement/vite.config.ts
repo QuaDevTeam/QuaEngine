@@ -17,6 +17,7 @@ export default defineConfig({
       entry: {
         'index': resolve(import.meta.dirname, 'src/index.ts'),
         'contracts': resolve(import.meta.dirname, 'src/contracts.ts'),
+        'native': resolve(import.meta.dirname, 'src/native.ts'),
         'script-compiler': resolve(import.meta.dirname, 'src/script-compiler.ts'),
       },
       name: 'pluginAchievement',
@@ -27,6 +28,8 @@ export default defineConfig({
       external: [
         '@babel/types',
         '@quajs/engine',
+        '@quajs/engine-native',
+        '@quajs/native-ui-compiler',
         '@quajs/pipeline',
         '@quajs/plugin-gallery',
         '@quajs/store',
