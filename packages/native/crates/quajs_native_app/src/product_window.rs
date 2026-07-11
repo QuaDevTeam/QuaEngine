@@ -6,9 +6,10 @@ use quajs_wgpu_renderer::audio::NativeAudioBackendError;
 use quajs_wgpu_renderer::audio::NullNativeAudioBackend;
 use quajs_wgpu_renderer::renderer::{
     configure_wgpu_surface_for_native_renderer, create_real_wgpu_surface_target,
-    InMemoryWgpuNativeRenderRuntimeExecutor, NativeRenderer, RealWgpuNativeRenderRuntimeDevice,
-    RealWgpuSurfacePresentReport, RealWgpuSurfaceTargetBootstrapRequest, WgpuNativeRenderBackend,
-    WgpuNativeRenderBackendConfig, WgpuNativeRenderRuntimeError, WgpuNativeSurfaceConfigRequest,
+    InMemoryWgpuNativeRenderRuntimeExecutor, NativeRenderer, RealWgpuEncodedFrameCapture,
+    RealWgpuFrameCaptureError, RealWgpuNativeRenderRuntimeDevice, RealWgpuSurfacePresentReport,
+    RealWgpuSurfaceTargetBootstrapRequest, WgpuNativeRenderBackend, WgpuNativeRenderBackendConfig,
+    WgpuNativeRenderRuntimeError, WgpuNativeSurfaceConfigRequest,
 };
 #[cfg(not(feature = "native-video-gif"))]
 use quajs_wgpu_renderer::video::NullNativeVideoBackend;
@@ -393,6 +394,16 @@ where
             present_report,
             offscreen_submitted_command_buffer_count,
         ))
+    }
+
+    pub(crate) fn capture_frame_png(
+        &self,
+    ) -> Result<RealWgpuEncodedFrameCapture, RealWgpuFrameCaptureError> {
+        self.renderer()
+            .backend()
+            .runtime_executor()
+            .device()
+            .capture_frame_png()
     }
 
     pub(crate) fn present_frame_to_surface(
