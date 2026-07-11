@@ -57,6 +57,7 @@ pub(super) struct NativeWindowSmokeInputMetrics {
 pub(super) struct NativeWindowSmokeInputState {
     product_input: NativeProductInputController,
     metrics: NativeWindowSmokeInputMetrics,
+    pub(super) persisted_intent_count: usize,
 }
 
 impl NativeWindowSmokeInputState {

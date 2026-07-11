@@ -5,7 +5,11 @@ use winit::window::WindowId;
 
 use super::NativeWindowSmokeApp;
 use crate::product_app_shell::NativeProductAppShellRedrawDecision;
-use crate::product_window::{NativeProductWindowPhysicalSize, NativeProductWindowPresentFailure};
+use crate::product_window::{
+    NativeProductWindowPhysicalSize, NativeProductWindowPresentFailure,
+    NativeProductWindowPresentFailureKind,
+};
+use crate::window_smoke::config::native_window_dev_enabled;
 use crate::window_smoke::frame::normalized_physical_size;
 use crate::window_smoke::input::{pointer_button_from_winit, pointer_phase_from_element_state};
 
@@ -233,6 +237,15 @@ impl NativeWindowSmokeApp {
                 self.apply_product_shell_action(event_loop, action) && progressed
             }
             Ok(NativeProductAppShellRedrawDecision::Fail { .. }) => {
+                if native_window_dev_enabled()
+                    && matches!(
+                        present_failure.kind(),
+                        NativeProductWindowPresentFailureKind::Occluded
+                            | NativeProductWindowPresentFailureKind::Timeout
+                    )
+                {
+                    return true;
+                }
                 self.error = Some(error);
                 false
             }
