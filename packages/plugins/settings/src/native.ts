@@ -97,7 +97,7 @@ function createSettingsRoot(
   const desiredContentHeight = entries.reduce((height, entry) => height + settingsEntryHeight(entry), 0)
   const desiredPanelHeight = headerHeight + contentPadding * 2 + desiredContentHeight
   const panelWidth = Math.min(context.safeArea.width - edge * 2, 1040)
-  const panelHeight = Math.min(context.safeArea.height - edge * 2, Math.max(360, desiredPanelHeight))
+  const panelHeight = Math.min(context.safeArea.height - edge * 2, Math.max(552, desiredPanelHeight))
   const panel = {
     x: context.safeArea.x + (context.safeArea.width - panelWidth) / 2,
     y: context.safeArea.y + (context.safeArea.height - panelHeight) / 2,
@@ -149,7 +149,7 @@ function createSettingsRoot(
             provenance,
             style: {
               color: '#fff8ea',
-              fontSize: 46,
+              fontSize: 56,
               fontWeight: 700,
               textShadow: titleShadow(),
             },
@@ -163,7 +163,7 @@ function createSettingsRoot(
             text: 'RESET',
             intent: uiIntent(ACTIONS.resetAll),
             provenance,
-            style: headerButtonStyle(11),
+            style: headerButtonStyle(14),
           }),
           node('settings-close', 'Button', {
             x: panel.x + panel.width - contentPadding - 44,
@@ -174,7 +174,7 @@ function createSettingsRoot(
             text: 'X',
             intent: uiIntent(ACTIONS.close, { targetId: SETTINGS_ELEMENT_ID }),
             provenance,
-            style: headerButtonStyle(22),
+            style: headerButtonStyle(28),
           }),
           node('settings-header-divider', 'Divider', {
             x: panel.x + contentPadding,
@@ -216,7 +216,7 @@ function flattenSettingsEntries(scopes: readonly SettingsScopeFormProjection[]):
 }
 
 function settingsEntryHeight(entry: NativeSettingsEntry): number {
-  return entry.kind === 'group' ? 28 : 68
+  return entry.kind === 'group' ? 22 : 68
 }
 
 function fitSettingsEntries(entries: readonly NativeSettingsEntry[], maxHeight: number): NativeSettingsEntry[] {
@@ -253,7 +253,7 @@ function createGroupNode(
         provenance,
         style: {
           color: 'rgba(255,226,166,0.90)',
-          fontSize: 12,
+          fontSize: 15,
           fontWeight: 700,
           letterSpacing: 2,
         },
@@ -320,7 +320,7 @@ function createFieldNode(
         provenance,
         style: {
           color: field.readonly ? 'rgba(247,242,234,0.52)' : 'rgba(255,248,234,0.90)',
-          fontSize: 16,
+          fontSize: 20,
           fontWeight: 700,
         },
       }),
@@ -335,7 +335,7 @@ function createFieldNode(
             provenance,
             style: {
               color: error ? '#ef9aa4' : 'rgba(247,242,234,0.52)',
-              fontSize: 13,
+              fontSize: 16,
               textOverflow: 'ellipsis',
             },
           })]
@@ -460,7 +460,7 @@ function createSelectControlNodes(
       }, {
         text: valueText,
         provenance,
-        style: { color: '#fff8ea', fontSize: 14 },
+        style: { color: '#fff8ea', fontSize: 17 },
       }),
       node(`${id}-select-chevron`, 'Text', {
         x: bounds.x + bounds.width - 34,
@@ -470,7 +470,7 @@ function createSelectControlNodes(
       }, {
         text: 'v',
         provenance,
-        style: { color: 'rgba(255,248,234,0.72)', fontSize: 13, textAlign: 'center' },
+        style: { color: 'rgba(255,248,234,0.72)', fontSize: 15, textAlign: 'center' },
       }),
     ],
   })]
@@ -520,7 +520,7 @@ function createSwitchControlNodes(
     }, {
       text: checked ? 'ON' : 'OFF',
       provenance,
-      style: { color: 'rgba(247,242,234,0.70)', fontSize: 11, letterSpacing: 1 },
+      style: { color: 'rgba(247,242,234,0.70)', fontSize: 14, letterSpacing: 1 },
     }),
   ]
 }
@@ -537,7 +537,7 @@ function valueNode(
     provenance,
     style: {
       color: readonly ? 'rgba(247,242,234,0.52)' : 'rgba(247,242,234,0.68)',
-      fontSize: 13,
+      fontSize: 15,
       textAlign: 'right',
     },
   })
