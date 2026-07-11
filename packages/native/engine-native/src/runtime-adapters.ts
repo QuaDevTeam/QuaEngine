@@ -10,6 +10,7 @@ import type {
 import { assertNativeRuntimePackageGuard } from '@quajs/native-contracts'
 import { assertNativeRuntimePackageCompatibility } from './compatibility'
 import { NativeHostPlugin } from './native-host-plugin'
+import type { NativeRendererFeatureSurfaceEntry } from './feature-surfaces'
 import { createNativeHostQuickJsGameStepModuleNamespaceResolver, createNativeHostQuickJsModuleEvaluator, createNativeQuickJsPipelineSubscriptionBridge, createNativeRuntimeModuleLoader } from './runtime-module-loader'
 import type { NativeQuickJsHelperCallExecutor, NativeQuickJsHelperModuleRegistry, NativeQuickJsModuleNamespaceResolver, NativeQuickJsPipelineSubscriptionBridge, NativeQuickJsStepContextSerializer, NativeRuntimeModuleEvaluator } from './runtime-module-loader'
 
@@ -31,6 +32,7 @@ export interface NativeEngineBootstrap {
 
 export interface NativeRuntimeAdaptersOptions {
   allowUnsignedInDevelopment?: boolean
+  featureSurfaces?: readonly NativeRendererFeatureSurfaceEntry[]
   hostInfo?: QuaNativeHostInfo
   moduleEvaluator?: NativeRuntimeModuleEvaluator
   moduleNamespaceResolver?: NativeQuickJsModuleNamespaceResolver
@@ -83,6 +85,7 @@ export function createNativeEngineBootstrap(host: QuaNativeHostApi, options: Nat
   return {
     adapters,
     plugin: new NativeHostPlugin({
+      featureSurfaces: options.featureSurfaces,
       host,
       info: options.hostInfo,
       quickJsPipelineSubscriptionBridge: adapters.quickJsPipelineSubscriptionBridge,

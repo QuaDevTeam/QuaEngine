@@ -9,6 +9,19 @@ export {
 } from './native-host-plugin'
 export type { NativeHostPluginOptions } from './native-host-plugin'
 export {
+  createNativeRendererFeatureSurfaceOverlays,
+  resolveNativeRendererFeatureIntent,
+} from './feature-surfaces'
+export type {
+  NativeRendererFeatureIntentAction,
+  NativeRendererFeatureJsonRecord,
+  NativeRendererFeatureSurfaceContext,
+  NativeRendererFeatureSurfaceEntry,
+  NativeRendererFeatureSurfaceOverlay,
+  NativeRendererFeatureSurfaceRect,
+  ResolvedNativeRendererFeatureIntent,
+} from './feature-surfaces'
+export {
   assertNativeTargetBundleManifest,
   assertNativeTargetBootstrap,
   checkNativeAppManifestCompatibility,
@@ -40,6 +53,7 @@ export {
 } from './renderer-frame'
 export type {
   CreateNativeRendererJsonFrameInputOptions,
+  CreateNativeRendererViewProjectionOptions,
   NativeRendererEngineViewProjection,
   NativeRendererJsonFrameInput,
   NativeRendererSafeAreaInsetsInput,

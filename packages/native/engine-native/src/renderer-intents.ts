@@ -2,6 +2,8 @@ import type { NativeRendererIntent, QuaNativeHostApi } from '@quajs/native-contr
 import type { RendererInputCommandPayload, RendererTextInputPayload } from '@quajs/engine'
 import { emitRenderToLogic, RenderToLogicEvents } from '@quajs/engine'
 import { parseNativeRendererIntentPayload } from '@quajs/native-contracts'
+import type { NativeRendererFeatureSurfaceEntry } from './feature-surfaces'
+import { resolveNativeRendererFeatureIntent } from './feature-surfaces'
 
 type NativeRendererIntentPipeline = Parameters<typeof emitRenderToLogic>[0]
 const RENDER_TO_LOGIC_UI_INTENT = 'ui/intent'
@@ -11,7 +13,6 @@ const AUDIO_RENDER_TO_LOGIC_EVENTS = {
   UNLOCKED: 'audio/unlocked',
   ERROR: 'audio/error',
 } as const
-type NativeAudioRenderToLogicEvent = typeof AUDIO_RENDER_TO_LOGIC_EVENTS[keyof typeof AUDIO_RENDER_TO_LOGIC_EVENTS]
 const INPUT_COMMANDS = new Set([
   'advance',
   'auto:start',
@@ -36,7 +37,7 @@ const TEXT_INPUT_PHASES = new Set(['enabled', 'disabled', 'preedit', 'commit'])
 const AUDIO_TRACK_CHANNELS = new Set(['bgm', 'voice', 'sfx', 'ambient'])
 
 export interface NativeRendererIntentEmittedEvent {
-  type: RenderToLogicEvents | typeof RENDER_TO_LOGIC_UI_INTENT | NativeAudioRenderToLogicEvent
+  type: string
   payload: unknown
 }
 
@@ -47,6 +48,7 @@ export interface NativeRendererIntentDispatchResult {
 }
 
 export interface NativeRendererIntentBridgeOptions {
+  featureSurfaces?: readonly NativeRendererFeatureSurfaceEntry[]
   onError?: (error: unknown, event: NativeRendererIntent) => void
 }
 
@@ -60,12 +62,13 @@ export type NativeRendererIntentBridgeDisposer = () => void
 export async function emitNativeRendererIntentToPipeline(
   pipeline: NativeRendererIntentPipeline,
   event: NativeRendererIntent,
+  options: NativeRendererIntentBridgeOptions = {},
 ): Promise<NativeRendererIntentDispatchResult> {
   switch (event.type) {
     case 'choice/select':
       return await emitNativeChoiceSelectIntent(pipeline, event)
     case 'ui/intent':
-      return await emitNativeUiIntent(pipeline, event)
+      return await emitNativeUiIntent(pipeline, event, options)
     case RenderToLogicEvents.USER_INPUT_COMMAND:
       return await emitNativeInputCommandIntent(pipeline, event)
     case RenderToLogicEvents.USER_TEXT_INPUT:
@@ -106,7 +109,7 @@ export async function drainNativeRendererIntentsToPipeline(
   const dispatchResults: NativeRendererIntentDispatchResult[] = []
   for (const event of intents) {
     try {
-      const result = await emitNativeRendererIntentToPipeline(pipeline, event)
+      const result = await emitNativeRendererIntentToPipeline(pipeline, event, options)
       dispatchResults.push(result)
       if (!result.handled) {
         options.onError?.(
@@ -134,7 +137,7 @@ export function installNativeRendererIntentBridge(
   const previousEmitRendererIntent = host.emitRendererIntent
 
   const emitRendererIntent = (event: NativeRendererIntent): void => {
-    void emitNativeRendererIntentToPipeline(pipeline, event)
+    void emitNativeRendererIntentToPipeline(pipeline, event, options)
       .then((result) => {
         if (!result.handled) {
           options.onError?.(
@@ -184,6 +187,7 @@ async function emitNativeChoiceSelectIntent(
 async function emitNativeUiIntent(
   pipeline: NativeRendererIntentPipeline,
   event: NativeRendererIntent,
+  options: NativeRendererIntentBridgeOptions,
 ): Promise<NativeRendererIntentDispatchResult> {
   const payload = parseNativeRendererIntentPayloadRecord(event)
   const {
@@ -228,6 +232,15 @@ async function emitNativeUiIntent(
       payload: shortcutPayload,
     })
     await emitRenderToLogic(pipeline, RenderToLogicEvents.UI_REQUEST_UPDATE, shortcutPayload)
+  }
+
+  const featureIntent = resolveNativeRendererFeatureIntent(options.featureSurfaces, action, uiIntentPayload)
+  if (featureIntent) {
+    emittedEvents.push({
+      type: featureIntent.event,
+      payload: featureIntent.payload,
+    })
+    await pipeline.emit(featureIntent.event, featureIntent.payload)
   }
 
   return { handled: true, emittedEvents }

@@ -2,6 +2,69 @@ import { describe, expect, it } from 'vitest'
 import { createNativeRendererJsonFrameInput } from '../src'
 
 describe('native renderer frame serialization', () => {
+  it('merges registered feature surfaces from engine-owned plugin projections', () => {
+    const view = {
+      layout: {
+        width: 1920,
+        height: 1080,
+        aspectRatio: 16 / 9,
+        minAspectRatio: 16 / 10,
+      },
+      ui: {
+        visible: true,
+        overlays: {
+          menu: { visible: true, zIndex: 10 },
+        },
+      },
+      plugins: {
+        backlog: {
+          visible: true,
+          entries: [{ id: 'line-1', text: 'Remember this.' }],
+        },
+      },
+    }
+    const frame = createNativeRendererJsonFrameInput(view, {
+      featureSurfaces: [{
+        pluginId: 'backlog',
+        createOverlays: context => ({
+          elementId: 'backlog',
+          visible: context.projection.visible === true,
+          renderMode: 'render-only',
+          interactive: true,
+          zIndex: 50,
+          surface: {
+            key: '@quajs/plugin-backlog/native',
+            root: {
+              id: 'backlog-root',
+              kind: 'Panel',
+              visible: true,
+              bounds: context.safeArea,
+              text: (context.projection.entries as Array<{ text: string }>)[0]?.text,
+            },
+          },
+        }),
+      }],
+    })
+
+    expect(frame.view.ui).toEqual(expect.objectContaining({
+      overlays: [
+        expect.objectContaining({ elementId: 'menu', zIndex: 10 }),
+        expect.objectContaining({
+          elementId: 'backlog',
+          renderMode: 'render-only',
+          surface: expect.objectContaining({
+            key: '@quajs/plugin-backlog/native',
+            root: expect.objectContaining({
+              bounds: { x: 96, y: 0, width: 1728, height: 1080 },
+              text: 'Remember this.',
+            }),
+          }),
+        }),
+      ],
+    }))
+    expect(view.ui.overlays).toEqual({ menu: { visible: true, zIndex: 10 } })
+  })
+
   it('projects engine-owned animation timelines at a deterministic native frame time', () => {
     const view = {
       background: {

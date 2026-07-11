@@ -14,6 +14,8 @@ import {
   projectDialogue,
   projectUiOverlay,
 } from '@quajs/render-core'
+import type { NativeRendererFeatureSurfaceEntry } from './feature-surfaces'
+import { createNativeRendererFeatureSurfaceOverlays } from './feature-surfaces'
 
 type JsonRecord = Record<string, unknown>
 
@@ -50,6 +52,7 @@ export type NativeRendererEngineViewProjection = Readonly<JsonRecord & {
 
 export interface CreateNativeRendererJsonFrameInputOptions {
   container?: NativeRendererStageContainerInput
+  featureSurfaces?: readonly NativeRendererFeatureSurfaceEntry[]
   layout?: unknown
   now?: number
 }
@@ -59,7 +62,10 @@ export function createNativeRendererJsonFrameInput(
   options: CreateNativeRendererJsonFrameInputOptions = {},
 ): NativeRendererJsonFrameInput {
   const frame: NativeRendererJsonFrameInput = {
-    view: createNativeRendererViewProjection(view, { now: options.now }),
+    view: createNativeRendererViewProjection(view, {
+      featureSurfaces: options.featureSurfaces,
+      now: options.now,
+    }),
   }
   const layout = cloneJsonValue(options.layout ?? view.layout)
   const container = cloneJsonValue(options.container)
@@ -73,6 +79,7 @@ export function createNativeRendererJsonFrameInput(
 }
 
 export interface CreateNativeRendererViewProjectionOptions {
+  featureSurfaces?: readonly NativeRendererFeatureSurfaceEntry[]
   now?: number
 }
 
@@ -88,6 +95,7 @@ export function createNativeRendererViewProjection(
   const dialogue = projectNativeDialogue(view.dialogue, plugins?.dialogue, animations, now)
   const choices = projectNativeChoices(view.choices, plugins?.choices, animations, now)
   const ui = projectNativeUi(view.ui, animations, now)
+  const featureOverlays = createNativeRendererFeatureSurfaceOverlays(view, options.featureSurfaces)
   const audio = animations.length > 0
     ? projectAudioProjection<Record<string, unknown>>(view as unknown as Readonly<QuaViewProjection>, now)
     : plugins?.audio
@@ -99,7 +107,7 @@ export function createNativeRendererViewProjection(
       : undefined,
     dialogue: createNativeDialogueProjection(dialogue),
     choices: createNativeChoiceSetProjection(choices),
-    ui: createNativeUiProjection(ui),
+    ui: mergeNativeUiProjection(createNativeUiProjection(ui), featureOverlays),
     audio: createNativeAudioProjection(audio),
     plugins: createNativePluginProjection(view.plugins),
   })
@@ -440,6 +448,36 @@ function createNativeUiProjection(ui: unknown): JsonRecord | undefined {
       ? Object.entries(overlays).map(([elementId, overlay]) => createNativeUiOverlayProjection(elementId, overlay)).filter(isJsonRecord)
       : [],
     provenance: createPackageProvenance(record),
+  })
+}
+
+function mergeNativeUiProjection(
+  ui: JsonRecord | undefined,
+  featureOverlays: readonly unknown[],
+): JsonRecord | undefined {
+  if (featureOverlays.length === 0) {
+    return ui
+  }
+  const overlays = new Map<string, JsonRecord>()
+  for (const overlay of Array.isArray(ui?.overlays) ? ui.overlays : []) {
+    const record = asRecord(overlay)
+    const elementId = stringValue(record?.elementId)
+    if (record && elementId) {
+      overlays.set(elementId, record)
+    }
+  }
+  for (const overlay of featureOverlays) {
+    const record = asRecord(overlay)
+    const elementId = stringValue(record?.elementId)
+    const projected = elementId ? createNativeUiOverlayProjection(elementId, record) : undefined
+    if (projected && elementId) {
+      overlays.set(elementId, projected)
+    }
+  }
+  return omitUndefined({
+    ...(ui || {}),
+    visible: ui?.visible !== false,
+    overlays: [...overlays.values()],
   })
 }
 
