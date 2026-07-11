@@ -27,8 +27,11 @@ fn builds_full_view_graph_in_render_plane_order() {
         vec![
             "background:main",
             "character:yuki",
+            "dialogue:shadow",
             "dialogue:panel",
+            "dialogue:accent",
             "dialogue:speaker",
+            "dialogue:speaker-accent",
             "dialogue:text",
             "choices:panel",
             "choice:stay",
@@ -38,8 +41,22 @@ fn builds_full_view_graph_in_render_plane_order() {
 
     assert_eq!(graph.commands()[0].plane, RenderPlane::Scene);
     assert_eq!(graph.commands()[1].plane, RenderPlane::Subject);
-    assert!(graph.commands()[6].interactive);
-    assert!(!graph.commands()[7].interactive);
+    assert!(
+        graph
+            .commands()
+            .iter()
+            .find(|command| command.id == "choice:stay")
+            .unwrap()
+            .interactive
+    );
+    assert!(
+        !graph
+            .commands()
+            .iter()
+            .find(|command| command.id == "choice:leave")
+            .unwrap()
+            .interactive
+    );
 }
 
 #[test]
@@ -89,5 +106,5 @@ fn append_view_commands_keeps_existing_commands() {
     append_view_commands(&mut graph, &full_view());
 
     assert_eq!(graph.commands().last().unwrap().id, "screen:debug");
-    assert_eq!(graph.summary().command_count, 9);
+    assert_eq!(graph.summary().command_count, 12);
 }

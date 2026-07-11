@@ -37,13 +37,32 @@ fn builds_dialogue_panel_and_text_commands() {
 
     let commands = build_dialogue_commands(&layout, &dialogue);
 
-    assert_eq!(commands.len(), 3);
-    assert_eq!(commands[0].id, "dialogue:panel");
-    assert_eq!(commands[0].kind, DrawCommandKind::RoundedRect);
-    assert_eq!(commands[0].plane, RenderPlane::Safe);
-    assert_eq!(commands[0].owner_package_id.as_deref(), Some("base"));
+    assert_eq!(commands.len(), 6);
+    assert_eq!(commands[0].id, "dialogue:shadow");
+    let panel = commands
+        .iter()
+        .find(|command| command.id == "dialogue:panel")
+        .unwrap();
+    assert_eq!(panel.kind, DrawCommandKind::RoundedRect);
+    assert_eq!(panel.plane, RenderPlane::Safe);
+    assert_eq!(panel.owner_package_id.as_deref(), Some("base"));
+    match &panel.params {
+        DrawCommandParams::Panel(params) => {
+            assert_eq!(params.fill_color, "rgba(7,8,12,0.90)");
+            assert_eq!(params.border.width, 1.0);
+            assert_eq!(
+                params.border.color.as_deref(),
+                Some("rgba(245,226,190,0.34)")
+            );
+        }
+        _ => panic!("expected dialogue panel params"),
+    }
 
-    match &commands[1].params {
+    let speaker = commands
+        .iter()
+        .find(|command| command.id == "dialogue:speaker")
+        .unwrap();
+    match &speaker.params {
         DrawCommandParams::Text(params) => {
             assert_eq!(params.text, "Yuki");
             assert_eq!(params.color, "#7cc7ff");
@@ -58,24 +77,28 @@ fn builds_dialogue_panel_and_text_commands() {
         _ => panic!("expected speaker text params"),
     }
     assert_eq!(
-        commands[1].resource_ids,
+        speaker.resource_ids,
         vec![
             ResourceId::from("fonts:Qua Serif"),
             ResourceId::from("fonts:Fallback Sans")
         ]
     );
 
-    match &commands[2].params {
+    let text = commands
+        .iter()
+        .find(|command| command.id == "dialogue:text")
+        .unwrap();
+    match &text.params {
         DrawCommandParams::Text(params) => {
             assert_eq!(params.text, "Hello native renderer.");
-            assert_eq!(params.color, "#ffffff");
+            assert_eq!(params.color, "#fffaf2");
             assert!(params.font_family.is_empty());
             assert!(params.font_weight.is_none());
             assert_eq!(params.role, "dialogue-text");
         }
         _ => panic!("expected dialogue text params"),
     }
-    assert!(commands[2].resource_ids.is_empty());
+    assert!(text.resource_ids.is_empty());
 }
 
 #[test]
@@ -153,7 +176,7 @@ fn skips_unsafe_speaker_but_keeps_safe_dialogue_text() {
 
     let commands = build_dialogue_commands(&layout, &dialogue);
 
-    assert_eq!(commands.len(), 2);
+    assert_eq!(commands.len(), 4);
     assert!(commands
         .iter()
         .all(|command| command.id != "dialogue:speaker"));
@@ -167,6 +190,32 @@ fn skips_unsafe_speaker_but_keeps_safe_dialogue_text() {
         }
         _ => panic!("expected dialogue text params"),
     }
+}
+
+#[test]
+fn falls_back_to_character_name_like_web_dialogue_projection() {
+    let layout = test_layout();
+    let dialogue = DialogueProjection {
+        character_name: Some("Lin".to_string()),
+        ..DialogueProjection::say("Signal confirmed.")
+    };
+
+    let commands = build_dialogue_commands(&layout, &dialogue);
+    let speaker = commands
+        .iter()
+        .find(|command| command.id == "dialogue:speaker")
+        .unwrap();
+
+    match &speaker.params {
+        DrawCommandParams::Text(params) => {
+            assert_eq!(params.text, "Lin");
+            assert_eq!(params.color, "#ffe3a0");
+        }
+        _ => panic!("expected speaker text params"),
+    }
+    assert!(commands
+        .iter()
+        .any(|command| command.id == "dialogue:speaker-accent"));
 }
 
 #[test]
@@ -297,7 +346,7 @@ fn falls_back_from_unsafe_dialogue_style_on_direct_projection() {
 
     let commands = build_dialogue_commands(&layout, &dialogue);
 
-    assert_eq!(commands.len(), 3);
+    assert_eq!(commands.len(), 6);
 
     let speaker = commands
         .iter()
@@ -305,7 +354,7 @@ fn falls_back_from_unsafe_dialogue_style_on_direct_projection() {
         .unwrap();
     match &speaker.params {
         DrawCommandParams::Text(params) => {
-            assert_eq!(params.color, "#ffffff");
+            assert_eq!(params.color, "#ffe3a0");
             assert_eq!(params.font_family, vec!["Qua Serif"]);
             assert_eq!(params.font_size, 34.0);
             assert_eq!(params.line_height, 42.0);
@@ -328,7 +377,7 @@ fn falls_back_from_unsafe_dialogue_style_on_direct_projection() {
     match &text.params {
         DrawCommandParams::Text(params) => {
             assert_eq!(params.text, "Safe text");
-            assert_eq!(params.color, "#ffffff");
+            assert_eq!(params.color, "#fffaf2");
             assert_eq!(params.font_family, vec!["Dialogue Sans"]);
             assert_eq!(params.font_size, 30.0);
             assert_eq!(params.line_height, 42.0);
@@ -358,7 +407,7 @@ fn skips_empty_avatar_asset_on_direct_projection() {
 
     let commands = build_dialogue_commands(&layout, &dialogue);
 
-    assert_eq!(commands.len(), 2);
+    assert_eq!(commands.len(), 4);
     assert!(commands
         .iter()
         .all(|command| command.id != "dialogue:avatar"));
@@ -391,7 +440,7 @@ fn skips_unsafe_avatar_asset_names_on_direct_projection() {
 
         let commands = build_dialogue_commands(&layout, &dialogue);
 
-        assert_eq!(commands.len(), 2);
+        assert_eq!(commands.len(), 4);
         assert!(
             commands
                 .iter()
@@ -415,7 +464,7 @@ fn skips_unsafe_avatar_asset_type_on_direct_projection() {
 
     let commands = build_dialogue_commands(&layout, &dialogue);
 
-    assert_eq!(commands.len(), 2);
+    assert_eq!(commands.len(), 4);
     assert!(commands
         .iter()
         .all(|command| command.id != "dialogue:avatar"));
@@ -432,7 +481,7 @@ fn appends_dialogue_commands_to_graph() {
 
     assert_eq!(
         graph.summary().by_plane[&RenderPlane::Safe].command_count,
-        2
+        4
     );
 }
 

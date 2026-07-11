@@ -32,9 +32,12 @@ fn builds_interactive_choice_buttons() {
         DrawCommandParams::UiButton(params) => {
             assert_eq!(params.label, "Go left");
             assert!(params.enabled);
-            assert_eq!(params.font_size, 30.0);
-            assert_eq!(params.line_height, 42.0);
-            assert_eq!(params.align, TextAlign::Center);
+            assert_eq!(params.font_size, 16.0);
+            assert_eq!(params.line_height, 24.0);
+            assert_eq!(params.align, TextAlign::Left);
+            assert_eq!(params.background_color, "rgba(8,10,15,0.88)");
+            assert_eq!(params.border.width, 1.0);
+            assert_eq!(params.font_family, vec!["Noto Sans"]);
             assert_eq!(params.intent.as_ref().unwrap().event, "choice/select");
             assert_eq!(
                 params.intent.as_ref().unwrap().choice_id.as_deref(),
