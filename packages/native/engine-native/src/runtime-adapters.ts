@@ -23,7 +23,6 @@ declare const TextEncoder: {
 export interface NativeRuntimeAdapters {
   host: QuaNativeHostApi
   quickJsPipelineSubscriptionBridge?: NativeQuickJsPipelineSubscriptionBridge
-  quickJsRendererIntentBridge?: NativeQuickJsRendererIntentBridge
   runtimeModuleLoader?: RuntimeModuleLoader
   trustPolicy: RuntimeTrustPolicy
 }
@@ -43,6 +42,7 @@ export interface NativeRuntimeAdaptersOptions {
   quickJsHelperCallExecutor?: NativeQuickJsHelperCallExecutor
   quickJsHelperModules?: NativeQuickJsHelperModuleRegistry
   quickJsPipelineSubscriptionBridge?: NativeQuickJsPipelineSubscriptionBridge
+  quickJsRendererIntentBridge?: NativeQuickJsRendererIntentBridge
   rendererId?: string
   requestRender?: () => void
   quickJsStepContextSerializer?: NativeQuickJsStepContextSerializer
