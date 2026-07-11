@@ -5,6 +5,7 @@ import type {
   ViewCharacterProjection,
   ViewChoiceProjection,
   ViewDialogueProjection,
+  ViewEffectProjection,
 } from '@quajs/render-core'
 import {
   projectAudioProjection,
@@ -12,6 +13,7 @@ import {
   projectCharacters,
   projectChoices,
   projectDialogue,
+  projectEffect,
   projectUiOverlay,
 } from '@quajs/render-core'
 import type { NativeRendererFeatureSurfaceEntry } from './feature-surfaces'
@@ -45,6 +47,7 @@ export type NativeRendererEngineViewProjection = Readonly<JsonRecord & {
   background?: unknown
   characters?: readonly unknown[]
   dialogue?: unknown
+  effects?: readonly unknown[]
   choices?: readonly unknown[]
   ui?: unknown
   plugins?: unknown
@@ -98,6 +101,7 @@ export function createNativeRendererViewProjection(
   const background = projectNativeBackground(view.background, animations, now)
   const characters = projectNativeCharacters(view.characters, animations, now)
   const dialogue = projectNativeDialogue(view.dialogue, plugins?.dialogue, animations, now)
+  const effects = projectNativeEffects(view.effects, animations, now)
   const choices = projectNativeChoices(view.choices, plugins?.choices, animations, now)
   const ui = projectNativeUi(view.ui, animations, now)
   const featureOverlays = createNativeRendererFeatureSurfaceOverlays(view, options.featureSurfaces)
@@ -112,10 +116,53 @@ export function createNativeRendererViewProjection(
       ? characters.map(createNativeCharacterProjection).filter(isJsonRecord)
       : undefined,
     dialogue: createNativeDialogueProjection(dialogue),
+    effects: effects.length > 0
+      ? effects.map(createNativeEffectProjection).filter(isJsonRecord)
+      : undefined,
     choices: createNativeChoiceSetProjection(choices),
     ui: mergeNativeUiProjection(createNativeUiProjection(ui), featureOverlays),
     audio: createNativeAudioProjection(audio),
     plugins: createNativePluginProjection(view.plugins),
+  })
+}
+
+function projectNativeEffects(
+  effects: readonly unknown[] | undefined,
+  animations: readonly Readonly<ActiveAnimationProjection>[],
+  now: number,
+): readonly unknown[] {
+  if (!Array.isArray(effects))
+    return []
+  const records = effects.filter(isJsonRecord)
+  return animations.length > 0
+    ? records.map(effect => projectEffect(
+        effect as unknown as Readonly<ViewEffectProjection>,
+        animations,
+        now,
+      ))
+    : records
+}
+
+function createNativeEffectProjection(effect: unknown): JsonRecord | undefined {
+  const record = asRecord(effect)
+  const id = stringValue(record?.id)
+  const type = stringValue(record?.type)
+  if (!record || !id || !type)
+    return undefined
+  const options = asRecord(record.options)
+  return omitUndefined({
+    id,
+    type,
+    target: stringValue(record.target),
+    duration: finiteNumber(record.duration),
+    intensity: finiteNumber(record.intensity),
+    x: finiteNumber(record.x) ?? finiteNumber(options?.x),
+    y: finiteNumber(record.y) ?? finiteNumber(options?.y),
+    scale: finiteNumber(record.scale) ?? finiteNumber(options?.scale),
+    rotation: finiteNumber(record.rotation) ?? finiteNumber(options?.rotation),
+    opacity: finiteNumber(record.opacity) ?? finiteNumber(options?.opacity),
+    color: stringValue(record.color) || stringValue(options?.color),
+    provenance: createPackageProvenance(options),
   })
 }
 

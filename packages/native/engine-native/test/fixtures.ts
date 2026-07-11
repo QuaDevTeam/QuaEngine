@@ -28,6 +28,14 @@ export const CAPABILITIES: QuaNativeHostInfo['renderer']['capabilities'] = [
     fallback: 'reject-package',
   },
   {
+    id: 'native-wgpu.effects@1',
+    target: 'native',
+    version: '1.0.0',
+    ownerPackage: '@quajs/native-renderer',
+    projectionKeys: ['view.effects'],
+    fallback: 'reject-package',
+  },
+  {
     id: 'native-wgpu.image@1',
     target: 'native',
     version: '1.0.0',

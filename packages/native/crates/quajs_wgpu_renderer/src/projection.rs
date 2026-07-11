@@ -5,6 +5,7 @@ pub mod choices;
 pub mod common;
 mod defaults;
 pub mod dialogue;
+pub mod effects;
 pub mod fonts;
 pub mod plugins;
 pub(crate) mod safety;

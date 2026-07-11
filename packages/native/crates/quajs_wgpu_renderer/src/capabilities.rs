@@ -21,6 +21,15 @@ pub fn native_wgpu_capabilities() -> Vec<RendererCapability> {
             "reject-package",
         ),
         capability(
+            "native-wgpu.effects@1",
+            &["view.effects"],
+            &[],
+            &[],
+            &[],
+            &[],
+            "reject-package",
+        ),
+        capability(
             "native-wgpu.image@1",
             &["background", "characters", "ui.image"],
             &[],
