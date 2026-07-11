@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 mod registry;
+mod renderer_bridge;
 #[cfg(feature = "quickjs-rquickjs")]
 mod rquickjs_backend;
 mod validation;
@@ -9,6 +10,7 @@ pub use registry::{
     quickjs_module_namespace_id, QuickJsModuleNamespaceRecord, QuickJsModuleNamespaceRegistry,
     QuickJsModuleNamespaceSummary,
 };
+pub use renderer_bridge::QuickJsRendererIntentHost;
 #[cfg(feature = "quickjs-rquickjs")]
 pub use rquickjs_backend::{
     quickjs_rquickjs_runtime_version, RquickJsModuleEvaluator, RQUICKJS_BACKEND_VERSION,
@@ -493,6 +495,7 @@ pub type QuickJsGameStepFactoryCallResult =
 pub type QuickJsGameStepRunResult = Result<QuickJsGameStepRunResponse, QuickJsEvaluationError>;
 pub type QuickJsPipelineListenerDispatchResult =
     Result<QuickJsPipelineListenerDispatchResponse, QuickJsEvaluationError>;
+pub type QuickJsRendererIntentDispatchResult = Result<bool, QuickJsEvaluationError>;
 
 pub trait QuickJsModuleEvaluator {
     fn evaluate_module(&mut self, request: &QuickJsEvaluationRequest) -> QuickJsEvaluationResult;
@@ -577,6 +580,13 @@ pub trait QuickJsModuleEvaluator {
                 request.subscription_id
             )),
         })
+    }
+
+    fn dispatch_renderer_intent(
+        &mut self,
+        _intent: &crate::host::NativeRendererIntent,
+    ) -> QuickJsRendererIntentDispatchResult {
+        Ok(false)
     }
 
     fn release_module_namespace(&mut self, _module_namespace_id: &str) {}
@@ -699,6 +709,13 @@ pub fn dispatch_quickjs_pipeline_listener(
         Ok(response) => response,
         Err(error) => QuickJsPipelineListenerDispatchResponse::error(error),
     }
+}
+
+pub fn dispatch_quickjs_renderer_intent(
+    evaluator: &mut impl QuickJsModuleEvaluator,
+    intent: &crate::host::NativeRendererIntent,
+) -> QuickJsRendererIntentDispatchResult {
+    evaluator.dispatch_renderer_intent(intent)
 }
 
 #[cfg(test)]

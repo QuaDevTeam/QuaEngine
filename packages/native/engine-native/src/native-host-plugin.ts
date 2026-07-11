@@ -30,6 +30,8 @@ import { NativeSceneTransitionController } from './scene-transition'
 import { NativeDialogueTypewriterController } from './dialogue-typewriter'
 import type { NativeSavePreviewCaptureProvider } from './save-preview-capture'
 import { installNativeSavePreviewCaptureResponder } from './save-preview-capture'
+import type { NativeQuickJsRendererIntentBridge } from './quickjs-renderer-bridge'
+import { installNativeQuickJsRendererIntentBridge, resolveNativeQuickJsRendererIntentBridge } from './quickjs-renderer-bridge'
 
 export interface NativeHostPluginOptions {
   captureSavePreview?: NativeSavePreviewCaptureProvider
@@ -37,6 +39,7 @@ export interface NativeHostPluginOptions {
   host: QuaNativeHostApi
   info?: QuaNativeHostInfo
   quickJsPipelineSubscriptionBridge?: NativeQuickJsPipelineSubscriptionBridge
+  quickJsRendererIntentBridge?: NativeQuickJsRendererIntentBridge
   rendererId?: string
   requestRender?: () => void
   targetBootstrapPackages?: readonly string[]
@@ -54,6 +57,7 @@ export class NativeHostPlugin implements EnginePlugin {
   private rendererIntentErrors: Error[] = []
   private quickJsCleanupErrors: Error[] = []
   private disposeRendererIntentBridge?: NativeRendererIntentBridgeDisposer
+  private disposeQuickJsRendererIntentBridge?: () => void
   private disposeRuntimePackageUnloadListener?: () => void
   private disposeSavePreviewCaptureResponder?: () => void
   private rendererIntentPipeline?: NonNullable<EngineContext['pipeline']>
@@ -82,18 +86,33 @@ export class NativeHostPlugin implements EnginePlugin {
     this.hostInfo = hostInfo
     if (context.pipeline) {
       this.rendererIntentPipeline = context.pipeline
-      this.disposeRendererIntentBridge?.()
-      this.disposeRendererIntentBridge = installNativeRendererIntentBridge(
-        this.options.host,
-        context.pipeline,
-        {
-          featureSurfaces: this.options.featureSurfaces,
-          interceptInputCommand: payload => this.interceptInputCommand(payload),
-          onError: (error, event) => {
-            void this.recordRendererIntentError(context.pipeline!, error, event)
-          },
+      const rendererIntentBridgeOptions = {
+        featureSurfaces: this.options.featureSurfaces,
+        interceptInputCommand: (payload: { command: string, pressed?: boolean }) => this.interceptInputCommand(payload),
+        onError: (error: unknown, event: NativeRendererIntent) => {
+          void this.recordRendererIntentError(context.pipeline!, error, event)
         },
-      )
+      }
+      this.disposeRendererIntentBridge?.()
+      this.disposeQuickJsRendererIntentBridge?.()
+      const quickJsRendererIntentBridge = this.options.quickJsRendererIntentBridge
+        || resolveNativeQuickJsRendererIntentBridge()
+      if (quickJsRendererIntentBridge) {
+        this.disposeRendererIntentBridge = undefined
+        this.disposeQuickJsRendererIntentBridge = installNativeQuickJsRendererIntentBridge(
+          quickJsRendererIntentBridge,
+          context.pipeline,
+          rendererIntentBridgeOptions,
+        )
+      }
+      else {
+        this.disposeQuickJsRendererIntentBridge = undefined
+        this.disposeRendererIntentBridge = installNativeRendererIntentBridge(
+          this.options.host,
+          context.pipeline,
+          rendererIntentBridgeOptions,
+        )
+      }
       this.disposeRuntimePackageUnloadListener?.()
       this.disposeRuntimePackageUnloadListener = onLogicToRender(
         context.pipeline,
@@ -115,6 +134,8 @@ export class NativeHostPlugin implements EnginePlugin {
   destroy(): void {
     this.disposeRendererIntentBridge?.()
     this.disposeRendererIntentBridge = undefined
+    this.disposeQuickJsRendererIntentBridge?.()
+    this.disposeQuickJsRendererIntentBridge = undefined
     this.disposeRuntimePackageUnloadListener?.()
     this.disposeRuntimePackageUnloadListener = undefined
     this.disposeSavePreviewCaptureResponder?.()

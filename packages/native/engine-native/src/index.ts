@@ -9,6 +9,14 @@ export {
 } from './native-host-plugin'
 export type { NativeHostPluginOptions } from './native-host-plugin'
 export {
+  installNativeQuickJsRendererIntentBridge,
+  resolveNativeQuickJsRendererIntentBridge,
+} from './quickjs-renderer-bridge'
+export type {
+  NativeQuickJsRendererIntentBridge,
+  NativeQuickJsRendererIntentSubscriptionOptions,
+} from './quickjs-renderer-bridge'
+export {
   NativeDialogueTypewriterController,
   sliceNativeRichTextContent,
 } from './dialogue-typewriter'

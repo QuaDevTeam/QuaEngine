@@ -6,7 +6,8 @@ use std::sync::{Arc, Mutex, OnceLock};
 use rquickjs::{
     loader::{ImportAttributes, Loader, Resolver},
     module::Declared,
-    Array, Context, Ctx, Error, Function, Module, Object, Persistent, Promise, Runtime, Value,
+    Array, Context, Ctx, Error, FromJs, Function, Module, Object, Persistent, Promise, Runtime,
+    Value,
 };
 
 use super::{
@@ -23,8 +24,42 @@ use super::{
     QuickJsModuleExportCallResponse, QuickJsModuleExportCallResult,
     QuickJsPipelineListenerDispatchRequest, QuickJsPipelineListenerDispatchResponse,
     QuickJsPipelineListenerDispatchResult, QuickJsPipelineSubscriptionChange,
-    QuickJsPipelineSubscriptionOperation, QuickJsSandboxLimits,
+    QuickJsPipelineSubscriptionOperation, QuickJsRendererIntentDispatchResult,
+    QuickJsSandboxLimits,
 };
+
+const NATIVE_QUICKJS_RENDERER_BRIDGE_SOURCE: &str = r#"
+(() => {
+  const state = { listener: undefined };
+  const bridge = Object.freeze({
+    subscribe(listener) {
+      if (typeof listener !== 'function') {
+        throw new TypeError('Native renderer intent bridge subscribe requires a function.');
+      }
+      state.listener = listener;
+      let active = true;
+      return () => {
+        if (active && state.listener === listener) {
+          state.listener = undefined;
+        }
+        active = false;
+      };
+    },
+    dispatch(intent) {
+      if (typeof state.listener !== 'function') {
+        return false;
+      }
+      return Promise.resolve(state.listener(intent)).then(() => true);
+    }
+  });
+  Object.defineProperty(globalThis, '__quaNativeRendererBridge', {
+    value: bridge,
+    enumerable: false,
+    configurable: false,
+    writable: false
+  });
+})()
+"#;
 
 pub const RQUICKJS_BACKEND_VERSION: &str = "rquickjs-0.12.1";
 
@@ -885,6 +920,9 @@ impl RquickJsModuleEvaluator {
             },
         );
         let context = Context::full(&runtime).map_err(backend_error)?;
+        context
+            .with(|ctx| ctx.eval::<(), _>(NATIVE_QUICKJS_RENDERER_BRIDGE_SOURCE))
+            .map_err(backend_error)?;
         Ok(Self {
             namespaces: BTreeMap::new(),
             step_run_handles: BTreeMap::new(),
@@ -2128,6 +2166,72 @@ impl QuickJsModuleEvaluator for RquickJsModuleEvaluator {
             }
             Err(error) => Err(error),
         }
+    }
+
+    fn dispatch_renderer_intent(
+        &mut self,
+        intent: &crate::host::NativeRendererIntent,
+    ) -> QuickJsRendererIntentDispatchResult {
+        let intent_json = serde_json::to_string(intent).map_err(|error| {
+            call_error(
+                QuickJsEvaluationErrorCode::InvalidPipelineRequest,
+                "Native renderer intent could not be serialized for QuickJS.".to_string(),
+                Some(error.to_string()),
+            )
+        })?;
+        self.context.with(|ctx| {
+            let bridge: Object =
+                ctx.globals()
+                    .get("__quaNativeRendererBridge")
+                    .map_err(|error| {
+                        call_error(
+                            QuickJsEvaluationErrorCode::InvalidPipelineRequest,
+                            "Native renderer intent bridge is not installed in QuickJS."
+                                .to_string(),
+                            Some(error.to_string()),
+                        )
+                    })?;
+            let dispatch: Function = bridge.get("dispatch").map_err(|error| {
+                call_error(
+                    QuickJsEvaluationErrorCode::InvalidPipelineRequest,
+                    "Native renderer intent bridge dispatch function is unavailable.".to_string(),
+                    Some(error.to_string()),
+                )
+            })?;
+            let intent_value = ctx.json_parse(intent_json).map_err(|error| {
+                call_error(
+                    QuickJsEvaluationErrorCode::InvalidPipelineRequest,
+                    "Native renderer intent JSON could not be parsed in QuickJS.".to_string(),
+                    Some(error.to_string()),
+                )
+            })?;
+            let value: Value = dispatch
+                .call_arg(one_arg(ctx.clone(), intent_value)?)
+                .map_err(|error| {
+                    call_error(
+                        QuickJsEvaluationErrorCode::StepRunFailed,
+                        "Native renderer intent QuickJS callback failed.".to_string(),
+                        Some(error.to_string()),
+                    )
+                })?;
+            if let Some(promise) = value.as_promise() {
+                return promise.finish::<bool>().map_err(|error| {
+                    call_error(
+                        QuickJsEvaluationErrorCode::StepRunFailed,
+                        "Native renderer intent QuickJS callback promise failed.".to_string(),
+                        Some(error.to_string()),
+                    )
+                });
+            }
+            bool::from_js(&ctx, value).map_err(|error| {
+                call_error(
+                    QuickJsEvaluationErrorCode::StepRunFailed,
+                    "Native renderer intent QuickJS callback returned an invalid result."
+                        .to_string(),
+                    Some(error.to_string()),
+                )
+            })
+        })
     }
 
     fn release_module_namespace(&mut self, module_namespace_id: &str) {
@@ -3424,6 +3528,55 @@ mod tests {
         evaluator.release_module_namespace(&namespace_id);
 
         assert!(!evaluator.contains_module_namespace(&namespace_id));
+    }
+
+    #[test]
+    fn dispatches_committed_renderer_intents_to_the_quickjs_bridge_subscriber() {
+        let mut evaluator = RquickJsModuleEvaluator::new().unwrap();
+        assert!(!evaluator
+            .dispatch_renderer_intent(&crate::host::NativeRendererIntent {
+                r#type: "ui/intent".to_string(),
+                payload_json: None,
+            })
+            .unwrap());
+
+        let response = evaluator
+            .evaluate_module(&request_for_code(
+                "scripts/native-renderer-bridge.js",
+                r#"
+                const received = [];
+                globalThis.__quaNativeRendererBridge.subscribe(async intent => {
+                    received.push(intent);
+                });
+                export function lastIntent() {
+                    return received[received.length - 1];
+                }
+                "#,
+            ))
+            .unwrap();
+        let namespace_id = response.module_namespace_id.unwrap();
+
+        assert!(evaluator
+            .dispatch_renderer_intent(&crate::host::NativeRendererIntent {
+                r#type: "ui/intent".to_string(),
+                payload_json: Some("{\"action\":\"settings-update\"}".to_string()),
+            })
+            .unwrap());
+
+        let call = evaluator
+            .call_module_export(&QuickJsModuleExportCallRequest {
+                module_namespace_id: namespace_id,
+                export_name: "lastIntent".to_string(),
+                args_json: Some("[]".to_string()),
+            })
+            .unwrap();
+        assert_eq!(
+            call.value_json,
+            Some(
+                "{\"type\":\"ui/intent\",\"payloadJson\":\"{\\\"action\\\":\\\"settings-update\\\"}\"}"
+                    .to_string()
+            )
+        );
     }
 
     #[test]

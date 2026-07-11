@@ -15,7 +15,7 @@ pub use host::{
 };
 pub use quickjs::{
     call_quickjs_game_step_factory, call_quickjs_game_step_run, call_quickjs_module_export,
-    dispatch_quickjs_pipeline_listener, evaluate_quickjs_module,
+    dispatch_quickjs_pipeline_listener, dispatch_quickjs_renderer_intent, evaluate_quickjs_module,
     evaluate_quickjs_module_with_registry, is_forbidden_runtime_module_asset_name,
     quickjs_module_namespace_id, quickjs_runtime_version, resume_quickjs_game_step_run,
     validate_quickjs_evaluation_request, validate_quickjs_game_step_factory_call_request,
@@ -33,6 +33,7 @@ pub use quickjs::{
     QuickJsModuleNamespaceRegistry, QuickJsModuleNamespaceSummary,
     QuickJsPipelineListenerDispatchRequest, QuickJsPipelineListenerDispatchResponse,
     QuickJsPipelineListenerDispatchResult, QuickJsPipelineSubscriptionChange,
-    QuickJsPipelineSubscriptionOperation, QuickJsRuntimeModuleKind, QuickJsRuntimeModuleRecord,
+    QuickJsPipelineSubscriptionOperation, QuickJsRendererIntentDispatchResult,
+    QuickJsRendererIntentHost, QuickJsRuntimeModuleKind, QuickJsRuntimeModuleRecord,
     QuickJsSandboxLimits, UnsupportedQuickJsModuleEvaluator, UNSUPPORTED_QUICKJS_VERSION,
 };
