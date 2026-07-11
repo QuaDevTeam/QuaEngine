@@ -166,6 +166,7 @@ fn window_smoke_report_serializes_texture_lifecycle_metrics() {
         font_atlas_uploaded_count: 2,
         font_atlas_error_count: 0,
         font_atlas_text_draw_count: 3,
+        shaped_text_draw_count: 2,
         bitmap_text_draw_count: 0,
         font_atlas_resource_ids: vec!["fonts:Noto Sans".to_string()],
         linear_sampled_texture_bind_group_count: 4,
@@ -301,6 +302,7 @@ fn window_smoke_report_serializes_texture_lifecycle_metrics() {
     assert_eq!(value["fontAtlasUploadedCount"], 2);
     assert_eq!(value["fontAtlasErrorCount"], 0);
     assert_eq!(value["fontAtlasTextDrawCount"], 3);
+    assert_eq!(value["shapedTextDrawCount"], 2);
     assert_eq!(value["bitmapTextDrawCount"], 0);
     assert_eq!(value["fontAtlasResourceIds"][0], "fonts:Noto Sans");
     assert_eq!(value["linearSampledTextureBindGroupCount"], 4);

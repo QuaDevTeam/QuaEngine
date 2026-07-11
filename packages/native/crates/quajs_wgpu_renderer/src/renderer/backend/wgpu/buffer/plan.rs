@@ -4,6 +4,7 @@ use crate::render_graph::RenderPlane;
 use super::super::mesh::{WgpuNativeRenderMeshPass, WgpuNativeRenderMeshPlan};
 use super::super::physical::WgpuPhysicalRect;
 use super::assembly::{append_border_buffers, append_quad_buffers, append_text_overlay_buffers};
+use super::text_geometry::atlas_text_is_shaped;
 use super::types::{
     WgpuNativeRenderBufferVertex, WgpuNativeRenderDrawCall, WgpuNativeRenderSkippedQuad,
 };
@@ -17,6 +18,7 @@ pub struct WgpuNativeRenderBufferPlan {
     pub draw_call_count: usize,
     pub skipped_quad_count: usize,
     pub invalid_paint_count: usize,
+    pub shaped_text_draw_count: usize,
     pub passes: Vec<WgpuNativeRenderBufferPass>,
 }
 
@@ -38,6 +40,16 @@ impl WgpuNativeRenderBufferPlan {
         let index_count = passes.iter().map(|pass| pass.index_count).sum();
         let draw_call_count = passes.iter().map(|pass| pass.draw_call_count).sum();
         let skipped_quad_count = passes.iter().map(|pass| pass.skipped_quads.len()).sum();
+        let shaped_text_draw_count = passes
+            .iter()
+            .flat_map(|pass| pass.draw_calls.iter())
+            .filter(|draw| match &draw.paint {
+                super::super::mesh::WgpuNativeRenderPaint::TextPlaceholder {
+                    text, style, ..
+                } => atlas_text_is_shaped(text, style, font_atlases),
+                _ => false,
+            })
+            .count();
 
         Self {
             revision: mesh_plan.revision,
@@ -47,6 +59,7 @@ impl WgpuNativeRenderBufferPlan {
             draw_call_count,
             skipped_quad_count,
             invalid_paint_count: mesh_plan.invalid_paint_count,
+            shaped_text_draw_count,
             passes,
         }
     }

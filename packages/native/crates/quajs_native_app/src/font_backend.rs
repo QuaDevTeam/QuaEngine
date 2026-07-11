@@ -1,13 +1,13 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use ab_glyph::{point, Font, FontArc, PxScale, ScaleFont};
+use ab_glyph::{point, Font, FontArc, GlyphId, PxScale, ScaleFont};
 use quajs_wgpu_renderer::fonts::{
     FontBackendAssetLoad, FontBackendAtlasGlyph, FontBackendAtlasLayout, FontBackendAtlasTexture,
-    FontBackendCommandKind, FontBackendCommandPlan, FontBackendFaceState, NativeFontBackend,
-    NativeFontBackendResult,
+    FontBackendCommandKind, FontBackendCommandPlan, FontBackendFaceState, FontBackendShapingFace,
+    NativeFontBackend, NativeFontBackendResult,
 };
 use quajs_wgpu_renderer::frame::PreparedNativeFrame;
-use quajs_wgpu_renderer::render_graph::DrawCommandParams;
+use quajs_wgpu_renderer::render_graph::{DrawCommandParams, TextTransformDrawParam};
 use quajs_wgpu_renderer::resources::ResourceId;
 
 const RASTER_SCALE: f32 = 64.0;
@@ -23,6 +23,7 @@ pub(crate) struct SimpleNativeFontAtlasBackend {
     pending_atlases: Vec<FontBackendAtlasTexture>,
     pending_releases: Vec<ResourceId>,
     requested_glyphs: BTreeMap<String, BTreeSet<char>>,
+    requested_texts: BTreeMap<String, BTreeSet<String>>,
 }
 
 impl SimpleNativeFontAtlasBackend {
@@ -62,34 +63,56 @@ impl NativeFontBackend for SimpleNativeFontAtlasBackend {
     }
 
     fn prepare_frame_text(&mut self, frame: &PreparedNativeFrame) -> NativeFontBackendResult {
-        let mut requested = BTreeMap::<String, BTreeSet<char>>::new();
+        let mut requested_glyphs = BTreeMap::<String, BTreeSet<char>>::new();
+        let mut requested_texts = BTreeMap::<String, BTreeSet<String>>::new();
         for command in frame.graph.commands() {
-            let (text, families) = match &command.params {
-                DrawCommandParams::Text(params) => {
-                    (params.text.as_str(), params.font_family.as_slice())
-                }
-                DrawCommandParams::UiButton(params) => {
-                    (params.label.as_str(), params.font_family.as_slice())
-                }
+            let (text, families, transform) = match &command.params {
+                DrawCommandParams::Text(params) => (
+                    params.text.as_str(),
+                    params.font_family.as_slice(),
+                    params.text_transform,
+                ),
+                DrawCommandParams::UiButton(params) => (
+                    params.label.as_str(),
+                    params.font_family.as_slice(),
+                    params.text_transform,
+                ),
                 _ => continue,
             };
             let Some(family) = self.resolve_family(families) else {
                 continue;
             };
-            requested
-                .entry(family)
+            let text = transform_text(text, transform);
+            requested_glyphs
+                .entry(family.clone())
                 .or_default()
                 .extend(text.chars().filter(|character| !character.is_control()));
+            if !text.is_empty() {
+                requested_texts.entry(family).or_default().insert(text);
+            }
         }
 
-        for (family, characters) in requested {
-            let changed = self
+        for family in requested_glyphs
+            .keys()
+            .chain(requested_texts.keys())
+            .cloned()
+            .collect::<BTreeSet<_>>()
+        {
+            let characters = requested_glyphs.remove(&family).unwrap_or_default();
+            let texts = requested_texts.remove(&family).unwrap_or_default();
+            let glyphs_changed = self
                 .requested_glyphs
                 .get(&family)
                 .map(|current| current != &characters)
                 .unwrap_or(true);
-            if changed {
+            let texts_changed = self
+                .requested_texts
+                .get(&family)
+                .map(|current| current != &texts)
+                .unwrap_or(true);
+            if glyphs_changed || texts_changed {
                 self.requested_glyphs.insert(family.clone(), characters);
+                self.requested_texts.insert(family.clone(), texts);
                 self.rebuild_family_atlas(&family);
             }
         }
@@ -132,6 +155,7 @@ impl SimpleNativeFontAtlasBackend {
             self.rebuild_family_atlas(&family);
         } else {
             self.requested_glyphs.remove(&family);
+            self.requested_texts.remove(&family);
             self.release_family_atlas(&family);
         }
     }
@@ -141,6 +165,11 @@ impl SimpleNativeFontAtlasBackend {
         let Some(characters) = self.requested_glyphs.get(family) else {
             return;
         };
+        let texts = self
+            .requested_texts
+            .get(family)
+            .cloned()
+            .unwrap_or_default();
         if faces.is_empty() || characters.is_empty() {
             self.release_family_atlas(family);
             return;
@@ -149,6 +178,7 @@ impl SimpleNativeFontAtlasBackend {
             family,
             &faces,
             characters,
+            &texts,
             self.default_family().as_deref() == Some(family),
         );
         let metadata = package_metadata_for_loaded_faces(&faces);
@@ -230,28 +260,73 @@ fn rasterize_font_family(
     family: &str,
     faces: &[LoadedFontFace],
     characters: &BTreeSet<char>,
+    texts: &BTreeSet<String>,
     is_default: bool,
 ) -> FontBackendAtlasTexture {
-    let rows = characters.len().div_ceil(GLYPH_ATLAS_COLUMNS).max(1);
+    let shaping_face = FontBackendShapingFace::new(faces[0].font.font_data().to_vec(), 0);
+    let shaped_glyph_ids = shaping_face
+        .as_ref()
+        .map(|face| collect_shaped_glyph_ids(face, texts))
+        .unwrap_or_default();
+    let character_keys = characters
+        .iter()
+        .copied()
+        .map(|character| (character, family_glyph_key(faces, character)))
+        .collect::<BTreeMap<_, _>>();
+    let mut keys = character_keys.values().copied().collect::<BTreeSet<_>>();
+    keys.extend(
+        shaped_glyph_ids
+            .iter()
+            .copied()
+            .map(|glyph_id| RasterGlyphKey::Face {
+                face_index: 0,
+                glyph_id,
+            }),
+    );
+
+    let rows = keys.len().div_ceil(GLYPH_ATLAS_COLUMNS).max(1);
     let width = (GLYPH_ATLAS_COLUMNS * GLYPH_CELL_SIZE) as u32;
     let height = (rows * GLYPH_CELL_SIZE) as u32;
     let mut rgba = vec![0; width as usize * height as usize * 4];
-    let mut glyphs = BTreeMap::new();
+    let mut rasterized = BTreeMap::new();
 
-    for (index, character) in characters.iter().copied().enumerate() {
+    for (index, key) in keys.into_iter().enumerate() {
         let cell_x = (index % GLYPH_ATLAS_COLUMNS) * GLYPH_CELL_SIZE + GLYPH_CELL_PADDING;
         let cell_y = (index / GLYPH_ATLAS_COLUMNS) * GLYPH_CELL_SIZE + GLYPH_CELL_PADDING;
-        let glyph = rasterize_family_glyph(
-            faces,
-            character,
-            cell_x,
-            cell_y,
-            &mut rgba,
-            width as usize,
-            height as usize,
-        );
-        glyphs.insert(character, glyph);
+        let glyph = match key {
+            RasterGlyphKey::Face {
+                face_index,
+                glyph_id,
+            } => rasterize_font_glyph(
+                &faces[face_index].font,
+                GlyphId(glyph_id as u16),
+                cell_x,
+                cell_y,
+                &mut rgba,
+                width as usize,
+                height as usize,
+            ),
+            RasterGlyphKey::Missing => {
+                rasterize_missing_glyph(cell_x, cell_y, &mut rgba, width as usize, height as usize)
+            }
+        };
+        rasterized.insert(key, glyph);
     }
+
+    let glyphs = character_keys
+        .into_iter()
+        .filter_map(|(character, key)| Some((character, rasterized.get(&key)?.clone())))
+        .collect();
+    let glyphs_by_id = shaped_glyph_ids
+        .into_iter()
+        .filter_map(|glyph_id| {
+            let key = RasterGlyphKey::Face {
+                face_index: 0,
+                glyph_id,
+            };
+            Some((glyph_id, rasterized.get(&key)?.clone()))
+        })
+        .collect();
 
     let scaled = faces[0].font.as_scaled(PxScale::from(RASTER_SCALE));
     let resource_id = font_family_resource_id(family);
@@ -264,66 +339,124 @@ fn rasterize_font_family(
         line_height: scaled.height() + scaled.line_gap(),
         is_default,
         glyphs,
+        glyphs_by_id,
+        shaping_face,
     };
     FontBackendAtlasTexture::new(resource_id, width, height, rgba).with_layout(layout)
 }
 
-fn rasterize_family_glyph(
-    faces: &[LoadedFontFace],
-    character: char,
+fn collect_shaped_glyph_ids(
+    face: &FontBackendShapingFace,
+    texts: &BTreeSet<String>,
+) -> BTreeSet<u32> {
+    let mut glyph_ids = BTreeSet::new();
+    for text in texts {
+        let mut variants = BTreeSet::from([text.clone()]);
+        variants.extend(text.split_whitespace().map(ToString::to_string));
+        for character in text.chars().filter(|character| !character.is_control()) {
+            variants.insert(character.to_string());
+        }
+        for variant in variants {
+            if let Some(run) = face.shape(&variant, RASTER_SCALE) {
+                glyph_ids.extend(
+                    run.glyphs
+                        .into_iter()
+                        .map(|glyph| glyph.glyph_id)
+                        .filter(|glyph_id| *glyph_id != 0 && *glyph_id <= u16::MAX as u32),
+                );
+            }
+        }
+    }
+    glyph_ids
+}
+
+fn transform_text(text: &str, transform: TextTransformDrawParam) -> String {
+    match transform {
+        TextTransformDrawParam::Uppercase => text.to_uppercase(),
+        TextTransformDrawParam::Lowercase => text.to_lowercase(),
+        TextTransformDrawParam::Capitalize => text
+            .split_whitespace()
+            .map(|word| {
+                let mut characters = word.chars();
+                characters
+                    .next()
+                    .map(|first| first.to_uppercase().collect::<String>() + characters.as_str())
+                    .unwrap_or_default()
+            })
+            .collect::<Vec<_>>()
+            .join(" "),
+        TextTransformDrawParam::None => text.to_string(),
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+enum RasterGlyphKey {
+    Face { face_index: usize, glyph_id: u32 },
+    Missing,
+}
+
+fn family_glyph_key(faces: &[LoadedFontFace], character: char) -> RasterGlyphKey {
+    faces
+        .iter()
+        .enumerate()
+        .find_map(|(face_index, face)| {
+            let glyph_id = face.font.glyph_id(character).0;
+            (glyph_id != 0).then_some(RasterGlyphKey::Face {
+                face_index,
+                glyph_id: u32::from(glyph_id),
+            })
+        })
+        .unwrap_or(RasterGlyphKey::Missing)
+}
+
+fn rasterize_font_glyph(
+    font: &FontArc,
+    glyph_id: GlyphId,
     cell_x: usize,
     cell_y: usize,
     rgba: &mut [u8],
     atlas_width: usize,
     atlas_height: usize,
 ) -> FontBackendAtlasGlyph {
-    for face in faces {
-        let glyph_id = face.font.glyph_id(character);
-        if glyph_id.0 == 0 {
-            continue;
+    let scaled = font.as_scaled(PxScale::from(RASTER_SCALE));
+    let advance = scaled.h_advance(glyph_id);
+    let glyph = glyph_id.with_scale_and_position(PxScale::from(RASTER_SCALE), point(0.0, 0.0));
+    let Some(outlined) = font.outline_glyph(glyph) else {
+        return empty_glyph(advance, cell_x, cell_y, atlas_width, atlas_height);
+    };
+    let bounds = outlined.px_bounds();
+    let max_size = GLYPH_CELL_SIZE.saturating_sub(GLYPH_CELL_PADDING * 2);
+    let glyph_width = bounds.width().ceil().max(1.0).min(max_size as f32) as usize;
+    let glyph_height = bounds.height().ceil().max(1.0).min(max_size as f32) as usize;
+    outlined.draw(|x, y, coverage| {
+        let x = x as usize;
+        let y = y as usize;
+        if x >= glyph_width || y >= glyph_height || coverage <= 0.0 {
+            return;
         }
-        let scaled = face.font.as_scaled(PxScale::from(RASTER_SCALE));
-        let advance = scaled.h_advance(glyph_id);
-        let glyph = glyph_id.with_scale_and_position(PxScale::from(RASTER_SCALE), point(0.0, 0.0));
-        let Some(outlined) = face.font.outline_glyph(glyph) else {
-            return empty_glyph(advance, cell_x, cell_y, atlas_width, atlas_height);
-        };
-        let bounds = outlined.px_bounds();
-        let max_size = GLYPH_CELL_SIZE.saturating_sub(GLYPH_CELL_PADDING * 2);
-        let glyph_width = bounds.width().ceil().max(1.0).min(max_size as f32) as usize;
-        let glyph_height = bounds.height().ceil().max(1.0).min(max_size as f32) as usize;
-        outlined.draw(|x, y, coverage| {
-            let x = x as usize;
-            let y = y as usize;
-            if x >= glyph_width || y >= glyph_height || coverage <= 0.0 {
-                return;
-            }
-            blend_atlas_pixel(
-                rgba,
-                atlas_width,
-                cell_x + x,
-                cell_y + y,
-                (coverage.clamp(0.0, 1.0) * 255.0).round() as u8,
-            );
-        });
-        return FontBackendAtlasGlyph {
-            uv_top_left: [
-                cell_x as f32 / atlas_width as f32,
-                cell_y as f32 / atlas_height as f32,
-            ],
-            uv_bottom_right: [
-                (cell_x + glyph_width) as f32 / atlas_width as f32,
-                (cell_y + glyph_height) as f32 / atlas_height as f32,
-            ],
-            advance,
-            bearing_x: bounds.min.x,
-            bearing_y: bounds.min.y,
-            width: glyph_width as f32,
-            height: glyph_height as f32,
-        };
+        blend_atlas_pixel(
+            rgba,
+            atlas_width,
+            cell_x + x,
+            cell_y + y,
+            (coverage.clamp(0.0, 1.0) * 255.0).round() as u8,
+        );
+    });
+    FontBackendAtlasGlyph {
+        uv_top_left: [
+            cell_x as f32 / atlas_width as f32,
+            cell_y as f32 / atlas_height as f32,
+        ],
+        uv_bottom_right: [
+            (cell_x + glyph_width) as f32 / atlas_width as f32,
+            (cell_y + glyph_height) as f32 / atlas_height as f32,
+        ],
+        advance,
+        bearing_x: bounds.min.x,
+        bearing_y: bounds.min.y,
+        width: glyph_width as f32,
+        height: glyph_height as f32,
     }
-
-    rasterize_missing_glyph(cell_x, cell_y, rgba, atlas_width, atlas_height)
 }
 
 fn empty_glyph(
@@ -425,6 +558,8 @@ fn single_package_candidate(face: &FontBackendFaceState) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+
     use super::*;
     use quajs_wgpu_renderer::fonts::FontBackendCommand;
 
@@ -444,6 +579,7 @@ mod tests {
             "Qua Fallback",
             &faces,
             &['I', 'M'].into_iter().collect(),
+            &BTreeSet::from(["IM".to_string()]),
             true,
         );
         let layout = atlas.layout.as_ref().unwrap();
@@ -453,6 +589,62 @@ mod tests {
         assert!(layout.glyphs[&'M'].width > 5.0);
         assert!(layout.glyphs[&'M'].height > 7.0);
         assert!(layout.glyphs[&'M'].advance > layout.glyphs[&'I'].advance);
+        assert!(atlas.rgba.iter().skip(3).step_by(4).any(|alpha| *alpha > 0));
+    }
+
+    #[test]
+    fn product_font_backend_rasterizes_shaped_ligature_glyph_ids() {
+        let bytes = std::fs::read(demo_font_path()).expect("demo font bytes");
+        let font = FontArc::try_from_vec(bytes).unwrap();
+        let faces = vec![LoadedFontFace {
+            face: FontBackendFaceState {
+                id: "noto-latin".to_string(),
+                order: 0,
+                family: "Noto Sans".to_string(),
+                asset_type: "fonts".to_string(),
+                asset_name: "fonts/NotoSans-Regular.ttf".to_string(),
+                style: Some("normal".to_string()),
+                weight: Some("400".to_string()),
+                stretch: None,
+                display: None,
+                unicode_range: None,
+                package_candidates: BTreeSet::from(["base.fonts".to_string()]),
+                face_resource_id: ResourceId::from("font:face:fonts:fonts/NotoSans-Regular.ttf"),
+            },
+            font,
+            owner_package_id: Some("base.fonts".to_string()),
+        }];
+        let text = "office".to_string();
+        let atlas = rasterize_font_family(
+            "Noto Sans",
+            &faces,
+            &text.chars().collect(),
+            &BTreeSet::from([text.clone()]),
+            true,
+        );
+        let layout = atlas.layout.as_ref().unwrap();
+        let run = layout
+            .shaping_face
+            .as_ref()
+            .unwrap()
+            .shape(&text, RASTER_SCALE)
+            .unwrap();
+        let legacy_advance = text
+            .chars()
+            .filter_map(|character| layout.glyphs.get(&character))
+            .map(|glyph| glyph.advance)
+            .sum::<f32>();
+
+        assert!(run.glyphs.len() < text.chars().count());
+        assert!(
+            (run.advance() - legacy_advance).abs() < legacy_advance * 0.2,
+            "shaped advance {} diverged from legacy advance {legacy_advance}",
+            run.advance(),
+        );
+        assert!(run
+            .glyphs
+            .iter()
+            .all(|glyph| layout.glyphs_by_id.contains_key(&glyph.glyph_id)));
         assert!(atlas.rgba.iter().skip(3).step_by(4).any(|alpha| *alpha > 0));
     }
 
@@ -514,6 +706,11 @@ mod tests {
     #[cfg(target_os = "macos")]
     fn read_system_font(path: &str) -> Option<Vec<u8>> {
         std::fs::read(path).ok()
+    }
+
+    fn demo_font_path() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../../../demo/assets/fonts/NotoSans-Regular.ttf")
     }
 
     #[cfg(target_os = "macos")]

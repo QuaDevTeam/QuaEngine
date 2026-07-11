@@ -4,8 +4,10 @@ pub mod text_atlas;
 
 pub use backend::{
     FontBackendAssetLoad, FontBackendAtlasGlyph, FontBackendAtlasLayout, FontBackendAtlasLayoutMap,
-    FontBackendAtlasTexture, NativeFontBackend, NativeFontBackendError, NativeFontBackendErrorKind,
-    NativeFontBackendResult, NullNativeFontBackend, NullNativeFontBackendDiagnostics,
+    FontBackendAtlasTexture, FontBackendShapedDirection, FontBackendShapedGlyph,
+    FontBackendShapedRun, FontBackendShapingFace, NativeFontBackend, NativeFontBackendError,
+    NativeFontBackendErrorKind, NativeFontBackendResult, NullNativeFontBackend,
+    NullNativeFontBackendDiagnostics,
 };
 pub use commands::{
     plan_font_backend_commands, plan_font_backend_package_teardown_commands, FontBackendCommand,

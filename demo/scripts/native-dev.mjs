@@ -424,6 +424,9 @@ async function validateNativeSmokeOutput(output) {
   if (report.fontAtlasTextDrawCount < 1) {
     failures.push('no text draw used the uploaded high-resolution font atlas')
   }
+  if (report.shapedTextDrawCount < 1) {
+    failures.push('no text draw used the native OpenType shaping path')
+  }
   if (report.bitmapTextDrawCount !== 0) {
     failures.push(`${report.bitmapTextDrawCount} text draw(s) fell back to the built-in bitmap atlas`)
   }

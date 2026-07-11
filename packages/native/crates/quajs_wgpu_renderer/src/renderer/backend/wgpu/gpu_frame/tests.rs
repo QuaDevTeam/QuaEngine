@@ -22,6 +22,7 @@ fn materializes_upload_bytes_and_draw_batches() {
         draw_call_count: 2,
         skipped_quad_count: 1,
         invalid_paint_count: 0,
+        shaped_text_draw_count: 0,
         passes: vec![buffer_pass(
             0,
             vec![
@@ -173,6 +174,7 @@ fn keeps_staging_offsets_unique_across_passes() {
         draw_call_count: 0,
         skipped_quad_count: 0,
         invalid_paint_count: 0,
+        shaped_text_draw_count: 0,
         passes: vec![
             buffer_pass(0, vec![vertex([0.0, 0.0], [0.0, 0.0])], vec![0]),
             buffer_pass(
