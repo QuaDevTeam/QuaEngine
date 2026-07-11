@@ -318,7 +318,7 @@ function createNativeAudioTrack(track: unknown, kind: string, audio: JsonRecord)
     id,
     kind,
     assetName,
-    assetType: stringValue(record.assetType) || kind,
+    assetType: stringValue(record.assetType) || 'audio',
     loadMode: nativeAudioLoadMode(record.loadMode) || 'buffered',
     playbackState: state,
     looped: booleanValue(record.loop),

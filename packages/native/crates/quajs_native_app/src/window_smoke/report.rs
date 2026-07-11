@@ -67,6 +67,7 @@ pub struct NativeWindowSmokeReport {
     pub audio_backend_applied_plan_count: usize,
     pub audio_backend_applied_command_count: usize,
     pub audio_backend_active_track_count: usize,
+    pub audio_backend_peak_active_track_count: usize,
     pub video_backend_loaded_asset_count: usize,
     pub video_backend_resident_asset_count: usize,
     pub video_backend_applied_plan_count: usize,

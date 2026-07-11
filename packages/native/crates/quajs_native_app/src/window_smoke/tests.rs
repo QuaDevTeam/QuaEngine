@@ -193,6 +193,7 @@ fn window_smoke_report_serializes_texture_lifecycle_metrics() {
         audio_backend_applied_plan_count: 1,
         audio_backend_applied_command_count: 2,
         audio_backend_active_track_count: 0,
+        audio_backend_peak_active_track_count: 1,
         video_backend_loaded_asset_count: 3,
         video_backend_resident_asset_count: 1,
         video_backend_applied_plan_count: 4,
@@ -310,6 +311,7 @@ fn window_smoke_report_serializes_texture_lifecycle_metrics() {
     assert_eq!(value["audioBackendAppliedPlanCount"], 1);
     assert_eq!(value["audioBackendAppliedCommandCount"], 2);
     assert_eq!(value["audioBackendActiveTrackCount"], 0);
+    assert_eq!(value["audioBackendPeakActiveTrackCount"], 1);
     assert_eq!(value["videoBackendLoadedAssetCount"], 3);
     assert_eq!(value["videoBackendResidentAssetCount"], 1);
     assert_eq!(value["videoBackendAppliedPlanCount"], 4);

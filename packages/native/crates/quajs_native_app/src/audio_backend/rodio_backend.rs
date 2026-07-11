@@ -36,11 +36,12 @@ impl Debug for RodioAudioPlaybackDriver {
 
 impl RodioAudioPlaybackDriver {
     fn open_default() -> Result<Self, NativeAudioBackendError> {
-        let sink = DeviceSinkBuilder::open_default_sink().map_err(|error| {
+        let mut sink = DeviceSinkBuilder::open_default_sink().map_err(|error| {
             NativeAudioBackendError::backend_rejected(format!(
                 "failed to open native rodio audio output: {error}"
             ))
         })?;
+        sink.log_on_drop(false);
         Ok(Self {
             sink,
             players: BTreeMap::new(),

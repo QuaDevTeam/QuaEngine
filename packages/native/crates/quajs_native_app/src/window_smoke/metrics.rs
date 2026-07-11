@@ -53,6 +53,7 @@ pub(super) struct NativeWindowSmokeAudioMetrics {
     pub applied_plan_count: usize,
     pub applied_command_count: usize,
     pub active_track_count: usize,
+    pub peak_active_track_count: usize,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -172,6 +173,7 @@ impl NativeWindowSmokeAudioMetrics {
             applied_plan_count: diagnostics.applied_plan_count,
             applied_command_count: diagnostics.applied_command_count,
             active_track_count: diagnostics.active_track_count,
+            peak_active_track_count: diagnostics.peak_active_track_count,
         }
     }
 
@@ -185,6 +187,7 @@ impl NativeWindowSmokeAudioMetrics {
             applied_plan_count: diagnostics.applied_plan_count,
             applied_command_count: diagnostics.applied_command_count,
             active_track_count: diagnostics.active_track_count,
+            peak_active_track_count: diagnostics.active_track_count,
         }
     }
 }

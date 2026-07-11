@@ -165,6 +165,7 @@ pub(super) fn build_window_smoke_report(
         audio_backend_applied_plan_count: input.audio_metrics.applied_plan_count,
         audio_backend_applied_command_count: input.audio_metrics.applied_command_count,
         audio_backend_active_track_count: input.audio_metrics.active_track_count,
+        audio_backend_peak_active_track_count: input.audio_metrics.peak_active_track_count,
         video_backend_loaded_asset_count: input.video_metrics.loaded_asset_count,
         video_backend_resident_asset_count: input.video_metrics.resident_asset_count,
         video_backend_applied_plan_count: input.video_metrics.applied_plan_count,
@@ -316,6 +317,7 @@ mod tests {
             applied_plan_count: 12,
             applied_command_count: 13,
             active_track_count: 2,
+            peak_active_track_count: 3,
         };
         let video_metrics = NativeWindowSmokeVideoMetrics {
             loaded_asset_count: 14,
@@ -478,6 +480,7 @@ mod tests {
         assert_eq!(report.audio_backend_applied_plan_count, 12);
         assert_eq!(report.audio_backend_applied_command_count, 13);
         assert_eq!(report.audio_backend_active_track_count, 2);
+        assert_eq!(report.audio_backend_peak_active_track_count, 3);
         assert_eq!(report.video_backend_loaded_asset_count, 14);
         assert_eq!(report.video_backend_resident_asset_count, 1);
         assert_eq!(report.video_backend_applied_plan_count, 15);

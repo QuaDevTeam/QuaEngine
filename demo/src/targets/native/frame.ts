@@ -11,6 +11,7 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createDemoEngineRuntime } from '../../game/runtime-shared'
+import { BGM, DEFAULT_BGM_OPTIONS } from '../../game/config'
 import { DEMO_GALLERY_CATALOG_ID } from '../../game/content/gallery'
 import { DEMO_NATIVE_FEATURE_SURFACES } from './features'
 
@@ -56,6 +57,10 @@ export async function createDemoNativeFrame(outputPath = DEFAULT_FRAME_PATH): Pr
       await stageNativeCoverageScene(runtime)
       await runtime.engine.showUI('native-dev-status', createNativeDevSurface())
     }
+    await runtime.audio.playBGM(BGM.blackout, {
+      ...DEFAULT_BGM_OPTIONS,
+      id: 'demo-native-bgm',
+    })
     await openNativeDemoPanel(runtime, nativePanel)
     if (nativePanel === 'effects') {
       await runtime.engine.applyEffect({

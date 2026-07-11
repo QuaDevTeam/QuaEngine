@@ -19,7 +19,7 @@ const REPO_ROOT = resolve(DEMO_ROOT, '..')
 const FRAME_PATH = resolve(DEMO_ROOT, 'dist/native/dev/frame.json')
 const CAPTURE_PATH = resolve(DEMO_ROOT, 'dist/native/dev/frame.png')
 const ASSET_INDEX_PATH = resolve(DEMO_ROOT, 'dist/assets/index.json')
-const NATIVE_FEATURES = 'native-window,quickjs-rquickjs'
+const NATIVE_FEATURES = 'native-window,native-audio-rodio,quickjs-rquickjs'
 const smoke = process.argv.includes('--smoke')
 const once = process.argv.includes('--once') || smoke
 const requestedPanel = process.argv.find(argument => argument.startsWith('--panel='))?.slice('--panel='.length)
@@ -89,6 +89,7 @@ async function rebuildAndLaunch() {
         ...(panel ? { QUA_NATIVE_DEMO_PANEL: panel } : {}),
       },
     })
+    await validateNativeAudioFrame()
     if (panel) {
       await validateNativeFeatureFrame(panel)
     }
@@ -180,6 +181,21 @@ async function rebuildAndLaunch() {
       await rebuildAndLaunch()
     }
   }
+}
+
+async function validateNativeAudioFrame() {
+  const frame = JSON.parse(await readFile(FRAME_PATH, 'utf8'))
+  const tracks = frame.view?.audio?.tracks
+  const bgm = Array.isArray(tracks)
+    ? tracks.find(track => track?.id === 'demo-native-bgm')
+    : undefined
+  if (bgm?.kind !== 'bgm'
+    || bgm?.assetName !== 'bgm/blackout-cold-open.m4a'
+    || bgm?.playbackState !== 'playing'
+    || bgm?.looped !== true) {
+    throw new Error('Native demo frame did not project the expected engine-owned BGM track.')
+  }
+  console.log('Native demo frame validated engine-owned BGM projection.')
 }
 
 function installWatchers() {
@@ -438,6 +454,18 @@ async function validateNativeSmokeOutput(output) {
   }
   if (report.nearestSampledTextureBindGroupCount !== 0) {
     failures.push(`${report.nearestSampledTextureBindGroupCount} sampled WGPU texture bind group(s) still used nearest filtering`)
+  }
+  if (report.audioBackendAppliedPlanCount < 1) {
+    failures.push('the native audio backend did not receive a frame plan')
+  }
+  if (report.audioBackendAppliedCommandCount < 2) {
+    failures.push('the native audio backend did not load and start the projected BGM')
+  }
+  if (report.audioBackendPeakActiveTrackCount < 1) {
+    failures.push('the projected native BGM never became active in the product backend')
+  }
+  if (report.audioBackendActiveTrackCount !== 0) {
+    failures.push('the native audio backend retained an active track after shutdown')
   }
   if (report.passCount < 1 || report.commandCount < 1 || report.submittedCommandBufferCount < 1) {
     failures.push('the WGPU frame did not submit a non-empty render graph')
