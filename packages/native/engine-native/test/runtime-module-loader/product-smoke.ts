@@ -1,19 +1,36 @@
 import { MemoryAssetStorage } from '@quajs/assets'
-import type { ViewChoiceProjection } from '@quajs/engine'
-import type { QuaNativeHostInfo, TargetBundleManifest } from '@quajs/native-contracts'
-import { emitRenderToLogic, QuaEngine, RenderToLogicEvents } from '@quajs/engine'
 import {
-  getTargetCorePluginFamily,
-  getTargetCoreResolverId,
-  NATIVE_TARGET_BOOTSTRAP,
-} from '@quajs/native-contracts'
+  clearCharacterRegistry,
+  narrateWithEngine,
+  registerCharacter,
+  showWithEngine,
+  speakWithEngine,
+} from '@quajs/character'
+import { playCharacterFadeWithEngine } from '@quajs/character/animation'
+import type { ViewChoiceProjection } from '@quajs/engine'
+import type { QuaNativeHostInfo } from '@quajs/native-contracts'
+import { emitRenderToLogic, QuaEngine, RenderToLogicEvents } from '@quajs/engine'
+import { NATIVE_TARGET_BOOTSTRAP } from '@quajs/native-contracts'
+import {
+  AnimationPlugin,
+  playAnimationWithEngine,
+  registerAnimationWithEngine,
+} from '@quajs/plugin-animation'
 import { playBGMWithEngine } from '@quajs/plugin-audio'
 import { setBackgroundWithEngine } from '@quajs/plugin-background'
 import {
   backgroundDecoratorMappings,
   createBackgroundDecoratorCompiler,
 } from '@quajs/plugin-background/script-compiler'
+import {
+  createQuaProjectNativeArtifactPlans,
+  emitQuaProjectNativeTargetBundleManifest,
+  normalizeQuaProjectConfig,
+} from '@quajs/quack/project'
 import { compileQuaScriptModuleToTsAsync } from '@quajs/script-compiler'
+import { mkdtemp, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import ts from 'typescript'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
@@ -29,49 +46,69 @@ import {
 
 describe('@quajs/engine-native runtime product smoke', () => {
   afterEach(() => {
+    clearCharacterRegistry()
     QuaEngine.resetInstance()
   })
 
-  it('gates the real native QuickJS bridge with target bundle manifest runtime metadata', async () => {
+  it('starts real native bridges from the target manifest emitted by Quack packaging', async () => {
     const probe = await createRealNativeQuickJsBridge()
-    const targetBundleManifest = createNativeTargetBundleManifestFromHostInfo(probe.startupHostInfo)
+    const emitted = await emitNativeTargetBundleManifestFromHostInfo(probe.startupHostInfo)
+    const targetBundleManifest = emitted.manifest
     await probe.close()
 
-    const bridge = await createRealNativeQuickJsBridge({ targetBundleManifest })
     try {
-      expect(bridge.startupHostInfo.runtime).toEqual(targetBundleManifest.nativeRuntime)
-      expect(bridge.startupHostInfo.renderer.capabilityManifestHash).toBe(
-        targetBundleManifest.nativeRenderer?.capabilityManifestHash,
-      )
-      expect(bridge.requests[0]).toEqual(expect.objectContaining({
-        method: 'getHostInfo',
-      }))
+      const bridge = await createRealNativeQuickJsBridge({ targetBundleManifestPath: emitted.manifestPath })
+      try {
+        expect(bridge.startupHostInfo.runtime).toEqual(targetBundleManifest.nativeRuntime)
+        expect(bridge.startupHostInfo.renderer.capabilityManifestHash).toBe(
+          targetBundleManifest.nativeRenderer?.capabilityManifestHash,
+        )
+        expect(bridge.requests[0]).toEqual(expect.objectContaining({
+          method: 'getHostInfo',
+        }))
+      }
+      finally {
+        await bridge.close()
+      }
+
+      const productBridge = await createRealNativeProductBridge({
+        targetBundleManifestPath: emitted.manifestPath,
+      })
+      try {
+        expect(productBridge.startupHostInfo.runtime).toEqual(targetBundleManifest.nativeRuntime)
+        expect(productBridge.startupHostInfo.renderer.capabilityManifestHash).toBe(
+          targetBundleManifest.nativeRenderer?.capabilityManifestHash,
+        )
+      }
+      finally {
+        await productBridge.close()
+      }
+
+      await expect(createRealNativeQuickJsBridge({
+        targetBundleManifest: {
+          ...targetBundleManifest,
+          nativeRuntime: {
+            ...targetBundleManifest.nativeRuntime!,
+            quickjsVersion: 'stale-quickjs',
+          },
+        },
+      })).rejects.toThrow(/nativeRuntime\.quickjsVersion "stale-quickjs" does not match host runtime value/)
+
+      await expect(createRealNativeQuickJsBridge({
+        targetBundleManifest: {
+          ...targetBundleManifest,
+          nativeRenderer: {
+            ...targetBundleManifest.nativeRenderer!,
+            capabilityIds: targetBundleManifest.nativeRenderer!.capabilityIds.filter(
+              capabilityId => capabilityId !== 'native-wgpu.input.text@1',
+            ),
+          },
+        },
+      })).rejects.toThrow(/nativeRenderer\.capabilityIds omits host renderer capability "native-wgpu\.input\.text@1"/)
     }
     finally {
-      await bridge.close()
+      await rm(emitted.root, { recursive: true, force: true })
     }
-
-    await expect(createRealNativeQuickJsBridge({
-      targetBundleManifest: {
-        ...targetBundleManifest,
-        nativeRuntime: {
-          ...targetBundleManifest.nativeRuntime!,
-          quickjsVersion: 'stale-quickjs',
-        },
-      },
-    })).rejects.toThrow(/nativeRuntime\.quickjsVersion "stale-quickjs" does not match host runtime value/)
-
-    await expect(createRealNativeQuickJsBridge({
-      targetBundleManifest: {
-        ...targetBundleManifest,
-        nativeRenderer: {
-          ...targetBundleManifest.nativeRenderer!,
-          capabilityIds: targetBundleManifest.nativeRenderer!.capabilityIds.filter(
-            capabilityId => capabilityId !== 'native-wgpu.input.text@1',
-          ),
-        },
-      },
-    })).rejects.toThrow(/nativeRenderer\.capabilityIds omits host renderer capability "native-wgpu\.input\.text@1"/)
   }, 180_000)
 
   it('drives the real native product bridge from a TS-owned projection frame', async () => {
@@ -124,6 +161,182 @@ describe('@quajs/engine-native runtime product smoke', () => {
         { method: 'drainRendererIntents' },
         { method: 'shutdown' },
       ]))
+    }
+    finally {
+      await bridge.close()
+    }
+  }, 180_000)
+
+  it('runs real character and animation helpers into a deterministic Rust render graph', async () => {
+    registerCharacter({
+      id: 'mira',
+      displayName: 'Mira',
+      aliases: ['Mira'],
+      sprites: {
+        focus: 'mira/focus.png',
+      },
+      metadata: {
+        role: 'protagonist',
+      },
+    })
+    const bridge = await createRealNativeQuickJsBridge()
+    const host = {
+      ...bridge.host,
+      verifySignature: vi.fn(async () => true),
+    }
+    const storyCode = `
+      import { showWithEngine } from '@quajs/character';
+      import { playCharacterFadeWithEngine } from '@quajs/character/animation';
+      import {
+        playAnimationWithEngine,
+        registerAnimationWithEngine
+      } from '@quajs/plugin-animation';
+
+      export default function nativeCharacterAnimation() {
+        return [{
+          uuid: 'runtime.native.character-animation.step.1',
+          async run(ctx) {
+            await showWithEngine(ctx.engine, 'mira', {
+              sprite: 'focus',
+              position: { x: 800, y: 640, scale: 1 }
+            });
+            await registerAnimationWithEngine(ctx.engine, {
+              id: 'mira-cross-stage',
+              duration: 1000,
+              fill: 'both',
+              commit: 'none',
+              tracks: [{
+                target: 'character:mira',
+                property: 'position.x',
+                keyframes: [
+                  { at: 0, value: 800 },
+                  { at: 1000, value: 1200, easing: 'linear' }
+                ]
+              }]
+            });
+            await playAnimationWithEngine(ctx.engine, 'mira-cross-stage', {
+              id: 'mira-cross-stage-playback'
+            });
+            await playCharacterFadeWithEngine(ctx.engine, 'mira', 0, 1, 1000, {
+              id: 'mira-fade-playback',
+              fill: 'both',
+              commit: 'none',
+              easing: 'linear'
+            });
+          }
+        }];
+      }
+    `
+    const manifest = createRuntimeBundleManifest({
+      id: 'runtime.native.character-animation',
+      version: '1.0.0',
+      scripts: [{
+        id: 'runtime.native.character-animation',
+        version: '1.0.0',
+        assetName: 'character-animation.js',
+      }],
+      metadata: {
+        nativeRenderer: {
+          packageName: '@quajs/native-renderer',
+          versionRange: '>=0.1.0',
+          capabilityIds: ['native-wgpu.image@1'],
+          assetKinds: ['characters'],
+          nativeCode: false,
+        },
+      },
+      integrity: { hash: 'native-character-animation-hash', algorithm: 'sha256' },
+      signature: { value: 'signed-character-animation', algorithm: 'ed25519' },
+    })
+    const qpk = createQpkBundle(manifest, new Map([
+      ['assets/scripts/character-animation.js', utf8(storyCode)],
+    ]))
+
+    try {
+      const adapters = createNativeRuntimeAdapters(host, {
+        requireSignature: true,
+        quickJsHelperModules: {
+          '@quajs/character': { showWithEngine },
+          '@quajs/character/animation': { playCharacterFadeWithEngine },
+          '@quajs/plugin-animation': {
+            playAnimationWithEngine,
+            registerAnimationWithEngine,
+          },
+        },
+      })
+      const animation = new AnimationPlugin()
+      const nativeHostPlugin = new NativeHostPlugin({
+        host,
+        quickJsPipelineSubscriptionBridge: adapters.quickJsPipelineSubscriptionBridge,
+      })
+      const engine = new QuaEngine({
+        assets: {
+          endpoint: 'https://cdn.example.com',
+          adapter: createMemoryAdapter({
+            'https://cdn.example.com/native-character-animation.qpk': qpk,
+          }, 'native-character-animation-hash'),
+        },
+        runtimeModuleLoader: adapters.runtimeModuleLoader,
+        trustPolicy: adapters.trustPolicy,
+      })
+      engine.use(animation)
+      engine.use(nativeHostPlugin)
+
+      await engine.init()
+      await engine.loadRuntimePackage('native-character-animation.qpk')
+      await engine.runScriptModule('runtime.native.character-animation')
+
+      expect(engine.getViewState().characters).toEqual([
+        expect.objectContaining({
+          id: 'mira',
+          name: 'Mira',
+          sprite: 'mira/focus.png',
+          metadata: expect.objectContaining({
+            role: 'protagonist',
+            contentPackageId: 'runtime.native.character-animation',
+          }),
+        }),
+      ])
+      expect(engine.getViewState().animations.map(item => item.id).sort()).toEqual([
+        'mira-cross-stage-playback',
+        'mira-fade-playback',
+      ])
+
+      const deterministicStartedAt = 10_000
+      for (const activeAnimation of engine.getViewState().animations) {
+        await engine.setAnimationProjection({
+          ...activeAnimation,
+          startedAt: deterministicStartedAt,
+        })
+      }
+      const frame = createNativeRendererJsonFrameInput(engine.getViewState(), {
+        container: { width: 1600, height: 1000, devicePixelRatio: 1 },
+        now: deterministicStartedAt + 500,
+      })
+      expect(frame.view.characters).toEqual([
+        expect.objectContaining({
+          id: 'mira',
+          name: 'Mira',
+          sprite: 'mira/focus.png',
+          opacity: 0.5,
+          position: expect.objectContaining({ x: 1_000, y: 640, scale: 1 }),
+          provenance: {
+            contentPackageId: 'runtime.native.character-animation',
+          },
+        }),
+      ])
+
+      const rendererSummary = await runNativeRendererSmokeFrame(frame)
+      expect(rendererSummary).toEqual(expect.objectContaining({
+        revision: 1,
+        missingResourceCount: 0,
+        commandGraphSignature: 'fnv1a64:8d14798cb7a24085',
+      }))
+      expect(rendererSummary.commandIds).toEqual(['character:mira'])
+      expect(rendererSummary.commandKindCounts).toEqual({ image: 1 })
+
+      await engine.unloadRuntimePackage('runtime.native.character-animation', { force: true })
+      expect(engine.getViewState().characters).toEqual([])
+      expect(engine.getViewState().animations).toEqual([])
     }
     finally {
       await bridge.close()
@@ -516,6 +729,7 @@ Mira: Compiled QuaScript is running inside \${runtimeLabel} with \${$t('runtime.
       const adapters = createNativeRuntimeAdapters(host, {
         requireSignature: true,
         quickJsHelperModules: {
+          '@quajs/character': { narrateWithEngine, speakWithEngine },
           '@quajs/plugin-background': { setBackgroundWithEngine },
         },
       })
@@ -956,19 +1170,37 @@ function utf8(value: string): Uint8Array {
   return new TextEncoder().encode(value)
 }
 
-function createNativeTargetBundleManifestFromHostInfo(hostInfo: QuaNativeHostInfo): TargetBundleManifest {
-  const rendererEntry = { specifier: '@quajs/native-renderer/builtin', target: 'native' as const }
-  return {
+async function emitNativeTargetBundleManifestFromHostInfo(hostInfo: QuaNativeHostInfo) {
+  const root = await mkdtemp(join(tmpdir(), 'quajs-native-product-manifest-'))
+  const project = normalizeQuaProjectConfig({
     schemaVersion: 1,
-    target: 'native',
-    profile: hostInfo.app.profile,
-    platform: hostInfo.app.platform,
-    app: {
-      bundleId: hostInfo.app.bundleId,
-      version: hostInfo.app.version,
-      buildNumber: hostInfo.app.buildNumber,
-      icon: 'AppIcon.icns',
+    name: 'Native Product Smoke',
+    bundleId: hostInfo.app.bundleId,
+    version: hostInfo.app.version,
+    icons: { source: 'AppIcon.icns' },
+    targets: {
+      native: {
+        enabled: true,
+        platforms: [hostInfo.app.platform],
+        profiles: [hostInfo.app.profile],
+        layout: 'landscape',
+        outputDir: root,
+        app: {
+          bundleId: hostInfo.app.bundleId,
+          version: hostInfo.app.version,
+          buildNumber: hostInfo.app.buildNumber,
+          icon: 'AppIcon.icns',
+        },
+        build: { cargoFeatures: ['quickjs-rquickjs'] },
+      },
     },
+  })
+  const [plan] = createQuaProjectNativeArtifactPlans(project)
+  if (!plan) {
+    throw new Error('Native product smoke project did not produce a native artifact plan.')
+  }
+
+  const emitted = await emitQuaProjectNativeTargetBundleManifest(plan, {
     nativeRenderer: {
       packageName: hostInfo.renderer.packageName,
       version: hostInfo.renderer.version,
@@ -978,25 +1210,16 @@ function createNativeTargetBundleManifestFromHostInfo(hostInfo: QuaNativeHostInf
       capabilityManifestHash: hostInfo.renderer.capabilityManifestHash,
     },
     nativeRuntime: { ...hostInfo.runtime },
-    targetCoreResolver: getTargetCoreResolverId('native'),
-    selectedCorePluginFamily: getTargetCorePluginFamily('native'),
-    selectedCoreAdapters: NATIVE_TARGET_BOOTSTRAP.coreAdapters,
     dependencies: [
       '@quajs/engine',
       '@quajs/pipeline',
       ...NATIVE_TARGET_BOOTSTRAP.coreAdapters,
     ],
-    rendererEntries: [rendererEntry],
-    runtimePackages: [],
-    projectGraphs: [{
-      id: `native.${hostInfo.app.profile}.${hostInfo.app.platform}.post-bundle`,
-      kind: 'post-bundle',
-      references: [
-        '@quajs/engine',
-        '@quajs/pipeline',
-        ...NATIVE_TARGET_BOOTSTRAP.coreAdapters,
-        rendererEntry,
-      ],
+    rendererEntries: [{
+      specifier: '@quajs/native-renderer/builtin',
+      target: 'native',
     }],
-  }
+  })
+
+  return { root, ...emitted }
 }

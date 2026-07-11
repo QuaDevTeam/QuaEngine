@@ -12,6 +12,7 @@ export default defineConfig({
       '@quajs/engine/script-compiler': resolve(import.meta.dirname, '../../core/engine/src/script-compiler.ts'),
       '@quajs/engine': resolve(import.meta.dirname, '../../core/engine/src/index.ts'),
       '@quajs/plugin-discovery': resolve(import.meta.dirname, '../../core/plugin-discovery/src/index.ts'),
+      '@quajs/quack/project': resolve(import.meta.dirname, '../../build/quack/src/project.ts'),
       '@quajs/script-compiler': resolve(import.meta.dirname, '../../build/script-compiler/src/index.ts'),
     },
   },

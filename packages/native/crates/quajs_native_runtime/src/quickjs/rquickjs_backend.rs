@@ -422,126 +422,6 @@ export function image(name, options = {}) {
 }
 "#;
 
-const NATIVE_QUICKJS_CHARACTER_HELPERS_SOURCE: &str = r#"
-const USER_ADVANCE = 'user/advance';
-
-function assertEngine(engine, helper) {
-  if (!engine || typeof engine !== 'object') {
-    throw new TypeError(`${helper} requires ctx.engine.`);
-  }
-}
-
-function characterId(character) {
-  if (typeof character === 'string') {
-    return character;
-  }
-  if (character && typeof character.id === 'string') {
-    return character.id;
-  }
-  throw new TypeError('Native QuickJS character helpers require a string character id or an object with a string id.');
-}
-
-function characterName(character, options) {
-  if (options && typeof options.characterName === 'string') {
-    return options.characterName;
-  }
-  if (character && typeof character !== 'string') {
-    if (typeof character.displayName === 'string') {
-      return character.displayName;
-    }
-    if (typeof character.name === 'string') {
-      return character.name;
-    }
-    if (typeof character.id === 'string') {
-      return character.id;
-    }
-  }
-  return characterId(character);
-}
-
-function normalizeAvatar(avatar) {
-  if (avatar === undefined || avatar === null) {
-    return undefined;
-  }
-  if (typeof avatar === 'string') {
-    return { type: 'images', name: avatar };
-  }
-  if (typeof avatar === 'object') {
-    return { ...avatar, type: avatar.type || 'images' };
-  }
-  throw new TypeError('Native QuickJS character helper avatar must be a string or object.');
-}
-
-function assignIfDefined(target, key, value) {
-  if (value !== undefined) {
-    target[key] = value;
-  }
-}
-
-function shouldWait(options) {
-  return !options || options.wait !== false;
-}
-
-export async function speakWithEngine(engine, character, text, options = {}) {
-  assertEngine(engine, 'speakWithEngine');
-  const payload = {
-    characterId: characterId(character),
-    characterName: characterName(character, options),
-    text,
-    mode: options.mode || 'say'
-  };
-  assignIfDefined(payload, 'avatar', normalizeAvatar(options.avatar));
-  assignIfDefined(payload, 'speaker', options.speaker);
-  assignIfDefined(payload, 'speakerStyle', options.speakerStyle);
-  assignIfDefined(payload, 'typewriter', options.typewriter);
-  await engine.showDialogue(payload);
-  if (shouldWait(options)) {
-    await engine.waitFor(USER_ADVANCE);
-  }
-}
-
-export async function narrateWithEngine(engine, text, options = {}) {
-  assertEngine(engine, 'narrateWithEngine');
-  const payload = { text, mode: 'narration' };
-  assignIfDefined(payload, 'typewriter', options.typewriter);
-  assignIfDefined(payload, 'metadata', options.metadata);
-  await engine.showDialogue(payload);
-  if (shouldWait(options)) {
-    await engine.waitFor(USER_ADVANCE);
-  }
-}
-
-export async function showWithEngine(engine, character, options = {}) {
-  assertEngine(engine, 'showWithEngine');
-  await engine.showCharacter({
-    ...options,
-    id: characterId(character),
-    name: characterName(character, options),
-    visible: options.visible !== false
-  });
-}
-
-export async function hideWithEngine(engine, character) {
-  assertEngine(engine, 'hideWithEngine');
-  await engine.hideCharacter(characterId(character));
-}
-
-export async function moveWithEngine(engine, character, position) {
-  assertEngine(engine, 'moveWithEngine');
-  await engine.moveCharacter(characterId(character), position);
-}
-
-export async function expressionWithEngine(engine, character, expression) {
-  assertEngine(engine, 'expressionWithEngine');
-  await engine.setCharacterExpression(characterId(character), expression);
-}
-
-export async function spriteWithEngine(engine, character, sprite) {
-  assertEngine(engine, 'spriteWithEngine');
-  await engine.setCharacterSprite(characterId(character), sprite);
-}
-"#;
-
 #[derive(Debug, Clone)]
 struct NativeQuickJsBuiltinHelperResolver {
     module_graph: NativeQuickJsModuleGraphRegistry,
@@ -731,7 +611,6 @@ fn strip_quickjs_asset_reference_suffix(asset_name: &str) -> &str {
 fn native_quickjs_builtin_helper_source(name: &str) -> Option<String> {
     match name {
         "@quajs/engine" => Some(NATIVE_QUICKJS_ENGINE_HELPERS_SOURCE.to_string()),
-        "@quajs/character" => Some(NATIVE_QUICKJS_CHARACTER_HELPERS_SOURCE.to_string()),
         _ => native_quickjs_bridge_helper_exports(name)
             .map(|exports| native_quickjs_bridge_helper_source(name, exports)),
     }
@@ -739,6 +618,15 @@ fn native_quickjs_builtin_helper_source(name: &str) -> Option<String> {
 
 fn native_quickjs_bridge_helper_exports(name: &str) -> Option<&'static [&'static str]> {
     match name {
+        "@quajs/character" => Some(&[
+            "speakWithEngine",
+            "narrateWithEngine",
+            "showWithEngine",
+            "hideWithEngine",
+            "moveWithEngine",
+            "expressionWithEngine",
+            "spriteWithEngine",
+        ]),
         "@quajs/character/animation" => Some(&[
             "playCharacterEnterWithEngine",
             "playCharacterFadeWithEngine",
@@ -2117,6 +2005,12 @@ impl QuickJsModuleEvaluator for RquickJsModuleEvaluator {
                             Some(error.to_string()),
                         )
                     })?;
+                let pending_before = (
+                    wait_state_is_active(&wait_state)?,
+                    translation_state_is_active(&translation_state)?,
+                    pipeline_state_is_active(&pipeline_state)?,
+                    helper_state_is_active(&helper_state)?,
+                );
                 let call_result: Result<Value, QuickJsEvaluationError> = function
                     .call_arg(one_arg(ctx.clone(), context_value)?)
                     .map_err(|error| {
@@ -2169,15 +2063,21 @@ impl QuickJsModuleEvaluator for RquickJsModuleEvaluator {
                 else {
                     clear_pipeline_listener_active_commands(ctx.clone(), &subscription_state)?;
                 }
-                if wait_state_is_active(&wait_state)?
-                    || translation_state_is_active(&translation_state)?
-                    || pipeline_state_is_active(&pipeline_state)?
-                    || helper_state_is_active(&helper_state)?
+                let pending_after = (
+                    wait_state_is_active(&wait_state)?,
+                    translation_state_is_active(&translation_state)?,
+                    pipeline_state_is_active(&pipeline_state)?,
+                    helper_state_is_active(&helper_state)?,
+                );
+                if (pending_after.0 && !pending_before.0)
+                    || (pending_after.1 && !pending_before.1)
+                    || (pending_after.2 && !pending_before.2)
+                    || (pending_after.3 && !pending_before.3)
                 {
                     return Err(call_error(
                         QuickJsEvaluationErrorCode::UnsupportedStepContextCommand,
                         format!(
-                            "QuickJS pipeline listener subscription \"{}\" left a pending StepContext continuation.",
+                            "QuickJS pipeline listener subscription \"{}\" started a pending StepContext continuation.",
                             request.subscription_id
                         ),
                         Some(
@@ -3393,6 +3293,18 @@ mod tests {
     fn bridge_helper_exports_cover_official_decorator_modules() {
         let expected = [
             (
+                "@quajs/character",
+                &[
+                    "speakWithEngine",
+                    "narrateWithEngine",
+                    "showWithEngine",
+                    "hideWithEngine",
+                    "moveWithEngine",
+                    "expressionWithEngine",
+                    "spriteWithEngine",
+                ][..],
+            ),
+            (
                 "@quajs/character/animation",
                 &[
                     "playCharacterEnterWithEngine",
@@ -3515,7 +3427,7 @@ mod tests {
     }
 
     #[test]
-    fn evaluates_compiled_quascript_with_builtin_character_helpers() {
+    fn bridges_compiled_quascript_character_helpers_to_the_real_host_package() {
         let mut evaluator = RquickJsModuleEvaluator::new().unwrap();
         let response = evaluator
             .evaluate_module(&request_for_code(
@@ -3558,19 +3470,26 @@ mod tests {
             })
             .unwrap();
 
-        let commands = run.commands.unwrap();
-        assert_eq!(commands.len(), 1);
-        assert_eq!(commands[0].target, "engine");
-        assert_eq!(commands[0].method, "showDialogue");
+        assert!(run.commands.unwrap().is_empty());
+        let pending = run.pending_helper_call.unwrap();
+        assert_eq!(pending.module, "@quajs/character");
+        assert_eq!(pending.export_name, "speakWithEngine");
         let args: serde_json::Value =
-            serde_json::from_str(commands[0].args_json.as_deref().unwrap()).unwrap();
-        assert_eq!(args[0]["characterId"], "alice");
-        assert_eq!(args[0]["characterName"], "alice");
-        assert_eq!(args[0]["text"], "Hi Mira");
-        assert_eq!(args[0]["mode"], "say");
-        assert_eq!(args[0]["speaker"], "Alice");
-        assert_eq!(args[0]["avatar"]["type"], "images");
-        assert_eq!(args[0]["avatar"]["name"], "alice.png");
+            serde_json::from_str(pending.args_json.as_deref().unwrap()).unwrap();
+        assert_eq!(args[0], "alice");
+        assert_eq!(args[1], "Hi Mira");
+        assert_eq!(args[2]["wait"], false);
+        assert_eq!(args[2]["speaker"], "Alice");
+        assert_eq!(args[2]["avatar"], "alice.png");
+
+        let completed = evaluator
+            .resume_game_step_run(&QuickJsGameStepResumeRequest {
+                resume_handle_id: pending.resume_handle_id,
+                payload_json: None,
+            })
+            .unwrap();
+        assert!(completed.pending_helper_call.is_none());
+        assert!(completed.commands.unwrap().is_empty());
     }
 
     #[test]
@@ -3716,7 +3635,7 @@ mod tests {
     }
 
     #[test]
-    fn builtin_character_helpers_suspend_on_wait_for() {
+    fn character_waiting_semantics_are_delegated_to_the_real_host_package() {
         let mut evaluator = RquickJsModuleEvaluator::new().unwrap();
         let response = evaluator
             .evaluate_module(&request_for_code(
@@ -3754,12 +3673,15 @@ mod tests {
             .unwrap();
 
         assert!(run.ok);
-        assert_eq!(run.commands.unwrap()[0].method, "showDialogue");
-        let pending = run.pending_wait.unwrap();
-        assert_eq!(pending.event, "user/advance");
-        assert!(pending
-            .resume_handle_id
-            .starts_with("quickjs:rquickjs:resume:"));
+        assert!(run.commands.unwrap().is_empty());
+        assert!(run.pending_wait.is_none());
+        let pending = run.pending_helper_call.unwrap();
+        assert_eq!(pending.module, "@quajs/character");
+        assert_eq!(pending.export_name, "narrateWithEngine");
+        assert_eq!(
+            pending.args_json,
+            Some("[\"Hello from native QuickJS.\"]".to_string())
+        );
     }
 
     #[test]
@@ -4636,6 +4558,82 @@ mod tests {
             missing_dispatch.code,
             QuickJsEvaluationErrorCode::InvalidPipelineRequest
         );
+    }
+
+    #[test]
+    fn game_step_pipeline_listener_can_unsubscribe_while_its_owner_waits() {
+        let mut evaluator = RquickJsModuleEvaluator::new().unwrap();
+        let response = evaluator
+            .evaluate_module(&request_for_code(
+                "scripts/listener-owner-wait.js",
+                r#"
+                export default function opening() {
+                    return [{
+                        uuid: 'intro.listen-and-wait',
+                        async run(ctx) {
+                            const listener = () => {
+                                ctx.pipeline.off('plugin/custom_event', listener);
+                            };
+                            ctx.pipeline.on('plugin/custom_event', listener);
+                            await ctx.engine.waitFor('plugin/release-owner');
+                        }
+                    }];
+                }
+                "#,
+            ))
+            .unwrap();
+        let module_namespace_id = response.module_namespace_id.unwrap();
+        let step = evaluator
+            .call_game_step_factory(&QuickJsGameStepFactoryCallRequest {
+                module_namespace_id,
+                export_name: "default".to_string(),
+                scope_json: None,
+            })
+            .unwrap()
+            .steps
+            .unwrap()
+            .remove(0);
+
+        let waiting = evaluator
+            .call_game_step_run(&QuickJsGameStepRunRequest {
+                run_handle_id: step.run_handle_id,
+                ctx_json: Some("{\"stepId\":\"intro.listen-and-wait\"}".to_string()),
+            })
+            .unwrap();
+        let pending_wait = waiting.pending_wait.unwrap();
+        let subscription_id = waiting.pipeline_subscriptions.unwrap()[0]
+            .subscription_id
+            .clone();
+
+        let dispatch = evaluator
+            .dispatch_pipeline_listener(&QuickJsPipelineListenerDispatchRequest {
+                subscription_id: subscription_id.clone(),
+                context_json: "{\"event\":{\"type\":\"plugin/custom_event\"}}".to_string(),
+            })
+            .unwrap();
+
+        assert!(dispatch.ok);
+        assert_eq!(dispatch.commands, Some(Vec::new()));
+        let changes = dispatch.pipeline_subscriptions.unwrap();
+        assert_eq!(changes.len(), 1);
+        assert_eq!(
+            changes[0].op,
+            QuickJsPipelineSubscriptionOperation::Unsubscribe
+        );
+        assert_eq!(
+            changes[0].subscription_id.as_str(),
+            subscription_id.as_str()
+        );
+        assert_eq!(evaluator.pipeline_listener_handle_count(), 0);
+
+        let resumed = evaluator
+            .resume_game_step_run(&QuickJsGameStepResumeRequest {
+                resume_handle_id: pending_wait.resume_handle_id,
+                payload_json: None,
+            })
+            .unwrap();
+        assert!(resumed.ok);
+        assert!(resumed.pending_wait.is_none());
     }
 
     #[test]

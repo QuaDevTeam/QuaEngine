@@ -316,6 +316,9 @@ importers:
       '@quajs/assets':
         specifier: workspace:*
         version: link:../packages/core/assets
+      '@quajs/assets-memory':
+        specifier: workspace:*
+        version: link:../packages/platform/assets-memory
       '@quajs/assets-web':
         specifier: workspace:*
         version: link:../packages/platform/assets-web
@@ -325,6 +328,12 @@ importers:
       '@quajs/engine':
         specifier: workspace:*
         version: link:../packages/core/engine
+      '@quajs/engine-native':
+        specifier: workspace:*
+        version: link:../packages/native/engine-native
+      '@quajs/native-contracts':
+        specifier: workspace:*
+        version: link:../packages/native/contracts
       '@quajs/pipeline':
         specifier: workspace:*
         version: link:../packages/core/pipeline
@@ -383,6 +392,9 @@ importers:
       '@quajs/vite-plugin':
         specifier: workspace:*
         version: link:../packages/build/vite-plugin
+      '@types/node':
+        specifier: 'catalog:'
+        version: 25.6.2
       '@vitejs/plugin-vue':
         specifier: ^6.0.7
         version: 6.0.7(vite@8.0.12(@types/node@25.6.2)(jiti@2.7.0)(sass-embedded@1.100.0)(sass@1.100.0)(yaml@2.8.4))(vue@3.5.34(typescript@6.0.3))
@@ -695,6 +707,9 @@ importers:
       '@quajs/native-contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@quajs/render-core':
+        specifier: workspace:*
+        version: link:../../render/core
     devDependencies:
       '@quajs/assets':
         specifier: workspace:*
@@ -702,12 +717,18 @@ importers:
       '@quajs/character':
         specifier: workspace:*
         version: link:../../game/character
+      '@quajs/plugin-animation':
+        specifier: workspace:*
+        version: link:../../plugins/animation
       '@quajs/plugin-audio':
         specifier: workspace:*
         version: link:../../plugins/audio
       '@quajs/plugin-background':
         specifier: workspace:*
         version: link:../../plugins/background
+      '@quajs/quack':
+        specifier: workspace:*
+        version: link:../../build/quack
       '@quajs/script-compiler':
         specifier: workspace:*
         version: link:../../build/script-compiler
