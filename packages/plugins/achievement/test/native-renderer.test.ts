@@ -96,6 +96,7 @@ describe('achievement native renderer feature', () => {
     expect(toastSurface.key).toBe(ACHIEVEMENT_NATIVE_TOAST_SURFACE_KEY)
     expect(item?.text).toBe('Hidden Achievement  Locked')
     expect(item?.image).toBeUndefined()
+    expect(item?.bounds.height).toBeLessThanOrEqual(116)
     expect(title?.text).toBe('Hidden Achievement')
     expect(image).toBeUndefined()
     expect(toast.provenance).toEqual({

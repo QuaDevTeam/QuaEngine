@@ -130,7 +130,10 @@ function createBoardRoot(
   const selected = projection.achievements.find(item => item.id === projection.selectedAchievementId) || filtered[0]
   const visible = centeredWindow(filtered, selected?.id, MAX_ACHIEVEMENTS)
   const rowGap = 10
-  const rowHeight = Math.max(62, (bodyHeight - rowGap * Math.max(0, visible.length - 1)) / Math.max(1, visible.length))
+  const rowHeight = Math.min(
+    116,
+    Math.max(62, (bodyHeight - rowGap * Math.max(0, visible.length - 1)) / Math.max(1, visible.length)),
+  )
   const groupWidth = Math.min(190, (listWidth - edge) / Math.max(1, Math.min(MAX_GROUPS, projection.groups.length)))
   const unlockedCount = projection.achievements.filter(item => item.unlocked).length
 
