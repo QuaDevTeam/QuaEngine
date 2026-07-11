@@ -8,9 +8,11 @@ use super::super::geometry::{
 use super::super::text_geometry::text_placeholder_geometry;
 use super::super::types::{WgpuNativeRenderBufferVertex, WgpuNativeRenderDrawCall};
 use super::append_geometry_buffers;
+use crate::fonts::FontBackendAtlasLayoutMap;
 
 pub(in crate::renderer::backend::wgpu::buffer) fn append_quad_buffers(
     quad: &WgpuNativeRenderQuad,
+    font_atlases: &FontBackendAtlasLayoutMap,
     vertices: &mut Vec<WgpuNativeRenderBufferVertex>,
     indices: &mut Vec<u32>,
     draw_calls: &mut Vec<WgpuNativeRenderDrawCall>,
@@ -21,12 +23,13 @@ pub(in crate::renderer::backend::wgpu::buffer) fn append_quad_buffers(
         text, color, style, ..
     } = &quad.paint
     {
-        if let Some(geometry) = text_placeholder_geometry(
+        if let Some((geometry, atlas_resource_id)) = text_placeholder_geometry(
             quad.physical_bounds,
             text,
             style,
             color_to_rgba(*color),
             quad.opacity,
+            font_atlases,
         ) {
             let physical_bounds = geometry.physical_bounds;
             let placeholder_quad = WgpuNativeRenderQuad {
@@ -44,7 +47,7 @@ pub(in crate::renderer::backend::wgpu::buffer) fn append_quad_buffers(
                 text_overlay: None,
                 owner_package_id: quad.owner_package_id.clone(),
                 required_package_ids: quad.required_package_ids.clone(),
-                resource_ids: quad.resource_ids.clone(),
+                resource_ids: atlas_resource_id.into_iter().collect(),
             };
             append_geometry_buffers(geometry, vertices, indices);
             draw_calls.push(WgpuNativeRenderDrawCall::from_quad_range(

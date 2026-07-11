@@ -163,6 +163,11 @@ fn window_smoke_report_serializes_texture_lifecycle_metrics() {
         texture_upload_error_count: 0,
         texture_upload_resubmit_count: 1,
         resubmitted_after_texture_upload: true,
+        font_atlas_uploaded_count: 2,
+        font_atlas_error_count: 0,
+        font_atlas_text_draw_count: 3,
+        bitmap_text_draw_count: 0,
+        font_atlas_resource_ids: vec!["fonts:Noto Sans".to_string()],
         texture_lifecycle_sync_count: 1,
         texture_lifecycle_initial_sync_count: 1,
         texture_lifecycle_observed_bundle_count: 2,
@@ -291,6 +296,11 @@ fn window_smoke_report_serializes_texture_lifecycle_metrics() {
     assert_eq!(value["textureShutdownFontAtlasUploadedCount"], 3);
     assert_eq!(value["textureShutdownFontAtlasReleasedCount"], 4);
     assert_eq!(value["textureShutdownFontAtlasErrorCount"], 1);
+    assert_eq!(value["fontAtlasUploadedCount"], 2);
+    assert_eq!(value["fontAtlasErrorCount"], 0);
+    assert_eq!(value["fontAtlasTextDrawCount"], 3);
+    assert_eq!(value["bitmapTextDrawCount"], 0);
+    assert_eq!(value["fontAtlasResourceIds"][0], "fonts:Noto Sans");
     assert_eq!(value["audioBackendAppliedPlanCount"], 1);
     assert_eq!(value["audioBackendAppliedCommandCount"], 2);
     assert_eq!(value["audioBackendActiveTrackCount"], 0);

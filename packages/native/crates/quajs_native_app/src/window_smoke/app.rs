@@ -152,6 +152,7 @@ impl NativeWindowSmokeApp {
             &synced_frame.frame.texture_upload_report,
             &synced_frame.frame.texture_host_cleanup_report,
             synced_frame.frame.resubmitted_after_texture_upload,
+            synced_frame.frame.font_atlas_report.as_ref(),
             &synced_frame.bundle_lifecycle_report,
         );
         let synced_frame = synced_frame.frame;
@@ -161,6 +162,19 @@ impl NativeWindowSmokeApp {
             self.texture_metrics.record_shutdown_cleanup(&shutdown);
         }
         let runtime = window_loop.runtime();
+        let (font_atlas_text_draw_count, bitmap_text_draw_count, font_atlas_resource_ids) = runtime
+            .renderer()
+            .backend()
+            .last_buffer_plan()
+            .map(|plan| {
+                (
+                    plan.font_atlas_text_draw_count(),
+                    plan.bitmap_text_draw_count(),
+                    plan.font_atlas_resource_ids(),
+                )
+            })
+            .unwrap_or_default();
+        let font_atlas_uploaded_count = runtime.renderer().backend().font_atlas_upload_count();
         let rendered_frame_count = runtime.rendered_frame_count();
         let audio_metrics =
             NativeWindowSmokeAudioMetrics::from_product_backend(runtime.renderer().audio_backend());
@@ -197,6 +211,10 @@ impl NativeWindowSmokeApp {
             submitted_command_buffer_count: loop_frame
                 .present_outcome
                 .submitted_command_buffer_count,
+            font_atlas_uploaded_count,
+            font_atlas_text_draw_count,
+            bitmap_text_draw_count,
+            font_atlas_resource_ids,
             frame_capture: frame_capture.as_ref(),
         }))
     }

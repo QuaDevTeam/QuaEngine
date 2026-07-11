@@ -1,3 +1,4 @@
+use quajs_wgpu_renderer::fonts::FontBackendAtlasLayout;
 use quajs_wgpu_renderer::renderer::{
     InMemoryWgpuNativeRenderRuntimeExecutor, RealWgpuNativeRenderRuntimeDevice,
     WgpuNativeRenderBackend, WgpuNativeRenderRuntimeError,
@@ -53,5 +54,13 @@ impl NativeTextureUploadSink
 
     fn release_texture_resource(&mut self, resource_id: &ResourceId) -> Result<bool, Self::Error> {
         Ok(self.release_decoded_texture(resource_id.as_str()))
+    }
+
+    fn register_font_atlas_layout(&mut self, layout: FontBackendAtlasLayout) {
+        WgpuNativeRenderBackend::register_font_atlas_layout(self, layout);
+    }
+
+    fn release_font_atlas_layout(&mut self, resource_id: &ResourceId) {
+        WgpuNativeRenderBackend::release_font_atlas_layout(self, resource_id);
     }
 }

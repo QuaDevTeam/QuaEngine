@@ -1,6 +1,7 @@
 use std::collections::BTreeSet;
 use std::fmt::Display;
 
+use quajs_wgpu_renderer::fonts::FontBackendAtlasLayout;
 use quajs_wgpu_renderer::resources::{NativeTextureUploadRequest, ResourceId};
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -31,6 +32,10 @@ pub trait NativeTextureUploadSink {
     fn release_texture_resource(&mut self, _resource_id: &ResourceId) -> Result<bool, Self::Error> {
         Ok(false)
     }
+
+    fn register_font_atlas_layout(&mut self, _layout: FontBackendAtlasLayout) {}
+
+    fn release_font_atlas_layout(&mut self, _resource_id: &ResourceId) {}
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]

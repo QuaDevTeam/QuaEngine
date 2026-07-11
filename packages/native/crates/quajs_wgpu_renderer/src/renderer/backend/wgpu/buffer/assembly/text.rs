@@ -8,9 +8,12 @@ use super::super::geometry::WgpuNativeRenderBufferGeometry;
 use super::super::text_geometry::text_placeholder_geometry;
 use super::super::types::{WgpuNativeRenderBufferVertex, WgpuNativeRenderDrawCall};
 use super::append_geometry_buffers;
+use crate::fonts::FontBackendAtlasLayoutMap;
+use crate::resources::ResourceId;
 
 pub(in crate::renderer::backend::wgpu::buffer) fn append_text_overlay_buffers(
     quad: &WgpuNativeRenderQuad,
+    font_atlases: &FontBackendAtlasLayoutMap,
     vertices: &mut Vec<WgpuNativeRenderBufferVertex>,
     indices: &mut Vec<u32>,
     draw_calls: &mut Vec<WgpuNativeRenderDrawCall>,
@@ -18,7 +21,9 @@ pub(in crate::renderer::backend::wgpu::buffer) fn append_text_overlay_buffers(
     let Some(overlay) = &quad.text_overlay else {
         return;
     };
-    let Some((geometry, paint)) = text_overlay_geometry(quad, overlay) else {
+    let Some((geometry, paint, atlas_resource_id)) =
+        text_overlay_geometry(quad, overlay, font_atlases)
+    else {
         return;
     };
 
@@ -40,7 +45,7 @@ pub(in crate::renderer::backend::wgpu::buffer) fn append_text_overlay_buffers(
         text_overlay: None,
         owner_package_id: quad.owner_package_id.clone(),
         required_package_ids: quad.required_package_ids.clone(),
-        resource_ids: Vec::new(),
+        resource_ids: atlas_resource_id.into_iter().collect(),
     };
     append_geometry_buffers(geometry, vertices, indices);
     draw_calls.push(WgpuNativeRenderDrawCall::from_quad_range(
@@ -55,14 +60,20 @@ pub(in crate::renderer::backend::wgpu::buffer) fn append_text_overlay_buffers(
 fn text_overlay_geometry(
     quad: &WgpuNativeRenderQuad,
     overlay: &WgpuNativeRenderTextOverlay,
-) -> Option<(WgpuNativeRenderBufferGeometry, WgpuNativeRenderPaint)> {
+    font_atlases: &FontBackendAtlasLayoutMap,
+) -> Option<(
+    WgpuNativeRenderBufferGeometry,
+    WgpuNativeRenderPaint,
+    Option<ResourceId>,
+)> {
     let color = color_to_rgba(overlay.color);
-    let geometry = text_placeholder_geometry(
+    let (geometry, atlas_resource_id) = text_placeholder_geometry(
         quad.physical_bounds,
         &overlay.text,
         &overlay.style,
         color,
         quad.opacity,
+        font_atlases,
     )?;
     let paint = WgpuNativeRenderPaint::TextPlaceholder {
         text: overlay.text.clone(),
@@ -70,5 +81,5 @@ fn text_overlay_geometry(
         literal: overlay.literal.clone(),
         style: overlay.style.clone(),
     };
-    Some((geometry, paint))
+    Some((geometry, paint, atlas_resource_id))
 }

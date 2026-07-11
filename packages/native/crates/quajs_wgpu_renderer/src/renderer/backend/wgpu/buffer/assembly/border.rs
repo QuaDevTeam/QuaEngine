@@ -1,3 +1,4 @@
+use crate::fonts::FontBackendAtlasLayoutMap;
 use crate::render_graph::DrawCommandKind;
 
 use super::super::super::mesh::{WgpuNativeRenderPaint, WgpuNativeRenderQuad};
@@ -11,6 +12,7 @@ use super::{append_geometry_buffers, append_quad_buffers};
 
 pub(in crate::renderer::backend::wgpu::buffer) fn append_border_buffers(
     quad: &WgpuNativeRenderQuad,
+    font_atlases: &FontBackendAtlasLayoutMap,
     vertices: &mut Vec<WgpuNativeRenderBufferVertex>,
     indices: &mut Vec<u32>,
     draw_calls: &mut Vec<WgpuNativeRenderDrawCall>,
@@ -92,6 +94,6 @@ pub(in crate::renderer::backend::wgpu::buffer) fn append_border_buffers(
             required_package_ids: quad.required_package_ids.clone(),
             resource_ids: Vec::new(),
         };
-        append_quad_buffers(&segment, vertices, indices, draw_calls);
+        append_quad_buffers(&segment, font_atlases, vertices, indices, draw_calls);
     }
 }

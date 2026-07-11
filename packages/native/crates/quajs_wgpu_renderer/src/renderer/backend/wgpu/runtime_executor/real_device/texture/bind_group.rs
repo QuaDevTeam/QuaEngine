@@ -7,7 +7,9 @@ use crate::renderer::backend::wgpu::buffer::text_geometry::bitmap::glyphs::{
 use super::super::RealWgpuNativeRenderRuntimeTarget;
 use super::decoded::RealRuntimeDecodedTexture;
 use super::placeholder::{placeholder_texture_rgba8, PLACEHOLDER_TEXTURE_EXTENT};
-use super::sampler::{create_sampler_bind_group, create_texture_sampler};
+use super::sampler::{
+    create_linear_texture_sampler, create_sampler_bind_group, create_texture_sampler,
+};
 
 #[derive(Clone, Debug)]
 pub(in crate::renderer::backend::wgpu::runtime_executor::real_device) struct RealRuntimeTextureSamplerBindGroup
@@ -54,6 +56,29 @@ pub(in crate::renderer::backend::wgpu::runtime_executor::real_device) fn create_
     create_placeholder_texture_sampler_bind_group(target, layout, cache_label, resource_ids)
 }
 
+fn create_decoded_text_atlas_bind_group(
+    target: &RealWgpuNativeRenderRuntimeTarget,
+    layout: &wgpu::BindGroupLayout,
+    cache_label: &str,
+    resource_id: &str,
+    decoded: &RealRuntimeDecodedTexture,
+) -> RealRuntimeTextureSamplerBindGroup {
+    let sampler =
+        create_linear_texture_sampler(target, &format!("{cache_label}::linear-text-atlas-sampler"));
+    let bind_group =
+        create_sampler_bind_group(target, layout, cache_label, &sampler, &decoded.view);
+    RealRuntimeTextureSamplerBindGroup {
+        bind_group,
+        texture: decoded.texture.clone(),
+        view: decoded.view.clone(),
+        sampler,
+        placeholder_rgba8: [0; 16],
+        decoded_resource_id: Some(resource_id.to_string()),
+        decoded_size: Some((decoded.width, decoded.height)),
+        decoded_byte_len: Some(decoded.byte_len),
+    }
+}
+
 pub(in crate::renderer::backend::wgpu::runtime_executor::real_device) fn create_text_atlas_bind_group(
     target: &RealWgpuNativeRenderRuntimeTarget,
     layout: &wgpu::BindGroupLayout,
@@ -62,7 +87,7 @@ pub(in crate::renderer::backend::wgpu::runtime_executor::real_device) fn create_
     decoded_textures: &BTreeMap<String, RealRuntimeDecodedTexture>,
 ) -> RealRuntimeTextureSamplerBindGroup {
     if let Some((resource_id, decoded)) = find_decoded_texture(resource_ids, decoded_textures) {
-        return create_decoded_texture_sampler_bind_group(
+        return create_decoded_text_atlas_bind_group(
             target,
             layout,
             cache_label,

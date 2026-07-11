@@ -26,7 +26,10 @@ where
         );
         let primitive_plan = WgpuNativeRenderPrimitivePlan::from_execution_plan(&execution_plan);
         let mesh_plan = WgpuNativeRenderMeshPlan::from_primitive_plan(&primitive_plan);
-        let buffer_plan = WgpuNativeRenderBufferPlan::from_mesh_plan(&mesh_plan);
+        let buffer_plan = WgpuNativeRenderBufferPlan::from_mesh_plan_with_font_atlases(
+            &mesh_plan,
+            &self.font_atlas_layouts,
+        );
         let render_pass_plan = WgpuNativeRenderPassPlan::from_buffer_plan(&buffer_plan);
         let pipeline_plan = WgpuNativeRenderPipelinePlan::from_render_pass_plan(&render_pass_plan);
         let gpu_frame_plan = WgpuNativeRenderGpuFramePlan::from_buffer_and_pipeline_plans(
