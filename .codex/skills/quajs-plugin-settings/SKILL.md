@@ -34,6 +34,7 @@ Renderer entries:
 - `@quajs/renderer-web/plugins/settings`
 - `@quajs/renderer-vue/plugins/settings`
 - `@quajs/renderer-cocos/plugins/settings`
+- `@quajs/plugin-settings/native` through `createSettingsNativeRendererFeature()`
 
 ## Scope Model
 
@@ -113,6 +114,8 @@ Runtime packages may register settings scopes. Package unload unregisters packag
 ## Renderer Boundary
 
 Renderer settings UI emits update/reset intents. Validation, persistence, apply hooks, and final projection rebuilds happen in the settings bridge.
+
+Native products explicitly register `createSettingsNativeRendererFeature()` in the same feature-surface list used for frame serialization and `NativeHostPlugin`. It projects exposed form fields in logical safe-area coordinates, cycles switch/select/numeric controls through explicit `settings-update` intents, keeps unsupported text/complex controls read-only, preserves runtime scope provenance, and delegates validation/persistence/apply behavior to the settings bridge.
 
 Settings panel placement comes from the engine-owned generic UI overlay projection, not renderer-local state. `engine.showUI('settings', config)` and `config.scene.overlay` may include `overlayStack`, `stackPriority`, and `zIndex`; official renderers use `overlay` stack with settings zIndex `60` by default when no placement is projected.
 
