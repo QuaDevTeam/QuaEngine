@@ -396,6 +396,19 @@ function validateNativeSmokeOutput(output) {
   if (report.passCount < 1 || report.commandCount < 1 || report.submittedCommandBufferCount < 1) {
     failures.push('the WGPU frame did not submit a non-empty render graph')
   }
+  if (report.frameCaptureMimeType !== 'image/png') {
+    failures.push(`frame capture returned ${report.frameCaptureMimeType || 'no MIME type'} instead of image/png`)
+  }
+  if (report.frameCaptureByteCount <= 8 || report.frameCapturePngSignatureValid !== true) {
+    failures.push('frame capture did not return a valid encoded PNG')
+  }
+  if (report.frameCaptureVisiblePixelCount < 1 || report.frameCaptureColoredPixelCount < 1) {
+    failures.push('frame capture contains no visible rendered scene content')
+  }
+  if (report.frameCaptureWidth !== report.physicalWidth
+    || report.frameCaptureHeight !== report.physicalHeight) {
+    failures.push('frame capture dimensions do not match the native WGPU target')
+  }
   if (report.physicalWidth !== report.logicalWidth * report.devicePixelRatio
     || report.physicalHeight !== report.logicalHeight * report.devicePixelRatio) {
     failures.push('native logical/window/device-pixel coordinate projection is inconsistent')
@@ -403,7 +416,7 @@ function validateNativeSmokeOutput(output) {
   if (failures.length > 0) {
     throw new Error(`Native renderer smoke failed: ${failures.join('; ')}.`)
   }
-  console.log(`Native renderer smoke validated ${report.textureUploadAlreadyResidentCount || report.textureUploadUploadedCount} resident QPK texture(s) with ${report.passCount} WGPU pass(es).`)
+  console.log(`Native renderer smoke validated ${report.textureUploadAlreadyResidentCount || report.textureUploadUploadedCount} resident QPK texture(s), ${report.passCount} WGPU pass(es), and a ${report.frameCaptureWidth}x${report.frameCaptureHeight} PNG readback.`)
 }
 
 for (const signal of ['SIGINT', 'SIGTERM']) {

@@ -242,6 +242,13 @@ fn window_smoke_report_serializes_texture_lifecycle_metrics() {
         batch_count: 1,
         command_count: 1,
         submitted_command_buffer_count: 1,
+        frame_capture_mime_type: Some("image/png".to_string()),
+        frame_capture_byte_count: 12,
+        frame_capture_width: Some(1920),
+        frame_capture_height: Some(1080),
+        frame_capture_png_signature_valid: true,
+        frame_capture_visible_pixel_count: 2_073_600,
+        frame_capture_colored_pixel_count: 320_000,
     };
 
     let value = serde_json::to_value(report).expect("report should serialize");
@@ -327,4 +334,11 @@ fn window_smoke_report_serializes_texture_lifecycle_metrics() {
     assert_eq!(value["appVisibilityChangeCount"], 0);
     assert_eq!(value["appLifecycleTickRequestCount"], 1);
     assert_eq!(value["appRedrawRequestCount"], 2);
+    assert_eq!(value["frameCaptureMimeType"], "image/png");
+    assert_eq!(value["frameCaptureByteCount"], 12);
+    assert_eq!(value["frameCaptureWidth"], 1920);
+    assert_eq!(value["frameCaptureHeight"], 1080);
+    assert_eq!(value["frameCapturePngSignatureValid"], true);
+    assert_eq!(value["frameCaptureVisiblePixelCount"], 2_073_600);
+    assert_eq!(value["frameCaptureColoredPixelCount"], 320_000);
 }

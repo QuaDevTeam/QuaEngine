@@ -9,6 +9,7 @@ use crate::product_frame_scheduler::NativeProductSurfaceRecoveryMetrics;
 use crate::product_window::{
     NativeProductWindowPhysicalSize, NativeProductWindowPresentFailureKind,
 };
+use quajs_wgpu_renderer::renderer::RealWgpuEncodedFrameCapture;
 
 pub(super) struct NativeWindowSmokeReportInput<'a> {
     pub adapter_name: &'a str,
@@ -36,6 +37,7 @@ pub(super) struct NativeWindowSmokeReportInput<'a> {
     pub batch_count: usize,
     pub command_count: usize,
     pub submitted_command_buffer_count: usize,
+    pub frame_capture: Option<&'a RealWgpuEncodedFrameCapture>,
 }
 
 pub(super) fn build_window_smoke_report(
@@ -205,6 +207,26 @@ pub(super) fn build_window_smoke_report(
         batch_count: input.batch_count,
         command_count: input.command_count,
         submitted_command_buffer_count: input.submitted_command_buffer_count,
+        frame_capture_mime_type: input
+            .frame_capture
+            .map(|capture| capture.mime_type.to_string()),
+        frame_capture_byte_count: input
+            .frame_capture
+            .map(|capture| capture.bytes.len())
+            .unwrap_or(0),
+        frame_capture_width: input.frame_capture.map(|capture| capture.width),
+        frame_capture_height: input.frame_capture.map(|capture| capture.height),
+        frame_capture_png_signature_valid: input
+            .frame_capture
+            .is_some_and(|capture| capture.bytes.starts_with(b"\x89PNG\r\n\x1a\n")),
+        frame_capture_visible_pixel_count: input
+            .frame_capture
+            .map(|capture| capture.visible_pixel_count)
+            .unwrap_or(0),
+        frame_capture_colored_pixel_count: input
+            .frame_capture
+            .map(|capture| capture.colored_pixel_count)
+            .unwrap_or(0),
     }
 }
 
@@ -292,6 +314,14 @@ mod tests {
             released_texture_count: 6,
             pending_release_count: 0,
         };
+        let frame_capture = RealWgpuEncodedFrameCapture {
+            width: 960,
+            height: 540,
+            mime_type: "image/png",
+            bytes: b"\x89PNG\r\n\x1a\nfixture".to_vec(),
+            visible_pixel_count: 518_400,
+            colored_pixel_count: 42_000,
+        };
 
         let report = build_window_smoke_report(NativeWindowSmokeReportInput {
             adapter_name: "adapter",
@@ -358,6 +388,7 @@ mod tests {
             batch_count: 9,
             command_count: 10,
             submitted_command_buffer_count: 11,
+            frame_capture: Some(&frame_capture),
         });
 
         assert_eq!(report.adapter_name, "adapter");
@@ -462,5 +493,12 @@ mod tests {
         assert_eq!(report.last_resize_physical_width, Some(960));
         assert_eq!(report.logical_width, 480.0);
         assert!(report.resubmitted_after_texture_upload);
+        assert_eq!(report.frame_capture_mime_type.as_deref(), Some("image/png"));
+        assert_eq!(report.frame_capture_byte_count, 15);
+        assert_eq!(report.frame_capture_width, Some(960));
+        assert_eq!(report.frame_capture_height, Some(540));
+        assert!(report.frame_capture_png_signature_valid);
+        assert_eq!(report.frame_capture_visible_pixel_count, 518_400);
+        assert_eq!(report.frame_capture_colored_pixel_count, 42_000);
     }
 }

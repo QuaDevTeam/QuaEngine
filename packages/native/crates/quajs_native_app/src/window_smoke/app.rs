@@ -113,16 +113,31 @@ impl NativeWindowSmokeApp {
             ));
         };
 
+        let target_frame_count = product_shell.window_loop().target_frame_count();
+        let mut frame_capture = None;
         let product_frame_result = product_shell
             .window_loop_mut()
-            .render_projection_json_frame(&frame_json, |renderer, host| {
-                if native_window_dev_enabled() {
-                    Ok(())
-                } else {
-                    self.input
-                        .run_open_settings_probe(renderer, host, &frame_json)
-                }
-            });
+            .render_projection_json_frame(
+                &frame_json,
+                |renderer, host| {
+                    if native_window_dev_enabled() {
+                        Ok(())
+                    } else {
+                        self.input
+                            .run_open_settings_probe(renderer, host, &frame_json)
+                    }
+                },
+                |runtime| {
+                    if runtime.rendered_frame_count() >= target_frame_count {
+                        frame_capture = Some(runtime.capture_frame_png().map_err(|error| {
+                            NativeWindowSmokeError::new(format!(
+                                "Failed to capture native renderer smoke frame: {error}."
+                            ))
+                        })?);
+                    }
+                    Ok::<(), NativeWindowSmokeError>(())
+                },
+            );
         self.product_shell = Some(product_shell);
 
         let product_shell = self.product_shell.as_ref().ok_or_else(|| {
@@ -182,6 +197,7 @@ impl NativeWindowSmokeApp {
             submitted_command_buffer_count: loop_frame
                 .present_outcome
                 .submitted_command_buffer_count,
+            frame_capture: frame_capture.as_ref(),
         }))
     }
 
