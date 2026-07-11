@@ -11,9 +11,26 @@ const PNG_1X1_RED_RGBA: &[u8] = &[
 ];
 
 #[cfg(feature = "image-decode")]
+const WEBP_1X1_RGBA: &[u8] = &[
+    0x52, 0x49, 0x46, 0x46, 0x1c, 0x00, 0x00, 0x00, 0x57, 0x45, 0x42, 0x50, 0x56, 0x50, 0x38, 0x4c,
+    0x0f, 0x00, 0x00, 0x00, 0x2f, 0x00, 0x00, 0x00, 0x00, 0x07, 0x10, 0xfd, 0x8f, 0xfe, 0x07, 0x22,
+    0xa2, 0xff, 0x01, 0x00,
+];
+
+#[cfg(feature = "image-decode")]
 #[test]
 fn decodes_png_image_bytes_to_rgba8() {
     let decoded = decode_image_bytes_rgba8("images:red.png", PNG_1X1_RED_RGBA).unwrap();
+
+    assert_eq!(decoded.width, 1);
+    assert_eq!(decoded.height, 1);
+    assert_eq!(decoded.rgba, vec![255, 0, 0, 255]);
+}
+
+#[cfg(feature = "image-decode")]
+#[test]
+fn decodes_webp_image_bytes_to_rgba8() {
+    let decoded = decode_image_bytes_rgba8("images:pixel.webp", WEBP_1X1_RGBA).unwrap();
 
     assert_eq!(decoded.width, 1);
     assert_eq!(decoded.height, 1);
