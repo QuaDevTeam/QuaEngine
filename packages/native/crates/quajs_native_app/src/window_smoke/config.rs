@@ -5,6 +5,8 @@ use super::error::NativeWindowSmokeError;
 pub const WINDOW_SMOKE_ENV: &str = "QUA_NATIVE_RENDERER_WINDOW_SMOKE";
 pub const WINDOW_SMOKE_FRAME_ENV: &str = "QUA_NATIVE_RENDERER_WINDOW_SMOKE_FRAME";
 pub const WINDOW_SMOKE_FRAMES_ENV: &str = "QUA_NATIVE_RENDERER_WINDOW_SMOKE_FRAMES";
+pub const WINDOW_DEV_ENV: &str = "QUA_NATIVE_RENDERER_WINDOW_DEV";
+pub const WINDOW_DEV_QPK_ENV: &str = "QUA_NATIVE_RENDERER_WINDOW_DEV_QPK";
 
 const DEFAULT_WINDOW_SMOKE_FRAME_COUNT: usize = 1;
 const MAX_WINDOW_SMOKE_FRAME_COUNT: usize = 120;
@@ -19,6 +21,10 @@ pub(super) fn native_window_smoke_enabled() -> bool {
     let value = value.to_string_lossy();
     let value = value.trim();
     !value.is_empty() && value != "0" && !value.eq_ignore_ascii_case("false")
+}
+
+pub(super) fn native_window_dev_enabled() -> bool {
+    env_flag_enabled(WINDOW_DEV_ENV)
 }
 
 pub(super) fn load_window_smoke_frame_source() -> Result<String, NativeWindowSmokeError> {
@@ -37,6 +43,9 @@ pub(super) fn load_window_smoke_frame_source() -> Result<String, NativeWindowSmo
 }
 
 pub(super) fn load_window_smoke_target_frame_count() -> usize {
+    if native_window_dev_enabled() {
+        return usize::MAX;
+    }
     let Some(value) = std::env::var_os(WINDOW_SMOKE_FRAMES_ENV) else {
         return DEFAULT_WINDOW_SMOKE_FRAME_COUNT;
     };
@@ -50,4 +59,13 @@ pub(super) fn load_window_smoke_target_frame_count() -> usize {
         DEFAULT_WINDOW_SMOKE_FRAME_COUNT,
         MAX_WINDOW_SMOKE_FRAME_COUNT,
     )
+}
+
+fn env_flag_enabled(name: &str) -> bool {
+    let Some(value) = std::env::var_os(name) else {
+        return false;
+    };
+    let value = value.to_string_lossy();
+    let value = value.trim();
+    !value.is_empty() && value != "0" && !value.eq_ignore_ascii_case("false")
 }

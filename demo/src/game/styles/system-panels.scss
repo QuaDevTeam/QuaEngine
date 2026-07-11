@@ -3,8 +3,8 @@
 .qua-menu-overlay,
 .qua-confirm-overlay,
 .qua-save-load-panel {
-  width: min(860px, 92vw);
-  max-height: min(720px, 84vh);
+  width: min(860px, 92cqw);
+  max-height: min(720px, 84cqh);
   overflow: auto;
   border: 1px solid rgba(245, 226, 190, 0.3);
   border-radius: 2px;
@@ -16,11 +16,11 @@
 }
 
 .game-root[data-system-overlay="game"] .qua-menu-overlay {
-  width: min(460px, 90vw);
-  max-height: min(620px, 82vh);
+  width: min(460px, 90cqw);
+  max-height: min(620px, 82cqh);
   gap: 18px;
   overflow: hidden;
-  padding: clamp(18px, 3vw, 28px);
+  padding: clamp(18px, 3cqw, 28px);
   border-color: rgba(245, 226, 190, 0.34);
   background:
     linear-gradient(180deg, rgba(20, 22, 30, 0.96), rgba(6, 7, 11, 0.97)),
@@ -31,14 +31,14 @@
 }
 
 .game-root[data-system-overlay] .qua-confirm-overlay {
-  width: min(520px, 90vw);
-  max-height: min(420px, 78vh);
+  width: min(520px, 90cqw);
+  max-height: min(420px, 78cqh);
   gap: 18px;
   overflow: hidden;
 }
 
 .game-root[data-ui-scene-id="game:over"] .qua-confirm-overlay {
-  width: min(560px, 90vw);
+  width: min(560px, 90cqw);
 }
 
 .game-root[data-system-overlay] .qua-confirm-actions {
@@ -138,7 +138,7 @@
 
 .game-root[data-system-overlay="game"] .qua-menu-overlay .qua-ui-panel-title {
   color: #fff8ea;
-  font-size: clamp(26px, 4vw, 38px);
+  font-size: clamp(26px, 4cqw, 38px);
   line-height: 1;
   letter-spacing: 0;
 }
@@ -291,7 +291,7 @@
 .game-root[data-system-overlay] .qua-backlog-panel {
   display: grid;
   gap: 18px;
-  padding: clamp(18px, 3vw, 30px);
+  padding: clamp(18px, 3cqw, 30px);
   border-color: rgba(245, 226, 190, 0.34);
   background:
     linear-gradient(180deg, rgba(18, 20, 27, 0.96), rgba(6, 7, 11, 0.96)),
@@ -301,8 +301,8 @@
 .game-root[data-system-overlay="main"] .qua-save-load-panel,
 .game-root[data-system-overlay="main"] .qua-settings-panel,
 .game-root[data-system-overlay="main"] .qua-backlog-panel {
-  width: min(1040px, 90vw);
-  max-height: min(660px, 82vh);
+  width: min(1040px, 90cqw);
+  max-height: min(660px, 82cqh);
 }
 
 .game-root[data-system-overlay] .qua-ui-panel-header,
@@ -327,7 +327,7 @@
 .game-root[data-system-overlay] .qua-backlog-title {
   margin: 0;
   color: #fff8ea;
-  font-size: clamp(24px, 3.2vw, 38px);
+  font-size: clamp(24px, 3.2cqw, 38px);
   line-height: 1;
   letter-spacing: 0;
 }
@@ -341,9 +341,9 @@
 }
 
 .game-root[data-system-overlay] .qua-backlog-panel {
-  width: min(980px, 92vw);
-  height: min(700px, 84vh);
-  max-height: min(700px, 84vh);
+  width: min(980px, 92cqw);
+  height: min(700px, 84cqh);
+  max-height: min(700px, 84cqh);
   grid-template-rows: auto minmax(0, 1fr);
   min-height: 0;
   overflow: hidden;
@@ -712,7 +712,7 @@
   font-family:
     "Hiragino Sans", "Yu Gothic UI", "Yu Gothic", "Noto Sans CJK SC",
     system-ui, sans-serif;
-  font-size: clamp(24px, 3vw, 32px);
+  font-size: clamp(24px, 3cqw, 32px);
   font-weight: 700;
   line-height: 1;
   letter-spacing: 0;
@@ -756,7 +756,7 @@
 .game-root[data-system-overlay] .qua-settings-field-main {
   display: grid;
   grid-template-columns: minmax(190px, 0.78fr) minmax(280px, 1fr);
-  gap: clamp(20px, 3.4vw, 42px);
+  gap: clamp(20px, 3.4cqw, 42px);
   align-items: center;
 }
 

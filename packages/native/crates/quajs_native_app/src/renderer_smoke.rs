@@ -173,6 +173,19 @@ mod tests {
         assert_eq!(summary.backend.skipped_draw_count, 0);
         assert!(summary.backend.resource_bind_count >= 1);
         assert_eq!(summary.backend.validation_error_count, 0);
+        assert!(summary.command_graph_signature.starts_with("fnv1a64:"));
+        assert!(summary
+            .command_ids
+            .iter()
+            .any(|command_id| command_id == "ui:compiled-menu:open-settings"));
+        assert!(
+            summary
+                .command_kind_counts
+                .get("text")
+                .copied()
+                .unwrap_or(0)
+                > 0
+        );
         assert!(summary.memory_by_kind["uiAst"].memory.total_bytes > 0);
         assert!(
             summary.memory_by_package["runtime.ui"]
@@ -201,6 +214,16 @@ mod tests {
         assert!(json["backend"]["drawCount"].as_u64().unwrap() > 0);
         assert!(json["backend"]["resourceBindCount"].as_u64().unwrap() > 0);
         assert_eq!(json["backend"]["validationErrorCount"], 0);
+        assert!(json["commandGraphSignature"]
+            .as_str()
+            .unwrap()
+            .starts_with("fnv1a64:"));
+        assert!(json["commandIds"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|value| value == "ui:compiled-menu:open-settings"));
+        assert!(json["commandKindCounts"]["text"].as_u64().unwrap() > 0);
         assert!(json["backend"]["skippedDrawsByReason"]
             .as_object()
             .unwrap()

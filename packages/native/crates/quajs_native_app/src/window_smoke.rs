@@ -1,5 +1,6 @@
 mod app;
 mod config;
+mod dev_qpk;
 mod error;
 mod frame;
 mod input;
@@ -13,7 +14,10 @@ use config::{load_window_smoke_frame_source, native_window_smoke_enabled};
 use winit::event_loop::EventLoop;
 
 #[allow(unused_imports)]
-pub use config::{WINDOW_SMOKE_ENV, WINDOW_SMOKE_FRAMES_ENV, WINDOW_SMOKE_FRAME_ENV};
+pub use config::{
+    WINDOW_DEV_ENV, WINDOW_DEV_QPK_ENV, WINDOW_SMOKE_ENV, WINDOW_SMOKE_FRAMES_ENV,
+    WINDOW_SMOKE_FRAME_ENV,
+};
 pub use error::NativeWindowSmokeError;
 pub use report::NativeWindowSmokeReport;
 

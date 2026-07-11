@@ -1,0 +1,46 @@
+schemaVersion: 1
+name: Broken Link Era Demo
+bundleId: dev.quajs.demo.brokenlinkera
+version: 0.1.0
+home:
+  title: 断链纪元 Demo
+  shortName: 断链纪元
+  description: QuaEngine Web and native renderer demo.
+  lang: zh-CN
+  themeColor: '#050507'
+  backgroundColor: '#050507'
+  startUrl: /
+  scope: /
+icons:
+  source: public/favicon.svg
+  favicon: public/favicon.svg
+targets:
+  web:
+    enabled: true
+    layout: landscape
+    devices:
+      desktop: true
+      pad: true
+      phone: true
+    pwa:
+      enabled: false
+      serviceWorker: generated
+  native:
+    enabled: true
+    platforms:
+      - macos
+      - windows
+      - linux
+    profiles:
+      - debug
+    layout: landscape
+    outputDir: dist/native
+    app:
+      bundleId: dev.quajs.demo.brokenlinkera
+      version: 0.1.0
+      buildNumber: '1'
+      icon: public/favicon.svg
+    build:
+      cargoFeatures:
+        - native-window
+        - quickjs-rquickjs
