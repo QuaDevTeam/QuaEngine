@@ -234,6 +234,7 @@ fn submits_frames_through_feature_gated_wgpu_skeleton() {
             feature_enabled: true,
             device_attached: false,
             submitted_frames: 1,
+            stable_plan_reuse_count: 0,
             resources: NativeRenderBackendResourceDiagnostics {
                 frames_with_missing_resources: 0,
                 missing_resource_count: 0,
@@ -262,5 +263,61 @@ fn submits_frames_through_feature_gated_wgpu_skeleton() {
             note: "wgpu-backend feature is enabled and records wgpu execution, primitive, mesh, buffer, render pass, pipeline, GPU frame upload, submission, device execution, resource cache, runtime apply plans, and in-memory runtime execution reports; the real device/surface bridge is not attached yet."
                 .to_string(),
         }
+    );
+}
+
+#[test]
+fn reuses_stable_device_plans_without_rewriting_gpu_buffers() {
+    let mut renderer = NativeRenderer::new(WgpuNativeRenderBackend::new(
+        WgpuNativeRenderBackendConfig::default(),
+    ));
+    renderer
+        .prepare_and_render(
+            resolve_stage_layout(
+                Some(ViewLayoutInput {
+                    preset: Some(ViewLayoutOrientation::Landscape),
+                    ..Default::default()
+                }),
+                StageContainerInput {
+                    width: Some(1600.0),
+                    height: Some(1000.0),
+                    ..Default::default()
+                },
+            ),
+            &view_with_ui_scroll(),
+        )
+        .unwrap();
+
+    renderer.render_frame().unwrap();
+
+    assert_eq!(renderer.backend().submissions().len(), 2);
+    assert_eq!(renderer.backend().draw_plans().len(), 1);
+    assert_eq!(renderer.backend().device_plans().len(), 1);
+    assert_eq!(renderer.backend().stable_plan_reuse_count(), 1);
+    assert_eq!(
+        renderer
+            .backend()
+            .last_runtime_plan()
+            .unwrap()
+            .queue_write_count,
+        0
+    );
+    assert_eq!(
+        renderer
+            .backend()
+            .last_runtime_plan()
+            .unwrap()
+            .queue_write_byte_len,
+        0
+    );
+    let cache = renderer.backend().last_resource_cache_plan().unwrap();
+    assert_eq!(cache.buffer_create_count, 0);
+    assert!(cache.buffer_reuse_count > 0);
+    assert_eq!(
+        renderer
+            .backend()
+            .runtime_snapshot()
+            .submitted_command_buffer_count,
+        2
     );
 }

@@ -8,12 +8,16 @@ mod memory;
 mod package_release;
 mod render_graph;
 mod replacement;
+#[cfg(feature = "wgpu-backend")]
+mod stable_submit;
 
 pub(super) const RENDER_GRAPH_ITERATIONS: usize = 64;
 #[cfg(feature = "wgpu-backend")]
 pub(super) const WGPU_BUFFER_TEXT_ITERATIONS: usize = 24;
 #[cfg(feature = "wgpu-backend")]
 pub(super) const WGPU_BUFFER_TEXT_NODE_COUNT: usize = 192;
+#[cfg(feature = "wgpu-backend")]
+pub(super) const WGPU_STABLE_SUBMIT_ITERATIONS: usize = 120;
 pub(super) const MEMORY_LEDGER_RESOURCE_COUNT: usize = 1_000;
 pub(super) const AUDIO_METRICS_ITERATIONS: usize = 96;
 pub(super) const AUDIO_METRICS_TRACK_COUNT: usize = 48;

@@ -143,6 +143,8 @@ where
     invalidated_bind_group_cache_labels: BTreeSet<String>,
     font_atlas_layouts: FontBackendAtlasLayoutMap,
     font_atlas_upload_count: usize,
+    planned_font_atlas_upload_count: usize,
+    stable_plan_reuse_count: usize,
 }
 
 impl WgpuNativeRenderBackend<InMemoryWgpuNativeRenderRuntimeExecutor> {
@@ -183,6 +185,8 @@ where
             invalidated_bind_group_cache_labels: BTreeSet::new(),
             font_atlas_layouts: BTreeMap::new(),
             font_atlas_upload_count: 0,
+            planned_font_atlas_upload_count: 0,
+            stable_plan_reuse_count: 0,
         }
     }
 
