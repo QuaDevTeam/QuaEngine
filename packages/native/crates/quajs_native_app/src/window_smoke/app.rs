@@ -6,12 +6,14 @@ use winit::event_loop::ActiveEventLoop;
 use winit::window::Window;
 
 use super::config::{load_window_smoke_target_frame_count, native_window_dev_enabled};
+use super::dev_bridge::{current_frame_source, persist_new_renderer_intents};
 use super::error::NativeWindowSmokeError;
 use super::frame::{frame_json_for_window, normalized_physical_size, window_frame_dimensions};
 use super::input::NativeWindowSmokeInputState;
 use super::metrics::{
     NativeWindowSmokeAudioMetrics, NativeWindowSmokeTextureMetrics, NativeWindowSmokeVideoMetrics,
 };
+use super::performance_hud::NativeWindowPerformanceHud;
 use super::report::NativeWindowSmokeReport;
 use super::report_builder::{build_window_smoke_report, NativeWindowSmokeReportInput};
 use super::texture_host::create_window_smoke_texture_host_from_env;
@@ -28,6 +30,7 @@ pub(super) struct NativeWindowSmokeApp {
     product_shell: Option<NativeProductAppShell<NativeProductWindowInMemoryLoop>>,
     input: NativeWindowSmokeInputState,
     texture_metrics: NativeWindowSmokeTextureMetrics,
+    performance_hud: NativeWindowPerformanceHud,
     pub(super) report: Option<NativeWindowSmokeReport>,
     pub(super) error: Option<NativeWindowSmokeError>,
 }
@@ -40,6 +43,7 @@ impl NativeWindowSmokeApp {
             product_shell: None,
             input: NativeWindowSmokeInputState::default(),
             texture_metrics: NativeWindowSmokeTextureMetrics::default(),
+            performance_hud: NativeWindowPerformanceHud::default(),
             report: None,
             error: None,
         }
@@ -99,16 +103,21 @@ impl NativeWindowSmokeApp {
     }
 
     fn render_once(&mut self) -> Result<NativeWindowSmokeReport, NativeWindowSmokeError> {
+        let frame_started_at = std::time::Instant::now();
         let window = self.window.as_ref().ok_or_else(|| {
             NativeWindowSmokeError::new("Native renderer smoke window is not initialized.")
         })?;
         let dimensions = window_frame_dimensions(window.inner_size(), window.scale_factor());
-        let frame_json = frame_json_for_window(
-            &self.frame_source,
+        let frame_source = current_frame_source(&self.frame_source)?;
+        let mut frame_json = frame_json_for_window(
+            &frame_source,
             dimensions.logical_width,
             dimensions.logical_height,
             dimensions.device_pixel_ratio,
         )?;
+        if native_window_dev_enabled() {
+            frame_json = self.performance_hud.inject(&frame_json, dimensions)?;
+        }
         let Some(mut product_shell) = self.product_shell.take() else {
             return Err(NativeWindowSmokeError::new(
                 "Native renderer smoke runtime is not initialized.",
@@ -143,6 +152,7 @@ impl NativeWindowSmokeApp {
                 },
             );
         self.product_shell = Some(product_shell);
+        self.flush_dev_renderer_intents()?;
 
         let product_shell = self.product_shell.as_ref().ok_or_else(|| {
             NativeWindowSmokeError::new("Native renderer smoke runtime is not initialized.")
@@ -198,7 +208,7 @@ impl NativeWindowSmokeApp {
         let recovery_metrics = window_loop.recovery_metrics();
 
         let presentation = runtime.presentation();
-        Ok(build_window_smoke_report(NativeWindowSmokeReportInput {
+        let report = build_window_smoke_report(NativeWindowSmokeReportInput {
             adapter_name: &presentation.adapter_name,
             surface_format: &presentation.surface_format,
             present_mode: &presentation.present_mode,
@@ -238,7 +248,16 @@ impl NativeWindowSmokeApp {
                 .map(|diagnostics| diagnostics.nearest_filter_bind_group_count)
                 .unwrap_or_default(),
             frame_capture: frame_capture.as_ref(),
-        }))
+        });
+        if native_window_dev_enabled() {
+            self.performance_hud.record_frame(
+                frame_started_at.elapsed(),
+                frame_result.submission.command_count,
+                frame_result.submission.pass_count,
+                frame_result.submission.batch_count,
+            );
+        }
+        Ok(report)
     }
 
     fn resize_surface(&mut self, size: PhysicalSize<u32>) -> Result<(), NativeWindowSmokeError> {
@@ -276,8 +295,11 @@ impl NativeWindowSmokeApp {
             .window_loop_mut()
             .runtime_mut()
             .renderer_and_host_mut();
-        self.input
-            .dispatch_pointer_event(renderer, host, phase, point, button)
+        let result = self
+            .input
+            .dispatch_pointer_event(renderer, host, phase, point, button);
+        self.flush_dev_renderer_intents()?;
+        result
     }
 
     fn dispatch_window_pointer_move(
@@ -309,10 +331,12 @@ impl NativeWindowSmokeApp {
             return Ok(());
         };
 
-        self.input.dispatch_focus_event(
+        let result = self.input.dispatch_focus_event(
             product_shell.window_loop_mut().runtime_mut().host_mut(),
             focused,
-        )
+        );
+        self.flush_dev_renderer_intents()?;
+        result
     }
 
     fn dispatch_window_keyboard_event(
@@ -324,10 +348,12 @@ impl NativeWindowSmokeApp {
             return Ok(());
         };
 
-        self.input.dispatch_keyboard_event(
+        let result = self.input.dispatch_keyboard_event(
             product_shell.window_loop_mut().runtime_mut().host_mut(),
             event,
-        )
+        );
+        self.flush_dev_renderer_intents()?;
+        result
     }
 
     fn dispatch_window_ime_event(
@@ -339,10 +365,12 @@ impl NativeWindowSmokeApp {
             return Ok(());
         };
 
-        self.input.dispatch_ime_event(
+        let result = self.input.dispatch_ime_event(
             product_shell.window_loop_mut().runtime_mut().host_mut(),
             event,
-        )
+        );
+        self.flush_dev_renderer_intents()?;
+        result
     }
 
     fn cancel_window_ime_composition(&mut self) -> Result<(), NativeWindowSmokeError> {
@@ -359,6 +387,16 @@ impl NativeWindowSmokeApp {
         if let Some(window) = &self.window {
             window.request_redraw();
         }
+    }
+
+    fn flush_dev_renderer_intents(&mut self) -> Result<(), NativeWindowSmokeError> {
+        let Some(product_shell) = self.product_shell.as_mut() else {
+            return Ok(());
+        };
+        persist_new_renderer_intents(
+            product_shell.window_loop_mut().runtime_mut().host_mut(),
+            &mut self.input.persisted_intent_count,
+        )
     }
 
     fn apply_product_shell_action(

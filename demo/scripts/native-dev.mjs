@@ -12,12 +12,14 @@ import { spawn } from 'node:child_process'
 import { watch } from 'node:fs'
 import { readFile, rm } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
+import { startNativeIntentPump } from './native-intent-bridge.mjs'
 
 const DEMO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const REPO_ROOT = resolve(DEMO_ROOT, '..')
 const FRAME_PATH = resolve(DEMO_ROOT, 'dist/native/dev/frame.json')
 const CAPTURE_PATH = resolve(DEMO_ROOT, 'dist/native/dev/frame.png')
+const INTENT_PATH = resolve(DEMO_ROOT, 'dist/native/dev/intents.jsonl')
 const ASSET_INDEX_PATH = resolve(DEMO_ROOT, 'dist/assets/index.json')
 const NATIVE_FEATURES = 'native-window,native-audio-rodio,quickjs-rquickjs'
 const smoke = process.argv.includes('--smoke')
@@ -28,6 +30,8 @@ const panel = requestedPanel || (smoke ? 'settings' : undefined)
 process.chdir(DEMO_ROOT)
 
 let nativeWindow
+let nativeDemoController
+let stopIntentPump
 let nativeSmokeOutput = ''
 let rebuilding = false
 let rebuildQueued = false
@@ -61,6 +65,7 @@ finally {
     watcher.close()
   }
   await stopNativeWindow()
+  await stopNativeDemoController()
 }
 
 async function rebuildAndLaunch() {
@@ -79,16 +84,21 @@ async function rebuildAndLaunch() {
       '--config',
       resolve(DEMO_ROOT, 'vite.native.config.ts'),
     ], { cwd: DEMO_ROOT })
-    await run(process.execPath, [
-      resolve(DEMO_ROOT, 'dist/native/dev-shell/frame.mjs'),
-      FRAME_PATH,
-    ], {
-      cwd: DEMO_ROOT,
-      env: {
-        ...process.env,
-        ...(panel ? { QUA_NATIVE_DEMO_PANEL: panel } : {}),
-      },
-    })
+    const nativeFrameModulePath = resolve(DEMO_ROOT, 'dist/native/dev-shell/frame.mjs')
+    if (smoke) {
+      await run(process.execPath, [nativeFrameModulePath, FRAME_PATH], {
+        cwd: DEMO_ROOT,
+        env: {
+          ...process.env,
+          ...(panel ? { QUA_NATIVE_DEMO_PANEL: panel } : {}),
+        },
+      })
+    }
+    else {
+      const nativeFrameModule = await import(`${pathToFileURL(nativeFrameModulePath).href}?revision=${Date.now()}`)
+      nativeDemoController = await nativeFrameModule.createDemoNativeController(FRAME_PATH, panel)
+      await rm(INTENT_PATH, { force: true })
+    }
     await validateNativeAudioFrame()
     if (panel) {
       await validateNativeFeatureFrame(panel)
@@ -152,7 +162,11 @@ async function rebuildAndLaunch() {
         ...(smoke ? { QUA_NATIVE_RENDERER_WINDOW_CAPTURE_PATH: CAPTURE_PATH } : {}),
         ...(smoke
           ? { QUA_NATIVE_RENDERER_WINDOW_SMOKE_FRAMES: '2' }
-          : { QUA_NATIVE_RENDERER_WINDOW_DEV: '1' }),
+          : {
+              QUA_NATIVE_RENDERER_WINDOW_DEV: '1',
+              QUA_NATIVE_RENDERER_WINDOW_DEV_FRAME_PATH: FRAME_PATH,
+              QUA_NATIVE_RENDERER_WINDOW_DEV_INTENT_PATH: INTENT_PATH,
+            }),
       },
       stdio: smoke ? ['ignore', 'pipe', 'pipe'] : 'inherit',
     })
@@ -166,6 +180,13 @@ async function rebuildAndLaunch() {
       nativeWindow.stderr.on('data', chunk => process.stderr.write(chunk))
     }
     nativeWindow.on('error', error => console.error(`Native renderer failed to start: ${error.message}`))
+    if (!smoke && nativeDemoController) {
+      stopIntentPump = startNativeIntentPump(
+        nativeDemoController,
+        INTENT_PATH,
+        error => console.error(`Native demo intent bridge failed: ${error.message}`),
+      )
+    }
     if (!once) {
       nativeWindow.on('exit', (code, signal) => {
         if (!stopped && !rebuilding) {
@@ -306,6 +327,17 @@ async function stopNativeWindow() {
   ])
   if (child.exitCode === null && child.signalCode === null) {
     child.kill('SIGKILL')
+  }
+}
+
+async function stopNativeDemoController() {
+  if (stopIntentPump) {
+    await stopIntentPump()
+    stopIntentPump = undefined
+  }
+  if (nativeDemoController) {
+    await nativeDemoController.destroy()
+    nativeDemoController = undefined
   }
 }
 

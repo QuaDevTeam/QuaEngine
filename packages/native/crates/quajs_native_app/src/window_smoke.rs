@@ -1,10 +1,12 @@
 mod app;
 mod config;
+mod dev_bridge;
 mod dev_qpk;
 mod error;
 mod frame;
 mod input;
 mod metrics;
+mod performance_hud;
 mod report;
 mod report_builder;
 mod texture_host;
