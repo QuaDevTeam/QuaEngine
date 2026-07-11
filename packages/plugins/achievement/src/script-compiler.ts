@@ -1,4 +1,4 @@
-import * as t from '@babel/types'
+import type * as t from '@babel/types'
 
 export const achievementDecoratorMappings = {
   UnlockAchievement: {
@@ -30,7 +30,7 @@ export function createAchievementDecoratorCompiler() {
     compile({ decorator }: {
       decorator: { name: string, args: unknown[] }
     }) {
-      const engineArg = t.memberExpression(t.identifier('ctx'), t.identifier('engine'))
+      const engineArg = memberExpression(identifier('ctx'), identifier('engine'))
 
       if (decorator.name === 'UnlockAchievement') {
         const target = requireDecoratorArg(decorator.name, decorator.args[0], 'achievement id or achievement id list')
@@ -42,15 +42,15 @@ export function createAchievementDecoratorCompiler() {
           args.push(toExpression(decorator.args[1]))
         }
         return {
-          call: t.callExpression(t.identifier('unlockAchievementWithEngine'), args),
+          call: callExpression(identifier('unlockAchievementWithEngine'), args),
           runtimeHelpers: ['unlockAchievementWithEngine'],
         }
       }
 
       return {
-        call: t.callExpression(t.identifier('openAchievementBoardWithEngine'), [
+        call: callExpression(identifier('openAchievementBoardWithEngine'), [
           engineArg,
-          decorator.args[0] !== undefined ? toExpression(decorator.args[0]) : t.objectExpression([]),
+          decorator.args[0] !== undefined ? toExpression(decorator.args[0]) : objectExpression([]),
         ]),
         runtimeHelpers: ['openAchievementBoardWithEngine'],
       }
@@ -76,30 +76,82 @@ function toExpression(value: unknown): t.Expression {
     return value
   }
   if (typeof value === 'string') {
-    return t.stringLiteral(value)
+    return stringLiteral(value)
   }
   if (typeof value === 'number') {
-    return t.numericLiteral(value)
+    return numericLiteral(value)
   }
   if (typeof value === 'boolean') {
-    return t.booleanLiteral(value)
+    return booleanLiteral(value)
   }
   if (value === null) {
-    return t.nullLiteral()
+    return nullLiteral()
   }
   if (Array.isArray(value)) {
-    return t.arrayExpression(value.map(item => toExpression(item)))
+    return arrayExpression(value.map(item => toExpression(item)))
   }
   if (typeof value === 'object') {
-    return t.objectExpression(
+    return objectExpression(
       Object.entries(value as Record<string, unknown>).map(([key, item]) =>
-        t.objectProperty(t.identifier(key), toExpression(item)),
+        objectProperty(identifier(key), toExpression(item)),
       ),
     )
   }
-  return t.identifier('undefined')
+  return identifier('undefined')
 }
 
 function isBabelExpression(value: unknown): value is t.Expression {
-  return typeof value === 'object' && value !== null && t.isExpression(value as t.Node)
+  if (typeof value !== 'object' || value === null) {
+    return false
+  }
+  const type = (value as { type?: unknown }).type
+  return typeof type === 'string' && (
+    type === 'Identifier'
+    || type === 'Super'
+    || type === 'Import'
+    || type === 'JSXElement'
+    || type === 'JSXFragment'
+    || type.endsWith('Expression')
+    || type.endsWith('Literal')
+  )
+}
+
+function identifier(name: string): t.Identifier {
+  return { type: 'Identifier', name } as t.Identifier
+}
+
+function memberExpression(object: t.Expression, property: t.Expression): t.MemberExpression {
+  return { type: 'MemberExpression', object, property, computed: false } as t.MemberExpression
+}
+
+function callExpression(callee: t.Expression, args: t.Expression[]): t.CallExpression {
+  return { type: 'CallExpression', callee, arguments: args } as t.CallExpression
+}
+
+function stringLiteral(value: string): t.StringLiteral {
+  return { type: 'StringLiteral', value } as t.StringLiteral
+}
+
+function numericLiteral(value: number): t.NumericLiteral {
+  return { type: 'NumericLiteral', value } as t.NumericLiteral
+}
+
+function booleanLiteral(value: boolean): t.BooleanLiteral {
+  return { type: 'BooleanLiteral', value } as t.BooleanLiteral
+}
+
+function nullLiteral(): t.NullLiteral {
+  return { type: 'NullLiteral' } as t.NullLiteral
+}
+
+function arrayExpression(elements: t.Expression[]): t.ArrayExpression {
+  return { type: 'ArrayExpression', elements } as t.ArrayExpression
+}
+
+function objectExpression(properties: t.ObjectProperty[]): t.ObjectExpression {
+  return { type: 'ObjectExpression', properties } as t.ObjectExpression
+}
+
+function objectProperty(key: t.Expression, value: t.Expression): t.ObjectProperty {
+  return { type: 'ObjectProperty', key, value, computed: false, shorthand: false } as t.ObjectProperty
 }
