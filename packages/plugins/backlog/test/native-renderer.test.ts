@@ -66,9 +66,9 @@ describe('backlog native renderer feature', () => {
     const overlay = (frame.view.ui as { overlays: Array<Record<string, unknown>> }).overlays[0]
     const surface = overlay.surface as { key: string, root: NativeUiSurfaceNodeProjection }
     const panel = findNode(surface.root, 'backlog-panel')
-    const entry = findNode(surface.root, 'backlog-entry-line-1')
-    const jump = findNode(surface.root, 'line-1-jump')
-    const voice = findNode(surface.root, 'line-1-voice')
+    const entry = findNode(surface.root, 'backlog-entry-0')
+    const jump = findNode(surface.root, 'backlog-entry-0-jump')
+    const voice = findNode(surface.root, 'backlog-entry-0-voice')
 
     expect(surface.key).toBe(BACKLOG_NATIVE_SURFACE_KEY)
     expect(overlay.provenance).toEqual({

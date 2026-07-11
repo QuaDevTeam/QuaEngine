@@ -35,7 +35,7 @@ describe('achievement native renderer feature', () => {
 
     expect(overlays).toEqual([
       expect.objectContaining({
-        elementId: 'achievement-toast-toast-1',
+        elementId: 'achievement-toast-0',
         overlayStack: 'toast',
         surface: expect.objectContaining({ key: ACHIEVEMENT_NATIVE_TOAST_SURFACE_KEY }),
       }),
@@ -83,10 +83,10 @@ describe('achievement native renderer feature', () => {
 
     const overlays = (frame.view.ui as { overlays: Array<Record<string, unknown>> }).overlays
     const board = overlays.find(item => item.elementId === 'achievement-board')!
-    const toast = overlays.find(item => item.elementId === 'achievement-toast-toast-1')!
+    const toast = overlays.find(item => item.elementId === 'achievement-toast-0')!
     const boardSurface = board.surface as { key: string, root: NativeUiSurfaceNodeProjection }
     const toastSurface = toast.surface as { key: string, root: NativeUiSurfaceNodeProjection }
-    const item = findNode(boardSurface.root, 'achievement-item-secret')
+    const item = findNode(boardSurface.root, 'achievement-item-0')
     const title = findNode(boardSurface.root, 'achievement-detail-title')
     const image = findNode(boardSurface.root, 'achievement-detail-image')
 

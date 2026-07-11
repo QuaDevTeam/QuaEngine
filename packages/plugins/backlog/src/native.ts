@@ -118,6 +118,7 @@ function createBacklogRoot(
         }),
         ...recentEntries.map((entry, index) => createBacklogEntryNode(
           entry,
+          index,
           {
             x: panelBounds.x + edge,
             y: contentTop + index * (entryHeight + entryGap),
@@ -147,6 +148,7 @@ function createBacklogRoot(
 
 function createBacklogEntryNode(
   entry: BacklogEntry,
+  index: number,
   bounds: NativeUiSurfaceRect,
   inheritedProvenance: NativePackageProvenance,
 ): NativeUiSurfaceNodeProjection {
@@ -157,7 +159,7 @@ function createBacklogEntryNode(
   const metadata = [formatGameTime(entry.gameTimeMs), entry.speaker].filter(Boolean).join('  ')
   const body = entry.text || entry.choices?.map(choice => choice.text).filter(Boolean).join(' / ') || ''
   const children: NativeUiSurfaceNodeProjection[] = [
-    node(`${entry.id}-metadata`, 'Text', {
+    node(`backlog-entry-${index}-metadata`, 'Text', {
       x: bounds.x + 18,
       y: bounds.y + 10,
       width: Math.max(0, textRight - bounds.x - 18),
@@ -167,7 +169,7 @@ function createBacklogEntryNode(
       style: { color: '#8f98a5', fontSize: 16 },
       provenance,
     }),
-    node(`${entry.id}-body`, 'Text', {
+    node(`backlog-entry-${index}-body`, 'Text', {
       x: bounds.x + 18,
       y: bounds.y + Math.max(36, bounds.height * 0.32),
       width: Math.max(0, textRight - bounds.x - 18),
@@ -182,7 +184,7 @@ function createBacklogEntryNode(
   let controlX = bounds.x + bounds.width - 18
   if (entry.voiceReplay && entry.voice) {
     controlX -= 106
-    children.push(node(`${entry.id}-voice`, 'Button', {
+    children.push(node(`backlog-entry-${index}-voice`, 'Button', {
       x: controlX,
       y: bounds.y + (bounds.height - 44) / 2,
       width: 106,
@@ -196,7 +198,7 @@ function createBacklogEntryNode(
   }
   if (entry.rewindable) {
     controlX -= controlX < bounds.x + bounds.width - 18 ? 118 : 106
-    children.push(node(`${entry.id}-jump`, 'Button', {
+    children.push(node(`backlog-entry-${index}-jump`, 'Button', {
       x: controlX,
       y: bounds.y + (bounds.height - 44) / 2,
       width: 106,
@@ -209,7 +211,7 @@ function createBacklogEntryNode(
     }))
   }
 
-  return node(`backlog-entry-${entry.id}`, 'Panel', bounds, {
+  return node(`backlog-entry-${index}`, 'Panel', bounds, {
     children,
     provenance,
     style: { backgroundColor: '#1a1e24', borderRadius: 4 },

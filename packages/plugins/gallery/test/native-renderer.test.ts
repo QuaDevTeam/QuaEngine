@@ -76,7 +76,7 @@ describe('gallery native renderer feature', () => {
 
     const overlay = (frame.view.ui as { overlays: Array<Record<string, unknown>> }).overlays[0]
     const surface = overlay.surface as { key: string, root: NativeUiSurfaceNodeProjection }
-    const locked = findNode(surface.root, 'gallery-entry-locked')
+    const locked = findNode(surface.root, 'gallery-entry-0')
     const media = findNode(surface.root, 'gallery-preview-media')
 
     expect(surface.key).toBe(GALLERY_NATIVE_SURFACE_KEY)

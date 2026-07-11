@@ -166,7 +166,7 @@ function createGalleryRoot(
             provenance,
           }),
           ...projection.catalogs.slice(0, MAX_CATALOGS).map((catalog, index) => node(
-            `gallery-catalog-${catalog.id}`,
+            `gallery-catalog-${index}`,
             'Button',
             {
               x: panel.x + edge + index * catalogWidth,
@@ -181,7 +181,7 @@ function createGalleryRoot(
               provenance: mergeProvenance(provenance, itemProvenance(catalog)),
             },
           )),
-          ...visibleEntries.map((entry, index) => createEntryButton(entry, {
+          ...visibleEntries.map((entry, index) => createEntryButton(entry, index, {
             x: panel.x + edge,
             y: bodyTop + index * (entryHeight + entryGap),
             width: listWidth - edge * 1.5,
@@ -201,13 +201,14 @@ function createGalleryRoot(
 
 function createEntryButton(
   entry: GalleryEntryProjectionItem,
+  index: number,
   bounds: NativeUiSurfaceRect,
   selected: boolean,
   inherited: NativePackageProvenance,
 ): NativeUiSurfaceNodeProjection {
   const provenance = mergeProvenance(inherited, itemProvenance(entry))
   const thumbnail = assetImage(entry.thumbnail)
-  return node(`gallery-entry-${entry.id}`, 'Button', bounds, {
+  return node(`gallery-entry-${index}`, 'Button', bounds, {
     text: entry.title || (entry.unlocked ? 'Gallery entry' : 'Locked'),
     image: thumbnail,
     intent: uiIntent(ACTIONS.selectEntry, { entryId: entry.id }),
@@ -268,7 +269,7 @@ function createPreview(
         style: { color: '#aab4c0', fontSize: 17, textOverflow: 'ellipsis' },
         provenance,
       }),
-      ...contentButtons.map((item, index) => node(`gallery-content-${item.id}`, 'Button', {
+      ...contentButtons.map((item, index) => node(`gallery-content-${index}`, 'Button', {
         x: bounds.x + index * (bounds.width / contentButtons.length),
         y: bounds.y + titleHeight,
         width: bounds.width / contentButtons.length - 6,
