@@ -178,9 +178,14 @@ export type {
 
 export type {
   NativePackageProvenance,
+  NativeUiSurfaceControlOptionProjection,
+  NativeUiSurfaceControlProjection,
   NativeUiSurfaceIntentProjection,
   NativeUiSurfaceNodeKind,
   NativeUiSurfaceNodeProjection,
   NativeUiSurfaceProjection,
+  NativeUiSurfaceRangeControlProjection,
   NativeUiSurfaceRect,
+  NativeUiSurfaceSelectControlProjection,
+  NativeUiSurfaceSwitchControlProjection,
 } from './surface-types'

@@ -78,6 +78,8 @@ async function rebuildAndLaunch() {
     await stopNativeWindow()
     console.log('Building native demo assets...')
     await run(resolveBin('quack'), ['workspace:bundle', '--all'], { cwd: DEMO_ROOT })
+    console.log('Building native TypeScript renderer contracts...')
+    await buildNativeTypeScriptPackages()
     console.log('Projecting QuaEngine state into a native renderer frame...')
     await run(resolveBin('vite'), [
       'build',
@@ -403,6 +405,20 @@ function cargoArgs() {
 function resolveBin(name) {
   const suffix = process.platform === 'win32' ? '.cmd' : ''
   return resolve(DEMO_ROOT, 'node_modules/.bin', `${name}${suffix}`)
+}
+
+async function buildNativeTypeScriptPackages() {
+  for (const packageName of [
+    '@quajs/native-ui-compiler',
+    '@quajs/plugin-settings',
+    '@quajs/engine-native',
+  ]) {
+    const command = process.env.npm_execpath ? process.execPath : 'pnpm'
+    const args = process.env.npm_execpath
+      ? [process.env.npm_execpath, '--filter', packageName, 'build']
+      : ['--filter', packageName, 'build']
+    await run(command, args, { cwd: REPO_ROOT })
+  }
 }
 
 function run(command, args, options = {}) {
