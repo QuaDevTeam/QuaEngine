@@ -91,28 +91,29 @@ function createSettingsRoot(
 ): NativeUiSurfaceNodeProjection {
   const form = createSettingsFormProjection(projection)
   const edge = Math.max(24, Math.min(context.safeArea.width, context.logicalHeight) * 0.03)
-  const maxPanelWidth = context.logicalHeight * 1.12
-  const panelWidth = Math.min(context.safeArea.width - edge * 2, maxPanelWidth)
+  const fields = form.scopes.flatMap(scope => flattenScopeFields(scope))
+  const headerHeight = 88
+  const rowHeight = 66
+  const rowGap = 1
+  const contentPadding = 26
+  const maxVisibleFields = Math.max(1, Math.min(fields.length, 8))
+  const desiredPanelHeight = headerHeight + contentPadding * 2
+    + maxVisibleFields * rowHeight + Math.max(0, maxVisibleFields - 1) * rowGap
+  const panelWidth = Math.min(context.safeArea.width - edge * 2, 1040)
+  const panelHeight = Math.min(context.safeArea.height - edge * 2, Math.max(360, desiredPanelHeight))
   const panel = {
     x: context.safeArea.x + (context.safeArea.width - panelWidth) / 2,
-    y: context.safeArea.y + edge,
+    y: context.safeArea.y + (context.safeArea.height - panelHeight) / 2,
     width: panelWidth,
-    height: context.safeArea.height - edge * 2,
+    height: panelHeight,
   }
-  const headerHeight = 88
   const content = {
-    x: panel.x + edge,
-    y: panel.y + headerHeight,
-    width: panel.width - edge * 2,
-    height: panel.height - headerHeight - edge,
+    x: panel.x + contentPadding,
+    y: panel.y + headerHeight + contentPadding,
+    width: panel.width - contentPadding * 2,
+    height: panel.height - headerHeight - contentPadding * 2,
   }
-  const columns = content.width >= 900 ? 2 : 1
-  const columnGap = 18
-  const columnWidth = (content.width - columnGap * (columns - 1)) / columns
-  const rowHeight = 64
-  const rows = Math.max(1, Math.floor(content.height / rowHeight))
-  const capacity = rows * columns
-  const fields = form.scopes.flatMap(scope => flattenScopeFields(scope)).slice(0, capacity)
+  const visibleFields = fields.slice(0, Math.max(1, Math.floor((content.height + rowGap) / (rowHeight + rowGap))))
 
   return node('settings-root', 'Fragment', stage(context), {
     provenance,
@@ -124,20 +125,31 @@ function createSettingsRoot(
       }),
       node('settings-panel', 'Panel', panel, {
         provenance,
-        style: { backgroundColor: '#12171d', borderColor: '#626d7a', borderRadius: 6, borderWidth: 1 },
+        style: {
+          backgroundColor: '#12171d',
+          borderColor: '#626d7a',
+          borderRadius: 6,
+          borderWidth: 1,
+          boxShadow: panelShadow(),
+        },
         children: [
           node('settings-title', 'Text', {
-            x: panel.x + edge,
+            x: panel.x + contentPadding,
             y: panel.y + 24,
-            width: panel.width - edge * 2 - 224,
+            width: panel.width - contentPadding * 2 - 224,
             height: 44,
           }, {
-            text: 'Settings',
+            text: 'Config',
             provenance,
-            style: { color: '#f4f6f8', fontSize: 34, fontWeight: 700 },
+            style: {
+              color: '#f4f6f8',
+              fontSize: 34,
+              fontWeight: 700,
+              textShadow: titleShadow(),
+            },
           }),
           node('settings-reset-all', 'Button', {
-            x: panel.x + panel.width - edge - 216,
+            x: panel.x + panel.width - contentPadding - 216,
             y: panel.y + 22,
             width: 102,
             height: 46,
@@ -148,7 +160,7 @@ function createSettingsRoot(
             style: buttonStyle('#59442f'),
           }),
           node('settings-close', 'Button', {
-            x: panel.x + panel.width - edge - 104,
+            x: panel.x + panel.width - contentPadding - 104,
             y: panel.y + 22,
             width: 104,
             height: 46,
@@ -158,18 +170,18 @@ function createSettingsRoot(
             provenance,
             style: buttonStyle('#303943'),
           }),
-          ...fields.map((item, index) => createFieldNode(
+          ...visibleFields.map((item, index) => createFieldNode(
             item.scope,
             item.field,
             {
-              x: content.x + (index % columns) * (columnWidth + columnGap),
-              y: content.y + Math.floor(index / columns) * rowHeight,
-              width: columnWidth,
-              height: rowHeight - 10,
+              x: content.x,
+              y: content.y + index * (rowHeight + rowGap),
+              width: content.width,
+              height: rowHeight,
             },
             provenance,
           )),
-          ...(fields.length === 0
+          ...(visibleFields.length === 0
             ? [node('settings-empty', 'Text', content, {
                 text: 'No player settings',
                 provenance,
@@ -207,24 +219,75 @@ function createFieldNode(
         scope: scope.scope,
       })
     : undefined
+  const description = error || field.schema.description || field.control.description
+  const valueText = formatNativeSettingsValue(field, value)
   return node(`settings-field-${safeId(scope.scope)}-${safeId(field.pathKey)}`, intent ? 'Button' : 'Panel', bounds, {
-    text: `${label}: ${value}${error ? ` - ${error}` : ''}`,
     intent,
     provenance,
     style: {
-      ...buttonStyle(error ? '#512f34' : field.readonly ? '#252a30' : '#1d2833'),
+      ...buttonStyle(error ? '#351b20' : field.readonly ? '#14171c' : '#0d1117'),
       color: field.readonly ? '#9ba3ad' : '#eef1f5',
       textAlign: 'left',
     },
+    children: [
+      node(`settings-field-${safeId(scope.scope)}-${safeId(field.pathKey)}-label`, 'Text', {
+        x: bounds.x + 18,
+        y: bounds.y + (description ? 10 : 20),
+        width: bounds.width * 0.58,
+        height: 24,
+      }, {
+        text: label,
+        provenance,
+        style: { color: '#f4f1e9', fontSize: 18, fontWeight: 700 },
+      }),
+      ...(description
+        ? [node(`settings-field-${safeId(scope.scope)}-${safeId(field.pathKey)}-description`, 'Text', {
+            x: bounds.x + 18,
+            y: bounds.y + 36,
+            width: bounds.width * 0.58,
+            height: 18,
+          }, {
+            text: description,
+            provenance,
+            style: { color: error ? '#ef9aa4' : '#8e949d', fontSize: 13, textOverflow: 'ellipsis' },
+          })]
+        : []),
+      node(`settings-field-${safeId(scope.scope)}-${safeId(field.pathKey)}-value`, 'Text', {
+        x: bounds.x + bounds.width * 0.62,
+        y: bounds.y + 20,
+        width: bounds.width * 0.34 - 18,
+        height: 26,
+      }, {
+        text: valueText,
+        provenance,
+        style: {
+          color: field.readonly ? '#9ba3ad' : '#e7c76f',
+          fontSize: 17,
+          fontWeight: 700,
+          textAlign: 'right',
+        },
+      }),
+    ],
   })
 }
 
 function flattenScopeFields(scope: SettingsScopeFormProjection) {
   const fields = scope.groups.flatMap(group => group.fields.flatMap(flattenField)).filter(field => field.control.hidden !== true)
-  return [
-    { scope, field: undefined },
-    ...fields.map(field => ({ scope, field })),
-  ]
+  return fields.map(field => ({ scope, field }))
+}
+
+function formatNativeSettingsValue(field: SettingsFieldFormProjection, value: string) {
+  const control = settingsFieldControlKind(field)
+  if (control === 'switch' || control === 'checkbox') {
+    return field.value ? 'ON' : 'OFF'
+  }
+  if (field.pathKey === 'textSpeedCps') {
+    return `${value} cps`
+  }
+  if (field.pathKey === 'autoAdvanceDelayMs') {
+    return `${value} ms`
+  }
+  return value
 }
 
 function flattenField(field: SettingsFieldFormProjection): SettingsFieldFormProjection[] {
@@ -294,6 +357,26 @@ function buttonStyle(backgroundColor: string) {
     color: '#f2f4f7',
     fontSize: 17,
     textAlign: 'center' as const,
+  }
+}
+
+function panelShadow() {
+  return {
+    offsetX: 0,
+    offsetY: 18,
+    blurRadius: 48,
+    spreadRadius: 0,
+    color: 'rgba(0,0,0,0.42)',
+  }
+}
+
+function titleShadow() {
+  return {
+    offsetX: 0,
+    offsetY: 2,
+    blurRadius: 10,
+    spreadRadius: 0,
+    color: 'rgba(0,0,0,0.72)',
   }
 }
 

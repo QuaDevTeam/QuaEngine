@@ -143,7 +143,13 @@ function createBoardRoot(
         provenance,
       }),
       node('achievement-panel', 'Panel', panel, {
-        style: { backgroundColor: '#11161c', borderColor: '#626c79', borderRadius: 6, borderWidth: 1 },
+        style: {
+          backgroundColor: '#11161c',
+          borderColor: '#626c79',
+          borderRadius: 6,
+          borderWidth: 1,
+          boxShadow: panelShadow(),
+        },
         provenance,
         children: [
           node('achievement-title', 'Text', {
@@ -153,7 +159,12 @@ function createBoardRoot(
             height: 46,
           }, {
             text: `Achievements ${unlockedCount}/${projection.achievements.length}`,
-            style: { color: '#f4f6f8', fontSize: 34, fontWeight: 700 },
+            style: {
+              color: '#f4f6f8',
+              fontSize: 34,
+              fontWeight: 700,
+              textShadow: titleShadow(),
+            },
             provenance,
           }),
           node('achievement-filter-unlocked', 'Button', {
@@ -408,6 +419,26 @@ function buttonStyle(backgroundColor: string) {
     color: '#f2f4f7',
     fontSize: 17,
     textAlign: 'center' as const,
+  }
+}
+
+function panelShadow() {
+  return {
+    offsetX: 0,
+    offsetY: 18,
+    blurRadius: 48,
+    spreadRadius: 0,
+    color: 'rgba(0,0,0,0.42)',
+  }
+}
+
+function titleShadow() {
+  return {
+    offsetX: 0,
+    offsetY: 2,
+    blurRadius: 10,
+    spreadRadius: 0,
+    color: 'rgba(0,0,0,0.72)',
   }
 }
 

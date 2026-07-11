@@ -66,6 +66,7 @@ describe('backlog native renderer feature', () => {
     const overlay = (frame.view.ui as { overlays: Array<Record<string, unknown>> }).overlays[0]
     const surface = overlay.surface as { key: string, root: NativeUiSurfaceNodeProjection }
     const panel = findNode(surface.root, 'backlog-panel')
+    const title = findNode(surface.root, 'backlog-title')
     const entry = findNode(surface.root, 'backlog-entry-0')
     const jump = findNode(surface.root, 'backlog-entry-0-jump')
     const voice = findNode(surface.root, 'backlog-entry-0-voice')
@@ -77,6 +78,8 @@ describe('backlog native renderer feature', () => {
     })
     expect(panel?.bounds.x).toBeGreaterThanOrEqual(96)
     expect((panel?.bounds.x || 0) + (panel?.bounds.width || 0)).toBeLessThanOrEqual(1824)
+    expect(panel?.style?.boxShadow).toEqual(expect.objectContaining({ blurRadius: 48, offsetY: 18 }))
+    expect(title?.style?.textShadow).toEqual(expect.objectContaining({ blurRadius: 10, offsetY: 2 }))
     expect(entry?.provenance).toEqual({
       contentPackageId: 'runtime.backlog',
       requiredRuntimePackages: [

@@ -66,9 +66,13 @@ describe('settings native renderer feature', () => {
 
     const overlay = (frame.view.ui as { overlays: Array<Record<string, unknown>> }).overlays[0]
     const surface = overlay.surface as { key: string, root: NativeUiSurfaceNodeProjection }
-    const confirm = findNodeByText(surface.root, 'Confirm Before Quit: true')
-    const speed = findNodeByText(surface.root, 'Text Speed: 36')
-    const nickname = findNodeByText(surface.root, 'Nickname: Player')
+    const confirm = findNode(surface.root, 'settings-field--quajs-plugin-settings-confirmBeforeQuit')
+    const speed = findNode(surface.root, 'settings-field--quajs-plugin-settings-textSpeedCps')
+    const nickname = findNode(surface.root, 'settings-field--quajs-plugin-settings-nickname')
+    const confirmValue = findNode(surface.root, 'settings-field--quajs-plugin-settings-confirmBeforeQuit-value')
+    const speedValue = findNode(surface.root, 'settings-field--quajs-plugin-settings-textSpeedCps-value')
+    const panel = findNode(surface.root, 'settings-panel')
+    const title = findNode(surface.root, 'settings-title')
 
     expect(surface.key).toBe(SETTINGS_NATIVE_SURFACE_KEY)
     expect(overlay).toEqual(expect.objectContaining({
@@ -79,6 +83,10 @@ describe('settings native renderer feature', () => {
     expect(confirm?.intent?.metadata?.patchJson).toBe('{"confirmBeforeQuit":false}')
     expect(speed?.intent?.metadata?.patchJson).toBe('{"textSpeedCps":37}')
     expect(nickname?.intent).toBeUndefined()
+    expect(confirmValue?.text).toBe('ON')
+    expect(speedValue?.text).toBe('36 cps')
+    expect(panel?.style?.boxShadow).toEqual(expect.objectContaining({ blurRadius: 48, offsetY: 18 }))
+    expect(title?.style?.textShadow).toEqual(expect.objectContaining({ blurRadius: 10, offsetY: 2 }))
     expect(confirm?.provenance).toEqual({
       contentPackageId: 'runtime.settings',
       requiredRuntimePackages: ['runtime.settings'],
@@ -112,15 +120,15 @@ describe('settings native renderer feature', () => {
   })
 })
 
-function findNodeByText(
+function findNode(
   root: NativeUiSurfaceNodeProjection,
-  text: string,
+  id: string,
 ): NativeUiSurfaceNodeProjection | undefined {
-  if (root.text === text) {
+  if (root.id === id) {
     return root
   }
   for (const child of root.children || []) {
-    const found = findNodeByText(child, text)
+    const found = findNode(child, id)
     if (found) {
       return found
     }
