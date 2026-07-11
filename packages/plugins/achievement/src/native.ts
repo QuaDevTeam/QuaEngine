@@ -190,7 +190,7 @@ function createBoardRoot(
             provenance,
           }),
           ...projection.groups.slice(0, MAX_GROUPS).map((group, index) => node(
-            `achievement-group-${group.id}`,
+            `achievement-group-${index}`,
             'Button',
             {
               x: panel.x + edge + index * groupWidth,
@@ -205,7 +205,7 @@ function createBoardRoot(
               provenance: mergeProvenance(provenance, itemProvenance(group)),
             },
           )),
-          ...visible.map((achievement, index) => createAchievementRow(achievement, {
+          ...visible.map((achievement, index) => createAchievementRow(achievement, index, {
             x: panel.x + edge,
             y: bodyTop + index * (rowHeight + rowGap),
             width: listWidth - edge * 1.5,
@@ -225,6 +225,7 @@ function createBoardRoot(
 
 function createAchievementRow(
   achievement: AchievementProjectionItem,
+  index: number,
   bounds: NativeUiSurfaceRect,
   selected: boolean,
   inherited: NativePackageProvenance,
@@ -233,7 +234,7 @@ function createAchievementRow(
   const hidden = achievement.hidden === true && !achievement.unlocked
   const image = hidden ? undefined : assetImage(achievement.icon)
   const progress = progressLabel(achievement)
-  return node(`achievement-item-${achievement.id}`, 'Button', bounds, {
+  return node(`achievement-item-${index}`, 'Button', bounds, {
     text: `${hidden ? 'Hidden Achievement' : achievement.title}  ${progress}`,
     image,
     intent: uiIntent(ACTIONS.selectAchievement, { achievementId: achievement.id }),
@@ -332,7 +333,7 @@ function createToastOverlay(
     height,
   }
   return {
-    elementId: `achievement-toast-${notification.id}`,
+    elementId: `achievement-toast-${index}`,
     visible: true,
     renderMode: 'render-only' as const,
     interactive: true,
@@ -341,7 +342,7 @@ function createToastOverlay(
     zIndex: finiteInteger(notification.zIndex) ?? 0,
     surface: {
       key: ACHIEVEMENT_NATIVE_TOAST_SURFACE_KEY,
-      root: node(`achievement-toast-root-${notification.id}`, 'Button', bounds, {
+      root: node(`achievement-toast-root-${index}`, 'Button', bounds, {
         text: [notification.title, notification.summary].filter(Boolean).join(' - '),
         image: assetImage(notification.icon),
         intent: uiIntent(ACTIONS.dismiss, {
