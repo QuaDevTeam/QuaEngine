@@ -6,6 +6,8 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createDemoEngineRuntime } from '../../game/runtime-shared'
+import { DEMO_GALLERY_CATALOG_ID } from '../../game/content/gallery'
+import { DEMO_NATIVE_FEATURE_SURFACES } from './features'
 
 const DEMO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../..')
 const DEFAULT_FRAME_PATH = resolve(DEMO_ROOT, 'dist/native/dev/frame.json')
@@ -86,10 +88,12 @@ export async function createDemoNativeFrame(outputPath = DEFAULT_FRAME_PATH): Pr
       }],
     }, { wait: false })
     await runtime.engine.showUI('native-dev-status', createNativeDevSurface())
+    await openNativeDemoPanel(runtime, process.env.QUA_NATIVE_DEMO_PANEL)
 
     const view = runtime.engine.getViewState()
     const animationStartedAt = view.animations[0]?.startedAt ?? Date.now()
     const frame = createNativeRendererJsonFrameInput(view as unknown as NativeRendererEngineViewProjection, {
+      featureSurfaces: DEMO_NATIVE_FEATURE_SURFACES,
       now: animationStartedAt + 900,
     })
     await mkdir(dirname(outputPath), { recursive: true })
@@ -100,6 +104,58 @@ export async function createDemoNativeFrame(outputPath = DEFAULT_FRAME_PATH): Pr
     clearCharacterRuntime()
     await runtime.engine.destroy()
     QuaEngine.resetInstance()
+  }
+}
+
+async function openNativeDemoPanel(
+  runtime: Awaited<ReturnType<typeof createDemoEngineRuntime>>,
+  panel: string | undefined,
+): Promise<void> {
+  switch (panel) {
+    case 'settings':
+      await runtime.engine.showUI('settings', {
+        scene: {
+          id: 'native-settings',
+          presentation: 'overlay',
+          overlay: { overlayStack: 'overlay', zIndex: 60 },
+        },
+      })
+      break
+    case 'backlog':
+      await runtime.backlog.setVisible(true, {
+        overlayStack: 'overlay',
+        zIndex: 50,
+        scene: {
+          id: 'native-backlog',
+          presentation: 'overlay',
+          overlay: { defaultChrome: false, overlayStack: 'overlay', zIndex: 50 },
+        },
+      })
+      break
+    case 'gallery':
+      await runtime.gallery.openScene({
+        catalogId: DEMO_GALLERY_CATALOG_ID,
+        entryId: 'cg.title',
+        overlayStack: 'overlay',
+        zIndex: 70,
+      })
+      break
+    case 'achievement':
+      await runtime.achievement.unlockAchievement('first-signal', {
+        source: 'native-demo',
+      })
+      await runtime.achievement.openBoard({
+        achievementId: 'first-signal',
+        groupId: 'demo',
+        overlayStack: 'overlay',
+        zIndex: 80,
+      })
+      break
+    case undefined:
+    case '':
+      break
+    default:
+      throw new Error(`Unsupported native demo panel "${panel}".`)
   }
 }
 

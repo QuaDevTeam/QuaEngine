@@ -1,4 +1,8 @@
 import { NATIVE_TARGET_BOOTSTRAP } from '@quajs/native-contracts'
+import { ACHIEVEMENT_NATIVE_RENDERER_ENTRY } from '@quajs/plugin-achievement/native'
+import { BACKLOG_NATIVE_RENDERER_ENTRY } from '@quajs/plugin-backlog/native'
+import { GALLERY_NATIVE_RENDERER_ENTRY } from '@quajs/plugin-gallery/native'
+import { SETTINGS_NATIVE_RENDERER_ENTRY } from '@quajs/plugin-settings/native'
 import {
   createQuaProjectNativeArtifactPlans,
   emitQuaProjectNativeTargetBundleManifest,
@@ -17,6 +21,8 @@ const ASSET_INDEX_PATH = resolve(DEMO_ROOT, 'dist/assets/index.json')
 const NATIVE_FEATURES = 'native-window,quickjs-rquickjs'
 const smoke = process.argv.includes('--smoke')
 const once = process.argv.includes('--once') || smoke
+const requestedPanel = process.argv.find(argument => argument.startsWith('--panel='))?.slice('--panel='.length)
+const panel = requestedPanel || (smoke ? 'settings' : undefined)
 
 process.chdir(DEMO_ROOT)
 
@@ -75,7 +81,16 @@ async function rebuildAndLaunch() {
     await run(process.execPath, [
       resolve(DEMO_ROOT, 'dist/native/dev-shell/frame.mjs'),
       FRAME_PATH,
-    ], { cwd: DEMO_ROOT })
+    ], {
+      cwd: DEMO_ROOT,
+      env: {
+        ...process.env,
+        ...(panel ? { QUA_NATIVE_DEMO_PANEL: panel } : {}),
+      },
+    })
+    if (panel) {
+      await validateNativeFeatureFrame(panel)
+    }
 
     const project = await loadQuaProjectConfig({ cwd: DEMO_ROOT })
     const plan = selectNativePlan(project)
@@ -97,6 +112,7 @@ async function rebuildAndLaunch() {
         '@quajs/pipeline',
         '@quajs/character',
         '@quajs/plugin-animation',
+        '@quajs/plugin-achievement',
         '@quajs/plugin-audio',
         '@quajs/plugin-background',
         '@quajs/plugin-backlog',
@@ -109,7 +125,12 @@ async function rebuildAndLaunch() {
       rendererEntries: [{
         specifier: '@quajs/native-renderer/builtin',
         target: 'native',
-      }],
+      }, ...[
+        ACHIEVEMENT_NATIVE_RENDERER_ENTRY,
+        BACKLOG_NATIVE_RENDERER_ENTRY,
+        GALLERY_NATIVE_RENDERER_ENTRY,
+        SETTINGS_NATIVE_RENDERER_ENTRY,
+      ].map(specifier => ({ specifier, target: 'native' }))],
     })
     const qpkPath = await resolveLatestQpk(plan.platform)
     console.log(`Launching native renderer with ${qpkPath}`)
@@ -163,6 +184,10 @@ function installWatchers() {
     resolve(REPO_ROOT, 'packages/native/engine-native/src'),
     resolve(REPO_ROOT, 'packages/native/crates/quajs_wgpu_renderer/src'),
     resolve(REPO_ROOT, 'packages/native/crates/quajs_native_app/src'),
+    resolve(REPO_ROOT, 'packages/plugins/achievement/src'),
+    resolve(REPO_ROOT, 'packages/plugins/backlog/src'),
+    resolve(REPO_ROOT, 'packages/plugins/gallery/src'),
+    resolve(REPO_ROOT, 'packages/plugins/settings/src'),
   ]) {
     watchers.push(watch(directory, { recursive: true }, (_event, filename) => {
       if (!filename || filename.includes('/dist/') || filename.endsWith('.tmp')) {
@@ -181,6 +206,26 @@ function installWatchers() {
       debounceTimer = setTimeout(() => void rebuildAndLaunch().catch(error => console.error(error)), 180)
     }))
   }
+}
+
+async function validateNativeFeatureFrame(panelName) {
+  const expectedSurface = {
+    achievement: 'plugin-achievement/native-board',
+    backlog: 'plugin-backlog/native',
+    gallery: 'plugin-gallery/native',
+    settings: 'plugin-settings/native',
+  }[panelName]
+  if (!expectedSurface) {
+    throw new Error(`Unsupported native demo panel "${panelName}".`)
+  }
+  const frame = JSON.parse(await readFile(FRAME_PATH, 'utf8'))
+  const overlays = frame.view?.ui?.overlays
+  const found = Array.isArray(overlays)
+    && overlays.some(overlay => overlay?.surface?.key === expectedSurface)
+  if (!found) {
+    throw new Error(`Native demo frame did not project expected surface "${expectedSurface}".`)
+  }
+  console.log(`Native demo frame validated feature surface ${expectedSurface}.`)
 }
 
 async function stopNativeWindow() {

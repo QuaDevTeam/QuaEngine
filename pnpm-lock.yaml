@@ -337,6 +337,9 @@ importers:
       '@quajs/pipeline':
         specifier: workspace:*
         version: link:../packages/core/pipeline
+      '@quajs/plugin-achievement':
+        specifier: workspace:*
+        version: link:../packages/plugins/achievement
       '@quajs/plugin-animation':
         specifier: workspace:*
         version: link:../packages/plugins/animation

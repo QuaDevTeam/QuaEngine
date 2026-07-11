@@ -1,5 +1,6 @@
 import type { EngineConfig } from '@quajs/engine'
 import { QuaEngine, UiOverlayPlugin } from '@quajs/engine'
+import { AchievementPlugin } from '@quajs/plugin-achievement'
 import { AnimationPlugin } from '@quajs/plugin-animation'
 import { AudioPlugin } from '@quajs/plugin-audio'
 import { BacklogPlugin } from '@quajs/plugin-backlog'
@@ -20,7 +21,12 @@ export interface DemoEngineRuntimeOptions {
 export async function createDemoEngineRuntime(options: DemoEngineRuntimeOptions) {
   const engine = new QuaEngine(options.engine)
   const animation = new AnimationPlugin()
+  const achievement = new AchievementPlugin({
+    profileId: 'demo',
+    notifications: { mode: 'toast', durationMs: 3200 },
+  })
   const audio = new AudioPlugin()
+  const backlog = new BacklogPlugin()
   const background = new BackgroundPlugin()
   const storyGraph = new StoryGraphPlugin()
   const gallery = new GalleryPlugin({ profileId: 'demo' })
@@ -29,7 +35,7 @@ export async function createDemoEngineRuntime(options: DemoEngineRuntimeOptions)
     .use(background)
     .use(animation)
     .use(audio)
-    .use(new BacklogPlugin())
+    .use(backlog)
     .use(storyGraph)
     .use(gallery)
     .use(new SettingsPlugin({
@@ -46,16 +52,33 @@ export async function createDemoEngineRuntime(options: DemoEngineRuntimeOptions)
         },
       },
     }))
+    .use(achievement)
     .use(new FontsPlugin())
     .use(new UiOverlayPlugin())
 
   await engine.init()
   await registerDemoGallery(gallery)
+  await achievement.registerDefinitions({
+    groups: [{
+      id: 'demo',
+      title: 'Demo',
+    }],
+    achievements: [{
+      id: 'first-signal',
+      groupId: 'demo',
+      title: 'First Signal',
+      summary: 'Recover the first human signal from the blackout.',
+      icon: { type: 'images', name: 'cg/blackout.webp' },
+      maxProgress: 1,
+    }],
+  })
   await registerDemoStoryGraph(storyGraph)
 
   return {
+    achievement,
     animation,
     audio,
+    backlog,
     background,
     engine,
     gallery,
