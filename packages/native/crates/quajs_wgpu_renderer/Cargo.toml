@@ -19,4 +19,4 @@ quajs_native_runtime = { path = "../quajs_native_runtime" }
 serde.workspace = true
 serde_json.workspace = true
 wgpu = { version = "29.0.3", optional = true, default-features = false, features = ["std", "wgsl"] }
-image = { version = "0.25", optional = true, default-features = false, features = ["jpeg", "png"] }
+image = { version = "0.25", optional = true, default-features = false, features = ["jpeg", "png", "webp"] }
