@@ -58,7 +58,7 @@ export async function createDemoEngineRuntime(options: DemoEngineRuntimeOptions)
     .use(new UiOverlayPlugin())
 
   await engine.init()
-  await fonts.registerFont('Noto Sans', 'NotoSans-Regular.ttf', {
+  await fonts.registerFont('Noto Sans', 'NotoSansCJKsc-Regular.otf', {
     id: 'demo-noto-sans-regular',
     weight: 400,
     style: 'normal',

@@ -79,6 +79,8 @@ The native-window TTF/OTF backend consumes loaded QPK faces and builds transient
 
 This high-resolution atlas path is not full Web typography parity: it does not yet provide shaping, bidi, ligatures, variable-font axes, WOFF/WOFF2 decoding, or advanced CJK line breaking. Register faces that cover every required script; a Latin-only Noto Sans file does not provide complete CJK coverage.
 
+The demo registers the OFL `NotoSansCJKsc-Regular.otf` asset under the existing `Noto Sans` family so Latin and Simplified Chinese glyphs share the same QPK-backed Web/native face and native smoke can keep asserting the backward-compatible `fonts:Noto Sans` resource id. Keep the older Latin TTF asset available for compatibility with existing demo asset references.
+
 ## Validation
 
 ```bash
