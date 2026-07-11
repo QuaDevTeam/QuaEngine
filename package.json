@@ -3,7 +3,7 @@
   "type": "module",
   "version": "0.1.0",
   "private": true,
-  "packageManager": "pnpm@11.0.9",
+  "packageManager": "pnpm@11.10.0",
   "description": "QuaEngine monorepo with Turborepo, TypeScript, and Vite",
   "author": "QuaDevTeam",
   "repository": {
@@ -84,15 +84,5 @@
     "vite": "catalog:",
     "vite-plugin-dts": "catalog:",
     "vitest": "^4.1.8"
-  },
-  "pnpm": {
-    "overrides": {
-      "ajv@>=7.0.0-alpha.0 <9.0.0": "8.20.0",
-      "minimatch@<3.1.4": "3.1.4",
-      "qs": "6.15.2",
-      "tmp": "0.2.7",
-      "ws": "8.21.0"
-    },
-    "patchedDependencies": {}
   }
 }
