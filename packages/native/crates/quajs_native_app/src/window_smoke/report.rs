@@ -42,6 +42,8 @@ pub struct NativeWindowSmokeReport {
     pub font_atlas_text_draw_count: usize,
     pub bitmap_text_draw_count: usize,
     pub font_atlas_resource_ids: Vec<String>,
+    pub linear_sampled_texture_bind_group_count: usize,
+    pub nearest_sampled_texture_bind_group_count: usize,
     pub texture_lifecycle_sync_count: usize,
     pub texture_lifecycle_initial_sync_count: usize,
     pub texture_lifecycle_observed_bundle_count: usize,

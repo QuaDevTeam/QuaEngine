@@ -41,6 +41,8 @@ pub(super) struct NativeWindowSmokeReportInput<'a> {
     pub font_atlas_text_draw_count: usize,
     pub bitmap_text_draw_count: usize,
     pub font_atlas_resource_ids: Vec<String>,
+    pub linear_sampled_texture_bind_group_count: usize,
+    pub nearest_sampled_texture_bind_group_count: usize,
     pub frame_capture: Option<&'a RealWgpuEncodedFrameCapture>,
 }
 
@@ -109,6 +111,8 @@ pub(super) fn build_window_smoke_report(
         font_atlas_text_draw_count: input.font_atlas_text_draw_count,
         bitmap_text_draw_count: input.bitmap_text_draw_count,
         font_atlas_resource_ids: input.font_atlas_resource_ids,
+        linear_sampled_texture_bind_group_count: input.linear_sampled_texture_bind_group_count,
+        nearest_sampled_texture_bind_group_count: input.nearest_sampled_texture_bind_group_count,
         texture_lifecycle_sync_count: input.texture_metrics.lifecycle_sync_count,
         texture_lifecycle_initial_sync_count: input.texture_metrics.lifecycle_initial_sync_count,
         texture_lifecycle_observed_bundle_count: input
@@ -403,6 +407,8 @@ mod tests {
             font_atlas_text_draw_count: 6,
             bitmap_text_draw_count: 0,
             font_atlas_resource_ids: vec!["fonts:Noto Sans".to_string()],
+            linear_sampled_texture_bind_group_count: 4,
+            nearest_sampled_texture_bind_group_count: 0,
             frame_capture: Some(&frame_capture),
         });
 
@@ -413,6 +419,8 @@ mod tests {
         assert_eq!(report.font_atlas_text_draw_count, 6);
         assert_eq!(report.bitmap_text_draw_count, 0);
         assert_eq!(report.font_atlas_resource_ids, vec!["fonts:Noto Sans"]);
+        assert_eq!(report.linear_sampled_texture_bind_group_count, 4);
+        assert_eq!(report.nearest_sampled_texture_bind_group_count, 0);
         assert_eq!(report.surface_recovery_attempt_count, 2);
         assert_eq!(report.surface_recovery_success_count, 1);
         assert_eq!(report.surface_recovery_missing_size_count, 1);

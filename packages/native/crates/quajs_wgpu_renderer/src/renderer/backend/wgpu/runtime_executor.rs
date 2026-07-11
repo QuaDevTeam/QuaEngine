@@ -163,6 +163,8 @@ impl WgpuNativeRenderRuntimeTexturePackageMemory {
 pub struct WgpuNativeRenderRuntimeTextureSamplerDiagnostics {
     pub decoded_bind_group_count: usize,
     pub placeholder_bind_group_count: usize,
+    pub linear_filter_bind_group_count: usize,
+    pub nearest_filter_bind_group_count: usize,
     pub decoded_resource_ids_by_bind_group: BTreeMap<String, String>,
     pub placeholder_resource_ids_by_bind_group: BTreeMap<String, Vec<String>>,
 }

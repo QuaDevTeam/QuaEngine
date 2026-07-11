@@ -408,6 +408,12 @@ function validateNativeSmokeOutput(output) {
   if (!report.fontAtlasResourceIds?.includes('fonts:Noto Sans')) {
     failures.push('the final WGPU text draws did not bind fonts:Noto Sans')
   }
+  if (report.linearSampledTextureBindGroupCount < 1) {
+    failures.push('no sampled WGPU texture bind group used linear filtering')
+  }
+  if (report.nearestSampledTextureBindGroupCount !== 0) {
+    failures.push(`${report.nearestSampledTextureBindGroupCount} sampled WGPU texture bind group(s) still used nearest filtering`)
+  }
   if (report.passCount < 1 || report.commandCount < 1 || report.submittedCommandBufferCount < 1) {
     failures.push('the WGPU frame did not submit a non-empty render graph')
   }

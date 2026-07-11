@@ -168,6 +168,8 @@ fn window_smoke_report_serializes_texture_lifecycle_metrics() {
         font_atlas_text_draw_count: 3,
         bitmap_text_draw_count: 0,
         font_atlas_resource_ids: vec!["fonts:Noto Sans".to_string()],
+        linear_sampled_texture_bind_group_count: 4,
+        nearest_sampled_texture_bind_group_count: 0,
         texture_lifecycle_sync_count: 1,
         texture_lifecycle_initial_sync_count: 1,
         texture_lifecycle_observed_bundle_count: 2,
@@ -301,6 +303,8 @@ fn window_smoke_report_serializes_texture_lifecycle_metrics() {
     assert_eq!(value["fontAtlasTextDrawCount"], 3);
     assert_eq!(value["bitmapTextDrawCount"], 0);
     assert_eq!(value["fontAtlasResourceIds"][0], "fonts:Noto Sans");
+    assert_eq!(value["linearSampledTextureBindGroupCount"], 4);
+    assert_eq!(value["nearestSampledTextureBindGroupCount"], 0);
     assert_eq!(value["audioBackendAppliedPlanCount"], 1);
     assert_eq!(value["audioBackendAppliedCommandCount"], 2);
     assert_eq!(value["audioBackendActiveTrackCount"], 0);

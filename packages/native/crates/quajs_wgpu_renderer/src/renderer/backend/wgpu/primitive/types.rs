@@ -55,39 +55,49 @@ pub struct WgpuNativeRenderTextStyle {
 
 impl From<&TextDrawParams> for WgpuNativeRenderTextStyle {
     fn from(params: &TextDrawParams) -> Self {
+        Self::from_text_params(params, 1.0)
+    }
+}
+
+impl WgpuNativeRenderTextStyle {
+    pub fn from_text_params(params: &TextDrawParams, physical_scale: f64) -> Self {
         Self {
             font_family: params.font_family.clone(),
-            font_size: params.font_size,
+            font_size: params.font_size * physical_scale,
             font_style: params.font_style,
             font_weight: params.font_weight.clone(),
-            letter_spacing: params.letter_spacing,
-            line_height: params.line_height,
+            letter_spacing: params.letter_spacing * physical_scale,
+            line_height: params.line_height * physical_scale,
             align: params.align,
             text_decoration: params.text_decoration,
             text_overflow: params.text_overflow,
             text_transform: params.text_transform,
             white_space: params.white_space,
-            padding: params.padding,
+            padding: scale_edge_insets(params.padding, physical_scale),
+        }
+    }
+
+    pub fn from_button_params(params: &UiButtonDrawParams, physical_scale: f64) -> Self {
+        Self {
+            font_family: params.font_family.clone(),
+            font_size: params.font_size * physical_scale,
+            font_style: params.font_style,
+            font_weight: params.font_weight.clone(),
+            letter_spacing: params.letter_spacing * physical_scale,
+            line_height: params.line_height * physical_scale,
+            align: params.align,
+            text_decoration: params.text_decoration,
+            text_overflow: params.text_overflow,
+            text_transform: params.text_transform,
+            white_space: params.white_space,
+            padding: scale_edge_insets(params.padding, physical_scale),
         }
     }
 }
 
 impl From<&UiButtonDrawParams> for WgpuNativeRenderTextStyle {
     fn from(params: &UiButtonDrawParams) -> Self {
-        Self {
-            font_family: params.font_family.clone(),
-            font_size: params.font_size,
-            font_style: params.font_style,
-            font_weight: params.font_weight.clone(),
-            letter_spacing: params.letter_spacing,
-            line_height: params.line_height,
-            align: params.align,
-            text_decoration: params.text_decoration,
-            text_overflow: params.text_overflow,
-            text_transform: params.text_transform,
-            white_space: params.white_space,
-            padding: params.padding,
-        }
+        Self::from_button_params(params, 1.0)
     }
 }
 
@@ -174,9 +184,24 @@ pub struct WgpuNativeRenderPrimitiveBorder {
 
 impl From<&BorderDrawParams> for WgpuNativeRenderPrimitiveBorder {
     fn from(border: &BorderDrawParams) -> Self {
+        Self::from_draw_params(border, 1.0)
+    }
+}
+
+impl WgpuNativeRenderPrimitiveBorder {
+    pub fn from_draw_params(border: &BorderDrawParams, physical_scale: f64) -> Self {
         Self {
             color: border.color.clone(),
-            width: border.width,
+            width: border.width * physical_scale,
         }
+    }
+}
+
+fn scale_edge_insets(insets: EdgeInsetsDrawParam, physical_scale: f64) -> EdgeInsetsDrawParam {
+    EdgeInsetsDrawParam {
+        top: insets.top * physical_scale,
+        right: insets.right * physical_scale,
+        bottom: insets.bottom * physical_scale,
+        left: insets.left * physical_scale,
     }
 }

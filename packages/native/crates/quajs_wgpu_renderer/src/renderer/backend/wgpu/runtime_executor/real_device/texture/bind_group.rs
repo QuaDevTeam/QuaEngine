@@ -7,9 +7,7 @@ use crate::renderer::backend::wgpu::buffer::text_geometry::bitmap::glyphs::{
 use super::super::RealWgpuNativeRenderRuntimeTarget;
 use super::decoded::RealRuntimeDecodedTexture;
 use super::placeholder::{placeholder_texture_rgba8, PLACEHOLDER_TEXTURE_EXTENT};
-use super::sampler::{
-    create_linear_texture_sampler, create_sampler_bind_group, create_texture_sampler,
-};
+use super::sampler::{create_sampler_bind_group, create_texture_sampler};
 
 #[derive(Clone, Debug)]
 pub(in crate::renderer::backend::wgpu::runtime_executor::real_device) struct RealRuntimeTextureSamplerBindGroup
@@ -34,6 +32,7 @@ pub(in crate::renderer::backend::wgpu::runtime_executor::real_device) struct Rea
     #[allow(dead_code)]
     pub(in crate::renderer::backend::wgpu::runtime_executor::real_device) decoded_byte_len:
         Option<usize>,
+    pub(in crate::renderer::backend::wgpu::runtime_executor::real_device) linear_filtering: bool,
 }
 
 pub(in crate::renderer::backend::wgpu::runtime_executor::real_device) fn create_texture_sampler_bind_group(
@@ -63,8 +62,7 @@ fn create_decoded_text_atlas_bind_group(
     resource_id: &str,
     decoded: &RealRuntimeDecodedTexture,
 ) -> RealRuntimeTextureSamplerBindGroup {
-    let sampler =
-        create_linear_texture_sampler(target, &format!("{cache_label}::linear-text-atlas-sampler"));
+    let sampler = create_texture_sampler(target, &format!("{cache_label}::text-atlas-sampler"));
     let bind_group =
         create_sampler_bind_group(target, layout, cache_label, &sampler, &decoded.view);
     RealRuntimeTextureSamplerBindGroup {
@@ -76,6 +74,7 @@ fn create_decoded_text_atlas_bind_group(
         decoded_resource_id: Some(resource_id.to_string()),
         decoded_size: Some((decoded.width, decoded.height)),
         decoded_byte_len: Some(decoded.byte_len),
+        linear_filtering: true,
     }
 }
 
@@ -141,6 +140,7 @@ pub(in crate::renderer::backend::wgpu::runtime_executor::real_device) fn create_
         decoded_resource_id: Some(BUILTIN_TEXT_ATLAS_RESOURCE_ID.to_string()),
         decoded_size: Some((width, height)),
         decoded_byte_len: Some(rgba.len()),
+        linear_filtering: true,
     }
 }
 
@@ -189,6 +189,7 @@ fn create_placeholder_texture_sampler_bind_group(
         decoded_resource_id: None,
         decoded_size: None,
         decoded_byte_len: None,
+        linear_filtering: true,
     }
 }
 
@@ -210,6 +211,7 @@ fn create_decoded_texture_sampler_bind_group(
         decoded_resource_id: Some(resource_id.to_string()),
         decoded_size: Some((decoded.width, decoded.height)),
         decoded_byte_len: Some(decoded.byte_len),
+        linear_filtering: true,
     }
 }
 
