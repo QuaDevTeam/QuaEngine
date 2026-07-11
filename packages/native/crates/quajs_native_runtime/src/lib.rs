@@ -1,6 +1,9 @@
 pub mod host;
 pub mod quickjs;
 
+#[cfg(feature = "quickjs-rquickjs")]
+pub use quickjs::RquickJsModuleEvaluator;
+
 pub use host::{
     capability_manifest_hash, current_platform, current_profile, dispatch_native_host_api_request,
     dispatch_native_host_api_request_with_quickjs,

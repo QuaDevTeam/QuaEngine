@@ -14,6 +14,11 @@ use crate::window_smoke::frame::normalized_physical_size;
 use crate::window_smoke::input::{pointer_button_from_winit, pointer_phase_from_element_state};
 
 impl ApplicationHandler for NativeWindowSmokeApp {
+    fn user_event(&mut self, _event_loop: &ActiveEventLoop, _event: ()) {
+        #[cfg(feature = "quickjs-rquickjs")]
+        self.request_redraw_for_quickjs_revision();
+    }
+
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         if let Err(error) = self.initialize(event_loop) {
             self.fail_and_exit(event_loop, error);
@@ -166,6 +171,8 @@ impl ApplicationHandler for NativeWindowSmokeApp {
     }
 
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+        #[cfg(feature = "quickjs-rquickjs")]
+        self.request_redraw_for_quickjs_revision();
         let action = match self.product_shell.as_mut() {
             Some(product_shell) => product_shell.about_to_wait(),
             None => return,
