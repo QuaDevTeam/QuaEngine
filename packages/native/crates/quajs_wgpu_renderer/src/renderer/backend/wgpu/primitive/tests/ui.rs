@@ -1,6 +1,84 @@
 use super::*;
 
 #[test]
+fn scales_ui_paint_and_typography_metrics_to_physical_pixels() {
+    let plan =
+        WgpuNativeRenderPrimitivePlan::from_execution_plan(&execution_plan_with_physical_scale(
+            vec![
+                WgpuNativeRenderExecutionOperation::Draw {
+                    command_id: "ui:panel".to_string(),
+                    pipeline: DrawBatchPipeline::Shape,
+                    kind: DrawCommandKind::RoundedRect,
+                    metadata: draw_metadata(DrawCommandParams::Panel(PanelDrawParams {
+                        role: "panel".to_string(),
+                        corner_radius: 8.0,
+                        fill_color: "#000000".to_string(),
+                        border: BorderDrawParams {
+                            color: Some("#ffffff".to_string()),
+                            width: 1.5,
+                        },
+                        padding: EdgeInsetsDrawParam::default(),
+                        intent: None,
+                    })),
+                    physical_bounds: physical_rect(0, 0, 640, 360),
+                    clip_depth: 0,
+                    resource_count: 0,
+                },
+                WgpuNativeRenderExecutionOperation::Draw {
+                    command_id: "ui:text".to_string(),
+                    pipeline: DrawBatchPipeline::Text,
+                    kind: DrawCommandKind::Text,
+                    metadata: draw_metadata(DrawCommandParams::Text(TextDrawParams {
+                        text: "DPR".to_string(),
+                        font_family: Vec::new(),
+                        font_size: 24.0,
+                        font_style: FontStyleDrawParam::Normal,
+                        font_weight: None,
+                        letter_spacing: 1.0,
+                        line_height: 30.0,
+                        align: TextAlign::Left,
+                        text_decoration: TextDecorationDrawParam::None,
+                        text_overflow: TextOverflowDrawParam::Clip,
+                        text_transform: TextTransformDrawParam::None,
+                        white_space: WhiteSpaceDrawParam::Normal,
+                        color: "#ffffff".to_string(),
+                        padding: EdgeInsetsDrawParam {
+                            top: 2.0,
+                            right: 4.0,
+                            bottom: 2.0,
+                            left: 4.0,
+                        },
+                        role: "text".to_string(),
+                    })),
+                    physical_bounds: physical_rect(20, 20, 200, 80),
+                    clip_depth: 0,
+                    resource_count: 0,
+                },
+            ],
+            2.0,
+        ));
+
+    assert!(matches!(
+        &plan.passes[0].primitives[0].kind,
+        WgpuNativeRenderPrimitiveKind::Panel { corner_radius, border, .. }
+            if *corner_radius == 16.0 && border.width == 3.0
+    ));
+    assert!(matches!(
+        &plan.passes[0].primitives[1].kind,
+        WgpuNativeRenderPrimitiveKind::Text { style, .. }
+            if style.font_size == 48.0
+                && style.letter_spacing == 2.0
+                && style.line_height == 60.0
+                && style.padding == (EdgeInsetsDrawParam {
+                    top: 4.0,
+                    right: 8.0,
+                    bottom: 4.0,
+                    left: 8.0,
+                })
+    ));
+}
+
+#[test]
 fn lowers_foundational_ui_surface_primitives() {
     let plan = WgpuNativeRenderPrimitivePlan::from_execution_plan(&execution_plan(vec![
         WgpuNativeRenderExecutionOperation::Draw {

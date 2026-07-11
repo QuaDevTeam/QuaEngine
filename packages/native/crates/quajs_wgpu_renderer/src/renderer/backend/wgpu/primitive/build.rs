@@ -14,6 +14,7 @@ impl WgpuNativeRenderPrimitive {
         operation: &WgpuNativeRenderExecutionOperation,
         scissor: Option<WgpuPhysicalRect>,
         bound_resource_ids: Option<Vec<ResourceId>>,
+        physical_scale: f64,
     ) -> Option<Self> {
         match operation {
             WgpuNativeRenderExecutionOperation::Draw {
@@ -31,6 +32,7 @@ impl WgpuNativeRenderPrimitive {
                 *physical_bounds,
                 scissor,
                 bound_resource_ids,
+                physical_scale,
             )),
             WgpuNativeRenderExecutionOperation::SkipDraw {
                 command_id,
@@ -61,12 +63,13 @@ impl WgpuNativeRenderPrimitive {
         physical_bounds: WgpuPhysicalRect,
         scissor: Option<WgpuPhysicalRect>,
         bound_resource_ids: Option<Vec<ResourceId>>,
+        physical_scale: f64,
     ) -> Self {
         Self {
             command_id: command_id.to_string(),
             pipeline,
             draw_kind,
-            kind: primitive_kind_from_params(draw_kind, &metadata.params),
+            kind: primitive_kind_from_params(draw_kind, &metadata.params, physical_scale),
             logical_bounds: metadata.bounds,
             physical_bounds,
             scissor,
@@ -109,6 +112,7 @@ impl WgpuNativeRenderPrimitive {
 fn primitive_kind_from_params(
     draw_kind: DrawCommandKind,
     params: &DrawCommandParams,
+    physical_scale: f64,
 ) -> WgpuNativeRenderPrimitiveKind {
     match params {
         DrawCommandParams::Image(params) => WgpuNativeRenderPrimitiveKind::Image {
@@ -160,21 +164,27 @@ fn primitive_kind_from_params(
         DrawCommandParams::Text(params) => WgpuNativeRenderPrimitiveKind::Text {
             text: params.text.clone(),
             color: params.color.clone(),
-            style: WgpuNativeRenderTextStyle::from(params),
+            style: WgpuNativeRenderTextStyle::from_text_params(params, physical_scale),
         },
         DrawCommandParams::Panel(params) => WgpuNativeRenderPrimitiveKind::Panel {
             fill_color: params.fill_color.clone(),
-            corner_radius: params.corner_radius,
-            border: WgpuNativeRenderPrimitiveBorder::from(&params.border),
+            corner_radius: params.corner_radius * physical_scale,
+            border: WgpuNativeRenderPrimitiveBorder::from_draw_params(
+                &params.border,
+                physical_scale,
+            ),
         },
         DrawCommandParams::UiButton(params) => WgpuNativeRenderPrimitiveKind::UiButton {
             label: params.label.clone(),
             enabled: params.enabled,
             background_color: params.background_color.clone(),
             text_color: params.text_color.clone(),
-            text_style: WgpuNativeRenderTextStyle::from(params),
-            corner_radius: params.corner_radius,
-            border: WgpuNativeRenderPrimitiveBorder::from(&params.border),
+            text_style: WgpuNativeRenderTextStyle::from_button_params(params, physical_scale),
+            corner_radius: params.corner_radius * physical_scale,
+            border: WgpuNativeRenderPrimitiveBorder::from_draw_params(
+                &params.border,
+                physical_scale,
+            ),
         },
         DrawCommandParams::UiSurface(params) => WgpuNativeRenderPrimitiveKind::UiSurface {
             element_id: params.element_id.clone(),

@@ -175,6 +175,11 @@ impl NativeWindowSmokeApp {
             })
             .unwrap_or_default();
         let font_atlas_uploaded_count = runtime.renderer().backend().font_atlas_upload_count();
+        let texture_sampler_diagnostics = runtime
+            .renderer()
+            .backend()
+            .last_runtime_report()
+            .map(|report| &report.texture_sampler_diagnostics);
         let rendered_frame_count = runtime.rendered_frame_count();
         let audio_metrics =
             NativeWindowSmokeAudioMetrics::from_product_backend(runtime.renderer().audio_backend());
@@ -215,6 +220,12 @@ impl NativeWindowSmokeApp {
             font_atlas_text_draw_count,
             bitmap_text_draw_count,
             font_atlas_resource_ids,
+            linear_sampled_texture_bind_group_count: texture_sampler_diagnostics
+                .map(|diagnostics| diagnostics.linear_filter_bind_group_count)
+                .unwrap_or_default(),
+            nearest_sampled_texture_bind_group_count: texture_sampler_diagnostics
+                .map(|diagnostics| diagnostics.nearest_filter_bind_group_count)
+                .unwrap_or_default(),
             frame_capture: frame_capture.as_ref(),
         }))
     }

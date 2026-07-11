@@ -61,6 +61,15 @@ fn texture_sampler_diagnostics(
             continue;
         };
 
+        if texture_sampler.linear_filtering {
+            diagnostics.linear_filter_bind_group_count =
+                diagnostics.linear_filter_bind_group_count.saturating_add(1);
+        } else {
+            diagnostics.nearest_filter_bind_group_count = diagnostics
+                .nearest_filter_bind_group_count
+                .saturating_add(1);
+        }
+
         if let Some(resource_id) = &texture_sampler.decoded_resource_id {
             diagnostics.decoded_bind_group_count =
                 diagnostics.decoded_bind_group_count.saturating_add(1);

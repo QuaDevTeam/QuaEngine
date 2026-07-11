@@ -97,14 +97,18 @@ impl WgpuNativeRenderPrimitivePass {
                         operation,
                         scissor,
                         resource_ids,
+                        pass.viewport.physical_scale,
                     ) {
                         primitives.push(primitive);
                     }
                 }
                 _ => {
-                    if let Some(primitive) =
-                        WgpuNativeRenderPrimitive::from_execution_operation(operation, None, None)
-                    {
+                    if let Some(primitive) = WgpuNativeRenderPrimitive::from_execution_operation(
+                        operation,
+                        None,
+                        None,
+                        pass.viewport.physical_scale,
+                    ) {
                         primitives.push(primitive);
                     }
                 }

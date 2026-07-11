@@ -27,6 +27,13 @@ mod ui;
 fn execution_plan(
     operations: Vec<WgpuNativeRenderExecutionOperation>,
 ) -> WgpuNativeRenderExecutionPlan {
+    execution_plan_with_physical_scale(operations, 1.0)
+}
+
+fn execution_plan_with_physical_scale(
+    operations: Vec<WgpuNativeRenderExecutionOperation>,
+    physical_scale: f64,
+) -> WgpuNativeRenderExecutionPlan {
     let operation_count = operations.len();
     let draw_operation_count = operations
         .iter()
@@ -53,7 +60,10 @@ fn execution_plan(
         passes: vec![WgpuNativeRenderExecutionPass {
             pass_index: 0,
             plane: RenderPlane::Overlay,
-            viewport: viewport(),
+            viewport: RenderViewport {
+                physical_scale,
+                ..viewport()
+            },
             physical_viewport: physical_rect(0, 0, 1280, 720),
             operation_count,
             draw_operation_count,
