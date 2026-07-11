@@ -89,6 +89,7 @@ describe('backlog native renderer feature', () => {
         'runtime.story',
       ],
     })
+    expect(entry?.bounds.height).toBeLessThanOrEqual(140)
     expect(jump?.intent).toEqual({
       action: 'backlog-jump',
       event: 'ui/intent',

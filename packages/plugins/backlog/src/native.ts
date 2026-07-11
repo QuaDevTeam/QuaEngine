@@ -77,7 +77,7 @@ function createBacklogRoot(
   const entryGap = Math.max(12, panelBounds.height * 0.014)
   const availableHeight = Math.max(0, contentBottom - contentTop)
   const entryHeight = recentEntries.length > 0
-    ? Math.max(72, (availableHeight - entryGap * (recentEntries.length - 1)) / recentEntries.length)
+    ? Math.min(140, Math.max(72, (availableHeight - entryGap * (recentEntries.length - 1)) / recentEntries.length))
     : 0
 
   const children: NativeUiSurfaceNodeProjection[] = [
