@@ -5,7 +5,7 @@ mod types;
 pub use plan::{WgpuNativeRenderPrimitivePass, WgpuNativeRenderPrimitivePlan};
 pub use types::{
     WgpuNativeRenderPrimitive, WgpuNativeRenderPrimitiveBorder, WgpuNativeRenderPrimitiveKind,
-    WgpuNativeRenderTextStyle,
+    WgpuNativeRenderTextStyle, WgpuNativeRenderVerticalAlign,
 };
 
 #[cfg(test)]

@@ -71,6 +71,7 @@ pub use pipeline::{
 pub use primitive::{
     WgpuNativeRenderPrimitive, WgpuNativeRenderPrimitiveBorder, WgpuNativeRenderPrimitiveKind,
     WgpuNativeRenderPrimitivePass, WgpuNativeRenderPrimitivePlan, WgpuNativeRenderTextStyle,
+    WgpuNativeRenderVerticalAlign,
 };
 pub use render_pass::{
     WgpuNativeRenderPass, WgpuNativeRenderPassOperation, WgpuNativeRenderPassPlan,

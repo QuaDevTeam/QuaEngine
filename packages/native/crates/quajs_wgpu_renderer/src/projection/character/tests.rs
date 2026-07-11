@@ -283,6 +283,8 @@ fn resolves_anchor_and_default_safe_area_position() {
         center_bounds.y + center_bounds.height / 2.0,
         layout.safe_area.y + layout.safe_area.height / 2.0
     );
+    assert_eq!(center_bounds.width, 500.0);
+    assert_eq!(center_bounds.height, 750.0);
 
     let zero_bounds = resolve_character_bounds(
         &layout,

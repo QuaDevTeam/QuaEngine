@@ -57,9 +57,9 @@ pub fn build_dialogue_commands(
             .params(DrawCommandParams::Panel(PanelDrawParams {
                 role: "dialogue-panel".to_string(),
                 corner_radius: 2.0,
-                fill_color: "rgba(7,8,12,0.90)".to_string(),
+                fill_color: "rgba(7,8,12,0.97)".to_string(),
                 border: BorderDrawParams {
-                    color: Some("rgba(245,226,190,0.34)".to_string()),
+                    color: Some("rgba(245,226,190,0.28)".to_string()),
                     width: 1.0,
                 },
                 padding: EdgeInsetsDrawParam::default(),
@@ -72,7 +72,7 @@ pub fn build_dialogue_commands(
                 "dialogue:accent",
                 dialogue_accent_bounds(panel),
                 "dialogue-accent",
-                "rgba(255,226,166,0.72)",
+                "rgba(255,226,166,0.36)",
                 0.0,
                 BorderDrawParams::default(),
             )
@@ -100,8 +100,8 @@ pub fn build_dialogue_commands(
                 rich_text_to_plain_text(speaker),
                 &dialogue.speaker_style,
                 "speaker",
-                34.0,
-                42.0,
+                24.0,
+                30.0,
             )
             .z_index(2),
             &dialogue.provenance,
@@ -129,8 +129,8 @@ pub fn build_dialogue_commands(
             rich_text_to_plain_text(&dialogue.text),
             dialogue_text_style,
             "dialogue-text",
-            30.0,
-            42.0,
+            27.0,
+            36.0,
         )
         .z_index(2),
         &dialogue.provenance,
@@ -194,9 +194,9 @@ fn text_command(
             color: resolve_text_color(
                 style,
                 if role == "speaker" {
-                    "#ffe3a0"
+                    "#e8c878"
                 } else {
-                    "#fffaf2"
+                    "#f7f2ea"
                 },
             ),
             padding: EdgeInsetsDrawParam::default(),

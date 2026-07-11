@@ -48,11 +48,12 @@ fn builds_dialogue_panel_and_text_commands() {
     assert_eq!(panel.owner_package_id.as_deref(), Some("base"));
     match &panel.params {
         DrawCommandParams::Panel(params) => {
-            assert_eq!(params.fill_color, "rgba(7,8,12,0.90)");
+            assert_eq!(panel.bounds.height, layout.logical_height * 0.1225);
+            assert_eq!(params.fill_color, "rgba(7,8,12,0.97)");
             assert_eq!(params.border.width, 1.0);
             assert_eq!(
                 params.border.color.as_deref(),
-                Some("rgba(245,226,190,0.34)")
+                Some("rgba(245,226,190,0.28)")
             );
         }
         _ => panic!("expected dialogue panel params"),
@@ -91,7 +92,7 @@ fn builds_dialogue_panel_and_text_commands() {
     match &text.params {
         DrawCommandParams::Text(params) => {
             assert_eq!(params.text, "Hello native renderer.");
-            assert_eq!(params.color, "#fffaf2");
+            assert_eq!(params.color, "#f7f2ea");
             assert!(params.font_family.is_empty());
             assert!(params.font_weight.is_none());
             assert_eq!(params.role, "dialogue-text");
@@ -209,7 +210,7 @@ fn falls_back_to_character_name_like_web_dialogue_projection() {
     match &speaker.params {
         DrawCommandParams::Text(params) => {
             assert_eq!(params.text, "Lin");
-            assert_eq!(params.color, "#ffe3a0");
+            assert_eq!(params.color, "#e8c878");
         }
         _ => panic!("expected speaker text params"),
     }
@@ -354,10 +355,10 @@ fn falls_back_from_unsafe_dialogue_style_on_direct_projection() {
         .unwrap();
     match &speaker.params {
         DrawCommandParams::Text(params) => {
-            assert_eq!(params.color, "#ffe3a0");
+            assert_eq!(params.color, "#e8c878");
             assert_eq!(params.font_family, vec!["Qua Serif"]);
-            assert_eq!(params.font_size, 34.0);
-            assert_eq!(params.line_height, 42.0);
+            assert_eq!(params.font_size, 24.0);
+            assert_eq!(params.line_height, 30.0);
         }
         _ => panic!("expected speaker text params"),
     }
@@ -377,10 +378,10 @@ fn falls_back_from_unsafe_dialogue_style_on_direct_projection() {
     match &text.params {
         DrawCommandParams::Text(params) => {
             assert_eq!(params.text, "Safe text");
-            assert_eq!(params.color, "#fffaf2");
+            assert_eq!(params.color, "#f7f2ea");
             assert_eq!(params.font_family, vec!["Dialogue Sans"]);
-            assert_eq!(params.font_size, 30.0);
-            assert_eq!(params.line_height, 42.0);
+            assert_eq!(params.font_size, 27.0);
+            assert_eq!(params.line_height, 36.0);
         }
         _ => panic!("expected dialogue text params"),
     }

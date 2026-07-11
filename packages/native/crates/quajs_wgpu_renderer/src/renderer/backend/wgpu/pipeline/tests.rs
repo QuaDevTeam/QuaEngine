@@ -6,7 +6,7 @@ use crate::render_graph::{
 use crate::renderer::backend::wgpu::{
     WgpuNativeRenderBufferVertex, WgpuNativeRenderColor, WgpuNativeRenderPaint,
     WgpuNativeRenderPaintColor, WgpuNativeRenderPass, WgpuNativeRenderPassOperation,
-    WgpuNativeRenderTextStyle,
+    WgpuNativeRenderTextStyle, WgpuNativeRenderVerticalAlign,
 };
 
 mod operations;
@@ -77,6 +77,7 @@ fn text_style() -> WgpuNativeRenderTextStyle {
         letter_spacing: 0.0,
         line_height: 30.0,
         align: TextAlign::Center,
+        vertical_align: WgpuNativeRenderVerticalAlign::Middle,
         text_decoration: TextDecorationDrawParam::None,
         text_overflow: TextOverflowDrawParam::Clip,
         text_transform: TextTransformDrawParam::None,

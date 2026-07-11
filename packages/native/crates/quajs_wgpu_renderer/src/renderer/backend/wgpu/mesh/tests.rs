@@ -8,7 +8,7 @@ use crate::render_graph::{
 use crate::renderer::backend::wgpu::{
     WgpuNativeRenderPrimitive, WgpuNativeRenderPrimitiveBorder, WgpuNativeRenderPrimitiveKind,
     WgpuNativeRenderPrimitivePass, WgpuNativeRenderPrimitivePlan, WgpuNativeRenderTextStyle,
-    WgpuPhysicalRect,
+    WgpuNativeRenderVerticalAlign, WgpuPhysicalRect,
 };
 use crate::resources::ResourceId;
 
@@ -132,6 +132,7 @@ fn text_style(
         letter_spacing: 0.0,
         line_height: font_size + 8.0,
         align,
+        vertical_align: WgpuNativeRenderVerticalAlign::Middle,
         text_decoration: TextDecorationDrawParam::None,
         text_overflow: TextOverflowDrawParam::Clip,
         text_transform: TextTransformDrawParam::None,
@@ -149,6 +150,7 @@ fn rich_text_style() -> WgpuNativeRenderTextStyle {
         letter_spacing: 1.25,
         line_height: 32.0,
         align: TextAlign::Right,
+        vertical_align: WgpuNativeRenderVerticalAlign::Middle,
         text_decoration: TextDecorationDrawParam::Underline,
         text_overflow: TextOverflowDrawParam::Ellipsis,
         text_transform: TextTransformDrawParam::Uppercase,

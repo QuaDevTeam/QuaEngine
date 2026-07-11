@@ -178,7 +178,9 @@ mod tests {
         EdgeInsetsDrawParam, FontStyleDrawParam, TextAlign, TextDecorationDrawParam,
         TextOverflowDrawParam, TextTransformDrawParam, WhiteSpaceDrawParam,
     };
-    use crate::renderer::backend::wgpu::primitive::WgpuNativeRenderTextStyle;
+    use crate::renderer::backend::wgpu::primitive::{
+        WgpuNativeRenderTextStyle, WgpuNativeRenderVerticalAlign,
+    };
 
     fn text_style(font_size: f64) -> WgpuNativeRenderTextStyle {
         WgpuNativeRenderTextStyle {
@@ -189,6 +191,7 @@ mod tests {
             letter_spacing: 0.0,
             line_height: font_size + 8.0,
             align: TextAlign::Left,
+            vertical_align: WgpuNativeRenderVerticalAlign::Middle,
             text_decoration: TextDecorationDrawParam::None,
             text_overflow: TextOverflowDrawParam::Clip,
             text_transform: TextTransformDrawParam::None,

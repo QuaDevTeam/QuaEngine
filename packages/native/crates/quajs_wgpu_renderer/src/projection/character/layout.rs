@@ -3,8 +3,8 @@ use crate::stage_layout::ResolvedStageLayout;
 
 use super::types::CharacterPosition;
 
-const DEFAULT_CHARACTER_WIDTH_RATIO: f64 = 0.42;
-const DEFAULT_CHARACTER_HEIGHT_RATIO: f64 = 0.9;
+const DEFAULT_CHARACTER_WIDTH_RATIO: f64 = 500.0 / 1080.0;
+const DEFAULT_CHARACTER_HEIGHT_RATIO: f64 = 750.0 / 1080.0;
 
 pub fn resolve_character_anchor(position: &CharacterPosition) -> CharacterAnchor {
     if let Some(anchor) = position.anchor.as_deref().map(str::trim) {

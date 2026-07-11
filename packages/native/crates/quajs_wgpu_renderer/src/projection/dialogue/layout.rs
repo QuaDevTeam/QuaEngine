@@ -4,7 +4,7 @@ use crate::stage_layout::ResolvedStageLayout;
 pub fn dialogue_panel_bounds(layout: &ResolvedStageLayout) -> LogicalRect {
     let safe = layout.safe_area;
     let margin_x = safe.width * 0.05;
-    let height = layout.logical_height * 0.14;
+    let height = layout.logical_height * 0.1225;
     LogicalRect {
         x: safe.x + margin_x,
         y: safe.y + safe.height - height - layout.logical_height * 0.05,
