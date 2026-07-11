@@ -24,7 +24,7 @@ fn creates_non_empty_passes_in_plane_order() {
         planes,
         vec![RenderPlane::Scene, RenderPlane::Subject, RenderPlane::Safe]
     );
-    assert_eq!(plan.batch_count, 6);
+    assert_eq!(plan.batch_count, 8);
     assert_eq!(plan.command_count, graph.commands().len());
     assert_eq!(plan.pass(RenderPlane::Overlay), None);
 }
@@ -46,16 +46,14 @@ fn keeps_batches_grouped_under_their_render_plane() {
     );
 
     let safe = plan.pass(RenderPlane::Safe).unwrap();
-    assert_eq!(safe.command_count, 6);
+    assert_eq!(safe.command_count, 9);
     assert_eq!(safe.batches[0].key.pipeline, DrawBatchPipeline::Shape);
     assert_eq!(safe.batches[1].key.pipeline, DrawBatchPipeline::Text);
+    assert_eq!(safe.batches[1].command_ids, vec!["dialogue:speaker"]);
+    assert_eq!(safe.batches[3].command_ids, vec!["dialogue:text"]);
+    assert_eq!(safe.batches[5].key.pipeline, DrawBatchPipeline::Ui);
     assert_eq!(
-        safe.batches[1].command_ids,
-        vec!["dialogue:speaker", "dialogue:text"]
-    );
-    assert_eq!(safe.batches[3].key.pipeline, DrawBatchPipeline::Ui);
-    assert_eq!(
-        safe.batches[3].command_ids,
+        safe.batches[5].command_ids,
         vec!["choice:stay", "choice:leave"]
     );
 }

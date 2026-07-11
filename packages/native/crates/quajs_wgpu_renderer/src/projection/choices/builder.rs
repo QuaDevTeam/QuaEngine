@@ -59,11 +59,7 @@ pub fn build_choice_commands_with_dialogue(
 
     let panel = if dialogue_visible {
         let dialogue = dialogue_panel_bounds(layout);
-        choices_panel_bounds_with_bottom(
-            layout,
-            safe_choices.len(),
-            dialogue.y - layout.logical_height * 0.02,
-        )
+        choices_panel_bounds_with_bottom(layout, safe_choices.len(), dialogue.y - 74.0)
     } else {
         choices_panel_bounds(layout, safe_choices.len())
     };
@@ -77,7 +73,7 @@ pub fn build_choice_commands_with_dialogue(
         .z_index(10)
         .params(DrawCommandParams::Panel(PanelDrawParams {
             role: "choices-panel".to_string(),
-            corner_radius: 12.0,
+            corner_radius: 2.0,
             fill_color: "rgba(0,0,0,0.0)".to_string(),
             border: BorderDrawParams::default(),
             padding: EdgeInsetsDrawParam::default(),
@@ -114,22 +110,30 @@ fn choice_command(
         label: choice.text.clone(),
         enabled: choice.enabled,
         role: "choice".to_string(),
-        background_color: "rgba(0,0,0,0.0)".to_string(),
-        text_color: "#ffffff".to_string(),
-        corner_radius: 0.0,
-        border: BorderDrawParams::default(),
-        font_family: Vec::new(),
-        font_size: 30.0,
+        background_color: "rgba(8,10,15,0.88)".to_string(),
+        text_color: "#fff8ea".to_string(),
+        corner_radius: 2.0,
+        border: BorderDrawParams {
+            color: Some("rgba(245,226,190,0.34)".to_string()),
+            width: 1.0,
+        },
+        font_family: vec!["Noto Sans".to_string()],
+        font_size: 16.0,
         font_style: FontStyleDrawParam::Normal,
         font_weight: None,
         letter_spacing: 0.0,
-        line_height: 42.0,
-        align: TextAlign::Center,
+        line_height: 24.0,
+        align: TextAlign::Left,
         text_decoration: TextDecorationDrawParam::None,
         text_overflow: TextOverflowDrawParam::Clip,
         text_transform: TextTransformDrawParam::None,
         white_space: WhiteSpaceDrawParam::Normal,
-        padding: EdgeInsetsDrawParam::default(),
+        padding: EdgeInsetsDrawParam {
+            top: 10.0,
+            right: 16.0,
+            bottom: 10.0,
+            left: 16.0,
+        },
         intent: choice.enabled.then(|| RendererIntent {
             event: "choice/select".to_string(),
             choice_id: Some(choice.id.clone()),

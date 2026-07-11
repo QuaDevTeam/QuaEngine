@@ -30,6 +30,7 @@
     "native:smoke:effects": "node --experimental-strip-types scripts/native-dev.mjs --smoke --panel=effects",
     "native:smoke:gallery": "node --experimental-strip-types scripts/native-dev.mjs --smoke --panel=gallery",
     "native:smoke:save-preview": "node --experimental-strip-types scripts/native-dev.mjs --smoke",
+    "native:smoke:scene": "node --experimental-strip-types scripts/native-dev.mjs --smoke --panel=scene",
     "native:smoke:settings": "node --experimental-strip-types scripts/native-dev.mjs --smoke --panel=settings",
     "native:smoke:transition": "node --experimental-strip-types scripts/native-dev.mjs --smoke --panel=transition",
     "native:smoke:typewriter": "node --experimental-strip-types scripts/native-dev.mjs --smoke --panel=typewriter",

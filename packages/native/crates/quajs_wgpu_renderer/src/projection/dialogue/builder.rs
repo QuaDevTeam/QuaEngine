@@ -9,7 +9,10 @@ use crate::render_graph::{
 use crate::resources::ResourceId;
 use crate::stage_layout::ResolvedStageLayout;
 
-use super::layout::{avatar_bounds, dialogue_panel_bounds, speaker_bounds, text_bounds};
+use super::layout::{
+    avatar_bounds, dialogue_accent_bounds, dialogue_panel_bounds, dialogue_shadow_bounds,
+    speaker_accent_bounds, speaker_bounds, text_bounds,
+};
 use super::rich_text::{
     is_safe_rich_text_payload, resolve_font_family, resolve_font_size, resolve_font_weight,
     resolve_line_height, resolve_text_align, resolve_text_color, rich_text_style,
@@ -30,29 +33,64 @@ pub fn build_dialogue_commands(
     }
 
     let panel = dialogue_panel_bounds(layout);
-    let mut commands = vec![apply_provenance(
-        DrawCommand::new(
-            "dialogue:panel",
-            RenderPlane::Safe,
-            DrawCommandKind::RoundedRect,
-            panel,
-        )
-        .z_index(0)
-        .params(DrawCommandParams::Panel(PanelDrawParams {
-            role: "dialogue-panel".to_string(),
-            corner_radius: 18.0,
-            fill_color: "rgba(0,0,0,0.72)".to_string(),
-            border: BorderDrawParams::default(),
-            padding: EdgeInsetsDrawParam::default(),
-            intent: None,
-        })),
-        &dialogue.provenance,
-    )];
+    let mut commands = vec![
+        apply_provenance(
+            panel_command(
+                "dialogue:shadow",
+                dialogue_shadow_bounds(panel),
+                "dialogue-shadow",
+                "rgba(0,0,0,0.46)",
+                8.0,
+                BorderDrawParams::default(),
+            )
+            .z_index(-1),
+            &dialogue.provenance,
+        ),
+        apply_provenance(
+            DrawCommand::new(
+                "dialogue:panel",
+                RenderPlane::Safe,
+                DrawCommandKind::RoundedRect,
+                panel,
+            )
+            .z_index(0)
+            .params(DrawCommandParams::Panel(PanelDrawParams {
+                role: "dialogue-panel".to_string(),
+                corner_radius: 2.0,
+                fill_color: "rgba(7,8,12,0.90)".to_string(),
+                border: BorderDrawParams {
+                    color: Some("rgba(245,226,190,0.34)".to_string()),
+                    width: 1.0,
+                },
+                padding: EdgeInsetsDrawParam::default(),
+                intent: None,
+            })),
+            &dialogue.provenance,
+        ),
+        apply_provenance(
+            panel_command(
+                "dialogue:accent",
+                dialogue_accent_bounds(panel),
+                "dialogue-accent",
+                "rgba(255,226,166,0.72)",
+                0.0,
+                BorderDrawParams::default(),
+            )
+            .z_index(1),
+            &dialogue.provenance,
+        ),
+    ];
 
+    let fallback_speaker = dialogue
+        .character_name
+        .as_ref()
+        .filter(|name| crate::projection::safety::is_safe_native_text_payload(name))
+        .map(|name| super::types::RichTextContent::Plain(name.clone()));
     let render_speaker = dialogue
         .speaker
         .as_ref()
-        .filter(|speaker| is_safe_rich_text_payload(speaker));
+        .filter(|speaker| is_safe_rich_text_payload(speaker))
+        .or(fallback_speaker.as_ref());
 
     if let Some(speaker) = render_speaker {
         commands.push(apply_provenance(
@@ -65,7 +103,19 @@ pub fn build_dialogue_commands(
                 34.0,
                 42.0,
             )
-            .z_index(1),
+            .z_index(2),
+            &dialogue.provenance,
+        ));
+        commands.push(apply_provenance(
+            panel_command(
+                "dialogue:speaker-accent",
+                speaker_accent_bounds(panel),
+                "speaker-accent",
+                "rgba(255,226,166,0.48)",
+                0.0,
+                BorderDrawParams::default(),
+            )
+            .z_index(2),
             &dialogue.provenance,
         ));
     }
@@ -82,7 +132,7 @@ pub fn build_dialogue_commands(
             30.0,
             42.0,
         )
-        .z_index(1),
+        .z_index(2),
         &dialogue.provenance,
     ));
 
@@ -93,6 +143,26 @@ pub fn build_dialogue_commands(
     }
 
     commands
+}
+
+fn panel_command(
+    id: &str,
+    bounds: crate::render_graph::LogicalRect,
+    role: &str,
+    fill_color: &str,
+    corner_radius: f64,
+    border: BorderDrawParams,
+) -> DrawCommand {
+    DrawCommand::new(id, RenderPlane::Safe, DrawCommandKind::RoundedRect, bounds).params(
+        DrawCommandParams::Panel(PanelDrawParams {
+            role: role.to_string(),
+            corner_radius,
+            fill_color: fill_color.to_string(),
+            border,
+            padding: EdgeInsetsDrawParam::default(),
+            intent: None,
+        }),
+    )
 }
 
 fn text_command(
@@ -121,7 +191,14 @@ fn text_command(
             text_overflow: TextOverflowDrawParam::Clip,
             text_transform: TextTransformDrawParam::None,
             white_space: WhiteSpaceDrawParam::Normal,
-            color: resolve_text_color(style, "#ffffff"),
+            color: resolve_text_color(
+                style,
+                if role == "speaker" {
+                    "#ffe3a0"
+                } else {
+                    "#fffaf2"
+                },
+            ),
             padding: EdgeInsetsDrawParam::default(),
             role: role.to_string(),
         }))

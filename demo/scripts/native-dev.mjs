@@ -10,13 +10,14 @@ import {
 } from '@quajs/quack/project'
 import { spawn } from 'node:child_process'
 import { watch } from 'node:fs'
-import { readFile } from 'node:fs/promises'
+import { readFile, rm } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const DEMO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const REPO_ROOT = resolve(DEMO_ROOT, '..')
 const FRAME_PATH = resolve(DEMO_ROOT, 'dist/native/dev/frame.json')
+const CAPTURE_PATH = resolve(DEMO_ROOT, 'dist/native/dev/frame.png')
 const ASSET_INDEX_PATH = resolve(DEMO_ROOT, 'dist/assets/index.json')
 const NATIVE_FEATURES = 'native-window,quickjs-rquickjs'
 const smoke = process.argv.includes('--smoke')
@@ -39,7 +40,7 @@ try {
   if (once) {
     const code = await waitForExit(nativeWindow)
     if (smoke && code === 0) {
-      validateNativeSmokeOutput(nativeSmokeOutput)
+      await validateNativeSmokeOutput(nativeSmokeOutput)
     }
     process.exitCode = code
   }
@@ -135,6 +136,9 @@ async function rebuildAndLaunch() {
     const qpkPath = await resolveLatestQpk(plan.platform)
     console.log(`Launching native renderer with ${qpkPath}`)
     nativeSmokeOutput = ''
+    if (smoke) {
+      await rm(CAPTURE_PATH, { force: true })
+    }
     nativeWindow = spawn('cargo', cargoArgs(), {
       cwd: REPO_ROOT,
       env: {
@@ -144,6 +148,7 @@ async function rebuildAndLaunch() {
         QUA_NATIVE_RENDERER_WINDOW_SMOKE: '1',
         QUA_NATIVE_RENDERER_WINDOW_SMOKE_FRAME: FRAME_PATH,
         QUA_NATIVE_RENDERER_WINDOW_DEV_QPK: qpkPath,
+        ...(smoke ? { QUA_NATIVE_RENDERER_WINDOW_CAPTURE_PATH: CAPTURE_PATH } : {}),
         ...(smoke
           ? { QUA_NATIVE_RENDERER_WINDOW_SMOKE_FRAMES: '2' }
           : { QUA_NATIVE_RENDERER_WINDOW_DEV: '1' }),
@@ -226,6 +231,10 @@ async function validateNativeFeatureFrame(panelName) {
       throw new Error('Native demo frame did not project the expected engine effect.')
     }
     console.log('Native demo frame validated engine effect projection.')
+    return
+  }
+  if (panelName === 'scene') {
+    console.log('Native demo frame validated the unmodified scene projection.')
     return
   }
   if (panelName === 'transition') {
@@ -373,7 +382,7 @@ function waitForExit(child) {
   return new Promise(resolveExit => child.once('exit', code => resolveExit(code ?? 1)))
 }
 
-function validateNativeSmokeOutput(output) {
+async function validateNativeSmokeOutput(output) {
   const prefix = 'Qua native window smoke json: '
   const line = output.split(/\r?\n/).find(candidate => candidate.startsWith(prefix))
   if (!line) {
@@ -433,6 +442,13 @@ function validateNativeSmokeOutput(output) {
   if (report.physicalWidth !== report.logicalWidth * report.devicePixelRatio
     || report.physicalHeight !== report.logicalHeight * report.devicePixelRatio) {
     failures.push('native logical/window/device-pixel coordinate projection is inconsistent')
+  }
+  const captureBytes = await readFile(CAPTURE_PATH).catch(() => undefined)
+  if (!captureBytes || captureBytes.length !== report.frameCaptureByteCount) {
+    failures.push('native frame capture artifact is missing or has an unexpected byte count')
+  }
+  else if (!captureBytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) {
+    failures.push('native frame capture artifact does not have a valid PNG signature')
   }
   if (failures.length > 0) {
     throw new Error(`Native renderer smoke failed: ${failures.join('; ')}.`)

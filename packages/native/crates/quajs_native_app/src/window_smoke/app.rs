@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::{env, fs, path::Path};
 
 use winit::dpi::{LogicalSize, PhysicalSize};
 use winit::event_loop::ActiveEventLoop;
@@ -17,6 +18,7 @@ use super::texture_host::create_window_smoke_texture_host_from_env;
 use crate::product_app_shell::{NativeProductAppShell, NativeProductAppShellAction};
 use crate::product_window::{NativeProductWindowInMemoryRuntime, NativeProductWindowPhysicalSize};
 use crate::product_window_loop::NativeProductWindowInMemoryLoop;
+use quajs_wgpu_renderer::renderer::RealWgpuEncodedFrameCapture;
 
 mod events;
 
@@ -129,11 +131,13 @@ impl NativeWindowSmokeApp {
                 },
                 |runtime| {
                     if runtime.rendered_frame_count() >= target_frame_count {
-                        frame_capture = Some(runtime.capture_frame_png().map_err(|error| {
+                        let capture = runtime.capture_frame_png().map_err(|error| {
                             NativeWindowSmokeError::new(format!(
                                 "Failed to capture native renderer smoke frame: {error}."
                             ))
-                        })?);
+                        })?;
+                        persist_frame_capture_artifact(&capture)?;
+                        frame_capture = Some(capture);
                     }
                     Ok::<(), NativeWindowSmokeError>(())
                 },
@@ -354,4 +358,30 @@ impl NativeWindowSmokeApp {
         self.error = Some(error);
         event_loop.exit();
     }
+}
+
+fn persist_frame_capture_artifact(
+    capture: &RealWgpuEncodedFrameCapture,
+) -> Result<(), NativeWindowSmokeError> {
+    let Some(path) = env::var_os("QUA_NATIVE_RENDERER_WINDOW_CAPTURE_PATH") else {
+        return Ok(());
+    };
+    let path = Path::new(&path);
+    if path.extension().and_then(|extension| extension.to_str()) != Some("png") {
+        return Err(NativeWindowSmokeError::new(
+            "Native renderer capture artifact path must end in .png.",
+        ));
+    }
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|error| {
+            NativeWindowSmokeError::new(format!(
+                "Failed to create native renderer capture artifact directory: {error}."
+            ))
+        })?;
+    }
+    fs::write(path, &capture.bytes).map_err(|error| {
+        NativeWindowSmokeError::new(format!(
+            "Failed to write native renderer capture artifact: {error}."
+        ))
+    })
 }

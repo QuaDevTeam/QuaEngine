@@ -94,13 +94,13 @@ fn batches_full_view_without_changing_draw_order() {
     assert_eq!(batches[1].key.pipeline, DrawBatchPipeline::Character);
     assert_eq!(batches[2].key.pipeline, DrawBatchPipeline::Shape);
     assert_eq!(batches[3].key.pipeline, DrawBatchPipeline::Text);
-    assert_eq!(
-        batches[3].command_ids,
-        vec!["dialogue:speaker", "dialogue:text"]
-    );
+    assert_eq!(batches[3].command_ids, vec!["dialogue:speaker"]);
     assert_eq!(batches[4].key.pipeline, DrawBatchPipeline::Shape);
-    assert_eq!(batches[5].key.pipeline, DrawBatchPipeline::Ui);
-    assert_eq!(batches[5].command_ids, vec!["choice:stay", "choice:leave"]);
+    assert_eq!(batches[5].key.pipeline, DrawBatchPipeline::Text);
+    assert_eq!(batches[5].command_ids, vec!["dialogue:text"]);
+    assert_eq!(batches[6].key.pipeline, DrawBatchPipeline::Shape);
+    assert_eq!(batches[7].key.pipeline, DrawBatchPipeline::Ui);
+    assert_eq!(batches[7].command_ids, vec!["choice:stay", "choice:leave"]);
 }
 
 fn full_view() -> ViewProjection {

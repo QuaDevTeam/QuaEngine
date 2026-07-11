@@ -206,6 +206,7 @@ async function openNativeDemoPanel(
     case '':
     case 'transition':
     case 'effects':
+    case 'scene':
     case 'typewriter':
       break
     default:
