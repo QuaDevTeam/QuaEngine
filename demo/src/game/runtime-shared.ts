@@ -30,6 +30,7 @@ export async function createDemoEngineRuntime(options: DemoEngineRuntimeOptions)
   const background = new BackgroundPlugin()
   const storyGraph = new StoryGraphPlugin()
   const gallery = new GalleryPlugin({ profileId: 'demo' })
+  const fonts = new FontsPlugin()
 
   engine
     .use(background)
@@ -53,10 +54,16 @@ export async function createDemoEngineRuntime(options: DemoEngineRuntimeOptions)
       },
     }))
     .use(achievement)
-    .use(new FontsPlugin())
+    .use(fonts)
     .use(new UiOverlayPlugin())
 
   await engine.init()
+  await fonts.registerFont('Noto Sans', 'NotoSans-Regular.ttf', {
+    id: 'demo-noto-sans-regular',
+    weight: 400,
+    style: 'normal',
+    display: 'swap',
+  })
   await registerDemoGallery(gallery)
   await achievement.registerDefinitions({
     groups: [{
@@ -81,6 +88,7 @@ export async function createDemoEngineRuntime(options: DemoEngineRuntimeOptions)
     backlog,
     background,
     engine,
+    fonts,
     gallery,
     storyGraph,
   }

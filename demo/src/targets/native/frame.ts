@@ -55,6 +55,11 @@ export async function createDemoNativeFrame(outputPath = DEFAULT_FRAME_PATH): Pr
 
     const lin = createCharacter('lin', {
       displayName: 'Lin',
+      speakerStyle: {
+        fontFamily: 'Noto Sans',
+        fontSize: 24,
+        fontWeight: 700,
+      },
       sprite: 'lin/focus.png',
       position: { x: 520, y: 650, scale: 1 },
       layer: 2,
@@ -67,7 +72,15 @@ export async function createDemoNativeFrame(outputPath = DEFAULT_FRAME_PATH): Pr
     })
     await lin.show()
     await mara.show()
-    await lin.speak('The Tokyo uplink is down. Mara, confirm the last human signal.', { wait: false })
+    await lin.speak({
+      kind: 'rich-text',
+      blocks: [{
+        spans: [{ text: 'The Tokyo uplink is down. Mara, confirm the last human signal.' }],
+      }],
+      fontFamily: 'Noto Sans',
+      fontSize: 28,
+      lineHeight: 44,
+    }, { wait: false })
     await runtime.engine.showChoices([
       { id: 'trace', text: 'TRACE SIGNAL', enabled: true },
       { id: 'hold', text: 'HOLD SILENCE', enabled: true },
@@ -227,6 +240,7 @@ function createNativeDevSurface(): Record<string, unknown> {
           text: 'BROKEN LINK ERA / NATIVE',
           style: {
             color: '#f8e9bd',
+            fontFamily: 'Noto Sans',
             fontSize: 30,
             fontWeight: 700,
             lineHeight: 38,
@@ -239,6 +253,7 @@ function createNativeDevSurface(): Record<string, unknown> {
           text: 'QuaEngine + Character + Animation + QUI',
           style: {
             color: '#9ddff0',
+            fontFamily: 'Noto Sans',
             fontSize: 18,
             lineHeight: 26,
           },
@@ -256,6 +271,7 @@ function createNativeDevSurface(): Record<string, unknown> {
           style: {
             backgroundColor: '#d6ad55',
             color: '#17130b',
+            fontFamily: 'Noto Sans',
             fontSize: 16,
             fontWeight: 700,
           },
