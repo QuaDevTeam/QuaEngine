@@ -100,6 +100,8 @@ Decorators:
 
 Renderer character presence transitions are fade-in/fade-out by default. Web/Vue transition options support `enterDurationMs`, `exitDurationMs`, `moveDurationMs`, `enterEasing`, `exitEasing`, and `moveEasing`; keep these as projection parameters, not renderer-owned game state.
 
+The native WGPU renderer uses a `500x750` logical standing-sprite reference box at a 1080 logical stage height when character width/height are omitted, matching the Web demo's 500px standing-character width and common 2:3 art ratio. The box scales with logical stage height; explicit engine-projected width/height continue to override it.
+
 Renderer dialogue boxes also keep a transient enter/exit presence so default dialogue chrome can fade in/out without becoming authoritative state. Web DOM, Vue, React, and Svelte dialogue renderers should expose `data-dialogue-presence="enter|exit"` and keep project-level quick toolbar chrome synchronized with that projection instead of duplicating framework-local behavior.
 
 Dialogue avatar renderers may resolve asset URLs or native resources as transient implementation details. They must not treat avatars as character presence, standing sprite state, or progression authority.

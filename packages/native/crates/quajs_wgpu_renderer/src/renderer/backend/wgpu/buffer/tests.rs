@@ -8,7 +8,7 @@ use crate::renderer::backend::wgpu::{
     WgpuNativeRenderColor, WgpuNativeRenderMeshPass, WgpuNativeRenderMeshPlan,
     WgpuNativeRenderPaint, WgpuNativeRenderPaintColor, WgpuNativeRenderQuad,
     WgpuNativeRenderQuadBorder, WgpuNativeRenderTextOverlay, WgpuNativeRenderTextStyle,
-    WgpuNativeRenderVertex, WgpuPhysicalRect,
+    WgpuNativeRenderVertex, WgpuNativeRenderVerticalAlign, WgpuPhysicalRect,
 };
 use crate::resources::ResourceId;
 
@@ -108,6 +108,7 @@ fn text_style(
         letter_spacing: 0.0,
         line_height: font_size + 8.0,
         align,
+        vertical_align: WgpuNativeRenderVerticalAlign::Middle,
         text_decoration: TextDecorationDrawParam::None,
         text_overflow: TextOverflowDrawParam::Clip,
         text_transform: TextTransformDrawParam::None,

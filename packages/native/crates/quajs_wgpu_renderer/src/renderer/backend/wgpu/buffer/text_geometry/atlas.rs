@@ -6,7 +6,7 @@ use crate::render_graph::{
 use crate::renderer::backend::wgpu::WgpuPhysicalRect;
 use crate::resources::ResourceId;
 
-use super::super::super::primitive::WgpuNativeRenderTextStyle;
+use super::super::super::primitive::{WgpuNativeRenderTextStyle, WgpuNativeRenderVerticalAlign};
 use super::super::geometry::{
     physical_rect_from_float, union_physical_rect, FloatRect, WgpuNativeRenderBufferGeometry,
 };
@@ -52,7 +52,13 @@ pub(super) fn atlas_text_geometry(
         .max(1)
         .min(lines.len());
     let total_height = font_size + line_height * max_lines.saturating_sub(1) as f32;
-    let start_y = content_rect.y + (content_rect.height - total_height).max(0.0) * 0.5;
+    let available_y = (content_rect.height - total_height).max(0.0);
+    let start_y = content_rect.y
+        + match style.vertical_align {
+            WgpuNativeRenderVerticalAlign::Top => 0.0,
+            WgpuNativeRenderVerticalAlign::Middle => available_y * 0.5,
+            WgpuNativeRenderVerticalAlign::Bottom => available_y,
+        };
     color[3] *= opacity.clamp(0.0, 1.0);
 
     let mut vertices = Vec::new();

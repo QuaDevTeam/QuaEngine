@@ -1,4 +1,4 @@
-use super::super::super::primitive::WgpuNativeRenderTextStyle;
+use super::super::super::primitive::{WgpuNativeRenderTextStyle, WgpuNativeRenderVerticalAlign};
 use super::super::geometry::{FloatRect, WgpuNativeRenderBufferGeometry};
 use super::placeholder::{
     aligned_line_x, font_style_shear, font_weight_scale, max_visible_lines,
@@ -62,6 +62,13 @@ pub(super) fn bitmap_text_geometry(
     }
 
     let total_height = font_size + line_height * (max_lines.saturating_sub(1) as f32);
+    let available_y = (content_rect.height - total_height).max(0.0);
+    let start_y = content_rect.y
+        + match style.vertical_align {
+            WgpuNativeRenderVerticalAlign::Top => 0.0,
+            WgpuNativeRenderVerticalAlign::Middle => available_y * 0.5,
+            WgpuNativeRenderVerticalAlign::Bottom => available_y,
+        };
     let mut vertices = Vec::new();
     let mut indices = Vec::new();
     let mut physical_bounds = None;
@@ -112,9 +119,7 @@ pub(super) fn bitmap_text_geometry(
             should_justify_line,
             line.implicit_word_gap,
         );
-        let y = content_rect.y
-            + ((content_rect.height - total_height).max(0.0) * 0.5)
-            + line_height * line_index as f32;
+        let y = start_y + line_height * line_index as f32;
 
         for word in words {
             if cursor_x >= text_right {

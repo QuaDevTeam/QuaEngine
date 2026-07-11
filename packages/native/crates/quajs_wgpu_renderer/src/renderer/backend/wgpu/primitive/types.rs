@@ -46,11 +46,20 @@ pub struct WgpuNativeRenderTextStyle {
     pub letter_spacing: f64,
     pub line_height: f64,
     pub align: TextAlign,
+    pub vertical_align: WgpuNativeRenderVerticalAlign,
     pub text_decoration: TextDecorationDrawParam,
     pub text_overflow: TextOverflowDrawParam,
     pub text_transform: TextTransformDrawParam,
     pub white_space: WhiteSpaceDrawParam,
     pub padding: EdgeInsetsDrawParam,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum WgpuNativeRenderVerticalAlign {
+    Top,
+    #[default]
+    Middle,
+    Bottom,
 }
 
 impl From<&TextDrawParams> for WgpuNativeRenderTextStyle {
@@ -69,6 +78,11 @@ impl WgpuNativeRenderTextStyle {
             letter_spacing: params.letter_spacing * physical_scale,
             line_height: params.line_height * physical_scale,
             align: params.align,
+            vertical_align: if params.role == "dialogue-text" {
+                WgpuNativeRenderVerticalAlign::Top
+            } else {
+                WgpuNativeRenderVerticalAlign::Middle
+            },
             text_decoration: params.text_decoration,
             text_overflow: params.text_overflow,
             text_transform: params.text_transform,
@@ -86,6 +100,7 @@ impl WgpuNativeRenderTextStyle {
             letter_spacing: params.letter_spacing * physical_scale,
             line_height: params.line_height * physical_scale,
             align: params.align,
+            vertical_align: WgpuNativeRenderVerticalAlign::Middle,
             text_decoration: params.text_decoration,
             text_overflow: params.text_overflow,
             text_transform: params.text_transform,

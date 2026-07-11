@@ -82,3 +82,43 @@ fn wraps_oversized_fullwidth_bitmap_words_by_glyph_width() {
     assert!(glyph_top_lines.len() >= 3);
     assert!(pass.draw_calls[0].physical_bounds.height > 70);
 }
+
+#[test]
+fn supports_top_aligned_text_without_changing_button_middle_alignment() {
+    let mut top_style = text_style(21.0, TextAlign::Left, EdgeInsetsDrawParam::default());
+    top_style.vertical_align = WgpuNativeRenderVerticalAlign::Top;
+    let middle_style = text_style(21.0, TextAlign::Left, EdgeInsetsDrawParam::default());
+    let plan = WgpuNativeRenderBufferPlan::from_mesh_plan(&mesh_plan(vec![
+        quad(
+            "dialogue:text",
+            DrawBatchPipeline::Text,
+            DrawCommandKind::Text,
+            WgpuNativeRenderPaint::TextPlaceholder {
+                text: "TOP".to_string(),
+                color: rgba(0xff, 0xff, 0xff, 0xff),
+                literal: "#fff".to_string(),
+                style: top_style,
+            },
+            rect(10, 20, 220, 80),
+            Vec::new(),
+        ),
+        quad(
+            "ui:button-label",
+            DrawBatchPipeline::Text,
+            DrawCommandKind::Text,
+            WgpuNativeRenderPaint::TextPlaceholder {
+                text: "MIDDLE".to_string(),
+                color: rgba(0xff, 0xff, 0xff, 0xff),
+                literal: "#fff".to_string(),
+                style: middle_style,
+            },
+            rect(250, 20, 220, 80),
+            Vec::new(),
+        ),
+    ]));
+
+    let top = &plan.passes[0].draw_calls[0].physical_bounds;
+    let middle = &plan.passes[0].draw_calls[1].physical_bounds;
+    assert_eq!(top.y, 20);
+    assert!(middle.y > top.y);
+}
