@@ -57,6 +57,9 @@ impl FontBackendShapedRun {
 pub struct FontBackendShapingFace {
     bytes: Arc<[u8]>,
     face_index: u32,
+    features: Vec<rustybuzz::Feature>,
+    variations: Vec<rustybuzz::Variation>,
+    atlas_faces: Vec<FontBackendAtlasFaceLayout>,
 }
 
 impl FontBackendShapingFace {
@@ -64,52 +67,132 @@ impl FontBackendShapingFace {
         let face = Self {
             bytes: bytes.into(),
             face_index,
+            features: Vec::new(),
+            variations: Vec::new(),
+            atlas_faces: Vec::new(),
         };
         rustybuzz::Face::from_slice(&face.bytes, face.face_index)?;
         Some(face)
+    }
+
+    pub fn with_settings(
+        mut self,
+        feature_settings: Option<&str>,
+        variation_settings: Option<&str>,
+    ) -> Self {
+        self.features = feature_settings
+            .into_iter()
+            .flat_map(|settings| settings.split(','))
+            .filter_map(parse_font_feature)
+            .collect();
+        self.variations = variation_settings
+            .into_iter()
+            .flat_map(|settings| settings.split(','))
+            .filter_map(parse_font_variation)
+            .collect();
+        self
     }
 
     pub fn shape(&self, text: &str, raster_size: f32) -> Option<FontBackendShapedRun> {
         if text.is_empty() || !raster_size.is_finite() || raster_size <= 0.0 {
             return None;
         }
-        let face = rustybuzz::Face::from_slice(&self.bytes, self.face_index)?;
+        let mut face = rustybuzz::Face::from_slice(&self.bytes, self.face_index)?;
+        face.set_variations(&self.variations);
         let font_height = f32::from(face.ascender()) - f32::from(face.descender());
         if font_height <= 0.0 {
             return None;
         }
-        let mut buffer = rustybuzz::UnicodeBuffer::new();
-        buffer.push_str(text);
-        buffer.guess_segment_properties();
-        let direction = if buffer.direction() == rustybuzz::Direction::RightToLeft {
+        let bidi = unicode_bidi::BidiInfo::new(text, None);
+        let paragraph = bidi.paragraphs.first()?;
+        let direction = if paragraph.level.is_rtl() {
             FontBackendShapedDirection::RightToLeft
         } else {
             FontBackendShapedDirection::LeftToRight
         };
-        let shaped = rustybuzz::shape(&face, &[], buffer);
         // Match ab_glyph's PxScale contract, which scales ascent-to-descent height.
         let scale = raster_size / font_height;
-        let glyphs = shaped
-            .glyph_infos()
-            .iter()
-            .zip(shaped.glyph_positions())
-            .map(|(info, position)| FontBackendShapedGlyph {
-                glyph_id: info.glyph_id,
-                cluster: info.cluster,
-                x_advance: position.x_advance as f32 * scale,
-                y_advance: position.y_advance as f32 * scale,
-                x_offset: position.x_offset as f32 * scale,
-                y_offset: position.y_offset as f32 * scale,
-            })
-            .collect::<Vec<_>>();
+        let (levels, visual_runs) = bidi.visual_runs(paragraph, paragraph.range.clone());
+        let mut glyphs = Vec::new();
+        for run in visual_runs {
+            let run_text = text.get(run.clone())?;
+            if run_text.is_empty() {
+                continue;
+            }
+            let mut buffer = rustybuzz::UnicodeBuffer::new();
+            buffer.push_str(run_text);
+            buffer.guess_segment_properties();
+            buffer.set_direction(if levels[run.start].is_rtl() {
+                rustybuzz::Direction::RightToLeft
+            } else {
+                rustybuzz::Direction::LeftToRight
+            });
+            let shaped = rustybuzz::shape(&face, &self.features, buffer);
+            glyphs.extend(
+                shaped
+                    .glyph_infos()
+                    .iter()
+                    .zip(shaped.glyph_positions())
+                    .map(|(info, position)| FontBackendShapedGlyph {
+                        glyph_id: info.glyph_id,
+                        cluster: info.cluster.saturating_add(run.start as u32),
+                        x_advance: position.x_advance as f32 * scale,
+                        y_advance: position.y_advance as f32 * scale,
+                        x_offset: position.x_offset as f32 * scale,
+                        y_offset: position.y_offset as f32 * scale,
+                    }),
+            );
+        }
         (!glyphs.is_empty()).then_some(FontBackendShapedRun { direction, glyphs })
+    }
+
+    pub fn with_atlas_faces(mut self, faces: Vec<FontBackendAtlasFaceLayout>) -> Self {
+        self.atlas_faces = faces;
+        self
+    }
+
+    pub fn atlas_faces(&self) -> &[FontBackendAtlasFaceLayout] {
+        &self.atlas_faces
     }
 }
 
 impl PartialEq for FontBackendShapingFace {
     fn eq(&self, other: &Self) -> bool {
-        self.face_index == other.face_index && Arc::ptr_eq(&self.bytes, &other.bytes)
+        self.face_index == other.face_index
+            && Arc::ptr_eq(&self.bytes, &other.bytes)
+            && self.features == other.features
+            && self.variations == other.variations
+            && self.atlas_faces == other.atlas_faces
     }
+}
+
+fn parse_font_feature(value: &str) -> Option<rustybuzz::Feature> {
+    let mut parts = value.trim().split_whitespace();
+    let tag = parts.next()?.trim_matches(['\'', '"']);
+    let setting = parts.next().unwrap_or("1");
+    if parts.next().is_some() {
+        return None;
+    }
+    format!("{tag}={setting}").parse().ok()
+}
+
+fn parse_font_variation(value: &str) -> Option<rustybuzz::Variation> {
+    let mut parts = value.trim().split_whitespace();
+    let tag = parts.next()?.trim_matches(['\'', '"']);
+    let setting = parts.next()?;
+    if parts.next().is_some() {
+        return None;
+    }
+    format!("{tag}={setting}").parse().ok()
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct FontBackendAtlasFaceLayout {
+    pub face_id: String,
+    pub style: Option<String>,
+    pub weight: Option<String>,
+    pub glyphs_by_id: BTreeMap<u32, FontBackendAtlasGlyph>,
+    pub shaping_face: Box<FontBackendShapingFace>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -337,8 +420,26 @@ mod tests {
         assert_eq!(ligature.cluster_count(), 1);
         assert!(ligature.advance() > 0.0);
 
+        let no_ligature = FontBackendShapingFace::new(
+            std::fs::read(demo_font_path()).expect("demo font bytes"),
+            0,
+        )
+        .unwrap()
+        .with_settings(Some("'liga' 0"), Some("'wght' 600"));
+        assert_eq!(no_ligature.features.len(), 1);
+        assert_eq!(no_ligature.features[0].value, 0);
+        assert_eq!(no_ligature.variations.len(), 1);
+        assert_eq!(no_ligature.shape("ffi", 64.0).unwrap().glyphs.len(), 3);
+
         let rtl = face.shape("مرحبا", 64.0).expect("rtl run");
         assert_eq!(rtl.direction, FontBackendShapedDirection::RightToLeft);
+
+        let mixed = face.shape("abc אבג 123", 64.0).expect("mixed bidi run");
+        assert_eq!(mixed.direction, FontBackendShapedDirection::LeftToRight);
+        assert!(mixed
+            .glyphs
+            .windows(2)
+            .any(|pair| pair[1].cluster < pair[0].cluster));
     }
 
     fn demo_font_path() -> PathBuf {

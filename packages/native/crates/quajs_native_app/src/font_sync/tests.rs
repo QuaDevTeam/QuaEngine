@@ -253,6 +253,8 @@ fn face<const N: usize>(
         stretch: None,
         display: None,
         unicode_range: None,
+        feature_settings: None,
+        variation_settings: None,
         package_candidates: set(packages),
         face_resource_id: ResourceId::from(format!("font:face:fonts:{asset_name}")),
     }
