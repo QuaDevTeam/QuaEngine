@@ -8,6 +8,7 @@ use crate::renderer::backend::wgpu::WgpuPhysicalRect;
 pub(super) use rect::{physical_rect_from_float, rect_vertices, union_physical_rect};
 pub(super) use rounded::{
     rounded_border_geometry, rounded_rect_geometry, rounded_rect_geometry_with_uv_bounds,
+    rounded_shadow_geometry,
 };
 
 #[derive(Clone, Debug, PartialEq)]

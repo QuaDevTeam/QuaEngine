@@ -25,6 +25,7 @@ pub struct WgpuNativeRenderQuad {
     pub paint: WgpuNativeRenderPaint,
     pub opacity: f32,
     pub corner_radius: f32,
+    pub shadow_blur_radius: f32,
     pub border: Option<WgpuNativeRenderQuadBorder>,
     pub text_overlay: Option<WgpuNativeRenderTextOverlay>,
     pub owner_package_id: Option<String>,
@@ -48,6 +49,7 @@ impl WgpuNativeRenderQuad {
             paint,
             opacity: opacity_from_primitive(primitive),
             corner_radius,
+            shadow_blur_radius: shadow_blur_radius_from_primitive(primitive),
             border,
             text_overlay,
             owner_package_id: primitive.owner_package_id.clone(),
@@ -62,6 +64,15 @@ impl WgpuNativeRenderQuad {
             && self.opacity > 0.0
             && self.paint.is_drawable()
             && !self.paint.has_invalid_color()
+    }
+}
+
+fn shadow_blur_radius_from_primitive(primitive: &WgpuNativeRenderPrimitive) -> f32 {
+    match &primitive.kind {
+        WgpuNativeRenderPrimitiveKind::Panel {
+            shadow_blur_radius, ..
+        } => *shadow_blur_radius as f32,
+        _ => 0.0,
     }
 }
 

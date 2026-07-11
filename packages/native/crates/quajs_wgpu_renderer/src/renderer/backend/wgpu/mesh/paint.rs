@@ -88,6 +88,7 @@ pub(super) fn paint_from_primitive(
         WgpuNativeRenderPrimitiveKind::Panel {
             fill_color,
             corner_radius,
+            shadow_blur_radius: _,
             border,
         } => (
             solid_paint(fill_color),

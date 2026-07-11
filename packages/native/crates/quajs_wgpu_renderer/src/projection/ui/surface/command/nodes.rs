@@ -158,6 +158,7 @@ pub(super) fn surface_panel_node_command(
     .params(DrawCommandParams::Panel(PanelDrawParams {
         role: role.to_string(),
         corner_radius: resolve_border_radius(&node.style, 0.0),
+        shadow_blur_radius: 0.0,
         fill_color: resolve_background_color(&node.style, fallback_fill_color),
         border: surface_border_params(&node.style),
         padding: resolve_padding(&node.style),

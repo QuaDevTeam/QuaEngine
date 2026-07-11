@@ -168,6 +168,7 @@ pub enum WgpuNativeRenderPrimitiveKind {
     Panel {
         fill_color: String,
         corner_radius: f64,
+        shadow_blur_radius: f64,
         border: WgpuNativeRenderPrimitiveBorder,
     },
     UiButton {

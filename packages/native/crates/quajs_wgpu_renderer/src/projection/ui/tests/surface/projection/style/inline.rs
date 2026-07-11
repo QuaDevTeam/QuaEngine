@@ -260,48 +260,30 @@ fn projects_box_and_text_shadows_before_surface_content() {
             .collect::<Vec<_>>(),
         vec![
             "ui:shadow",
-            "ui:shadow:panel:box-shadow:0",
-            "ui:shadow:panel:box-shadow:1",
-            "ui:shadow:panel:box-shadow:2",
-            "ui:shadow:panel:box-shadow:3",
-            "ui:shadow:panel:box-shadow:4",
-            "ui:shadow:panel:box-shadow:5",
+            "ui:shadow:panel:box-shadow",
             "ui:shadow:panel",
-            "ui:shadow:title:text-shadow:0",
-            "ui:shadow:title:text-shadow:1",
-            "ui:shadow:title:text-shadow:2",
-            "ui:shadow:title:text-shadow:3",
-            "ui:shadow:title:text-shadow:4",
-            "ui:shadow:title:text-shadow:5",
-            "ui:shadow:title:text-shadow:6",
-            "ui:shadow:title:text-shadow:7",
-            "ui:shadow:title:text-shadow:8",
+            "ui:shadow:title:text-shadow",
             "ui:shadow:title",
         ]
     );
-    let outer_shadow = &commands[1];
-    assert_eq!(outer_shadow.bounds.x, 72.0);
-    assert_eq!(outer_shadow.bounds.y, 70.0);
-    assert_eq!(outer_shadow.bounds.width, 456.0);
-    assert_eq!(outer_shadow.bounds.height, 296.0);
-    assert_eq!(outer_shadow.opacity, 0.08);
-    match &outer_shadow.params {
+    let box_shadow = &commands[1];
+    assert_eq!(box_shadow.bounds.x, 58.0);
+    assert_eq!(box_shadow.bounds.y, 56.0);
+    assert_eq!(box_shadow.bounds.width, 484.0);
+    assert_eq!(box_shadow.bounds.height, 324.0);
+    assert_eq!(box_shadow.opacity, 1.0);
+    match &box_shadow.params {
         DrawCommandParams::Panel(params) => {
             assert_eq!(params.fill_color, "rgba(0,0,0,0.42)");
-            assert_eq!(params.corner_radius, 36.0);
+            assert_eq!(params.corner_radius, 50.0);
+            assert_eq!(params.shadow_blur_radius, 40.0);
         }
         _ => panic!("expected box shadow panel params"),
     }
-    let inner_shadow = &commands[6];
-    assert_eq!(inner_shadow.bounds.x, 98.0);
-    assert_eq!(inner_shadow.bounds.y, 96.0);
-    assert_eq!(inner_shadow.bounds.width, 404.0);
-    assert_eq!(inner_shadow.bounds.height, 244.0);
-    assert_eq!(inner_shadow.opacity, 0.32);
-    let text_shadow = &commands[12];
+    let text_shadow = &commands[3];
     assert_eq!(text_shadow.bounds.x, 133.0);
     assert_eq!(text_shadow.bounds.y, 114.0);
-    assert_eq!(text_shadow.opacity, 0.36);
+    assert_eq!(text_shadow.opacity, 1.0);
     match &text_shadow.params {
         DrawCommandParams::Text(params) => {
             assert_eq!(params.text, "Shadow title");

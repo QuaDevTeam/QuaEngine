@@ -57,6 +57,7 @@ pub fn build_dialogue_commands(
             .params(DrawCommandParams::Panel(PanelDrawParams {
                 role: "dialogue-panel".to_string(),
                 corner_radius: 2.0,
+                shadow_blur_radius: 0.0,
                 fill_color: "rgba(7,8,12,0.97)".to_string(),
                 border: BorderDrawParams {
                     color: Some("rgba(245,226,190,0.28)".to_string()),
@@ -157,6 +158,7 @@ fn panel_command(
         DrawCommandParams::Panel(PanelDrawParams {
             role: role.to_string(),
             corner_radius,
+            shadow_blur_radius: 0.0,
             fill_color: fill_color.to_string(),
             border,
             padding: EdgeInsetsDrawParam::default(),

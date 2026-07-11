@@ -12,6 +12,7 @@ fn scales_ui_paint_and_typography_metrics_to_physical_pixels() {
                     metadata: draw_metadata(DrawCommandParams::Panel(PanelDrawParams {
                         role: "panel".to_string(),
                         corner_radius: 8.0,
+                        shadow_blur_radius: 0.0,
                         fill_color: "#000000".to_string(),
                         border: BorderDrawParams {
                             color: Some("#ffffff".to_string()),
@@ -88,6 +89,7 @@ fn lowers_foundational_ui_surface_primitives() {
             metadata: draw_metadata(DrawCommandParams::Panel(PanelDrawParams {
                 role: "ui-panel".to_string(),
                 corner_radius: 12.0,
+                shadow_blur_radius: 0.0,
                 fill_color: "rgba(16,24,32,0.75)".to_string(),
                 border: BorderDrawParams {
                     color: Some("#5ac8fa".to_string()),
@@ -162,6 +164,7 @@ fn lowers_foundational_ui_surface_primitives() {
             fill_color,
             corner_radius,
             border,
+            ..
         } if fill_color == "rgba(16,24,32,0.75)"
             && *corner_radius == 12.0
             && border.color.as_deref() == Some("#5ac8fa")

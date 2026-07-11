@@ -198,6 +198,7 @@ fn basic_shape_commands_without_params_render_as_visible_fallback_panels() {
                 fill_color,
                 corner_radius,
                 border,
+                ..
             } if fill_color == "#ffffff"
                 && *corner_radius == 0.0
                 && border == &WgpuNativeRenderPrimitiveBorder::default()

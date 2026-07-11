@@ -74,6 +74,7 @@ pub fn build_choice_commands_with_dialogue(
         .params(DrawCommandParams::Panel(PanelDrawParams {
             role: "choices-panel".to_string(),
             corner_radius: 2.0,
+            shadow_blur_radius: 0.0,
             fill_color: "rgba(0,0,0,0.0)".to_string(),
             border: BorderDrawParams::default(),
             padding: EdgeInsetsDrawParam::default(),

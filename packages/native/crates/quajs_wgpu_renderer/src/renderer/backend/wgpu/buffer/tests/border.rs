@@ -124,6 +124,34 @@ fn tessellates_rounded_rects_into_triangle_fans() {
 }
 
 #[test]
+fn emits_soft_box_shadow_as_one_gpu_gradient_draw() {
+    let mut shadow = quad(
+        "ui:panel:box-shadow",
+        DrawBatchPipeline::Ui,
+        DrawCommandKind::RoundedRect,
+        WgpuNativeRenderPaint::Solid {
+            color: rgba(0x00, 0x00, 0x00, 0x80),
+            literal: "rgba(0,0,0,0.5)".to_string(),
+        },
+        rect(10, 20, 140, 80),
+        Vec::new(),
+    );
+    shadow.corner_radius = 20.0;
+    shadow.shadow_blur_radius = 12.0;
+
+    let plan = WgpuNativeRenderBufferPlan::from_mesh_plan(&mesh_plan(vec![shadow]));
+
+    let pass = &plan.passes[0];
+    assert_eq!(pass.draw_call_count, 1);
+    assert_eq!(pass.draw_calls[0].command_id, "ui:panel:box-shadow");
+    assert_eq!(pass.draw_calls[0].vertex_count, 57);
+    assert_eq!(pass.draw_calls[0].index_count, 252);
+    assert_eq!(pass.vertices[0].color, [0.0, 0.0, 0.0, 0.0]);
+    assert_eq!(pass.vertices[1].color, [0.0, 0.0, 0.0, 128.0 / 255.0]);
+    assert_eq!(pass.vertices[56].color, [0.0, 0.0, 0.0, 128.0 / 255.0]);
+}
+
+#[test]
 fn tessellates_rounded_texture_quads_with_cropped_uvs() {
     let mut image = quad(
         "ui:rounded-image",

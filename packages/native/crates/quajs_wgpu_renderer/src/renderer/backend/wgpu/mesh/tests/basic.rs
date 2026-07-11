@@ -10,6 +10,7 @@ fn lowers_primitives_into_gpu_quads_and_paints() {
             WgpuNativeRenderPrimitiveKind::Panel {
                 fill_color: "#336699cc".to_string(),
                 corner_radius: 12.0,
+                shadow_blur_radius: 0.0,
                 border: WgpuNativeRenderPrimitiveBorder {
                     color: Some("rgba(255,255,255,0.5)".to_string()),
                     width: 2.0,
