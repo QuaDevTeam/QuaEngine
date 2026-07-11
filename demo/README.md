@@ -2,7 +2,7 @@
 
 `demo/` is the QuaEngine visual novel demo project. It presents a near-future story about a human resistance group, a city-scale predictive AI, and a machine witness named Unit-7.
 
-The demo is also the reference application for the current Web/Vue visual novel stack: engine plugins, Vue renderer plugins, settings/save/load scenes, backlog, story tree, typewriter text, character staging, sprite expressions, background transitions, CG overlays, and generated assets.
+The demo is also the reference application for the current Web/Vue and native WGPU visual novel stacks: engine plugins, renderer feature surfaces, settings/save/load scenes, backlog, achievements, story tree, typewriter text, character staging, sprite expressions, background transitions, CG overlays, and generated assets.
 
 ## Copyright
 
@@ -63,6 +63,11 @@ pnpm install
 pnpm --filter demo dev
 pnpm --filter demo build
 pnpm --filter demo typecheck
+pnpm --filter demo dev:native -- --panel=settings
+pnpm --filter demo native:smoke
+pnpm --filter demo native:smoke:backlog
+pnpm --filter demo native:smoke:gallery
+pnpm --filter demo native:smoke:achievement
 ```
 
 Asset commands:
@@ -110,6 +115,7 @@ chapterSelect: {
 The demo uses:
 
 - `@quajs/plugin-animation`
+- `@quajs/plugin-achievement`
 - `@quajs/plugin-background`
 - `@quajs/plugin-backlog`
 - `@quajs/plugin-fonts`
@@ -119,7 +125,7 @@ The demo uses:
 - `@quajs/story-graph`
 - `@quajs/renderer-vue` visual novel preset
 
-The renderer remains projection-only. Menu, settings, save/load, backlog, and story tree actions flow through engine/plugin APIs or pipeline events.
+The renderer remains projection-only. Menu, settings, save/load, backlog, achievements, and story tree actions flow through engine/plugin APIs or pipeline events. Native feature panels use the same explicit feature-surface list for frame serialization and `NativeHostPlugin`; `native:smoke*` validates the selected surface before running the Rust/WGPU window smoke.
 
 ## Build Output
 
