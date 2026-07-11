@@ -29,6 +29,7 @@
     "native:smoke:backlog": "node --experimental-strip-types scripts/native-dev.mjs --smoke --panel=backlog",
     "native:smoke:effects": "node --experimental-strip-types scripts/native-dev.mjs --smoke --panel=effects",
     "native:smoke:gallery": "node --experimental-strip-types scripts/native-dev.mjs --smoke --panel=gallery",
+    "native:smoke:parity": "node --experimental-strip-types scripts/native-dev.mjs --smoke --panel=parity",
     "native:smoke:save-preview": "node --experimental-strip-types scripts/native-dev.mjs --smoke",
     "native:smoke:scene": "node --experimental-strip-types scripts/native-dev.mjs --smoke --panel=scene",
     "native:smoke:settings": "node --experimental-strip-types scripts/native-dev.mjs --smoke --panel=settings",
