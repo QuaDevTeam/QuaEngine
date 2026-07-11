@@ -12,6 +12,7 @@ import { assertNativeRuntimePackageCompatibility } from './compatibility'
 import { NativeHostPlugin } from './native-host-plugin'
 import type { NativeSavePreviewCaptureProvider } from './save-preview-capture'
 import type { NativeRendererFeatureSurfaceEntry } from './feature-surfaces'
+import type { NativeQuickJsRendererIntentBridge } from './quickjs-renderer-bridge'
 import { createNativeHostQuickJsGameStepModuleNamespaceResolver, createNativeHostQuickJsModuleEvaluator, createNativeQuickJsPipelineSubscriptionBridge, createNativeRuntimeModuleLoader } from './runtime-module-loader'
 import type { NativeQuickJsHelperCallExecutor, NativeQuickJsHelperModuleRegistry, NativeQuickJsModuleNamespaceResolver, NativeQuickJsPipelineSubscriptionBridge, NativeQuickJsStepContextSerializer, NativeRuntimeModuleEvaluator } from './runtime-module-loader'
 
@@ -22,6 +23,7 @@ declare const TextEncoder: {
 export interface NativeRuntimeAdapters {
   host: QuaNativeHostApi
   quickJsPipelineSubscriptionBridge?: NativeQuickJsPipelineSubscriptionBridge
+  quickJsRendererIntentBridge?: NativeQuickJsRendererIntentBridge
   runtimeModuleLoader?: RuntimeModuleLoader
   trustPolicy: RuntimeTrustPolicy
 }
@@ -94,6 +96,7 @@ export function createNativeEngineBootstrap(host: QuaNativeHostApi, options: Nat
       host,
       info: options.hostInfo,
       quickJsPipelineSubscriptionBridge: adapters.quickJsPipelineSubscriptionBridge,
+      quickJsRendererIntentBridge: options.quickJsRendererIntentBridge,
       rendererId: options.rendererId,
       requestRender: options.requestRender,
       targetBootstrapPackages: options.targetBootstrapPackages,

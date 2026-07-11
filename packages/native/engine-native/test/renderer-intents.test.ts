@@ -2,7 +2,12 @@ import type { QuaNativeHostApi, QuaNativeHostInfo } from '@quajs/native-contract
 import { RenderToLogicEvents } from '@quajs/engine'
 import { createNativeRendererIntent } from '@quajs/native-contracts'
 import { describe, expect, it, vi } from 'vitest'
-import { drainNativeRendererIntentsToPipeline, emitNativeRendererIntentToPipeline, NativeHostPlugin } from '../src'
+import {
+  drainNativeRendererIntentsToPipeline,
+  emitNativeRendererIntentToPipeline,
+  installNativeQuickJsRendererIntentBridge,
+  NativeHostPlugin,
+} from '../src'
 
 function createHostInfo(): QuaNativeHostInfo {
   return {
@@ -82,6 +87,33 @@ const AUDIO_EVENTS = {
 } as const
 
 describe('@quajs/engine-native renderer intents', () => {
+  it('injects committed QuickJS renderer intents into the existing pipeline', async () => {
+    const pipeline = createTestPipeline()
+    let listener: ((intent: ReturnType<typeof createNativeRendererIntent>) => void | Promise<void>) | undefined
+    const unsubscribe = vi.fn()
+    const dispose = installNativeQuickJsRendererIntentBridge({
+      subscribe(next) {
+        listener = next
+        return unsubscribe
+      },
+    }, pipeline as any)
+
+    await listener?.(createNativeRendererIntent({
+      type: 'ui/intent',
+      payload: { action: 'close', elementId: 'settings' },
+    }))
+
+    expect(pipeline.emit).toHaveBeenCalledWith('ui/intent', {
+      action: 'close',
+      elementId: 'settings',
+    })
+    expect(pipeline.emit).toHaveBeenCalledWith(RenderToLogicEvents.UI_REQUEST_CLOSE, {
+      elementId: 'settings',
+    })
+    dispose()
+    expect(unsubscribe).toHaveBeenCalledOnce()
+  })
+
   it('maps allowlisted feature surface actions into plugin pipeline events', async () => {
     const pipeline = createTestPipeline()
     const received: unknown[] = []
