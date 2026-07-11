@@ -19,6 +19,9 @@ where
         self.config
             .resource_policy
             .validate_submission(&submission)?;
+        if self.can_reuse_stable_device_plan(&submission) {
+            return self.submit_reused_stable_plan(submission);
+        }
         let frame_plan =
             NativeBackendFramePlan::from_submission_and_resources(submission, frame.resources);
         let execution_plan = WgpuNativeRenderExecutionPlan::from_command_stream_plan(
@@ -72,10 +75,67 @@ where
         self.resource_cache_plans.push(resource_cache_plan);
         self.runtime_plans.push(runtime_plan);
         self.runtime_reports.push(runtime_report);
+        self.planned_font_atlas_upload_count = self.font_atlas_upload_count;
         Ok(frame_plan.submission)
     }
 
     fn resident_texture_resource_ids(&self) -> Vec<String> {
         self.runtime_snapshot().resident_texture_resource_ids
+    }
+}
+
+impl<E> WgpuNativeRenderBackend<E>
+where
+    E: WgpuNativeRenderRuntimeExecutor,
+{
+    fn can_reuse_stable_device_plan(
+        &self,
+        submission: &crate::renderer::backend::NativeRenderSubmission,
+    ) -> bool {
+        self.invalidated_bind_group_cache_labels.is_empty()
+            && self.planned_font_atlas_upload_count == self.font_atlas_upload_count
+            && self.submissions.last() == Some(submission)
+            && self.device_plans.last().is_some()
+            && self.resource_cache_plans.last().is_some()
+    }
+
+    fn submit_reused_stable_plan(
+        &mut self,
+        submission: crate::renderer::backend::NativeRenderSubmission,
+    ) -> NativeRenderBackendResult {
+        let device_plan = self
+            .device_plans
+            .last()
+            .expect("stable device plan presence was checked")
+            .clone();
+        let previous_resource_cache_plan = self.previous_resource_cache_plan_for_submit();
+        let resource_cache_plan = WgpuNativeRenderResourceCachePlan::from_device_plan(
+            previous_resource_cache_plan.as_ref(),
+            &device_plan,
+        );
+        let runtime_plan = WgpuNativeRenderRuntimePlan::from_reused_device_and_cache_plans(
+            &device_plan,
+            &resource_cache_plan,
+        );
+        let runtime_report = self
+            .runtime_executor
+            .apply_runtime_plan(&runtime_plan)
+            .map_err(|error| NativeRenderBackendError::backend_rejected(error.to_string()))?;
+        self.fallback_warnings
+            .record_submission(&submission.fallback_diagnostics);
+        self.submissions.push(submission.clone());
+        replace_last_or_push(&mut self.resource_cache_plans, resource_cache_plan);
+        replace_last_or_push(&mut self.runtime_plans, runtime_plan);
+        replace_last_or_push(&mut self.runtime_reports, runtime_report);
+        self.stable_plan_reuse_count = self.stable_plan_reuse_count.saturating_add(1);
+        Ok(submission)
+    }
+}
+
+fn replace_last_or_push<T>(values: &mut Vec<T>, value: T) {
+    if let Some(last) = values.last_mut() {
+        *last = value;
+    } else {
+        values.push(value);
     }
 }

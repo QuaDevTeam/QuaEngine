@@ -180,4 +180,8 @@ where
     pub fn runtime_executor_mut(&mut self) -> &mut E {
         &mut self.runtime_executor
     }
+
+    pub fn stable_plan_reuse_count(&self) -> usize {
+        self.stable_plan_reuse_count
+    }
 }
