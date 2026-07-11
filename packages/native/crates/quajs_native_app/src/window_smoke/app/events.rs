@@ -95,10 +95,20 @@ impl ApplicationHandler for NativeWindowSmokeApp {
                     self.input
                         .update_cursor_position(position, window.scale_factor());
                 }
+                if let Some(point) = self.input.cursor_client_point() {
+                    match self.dispatch_window_pointer_move(point) {
+                        Ok(true) => self.request_redraw(),
+                        Ok(false) => {}
+                        Err(error) => self.fail_and_exit(event_loop, error),
+                    }
+                }
             }
             WindowEvent::CursorLeft { .. } => {
-                self.cancel_window_pointer_interaction();
+                let visual_state_changed = self.cancel_window_pointer_interaction();
                 self.input.clear_cursor_position();
+                if visual_state_changed {
+                    self.request_redraw();
+                }
             }
             WindowEvent::Focused(focused) => {
                 if let Err(error) = self.dispatch_window_focus_event(focused) {
@@ -128,8 +138,10 @@ impl ApplicationHandler for NativeWindowSmokeApp {
             WindowEvent::MouseInput { state, button, .. } => {
                 let phase = pointer_phase_from_element_state(state);
                 let button = pointer_button_from_winit(button);
-                if let Err(error) = self.dispatch_window_pointer_input(phase, button) {
-                    self.fail_and_exit(event_loop, error);
+                match self.dispatch_window_pointer_input(phase, button) {
+                    Ok(true) => self.request_redraw(),
+                    Ok(false) => {}
+                    Err(error) => self.fail_and_exit(event_loop, error),
                 }
             }
             WindowEvent::RedrawRequested => {
