@@ -1,5 +1,6 @@
 pub mod backend;
 pub mod facade;
+mod interaction_feedback;
 pub mod json_input;
 pub(crate) mod json_validation;
 pub mod metrics;

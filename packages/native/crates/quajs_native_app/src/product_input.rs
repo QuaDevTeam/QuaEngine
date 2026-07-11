@@ -84,6 +84,7 @@ pub(crate) struct NativeProductImeCompositionState {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct NativeProductPointerDispatchReport {
     pub(crate) dispatched: bool,
+    pub(crate) visual_state_changed: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -346,6 +347,39 @@ impl NativeProductInputController {
 
         Ok(NativeProductPointerDispatchReport {
             dispatched: dispatch.is_some(),
+            visual_state_changed: dispatch
+                .as_ref()
+                .map(|dispatch| dispatch.resolution.visual_state_changed)
+                .unwrap_or(false),
+        })
+    }
+
+    pub(crate) fn dispatch_pointer_move<B, A, V, F, H>(
+        &mut self,
+        renderer: &mut NativeRenderer<B, A, V, F>,
+        host: &mut H,
+        point: StageClientPoint,
+    ) -> Result<NativeProductPointerDispatchReport, NativeProductInputError>
+    where
+        B: NativeRenderBackend,
+        H: NativeHostApi,
+    {
+        let event = NativePointerEvent::new(
+            NativePointerEventPhase::Move,
+            point,
+            StageClientRectOrigin::default(),
+        )
+        .with_pointer_id(self.pointer_id);
+        let dispatch = renderer
+            .pointer_event_and_emit_intent(event, host)
+            .map_err(NativeProductInputError::from_host_error)?;
+
+        Ok(NativeProductPointerDispatchReport {
+            dispatched: dispatch.is_some(),
+            visual_state_changed: dispatch
+                .as_ref()
+                .map(|dispatch| dispatch.resolution.visual_state_changed)
+                .unwrap_or(false),
         })
     }
 }

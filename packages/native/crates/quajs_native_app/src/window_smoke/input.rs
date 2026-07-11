@@ -221,7 +221,7 @@ impl NativeWindowSmokeInputState {
         phase: NativePointerEventPhase,
         point: StageClientPoint,
         button: NativePointerButton,
-    ) -> Result<(), NativeWindowSmokeError>
+    ) -> Result<bool, NativeWindowSmokeError>
     where
         B: NativeRenderBackend,
     {
@@ -252,7 +252,28 @@ impl NativeWindowSmokeInputState {
                 .map(|intent| intent.r#type.clone());
         }
 
-        Ok(())
+        Ok(dispatch.visual_state_changed)
+    }
+
+    pub(super) fn dispatch_pointer_move<B, A, V, F>(
+        &mut self,
+        renderer: &mut NativeRenderer<B, A, V, F>,
+        host: &mut InMemoryNativeHostApi,
+        point: StageClientPoint,
+    ) -> Result<bool, NativeWindowSmokeError>
+    where
+        B: NativeRenderBackend,
+    {
+        self.metrics.pointer_event_count = self.metrics.pointer_event_count.saturating_add(1);
+        let dispatch = self
+            .product_input
+            .dispatch_pointer_move(renderer, host, point)
+            .map_err(input_error)?;
+        if dispatch.dispatched {
+            self.metrics.pointer_dispatch_count =
+                self.metrics.pointer_dispatch_count.saturating_add(1);
+        }
+        Ok(dispatch.visual_state_changed)
     }
 
     fn record_keyboard_state(&mut self, state: ElementState, repeat: bool) {
@@ -328,6 +349,7 @@ impl NativeWindowSmokeInputState {
             client,
             NativePointerButton::Primary,
         )
+        .map(|_| ())
     }
 }
 

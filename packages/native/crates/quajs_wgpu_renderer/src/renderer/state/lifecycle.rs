@@ -3,6 +3,7 @@ use std::collections::BTreeSet;
 use crate::renderer::backend::{
     NativeRenderBackend, NativeRenderBackendError, NativeRenderBackendResult, NativeRenderFrameRef,
 };
+use crate::renderer::interaction_feedback::frame_with_interaction_feedback;
 use crate::renderer::resource_update::{
     apply_active_projection_package_unload_guard, apply_active_projection_unload_guard,
     host_cleanup_records, package_release_summary, NativeRendererHostCleanupRecord,
@@ -58,9 +59,10 @@ impl NativeRendererState {
             .as_ref()
             .ok_or_else(NativeRenderBackendError::no_prepared_frame)?;
 
+        let feedback_frame = frame_with_interaction_feedback(frame, &self.pointer_interaction);
         backend.submit_frame(NativeRenderFrameRef {
             revision: self.revision,
-            frame,
+            frame: feedback_frame.as_ref().unwrap_or(frame),
             resources: &self.resources,
         })
     }

@@ -213,6 +213,65 @@ fn pointer_press_and_move_events_keep_hit_metadata_without_dispatching() {
 }
 
 #[test]
+fn pointer_move_submits_transient_hover_feedback_only_while_targeted() {
+    let mut renderer = NativeRenderer::new(RecordingBackend::default());
+    renderer
+        .prepare_and_render(test_layout(), &view_with_background_and_choice())
+        .unwrap();
+    let projected_command_count = renderer.state().frame().unwrap().summary.command_count;
+    let (client, origin) = client_point_for_choice(&renderer, "choice:stay");
+
+    let entered = renderer
+        .pointer_event(NativePointerEvent::new(
+            NativePointerEventPhase::Move,
+            client,
+            origin,
+        ))
+        .unwrap();
+    assert!(entered.visual_state_changed);
+    assert_eq!(
+        renderer.state().pointer_interaction().hovered_command_id(),
+        Some("choice:stay")
+    );
+
+    let hovered_submission = renderer.render_frame().unwrap();
+    assert_eq!(
+        hovered_submission.command_count,
+        projected_command_count + 1
+    );
+    assert!(hovered_submission
+        .passes
+        .iter()
+        .flat_map(|pass| pass.batches.iter())
+        .flat_map(|batch| batch.command_ids.iter())
+        .any(|command_id| command_id == "choice:stay::interaction"));
+    assert_eq!(
+        renderer.state().frame().unwrap().summary.command_count,
+        projected_command_count
+    );
+
+    let left = renderer
+        .pointer_event(NativePointerEvent::new(
+            NativePointerEventPhase::Move,
+            StageClientPoint {
+                client_x: origin.left - 1.0,
+                client_y: origin.top - 1.0,
+            },
+            origin,
+        ))
+        .unwrap();
+    assert!(left.visual_state_changed);
+    assert_eq!(
+        renderer.state().pointer_interaction().hovered_command_id(),
+        None
+    );
+    assert_eq!(
+        renderer.render_frame().unwrap().command_count,
+        projected_command_count
+    );
+}
+
+#[test]
 fn pointer_secondary_release_keeps_hit_metadata_without_dispatching() {
     let mut renderer = NativeRenderer::new(RecordingBackend::default());
     renderer

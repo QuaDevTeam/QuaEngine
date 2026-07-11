@@ -257,12 +257,12 @@ impl NativeWindowSmokeApp {
         &mut self,
         phase: quajs_wgpu_renderer::input::NativePointerEventPhase,
         button: quajs_wgpu_renderer::input::NativePointerButton,
-    ) -> Result<(), NativeWindowSmokeError> {
+    ) -> Result<bool, NativeWindowSmokeError> {
         let Some(point) = self.input.cursor_client_point() else {
-            return Ok(());
+            return Ok(false);
         };
         let Some(product_shell) = self.product_shell.as_mut() else {
-            return Ok(());
+            return Ok(false);
         };
 
         let (renderer, host) = product_shell
@@ -273,12 +273,27 @@ impl NativeWindowSmokeApp {
             .dispatch_pointer_event(renderer, host, phase, point, button)
     }
 
-    fn cancel_window_pointer_interaction(&mut self) {
+    fn dispatch_window_pointer_move(
+        &mut self,
+        point: quajs_wgpu_renderer::stage_layout::StageClientPoint,
+    ) -> Result<bool, NativeWindowSmokeError> {
+        let Some(product_shell) = self.product_shell.as_mut() else {
+            return Ok(false);
+        };
+        let (renderer, host) = product_shell
+            .window_loop_mut()
+            .runtime_mut()
+            .renderer_and_host_mut();
+        self.input.dispatch_pointer_move(renderer, host, point)
+    }
+
+    fn cancel_window_pointer_interaction(&mut self) -> bool {
         if let Some(product_shell) = self.product_shell.as_mut() {
-            self.input.cancel_pointer_interaction(
+            return self.input.cancel_pointer_interaction(
                 product_shell.window_loop_mut().runtime_mut().renderer_mut(),
             );
         }
+        false
     }
 
     fn dispatch_window_focus_event(&mut self, focused: bool) -> Result<(), NativeWindowSmokeError> {

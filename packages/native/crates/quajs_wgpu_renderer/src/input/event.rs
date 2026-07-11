@@ -60,11 +60,14 @@ pub struct NativePointerEventResolution {
     pub event: NativePointerEvent,
     pub pointer: PointerIntentResolution,
     pub intent_to_dispatch: Option<RendererIntentHit>,
+    pub visual_state_changed: bool,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct NativePointerInteractionState {
     active_presses: BTreeMap<u64, NativePointerPress>,
+    hovered_command_id: Option<String>,
+    focused_command_id: Option<String>,
 }
 
 impl NativePointerInteractionState {
@@ -80,12 +83,36 @@ impl NativePointerInteractionState {
         self.active_presses.len()
     }
 
+    pub fn hovered_command_id(&self) -> Option<&str> {
+        self.hovered_command_id.as_deref()
+    }
+
+    pub fn focused_command_id(&self) -> Option<&str> {
+        self.focused_command_id.as_deref()
+    }
+
+    pub fn is_pressed(&self, command_id: &str) -> bool {
+        self.active_presses
+            .values()
+            .any(|press| press.command_id == command_id)
+    }
+
+    pub fn has_visual_feedback(&self) -> bool {
+        self.hovered_command_id.is_some()
+            || self.focused_command_id.is_some()
+            || !self.active_presses.is_empty()
+    }
+
     pub fn cancel_pointer(&mut self, pointer_id: u64) -> bool {
-        self.active_presses.remove(&pointer_id).is_some()
+        let press_changed = self.active_presses.remove(&pointer_id).is_some();
+        let hover_changed = self.hovered_command_id.take().is_some();
+        press_changed || hover_changed
     }
 
     pub fn clear(&mut self) {
         self.active_presses.clear();
+        self.hovered_command_id = None;
+        self.focused_command_id = None;
     }
 }
 
@@ -111,6 +138,19 @@ pub fn resolve_pointer_event_with_interaction(
     event: NativePointerEvent,
     pointer: PointerIntentResolution,
 ) -> NativePointerEventResolution {
+    let previous_hover = interaction.hovered_command_id.clone();
+    let previous_focus = interaction.focused_command_id.clone();
+    let previous_pressed = interaction.active_presses.clone();
+
+    interaction.hovered_command_id = match event.phase {
+        NativePointerEventPhase::Cancel => None,
+        _ => pointer.intent.as_ref().map(|hit| hit.command_id.clone()),
+    };
+
+    if event.phase == NativePointerEventPhase::Press && is_primary_button(&event) {
+        interaction.focused_command_id = pointer.intent.as_ref().map(|hit| hit.command_id.clone());
+    }
+
     let intent_to_dispatch = match event.phase {
         NativePointerEventPhase::Press => {
             remember_pressed_intent(
@@ -138,6 +178,9 @@ pub fn resolve_pointer_event_with_interaction(
         event,
         pointer,
         intent_to_dispatch,
+        visual_state_changed: previous_hover != interaction.hovered_command_id
+            || previous_focus != interaction.focused_command_id
+            || previous_pressed != interaction.active_presses,
     }
 }
 
