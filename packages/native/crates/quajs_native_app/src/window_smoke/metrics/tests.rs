@@ -146,6 +146,7 @@ fn derives_audio_metrics_from_null_backend_diagnostics() {
     assert_eq!(metrics.applied_plan_count, 1);
     assert_eq!(metrics.applied_command_count, 0);
     assert_eq!(metrics.active_track_count, 0);
+    assert_eq!(metrics.peak_active_track_count, 0);
     assert_eq!(
         NativeWindowSmokeAudioMetrics::from_null_backend(None),
         NativeWindowSmokeAudioMetrics::default()

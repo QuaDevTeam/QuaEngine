@@ -43,4 +43,5 @@ targets:
     build:
       cargoFeatures:
         - native-window
+        - native-audio-rodio
         - quickjs-rquickjs

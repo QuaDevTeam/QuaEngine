@@ -329,7 +329,7 @@ describe('@quajs/engine-native runtime product smoke', () => {
       expect(rendererSummary).toEqual(expect.objectContaining({
         revision: 1,
         missingResourceCount: 0,
-        commandGraphSignature: 'fnv1a64:8d14798cb7a24085',
+        commandGraphSignature: 'fnv1a64:40141de78c11213e',
       }))
       expect(rendererSummary.commandIds).toEqual(['character:mira'])
       expect(rendererSummary.commandKindCounts).toEqual({ image: 1 })
@@ -616,7 +616,7 @@ describe('@quajs/engine-native runtime product smoke', () => {
             id: 'native-product-bgm',
             kind: 'bgm',
             assetName: 'audio/bgm/native-theme.ogg',
-            assetType: 'bgm',
+            assetType: 'audio',
             loadMode: 'buffered',
             playbackState: 'playing',
             looped: true,

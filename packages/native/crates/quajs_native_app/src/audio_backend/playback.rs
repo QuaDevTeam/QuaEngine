@@ -112,6 +112,10 @@ where
 
         self.active_tracks = plan.next_tracks.clone();
         self.diagnostics.active_track_count = self.active_tracks.len();
+        self.diagnostics.peak_active_track_count = self
+            .diagnostics
+            .peak_active_track_count
+            .max(self.diagnostics.active_track_count);
         self.diagnostics.loaded_asset_count = self.loaded_assets.len();
         Ok(())
     }
@@ -182,4 +186,5 @@ pub(crate) struct NativeAudioPlaybackBackendDiagnostics {
     pub(crate) applied_plan_count: usize,
     pub(crate) applied_command_count: usize,
     pub(crate) active_track_count: usize,
+    pub(crate) peak_active_track_count: usize,
 }
