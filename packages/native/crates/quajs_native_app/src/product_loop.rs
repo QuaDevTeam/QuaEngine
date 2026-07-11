@@ -6,6 +6,7 @@ use quajs_wgpu_renderer::video::NativeVideoBackend;
 
 use crate::texture_sync::{
     clear_renderer_with_host_texture_cleanup_and_media_teardown,
+    render_cached_frame_with_media_texture_sync,
     render_json_frame_with_host_texture_lifecycle_sync_and_media_teardown,
     sync_mounted_texture_bundle_lifecycle_from_host_and_media_teardown,
     NativeTextureBundleLifecycleSyncError, NativeTextureBundleLifecycleSyncReport,
@@ -18,11 +19,14 @@ use crate::texture_sync::{
 pub(crate) struct NativeProductLoop {
     texture_bundle_registry: NativeTextureBundleMountRegistry,
     rendered_frame_count: usize,
+    cached_projection_json: Option<String>,
+    cached_frame_update: Option<quajs_wgpu_renderer::renderer::NativeRendererFrameUpdate>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct NativeProductLoopFrameResult {
     pub(crate) frame_number: usize,
+    pub(crate) projection_reused: bool,
     pub(crate) synced_frame: NativeTextureLifecycleSyncedFrameResult,
 }
 
@@ -48,16 +52,40 @@ impl NativeProductLoop {
         F: NativeFontBackend,
         H: NativeHostApi,
     {
+        if self.cached_projection_json.as_deref() == Some(input) {
+            if let Some(update) = self.cached_frame_update.clone() {
+                let frame = render_cached_frame_with_media_texture_sync(renderer, update).map_err(
+                    |error| {
+                        NativeTextureJsonLifecycleFrameError::from(
+                            crate::texture_sync::NativeTextureLifecycleFrameError::from(error),
+                        )
+                    },
+                )?;
+                self.rendered_frame_count = self.rendered_frame_count.saturating_add(1);
+                return Ok(NativeProductLoopFrameResult {
+                    frame_number: self.rendered_frame_count,
+                    projection_reused: true,
+                    synced_frame: NativeTextureLifecycleSyncedFrameResult {
+                        frame,
+                        bundle_lifecycle_report: NativeTextureBundleLifecycleSyncReport::default(),
+                    },
+                });
+            }
+        }
+
         let synced_frame = render_json_frame_with_host_texture_lifecycle_sync_and_media_teardown(
             &mut self.texture_bundle_registry,
             renderer,
             host,
             input,
         )?;
+        self.cached_projection_json = Some(input.to_string());
+        self.cached_frame_update = Some(synced_frame.frame.frame.update.clone());
         self.rendered_frame_count = self.rendered_frame_count.saturating_add(1);
 
         Ok(NativeProductLoopFrameResult {
             frame_number: self.rendered_frame_count,
+            projection_reused: false,
             synced_frame,
         })
     }
@@ -95,6 +123,8 @@ impl NativeProductLoop {
     {
         let result = clear_renderer_with_host_texture_cleanup_and_media_teardown(renderer)?;
         self.texture_bundle_registry = NativeTextureBundleMountRegistry::new();
+        self.cached_projection_json = None;
+        self.cached_frame_update = None;
         Ok(result)
     }
 }
@@ -151,10 +181,36 @@ mod tests {
 
         assert_eq!(first.frame_number, 1);
         assert_eq!(second.frame_number, 2);
+        assert!(!first.projection_reused);
+        assert!(second.projection_reused);
         assert_eq!(product_loop.rendered_frame_count(), 2);
         assert_eq!(renderer.backend().submissions.len(), 2);
         assert!(first.synced_frame.bundle_lifecycle_report.initial_sync);
         assert!(!second.synced_frame.bundle_lifecycle_report.initial_sync);
+        assert_eq!(host.list_calls.get(), 1);
+    }
+
+    #[test]
+    fn changed_projection_invalidates_the_cached_render_graph() {
+        let host = ProductLoopHost::default().with_bundle("base-bundle", Some("base"));
+        let mut renderer = NativeRenderer::with_null_audio_backend(ProductLoopBackend::default());
+        let mut product_loop = NativeProductLoop::new();
+        let changed = EMPTY_FRAME_JSON.replace("1600", "1440");
+
+        let first = product_loop
+            .render_projection_json_with_media_teardown(&mut renderer, &host, EMPTY_FRAME_JSON)
+            .expect("first projection frame should render");
+        let second = product_loop
+            .render_projection_json_with_media_teardown(&mut renderer, &host, &changed)
+            .expect("changed projection frame should render");
+        let third = product_loop
+            .render_projection_json_with_media_teardown(&mut renderer, &host, &changed)
+            .expect("stable changed projection should reuse its render graph");
+
+        assert!(!first.projection_reused);
+        assert!(!second.projection_reused);
+        assert!(third.projection_reused);
+        assert_eq!(renderer.backend().submissions.len(), 3);
         assert_eq!(host.list_calls.get(), 2);
     }
 

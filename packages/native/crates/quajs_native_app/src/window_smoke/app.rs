@@ -19,6 +19,7 @@ use super::report::NativeWindowSmokeReport;
 use super::report_builder::{build_window_smoke_report, NativeWindowSmokeReportInput};
 use super::texture_host::create_window_smoke_texture_host_from_env;
 use crate::product_app_shell::{NativeProductAppShell, NativeProductAppShellAction};
+use crate::product_loop::NativeProductLoopFrameResult;
 use crate::product_window::{NativeProductWindowInMemoryRuntime, NativeProductWindowPhysicalSize};
 use crate::product_window_loop::NativeProductWindowInMemoryLoop;
 use quajs_wgpu_renderer::renderer::RealWgpuEncodedFrameCapture;
@@ -178,27 +179,21 @@ impl NativeWindowSmokeApp {
         self.product_shell = Some(product_shell);
         self.flush_dev_renderer_intents()?;
 
-        let product_shell = self.product_shell.as_ref().ok_or_else(|| {
-            NativeWindowSmokeError::new("Native renderer smoke runtime is not initialized.")
-        })?;
-        let window_loop = product_shell.window_loop();
         let loop_frame =
             product_frame_result.map_err(NativeWindowSmokeError::from_window_loop_error)?;
         let product_frame = loop_frame.product_frame;
+        self.record_product_frame_texture_metrics(&product_frame);
         let synced_frame = product_frame.synced_frame;
-        self.texture_metrics.record_texture_sync(
-            &synced_frame.frame.texture_upload_report,
-            &synced_frame.frame.texture_host_cleanup_report,
-            synced_frame.frame.resubmitted_after_texture_upload,
-            synced_frame.frame.font_atlas_report.as_ref(),
-            &synced_frame.bundle_lifecycle_report,
-        );
         let synced_frame = synced_frame.frame;
         let frame_result = synced_frame.frame;
         let input_metrics = self.input.metrics();
         if let Some(shutdown) = loop_frame.shutdown {
             self.texture_metrics.record_shutdown_cleanup(&shutdown);
         }
+        let product_shell = self.product_shell.as_ref().ok_or_else(|| {
+            NativeWindowSmokeError::new("Native renderer smoke runtime is not initialized.")
+        })?;
+        let window_loop = product_shell.window_loop();
         let runtime = window_loop.runtime();
         let (
             font_atlas_text_draw_count,
@@ -411,6 +406,20 @@ impl NativeWindowSmokeApp {
         if let Some(window) = &self.window {
             window.request_redraw();
         }
+    }
+
+    fn record_product_frame_texture_metrics(
+        &mut self,
+        product_frame: &NativeProductLoopFrameResult,
+    ) {
+        let synced_frame = &product_frame.synced_frame;
+        self.texture_metrics.record_texture_sync(
+            &synced_frame.frame.texture_upload_report,
+            &synced_frame.frame.texture_host_cleanup_report,
+            synced_frame.frame.resubmitted_after_texture_upload,
+            synced_frame.frame.font_atlas_report.as_ref(),
+            &synced_frame.bundle_lifecycle_report,
+        );
     }
 
     fn flush_dev_renderer_intents(&mut self) -> Result<(), NativeWindowSmokeError> {

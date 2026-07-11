@@ -20,6 +20,7 @@ pub use cleanup::{
     NativeTextureCleanedPackageReleaseResult, NativeTextureHostCleanupSyncFailure,
     NativeTextureHostCleanupSyncReport, NativeTextureMediaTeardownError,
 };
+pub(crate) use frame::render_cached_frame_with_media_texture_sync;
 #[allow(unused_imports)]
 pub use frame::{
     render_frame_with_host_texture_lifecycle_sync,

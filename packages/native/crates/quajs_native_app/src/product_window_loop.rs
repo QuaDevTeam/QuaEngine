@@ -57,6 +57,7 @@ pub(crate) struct NativeProductWindowLoopFrameResult {
 pub(crate) struct NativeProductWindowLoopError {
     message: String,
     present_failure: Option<NativeProductWindowPresentFailure>,
+    product_frame: Option<NativeProductLoopFrameResult>,
 }
 
 impl NativeProductWindowLoopError {
@@ -64,19 +65,39 @@ impl NativeProductWindowLoopError {
         Self {
             message: message.into(),
             present_failure: None,
+            product_frame: None,
         }
     }
 
-    fn from_present_error(error: NativeProductWindowError) -> Self {
+    fn with_product_frame(
+        message: impl Into<String>,
+        product_frame: NativeProductLoopFrameResult,
+    ) -> Self {
+        Self {
+            message: message.into(),
+            present_failure: None,
+            product_frame: Some(product_frame),
+        }
+    }
+
+    fn from_present_error(
+        error: NativeProductWindowError,
+        product_frame: NativeProductLoopFrameResult,
+    ) -> Self {
         let present_failure = error.present_failure().cloned();
         Self {
             message: error.to_string(),
             present_failure,
+            product_frame: Some(product_frame),
         }
     }
 
     pub(crate) fn present_failure(&self) -> Option<&NativeProductWindowPresentFailure> {
         self.present_failure.as_ref()
+    }
+
+    pub(crate) fn product_frame(&self) -> Option<&NativeProductLoopFrameResult> {
+        self.product_frame.as_ref()
     }
 }
 
@@ -290,15 +311,18 @@ where
         {
             let (renderer, host) = self.runtime.renderer_and_host_mut();
             before_present(renderer, host).map_err(|error| {
-                NativeProductWindowLoopError::new(format!(
-                    "native product window before-present hook failed: {error}"
-                ))
+                NativeProductWindowLoopError::with_product_frame(
+                    format!("native product window before-present hook failed: {error}"),
+                    product_frame.clone(),
+                )
             })?;
         }
         let present_outcome = self
             .runtime
             .present_frame(attempt.allow_occluded_report)
-            .map_err(NativeProductWindowLoopError::from_present_error)?;
+            .map_err(|error| {
+                NativeProductWindowLoopError::from_present_error(error, product_frame.clone())
+            })?;
         if present_outcome.surface_refresh_recommended {
             let state = &mut self.state;
             let runtime = &mut self.runtime;
@@ -314,9 +338,10 @@ where
             })?;
         }
         after_present(&self.runtime).map_err(|error| {
-            NativeProductWindowLoopError::new(format!(
-                "native product window after-present hook failed: {error}"
-            ))
+            NativeProductWindowLoopError::with_product_frame(
+                format!("native product window after-present hook failed: {error}"),
+                product_frame.clone(),
+            )
         })?;
         let will_complete_target =
             self.state.completed_frame_count.saturating_add(1) >= self.state.target_frame_count();
