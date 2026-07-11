@@ -22,15 +22,9 @@ impl WgpuNativeRenderBufferVertex {
 
 fn append_geometry_buffers(
     geometry: super::geometry::WgpuNativeRenderBufferGeometry,
-    first_vertex: u32,
     vertices: &mut Vec<WgpuNativeRenderBufferVertex>,
     indices: &mut Vec<u32>,
 ) {
     vertices.extend(geometry.vertices);
-    indices.extend(
-        geometry
-            .indices
-            .into_iter()
-            .map(|index| first_vertex.saturating_add(index)),
-    );
+    indices.extend(geometry.indices);
 }

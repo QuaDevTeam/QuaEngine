@@ -1,4 +1,5 @@
 use crate::projection::common::{insert_unique_safe_native_dispatch_identifier, PackageProvenance};
+use crate::projection::dialogue::layout::dialogue_panel_bounds;
 use crate::projection::safety::is_safe_native_text_payload;
 use crate::render_graph::{
     BorderDrawParams, DrawCommand, DrawCommandKind, DrawCommandParams, EdgeInsetsDrawParam,
@@ -8,16 +9,36 @@ use crate::render_graph::{
 };
 use crate::stage_layout::ResolvedStageLayout;
 
-use super::layout::{choice_button_bounds, choices_panel_bounds};
+use super::layout::{choice_button_bounds, choices_panel_bounds, choices_panel_bounds_with_bottom};
 use super::types::{ChoiceProjection, ChoiceSetProjection};
 
 pub fn append_choice_commands(graph: &mut RenderGraph, choices: &ChoiceSetProjection) {
     graph.extend(build_choice_commands(&graph.layout, choices));
 }
 
+pub fn append_choice_commands_with_dialogue(
+    graph: &mut RenderGraph,
+    choices: &ChoiceSetProjection,
+    dialogue_visible: bool,
+) {
+    graph.extend(build_choice_commands_with_dialogue(
+        &graph.layout,
+        choices,
+        dialogue_visible,
+    ));
+}
+
 pub fn build_choice_commands(
     layout: &ResolvedStageLayout,
     choices: &ChoiceSetProjection,
+) -> Vec<DrawCommand> {
+    build_choice_commands_with_dialogue(layout, choices, false)
+}
+
+pub fn build_choice_commands_with_dialogue(
+    layout: &ResolvedStageLayout,
+    choices: &ChoiceSetProjection,
+    dialogue_visible: bool,
 ) -> Vec<DrawCommand> {
     if !choices.visible || choices.choices.is_empty() {
         return Vec::new();
@@ -36,7 +57,16 @@ pub fn build_choice_commands(
         return Vec::new();
     }
 
-    let panel = choices_panel_bounds(layout, safe_choices.len());
+    let panel = if dialogue_visible {
+        let dialogue = dialogue_panel_bounds(layout);
+        choices_panel_bounds_with_bottom(
+            layout,
+            safe_choices.len(),
+            dialogue.y - layout.logical_height * 0.02,
+        )
+    } else {
+        choices_panel_bounds(layout, safe_choices.len())
+    };
     let mut commands = vec![apply_provenance(
         DrawCommand::new(
             "choices:panel",

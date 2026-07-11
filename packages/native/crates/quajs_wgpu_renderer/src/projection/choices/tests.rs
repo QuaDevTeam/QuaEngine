@@ -46,6 +46,21 @@ fn builds_interactive_choice_buttons() {
 }
 
 #[test]
+fn places_choices_above_visible_dialogue() {
+    let layout = test_layout();
+    let choices = ChoiceSetProjection::new(vec![
+        ChoiceProjection::new("left", "Go left"),
+        ChoiceProjection::new("right", "Go right"),
+    ]);
+
+    let commands = build_choice_commands_with_dialogue(&layout, &choices, true);
+    let dialogue = crate::projection::dialogue::layout::dialogue_panel_bounds(&layout);
+    let panel = commands[0].bounds;
+
+    assert!(panel.y + panel.height < dialogue.y);
+}
+
+#[test]
 fn disables_unavailable_choice_interaction() {
     let layout = test_layout();
     let choices = ChoiceSetProjection::new(vec![ChoiceProjection {

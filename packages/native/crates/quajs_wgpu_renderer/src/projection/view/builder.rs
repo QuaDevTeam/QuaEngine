@@ -1,6 +1,6 @@
 use crate::projection::{
     background::append_background_commands_with_video_frame_resources,
-    character::append_character_commands, choices::append_choice_commands,
+    character::append_character_commands, choices::append_choice_commands_with_dialogue,
     dialogue::append_dialogue_commands, ui::append_ui_commands,
 };
 use crate::render_graph::RenderGraph;
@@ -55,7 +55,13 @@ pub fn append_view_commands_with_video_frame_resources(
     }
 
     if let Some(choices) = &view.choices {
-        append_choice_commands(graph, choices);
+        append_choice_commands_with_dialogue(
+            graph,
+            choices,
+            view.dialogue
+                .as_ref()
+                .is_some_and(|dialogue| dialogue.visible),
+        );
     }
 
     if let Some(ui) = &view.ui {
