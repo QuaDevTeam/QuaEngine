@@ -54,11 +54,11 @@ description: QuaEngine architecture guardrails for renderer statelessness, dynam
 - For Cocos code changes, validate with `pnpm --filter @quajs/cocos-host test -- --run`, `pnpm --filter @quajs/cocos-host typecheck`, `pnpm --filter @quajs/cocos-host build`, `pnpm --filter @quajs/renderer-cocos test -- --run`, `pnpm --filter @quajs/renderer-cocos typecheck`, and `pnpm --filter @quajs/renderer-cocos build` unless the change is documentation-only.
 
 ### Stage layout and coordinates
-- Treat `QuaViewProjection.layout` as the engine-owned source of truth for orientation, base logical dimensions, aspect ratio, supported aspect interval, and scale mode.
+- Treat `QuaViewProjection.layout` as the engine-owned source of truth for orientation, base logical dimensions, fixed scene aspect ratio, content safe-area bounds, and scale mode.
 - QuaEngine renders into a logical stage first, then renderers scale that stage into their actual container. Renderer measurements, resolved stage layouts, CSS transforms, CSS env safe-area insets, DPR, physical pixel dimensions, and `ResizeObserver` handles are transient projection details only.
-- The logical stage coordinate system starts at the top-left of `.qua-stage`; positive `x` goes right and positive `y` goes down. The base logical height is `layout.height`, and logical width comes from the active stage aspect ratio.
-- Landscape authoring must account for the supported `16:10` to `16:9` interval. Portrait authoring is mobile-first with a `1080x2340` / `9:19.5` reference and a supported `9:21` to `9:16` interval. Important UI, choices, dialogue, and default subject staging should stay inside the safe area; full-stage backgrounds/effects may bleed beyond it.
-- Renderer layout resolution must use `activeAspect = clamp(containerWidth / containerHeight, layout.minAspectRatio, layout.maxAspectRatio)`, `scale = viewportHeight / layout.height`, `logicalHeight = layout.height`, and `logicalWidth = viewportWidth / scale`. Treat `layout.aspectRatio` as the preferred/reference ratio, not a fixed rendered ratio.
+- The logical stage coordinate system starts at the top-left of `.qua-stage`; positive `x` goes right and positive `y` goes down. The base logical height is `layout.height`, and logical width comes from the fixed `layout.aspectRatio`.
+- Landscape authoring uses a fixed `1920x1080` / `16:9` logical scene. Portrait authoring uses a fixed mobile-first `1080x2340` / `9:19.5` logical scene. Important UI, choices, dialogue, and default subject staging should stay inside the safe area; full-stage backgrounds/effects may use the full logical scene.
+- Renderer layout resolution must contain the fixed `layout.aspectRatio` inside the measured QuaEngine parent container, center the viewport, and use horizontal or vertical black bars for unmatched space. The renderer root must fill its parent, observe parent-driven size changes, and must not crop the scene or rewrite its logical width to match the container.
 - Device safe-area insets must be read as renderer-local CSS pixels, converted through the resolved viewport/scale into logical stage pixels, and intersected with the aspect safe area. DPR must not change DOM CSS layout; expose it only as projection metadata for physical-pixel renderers such as Canvas/WebGL/screenshot paths.
 - All new or refactored coordinate APIs should default to logical stage pixels. If an API uses percent, normalized ratios, anchors, asset-local pixels, UV coordinates, or CSS units, the unit must be explicit in its name/type/docs and converted at the projection boundary.
 - Animation tracks for position, camera/background offsets, size, and drawing transforms must interpolate in logical stage coordinates before renderer scaling. Do not animate measured CSS pixels when the value represents game projection state.
@@ -139,7 +139,7 @@ description: QuaEngine architecture guardrails for renderer statelessness, dynam
 
 - Ask who owns the state.
 - Ask whether coordinate-bearing APIs use logical stage coordinates or explicitly document another unit.
-- Ask whether coordinate-sensitive changes preserve the landscape `16:10` to `16:9` interval, the portrait `9:21` to `9:16` interval, and safe-area expectations.
+- Ask whether coordinate-sensitive changes preserve the fixed landscape/portrait scene ratios, parent-container resizing, both letterbox directions, and safe-area expectations.
 - Ask whether pointer/hit-test code converts client/screen coordinates into logical stage coordinates with shared renderer-web helpers.
 - Ask whether the change belongs in the package that defines the feature.
 - Ask whether Web runtime behavior belongs in `@quajs/renderer-web` before adding it to a framework renderer.

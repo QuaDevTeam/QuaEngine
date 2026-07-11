@@ -4,30 +4,30 @@ This document defines the project-wide rules for mobile and cross-device stage a
 
 ## Ownership
 
-- `QuaViewProjection.layout` is engine-owned state and carries the orientation, base logical dimensions, preferred reference aspect ratio, supported aspect interval, and scale mode.
+- `QuaViewProjection.layout` is engine-owned state and carries the orientation, base logical dimensions, fixed scene aspect ratio, content safe-area bounds, and scale mode.
 - Renderers resolve the active viewport, scale, DPR, safe area, and coordinate conversion from `layout` plus their transient container size and browser environment.
 - Resolved viewport size, scale, DPR, DOM measurements, safe areas, CSS env insets, and pointer positions are renderer projection details. They must not be written back to engine/store state.
 - Shared Web layout math and coordinate conversion live in `@quajs/renderer-web`; framework renderers reuse those helpers.
 
 ## Default Presets
 
-| preset | reference | supported interval | authoring rule |
+| preset | fixed logical scene | content safe area | authoring rule |
 | --- | --- | --- | --- |
-| `landscape` | `1920x1080` at `16:9` | `16:10` to `16:9` | Keep important UI and default staging inside the `16:10` safe area; let backgrounds/effects bleed wider. |
-| `portrait` | `1080x2340` at `9:19.5` | `9:21` to `9:16` | Treat mobile phones as the default portrait target; keep important UI inside the narrow `9:21` safe area and fill wider phones with bleed art. |
+| `landscape` | `1920x1080` at `16:9` | centered `16:10` width | Keep important UI and default staging inside the safe area; full-stage backgrounds/effects may use the complete scene. |
+| `portrait` | `1080x2340` at `9:19.5` | centered `9:21` width | Treat mobile phones as the default portrait target and keep important UI inside the narrow safe area. |
 
-Common mobile devices whose container ratio falls inside `9:21` to `9:16` should fill the available container without black bars. Devices outside the interval are centered with letterboxing or pillarboxing rather than changing authored coordinates.
+The scene is always contained inside the measured renderer parent. Any unmatched container space is centered and rendered as black letterboxing or pillarboxing rather than changing authored coordinates or cropping content.
 
 ## Layout Resolution
 
 Given a container of `containerWidth x containerHeight`:
 
 ```ts
-activeAspect = clamp(containerWidth / containerHeight, layout.minAspectRatio, layout.maxAspectRatio)
-viewport = fitAspectRatio(containerWidth, containerHeight, activeAspect)
-scale = viewport.height / layout.height
+sceneAspect = layout.aspectRatio
 logicalHeight = layout.height
-logicalWidth = viewport.width / scale
+logicalWidth = logicalHeight * sceneAspect
+viewport = fitAspectRatio(containerWidth, containerHeight, sceneAspect)
+scale = viewport.height / layout.height
 safeWidth = min(logicalWidth, layout.height * layout.minAspectRatio)
 aspectSafeArea = {
   x: (logicalWidth - safeWidth) / 2,
@@ -37,13 +37,13 @@ aspectSafeArea = {
 }
 ```
 
-`layout.aspectRatio` is the reference ratio, not a fixed target. `ResolvedStageLayout.aspectRatio` is the active ratio for the current container.
+`layout.aspectRatio` is the fixed scene ratio. `ResolvedStageLayout.aspectRatio` therefore remains stable while `viewportWidth`, `viewportHeight`, `viewportX`, `viewportY`, and `scale` change with the renderer parent.
 
 ## Device Safe Area And DPR
 
 The stage safe area has two inputs:
 
-- aspect safe area: the minimum supported aspect width centered inside the active logical stage;
+- aspect safe area: the configured content-safe width centered inside the fixed logical stage;
 - device safe area: CSS `env(safe-area-inset-*)` values converted from CSS pixels to logical stage pixels after viewport fitting.
 
 The final `ResolvedStageLayout.safeArea` is the intersection of those two rectangles. If letterboxing or pillarboxing absorbs a CSS safe-area inset, that inset does not reduce the logical stage safe area.
@@ -87,7 +87,7 @@ Official Web renderers split the scaled logical stage into stable projection pla
 - `.qua-stage-plane`: full logical stage, not affected by camera motion; use for screen effects, scene transitions, and implementation nodes that must cover the viewport.
 - `.qua-stage-safe`: positioned to `ResolvedStageLayout.safeArea`; dialogue, choices, menus, backlog, and important UI render here by default.
 
-This means mobile backgrounds can fill the full active stage, while primary readable/interactable content defaults to the safe area. CSS `env(safe-area-inset-*)` is still read only by renderer helpers; game projection code should consume the resolved logical safe-area variables or plane structure instead of reading device CSS directly.
+This means backgrounds can fill the full fixed stage, while primary readable/interactable content defaults to the safe area. CSS `env(safe-area-inset-*)` is still read only by renderer helpers; game projection code should consume the resolved logical safe-area variables or plane structure instead of reading device CSS directly.
 
 ## Coordinate Space
 
@@ -96,7 +96,7 @@ The logical stage coordinate system is the only default game-facing coordinate s
 - Origin is the top-left of `.qua-stage`.
 - Positive `x` goes right; positive `y` goes down.
 - `layout.height` is the base logical height.
-- Active logical width is resolved from the active aspect ratio.
+- Logical width is resolved from the fixed `layout.aspectRatio`.
 - Numeric background, character, effect, camera, and animation position values are logical stage pixels unless the API explicitly names another unit.
 - CSS pixels, device pixels, `clientX/clientY`, `vw/vh`, and DOM rectangles are renderer-local values and must be converted at the renderer boundary before entering pipeline payloads or engine-owned projections.
 
@@ -122,13 +122,13 @@ Use `clientPointToStageLogical()` and `stageLogicalToClientPoint()` from `@quajs
 
 ## Device Examples
 
-| container | preset | active ratio | viewport | logical stage | scale | notes |
+| container | preset | fixed ratio | viewport | logical stage | scale | notes |
 | --- | --- | --- | --- | --- | --- | --- |
-| `1600x1000` | landscape | `16:10` | `1600x1000` | `1728x1080` | `0.9259` | Fills a 16:10 tablet/desktop container. |
-| `2560x1080` | landscape | `16:9` | `1920x1080`, centered at `x=320` | `1920x1080` | `1` | Ultrawide is outside the supported interval, so side bars are expected. |
+| `1600x1000` | landscape | `16:9` | `1600x900`, centered at `y=50` | `1920x1080` | `0.8333` | Complete scene with horizontal black bars. |
+| `2560x1080` | landscape | `16:9` | `1920x1080`, centered at `x=320` | `1920x1080` | `1` | Ultrawide container uses side bars. |
 | `360x780` | portrait | `9:19.5` | `360x780` | `1080x2340` | `0.3333` | Common phone reference fills the container. |
-| `360x840` | portrait | `9:21` | `360x840` | `1002.857x2340` | `0.3590` | Tall phone endpoint fills the container. |
-| `375x667` | portrait | about `9:16` | `375x667` | about `1316x2340` | `0.2850` | Shorter phone endpoint still fills the container. |
+| `360x840` | portrait | `9:19.5` | `360x780`, centered at `y=30` | `1080x2340` | `0.3333` | Tall phone uses horizontal black bars. |
+| `375x667` | portrait | `9:19.5` | about `307.85x667`, centered at `x=33.58` | `1080x2340` | `0.2850` | Shorter phone uses side bars without cropping. |
 | `360x780`, DPR `3`, CSS safe top/bottom `30/15` | portrait | `9:19.5` | `360x780` | `1080x2340` | `0.3333`, physical scale `1` | Final safe area is aspect safe area intersected with logical top/bottom insets `90/45`. |
 
 ## Package Rules
@@ -144,9 +144,11 @@ Use `clientPointToStageLogical()` and `stageLogicalToClientPoint()` from `@quajs
 
 Coordinate-sensitive features should cover:
 
-- landscape `16:10` and `16:9` endpoints;
+- fixed landscape and portrait scene ratios;
+- horizontal and vertical letterboxing cases;
+- a resize caused only by the renderer parent, without changing the browser viewport;
 - at least one portrait phone reference such as `360x780`;
 - at least one CSS safe-area/DPR case;
 - a mobile viewport environment change when renderer layout depends on the container size;
 - pointer or hit-test conversion when a feature emits coordinates;
-- safe-area behavior when important UI is expected to remain stable across the supported interval.
+- safe-area behavior when important UI is expected to remain stable across devices.

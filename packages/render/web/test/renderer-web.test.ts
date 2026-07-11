@@ -39,8 +39,10 @@ import {
   mountUnsupportedPlatformUi,
   projectAudioProjection,
   readCssSafeAreaInsets,
+  rendererRootStyle,
   resolveStageLayout,
   stageContentStyle,
+  stageFrameStyle,
   stageLogicalToClientPoint,
   stageViewportStyle,
   WebAssetUrlHandle,
@@ -110,20 +112,20 @@ describe('@quajs/renderer-web', () => {
     expect(container.textContent).toContain('Please open this game on desktop.')
   })
 
-  it('resolves adaptive aspect-interval scaled stage layouts', () => {
+  it('contains fixed-aspect stages inside their renderer containers', () => {
     const landscape = createViewLayoutProjection('landscape')
     const tablet = resolveStageLayout(landscape, { width: 1600, height: 1000 })
 
     expect(tablet).toEqual(expect.objectContaining({
       viewportWidth: 1600,
-      viewportHeight: 1000,
-      viewportY: 0,
+      viewportHeight: 900,
+      viewportY: 50,
       logicalHeight: 1080,
     }))
-    expect(tablet.logicalWidth).toBeCloseTo(1728)
-    expect(tablet.aspectRatio).toBeCloseTo(16 / 10)
+    expect(tablet.logicalWidth).toBeCloseTo(1920)
+    expect(tablet.aspectRatio).toBeCloseTo(16 / 9)
     expect(tablet.safeArea).toEqual(expect.objectContaining({
-      x: 0,
+      x: 96,
       width: 1728,
     }))
 
@@ -155,8 +157,9 @@ describe('@quajs/renderer-web', () => {
 
     const tallPhone = resolveStageLayout(portrait, { width: 360, height: 840 })
     expect(tallPhone.viewportWidth).toBeCloseTo(360)
-    expect(tallPhone.viewportHeight).toBeCloseTo(840)
-    expect(tallPhone.aspectRatio).toBeCloseTo(9 / 21)
+    expect(tallPhone.viewportHeight).toBeCloseTo(780)
+    expect(tallPhone.viewportY).toBeCloseTo(30)
+    expect(tallPhone.aspectRatio).toBeCloseTo(9 / 19.5)
   })
 
   it('converts client coordinates to logical stage coordinates across device ratios', () => {
@@ -168,9 +171,9 @@ describe('@quajs/renderer-web', () => {
       insideViewport: true,
       insideStage: true,
     }))
-    expect(tabletCenter.x).toBeCloseTo(864)
+    expect(tabletCenter.x).toBeCloseTo(960)
     expect(tabletCenter.y).toBeCloseTo(540)
-    expect(stageLogicalToClientPoint(tablet, { x: 864, y: 540 })).toEqual({
+    expect(stageLogicalToClientPoint(tablet, { x: 960, y: 540 })).toEqual({
       clientX: 800,
       clientY: 500,
     })
@@ -237,8 +240,19 @@ describe('@quajs/renderer-web', () => {
     expect(phone.safeArea.height).toBe(2205)
 
     const style = stageContentStyle(phone)
+    expect(rendererRootStyle()).toEqual(expect.objectContaining({
+      'width': '100%',
+      'height': '100%',
+      'min-width': '0',
+      'min-height': '0',
+    }))
+    expect(stageFrameStyle().background).toBe('#000')
     expect(style['--qua-layout-device-pixel-ratio']).toBe(3)
     expect(style['--qua-layout-physical-scale']).toBe(1)
+    expect(style['--qua-layout-width-px']).toBe('1080px')
+    expect(style['--qua-layout-height-px']).toBe('2340px')
+    expect(style['container-name']).toBe('qua-stage')
+    expect(style['container-type']).toBe('size')
     expect(style['--qua-layout-css-safe-inset-top']).toBe('30px')
     expect(style['--qua-layout-safe-inset-top']).toBe(90)
     expect(style['--qua-layout-safe-y']).toBe(90)
@@ -604,8 +618,9 @@ describe('@quajs/renderer-web', () => {
     visualViewport.dispatchEvent(new Event('resize'))
     await flushDom()
 
-    expect(root.querySelector('.qua-stage-viewport')?.getAttribute('style')).toContain('height: 840px')
-    expect(root.querySelector('.qua-stage')?.getAttribute('style')).toContain('width: 1002.857')
+    expect(root.querySelector('.qua-stage-viewport')?.getAttribute('style')).toContain('height: 780px')
+    expect(root.querySelector('.qua-stage-viewport')?.getAttribute('style')).toContain('top: 30px')
+    expect(root.querySelector('.qua-stage')?.getAttribute('style')).toContain('width: 1080px')
 
     await renderer.unmount()
   })
@@ -914,7 +929,7 @@ describe('@quajs/renderer-web', () => {
     await renderer.mount()
 
     expect(root.querySelector('.qua-stage-viewport')?.getAttribute('style')).toContain('width: 1600px')
-    expect(root.querySelector('.qua-stage')?.getAttribute('style')).toContain('width: 1728')
+    expect(root.querySelector('.qua-stage')?.getAttribute('style')).toContain('width: 1920')
     expect(root.querySelector('.qua-stage-overlay')?.getAttribute('style')).toContain('pointer-events: none')
     expect(root.querySelector('.qua-screen-plane')?.getAttribute('style')).toContain('pointer-events: none')
     expect(root.querySelector('.qua-stage-scene-content .qua-background')).not.toBeNull()
@@ -1949,7 +1964,7 @@ describe('@quajs/renderer-web', () => {
     onRenderToLogic(pipeline, RenderToLogicEvents.USER_ADVANCE, payload => advances.push(payload))
     const root = document.createElement('div')
     document.body.append(root)
-    vi.spyOn(root, 'getBoundingClientRect').mockReturnValue(rect(1600, 1000))
+    vi.spyOn(root, 'getBoundingClientRect').mockReturnValue(rectAt(240, 120, 1200, 1200))
     const renderer = createQuaWebDomRenderer({
       container: root,
       pipeline,
@@ -1961,8 +1976,8 @@ describe('@quajs/renderer-web', () => {
     })
 
     await renderer.mount()
-    root.querySelector('.qua-stage')!.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: 800, clientY: 500 }))
-    root.querySelector('.qua-choice-button')!.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: 800, clientY: 500 }))
+    root.querySelector('.qua-stage')!.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: 840, clientY: 720 }))
+    root.querySelector('.qua-choice-button')!.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: 840, clientY: 720 }))
     await flushDom()
 
     expect(advances).toEqual([{ source: 'pointer:stage' }])
@@ -1971,7 +1986,7 @@ describe('@quajs/renderer-web', () => {
       device: 'pointer',
       source: 'pointer:stage',
       metadata: expect.objectContaining({
-        x: expect.closeTo(864),
+        x: expect.closeTo(960),
         y: expect.closeTo(540),
         insideStage: true,
       }),
