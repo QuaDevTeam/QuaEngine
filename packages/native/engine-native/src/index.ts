@@ -17,6 +17,14 @@ export type {
   NativeDialogueTypewriterProjectResult,
 } from './dialogue-typewriter'
 export {
+  installNativeSavePreviewCaptureResponder,
+} from './save-preview-capture'
+export type {
+  NativeSavePreviewCapture,
+  NativeSavePreviewCaptureProvider,
+  NativeSavePreviewCaptureResponderOptions,
+} from './save-preview-capture'
+export {
   DEFAULT_NATIVE_SCENE_TRANSITION_DURATION,
   NativeSceneTransitionController,
   normalizeNativeSceneTransition,

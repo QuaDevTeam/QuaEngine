@@ -10,6 +10,7 @@ import type {
 import { assertNativeRuntimePackageGuard } from '@quajs/native-contracts'
 import { assertNativeRuntimePackageCompatibility } from './compatibility'
 import { NativeHostPlugin } from './native-host-plugin'
+import type { NativeSavePreviewCaptureProvider } from './save-preview-capture'
 import type { NativeRendererFeatureSurfaceEntry } from './feature-surfaces'
 import { createNativeHostQuickJsGameStepModuleNamespaceResolver, createNativeHostQuickJsModuleEvaluator, createNativeQuickJsPipelineSubscriptionBridge, createNativeRuntimeModuleLoader } from './runtime-module-loader'
 import type { NativeQuickJsHelperCallExecutor, NativeQuickJsHelperModuleRegistry, NativeQuickJsModuleNamespaceResolver, NativeQuickJsPipelineSubscriptionBridge, NativeQuickJsStepContextSerializer, NativeRuntimeModuleEvaluator } from './runtime-module-loader'
@@ -32,6 +33,7 @@ export interface NativeEngineBootstrap {
 
 export interface NativeRuntimeAdaptersOptions {
   allowUnsignedInDevelopment?: boolean
+  captureSavePreview?: NativeSavePreviewCaptureProvider
   featureSurfaces?: readonly NativeRendererFeatureSurfaceEntry[]
   hostInfo?: QuaNativeHostInfo
   moduleEvaluator?: NativeRuntimeModuleEvaluator
@@ -39,6 +41,7 @@ export interface NativeRuntimeAdaptersOptions {
   quickJsHelperCallExecutor?: NativeQuickJsHelperCallExecutor
   quickJsHelperModules?: NativeQuickJsHelperModuleRegistry
   quickJsPipelineSubscriptionBridge?: NativeQuickJsPipelineSubscriptionBridge
+  rendererId?: string
   requestRender?: () => void
   quickJsStepContextSerializer?: NativeQuickJsStepContextSerializer
   requireSignature?: boolean
@@ -86,10 +89,12 @@ export function createNativeEngineBootstrap(host: QuaNativeHostApi, options: Nat
   return {
     adapters,
     plugin: new NativeHostPlugin({
+      captureSavePreview: options.captureSavePreview,
       featureSurfaces: options.featureSurfaces,
       host,
       info: options.hostInfo,
       quickJsPipelineSubscriptionBridge: adapters.quickJsPipelineSubscriptionBridge,
+      rendererId: options.rendererId,
       requestRender: options.requestRender,
       targetBootstrapPackages: options.targetBootstrapPackages,
       targetBundleManifest: options.targetBundleManifest,

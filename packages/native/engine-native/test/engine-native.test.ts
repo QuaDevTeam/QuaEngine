@@ -46,6 +46,112 @@ describe('@quajs/engine-native', () => {
     expect(host.getHostInfo).not.toHaveBeenCalled()
   })
 
+  it('returns encoded native frame bytes for save preview capture requests', async () => {
+    const pipeline = createTestPipeline()
+    const bytes = new Uint8Array([0x89, 0x50, 0x4E, 0x47])
+    const captureSavePreview = vi.fn(async () => ({
+      bytes,
+      mimeType: 'image/png',
+      width: 1920,
+      height: 1080,
+      capturedAt: 42,
+    }))
+    const plugin = new NativeHostPlugin({
+      captureSavePreview,
+      host: createHost(),
+      rendererId: 'native-wgpu',
+    })
+    const results: unknown[] = []
+    pipeline.on(RenderToLogicEvents.SAVE_PREVIEW_CAPTURE_RESULT, context => results.push(context.event.payload))
+
+    await plugin.init({ pipeline } as any)
+    await emitLogicToRender(pipeline, LogicToRenderEvents.SAVE_PREVIEW_CAPTURE_REQUEST, {
+      requestId: 'capture-1',
+      saveOpId: 'save-1',
+      slotId: 'slot-1',
+      reason: 'save',
+      transaction: 'sync',
+      policy: {
+        format: 'image/png',
+        maxWidth: 1920,
+      },
+    })
+
+    expect(captureSavePreview).toHaveBeenCalledWith({
+      format: 'image/png',
+      maxWidth: 1920,
+    })
+    expect(results).toEqual([
+      expect.objectContaining({
+        requestId: 'capture-1',
+        saveOpId: 'save-1',
+        slotId: 'slot-1',
+        rendererId: 'native-wgpu',
+        mimeType: 'image/png',
+        image: {
+          kind: 'bytes',
+          bytes,
+        },
+        width: 1920,
+        height: 1080,
+        capturedAt: 42,
+      }),
+    ])
+  })
+
+  it('reports unavailable or failed native save preview capture as recoverable', async () => {
+    const unavailablePipeline = createTestPipeline()
+    const unavailableErrors: unknown[] = []
+    unavailablePipeline.on(RenderToLogicEvents.SAVE_PREVIEW_CAPTURE_ERROR, context => unavailableErrors.push(context.event.payload))
+    const unavailablePlugin = new NativeHostPlugin({ host: createHost() })
+    await unavailablePlugin.init({ pipeline: unavailablePipeline } as any)
+
+    await emitLogicToRender(unavailablePipeline, LogicToRenderEvents.SAVE_PREVIEW_CAPTURE_REQUEST, {
+      requestId: 'capture-unavailable',
+      saveOpId: 'save-unavailable',
+      slotId: 'slot-unavailable',
+      reason: 'quickSave',
+      transaction: 'sync',
+      policy: {},
+    })
+
+    expect(unavailableErrors).toEqual([
+      expect.objectContaining({
+        requestId: 'capture-unavailable',
+        message: 'Native save preview capture is unavailable for this product host.',
+        recoverable: true,
+      }),
+    ])
+
+    const failedPipeline = createTestPipeline()
+    const failedErrors: unknown[] = []
+    failedPipeline.on(RenderToLogicEvents.SAVE_PREVIEW_CAPTURE_ERROR, context => failedErrors.push(context.event.payload))
+    const failedPlugin = new NativeHostPlugin({
+      captureSavePreview: async () => {
+        throw new Error('wgpu readback failed')
+      },
+      host: createHost(),
+    })
+    await failedPlugin.init({ pipeline: failedPipeline } as any)
+
+    await emitLogicToRender(failedPipeline, LogicToRenderEvents.SAVE_PREVIEW_CAPTURE_REQUEST, {
+      requestId: 'capture-failed',
+      saveOpId: 'save-failed',
+      slotId: 'slot-failed',
+      reason: 'autoSave',
+      transaction: 'sync',
+      policy: {},
+    })
+
+    expect(failedErrors).toEqual([
+      expect.objectContaining({
+        requestId: 'capture-failed',
+        message: 'wgpu readback failed',
+        recoverable: true,
+      }),
+    ])
+  })
+
   it('releases package-owned QuickJS namespaces after runtime package unload is emitted to renderers', async () => {
     const namespaceRecord = {
       id: 'quickjs:module:1',
@@ -225,5 +331,4 @@ describe('@quajs/engine-native', () => {
       verifyPackage: expect.any(Function),
     })
   })
-
 })
