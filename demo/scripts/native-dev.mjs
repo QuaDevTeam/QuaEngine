@@ -209,6 +209,14 @@ function installWatchers() {
 }
 
 async function validateNativeFeatureFrame(panelName) {
+  if (panelName === 'transition') {
+    const frame = JSON.parse(await readFile(FRAME_PATH, 'utf8'))
+    if (frame.view?.sceneTransition?.type !== 'wipe' || frame.view?.sceneTransition?.progress !== 0.5) {
+      throw new Error('Native demo frame did not project the expected scene transition.')
+    }
+    console.log('Native demo frame validated scene transition projection.')
+    return
+  }
   const expectedSurface = {
     achievement: 'plugin-achievement/native-board',
     backlog: 'plugin-backlog/native',

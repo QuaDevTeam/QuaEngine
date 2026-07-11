@@ -88,13 +88,26 @@ export async function createDemoNativeFrame(outputPath = DEFAULT_FRAME_PATH): Pr
       }],
     }, { wait: false })
     await runtime.engine.showUI('native-dev-status', createNativeDevSurface())
-    await openNativeDemoPanel(runtime, process.env.QUA_NATIVE_DEMO_PANEL)
+    const nativePanel = process.env.QUA_NATIVE_DEMO_PANEL
+    await openNativeDemoPanel(runtime, nativePanel)
 
     const view = runtime.engine.getViewState()
     const animationStartedAt = view.animations[0]?.startedAt ?? Date.now()
     const frame = createNativeRendererJsonFrameInput(view as unknown as NativeRendererEngineViewProjection, {
       featureSurfaces: DEMO_NATIVE_FEATURE_SURFACES,
       now: animationStartedAt + 900,
+      sceneTransition: nativePanel === 'transition'
+        ? {
+            active: true,
+            type: 'wipe',
+            fromScene: 'native-demo-loading',
+            toScene: 'native-demo',
+            duration: 800,
+            startedAt: animationStartedAt + 500,
+            progress: 0.5,
+            easedProgress: 0.5,
+          }
+        : undefined,
     })
     await mkdir(dirname(outputPath), { recursive: true })
     await writeFile(outputPath, `${JSON.stringify(frame, null, 2)}\n`, 'utf8')
@@ -153,6 +166,7 @@ async function openNativeDemoPanel(
       break
     case undefined:
     case '':
+    case 'transition':
       break
     default:
       throw new Error(`Unsupported native demo panel "${panel}".`)

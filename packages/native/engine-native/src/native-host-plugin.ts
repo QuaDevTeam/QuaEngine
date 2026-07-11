@@ -23,12 +23,17 @@ import {
 } from './native-manifest-validation'
 import { drainNativeRendererIntentsToPipeline, installNativeRendererIntentBridge } from './renderer-intents'
 import type { NativeQuickJsPipelineSubscriptionBridge } from './runtime-module-loader'
+import type { CreateNativeRendererJsonFrameInputOptions, NativeRendererEngineViewProjection, NativeRendererJsonFrameInput } from './renderer-frame'
+import { createNativeRendererJsonFrameInput } from './renderer-frame'
+import type { NativeSceneTransitionProjection } from './scene-transition'
+import { NativeSceneTransitionController } from './scene-transition'
 
 export interface NativeHostPluginOptions {
   featureSurfaces?: readonly NativeRendererFeatureSurfaceEntry[]
   host: QuaNativeHostApi
   info?: QuaNativeHostInfo
   quickJsPipelineSubscriptionBridge?: NativeQuickJsPipelineSubscriptionBridge
+  requestRender?: () => void
   targetBootstrapPackages?: readonly string[]
   targetBundleManifest?: TargetBundleManifest
 }
@@ -46,9 +51,18 @@ export class NativeHostPlugin implements EnginePlugin {
   private disposeRendererIntentBridge?: NativeRendererIntentBridgeDisposer
   private disposeRuntimePackageUnloadListener?: () => void
   private rendererIntentPipeline?: NonNullable<EngineContext['pipeline']>
+  private readonly sceneTransitionController: NativeSceneTransitionController
 
   constructor(private readonly options: NativeHostPluginOptions) {
     this.hostInfo = options.info
+    this.sceneTransitionController = new NativeSceneTransitionController({
+      requestRender: options.requestRender,
+      onError: (error, sceneId) => {
+        const pipeline = this.rendererIntentPipeline
+        if (pipeline)
+          void this.recordSceneTransitionError(pipeline, error, sceneId)
+      },
+    })
   }
 
   async init(context: EngineContext): Promise<void> {
@@ -75,6 +89,7 @@ export class NativeHostPlugin implements EnginePlugin {
         LogicToRenderEvents.RUNTIME_PACKAGE_UNLOAD,
         async payload => this.releaseQuickJsPackageNamespaces(context.pipeline!, payload.packageId),
       )
+      this.sceneTransitionController.setup(context.pipeline)
     }
   }
 
@@ -83,6 +98,7 @@ export class NativeHostPlugin implements EnginePlugin {
     this.disposeRendererIntentBridge = undefined
     this.disposeRuntimePackageUnloadListener?.()
     this.disposeRuntimePackageUnloadListener = undefined
+    this.sceneTransitionController.destroy()
     this.rendererIntentPipeline = undefined
     this.options.quickJsPipelineSubscriptionBridge?.dispose()
   }
@@ -109,6 +125,20 @@ export class NativeHostPlugin implements EnginePlugin {
 
   getTargetBundleManifestValidation(): TargetBundleManifestValidationResult | undefined {
     return this.targetBundleManifestValidation
+  }
+
+  getSceneTransitionSnapshot(now?: number): NativeSceneTransitionProjection | undefined {
+    return this.sceneTransitionController.getSnapshot(now)
+  }
+
+  createRendererJsonFrameInput(
+    view: NativeRendererEngineViewProjection,
+    options: CreateNativeRendererJsonFrameInputOptions = {},
+  ): NativeRendererJsonFrameInput {
+    return createNativeRendererJsonFrameInput(view, {
+      ...options,
+      sceneTransition: options.sceneTransition ?? this.getSceneTransitionSnapshot(options.now),
+    })
   }
 
   async drainRendererIntents(): Promise<NativeRendererIntentDrainResult> {
@@ -232,6 +262,27 @@ export class NativeHostPlugin implements EnginePlugin {
       metadata: {
         runtimePackageId: packageId,
       },
+    })
+  }
+
+  private async recordSceneTransitionError(
+    pipeline: NonNullable<EngineContext['pipeline']>,
+    error: unknown,
+    sceneId: string,
+  ): Promise<void> {
+    const normalized = error instanceof Error ? error : new Error(String(error))
+    await emitRenderToLogic(pipeline, RenderToLogicEvents.RENDER_ERROR, {
+      message: normalized.message,
+      error: {
+        name: normalized.name,
+        message: normalized.message,
+        stack: normalized.stack,
+      },
+      source: 'native-renderer',
+      phase: 'scene-transition:ready',
+      recoverable: true,
+      timestamp: Date.now(),
+      metadata: { sceneId },
     })
   }
 }

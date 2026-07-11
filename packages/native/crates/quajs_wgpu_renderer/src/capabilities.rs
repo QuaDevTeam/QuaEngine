@@ -12,6 +12,15 @@ pub fn native_wgpu_capabilities() -> Vec<RendererCapability> {
             "reject-package",
         ),
         capability(
+            "native-wgpu.scene-transition@1",
+            &["view.sceneTransition"],
+            &["scene/ready"],
+            &[],
+            &[],
+            &[],
+            "reject-package",
+        ),
+        capability(
             "native-wgpu.image@1",
             &["background", "characters", "ui.image"],
             &[],

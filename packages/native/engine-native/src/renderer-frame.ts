@@ -15,6 +15,7 @@ import {
   projectUiOverlay,
 } from '@quajs/render-core'
 import type { NativeRendererFeatureSurfaceEntry } from './feature-surfaces'
+import type { NativeSceneTransitionProjection } from './scene-transition'
 import { createNativeRendererFeatureSurfaceOverlays } from './feature-surfaces'
 
 type JsonRecord = Record<string, unknown>
@@ -48,6 +49,7 @@ export type NativeRendererEngineViewProjection = Readonly<JsonRecord & {
   ui?: unknown
   plugins?: unknown
   animations?: readonly unknown[]
+  sceneTransition?: unknown
 }>
 
 export interface CreateNativeRendererJsonFrameInputOptions {
@@ -55,6 +57,7 @@ export interface CreateNativeRendererJsonFrameInputOptions {
   featureSurfaces?: readonly NativeRendererFeatureSurfaceEntry[]
   layout?: unknown
   now?: number
+  sceneTransition?: Readonly<NativeSceneTransitionProjection>
 }
 
 export function createNativeRendererJsonFrameInput(
@@ -65,6 +68,7 @@ export function createNativeRendererJsonFrameInput(
     view: createNativeRendererViewProjection(view, {
       featureSurfaces: options.featureSurfaces,
       now: options.now,
+      sceneTransition: options.sceneTransition,
     }),
   }
   const layout = cloneJsonValue(options.layout ?? view.layout)
@@ -81,6 +85,7 @@ export function createNativeRendererJsonFrameInput(
 export interface CreateNativeRendererViewProjectionOptions {
   featureSurfaces?: readonly NativeRendererFeatureSurfaceEntry[]
   now?: number
+  sceneTransition?: Readonly<NativeSceneTransitionProjection>
 }
 
 export function createNativeRendererViewProjection(
@@ -101,6 +106,7 @@ export function createNativeRendererViewProjection(
     : plugins?.audio
 
   return omitUndefined({
+    sceneTransition: cloneJsonValue(options.sceneTransition ?? view.sceneTransition),
     background: createNativeBackgroundProjection(background),
     characters: Array.isArray(characters)
       ? characters.map(createNativeCharacterProjection).filter(isJsonRecord)

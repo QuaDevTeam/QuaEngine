@@ -19,6 +19,15 @@ export const CAPABILITIES: QuaNativeHostInfo['renderer']['capabilities'] = [
     fallback: 'reject-package',
   },
   {
+    id: 'native-wgpu.scene-transition@1',
+    target: 'native',
+    version: '1.0.0',
+    ownerPackage: '@quajs/native-renderer',
+    projectionKeys: ['view.sceneTransition'],
+    intentEvents: ['scene/ready'],
+    fallback: 'reject-package',
+  },
+  {
     id: 'native-wgpu.image@1',
     target: 'native',
     version: '1.0.0',

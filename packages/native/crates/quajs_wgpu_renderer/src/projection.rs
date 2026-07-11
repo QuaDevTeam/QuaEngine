@@ -8,6 +8,7 @@ pub mod dialogue;
 pub mod fonts;
 pub mod plugins;
 pub(crate) mod safety;
+pub mod scene_transition;
 pub mod typography;
 pub mod ui;
 pub mod view;

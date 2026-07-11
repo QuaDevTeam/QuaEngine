@@ -1,7 +1,8 @@
 use crate::projection::{
     background::append_background_commands_with_video_frame_resources,
     character::append_character_commands, choices::append_choice_commands_with_dialogue,
-    dialogue::append_dialogue_commands, ui::append_ui_commands,
+    dialogue::append_dialogue_commands, scene_transition::append_scene_transition_commands,
+    ui::append_ui_commands,
 };
 use crate::render_graph::RenderGraph;
 use crate::stage_layout::ResolvedStageLayout;
@@ -66,5 +67,9 @@ pub fn append_view_commands_with_video_frame_resources(
 
     if let Some(ui) = &view.ui {
         append_ui_commands(graph, ui);
+    }
+
+    if let Some(scene_transition) = &view.scene_transition {
+        append_scene_transition_commands(graph, scene_transition);
     }
 }
