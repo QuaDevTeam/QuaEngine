@@ -3,6 +3,7 @@ use crate::input::NativePointerInteractionState;
 use crate::render_graph::{
     plan_render_passes, BorderDrawParams, DrawCommand, DrawCommandParams, PanelDrawParams,
 };
+use crate::renderer::control_feedback::apply_control_feedback;
 
 pub(super) fn frame_with_interaction_feedback(
     frame: &PreparedNativeFrame,
@@ -25,11 +26,11 @@ pub(super) fn frame_with_interaction_feedback(
             )
         })
         .collect::<Vec<_>>();
-    if feedback_commands.is_empty() {
+    let mut feedback_frame = frame.clone();
+    let control_changed = apply_control_feedback(&mut feedback_frame, &interaction.controls);
+    if feedback_commands.is_empty() && !control_changed {
         return None;
     }
-
-    let mut feedback_frame = frame.clone();
     feedback_frame.graph.extend(feedback_commands);
     feedback_frame.summary = feedback_frame.graph.summary();
     feedback_frame.passes = plan_render_passes(&feedback_frame.graph);

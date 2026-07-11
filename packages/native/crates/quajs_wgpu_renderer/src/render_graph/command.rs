@@ -3,7 +3,7 @@ use std::collections::BTreeSet;
 use crate::resources::ResourceId;
 use crate::stage_layout::StageSafeArea;
 
-use super::style::DrawCommandParams;
+use super::style::{DrawCommandParams, UiControlDrawParam};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum RenderPlane {
@@ -90,6 +90,7 @@ pub struct DrawCommand {
     pub owner_package_id: Option<String>,
     pub required_package_ids: BTreeSet<String>,
     pub interactive: bool,
+    pub control: Option<UiControlDrawParam>,
     pub label: Option<String>,
 }
 
@@ -113,6 +114,7 @@ impl DrawCommand {
             owner_package_id: None,
             required_package_ids: BTreeSet::new(),
             interactive: false,
+            control: None,
             label: None,
         }
     }
@@ -139,6 +141,11 @@ impl DrawCommand {
     {
         self.resource_ids
             .extend(resource_ids.into_iter().map(Into::into));
+        self
+    }
+
+    pub fn control(mut self, control: UiControlDrawParam) -> Self {
+        self.control = Some(control);
         self
     }
 

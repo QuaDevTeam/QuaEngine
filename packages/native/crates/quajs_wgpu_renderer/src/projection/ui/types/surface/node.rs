@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use crate::projection::common::PackageProvenance;
 use crate::projection::defaults::{default_one_f32, default_true};
 
+use super::UiSurfaceControlProjection;
 use super::UiSurfaceResolvedStyle;
 use crate::projection::ui::types::{
     default_image_asset_type, is_false, is_zero_f64, UiIntentProjection,
@@ -87,6 +88,8 @@ pub struct UiSurfaceNodeProjection {
     pub image: Option<UiSurfaceImageProjection>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub intent: Option<UiIntentProjection>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub control: Option<UiSurfaceControlProjection>,
     #[serde(default)]
     pub style: UiSurfaceResolvedStyle,
     #[serde(default, skip_serializing_if = "PackageProvenance::is_empty")]
@@ -110,6 +113,7 @@ impl UiSurfaceNodeProjection {
             text: None,
             image: None,
             intent: None,
+            control: None,
             style: UiSurfaceResolvedStyle::default(),
             provenance: PackageProvenance::default(),
             children: Vec::new(),

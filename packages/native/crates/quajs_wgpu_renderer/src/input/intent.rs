@@ -26,6 +26,11 @@ pub fn resolve_renderer_intent_at(
 }
 
 pub fn renderer_intent_from_command(command: &DrawCommand) -> Option<RendererIntent> {
+    if let Some(control) = &command.control {
+        return control
+            .selected_option()
+            .map(|option| option.intent.clone());
+    }
     match &command.params {
         DrawCommandParams::Panel(params) if command.interactive => params.intent.clone(),
         DrawCommandParams::UiButton(params) if params.enabled => params.intent.clone(),

@@ -183,6 +183,44 @@ pub struct RendererIntent {
     pub metadata: BTreeMap<String, Value>,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct UiControlOptionDrawParam {
+    pub label: String,
+    pub intent: RendererIntent,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum UiControlPartsDrawParam {
+    Range {
+        progress_command_id: String,
+        thumb_command_id: String,
+        thumb_halo_command_id: Option<String>,
+        value_command_id: String,
+    },
+    Select {
+        chevron_command_id: String,
+        value_command_id: String,
+    },
+    Switch {
+        track_command_id: String,
+        thumb_command_id: String,
+        value_command_id: String,
+    },
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct UiControlDrawParam {
+    pub options: Vec<UiControlOptionDrawParam>,
+    pub parts: UiControlPartsDrawParam,
+    pub selected_index: usize,
+}
+
+impl UiControlDrawParam {
+    pub fn selected_option(&self) -> Option<&UiControlOptionDrawParam> {
+        self.options.get(self.selected_index)
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct UiButtonDrawParams {
     pub label: String,

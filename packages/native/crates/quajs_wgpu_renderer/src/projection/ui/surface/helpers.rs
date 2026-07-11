@@ -1,7 +1,12 @@
 use crate::projection::common::{is_safe_native_dispatch_identifier, PackageProvenance};
-use crate::render_graph::{DrawCommand, LogicalRect, RendererIntent};
+use crate::render_graph::{
+    DrawCommand, LogicalRect, RendererIntent, UiControlDrawParam, UiControlOptionDrawParam,
+    UiControlPartsDrawParam,
+};
 
-use super::super::types::{UiIntentProjection, UiOverlayProjection, UiSurfaceNodeProjection};
+use super::super::types::{
+    UiIntentProjection, UiOverlayProjection, UiSurfaceControlProjection, UiSurfaceNodeProjection,
+};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub(super) struct SurfaceNodeOffset {
@@ -53,6 +58,51 @@ pub(super) fn renderer_intent(
         element_id: Some(format!("{}:{}", overlay.element_id, node.id)),
         action,
         metadata,
+    })
+}
+
+pub(super) fn renderer_control(
+    overlay: &UiOverlayProjection,
+    node: &UiSurfaceNodeProjection,
+) -> Option<UiControlDrawParam> {
+    let control = node.control.as_ref()?;
+    let options = control
+        .options()
+        .iter()
+        .filter_map(|option| {
+            renderer_intent(overlay, node, &option.intent).map(|intent| UiControlOptionDrawParam {
+                label: option.label.clone(),
+                intent,
+            })
+        })
+        .collect::<Vec<_>>();
+    if options.is_empty() || control.selected_index() >= options.len() {
+        return None;
+    }
+
+    let command_id = |part: &str| format!("ui:{}:{}", overlay.element_id, part);
+    let parts = match control {
+        UiSurfaceControlProjection::Range { parts, .. } => UiControlPartsDrawParam::Range {
+            progress_command_id: command_id(&parts.progress),
+            thumb_command_id: command_id(&parts.thumb),
+            thumb_halo_command_id: parts.thumb_halo.as_deref().map(command_id),
+            value_command_id: command_id(&parts.value),
+        },
+        UiSurfaceControlProjection::Select { parts, .. } => UiControlPartsDrawParam::Select {
+            chevron_command_id: command_id(&parts.chevron),
+            value_command_id: command_id(&parts.value),
+        },
+        UiSurfaceControlProjection::Switch { parts, .. } => UiControlPartsDrawParam::Switch {
+            track_command_id: command_id(&parts.track),
+            thumb_command_id: command_id(&parts.thumb),
+            value_command_id: command_id(&parts.value),
+        },
+    };
+
+    Some(UiControlDrawParam {
+        options,
+        parts,
+        selected_index: control.selected_index(),
     })
 }
 

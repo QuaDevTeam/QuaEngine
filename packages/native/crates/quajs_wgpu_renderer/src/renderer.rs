@@ -1,4 +1,5 @@
 pub mod backend;
+mod control_feedback;
 pub mod facade;
 mod interaction_feedback;
 pub mod json_input;

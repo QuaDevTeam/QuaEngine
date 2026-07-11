@@ -11,9 +11,12 @@ pub use overlay::{
 pub use projection::UiProjection;
 pub use surface::{
     UiSurfaceBackgroundPositionProjection, UiSurfaceBorderStyleProjection,
-    UiSurfaceEdgeInsetsProjection, UiSurfaceFontStyleProjection, UiSurfaceImageProjection,
-    UiSurfaceNodeKind, UiSurfaceNodeProjection, UiSurfaceNodeRect, UiSurfaceObjectFitProjection,
-    UiSurfaceResolvedStyle, UiSurfaceShadowProjection, UiSurfaceTextAlignProjection,
+    UiSurfaceControlOptionProjection, UiSurfaceControlProjection, UiSurfaceEdgeInsetsProjection,
+    UiSurfaceFontStyleProjection, UiSurfaceImageProjection, UiSurfaceNodeKind,
+    UiSurfaceNodeProjection, UiSurfaceNodeRect, UiSurfaceObjectFitProjection,
+    UiSurfaceRangeControlPartsProjection, UiSurfaceResolvedStyle,
+    UiSurfaceSelectControlPartsProjection, UiSurfaceShadowProjection,
+    UiSurfaceSwitchControlPartsProjection, UiSurfaceTextAlignProjection,
     UiSurfaceTextDecorationProjection, UiSurfaceTextOverflowProjection,
     UiSurfaceTextTransformProjection, UiSurfaceWhiteSpaceProjection,
 };
