@@ -154,6 +154,14 @@ export interface NativeQssResolvedBounds {
   y?: number
 }
 
+export interface NativeQssShadowValue {
+  blurRadius: number
+  color: string
+  offsetX: number
+  offsetY: number
+  spreadRadius: number
+}
+
 export interface NativeQssResolvedStyle {
   backgroundColor?: string
   backgroundImage?: NativeQssBackgroundImageValue
@@ -163,6 +171,7 @@ export interface NativeQssResolvedStyle {
   borderRadius?: number
   borderStyle?: NativeQssBorderStyleValue
   borderWidth?: number
+  boxShadow?: NativeQssShadowValue
   color?: string
   fontFamily?: string[]
   fontSize?: number
@@ -178,6 +187,7 @@ export interface NativeQssResolvedStyle {
   textDecoration?: NativeQssTextDecorationValue
   textOverflow?: NativeQssTextOverflowValue
   textTransform?: NativeQssTextTransformValue
+  textShadow?: NativeQssShadowValue
   whiteSpace?: NativeQssWhiteSpaceValue
 }
 

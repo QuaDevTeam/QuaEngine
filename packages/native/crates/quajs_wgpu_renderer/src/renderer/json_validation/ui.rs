@@ -196,6 +196,12 @@ impl JsonProjectionValidator {
         if let Some(color) = &style.color {
             self.validate_color_literal(&format!("{path}.color"), color);
         }
+        if let Some(shadow) = &style.box_shadow {
+            self.validate_color_literal(&format!("{path}.boxShadow.color"), &shadow.color);
+        }
+        if let Some(shadow) = &style.text_shadow {
+            self.validate_color_literal(&format!("{path}.textShadow.color"), &shadow.color);
+        }
         if let Some(font_family) = &style.font_family {
             self.validate_font_family(&format!("{path}.fontFamily"), font_family);
         }

@@ -168,6 +168,7 @@ export type {
   NativeQssResolvedNodeStyle,
   NativeQssResolvedStyle,
   NativeQssRule,
+  NativeQssShadowValue,
   NativeQssTextAlignValue,
   NativeQssTextDecorationValue,
   NativeQssTextOverflowValue,

@@ -10,6 +10,7 @@ import type {
   NativeQssObjectFitValue,
   NativeQssPointerEventsValue,
   NativeQssPositionValue,
+  NativeQssShadowValue,
   NativeQssTextAlignValue,
   NativeQssTextDecorationValue,
   NativeQssTextOverflowValue,
@@ -18,7 +19,10 @@ import type {
 } from './types'
 import { isSafeNativeAssetType, isSafePackageAssetName } from './assets'
 import {
+  parseNativeQssColor,
+  parseNativeQssCoordinateNumber,
   parseNativeQssInteger,
+  parseNativeQssLogicalNumber,
   parsePercentUnitInterval,
 } from './qss-style-primitives'
 
@@ -67,6 +71,71 @@ export function parseNativeQssBackgroundImage(value: string): NativeQssBackgroun
     return undefined
 
   return { assetType, assetName }
+}
+
+export function parseNativeQssShadow(value: string): NativeQssShadowValue | undefined {
+  const parts = splitQssValueComponents(value.trim())
+  if (parts.length < 3 || parts.length > 5 || parts.some(part => part.toLowerCase() === 'inset'))
+    return undefined
+
+  const color = parseNativeQssColor(parts.at(-1) || '')
+  const lengths = parts.slice(0, -1)
+  if (!color || lengths.length < 2 || lengths.length > 4)
+    return undefined
+
+  const offsetX = parseNativeQssCoordinateNumber(lengths[0])
+  const offsetY = parseNativeQssCoordinateNumber(lengths[1])
+  const blurRadius = lengths[2] === undefined ? 0 : parseNativeQssLogicalNumber(lengths[2])
+  const spreadRadius = lengths[3] === undefined ? 0 : parseNativeQssLogicalNumber(lengths[3])
+  if (offsetX === undefined || offsetY === undefined || blurRadius === undefined || spreadRadius === undefined)
+    return undefined
+
+  return { blurRadius, color, offsetX, offsetY, spreadRadius }
+}
+
+function splitQssValueComponents(value: string): string[] {
+  const parts: string[] = []
+  let current = ''
+  let depth = 0
+  let quote: '"' | "'" | undefined
+  for (const character of value) {
+    if (quote) {
+      current += character
+      if (character === quote)
+        quote = undefined
+      continue
+    }
+    if (character === '"' || character === "'") {
+      quote = character
+      current += character
+      continue
+    }
+    if (character === '(') {
+      depth += 1
+      current += character
+      continue
+    }
+    if (character === ')') {
+      depth -= 1
+      if (depth < 0)
+        return []
+      current += character
+      continue
+    }
+    if (/\s/.test(character) && depth === 0) {
+      if (current) {
+        parts.push(current)
+        current = ''
+      }
+      continue
+    }
+    current += character
+  }
+  if (quote || depth !== 0)
+    return []
+  if (current)
+    parts.push(current)
+  return parts
 }
 
 export function parseNativeQssBackgroundPosition(value: string): NativeQssBackgroundPositionValue | undefined {

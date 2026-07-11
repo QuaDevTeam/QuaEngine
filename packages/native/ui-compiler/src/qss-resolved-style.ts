@@ -34,6 +34,7 @@ import {
   parseNativeQssOverflow,
   parseNativeQssPointerEvents,
   parseNativeQssPosition,
+  parseNativeQssShadow,
   parseNativeQssTextAlign,
   parseNativeQssTextDecoration,
   parseNativeQssTextOverflow,
@@ -65,6 +66,7 @@ export {
   parseNativeQssOverflow,
   parseNativeQssPointerEvents,
   parseNativeQssPosition,
+  parseNativeQssShadow,
   parseNativeQssTextAlign,
   parseNativeQssTextDecoration,
   parseNativeQssTextOverflow,
@@ -117,6 +119,9 @@ export function resolveNativeQssDeclarations(
         break
       case 'box-sizing':
         boxSizing = parseNativeQssBoxSizing(value)
+        break
+      case 'box-shadow':
+        resolved.style.boxShadow = value.toLowerCase() === 'none' ? undefined : parseNativeQssShadow(value)
         break
       case 'color':
         resolved.style.color = parseNativeQssColor(value)
@@ -250,6 +255,9 @@ export function resolveNativeQssDeclarations(
         break
       case 'text-transform':
         resolved.style.textTransform = parseNativeQssTextTransform(value)
+        break
+      case 'text-shadow':
+        resolved.style.textShadow = value.toLowerCase() === 'none' ? undefined : parseNativeQssShadow(value)
         break
       case 'visibility':
         resolved.visible = parseNativeQssVisibility(value)

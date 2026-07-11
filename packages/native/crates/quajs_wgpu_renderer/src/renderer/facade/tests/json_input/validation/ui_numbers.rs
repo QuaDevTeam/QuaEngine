@@ -239,6 +239,8 @@ fn json_frame_ui_style_validation_rejects_malformed_style_object_fields() {
         ("backgroundPosition", "null"),
         ("objectPosition", "[0.5, 0.5]"),
         ("objectPosition", "null"),
+        ("boxShadow", "null"),
+        ("textShadow", r#""0 2px 8px #000""#),
         ("padding", "8"),
         ("padding", "null"),
     ] {
@@ -261,6 +263,27 @@ fn json_frame_ui_style_validation_rejects_malformed_style_object_fields() {
 
     assert_eq!(renderer.state().revision(), 0);
     assert!(renderer.state().frame().is_none());
+}
+
+#[test]
+fn json_frame_ui_style_validation_accepts_resolved_shadow_objects() {
+    let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
+
+    for field in ["boxShadow", "textShadow"] {
+        let input = json_frame_with_malformed_ui_style_object_input(
+            field,
+            r#"{
+                "offsetX": 0,
+                "offsetY": 12,
+                "blurRadius": 32,
+                "spreadRadius": 1,
+                "color": "rgba(0,0,0,0.42)"
+            }"#,
+        );
+        renderer
+            .prepare_frame_json_str(&input)
+            .unwrap_or_else(|error| panic!("expected valid {field} projection, got {error:?}"));
+    }
 }
 
 #[test]
@@ -288,6 +311,20 @@ fn json_frame_ui_style_validation_rejects_unsupported_resolved_fields() {
             "view.ui.overlays[0].surface.root.style.padding.inlineStart",
             "inlineStart",
             "supported native UI surface style padding field",
+        ),
+        (
+            "boxShadow",
+            r##"{ "offsetX": 0, "offsetY": 4, "color": "#000", "inset": true }"##,
+            "view.ui.overlays[0].surface.root.style.boxShadow.inset",
+            "inset",
+            "supported native UI surface style boxShadow field",
+        ),
+        (
+            "textShadow",
+            r##"{ "offsetX": 0, "color": "#000" }"##,
+            "view.ui.overlays[0].surface.root.style.textShadow.offsetY",
+            "",
+            "explicitly provided",
         ),
         (
             "objectPosition",

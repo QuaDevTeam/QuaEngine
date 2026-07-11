@@ -39,7 +39,7 @@ fn renders_bitmap_text_decoration_as_bitmap_geometry() {
     assert_eq!(decorated_pass.index_count, plain_pass.index_count + 6);
     assert_eq!(
         decorated_pass.vertices.last().unwrap().color,
-        [32.0 / 255.0, 192.0 / 255.0, 1.0, 1.0]
+        [0.014_443_844, 0.527_115_2, 1.0, 1.0]
     );
 }
 

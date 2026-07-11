@@ -145,13 +145,11 @@ impl RenderGraph {
                 left.plane.z_base().saturating_add(left.z_index),
                 left.plane,
                 left.z_index,
-                left.id.as_str(),
             )
                 .cmp(&(
                     right.plane.z_base().saturating_add(right.z_index),
                     right.plane,
                     right.z_index,
-                    right.id.as_str(),
                 ))
         });
     }

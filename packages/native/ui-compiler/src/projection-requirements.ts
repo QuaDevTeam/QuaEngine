@@ -23,6 +23,7 @@ const QSS_FEATURE_BY_STYLE_FIELD: Record<keyof NativeQssResolvedStyle, string> =
   borderRadius: 'border-radius',
   borderStyle: 'border-style',
   borderWidth: 'border-width',
+  boxShadow: 'box-shadow',
   color: 'color',
   fontFamily: 'font-family',
   fontSize: 'font-size',
@@ -38,6 +39,7 @@ const QSS_FEATURE_BY_STYLE_FIELD: Record<keyof NativeQssResolvedStyle, string> =
   textDecoration: 'text-decoration',
   textOverflow: 'text-overflow',
   textTransform: 'text-transform',
+  textShadow: 'text-shadow',
   whiteSpace: 'white-space',
 }
 

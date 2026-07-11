@@ -42,6 +42,14 @@ pub(super) fn validate_ui_surface_node_style_shape_required_fields(
     if !errors.is_empty() {
         return;
     }
+    validate_shadow_object_field(style_object, path, "boxShadow", errors);
+    if !errors.is_empty() {
+        return;
+    }
+    validate_shadow_object_field(style_object, path, "textShadow", errors);
+    if !errors.is_empty() {
+        return;
+    }
     validate_object_field(
         style_object,
         path,
@@ -49,6 +57,39 @@ pub(super) fn validate_ui_surface_node_style_shape_required_fields(
         is_native_ui_surface_padding_field,
         errors,
     );
+}
+
+fn validate_shadow_object_field(
+    style_object: &serde_json::Map<String, Value>,
+    path: &str,
+    field: &str,
+    errors: &mut Vec<NativeRendererJsonValidationError>,
+) {
+    let Some(shadow_object) = validate_object_field(
+        style_object,
+        path,
+        field,
+        is_native_ui_surface_shadow_field,
+        errors,
+    ) else {
+        return;
+    };
+    for required_field in ["offsetX", "offsetY", "color"] {
+        let missing = match shadow_object.get(required_field) {
+            Some(value) => value.is_null(),
+            None => true,
+        };
+        if missing {
+            errors.push(NativeRendererJsonValidationError {
+                path: format!("{path}.style.{field}.{required_field}"),
+                asset_name: String::new(),
+                reason: format!(
+                    "must be explicitly provided for native UI surface style {field} in resolved projection JSON"
+                ),
+            });
+            return;
+        }
+    }
 }
 
 fn validate_position_object_field(
@@ -131,6 +172,7 @@ fn is_native_ui_surface_style_field(field: &str) -> bool {
             | "borderRadius"
             | "borderStyle"
             | "borderWidth"
+            | "boxShadow"
             | "color"
             | "fontFamily"
             | "fontSize"
@@ -145,8 +187,16 @@ fn is_native_ui_surface_style_field(field: &str) -> bool {
             | "textAlign"
             | "textDecoration"
             | "textOverflow"
+            | "textShadow"
             | "textTransform"
             | "whiteSpace"
+    )
+}
+
+fn is_native_ui_surface_shadow_field(field: &str) -> bool {
+    matches!(
+        field,
+        "offsetX" | "offsetY" | "blurRadius" | "spreadRadius" | "color"
     )
 }
 

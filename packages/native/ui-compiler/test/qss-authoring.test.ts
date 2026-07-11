@@ -10,16 +10,53 @@ describe('@quajs/native-ui-compiler QSS authoring', () => {
 Panel::part(header), Button.primary:hover {
   background-color: #10141f;
   padding: 12px;
-  box-shadow: 0 4px 8px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.4);
   margin: 10vw;
 }
 `)
 
     expect(document.rules).toHaveLength(1)
     expect(document.diagnostics).toEqual(expect.arrayContaining([
-      expect.objectContaining({ code: 'QSS_TARGET_UNSUPPORTED_FEATURE' }),
       expect.objectContaining({ code: 'QSS_UNSUPPORTED_UNIT' }),
     ]))
+  })
+
+  it('resolves safe panel and text shadows into structured native style IR', () => {
+    const document = analyzeQssSource(`
+Panel {
+  box-shadow: 0 18px 48px 2px rgba(0,0,0,0.32);
+  text-shadow: 0 2px 10px #000a;
+}
+`)
+
+    expect(document.diagnostics).toEqual([])
+    expect(resolveNativeQssDeclarations(document.rules[0].declarations).style).toMatchObject({
+      boxShadow: {
+        blurRadius: 48,
+        color: 'rgba(0,0,0,0.32)',
+        offsetX: 0,
+        offsetY: 18,
+        spreadRadius: 2,
+      },
+      textShadow: {
+        blurRadius: 10,
+        color: '#000a',
+        offsetX: 0,
+        offsetY: 2,
+        spreadRadius: 0,
+      },
+    })
+  })
+
+  it('rejects inset, multiple, and unsafe native shadows', () => {
+    const document = analyzeQssSource(`
+Panel {
+  box-shadow: inset 0 2px 8px #000;
+  text-shadow: 0 2px 8px #000, 0 4px 16px #000;
+}
+`)
+
+    expect(document.diagnostics.filter(item => item.code === 'QSS_INVALID_VALUE')).toHaveLength(2)
   })
 
   it('accepts opacity as a native-wgpu QSS feature', () => {

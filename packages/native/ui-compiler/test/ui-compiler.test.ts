@@ -40,6 +40,7 @@ const EXPECTED_NATIVE_WGPU_QSS_FEATURES = [
   'border-style',
   'border-width',
   'bottom',
+  'box-shadow',
   'box-sizing',
   'color',
   'column-gap',
@@ -80,6 +81,7 @@ const EXPECTED_NATIVE_WGPU_QSS_FEATURES = [
   'text-align',
   'text-decoration',
   'text-overflow',
+  'text-shadow',
   'text-transform',
   'top',
   'visibility',
@@ -99,9 +101,7 @@ describe('@quajs/native-ui-compiler', () => {
     expect(nativeWgpuQuiComponentNames()).not.toEqual(expect.arrayContaining(['Dialog', 'Drawer']))
     expect(nativeWgpuQssFeatureNames()).not.toEqual(expect.arrayContaining([
       'background-repeat',
-      'box-shadow',
       'flex-direction',
-      'text-shadow',
     ]))
   })
 

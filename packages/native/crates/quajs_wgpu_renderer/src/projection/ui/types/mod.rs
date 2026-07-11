@@ -13,9 +13,9 @@ pub use surface::{
     UiSurfaceBackgroundPositionProjection, UiSurfaceBorderStyleProjection,
     UiSurfaceEdgeInsetsProjection, UiSurfaceFontStyleProjection, UiSurfaceImageProjection,
     UiSurfaceNodeKind, UiSurfaceNodeProjection, UiSurfaceNodeRect, UiSurfaceObjectFitProjection,
-    UiSurfaceResolvedStyle, UiSurfaceTextAlignProjection, UiSurfaceTextDecorationProjection,
-    UiSurfaceTextOverflowProjection, UiSurfaceTextTransformProjection,
-    UiSurfaceWhiteSpaceProjection,
+    UiSurfaceResolvedStyle, UiSurfaceShadowProjection, UiSurfaceTextAlignProjection,
+    UiSurfaceTextDecorationProjection, UiSurfaceTextOverflowProjection,
+    UiSurfaceTextTransformProjection, UiSurfaceWhiteSpaceProjection,
 };
 
 fn default_image_asset_type() -> String {

@@ -49,3 +49,40 @@ fn sorts_commands_with_extreme_internal_z_index_without_overflowing() {
 
     assert_eq!(ids, vec!["min", "normal", "max"]);
 }
+
+#[test]
+fn preserves_projection_order_for_commands_in_the_same_paint_layer() {
+    let mut graph = RenderGraph::new(test_layout());
+    graph.extend([
+        command(
+            "ui:settings:panel",
+            RenderPlane::Screen,
+            DrawCommandKind::RoundedRect,
+        ),
+        command(
+            "ui:settings:close",
+            RenderPlane::Screen,
+            DrawCommandKind::RoundedRect,
+        ),
+        command(
+            "ui:settings:field",
+            RenderPlane::Screen,
+            DrawCommandKind::RoundedRect,
+        ),
+    ]);
+
+    let ids: Vec<_> = graph
+        .commands()
+        .iter()
+        .map(|command| command.id.as_str())
+        .collect();
+
+    assert_eq!(
+        ids,
+        vec![
+            "ui:settings:panel",
+            "ui:settings:close",
+            "ui:settings:field"
+        ]
+    );
+}

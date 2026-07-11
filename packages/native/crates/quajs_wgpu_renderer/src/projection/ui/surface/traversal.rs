@@ -9,8 +9,8 @@ use crate::render_graph::{DrawCommand, DrawCommandKind, LogicalRect};
 use super::super::style::resolve_opacity;
 use super::super::types::{UiOverlayProjection, UiSurfaceNodeKind, UiSurfaceNodeProjection};
 use super::command::{
-    scroll_clip_command, surface_background_image_command, surface_node_command,
-    surface_scroll_panel_command,
+    scroll_clip_command, surface_background_image_command, surface_box_shadow_commands,
+    surface_node_command, surface_scroll_panel_command, surface_text_shadow_commands,
 };
 use super::helpers::{node_rect, SurfaceNodeOffset};
 use super::{SCROLL_CHILD_Z_OFFSET, SCROLL_CLIP_END_Z_OFFSET};
@@ -145,6 +145,22 @@ fn append_scroll_node_commands(
 ) {
     let bounds = node_rect(node.bounds, offset);
     let command_id = format!("ui:{}:{}", overlay.element_id, node.id);
+    commands.extend(surface_box_shadow_commands(
+        overlay,
+        node,
+        z_base,
+        clip_bounds,
+        offset,
+        effective_opacity,
+    ));
+    commands.extend(surface_text_shadow_commands(
+        overlay,
+        node,
+        z_base,
+        clip_bounds,
+        offset,
+        effective_opacity,
+    ));
     if let Some(command) = surface_background_image_command(
         overlay,
         node,
@@ -214,6 +230,22 @@ fn append_painted_surface_node_commands(
 ) {
     let bounds = node_rect(node.bounds, offset);
     let command_id = format!("ui:{}:{}", overlay.element_id, node.id);
+    commands.extend(surface_box_shadow_commands(
+        overlay,
+        node,
+        z_base,
+        clip_bounds,
+        offset,
+        effective_opacity,
+    ));
+    commands.extend(surface_text_shadow_commands(
+        overlay,
+        node,
+        z_base,
+        clip_bounds,
+        offset,
+        effective_opacity,
+    ));
     if let Some(command) = surface_background_image_command(
         overlay,
         node,
