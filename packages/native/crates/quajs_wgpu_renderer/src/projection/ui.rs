@@ -11,9 +11,9 @@ pub use types::{
     UiSurfaceBackgroundPositionProjection, UiSurfaceBorderStyleProjection,
     UiSurfaceEdgeInsetsProjection, UiSurfaceFontStyleProjection, UiSurfaceImageProjection,
     UiSurfaceNodeKind, UiSurfaceNodeProjection, UiSurfaceNodeRect, UiSurfaceObjectFitProjection,
-    UiSurfaceResolvedStyle, UiSurfaceTextAlignProjection, UiSurfaceTextDecorationProjection,
-    UiSurfaceTextOverflowProjection, UiSurfaceTextTransformProjection,
-    UiSurfaceWhiteSpaceProjection,
+    UiSurfaceResolvedStyle, UiSurfaceShadowProjection, UiSurfaceTextAlignProjection,
+    UiSurfaceTextDecorationProjection, UiSurfaceTextOverflowProjection,
+    UiSurfaceTextTransformProjection, UiSurfaceWhiteSpaceProjection,
 };
 
 #[cfg(test)]

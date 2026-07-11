@@ -153,7 +153,10 @@ export const nativeQssProperties: readonly NativeQssPropertyDefinition[] = [
     value('visible', 'Render the node when no QUI show prop overrides it.'),
     value('hidden', 'Skip the node and its children when no QUI show prop overrides it.'),
   ]),
-  property('box-shadow', 'p2', false, 'Limited shadow projection planned for native style IR.'),
+  property('box-shadow', 'p1', true, 'One outer panel/button shadow projected through native style IR.', [
+    value('0 18px 48px rgba(0,0,0,0.32)', 'Render one offset outer shadow.'),
+    value('none', 'Disable the shadow.'),
+  ]),
   property('clip-path', 'p2', false, 'Qua subset clipping planned for native style IR.'),
   property('font-style', 'p1', true, 'Text style for native text and button label draw params.', [
     value('normal', 'Use an upright font face.'),
@@ -187,7 +190,10 @@ export const nativeQssProperties: readonly NativeQssPropertyDefinition[] = [
     value('underline', 'Render text with an underline.'),
     value('line-through', 'Render text with a strike-through line.'),
   ]),
-  property('text-shadow', 'p2', false, 'Limited text shadow planned for native text layout.'),
+  property('text-shadow', 'p1', true, 'One offset text shadow projected through native style IR.', [
+    value('0 2px 10px rgba(0,0,0,0.72)', 'Render one offset text shadow.'),
+    value('none', 'Disable the text shadow.'),
+  ]),
   property('transform', 'p2', false, '2D transform metadata planned for native style IR.'),
   property('transform-origin', 'p2', false, 'Transform origin metadata planned for native style IR.'),
   property('translate', 'p2', false, 'Transform longhand planned for native style IR.'),

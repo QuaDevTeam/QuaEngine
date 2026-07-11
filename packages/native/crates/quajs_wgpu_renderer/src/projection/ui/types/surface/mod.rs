@@ -7,7 +7,7 @@ pub use node::{
 pub use style::{
     UiSurfaceBackgroundPositionProjection, UiSurfaceBorderStyleProjection,
     UiSurfaceEdgeInsetsProjection, UiSurfaceFontStyleProjection, UiSurfaceObjectFitProjection,
-    UiSurfaceResolvedStyle, UiSurfaceTextAlignProjection, UiSurfaceTextDecorationProjection,
-    UiSurfaceTextOverflowProjection, UiSurfaceTextTransformProjection,
-    UiSurfaceWhiteSpaceProjection,
+    UiSurfaceResolvedStyle, UiSurfaceShadowProjection, UiSurfaceTextAlignProjection,
+    UiSurfaceTextDecorationProjection, UiSurfaceTextOverflowProjection,
+    UiSurfaceTextTransformProjection, UiSurfaceWhiteSpaceProjection,
 };

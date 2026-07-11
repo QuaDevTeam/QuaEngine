@@ -292,8 +292,8 @@ Panel.card {
     const compatibility = createNativeUiSurfaceCompatibilityFromDocuments(qui, { qss })
 
     expect(qss.diagnostics).toEqual([])
-    expect(compatibility.qssFeatures).toEqual(['background-color'])
-    expect(compatibility.qssFeatures).not.toEqual(expect.arrayContaining(['background-repeat', 'box-shadow']))
+    expect(compatibility.qssFeatures).toEqual(['background-color', 'box-shadow'])
+    expect(compatibility.qssFeatures).not.toEqual(expect.arrayContaining(['background-repeat']))
   })
 
   it('derives native UI surface compatibility metadata from resolved projections', () => {

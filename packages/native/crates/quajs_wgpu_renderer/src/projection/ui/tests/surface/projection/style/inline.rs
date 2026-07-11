@@ -1,4 +1,5 @@
 use super::*;
+use crate::projection::ui::UiSurfaceShadowProjection;
 use crate::render_graph::MediaOrigin;
 
 #[test]
@@ -204,4 +205,108 @@ fn maps_resolved_qss_style_to_inline_surface_node_draw_params() {
             ResourceId::from("fonts:Fallback UI")
         ]
     );
+}
+
+#[test]
+fn projects_box_and_text_shadows_before_surface_content() {
+    let layout = test_layout();
+    let ui = UiProjection::new(vec![UiOverlayProjection {
+        surface: Some(
+            UiOverlaySurfaceProjection::new("ui/shadow.qui").with_root(
+                UiSurfaceNodeProjection::new(
+                    "panel",
+                    UiSurfaceNodeKind::Panel,
+                    rect(100.0, 80.0, 400.0, 240.0),
+                )
+                .with_style(UiSurfaceResolvedStyle {
+                    background_color: Some("#101820".to_string()),
+                    border_radius: Some(8.0),
+                    box_shadow: Some(UiSurfaceShadowProjection {
+                        offset_x: 0.0,
+                        offset_y: 18.0,
+                        blur_radius: 40.0,
+                        spread_radius: 2.0,
+                        color: "rgba(0,0,0,0.42)".to_string(),
+                    }),
+                    ..Default::default()
+                })
+                .with_children(vec![UiSurfaceNodeProjection::new(
+                    "title",
+                    UiSurfaceNodeKind::Text,
+                    rect(132.0, 112.0, 260.0, 48.0),
+                )
+                .with_text("Shadow title")
+                .with_style(UiSurfaceResolvedStyle {
+                    color: Some("#fffaf2".to_string()),
+                    text_shadow: Some(UiSurfaceShadowProjection {
+                        offset_x: 1.0,
+                        offset_y: 2.0,
+                        blur_radius: 10.0,
+                        spread_radius: 0.0,
+                        color: "rgba(0,0,0,0.72)".to_string(),
+                    }),
+                    ..Default::default()
+                })]),
+            ),
+        ),
+        ..UiOverlayProjection::new("shadow")
+    }]);
+
+    let commands = build_ui_commands(&layout, &ui);
+    assert_eq!(
+        commands
+            .iter()
+            .map(|command| command.id.as_str())
+            .collect::<Vec<_>>(),
+        vec![
+            "ui:shadow",
+            "ui:shadow:panel:box-shadow:0",
+            "ui:shadow:panel:box-shadow:1",
+            "ui:shadow:panel:box-shadow:2",
+            "ui:shadow:panel:box-shadow:3",
+            "ui:shadow:panel:box-shadow:4",
+            "ui:shadow:panel:box-shadow:5",
+            "ui:shadow:panel",
+            "ui:shadow:title:text-shadow:0",
+            "ui:shadow:title:text-shadow:1",
+            "ui:shadow:title:text-shadow:2",
+            "ui:shadow:title:text-shadow:3",
+            "ui:shadow:title:text-shadow:4",
+            "ui:shadow:title:text-shadow:5",
+            "ui:shadow:title:text-shadow:6",
+            "ui:shadow:title:text-shadow:7",
+            "ui:shadow:title:text-shadow:8",
+            "ui:shadow:title",
+        ]
+    );
+    let outer_shadow = &commands[1];
+    assert_eq!(outer_shadow.bounds.x, 72.0);
+    assert_eq!(outer_shadow.bounds.y, 70.0);
+    assert_eq!(outer_shadow.bounds.width, 456.0);
+    assert_eq!(outer_shadow.bounds.height, 296.0);
+    assert_eq!(outer_shadow.opacity, 0.08);
+    match &outer_shadow.params {
+        DrawCommandParams::Panel(params) => {
+            assert_eq!(params.fill_color, "rgba(0,0,0,0.42)");
+            assert_eq!(params.corner_radius, 36.0);
+        }
+        _ => panic!("expected box shadow panel params"),
+    }
+    let inner_shadow = &commands[6];
+    assert_eq!(inner_shadow.bounds.x, 98.0);
+    assert_eq!(inner_shadow.bounds.y, 96.0);
+    assert_eq!(inner_shadow.bounds.width, 404.0);
+    assert_eq!(inner_shadow.bounds.height, 244.0);
+    assert_eq!(inner_shadow.opacity, 0.32);
+    let text_shadow = &commands[12];
+    assert_eq!(text_shadow.bounds.x, 133.0);
+    assert_eq!(text_shadow.bounds.y, 114.0);
+    assert_eq!(text_shadow.opacity, 0.36);
+    match &text_shadow.params {
+        DrawCommandParams::Text(params) => {
+            assert_eq!(params.text, "Shadow title");
+            assert_eq!(params.color, "rgba(0,0,0,0.72)");
+        }
+        _ => panic!("expected text shadow params"),
+    }
 }

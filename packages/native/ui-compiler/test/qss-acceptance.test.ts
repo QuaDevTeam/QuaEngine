@@ -63,6 +63,21 @@ const qssAcceptanceCases: Record<string, QssAcceptanceCase> = {
     invalidDeclaration: 'bottom: -2px',
     expected: { bounds: { bottom: 12 }, style: {} },
   },
+  'box-shadow': {
+    validDeclarations: ['box-shadow: 0 18px 48px 2px rgba(0,0,0,0.32)'],
+    invalidDeclaration: 'box-shadow: inset 0 4px 12px #000',
+    expected: {
+      style: {
+        boxShadow: {
+          blurRadius: 48,
+          color: 'rgba(0,0,0,0.32)',
+          offsetX: 0,
+          offsetY: 18,
+          spreadRadius: 2,
+        },
+      },
+    },
+  },
   'box-sizing': {
     validDeclarations: ['width: 20px', 'padding: 4px 6px', 'border-width: 1px', 'box-sizing: content-box'],
     invalidDeclaration: 'box-sizing: padding-box',
@@ -268,6 +283,21 @@ const qssAcceptanceCases: Record<string, QssAcceptanceCase> = {
     validDeclarations: ['text-overflow: ellipsis'],
     invalidDeclaration: 'text-overflow: fade',
     expected: { style: { textOverflow: 'ellipsis' } },
+  },
+  'text-shadow': {
+    validDeclarations: ['text-shadow: 0 2px 10px rgba(0,0,0,0.72)'],
+    invalidDeclaration: 'text-shadow: 0 2px 8px #000, 0 4px 16px #000',
+    expected: {
+      style: {
+        textShadow: {
+          blurRadius: 10,
+          color: 'rgba(0,0,0,0.72)',
+          offsetX: 0,
+          offsetY: 2,
+          spreadRadius: 0,
+        },
+      },
+    },
   },
   'text-transform': {
     validDeclarations: ['text-transform: uppercase'],

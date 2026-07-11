@@ -27,6 +27,7 @@ import {
   parseNativeQssOverflow,
   parseNativeQssPointerEvents,
   parseNativeQssPosition,
+  parseNativeQssShadow,
   parseNativeQssTextAlign,
   parseNativeQssTextDecoration,
   parseNativeQssTextOverflow,
@@ -136,6 +137,11 @@ function validateNativeWgpuDeclarationValue(declaration: NativeQssDeclaration): 
       return parseNativeQssBoxSizing(value)
         ? undefined
         : 'box-sizing supports border-box or content-box.'
+    case 'box-shadow':
+    case 'text-shadow':
+      return value.toLowerCase() === 'none' || parseNativeQssShadow(value)
+        ? undefined
+        : `${declaration.name} supports one outer shadow: offset-x offset-y [blur-radius] [spread-radius] color.`
     case 'gap':
       return parseNativeQssGap(value) !== undefined
         ? undefined

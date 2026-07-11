@@ -67,12 +67,12 @@ fn keeps_different_planes_and_kinds_in_separate_batches() {
 
     assert_eq!(batches.len(), 3);
     assert_eq!(batches[0].command_ids, vec!["scene"]);
-    assert_eq!(batches[1].command_ids, vec!["panel"]);
-    assert_eq!(batches[2].command_ids, vec!["subject"]);
+    assert_eq!(batches[1].command_ids, vec!["subject"]);
+    assert_eq!(batches[2].command_ids, vec!["panel"]);
     assert_eq!(batches[0].key.plane, RenderPlane::Scene);
     assert_eq!(batches[1].key.plane, RenderPlane::Subject);
-    assert_eq!(batches[1].key.pipeline, DrawBatchPipeline::Shape);
-    assert_eq!(batches[2].key.pipeline, DrawBatchPipeline::Image);
+    assert_eq!(batches[1].key.pipeline, DrawBatchPipeline::Image);
+    assert_eq!(batches[2].key.pipeline, DrawBatchPipeline::Shape);
 }
 
 #[test]

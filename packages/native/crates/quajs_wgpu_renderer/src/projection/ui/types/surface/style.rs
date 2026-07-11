@@ -91,6 +91,18 @@ pub struct UiSurfaceEdgeInsetsProjection {
     pub left: f64,
 }
 
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UiSurfaceShadowProjection {
+    pub offset_x: f64,
+    pub offset_y: f64,
+    #[serde(default)]
+    pub blur_radius: f64,
+    #[serde(default)]
+    pub spread_radius: f64,
+    pub color: String,
+}
+
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UiSurfaceResolvedStyle {
@@ -113,6 +125,8 @@ pub struct UiSurfaceResolvedStyle {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub border_width: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub box_shadow: Option<UiSurfaceShadowProjection>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub font_family: Option<FontFamilyProjection>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub font_size: Option<f64>,
@@ -132,6 +146,8 @@ pub struct UiSurfaceResolvedStyle {
     pub text_overflow: Option<UiSurfaceTextOverflowProjection>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub text_transform: Option<UiSurfaceTextTransformProjection>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub text_shadow: Option<UiSurfaceShadowProjection>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub white_space: Option<UiSurfaceWhiteSpaceProjection>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

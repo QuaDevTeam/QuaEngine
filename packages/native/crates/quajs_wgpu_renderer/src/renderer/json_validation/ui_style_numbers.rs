@@ -1,6 +1,7 @@
 use crate::projection::safety::{is_safe_native_opacity, MAX_NATIVE_UI_STYLE_LOGICAL_VALUE};
 use crate::projection::ui::{
     UiSurfaceBackgroundPositionProjection, UiSurfaceEdgeInsetsProjection, UiSurfaceResolvedStyle,
+    UiSurfaceShadowProjection,
 };
 
 pub(super) fn invalid_native_json_ui_node_opacity_reason(value: f32) -> Option<String> {
@@ -21,7 +22,35 @@ pub(super) fn invalid_native_json_ui_style_number_reason(
         .or_else(|| validate_optional_logical_value("fontSize", style.font_size))
         .or_else(|| validate_optional_logical_value("letterSpacing", style.letter_spacing))
         .or_else(|| validate_optional_logical_value("lineHeight", style.line_height))
+        .or_else(|| validate_shadow("boxShadow", style.box_shadow.as_ref()))
+        .or_else(|| validate_shadow("textShadow", style.text_shadow.as_ref()))
         .or_else(|| validate_padding(style.padding))
+}
+
+fn validate_shadow(
+    field: &'static str,
+    shadow: Option<&UiSurfaceShadowProjection>,
+) -> Option<(&'static str, String, String)> {
+    let shadow = shadow?;
+    validate_coordinate_value(field, shadow.offset_x)
+        .or_else(|| validate_coordinate_value(field, shadow.offset_y))
+        .or_else(|| validate_logical_value(field, shadow.blur_radius))
+        .or_else(|| validate_logical_value(field, shadow.spread_radius))
+}
+
+fn validate_coordinate_value(
+    field: &'static str,
+    value: f64,
+) -> Option<(&'static str, String, String)> {
+    if !value.is_finite() || value.abs() > MAX_NATIVE_UI_STYLE_LOGICAL_VALUE {
+        return Some((
+            field,
+            value.to_string(),
+            "UI surface shadow offsets must be finite and within native renderer logical limits"
+                .to_string(),
+        ));
+    }
+    None
 }
 
 fn validate_optional_opacity(
