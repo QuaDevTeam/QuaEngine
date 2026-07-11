@@ -48,6 +48,22 @@ fn loads_unscoped_video_asset_when_stream_has_no_package_candidates() {
 }
 
 #[test]
+fn loads_video_from_quack_qpk_asset_path_after_logical_name_misses() {
+    let stream = stream("movie/opening.mp4", []);
+    let host =
+        RecordingVideoHost::new().with_asset(None, "assets/video/movie/opening.mp4", [1, 2, 3]);
+    let plan = plan([command(VideoBackendCommandKind::LoadAsset, Some(stream))]);
+
+    let report = sync_video_assets_from_host(&host, &plan);
+
+    assert!(report.is_ok());
+    assert_eq!(report.loaded_count, 1);
+    assert_eq!(host.reads.borrow().len(), 2);
+    assert_eq!(host.reads.borrow()[0].url, "movie/opening.mp4");
+    assert_eq!(host.reads.borrow()[1].url, "assets/video/movie/opening.mp4");
+}
+
+#[test]
 fn resolves_video_assets_by_runtime_logical_or_bundle_name() {
     let cases = [
         bundle("runtime-bundle", None, Some("runtime.video")),

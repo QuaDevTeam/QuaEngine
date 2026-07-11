@@ -51,6 +51,22 @@ fn loads_unscoped_audio_asset_when_track_has_no_package_candidates() {
 }
 
 #[test]
+fn loads_audio_from_quack_qpk_asset_path_after_logical_name_misses() {
+    let track = track("bgm-main", "music/opening.ogg", []);
+    let host =
+        RecordingAudioHost::new().with_asset(None, "assets/bgm/music/opening.ogg", [1, 2, 3]);
+    let plan = plan([command(AudioBackendCommandKind::LoadAsset, Some(track))]);
+
+    let report = sync_audio_assets_from_host(&host, &plan);
+
+    assert!(report.is_ok());
+    assert_eq!(report.loaded_count, 1);
+    assert_eq!(host.reads.borrow().len(), 2);
+    assert_eq!(host.reads.borrow()[0].url, "music/opening.ogg");
+    assert_eq!(host.reads.borrow()[1].url, "assets/bgm/music/opening.ogg");
+}
+
+#[test]
 fn resolves_audio_assets_by_runtime_logical_or_bundle_name() {
     let cases = [
         bundle("runtime-bundle", None, Some("runtime.menu")),
@@ -159,7 +175,7 @@ fn reports_last_missing_candidate_when_all_package_reads_miss() {
 
     assert!(!report.is_ok());
     assert_eq!(report.missing_asset_count, 1);
-    assert_eq!(host.reads.borrow().len(), 2);
+    assert_eq!(host.reads.borrow().len(), 4);
     let failure = &report.failures[0];
     assert_eq!(
         failure.kind,

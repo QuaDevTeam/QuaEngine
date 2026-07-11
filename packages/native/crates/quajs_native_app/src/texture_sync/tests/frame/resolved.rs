@@ -532,7 +532,7 @@ fn missing_audio_asset_rolls_back_renderer_audio_state_for_asset_loading_backend
     let audio_backend = renderer.audio_backend().unwrap();
     assert!(audio_backend.loads.is_empty());
     assert!(audio_backend.plans.is_empty());
-    assert_eq!(host.reads.borrow().len(), 1);
+    assert_eq!(host.reads.borrow().len(), 2);
 }
 
 #[test]
@@ -560,7 +560,7 @@ fn missing_font_asset_rolls_back_renderer_font_state_for_asset_loading_backend()
     let font_backend = renderer.font_backend().unwrap();
     assert!(font_backend.loads.is_empty());
     assert!(font_backend.plans.is_empty());
-    assert_eq!(host.reads.borrow().len(), 1);
+    assert_eq!(host.reads.borrow().len(), 2);
 }
 
 #[test]
@@ -588,5 +588,5 @@ fn missing_video_asset_rolls_back_renderer_video_state_for_asset_loading_backend
     let video_backend = renderer.video_backend().unwrap();
     assert!(video_backend.loads.is_empty());
     assert!(video_backend.plans.is_empty());
-    assert_eq!(host.reads.borrow().len(), 1);
+    assert_eq!(host.reads.borrow().len(), 2);
 }

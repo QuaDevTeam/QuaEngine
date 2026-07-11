@@ -276,7 +276,7 @@ fn reports_last_missing_bundle_candidate_when_all_package_reads_miss() {
 
     assert!(!report.is_ok());
     assert_eq!(report.missing_asset_count, 1);
-    assert_eq!(host.reads.borrow().len(), 2);
+    assert_eq!(host.reads.borrow().len(), 4);
     assert_eq!(
         host.reads.borrow()[0].bundle_name.as_deref(),
         Some("runtime-menu-bundle")
@@ -285,6 +285,7 @@ fn reports_last_missing_bundle_candidate_when_all_package_reads_miss() {
         host.reads.borrow()[1].bundle_name.as_deref(),
         Some("base-bundle")
     );
+    assert_eq!(host.reads.borrow()[2].url, "assets/images/ui/panel.png");
     assert!(sink.uploads.is_empty());
     let failure = &report.failures[0];
     assert_eq!(

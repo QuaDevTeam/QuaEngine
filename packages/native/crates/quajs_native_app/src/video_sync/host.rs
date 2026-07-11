@@ -5,7 +5,8 @@ use quajs_wgpu_renderer::video::{
 };
 
 use crate::host_assets::{
-    ordered_package_candidates, resolve_native_asset_read_candidates, NativeAssetBundleCandidate,
+    native_asset_read_urls, ordered_package_candidates, resolve_native_asset_read_candidates,
+    NativeAssetBundleCandidate,
 };
 
 use super::types::{
@@ -74,41 +75,43 @@ fn read_video_asset_bytes(
     let candidates = read_candidates(host, stream)?;
     let mut last_missing: Option<NativeVideoAssetHostSyncFailure> = None;
 
-    for candidate in candidates {
-        let read_request = NativeAssetReadRequest {
-            url: stream.asset_name.clone(),
-            bundle_name: candidate.bundle_name.clone(),
-            asset_id: Some(stream.decoder_resource_id.as_str().to_string()),
-        };
+    for url in native_asset_read_urls(&stream.asset_type, &stream.asset_name) {
+        for candidate in &candidates {
+            let read_request = NativeAssetReadRequest {
+                url: url.clone(),
+                bundle_name: candidate.bundle_name.clone(),
+                asset_id: Some(stream.decoder_resource_id.as_str().to_string()),
+            };
 
-        match host.read_asset_bytes(&read_request) {
-            Ok(bytes) => {
-                return Ok(NativeVideoAssetRead {
-                    bytes,
-                    bundle_name: candidate.bundle_name,
-                    package_id: candidate.package_id,
-                });
-            }
-            Err(NativeHostApiError::AssetNotFound(_)) => {
-                last_missing = Some(failure_from_stream(
-                    NativeVideoAssetHostSyncFailureKind::MissingAsset,
-                    stream,
-                    candidate.bundle_name,
-                    candidate.package_id,
-                    format!(
-                        "Native video asset \"{}\" was not found.",
-                        stream.asset_name
-                    ),
-                ));
-            }
-            Err(error) => {
-                return Err(failure_from_stream(
-                    NativeVideoAssetHostSyncFailureKind::HostError,
-                    stream,
-                    candidate.bundle_name,
-                    candidate.package_id,
-                    error.message(),
-                ));
+            match host.read_asset_bytes(&read_request) {
+                Ok(bytes) => {
+                    return Ok(NativeVideoAssetRead {
+                        bytes,
+                        bundle_name: candidate.bundle_name.clone(),
+                        package_id: candidate.package_id.clone(),
+                    });
+                }
+                Err(NativeHostApiError::AssetNotFound(_)) => {
+                    last_missing = Some(failure_from_stream(
+                        NativeVideoAssetHostSyncFailureKind::MissingAsset,
+                        stream,
+                        candidate.bundle_name.clone(),
+                        candidate.package_id.clone(),
+                        format!(
+                            "Native video asset \"{}\" was not found.",
+                            stream.asset_name
+                        ),
+                    ));
+                }
+                Err(error) => {
+                    return Err(failure_from_stream(
+                        NativeVideoAssetHostSyncFailureKind::HostError,
+                        stream,
+                        candidate.bundle_name.clone(),
+                        candidate.package_id.clone(),
+                        error.message(),
+                    ));
+                }
             }
         }
     }

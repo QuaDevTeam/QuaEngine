@@ -1,7 +1,9 @@
 use quajs_native_runtime::{NativeAssetReadRequest, NativeHostApi, NativeHostApiError};
 use quajs_wgpu_renderer::resources::{NativeTextureUploadRequest, NativeTextureUploadSyncPlan};
 
-use crate::host_assets::{resolve_native_asset_read_candidates, NativeAssetBundleCandidate};
+use crate::host_assets::{
+    native_asset_read_urls, resolve_native_asset_read_candidates, NativeAssetBundleCandidate,
+};
 
 use super::metadata::{ordered_package_candidates, upload_metadata_from_request};
 use super::types::{
@@ -114,41 +116,43 @@ fn read_texture_asset_bytes(
     let candidates = read_candidates(host, request)?;
     let mut last_missing: Option<NativeTextureUploadHostSyncFailure> = None;
 
-    for candidate in candidates {
-        let read_request = NativeAssetReadRequest {
-            url: request.asset_name.clone(),
-            bundle_name: candidate.0.bundle_name.clone(),
-            asset_id: Some(request.resource_id.as_str().to_string()),
-        };
+    for url in native_asset_read_urls(&request.asset_type, &request.asset_name) {
+        for candidate in &candidates {
+            let read_request = NativeAssetReadRequest {
+                url: url.clone(),
+                bundle_name: candidate.0.bundle_name.clone(),
+                asset_id: Some(request.resource_id.as_str().to_string()),
+            };
 
-        match host.read_asset_bytes(&read_request) {
-            Ok(bytes) => {
-                return Ok(NativeTextureAssetRead {
-                    bytes,
-                    bundle_name: candidate.0.bundle_name,
-                    package_id: candidate.0.package_id,
-                });
-            }
-            Err(NativeHostApiError::AssetNotFound(_)) => {
-                last_missing = Some(failure(
-                    NativeTextureUploadHostSyncFailureKind::MissingAsset,
-                    request,
-                    candidate.0.bundle_name,
-                    candidate.0.package_id,
-                    format!(
-                        "Native texture asset \"{}\" was not found.",
-                        request.asset_name
-                    ),
-                ));
-            }
-            Err(error) => {
-                return Err(failure(
-                    NativeTextureUploadHostSyncFailureKind::HostError,
-                    request,
-                    candidate.0.bundle_name,
-                    candidate.0.package_id,
-                    error.message(),
-                ));
+            match host.read_asset_bytes(&read_request) {
+                Ok(bytes) => {
+                    return Ok(NativeTextureAssetRead {
+                        bytes,
+                        bundle_name: candidate.0.bundle_name.clone(),
+                        package_id: candidate.0.package_id.clone(),
+                    });
+                }
+                Err(NativeHostApiError::AssetNotFound(_)) => {
+                    last_missing = Some(failure(
+                        NativeTextureUploadHostSyncFailureKind::MissingAsset,
+                        request,
+                        candidate.0.bundle_name.clone(),
+                        candidate.0.package_id.clone(),
+                        format!(
+                            "Native texture asset \"{}\" was not found.",
+                            request.asset_name
+                        ),
+                    ));
+                }
+                Err(error) => {
+                    return Err(failure(
+                        NativeTextureUploadHostSyncFailureKind::HostError,
+                        request,
+                        candidate.0.bundle_name.clone(),
+                        candidate.0.package_id.clone(),
+                        error.message(),
+                    ));
+                }
             }
         }
     }
