@@ -218,7 +218,8 @@ function createNativeDevSurface(): Record<string, unknown> {
   return {
     visible: true,
     interactive: true,
-    zIndex: 90,
+    overlayStack: 'hud',
+    zIndex: 20,
     surface: {
       key: 'demo/native-dev-status.qui',
       root: {
