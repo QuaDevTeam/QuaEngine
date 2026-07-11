@@ -1,7 +1,7 @@
 use crate::projection::{
     audio::AudioProjection, background::BackgroundProjection, character::CharacterProjection,
     choices::ChoiceSetProjection, dialogue::DialogueProjection, plugins::PluginProjection,
-    ui::UiProjection,
+    scene_transition::SceneTransitionProjection, ui::UiProjection,
 };
 
 use serde::{Deserialize, Serialize};
@@ -9,6 +9,8 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ViewProjection {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scene_transition: Option<SceneTransitionProjection>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub background: Option<BackgroundProjection>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

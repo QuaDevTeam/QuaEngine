@@ -2,6 +2,30 @@ import { describe, expect, it } from 'vitest'
 import { createNativeRendererJsonFrameInput } from '../src'
 
 describe('native renderer frame serialization', () => {
+  it('serializes a transient scene transition without mutating engine view state', () => {
+    const view = { layout: { width: 1920, height: 1080 } }
+    const frame = createNativeRendererJsonFrameInput(view, {
+      sceneTransition: {
+        active: true,
+        type: 'wipe',
+        fromScene: 'intro',
+        toScene: 'chapter-1',
+        duration: 320,
+        startedAt: 1_000,
+        progress: 0.5,
+        easedProgress: 0.5,
+      },
+    })
+
+    expect(frame.view.sceneTransition).toEqual(expect.objectContaining({
+      active: true,
+      type: 'wipe',
+      toScene: 'chapter-1',
+      progress: 0.5,
+    }))
+    expect(view).toEqual({ layout: { width: 1920, height: 1080 } })
+  })
+
   it('merges registered feature surfaces from engine-owned plugin projections', () => {
     const view = {
       layout: {

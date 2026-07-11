@@ -9,6 +9,15 @@ export {
 } from './native-host-plugin'
 export type { NativeHostPluginOptions } from './native-host-plugin'
 export {
+  DEFAULT_NATIVE_SCENE_TRANSITION_DURATION,
+  NativeSceneTransitionController,
+  normalizeNativeSceneTransition,
+} from './scene-transition'
+export type {
+  NativeSceneTransitionControllerOptions,
+  NativeSceneTransitionProjection,
+} from './scene-transition'
+export {
   createNativeRendererFeatureSurfaceOverlays,
   resolveNativeRendererFeatureIntent,
 } from './feature-surfaces'
