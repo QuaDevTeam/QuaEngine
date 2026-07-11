@@ -226,6 +226,9 @@ impl NativeWindowSmokeApp {
         event_loop: &ActiveEventLoop,
         error: crate::window_smoke::NativeWindowSmokeError,
     ) -> bool {
+        if let Some(product_frame) = error.product_frame().cloned() {
+            self.record_product_frame_texture_metrics(&product_frame);
+        }
         let recovery_size = self.window.as_ref().map(|window| {
             let size = normalized_physical_size(window.inner_size());
             NativeProductWindowPhysicalSize::new(size.width, size.height)

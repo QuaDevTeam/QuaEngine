@@ -8,7 +8,7 @@ use quajs_wgpu_renderer::fonts::{
 use quajs_wgpu_renderer::projection::view::ViewProjection;
 use quajs_wgpu_renderer::renderer::{
     parse_native_renderer_json_frame_input, NativeRenderBackend, NativeRenderBackendError,
-    NativeRenderer, NativeRendererFrameError, NativeRendererFrameResult,
+    NativeRenderer, NativeRendererFrameError, NativeRendererFrameResult, NativeRendererFrameUpdate,
     NativeRendererJsonFrameError,
 };
 use quajs_wgpu_renderer::resources::ResourceId;
@@ -422,6 +422,37 @@ where
             &input.view,
         )?,
     )
+}
+
+pub(crate) fn render_cached_frame_with_media_texture_sync<B, A, V, F>(
+    renderer: &mut NativeRenderer<B, A, V, F>,
+    update: NativeRendererFrameUpdate,
+) -> Result<NativeTextureSyncedFrameResult, NativeRenderBackendError>
+where
+    B: NativeRenderBackend + NativeTextureUploadSink,
+    V: NativeVideoBackend,
+    F: NativeFontBackend,
+{
+    let video_frame_texture_report = sync_video_frame_textures_for_backend(renderer);
+    let font_atlas_report = sync_font_atlas_textures_for_backend(renderer);
+    let submission = renderer.render_frame()?;
+    let texture_upload_sync = renderer.texture_upload_sync_for_update(&update);
+
+    Ok(NativeTextureSyncedFrameResult {
+        frame: NativeRendererFrameResult {
+            update,
+            submission,
+            texture_upload_sync,
+        },
+        texture_host_cleanup_report: NativeTextureHostCleanupSyncReport::default(),
+        texture_upload_report: NativeTextureUploadHostSyncReport::default(),
+        audio_asset_report: None,
+        video_asset_report: None,
+        font_asset_report: None,
+        video_frame_texture_report: Some(video_frame_texture_report),
+        font_atlas_report: Some(font_atlas_report),
+        resubmitted_after_texture_upload: false,
+    })
 }
 
 fn finish_texture_synced_frame<B, A, V, F, H>(

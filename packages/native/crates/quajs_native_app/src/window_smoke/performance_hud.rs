@@ -7,6 +7,7 @@ use super::error::NativeWindowSmokeError;
 use super::frame::WindowFrameDimensions;
 
 const SAMPLE_COUNT: usize = 120;
+const HUD_REFRESH_INTERVAL: Duration = Duration::from_millis(500);
 
 #[derive(Debug)]
 pub(super) struct NativeWindowPerformanceHud {
@@ -16,6 +17,12 @@ pub(super) struct NativeWindowPerformanceHud {
     command_count: usize,
     pass_count: usize,
     batch_count: usize,
+    last_hud_refresh_at: Option<Instant>,
+    displayed_fps: f64,
+    displayed_frame_time: Duration,
+    displayed_command_count: usize,
+    displayed_pass_count: usize,
+    displayed_batch_count: usize,
 }
 
 impl Default for NativeWindowPerformanceHud {
@@ -27,6 +34,12 @@ impl Default for NativeWindowPerformanceHud {
             command_count: 0,
             pass_count: 0,
             batch_count: 0,
+            last_hud_refresh_at: None,
+            displayed_fps: 0.0,
+            displayed_frame_time: Duration::ZERO,
+            displayed_command_count: 0,
+            displayed_pass_count: 0,
+            displayed_batch_count: 0,
         }
     }
 }
@@ -89,16 +102,29 @@ impl NativeWindowPerformanceHud {
         self.command_count = command_count;
         self.pass_count = pass_count;
         self.batch_count = batch_count;
+        if self
+            .last_hud_refresh_at
+            .map(|previous| now.saturating_duration_since(previous) < HUD_REFRESH_INTERVAL)
+            .unwrap_or(false)
+        {
+            return;
+        }
+        self.last_hud_refresh_at = Some(now);
+        self.displayed_fps = self.fps();
+        self.displayed_frame_time = self.last_frame_time;
+        self.displayed_command_count = self.command_count;
+        self.displayed_pass_count = self.pass_count;
+        self.displayed_batch_count = self.batch_count;
     }
 
     fn overlay(&self, dimensions: WindowFrameDimensions) -> Value {
-        let fps = self.fps();
-        let frame_ms = self.last_frame_time.as_secs_f64() * 1_000.0;
+        let fps = self.displayed_fps;
+        let frame_ms = self.displayed_frame_time.as_secs_f64() * 1_000.0;
         let lines = [
             format!("FPS {:>5.1}   FRAME {:>5.2} ms", fps, frame_ms),
             format!(
                 "DRAW {:>4}   PASS {:>2}   BATCH {:>3}",
-                self.command_count, self.pass_count, self.batch_count
+                self.displayed_command_count, self.displayed_pass_count, self.displayed_batch_count
             ),
             format!(
                 "DPR {:.2}   {} x {} CSS",
@@ -188,5 +214,26 @@ mod tests {
         assert_eq!(overlay["interactive"], false);
         assert_eq!(overlay["overlayStack"], "hud");
         assert_eq!(overlay["stackPriority"], -100);
+    }
+
+    #[test]
+    fn keeps_hud_projection_stable_between_refresh_intervals() {
+        let mut hud = NativeWindowPerformanceHud::default();
+        let dimensions = WindowFrameDimensions {
+            logical_width: 960.0,
+            logical_height: 540.0,
+            physical_size: winit::dpi::PhysicalSize::new(1920, 1080),
+            device_pixel_ratio: 2.0,
+        };
+        hud.record_frame(Duration::from_millis(8), 12, 1, 3);
+        let first = hud
+            .inject(r#"{"view":{"ui":{"overlays":[]}}}"#, dimensions)
+            .unwrap();
+        hud.record_frame(Duration::from_millis(30), 99, 4, 8);
+        let second = hud
+            .inject(r#"{"view":{"ui":{"overlays":[]}}}"#, dimensions)
+            .unwrap();
+
+        assert_eq!(first, second);
     }
 }

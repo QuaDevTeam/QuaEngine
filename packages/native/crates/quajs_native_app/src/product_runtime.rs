@@ -250,9 +250,11 @@ mod tests {
 
         assert_eq!(first.frame_number, 1);
         assert_eq!(second.frame_number, 2);
+        assert!(!first.projection_reused);
+        assert!(second.projection_reused);
         assert_eq!(runtime.rendered_frame_count(), 2);
         assert_eq!(runtime.renderer().backend().submissions.len(), 2);
-        assert_eq!(runtime.host().list_calls.get(), 2);
+        assert_eq!(runtime.host().list_calls.get(), 1);
     }
 
     #[test]
