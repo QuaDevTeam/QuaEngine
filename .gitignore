@@ -13,6 +13,9 @@ CLAUDE.md
 *.timestamp*.mjs
 output
 .playwright-cli/
+playwright-report/
+test-results/
+blob-report/
 .local/
 .local-pack-test/
 .codegraph/
