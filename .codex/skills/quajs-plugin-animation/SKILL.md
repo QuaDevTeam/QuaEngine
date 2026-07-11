@@ -13,6 +13,8 @@ Use this skill for `packages/plugins/animation`, animation decorators, cross-plu
 
 Coordinate-bearing animation values use logical stage coordinates before renderer scaling.
 
+For native rendering, `@quajs/engine-native` resolves `view.animations` through the shared render-core projection helpers at the frame's supplied `now` value before it serializes `NativeRendererJsonFrameInput`. Tests must supply a fixed `now` when asserting an intermediate frame. Native never owns timeline state or interpolates physical-pixel transforms; it consumes the engine-owned logical-stage projection.
+
 ## Setup
 
 ```ts

@@ -32,6 +32,7 @@ export interface RealNativeQuickJsBridge {
 
 export interface CreateRealNativeQuickJsBridgeOptions {
   targetBundleManifest?: TargetBundleManifest
+  targetBundleManifestPath?: string
 }
 
 export interface RealNativeProductBridge {
@@ -43,6 +44,7 @@ export interface RealNativeProductBridge {
 
 export interface CreateRealNativeProductBridgeOptions {
   targetBundleManifest?: TargetBundleManifest
+  targetBundleManifestPath?: string
 }
 
 const CURRENT_DIR = fileURLToPath(new URL('.', import.meta.url))
@@ -65,16 +67,17 @@ const NATIVE_PRODUCT_CARGO_ARGS = [
   '-p',
   'quajs_native_app',
   '--features',
-  'image-decode',
+  'image-decode,quickjs-rquickjs',
 ]
 const RENDERER_SMOKE_JSON_PREFIX = 'Qua native renderer smoke json: '
 
 export async function createRealNativeQuickJsBridge(
   options: CreateRealNativeQuickJsBridgeOptions = {},
 ): Promise<RealNativeQuickJsBridge> {
-  const manifestPath = options.targetBundleManifest
+  const ownedManifestPath = !options.targetBundleManifestPath && options.targetBundleManifest
     ? await writeNativeTargetBundleManifest(options.targetBundleManifest)
     : undefined
+  const manifestPath = options.targetBundleManifestPath || ownedManifestPath
   const child = spawnNativeApp({
     QUA_NATIVE_QUICKJS_BRIDGE: '1',
     ...(manifestPath ? { QUA_NATIVE_TARGET_BUNDLE_MANIFEST: manifestPath } : {}),
@@ -144,7 +147,7 @@ export async function createRealNativeQuickJsBridge(
           }
         }
         finally {
-          await cleanupNativeTargetBundleManifest(manifestPath)
+          await cleanupNativeTargetBundleManifest(ownedManifestPath)
         }
       },
     }
@@ -152,7 +155,7 @@ export async function createRealNativeQuickJsBridge(
   catch (error) {
     child.stdin.end()
     child.kill('SIGKILL')
-    await cleanupNativeTargetBundleManifest(manifestPath)
+    await cleanupNativeTargetBundleManifest(ownedManifestPath)
     throw error
   }
 }
@@ -160,9 +163,10 @@ export async function createRealNativeQuickJsBridge(
 export async function createRealNativeProductBridge(
   options: CreateRealNativeProductBridgeOptions = {},
 ): Promise<RealNativeProductBridge> {
-  const manifestPath = options.targetBundleManifest
+  const ownedManifestPath = !options.targetBundleManifestPath && options.targetBundleManifest
     ? await writeNativeTargetBundleManifest(options.targetBundleManifest)
     : undefined
+  const manifestPath = options.targetBundleManifestPath || ownedManifestPath
   const child = spawnNativeApp({
     QUA_NATIVE_PRODUCT_BRIDGE: '1',
     ...(manifestPath ? { QUA_NATIVE_TARGET_BUNDLE_MANIFEST: manifestPath } : {}),
@@ -232,7 +236,7 @@ export async function createRealNativeProductBridge(
           }
         }
         finally {
-          await cleanupNativeTargetBundleManifest(manifestPath)
+          await cleanupNativeTargetBundleManifest(ownedManifestPath)
         }
       },
     }
@@ -240,7 +244,7 @@ export async function createRealNativeProductBridge(
   catch (error) {
     child.stdin.end()
     child.kill('SIGKILL')
-    await cleanupNativeTargetBundleManifest(manifestPath)
+    await cleanupNativeTargetBundleManifest(ownedManifestPath)
     throw error
   }
 }

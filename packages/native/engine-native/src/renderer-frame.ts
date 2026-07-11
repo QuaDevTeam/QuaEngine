@@ -1,3 +1,20 @@
+import type {
+  ActiveAnimationProjection,
+  QuaViewProjection,
+  ViewBackgroundProjection,
+  ViewCharacterProjection,
+  ViewChoiceProjection,
+  ViewDialogueProjection,
+} from '@quajs/render-core'
+import {
+  projectAudioProjection,
+  projectBackground,
+  projectCharacters,
+  projectChoices,
+  projectDialogue,
+  projectUiOverlay,
+} from '@quajs/render-core'
+
 type JsonRecord = Record<string, unknown>
 
 export interface NativeRendererSafeAreaInsetsInput {
@@ -28,11 +45,13 @@ export type NativeRendererEngineViewProjection = Readonly<JsonRecord & {
   choices?: readonly unknown[]
   ui?: unknown
   plugins?: unknown
+  animations?: readonly unknown[]
 }>
 
 export interface CreateNativeRendererJsonFrameInputOptions {
   container?: NativeRendererStageContainerInput
   layout?: unknown
+  now?: number
 }
 
 export function createNativeRendererJsonFrameInput(
@@ -40,7 +59,7 @@ export function createNativeRendererJsonFrameInput(
   options: CreateNativeRendererJsonFrameInputOptions = {},
 ): NativeRendererJsonFrameInput {
   const frame: NativeRendererJsonFrameInput = {
-    view: createNativeRendererViewProjection(view),
+    view: createNativeRendererViewProjection(view, { now: options.now }),
   }
   const layout = cloneJsonValue(options.layout ?? view.layout)
   const container = cloneJsonValue(options.container)
@@ -53,18 +72,116 @@ export function createNativeRendererJsonFrameInput(
   return frame
 }
 
-export function createNativeRendererViewProjection(view: NativeRendererEngineViewProjection): JsonRecord {
+export interface CreateNativeRendererViewProjectionOptions {
+  now?: number
+}
+
+export function createNativeRendererViewProjection(
+  view: NativeRendererEngineViewProjection,
+  options: CreateNativeRendererViewProjectionOptions = {},
+): JsonRecord {
+  const animations = nativeAnimationProjections(view.animations)
+  const now = options.now ?? Date.now()
+  const plugins = asRecord(view.plugins)
+  const background = projectNativeBackground(view.background, animations, now)
+  const characters = projectNativeCharacters(view.characters, animations, now)
+  const dialogue = projectNativeDialogue(view.dialogue, plugins?.dialogue, animations, now)
+  const choices = projectNativeChoices(view.choices, plugins?.choices, animations, now)
+  const ui = projectNativeUi(view.ui, animations, now)
+  const audio = animations.length > 0
+    ? projectAudioProjection<Record<string, unknown>>(view as unknown as Readonly<QuaViewProjection>, now)
+    : plugins?.audio
+
   return omitUndefined({
-    background: createNativeBackgroundProjection(view.background),
-    characters: Array.isArray(view.characters)
-      ? view.characters.map(createNativeCharacterProjection).filter(isJsonRecord)
+    background: createNativeBackgroundProjection(background),
+    characters: Array.isArray(characters)
+      ? characters.map(createNativeCharacterProjection).filter(isJsonRecord)
       : undefined,
-    dialogue: createNativeDialogueProjection(view.dialogue),
-    choices: createNativeChoiceSetProjection(view.choices),
-    ui: createNativeUiProjection(view.ui),
-    audio: createNativeAudioProjection(asRecord(view.plugins)?.audio),
+    dialogue: createNativeDialogueProjection(dialogue),
+    choices: createNativeChoiceSetProjection(choices),
+    ui: createNativeUiProjection(ui),
+    audio: createNativeAudioProjection(audio),
     plugins: createNativePluginProjection(view.plugins),
   })
+}
+
+function nativeAnimationProjections(value: readonly unknown[] | undefined): readonly Readonly<ActiveAnimationProjection>[] {
+  return Array.isArray(value)
+    ? value.filter(isJsonRecord) as unknown as readonly Readonly<ActiveAnimationProjection>[]
+    : []
+}
+
+function projectNativeBackground(
+  background: unknown,
+  animations: readonly Readonly<ActiveAnimationProjection>[],
+  now: number,
+): unknown {
+  const record = asRecord(background)
+  return record && animations.length > 0
+    ? projectBackground(record as unknown as Readonly<ViewBackgroundProjection>, animations, now)
+    : background
+}
+
+function projectNativeCharacters(
+  characters: readonly unknown[] | undefined,
+  animations: readonly Readonly<ActiveAnimationProjection>[],
+  now: number,
+): readonly unknown[] | undefined {
+  return Array.isArray(characters) && animations.length > 0
+    ? projectCharacters(characters.filter(isJsonRecord) as unknown as readonly Readonly<ViewCharacterProjection>[], animations, now)
+    : characters
+}
+
+function projectNativeDialogue(
+  dialogue: unknown,
+  base: unknown,
+  animations: readonly Readonly<ActiveAnimationProjection>[],
+  now: number,
+): unknown {
+  const record = asRecord(dialogue)
+  return record && animations.length > 0
+    ? projectDialogue(
+        record as unknown as Readonly<ViewDialogueProjection>,
+        animations,
+        now,
+        asRecord(base),
+      )
+    : dialogue
+}
+
+function projectNativeChoices(
+  choices: readonly unknown[] | undefined,
+  base: unknown,
+  animations: readonly Readonly<ActiveAnimationProjection>[],
+  now: number,
+): readonly unknown[] | undefined {
+  return Array.isArray(choices) && animations.length > 0
+    ? projectChoices(
+        choices.filter(isJsonRecord) as unknown as readonly Readonly<ViewChoiceProjection>[],
+        animations,
+        now,
+        asRecord(base),
+      ).choices
+    : choices
+}
+
+function projectNativeUi(
+  ui: unknown,
+  animations: readonly Readonly<ActiveAnimationProjection>[],
+  now: number,
+): unknown {
+  const record = asRecord(ui)
+  const overlays = asRecord(record?.overlays)
+  if (!record || !overlays || animations.length === 0) {
+    return ui
+  }
+  return {
+    ...record,
+    overlays: Object.fromEntries(Object.entries(overlays).map(([elementId, overlay]) => [
+      elementId,
+      projectUiOverlay(asRecord(overlay) || {}, elementId, animations, now),
+    ])),
+  }
 }
 
 function createNativePluginProjection(plugins: unknown): JsonRecord | undefined {

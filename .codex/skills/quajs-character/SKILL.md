@@ -60,6 +60,10 @@ Character identity can be registered with `registerCharacter(s)` profiles. Strin
 
 Dialogue avatars are optional projection assets for the dialogue box, useful when a character speaks off-screen. `avatar` accepts an asset object such as `{ type: 'images' | 'characters', name, runtimePackageId?, alt?, metadata? }` or a string shorthand for an `images` asset. Avatars do not show/hide characters, do not change sprite state, and are omitted by default.
 
+## Native QuickJS
+
+Native QPK scripts import the same `@quajs/character` helpers, but the Rust QuickJS evaluator must suspend with `pendingHelperCall`. The TS product host registers `speakWithEngine`, `narrateWithEngine`, `showWithEngine`, `hideWithEngine`, `moveWithEngine`, `expressionWithEngine`, and `spriteWithEngine` through `quickJsHelperModules`; `@quajs/engine-native` invokes them with the real `StepContext.engine`. Do not duplicate character profiles, aliases, or sprite-key resolution in Rust. Product smoke must register a profile and verify the resulting native character projection/command graph.
+
 ## QuaScript Decorators
 
 The package exports mappings and compiler lowering from `@quajs/character/script-compiler`.

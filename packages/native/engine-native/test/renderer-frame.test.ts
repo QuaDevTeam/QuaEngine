@@ -2,6 +2,98 @@ import { describe, expect, it } from 'vitest'
 import { createNativeRendererJsonFrameInput } from '../src'
 
 describe('native renderer frame serialization', () => {
+  it('projects engine-owned animation timelines at a deterministic native frame time', () => {
+    const view = {
+      background: {
+        mode: 'image',
+        assetName: 'bg/station.png',
+        scale: 1,
+      },
+      characters: [{
+        id: 'mira',
+        name: 'Mira',
+        visible: true,
+        sprite: 'mira/pose.png',
+        opacity: 0,
+        position: { x: 800, y: 640, scale: 1 },
+      }],
+      ui: {
+        visible: true,
+        overlays: {
+          settings: {
+            visible: true,
+            zIndex: 10,
+          },
+        },
+      },
+      plugins: {
+        audio: {
+          buses: {
+            master: { gainDb: 0 },
+            bgm: { gainDb: -12 },
+          },
+          bgm: {
+            id: 'theme',
+            assetKey: 'audio/theme.ogg',
+            state: 'playing',
+          },
+        },
+      },
+      animations: [{
+        id: 'native-mid-frame',
+        state: 'running',
+        startedAt: 1_000,
+        duration: 1_000,
+        playbackRate: 1,
+        resolvedTracks: [
+          {
+            target: 'character:mira',
+            property: 'position.x',
+            keyframes: [{ at: 0, value: 800 }, { at: 1_000, value: 1_200, easing: 'linear' }],
+          },
+          {
+            target: 'character:mira',
+            property: 'opacity',
+            keyframes: [{ at: 0, value: 0 }, { at: 1_000, value: 1, easing: 'linear' }],
+          },
+          {
+            target: 'background:main',
+            property: 'scale',
+            keyframes: [{ at: 0, value: 1 }, { at: 1_000, value: 1.2, easing: 'linear' }],
+          },
+          {
+            target: 'audioBus:bgm',
+            property: 'gainDb',
+            keyframes: [{ at: 0, value: -12 }, { at: 1_000, value: -6, easing: 'linear' }],
+          },
+          {
+            target: 'ui:settings',
+            property: 'zIndex',
+            keyframes: [{ at: 0, value: 10 }, { at: 1_000, value: 30, easing: 'linear' }],
+          },
+        ],
+      }],
+    }
+
+    const frame = createNativeRendererJsonFrameInput(view, { now: 1_500 })
+
+    expect(frame.view.background).toEqual(expect.objectContaining({ scale: 1.1 }))
+    expect(frame.view.characters).toEqual([
+      expect.objectContaining({
+        id: 'mira',
+        opacity: 0.5,
+        position: expect.objectContaining({ x: 1_000, y: 640 }),
+      }),
+    ])
+    expect(frame.view.ui).toEqual(expect.objectContaining({
+      overlays: [expect.objectContaining({ elementId: 'settings', zIndex: 20 })],
+    }))
+    expect((frame.view.audio as any).tracks[0].volume).toBeCloseTo(10 ** (-9 / 20), 12)
+    expect(view.background.scale).toBe(1)
+    expect(view.characters[0].position.x).toBe(800)
+    expect(view.ui.overlays.settings.zIndex).toBe(10)
+  })
+
   it('passes engine-owned audio plugin projections to native JSON', () => {
     const frame = createNativeRendererJsonFrameInput({
       plugins: {
