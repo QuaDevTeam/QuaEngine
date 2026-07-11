@@ -1,8 +1,34 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::{Display, Formatter};
 
 use super::commands::{FontBackendCommandPlan, FontBackendFaceStateMap};
+use crate::frame::PreparedNativeFrame;
 use crate::resources::ResourceId;
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct FontBackendAtlasGlyph {
+    pub uv_top_left: [f32; 2],
+    pub uv_bottom_right: [f32; 2],
+    pub advance: f32,
+    pub bearing_x: f32,
+    pub bearing_y: f32,
+    pub width: f32,
+    pub height: f32,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct FontBackendAtlasLayout {
+    pub resource_id: ResourceId,
+    pub family: String,
+    pub raster_size: f32,
+    pub ascent: f32,
+    pub descent: f32,
+    pub line_height: f32,
+    pub is_default: bool,
+    pub glyphs: BTreeMap<char, FontBackendAtlasGlyph>,
+}
+
+pub type FontBackendAtlasLayoutMap = BTreeMap<ResourceId, FontBackendAtlasLayout>;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct FontBackendAssetLoad {
@@ -44,7 +70,7 @@ impl std::error::Error for NativeFontBackendError {}
 
 pub type NativeFontBackendResult = Result<(), NativeFontBackendError>;
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct FontBackendAtlasTexture {
     pub resource_id: ResourceId,
     pub width: u32,
@@ -52,6 +78,7 @@ pub struct FontBackendAtlasTexture {
     pub rgba: Vec<u8>,
     pub owner_package_id: Option<String>,
     pub required_package_ids: BTreeSet<String>,
+    pub layout: Option<FontBackendAtlasLayout>,
 }
 
 impl FontBackendAtlasTexture {
@@ -68,7 +95,13 @@ impl FontBackendAtlasTexture {
             rgba: rgba.into(),
             owner_package_id: None,
             required_package_ids: BTreeSet::new(),
+            layout: None,
         }
+    }
+
+    pub fn with_layout(mut self, layout: FontBackendAtlasLayout) -> Self {
+        self.layout = Some(layout);
+        self
     }
 
     pub fn owned_by(mut self, package_id: impl Into<String>) -> Self {
@@ -106,6 +139,10 @@ pub trait NativeFontBackend {
     }
 
     fn apply_font_commands(&mut self, plan: &FontBackendCommandPlan) -> NativeFontBackendResult;
+
+    fn prepare_frame_text(&mut self, _frame: &PreparedNativeFrame) -> NativeFontBackendResult {
+        Ok(())
+    }
 
     fn drain_font_atlas_textures(&mut self) -> Vec<FontBackendAtlasTexture> {
         Vec::new()

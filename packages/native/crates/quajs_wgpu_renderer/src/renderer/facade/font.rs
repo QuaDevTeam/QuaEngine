@@ -27,6 +27,16 @@ where
         Ok(())
     }
 
+    pub fn prepare_font_frame_text(&mut self) -> NativeFontBackendResult {
+        let Some(frame) = self.state.frame().cloned() else {
+            return Ok(());
+        };
+        if let Some(font_backend) = &mut self.font_backend {
+            font_backend.prepare_frame_text(&frame)?;
+        }
+        Ok(())
+    }
+
     pub fn prepare_frame_and_apply_font(
         &mut self,
         layout: ResolvedStageLayout,

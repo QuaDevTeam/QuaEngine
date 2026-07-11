@@ -22,17 +22,28 @@ use super::*;
 #[test]
 fn records_last_frame_upload_state_and_accumulates_counts() {
     let mut metrics = NativeWindowSmokeTextureMetrics::default();
+    let first_font_report = NativeFontAtlasTextureSyncReport {
+        uploaded_count: 1,
+        ..Default::default()
+    };
+    let second_font_report = NativeFontAtlasTextureSyncReport {
+        uploaded_count: 2,
+        upload_error_count: 1,
+        ..Default::default()
+    };
 
     metrics.record_texture_sync(
         &upload_report(3, 1, 2, 1, 1),
         &cleanup_report(1),
         true,
+        Some(&first_font_report),
         &lifecycle_report(true, 2, &["base", "dlc"], &[], 0, &[], 0),
     );
     metrics.record_texture_sync(
         &upload_report(0, 3, 1, 0, 0),
         &cleanup_report(0),
         false,
+        Some(&second_font_report),
         &lifecycle_report(false, 1, &["base"], &["dlc"], 1, &["dlc"], 2),
     );
 
@@ -41,6 +52,8 @@ fn records_last_frame_upload_state_and_accumulates_counts() {
     assert_eq!(metrics.upload_uploaded_count, 3);
     assert_eq!(metrics.upload_error_count, 3);
     assert_eq!(metrics.upload_resubmit_count, 1);
+    assert_eq!(metrics.font_atlas_uploaded_count, 3);
+    assert_eq!(metrics.font_atlas_error_count, 1);
     assert!(metrics.resubmitted_after_texture_upload());
     assert_eq!(metrics.lifecycle_sync_count, 2);
     assert_eq!(metrics.lifecycle_initial_sync_count, 1);

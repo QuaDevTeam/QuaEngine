@@ -4,13 +4,17 @@ use super::geometry::{
     WgpuNativeRenderBufferGeometry,
 };
 use super::types::WgpuNativeRenderBufferVertex;
+use crate::fonts::FontBackendAtlasLayoutMap;
 use crate::render_graph::TextOverflowDrawParam;
 use crate::renderer::backend::wgpu::WgpuPhysicalRect;
+use crate::resources::ResourceId;
 
+mod atlas;
 pub(crate) mod bitmap;
 mod placeholder;
 pub(in crate::renderer::backend::wgpu::buffer::text_geometry) mod width;
 
+use atlas::atlas_text_geometry;
 use bitmap::bitmap_text_geometry;
 use placeholder::{
     aligned_line_x, ellipsis_marker_rects, font_style_shear, font_weight_scale, max_visible_lines,
@@ -25,12 +29,18 @@ pub(super) fn text_placeholder_geometry(
     style: &WgpuNativeRenderTextStyle,
     mut color: [f32; 4],
     opacity: f32,
-) -> Option<WgpuNativeRenderBufferGeometry> {
+    font_atlases: &FontBackendAtlasLayoutMap,
+) -> Option<(WgpuNativeRenderBufferGeometry, Option<ResourceId>)> {
     if text.trim().is_empty() {
         return None;
     }
+    if let Some((geometry, resource_id)) =
+        atlas_text_geometry(bounds, text, style, color, opacity, font_atlases)
+    {
+        return Some((geometry, Some(resource_id)));
+    }
     if let Some(geometry) = bitmap_text_geometry(bounds, text, style, color, opacity) {
-        return Some(geometry);
+        return Some((geometry, None));
     }
 
     let bounds_rect = FloatRect::from_physical(bounds)?;
@@ -185,11 +195,14 @@ pub(super) fn text_placeholder_geometry(
         }
     }
 
-    Some(WgpuNativeRenderBufferGeometry {
-        physical_bounds: physical_bounds?,
-        vertices,
-        indices,
-    })
+    Some((
+        WgpuNativeRenderBufferGeometry {
+            physical_bounds: physical_bounds?,
+            vertices,
+            indices,
+        },
+        None,
+    ))
 }
 
 fn union_optional_physical_rect(

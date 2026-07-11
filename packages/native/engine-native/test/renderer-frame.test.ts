@@ -2,6 +2,38 @@ import { describe, expect, it } from 'vitest'
 import { createNativeRendererJsonFrameInput } from '../src'
 
 describe('native renderer frame serialization', () => {
+  it('serializes rich text font families as native string arrays', () => {
+    const frame = createNativeRendererJsonFrameInput({
+      dialogue: {
+        visible: true,
+        mode: 'say',
+        speaker: 'Mira',
+        speakerStyle: { fontFamily: 'Noto Sans' },
+        text: {
+          blocks: [{
+            spans: [{
+              text: 'High resolution text',
+              fontFamily: ['Noto Sans', 'Noto Serif'],
+            }],
+          }],
+        },
+      },
+    })
+
+    expect(frame.view.dialogue).toEqual(expect.objectContaining({
+      speakerStyle: expect.objectContaining({ fontFamily: ['Noto Sans'] }),
+      text: {
+        blocks: [{
+          spans: [{
+            text: 'High resolution text',
+            style: { fontFamily: ['Noto Sans', 'Noto Serif'] },
+          }],
+        }],
+        style: {},
+      },
+    }))
+  })
+
   it('serializes a transient scene transition without mutating engine view state', () => {
     const view = { layout: { width: 1920, height: 1080 } }
     const frame = createNativeRendererJsonFrameInput(view, {

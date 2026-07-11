@@ -37,6 +37,10 @@ pub(super) struct NativeWindowSmokeReportInput<'a> {
     pub batch_count: usize,
     pub command_count: usize,
     pub submitted_command_buffer_count: usize,
+    pub font_atlas_uploaded_count: usize,
+    pub font_atlas_text_draw_count: usize,
+    pub bitmap_text_draw_count: usize,
+    pub font_atlas_resource_ids: Vec<String>,
     pub frame_capture: Option<&'a RealWgpuEncodedFrameCapture>,
 }
 
@@ -100,6 +104,11 @@ pub(super) fn build_window_smoke_report(
         texture_upload_error_count: input.texture_metrics.upload_error_count,
         texture_upload_resubmit_count: input.texture_metrics.upload_resubmit_count,
         resubmitted_after_texture_upload: input.texture_metrics.resubmitted_after_texture_upload(),
+        font_atlas_uploaded_count: input.font_atlas_uploaded_count,
+        font_atlas_error_count: input.texture_metrics.font_atlas_error_count,
+        font_atlas_text_draw_count: input.font_atlas_text_draw_count,
+        bitmap_text_draw_count: input.bitmap_text_draw_count,
+        font_atlas_resource_ids: input.font_atlas_resource_ids,
         texture_lifecycle_sync_count: input.texture_metrics.lifecycle_sync_count,
         texture_lifecycle_initial_sync_count: input.texture_metrics.lifecycle_initial_sync_count,
         texture_lifecycle_observed_bundle_count: input
@@ -249,6 +258,8 @@ mod tests {
             upload_uploaded_count: 3,
             upload_error_count: 4,
             upload_resubmit_count: 1,
+            font_atlas_uploaded_count: 5,
+            font_atlas_error_count: 0,
             lifecycle_sync_count: 5,
             lifecycle_initial_sync_count: 1,
             lifecycle_last_observed_bundle_count: 2,
@@ -388,12 +399,20 @@ mod tests {
             batch_count: 9,
             command_count: 10,
             submitted_command_buffer_count: 11,
+            font_atlas_uploaded_count: 5,
+            font_atlas_text_draw_count: 6,
+            bitmap_text_draw_count: 0,
+            font_atlas_resource_ids: vec!["fonts:Noto Sans".to_string()],
             frame_capture: Some(&frame_capture),
         });
 
         assert_eq!(report.adapter_name, "adapter");
         assert_eq!(report.target_frame_count, 3);
         assert_eq!(report.rendered_frame_count, 2);
+        assert_eq!(report.font_atlas_uploaded_count, 5);
+        assert_eq!(report.font_atlas_text_draw_count, 6);
+        assert_eq!(report.bitmap_text_draw_count, 0);
+        assert_eq!(report.font_atlas_resource_ids, vec!["fonts:Noto Sans"]);
         assert_eq!(report.surface_recovery_attempt_count, 2);
         assert_eq!(report.surface_recovery_success_count, 1);
         assert_eq!(report.surface_recovery_missing_size_count, 1);

@@ -41,3 +41,19 @@ pub(super) fn create_texture_sampler(
         ..Default::default()
     })
 }
+
+pub(super) fn create_linear_texture_sampler(
+    target: &RealWgpuNativeRenderRuntimeTarget,
+    label: &str,
+) -> wgpu::Sampler {
+    target.device().create_sampler(&wgpu::SamplerDescriptor {
+        label: Some(label),
+        address_mode_u: wgpu::AddressMode::ClampToEdge,
+        address_mode_v: wgpu::AddressMode::ClampToEdge,
+        address_mode_w: wgpu::AddressMode::ClampToEdge,
+        mag_filter: wgpu::FilterMode::Linear,
+        min_filter: wgpu::FilterMode::Linear,
+        mipmap_filter: wgpu::MipmapFilterMode::Linear,
+        ..Default::default()
+    })
+}

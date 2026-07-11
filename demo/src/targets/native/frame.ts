@@ -240,7 +240,7 @@ function createNativeDevSurface(): Record<string, unknown> {
           text: 'BROKEN LINK ERA / NATIVE',
           style: {
             color: '#f8e9bd',
-            fontFamily: 'Noto Sans',
+            fontFamily: ['Noto Sans'],
             fontSize: 30,
             fontWeight: 700,
             lineHeight: 38,
@@ -253,7 +253,7 @@ function createNativeDevSurface(): Record<string, unknown> {
           text: 'QuaEngine + Character + Animation + QUI',
           style: {
             color: '#9ddff0',
-            fontFamily: 'Noto Sans',
+            fontFamily: ['Noto Sans'],
             fontSize: 18,
             lineHeight: 26,
           },
@@ -271,7 +271,7 @@ function createNativeDevSurface(): Record<string, unknown> {
           style: {
             backgroundColor: '#d6ad55',
             color: '#17130b',
-            fontFamily: 'Noto Sans',
+            fontFamily: ['Noto Sans'],
             fontSize: 16,
             fontWeight: 700,
           },

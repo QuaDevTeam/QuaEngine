@@ -8,8 +8,9 @@ use quajs_wgpu_renderer::audio::NullNativeAudioBackend;
 use quajs_wgpu_renderer::video::NullNativeVideoBackend;
 
 use crate::texture_sync::{
-    NativeTextureBundleLifecycleSyncReport, NativeTextureCleanedClearResult,
-    NativeTextureHostCleanupSyncReport, NativeTextureUploadHostSyncReport,
+    NativeFontAtlasTextureSyncReport, NativeTextureBundleLifecycleSyncReport,
+    NativeTextureCleanedClearResult, NativeTextureHostCleanupSyncReport,
+    NativeTextureUploadHostSyncReport,
 };
 
 mod lifecycle;
@@ -24,6 +25,8 @@ pub(super) struct NativeWindowSmokeTextureMetrics {
     pub upload_uploaded_count: usize,
     pub upload_error_count: usize,
     pub upload_resubmit_count: usize,
+    pub font_atlas_uploaded_count: usize,
+    pub font_atlas_error_count: usize,
     pub lifecycle_sync_count: usize,
     pub lifecycle_initial_sync_count: usize,
     pub lifecycle_last_observed_bundle_count: usize,
@@ -74,6 +77,7 @@ impl NativeWindowSmokeTextureMetrics {
         upload_report: &NativeTextureUploadHostSyncReport,
         cleanup_report: &NativeTextureHostCleanupSyncReport,
         resubmitted_after_texture_upload: bool,
+        font_atlas_report: Option<&NativeFontAtlasTextureSyncReport>,
         lifecycle: &NativeTextureBundleLifecycleSyncReport,
     ) {
         upload::record_upload_frame(
@@ -82,6 +86,17 @@ impl NativeWindowSmokeTextureMetrics {
             cleanup_report,
             resubmitted_after_texture_upload,
         );
+        if let Some(report) = font_atlas_report {
+            self.font_atlas_uploaded_count = self
+                .font_atlas_uploaded_count
+                .saturating_add(report.uploaded_count);
+            self.font_atlas_error_count = self
+                .font_atlas_error_count
+                .saturating_add(report.missing_release_count)
+                .saturating_add(report.invalid_atlas_count)
+                .saturating_add(report.upload_error_count)
+                .saturating_add(report.release_error_count);
+        }
         lifecycle::record_lifecycle_sync(self, lifecycle);
     }
 

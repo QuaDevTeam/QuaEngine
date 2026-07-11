@@ -801,13 +801,13 @@ function createNativeRichTextStyle(style: unknown): JsonRecord | undefined {
   })
 }
 
-function createNativeFontFamily(fontFamily: unknown): JsonRecord | undefined {
-  if (typeof fontFamily !== 'string' || !fontFamily.trim()) {
-    return undefined
+function createNativeFontFamily(fontFamily: unknown): string[] | undefined {
+  if (typeof fontFamily === 'string') {
+    const family = fontFamily.trim()
+    return family ? [family] : undefined
   }
-  return {
-    families: [fontFamily.trim()],
-  }
+  const families = uniqueStrings(stringArray(fontFamily).map(family => family.trim()).filter(Boolean))
+  return families.length > 0 ? families : undefined
 }
 
 function createPackageProvenance(value: unknown): JsonRecord | undefined {

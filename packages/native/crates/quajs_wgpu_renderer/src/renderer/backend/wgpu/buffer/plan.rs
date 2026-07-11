@@ -1,3 +1,4 @@
+use crate::fonts::FontBackendAtlasLayoutMap;
 use crate::render_graph::RenderPlane;
 
 use super::super::mesh::{WgpuNativeRenderMeshPass, WgpuNativeRenderMeshPlan};
@@ -21,10 +22,17 @@ pub struct WgpuNativeRenderBufferPlan {
 
 impl WgpuNativeRenderBufferPlan {
     pub fn from_mesh_plan(mesh_plan: &WgpuNativeRenderMeshPlan) -> Self {
+        Self::from_mesh_plan_with_font_atlases(mesh_plan, &FontBackendAtlasLayoutMap::new())
+    }
+
+    pub fn from_mesh_plan_with_font_atlases(
+        mesh_plan: &WgpuNativeRenderMeshPlan,
+        font_atlases: &FontBackendAtlasLayoutMap,
+    ) -> Self {
         let passes = mesh_plan
             .passes
             .iter()
-            .map(WgpuNativeRenderBufferPass::from_mesh_pass)
+            .map(|pass| WgpuNativeRenderBufferPass::from_mesh_pass(pass, font_atlases))
             .collect::<Vec<_>>();
         let vertex_count = passes.iter().map(|pass| pass.vertex_count).sum();
         let index_count = passes.iter().map(|pass| pass.index_count).sum();
@@ -41,6 +49,46 @@ impl WgpuNativeRenderBufferPlan {
             invalid_paint_count: mesh_plan.invalid_paint_count,
             passes,
         }
+    }
+
+    pub fn font_atlas_text_draw_count(&self) -> usize {
+        self.text_draw_calls()
+            .filter(|draw| {
+                draw.resource_ids
+                    .iter()
+                    .any(|resource_id| resource_id.as_str().starts_with("fonts:"))
+            })
+            .count()
+    }
+
+    pub fn bitmap_text_draw_count(&self) -> usize {
+        self.text_draw_calls()
+            .filter(|draw| draw.resource_ids.is_empty())
+            .count()
+    }
+
+    pub fn font_atlas_resource_ids(&self) -> Vec<String> {
+        let mut resource_ids = self
+            .text_draw_calls()
+            .flat_map(|draw| draw.resource_ids.iter())
+            .filter(|resource_id| resource_id.as_str().starts_with("fonts:"))
+            .map(|resource_id| resource_id.as_str().to_string())
+            .collect::<Vec<_>>();
+        resource_ids.sort();
+        resource_ids.dedup();
+        resource_ids
+    }
+
+    fn text_draw_calls(&self) -> impl Iterator<Item = &WgpuNativeRenderDrawCall> {
+        self.passes
+            .iter()
+            .flat_map(|pass| pass.draw_calls.iter())
+            .filter(|draw| {
+                matches!(
+                    draw.paint,
+                    super::super::mesh::WgpuNativeRenderPaint::TextPlaceholder { .. }
+                )
+            })
     }
 }
 
@@ -59,7 +107,10 @@ pub struct WgpuNativeRenderBufferPass {
 }
 
 impl WgpuNativeRenderBufferPass {
-    fn from_mesh_pass(pass: &WgpuNativeRenderMeshPass) -> Self {
+    fn from_mesh_pass(
+        pass: &WgpuNativeRenderMeshPass,
+        font_atlases: &FontBackendAtlasLayoutMap,
+    ) -> Self {
         let mut vertices = Vec::new();
         let mut indices = Vec::new();
         let mut draw_calls = Vec::new();
@@ -72,9 +123,27 @@ impl WgpuNativeRenderBufferPass {
             }
 
             let draw_call_count_before = draw_calls.len();
-            append_quad_buffers(quad, &mut vertices, &mut indices, &mut draw_calls);
-            append_border_buffers(quad, &mut vertices, &mut indices, &mut draw_calls);
-            append_text_overlay_buffers(quad, &mut vertices, &mut indices, &mut draw_calls);
+            append_quad_buffers(
+                quad,
+                font_atlases,
+                &mut vertices,
+                &mut indices,
+                &mut draw_calls,
+            );
+            append_border_buffers(
+                quad,
+                font_atlases,
+                &mut vertices,
+                &mut indices,
+                &mut draw_calls,
+            );
+            append_text_overlay_buffers(
+                quad,
+                font_atlases,
+                &mut vertices,
+                &mut indices,
+                &mut draw_calls,
+            );
             if draw_calls.len() == draw_call_count_before {
                 skipped_quads.push(WgpuNativeRenderSkippedQuad::from_quad(quad));
             }

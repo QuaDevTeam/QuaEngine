@@ -393,6 +393,21 @@ function validateNativeSmokeOutput(output) {
   if (report.textureShutdownReleasedCount < 1) {
     failures.push('no resident WGPU texture was released during shutdown')
   }
+  if (report.fontAtlasUploadedCount < 1) {
+    failures.push('no high-resolution font atlas was uploaded from the demo QPK')
+  }
+  if (report.fontAtlasErrorCount !== 0 || report.textureShutdownFontAtlasErrorCount !== 0) {
+    failures.push('the native font atlas lifecycle reported an error')
+  }
+  if (report.fontAtlasTextDrawCount < 1) {
+    failures.push('no text draw used the uploaded high-resolution font atlas')
+  }
+  if (report.bitmapTextDrawCount !== 0) {
+    failures.push(`${report.bitmapTextDrawCount} text draw(s) fell back to the built-in bitmap atlas`)
+  }
+  if (!report.fontAtlasResourceIds?.includes('fonts:Noto Sans')) {
+    failures.push('the final WGPU text draws did not bind fonts:Noto Sans')
+  }
   if (report.passCount < 1 || report.commandCount < 1 || report.submittedCommandBufferCount < 1) {
     failures.push('the WGPU frame did not submit a non-empty render graph')
   }

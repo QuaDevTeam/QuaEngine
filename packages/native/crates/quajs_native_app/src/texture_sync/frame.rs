@@ -327,6 +327,10 @@ where
         *renderer.state_mut() = previous_state;
         return Err(error.into());
     }
+    if let Err(error) = renderer.prepare_font_frame_text() {
+        *renderer.state_mut() = previous_state;
+        return Err(error.into());
+    }
     let font_atlas_report = sync_font_atlas_textures_for_backend(renderer);
 
     let frame = finish_texture_synced_frame(
@@ -728,6 +732,7 @@ fn release_font_atlas_texture<S>(
 ) where
     S: NativeTextureUploadSink,
 {
+    sink.release_font_atlas_layout(&resource_id);
     match sink.release_texture_resource(&resource_id) {
         Ok(true) => {
             report.released_count += 1;
@@ -772,6 +777,7 @@ fn upload_font_atlas_texture<S>(
         return;
     }
 
+    let layout = atlas.layout.clone();
     let metadata = NativeTextureUploadMetadata {
         owner_package_id: atlas.owner_package_id,
         required_package_ids: atlas.required_package_ids,
@@ -784,6 +790,9 @@ fn upload_font_atlas_texture<S>(
         metadata,
     ) {
         Ok(()) => {
+            if let Some(layout) = layout {
+                sink.register_font_atlas_layout(layout);
+            }
             report.uploaded_count += 1;
             report.uploaded_resource_ids.push(atlas.resource_id);
         }

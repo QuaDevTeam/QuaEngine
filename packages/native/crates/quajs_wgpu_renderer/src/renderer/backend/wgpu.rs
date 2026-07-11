@@ -20,13 +20,15 @@ mod surface;
 #[cfg(test)]
 mod test_fixture;
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use super::submission::NativeRenderFallbackWarningTracker;
 use super::{
     NativeBackendCommandStreamPlan, NativeBackendDrawPlan, NativeBackendEncoderPlan,
     NativeBackendExecutionReport, NativeRenderSubmission,
 };
+use crate::fonts::{FontBackendAtlasLayout, FontBackendAtlasLayoutMap};
+use crate::resources::ResourceId;
 
 pub use accessors::WgpuNativeRenderDecodedTextureCleanupReport;
 pub use buffer::{
@@ -138,6 +140,8 @@ where
     runtime_executor: E,
     fallback_warnings: NativeRenderFallbackWarningTracker,
     invalidated_bind_group_cache_labels: BTreeSet<String>,
+    font_atlas_layouts: FontBackendAtlasLayoutMap,
+    font_atlas_upload_count: usize,
 }
 
 impl WgpuNativeRenderBackend<InMemoryWgpuNativeRenderRuntimeExecutor> {
@@ -176,7 +180,27 @@ where
             runtime_executor,
             fallback_warnings: NativeRenderFallbackWarningTracker::default(),
             invalidated_bind_group_cache_labels: BTreeSet::new(),
+            font_atlas_layouts: BTreeMap::new(),
+            font_atlas_upload_count: 0,
         }
+    }
+
+    pub fn register_font_atlas_layout(&mut self, layout: FontBackendAtlasLayout) {
+        self.font_atlas_layouts
+            .insert(layout.resource_id.clone(), layout);
+        self.font_atlas_upload_count = self.font_atlas_upload_count.saturating_add(1);
+    }
+
+    pub fn release_font_atlas_layout(&mut self, resource_id: &ResourceId) {
+        self.font_atlas_layouts.remove(resource_id);
+    }
+
+    pub fn font_atlas_layouts(&self) -> &FontBackendAtlasLayoutMap {
+        &self.font_atlas_layouts
+    }
+
+    pub fn font_atlas_upload_count(&self) -> usize {
+        self.font_atlas_upload_count
     }
 
     fn previous_resource_cache_plan_for_submit(&self) -> Option<WgpuNativeRenderResourceCachePlan> {
@@ -221,8 +245,11 @@ where
 
         let mut invalidated_count = 0;
         for entry in &previous.bind_group_entries {
-            if entry.layout == WgpuNativeRenderBindGroupLayout::TextureSampler
-                && entry.resource_ids.iter().any(|id| id == resource_id)
+            if matches!(
+                entry.layout,
+                WgpuNativeRenderBindGroupLayout::TextureSampler
+                    | WgpuNativeRenderBindGroupLayout::TextAtlas
+            ) && entry.resource_ids.iter().any(|id| id == resource_id)
                 && self
                     .invalidated_bind_group_cache_labels
                     .insert(entry.cache_label.clone())

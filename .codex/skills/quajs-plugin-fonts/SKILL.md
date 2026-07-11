@@ -75,7 +75,9 @@ Runtime package font entries must preserve package provenance. Unloading a runti
 
 Web renderers resolve asset URLs, create browser `FontFace` resources, attach style/runtime resources, and clean them up as transient projection resources. Native renderers consume `view.plugins.fonts`, validate font face asset/provenance data, plan transient font backend commands, and load font bytes only through package-scoped native host/QPK asset reads. Engine/plugin state only says which fonts should exist.
 
-Native font projection and bytes sync do not imply real glyph shaping, bidi, fallback selection, CJK rendering, or font asset rasterization until a native text backend consumes those loaded faces.
+The native-window TTF/OTF backend consumes loaded QPK faces and builds transient high-resolution per-frame glyph atlases with proportional metrics. Explicit projected families are selected first and the first active face is the default for text without a family. WGPU applies layout in physical DPR-scaled stage coordinates and samples uploaded font atlases linearly. The built-in `5x7` atlas is fallback-only when no usable projected atlas exists or the requested style is unsupported.
+
+This high-resolution atlas path is not full Web typography parity: it does not yet provide shaping, bidi, ligatures, variable-font axes, WOFF/WOFF2 decoding, or advanced CJK line breaking. Register faces that cover every required script; a Latin-only Noto Sans file does not provide complete CJK coverage.
 
 ## Validation
 
@@ -83,6 +85,7 @@ Native font projection and bytes sync do not imply real glyph shaping, bidi, fal
 pnpm --filter @quajs/plugin-fonts test -- --run
 pnpm --filter @quajs/plugin-fonts typecheck
 pnpm --filter @quajs/plugin-fonts build
+pnpm -C demo native:smoke:save-preview
 ```
 
 Run renderer font tests when projection shape changes.
@@ -94,3 +97,4 @@ Run renderer font tests when projection shape changes.
 - Are runtime package font refs package-aware?
 - Are style/theme concerns kept out of automatic renderer imports?
 - If font API, projection, or renderer behavior changed, was this skill updated?
+- Does native smoke prove a QPK atlas upload, high-resolution atlas draws, zero bitmap fallback draws, and the expected `fonts:<family>` resource id?
