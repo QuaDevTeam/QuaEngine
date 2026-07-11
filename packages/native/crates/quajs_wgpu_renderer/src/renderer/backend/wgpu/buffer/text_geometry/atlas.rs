@@ -11,6 +11,7 @@ use super::super::geometry::{
     physical_rect_from_float, union_physical_rect, FloatRect, WgpuNativeRenderBufferGeometry,
 };
 use super::super::types::WgpuNativeRenderBufferVertex;
+use super::placeholder::font_weight_scale;
 
 pub(super) fn atlas_text_geometry(
     bounds: WgpuPhysicalRect,
@@ -52,6 +53,8 @@ pub(super) fn atlas_text_geometry(
         .max(1)
         .min(lines.len());
     let total_height = font_size + line_height * max_lines.saturating_sub(1) as f32;
+    let embolden_offset =
+        ((font_weight_scale(style.font_weight.as_ref()) - 1.0) * font_size * 0.16).max(0.0);
     let available_y = (content_rect.height - total_height).max(0.0);
     let start_y = content_rect.y
         + match style.vertical_align {
@@ -77,33 +80,43 @@ pub(super) fn atlas_text_geometry(
                 continue;
             };
             if glyph.width > 0.0 && glyph.height > 0.0 && !character.is_whitespace() {
-                let source = FloatRect {
-                    x: cursor_x + glyph.bearing_x * scale,
-                    y: baseline + glyph.bearing_y * scale,
-                    width: glyph.width * scale,
-                    height: glyph.height * scale,
-                };
-                if let Some((clipped, uv_top_left, uv_bottom_right)) = clip_glyph(
-                    source,
-                    content_rect,
-                    glyph.uv_top_left,
-                    glyph.uv_bottom_right,
-                ) {
-                    let first_vertex = vertices.len() as u32;
-                    vertices.extend(glyph_vertices(clipped, uv_top_left, uv_bottom_right, color));
-                    indices.extend_from_slice(&[
-                        first_vertex,
-                        first_vertex + 1,
-                        first_vertex + 2,
-                        first_vertex,
-                        first_vertex + 2,
-                        first_vertex + 3,
-                    ]);
-                    let rect = physical_rect_from_float(clipped);
-                    physical_bounds = Some(match physical_bounds {
-                        Some(current) => union_physical_rect(current, rect),
-                        None => rect,
-                    });
+                let sample_count = if embolden_offset > 0.0 { 2 } else { 1 };
+                for sample_index in 0..sample_count {
+                    let source = FloatRect {
+                        x: cursor_x
+                            + glyph.bearing_x * scale
+                            + embolden_offset * sample_index as f32,
+                        y: baseline + glyph.bearing_y * scale,
+                        width: glyph.width * scale,
+                        height: glyph.height * scale,
+                    };
+                    if let Some((clipped, uv_top_left, uv_bottom_right)) = clip_glyph(
+                        source,
+                        content_rect,
+                        glyph.uv_top_left,
+                        glyph.uv_bottom_right,
+                    ) {
+                        let first_vertex = vertices.len() as u32;
+                        vertices.extend(glyph_vertices(
+                            clipped,
+                            uv_top_left,
+                            uv_bottom_right,
+                            color,
+                        ));
+                        indices.extend_from_slice(&[
+                            first_vertex,
+                            first_vertex + 1,
+                            first_vertex + 2,
+                            first_vertex,
+                            first_vertex + 2,
+                            first_vertex + 3,
+                        ]);
+                        let rect = physical_rect_from_float(clipped);
+                        physical_bounds = Some(match physical_bounds {
+                            Some(current) => union_physical_rect(current, rect),
+                            None => rect,
+                        });
+                    }
                 }
             }
             cursor_x += glyph.advance * scale + letter_spacing;
@@ -294,5 +307,99 @@ fn vertex(position: [f32; 2], uv: [f32; 2], color: [f32; 4]) -> WgpuNativeRender
         position,
         uv,
         color,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::BTreeMap;
+
+    use super::*;
+    use crate::fonts::FontBackendAtlasGlyph;
+    use crate::render_graph::{
+        EdgeInsetsDrawParam, FontStyleDrawParam, FontWeightDrawParam, TextAlign,
+        TextDecorationDrawParam, TextOverflowDrawParam, TextTransformDrawParam,
+        WhiteSpaceDrawParam,
+    };
+
+    #[test]
+    fn emboldens_uploaded_atlas_glyphs_without_changing_the_font_resource() {
+        let resource_id = ResourceId::from("fonts:Noto Sans");
+        let layout = FontBackendAtlasLayout {
+            resource_id: resource_id.clone(),
+            family: "Noto Sans".to_string(),
+            raster_size: 20.0,
+            ascent: 16.0,
+            descent: -4.0,
+            line_height: 24.0,
+            is_default: true,
+            glyphs: BTreeMap::from([(
+                'A',
+                FontBackendAtlasGlyph {
+                    uv_top_left: [0.0, 0.0],
+                    uv_bottom_right: [0.5, 0.5],
+                    advance: 12.0,
+                    bearing_x: 0.0,
+                    bearing_y: -16.0,
+                    width: 11.0,
+                    height: 20.0,
+                },
+            )]),
+        };
+        let atlases = BTreeMap::from([(resource_id.clone(), layout)]);
+        let regular = style(None);
+        let bold = style(Some(FontWeightDrawParam::Number(700)));
+        let (regular_geometry, regular_resource) = atlas_text_geometry(
+            WgpuPhysicalRect {
+                x: 0,
+                y: 0,
+                width: 120,
+                height: 40,
+            },
+            "A",
+            &regular,
+            [1.0; 4],
+            1.0,
+            &atlases,
+        )
+        .unwrap();
+        let (bold_geometry, bold_resource) = atlas_text_geometry(
+            WgpuPhysicalRect {
+                x: 0,
+                y: 0,
+                width: 120,
+                height: 40,
+            },
+            "A",
+            &bold,
+            [1.0; 4],
+            1.0,
+            &atlases,
+        )
+        .unwrap();
+
+        assert_eq!(regular_geometry.vertices.len(), 4);
+        assert_eq!(bold_geometry.vertices.len(), 8);
+        assert!(bold_geometry.physical_bounds.width > regular_geometry.physical_bounds.width);
+        assert_eq!(regular_resource, resource_id);
+        assert_eq!(bold_resource, resource_id);
+    }
+
+    fn style(font_weight: Option<FontWeightDrawParam>) -> WgpuNativeRenderTextStyle {
+        WgpuNativeRenderTextStyle {
+            font_family: vec!["Noto Sans".to_string()],
+            font_size: 20.0,
+            font_style: FontStyleDrawParam::Normal,
+            font_weight,
+            letter_spacing: 0.0,
+            line_height: 24.0,
+            align: TextAlign::Left,
+            vertical_align: WgpuNativeRenderVerticalAlign::Top,
+            text_decoration: TextDecorationDrawParam::None,
+            text_overflow: TextOverflowDrawParam::Clip,
+            text_transform: TextTransformDrawParam::None,
+            white_space: WhiteSpaceDrawParam::Normal,
+            padding: EdgeInsetsDrawParam::default(),
+        }
     }
 }
