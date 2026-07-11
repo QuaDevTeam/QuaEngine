@@ -81,4 +81,17 @@ fn noop_device_applies_buffer_upload_and_empty_render_pass() {
     assert_eq!(frame_target.extent.width, 64);
     assert_eq!(frame_target.extent.height, 64);
     assert_eq!(frame_target.completed_pass_count, 1);
+    let capture = executor.device().capture_frame_rgba8().unwrap();
+    assert_eq!(capture.width, 64);
+    assert_eq!(capture.height, 64);
+    assert_eq!(capture.rgba8.len(), 64 * 64 * 4);
+    assert!(capture.rgba8.iter().all(|value| *value == 0));
+
+    #[cfg(feature = "image-decode")]
+    {
+        let capture = executor.device().capture_frame_png().unwrap();
+        assert_eq!((capture.width, capture.height), (64, 64));
+        assert_eq!(capture.mime_type, "image/png");
+        assert_eq!(&capture.bytes[..8], b"\x89PNG\r\n\x1a\n");
+    }
 }

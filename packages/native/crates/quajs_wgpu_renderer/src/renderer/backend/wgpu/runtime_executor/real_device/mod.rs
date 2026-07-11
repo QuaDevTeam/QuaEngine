@@ -1,5 +1,6 @@
 mod bind_group;
 mod buffer;
+mod capture;
 mod device;
 mod draw;
 mod encoder;
@@ -23,6 +24,7 @@ mod uniforms;
 
 pub(super) use super::{WgpuNativeRenderRuntimeError, WgpuNativeRenderRuntimeErrorKind};
 use buffer::RealRuntimeBuffer;
+pub use capture::{RealWgpuEncodedFrameCapture, RealWgpuFrameCapture, RealWgpuFrameCaptureError};
 pub use device::RealWgpuNativeRenderRuntimeDevice;
 use error::invalid_order;
 pub use frame_target::RealRuntimeFrameTargetSnapshot;

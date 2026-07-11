@@ -16,7 +16,8 @@ pub use real_device::decode_image_bytes_rgba8;
 #[cfg(feature = "real-wgpu")]
 pub use real_device::{
     create_real_wgpu_surface_target, RealRuntimeFrameTargetSnapshot,
-    RealWgpuDecodedTextureMetadata, RealWgpuDecodedTextureRgba8, RealWgpuFrameCopyReport,
+    RealWgpuDecodedTextureMetadata, RealWgpuDecodedTextureRgba8, RealWgpuEncodedFrameCapture,
+    RealWgpuFrameCapture, RealWgpuFrameCaptureError, RealWgpuFrameCopyReport,
     RealWgpuNativeRenderRuntimeDevice, RealWgpuNativeRenderRuntimeTarget,
     RealWgpuSurfacePresentReport, RealWgpuSurfacePresentStatus, RealWgpuSurfaceTargetBootstrap,
     RealWgpuSurfaceTargetBootstrapError, RealWgpuSurfaceTargetBootstrapErrorKind,
