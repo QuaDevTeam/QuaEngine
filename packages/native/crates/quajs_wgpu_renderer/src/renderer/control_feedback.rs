@@ -151,6 +151,7 @@ fn append_select_menu(
         panel.params = DrawCommandParams::Panel(PanelDrawParams {
             role: "ui-select-option".to_string(),
             corner_radius: 0.0,
+            shadow_blur_radius: 0.0,
             fill_color: if index == selected_index {
                 "rgba(129,229,255,0.18)"
             } else {

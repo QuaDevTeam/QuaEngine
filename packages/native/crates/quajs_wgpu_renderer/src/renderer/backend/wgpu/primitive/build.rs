@@ -169,6 +169,7 @@ fn primitive_kind_from_params(
         DrawCommandParams::Panel(params) => WgpuNativeRenderPrimitiveKind::Panel {
             fill_color: params.fill_color.clone(),
             corner_radius: params.corner_radius * physical_scale,
+            shadow_blur_radius: params.shadow_blur_radius * physical_scale,
             border: WgpuNativeRenderPrimitiveBorder::from_draw_params(
                 &params.border,
                 physical_scale,
@@ -201,6 +202,7 @@ fn primitive_kind_from_draw_kind(draw_kind: DrawCommandKind) -> WgpuNativeRender
             WgpuNativeRenderPrimitiveKind::Panel {
                 fill_color: "#ffffff".to_string(),
                 corner_radius: 0.0,
+                shadow_blur_radius: 0.0,
                 border: WgpuNativeRenderPrimitiveBorder::default(),
             }
         }

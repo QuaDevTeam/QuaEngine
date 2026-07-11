@@ -206,6 +206,7 @@ fn _draw_param_compile_guard() {
     let _ = DrawCommandParams::Panel(PanelDrawParams {
         role: "panel".to_string(),
         corner_radius: 0.0,
+        shadow_blur_radius: 0.0,
         fill_color: "#000".to_string(),
         border: BorderDrawParams::default(),
         padding: EdgeInsetsDrawParam::default(),

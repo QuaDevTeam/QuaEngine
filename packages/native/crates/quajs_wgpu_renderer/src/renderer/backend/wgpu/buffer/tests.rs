@@ -87,6 +87,7 @@ fn quad(
         paint,
         opacity: 1.0,
         corner_radius: 0.0,
+        shadow_blur_radius: 0.0,
         border: None,
         text_overlay: None,
         owner_package_id: Some("runtime.ui".to_string()),

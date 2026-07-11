@@ -104,6 +104,61 @@ pub(in crate::renderer::backend::wgpu::buffer) fn rounded_border_geometry(
     })
 }
 
+pub(in crate::renderer::backend::wgpu::buffer) fn rounded_shadow_geometry(
+    bounds: WgpuPhysicalRect,
+    radius: f32,
+    blur_radius: f32,
+    color: [f32; 4],
+) -> Option<WgpuNativeRenderBufferGeometry> {
+    let outer = FloatRect::from_physical(bounds)?;
+    let blur_radius = blur_radius
+        .max(0.0)
+        .min(outer.width * 0.5)
+        .min(outer.height * 0.5);
+    if blur_radius <= 0.0 {
+        return rounded_rect_geometry(bounds, radius, color);
+    }
+    let inner = outer.inset(blur_radius)?;
+    let outer_radius = clamp_radius(outer, radius);
+    let inner_radius = clamp_radius(inner, radius - blur_radius);
+    let outer_points = rounded_rect_points(outer, outer_radius);
+    let inner_points = if inner_radius > 0.0 {
+        rounded_rect_points(inner, inner_radius)
+    } else {
+        sharp_inner_border_points(&outer_points, inner)
+    };
+    if outer_points.len() != inner_points.len() || outer_points.len() < 3 {
+        return None;
+    }
+
+    let mut outer_color = color;
+    outer_color[3] = 0.0;
+    let mut vertices = Vec::with_capacity(outer_points.len() * 2 + 1);
+    for (outer_point, inner_point) in outer_points.iter().zip(inner_points.iter()) {
+        vertices.push(vertex(*outer_point, outer, outer_color));
+        vertices.push(vertex(*inner_point, outer, color));
+    }
+    let center_index = vertices.len() as u32;
+    vertices.push(vertex(
+        [inner.x + inner.width * 0.5, inner.y + inner.height * 0.5],
+        outer,
+        color,
+    ));
+
+    let mut indices = rounded_border_indices(outer_points.len());
+    for index in 0..outer_points.len() {
+        let inner_current = (index * 2 + 1) as u32;
+        let inner_next = (((index + 1) % outer_points.len()) * 2 + 1) as u32;
+        indices.extend([center_index, inner_current, inner_next]);
+    }
+
+    Some(WgpuNativeRenderBufferGeometry {
+        physical_bounds: bounds,
+        vertices,
+        indices,
+    })
+}
+
 fn rounded_border_indices(point_count: usize) -> Vec<u32> {
     let mut indices = Vec::with_capacity(point_count * 6);
     for index in 0..point_count {

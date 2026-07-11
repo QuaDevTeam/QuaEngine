@@ -97,6 +97,7 @@ fn interaction_feedback_command(
             }
             .to_string(),
             corner_radius,
+            shadow_blur_radius: 0.0,
             fill_color: fill_color.to_string(),
             border,
             padding: Default::default(),
@@ -180,6 +181,7 @@ mod tests {
             .params(DrawCommandParams::Panel(PanelDrawParams {
                 role: "backdrop".to_string(),
                 corner_radius: 0.0,
+                shadow_blur_radius: 0.0,
                 fill_color: "#000000".to_string(),
                 border: Default::default(),
                 padding: Default::default(),

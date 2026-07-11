@@ -3,7 +3,8 @@ use super::super::super::mesh::{
 };
 use super::super::color::{color_struct_to_rgba, color_to_rgba};
 use super::super::geometry::{
-    rounded_rect_geometry, rounded_rect_geometry_with_uv_bounds, WgpuNativeRenderBufferGeometry,
+    rounded_rect_geometry, rounded_rect_geometry_with_uv_bounds, rounded_shadow_geometry,
+    WgpuNativeRenderBufferGeometry,
 };
 use super::super::text_geometry::text_placeholder_geometry;
 use super::super::types::{WgpuNativeRenderBufferVertex, WgpuNativeRenderDrawCall};
@@ -43,6 +44,7 @@ pub(in crate::renderer::backend::wgpu::buffer) fn append_quad_buffers(
                 paint: quad.paint.clone(),
                 opacity: quad.opacity,
                 corner_radius: 0.0,
+                shadow_blur_radius: 0.0,
                 border: None,
                 text_overlay: None,
                 owner_package_id: quad.owner_package_id.clone(),
@@ -62,6 +64,24 @@ pub(in crate::renderer::backend::wgpu::buffer) fn append_quad_buffers(
     }
 
     let vertex_color = vertex_color_from_quad(quad);
+    if quad.shadow_blur_radius > 0.0 {
+        if let Some(geometry) = rounded_shadow_geometry(
+            quad.physical_bounds,
+            quad.corner_radius,
+            quad.shadow_blur_radius,
+            vertex_color,
+        ) {
+            append_geometry_buffers(geometry, vertices, indices);
+            draw_calls.push(WgpuNativeRenderDrawCall::from_quad_range(
+                quad,
+                first_vertex,
+                first_index,
+                (vertices.len() as u32).saturating_sub(first_vertex),
+                (indices.len() as u32).saturating_sub(first_index),
+            ));
+            return;
+        }
+    }
     if should_tessellate_rounded_quad(quad) {
         if let Some(geometry) = rounded_quad_geometry(quad, vertex_color) {
             append_geometry_buffers(geometry, vertices, indices);

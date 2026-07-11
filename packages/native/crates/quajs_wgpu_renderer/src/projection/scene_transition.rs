@@ -104,6 +104,7 @@ pub fn scene_transition_command(
         .params(DrawCommandParams::Panel(PanelDrawParams {
             role: format!("scene-transition:{}", transition.transition_type),
             corner_radius: 0.0,
+            shadow_blur_radius: 0.0,
             fill_color: "#000000".to_string(),
             border: BorderDrawParams::default(),
             padding: EdgeInsetsDrawParam::default(),

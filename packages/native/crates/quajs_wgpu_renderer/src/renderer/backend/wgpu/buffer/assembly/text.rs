@@ -41,6 +41,7 @@ pub(in crate::renderer::backend::wgpu::buffer) fn append_text_overlay_buffers(
         paint,
         opacity: quad.opacity,
         corner_radius: 0.0,
+        shadow_blur_radius: 0.0,
         border: None,
         text_overlay: None,
         owner_package_id: quad.owner_package_id.clone(),

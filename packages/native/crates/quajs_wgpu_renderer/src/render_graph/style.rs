@@ -168,6 +168,7 @@ impl Default for BorderDrawParams {
 pub struct PanelDrawParams {
     pub role: String,
     pub corner_radius: f64,
+    pub shadow_blur_radius: f64,
     pub fill_color: String,
     pub border: BorderDrawParams,
     pub padding: EdgeInsetsDrawParam,
