@@ -100,6 +100,8 @@ describe('settings native renderer feature', () => {
     expect(speedTrack?.style?.backgroundColor).toBe('rgba(233,192,111,0.78)')
     expect(skipValue?.text).toBe('All Text')
     expect(groupLabel?.text).toBe('FLOW CONTROL')
+    expect(groupLabel?.style?.fontSize).toBe(15)
+    expect(panel?.bounds.height).toBe(552)
     expect(panel?.style?.boxShadow).toEqual(expect.objectContaining({ blurRadius: 48, offsetY: 18 }))
     expect(title?.style?.textShadow).toEqual(expect.objectContaining({ blurRadius: 10, offsetY: 2 }))
     expect(confirm?.provenance).toEqual({
