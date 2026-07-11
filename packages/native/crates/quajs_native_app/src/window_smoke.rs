@@ -1,12 +1,13 @@
 mod app;
 mod config;
-mod dev_bridge;
 mod dev_qpk;
 mod error;
 mod frame;
 mod input;
 mod metrics;
 mod performance_hud;
+#[cfg(feature = "quickjs-rquickjs")]
+mod quickjs_product;
 mod report;
 mod report_builder;
 mod texture_host;
@@ -35,7 +36,7 @@ pub fn run_native_window_smoke_from_env(
             "Failed to create native window event loop for renderer smoke: {error}."
         ))
     })?;
-    let mut app = NativeWindowSmokeApp::new(frame_source);
+    let mut app = NativeWindowSmokeApp::new(frame_source, event_loop.create_proxy());
     event_loop.run_app(&mut app).map_err(|error| {
         NativeWindowSmokeError::new(format!(
             "Native window renderer smoke event loop failed: {error}."

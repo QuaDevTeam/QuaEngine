@@ -12,14 +12,13 @@ import { spawn } from 'node:child_process'
 import { watch } from 'node:fs'
 import { readFile, rm } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
-import { fileURLToPath, pathToFileURL } from 'node:url'
-import { startNativeIntentPump } from './native-intent-bridge.mjs'
+import { fileURLToPath } from 'node:url'
 
 const DEMO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const REPO_ROOT = resolve(DEMO_ROOT, '..')
 const FRAME_PATH = resolve(DEMO_ROOT, 'dist/native/dev/frame.json')
 const CAPTURE_PATH = resolve(DEMO_ROOT, 'dist/native/dev/frame.png')
-const INTENT_PATH = resolve(DEMO_ROOT, 'dist/native/dev/intents.jsonl')
+const QUICKJS_APP_ASSET = 'assets/scripts/native-app.mjs'
 const ASSET_INDEX_PATH = resolve(DEMO_ROOT, 'dist/assets/index.json')
 const NATIVE_FEATURES = 'native-window,native-audio-rodio,quickjs-rquickjs'
 const smoke = process.argv.includes('--smoke')
@@ -30,8 +29,6 @@ const panel = requestedPanel || (smoke ? 'settings' : undefined)
 process.chdir(DEMO_ROOT)
 
 let nativeWindow
-let nativeDemoController
-let stopIntentPump
 let nativeSmokeOutput = ''
 let rebuilding = false
 let rebuildQueued = false
@@ -65,7 +62,6 @@ finally {
     watcher.close()
   }
   await stopNativeWindow()
-  await stopNativeDemoController()
 }
 
 async function rebuildAndLaunch() {
@@ -76,18 +72,24 @@ async function rebuildAndLaunch() {
   rebuilding = true
   try {
     await stopNativeWindow()
-    console.log('Building native demo assets...')
-    await run(resolveBin('quack'), ['workspace:bundle', '--all'], { cwd: DEMO_ROOT })
     console.log('Building native TypeScript renderer contracts...')
     await buildNativeTypeScriptPackages()
-    console.log('Projecting QuaEngine state into a native renderer frame...')
+    console.log('Bundling the native demo engine for QuickJS...')
     await run(resolveBin('vite'), [
       'build',
       '--config',
-      resolve(DEMO_ROOT, 'vite.native.config.ts'),
+      resolve(DEMO_ROOT, 'vite.native-quickjs.config.ts'),
     ], { cwd: DEMO_ROOT })
-    const nativeFrameModulePath = resolve(DEMO_ROOT, 'dist/native/dev-shell/frame.mjs')
+    console.log('Building native demo assets...')
+    await run(resolveBin('quack'), ['workspace:bundle', '--all'], { cwd: DEMO_ROOT })
     if (smoke) {
+      console.log('Projecting QuaEngine state into a native renderer smoke frame...')
+      await run(resolveBin('vite'), [
+        'build',
+        '--config',
+        resolve(DEMO_ROOT, 'vite.native.config.ts'),
+      ], { cwd: DEMO_ROOT })
+      const nativeFrameModulePath = resolve(DEMO_ROOT, 'dist/native/dev-shell/frame.mjs')
       await run(process.execPath, [nativeFrameModulePath, FRAME_PATH], {
         cwd: DEMO_ROOT,
         env: {
@@ -95,15 +97,10 @@ async function rebuildAndLaunch() {
           ...(panel ? { QUA_NATIVE_DEMO_PANEL: panel } : {}),
         },
       })
-    }
-    else {
-      const nativeFrameModule = await import(`${pathToFileURL(nativeFrameModulePath).href}?revision=${Date.now()}`)
-      nativeDemoController = await nativeFrameModule.createDemoNativeController(FRAME_PATH, panel)
-      await rm(INTENT_PATH, { force: true })
-    }
-    await validateNativeAudioFrame()
-    if (panel) {
-      await validateNativeFeatureFrame(panel)
+      await validateNativeAudioFrame()
+      if (panel) {
+        await validateNativeFeatureFrame(panel)
+      }
     }
 
     const project = await loadQuaProjectConfig({ cwd: DEMO_ROOT })
@@ -166,8 +163,7 @@ async function rebuildAndLaunch() {
           ? { QUA_NATIVE_RENDERER_WINDOW_SMOKE_FRAMES: '2' }
           : {
               QUA_NATIVE_RENDERER_WINDOW_DEV: '1',
-              QUA_NATIVE_RENDERER_WINDOW_DEV_FRAME_PATH: FRAME_PATH,
-              QUA_NATIVE_RENDERER_WINDOW_DEV_INTENT_PATH: INTENT_PATH,
+              QUA_NATIVE_RENDERER_WINDOW_DEV_QUICKJS_APP_ASSET: QUICKJS_APP_ASSET,
             }),
       },
       stdio: smoke ? ['ignore', 'pipe', 'pipe'] : 'inherit',
@@ -182,13 +178,6 @@ async function rebuildAndLaunch() {
       nativeWindow.stderr.on('data', chunk => process.stderr.write(chunk))
     }
     nativeWindow.on('error', error => console.error(`Native renderer failed to start: ${error.message}`))
-    if (!smoke && nativeDemoController) {
-      stopIntentPump = startNativeIntentPump(
-        nativeDemoController,
-        INTENT_PATH,
-        error => console.error(`Native demo intent bridge failed: ${error.message}`),
-      )
-    }
     if (!once) {
       nativeWindow.on('exit', (code, signal) => {
         if (!stopped && !rebuilding) {
@@ -329,17 +318,6 @@ async function stopNativeWindow() {
   ])
   if (child.exitCode === null && child.signalCode === null) {
     child.kill('SIGKILL')
-  }
-}
-
-async function stopNativeDemoController() {
-  if (stopIntentPump) {
-    await stopIntentPump()
-    stopIntentPump = undefined
-  }
-  if (nativeDemoController) {
-    await nativeDemoController.destroy()
-    nativeDemoController = undefined
   }
 }
 

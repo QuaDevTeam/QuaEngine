@@ -30,6 +30,15 @@ use super::{
 
 const NATIVE_QUICKJS_RENDERER_BRIDGE_SOURCE: &str = r#"
 (() => {
+  if (!globalThis.console) {
+    const noop = () => {};
+    Object.defineProperty(globalThis, 'console', {
+      value: Object.freeze({ debug: noop, error: noop, info: noop, log: noop, warn: noop }),
+      enumerable: false,
+      configurable: false,
+      writable: false
+    });
+  }
   const state = { listener: undefined };
   const bridge = Object.freeze({
     subscribe(listener) {
@@ -1158,6 +1167,20 @@ impl QuickJsModuleEvaluator for RquickJsModuleEvaluator {
                         Some(error.to_string()),
                     )
                 })?;
+            let value = if let Some(promise) = value.as_promise() {
+                promise.finish::<Value>().map_err(|error| {
+                    call_error(
+                        QuickJsEvaluationErrorCode::EvaluationFailed,
+                        format!(
+                            "QuickJS module export \"{}\" promise failed.",
+                            request.export_name
+                        ),
+                        Some(error.to_string()),
+                    )
+                })?
+            } else {
+                value
+            };
             let value_json = ctx
                 .json_stringify(value)
                 .map_err(|error| {
@@ -4002,6 +4025,25 @@ mod tests {
 
         assert!(call.ok);
         assert_eq!(call.value_json, Some("{\"value\":5}".to_string()));
+    }
+
+    #[test]
+    fn resolves_async_json_safe_module_exports() {
+        let mut evaluator = RquickJsModuleEvaluator::new().unwrap();
+        let response = evaluator
+            .evaluate_module(&request_for_code(
+                "scripts/async.js",
+                "export async function value() { await Promise.resolve(); return { ready: true }; }",
+            ))
+            .unwrap();
+        let call = evaluator
+            .call_module_export(&QuickJsModuleExportCallRequest {
+                module_namespace_id: response.module_namespace_id.unwrap(),
+                export_name: "value".to_string(),
+                args_json: Some("[]".to_string()),
+            })
+            .unwrap();
+        assert_eq!(call.value_json, Some("{\"ready\":true}".to_string()));
     }
 
     #[test]

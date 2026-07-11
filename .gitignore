@@ -16,6 +16,7 @@ output
 playwright-report/
 test-results/
 blob-report/
+demo/assets/scripts/native-app.mjs
 .local/
 .local-pack-test/
 .codegraph/

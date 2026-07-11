@@ -2,11 +2,10 @@ use std::sync::Arc;
 use std::{env, fs, path::Path};
 
 use winit::dpi::{LogicalSize, PhysicalSize};
-use winit::event_loop::ActiveEventLoop;
+use winit::event_loop::{ActiveEventLoop, EventLoopProxy};
 use winit::window::Window;
 
 use super::config::{load_window_smoke_target_frame_count, native_window_dev_enabled};
-use super::dev_bridge::{current_frame_source, persist_new_renderer_intents};
 use super::error::NativeWindowSmokeError;
 use super::frame::{frame_json_for_window, normalized_physical_size, window_frame_dimensions};
 use super::input::NativeWindowSmokeInputState;
@@ -14,6 +13,8 @@ use super::metrics::{
     NativeWindowSmokeAudioMetrics, NativeWindowSmokeTextureMetrics, NativeWindowSmokeVideoMetrics,
 };
 use super::performance_hud::NativeWindowPerformanceHud;
+#[cfg(feature = "quickjs-rquickjs")]
+use super::quickjs_product::NativeWindowQuickJsProduct;
 use super::report::NativeWindowSmokeReport;
 use super::report_builder::{build_window_smoke_report, NativeWindowSmokeReportInput};
 use super::texture_host::create_window_smoke_texture_host_from_env;
@@ -31,12 +32,17 @@ pub(super) struct NativeWindowSmokeApp {
     input: NativeWindowSmokeInputState,
     texture_metrics: NativeWindowSmokeTextureMetrics,
     performance_hud: NativeWindowPerformanceHud,
+    #[cfg(feature = "quickjs-rquickjs")]
+    quickjs_product: Option<NativeWindowQuickJsProduct>,
+    #[cfg(feature = "quickjs-rquickjs")]
+    quickjs_revision: u64,
+    event_loop_proxy: EventLoopProxy<()>,
     pub(super) report: Option<NativeWindowSmokeReport>,
     pub(super) error: Option<NativeWindowSmokeError>,
 }
 
 impl NativeWindowSmokeApp {
-    pub(super) fn new(frame_source: String) -> Self {
+    pub(super) fn new(frame_source: String, event_loop_proxy: EventLoopProxy<()>) -> Self {
         Self {
             frame_source,
             window: None,
@@ -44,6 +50,11 @@ impl NativeWindowSmokeApp {
             input: NativeWindowSmokeInputState::default(),
             texture_metrics: NativeWindowSmokeTextureMetrics::default(),
             performance_hud: NativeWindowPerformanceHud::default(),
+            #[cfg(feature = "quickjs-rquickjs")]
+            quickjs_product: None,
+            #[cfg(feature = "quickjs-rquickjs")]
+            quickjs_revision: 0,
+            event_loop_proxy,
             report: None,
             error: None,
         }
@@ -73,6 +84,9 @@ impl NativeWindowSmokeApp {
         );
         let physical_size = normalized_physical_size(window.inner_size());
         let texture_host = create_window_smoke_texture_host_from_env()?;
+        #[cfg(feature = "quickjs-rquickjs")]
+        let quickjs_product =
+            NativeWindowQuickJsProduct::load(&texture_host, self.event_loop_proxy.clone())?;
         let instance =
             wgpu::Instance::new(wgpu::InstanceDescriptor::new_with_display_handle_from_env(
                 Box::new(event_loop.owned_display_handle()),
@@ -97,6 +111,10 @@ impl NativeWindowSmokeApp {
         let window_loop =
             NativeProductWindowInMemoryLoop::new(runtime, load_window_smoke_target_frame_count());
         self.product_shell = Some(NativeProductAppShell::new(window_loop));
+        #[cfg(feature = "quickjs-rquickjs")]
+        {
+            self.quickjs_product = quickjs_product;
+        }
         self.window = Some(window.clone());
 
         Ok(())
@@ -108,7 +126,13 @@ impl NativeWindowSmokeApp {
             NativeWindowSmokeError::new("Native renderer smoke window is not initialized.")
         })?;
         let dimensions = window_frame_dimensions(window.inner_size(), window.scale_factor());
-        let frame_source = current_frame_source(&self.frame_source)?;
+        #[cfg(feature = "quickjs-rquickjs")]
+        let frame_source = match self.quickjs_product.as_ref() {
+            Some(product) => product.render_frame_source()?,
+            None => self.frame_source.clone(),
+        };
+        #[cfg(not(feature = "quickjs-rquickjs"))]
+        let frame_source = self.frame_source.clone();
         let mut frame_json = frame_json_for_window(
             &frame_source,
             dimensions.logical_width,
@@ -390,13 +414,46 @@ impl NativeWindowSmokeApp {
     }
 
     fn flush_dev_renderer_intents(&mut self) -> Result<(), NativeWindowSmokeError> {
-        let Some(product_shell) = self.product_shell.as_mut() else {
+        #[cfg(feature = "quickjs-rquickjs")]
+        if self.quickjs_product.is_some() {
+            let intents = {
+                let Some(product_shell) = self.product_shell.as_mut() else {
+                    return Ok(());
+                };
+                let host = product_shell.window_loop_mut().runtime_mut().host_mut();
+                let intents = host.renderer_intents();
+                if self.input.dispatched_intent_count > intents.len() {
+                    self.input.dispatched_intent_count = 0;
+                }
+                intents[self.input.dispatched_intent_count..].to_vec()
+            };
+            let Some(product) = self.quickjs_product.as_mut() else {
+                return Ok(());
+            };
+            for intent in intents.iter().cloned() {
+                product.dispatch_renderer_intent(intent)?;
+            }
+            self.input.dispatched_intent_count = self
+                .input
+                .dispatched_intent_count
+                .saturating_add(intents.len());
             return Ok(());
+        }
+
+        Ok(())
+    }
+
+    #[cfg(feature = "quickjs-rquickjs")]
+    fn request_redraw_for_quickjs_revision(&mut self) {
+        let Some(product) = self.quickjs_product.as_ref() else {
+            return;
         };
-        persist_new_renderer_intents(
-            product_shell.window_loop_mut().runtime_mut().host_mut(),
-            &mut self.input.persisted_intent_count,
-        )
+        let revision = product.revision();
+        if revision == self.quickjs_revision {
+            return;
+        }
+        self.quickjs_revision = revision;
+        self.request_redraw();
     }
 
     fn apply_product_shell_action(
