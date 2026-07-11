@@ -1,0 +1,129 @@
+import type { NativeUiSurfaceNodeProjection } from '@quajs/native-ui-compiler'
+import { RenderToLogicEvents } from '@quajs/engine'
+import {
+  createNativeRendererJsonFrameInput,
+  resolveNativeRendererFeatureIntent,
+} from '@quajs/engine-native'
+import { describe, expect, it } from 'vitest'
+import { SettingsRenderToLogicEvents } from '../src/contracts'
+import {
+  createSettingsNativeRendererFeature,
+  SETTINGS_NATIVE_SURFACE_KEY,
+} from '../src/native'
+
+describe('settings native renderer feature', () => {
+  it('does not replace the engine UI overlay while settings is closed', () => {
+    const feature = createSettingsNativeRendererFeature()
+    expect(feature.createOverlays({
+      logicalHeight: 1080,
+      logicalWidth: 1920,
+      projection: { scopes: {} },
+      safeArea: { x: 96, y: 0, width: 1728, height: 1080 },
+      view: { ui: { overlays: { settings: { open: false } } } },
+    })).toBeUndefined()
+  })
+
+  it('projects exposed controls with safe-area placement and precomputed validated patches', () => {
+    const frame = createNativeRendererJsonFrameInput({
+      layout: { width: 1920, height: 1080, aspectRatio: 16 / 9, minAspectRatio: 16 / 10 },
+      ui: {
+        overlays: {
+          settings: {
+            open: true,
+            scene: { overlay: { overlayStack: 'modal', stackPriority: 2, zIndex: 64 } },
+          },
+        },
+      },
+      plugins: {
+        settings: {
+          profileId: 'default',
+          revision: 1,
+          scopes: {
+            '@quajs/plugin-settings': {
+              defaults: { confirmBeforeQuit: true, nickname: 'Player', textSpeedCps: 36 },
+              packageId: 'runtime.settings',
+              schema: {
+                type: 'object',
+                properties: {
+                  confirmBeforeQuit: { type: 'boolean', title: 'Confirm Before Quit' },
+                  nickname: { type: 'string', title: 'Nickname' },
+                  textSpeedCps: { type: 'number', title: 'Text Speed', minimum: 5, maximum: 120, multipleOf: 1 },
+                },
+              },
+              ui: {
+                controls: {
+                  confirmBeforeQuit: { control: 'switch' },
+                  textSpeedCps: { control: 'slider', min: 5, max: 120, step: 1 },
+                },
+              },
+              values: { confirmBeforeQuit: true, nickname: 'Player', textSpeedCps: 36 },
+            },
+          },
+          updatedAt: 1,
+        },
+      },
+    }, { featureSurfaces: [createSettingsNativeRendererFeature()] })
+
+    const overlay = (frame.view.ui as { overlays: Array<Record<string, unknown>> }).overlays[0]
+    const surface = overlay.surface as { key: string, root: NativeUiSurfaceNodeProjection }
+    const confirm = findNodeByText(surface.root, 'Confirm Before Quit: true')
+    const speed = findNodeByText(surface.root, 'Text Speed: 36')
+    const nickname = findNodeByText(surface.root, 'Nickname: Player')
+
+    expect(surface.key).toBe(SETTINGS_NATIVE_SURFACE_KEY)
+    expect(overlay).toEqual(expect.objectContaining({
+      overlayStack: 'modal',
+      stackPriority: 2,
+      zIndex: 64,
+    }))
+    expect(confirm?.intent?.metadata?.patchJson).toBe('{"confirmBeforeQuit":false}')
+    expect(speed?.intent?.metadata?.patchJson).toBe('{"textSpeedCps":37}')
+    expect(nickname?.intent).toBeUndefined()
+    expect(confirm?.provenance).toEqual({
+      contentPackageId: 'runtime.settings',
+      requiredRuntimePackages: ['runtime.settings'],
+    })
+  })
+
+  it('maps update, reset, and close actions without arbitrary event dispatch', () => {
+    const entries = [createSettingsNativeRendererFeature()]
+    expect(resolveNativeRendererFeatureIntent(entries, 'settings-update', {
+      patchJson: '{"audio":{"enabled":false}}',
+      scope: '@quajs/plugin-audio',
+    })).toEqual({
+      event: SettingsRenderToLogicEvents.UPDATE_REQUEST,
+      payload: { scope: '@quajs/plugin-audio', patch: { audio: { enabled: false } } },
+    })
+    expect(resolveNativeRendererFeatureIntent(entries, 'settings-reset-scope', {
+      scope: '@quajs/plugin-audio',
+    })).toEqual({
+      event: SettingsRenderToLogicEvents.RESET_SCOPE_REQUEST,
+      payload: { scope: '@quajs/plugin-audio' },
+    })
+    expect(resolveNativeRendererFeatureIntent(entries, 'settings-close', { targetId: 'settings' })).toEqual({
+      event: RenderToLogicEvents.UI_REQUEST_CLOSE,
+      payload: { elementId: 'settings' },
+    })
+    expect(resolveNativeRendererFeatureIntent(entries, 'settings/apply-hook', {})).toBeUndefined()
+    expect(() => resolveNativeRendererFeatureIntent(entries, 'settings-update', {
+      patchJson: '{"__proto__":{"polluted":true}}',
+      scope: 'unsafe',
+    })).toThrow('must contain a safe object patch')
+  })
+})
+
+function findNodeByText(
+  root: NativeUiSurfaceNodeProjection,
+  text: string,
+): NativeUiSurfaceNodeProjection | undefined {
+  if (root.text === text) {
+    return root
+  }
+  for (const child of root.children || []) {
+    const found = findNodeByText(child, text)
+    if (found) {
+      return found
+    }
+  }
+  return undefined
+}
