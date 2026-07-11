@@ -25,7 +25,11 @@ export function startNativeIntentPump(controller, intentPath, onError = console.
       }
       throw error
     }
-    const lines = source.split(/\r?\n/).filter(Boolean)
+    const records = source.split(/\r?\n/)
+    if (!source.endsWith('\n')) {
+      records.pop()
+    }
+    const lines = records.filter(Boolean)
     if (lines.length < processedLineCount) {
       processedLineCount = 0
     }
