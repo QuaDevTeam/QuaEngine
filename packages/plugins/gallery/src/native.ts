@@ -121,7 +121,13 @@ function createGalleryRoot(
       }),
       node('gallery-panel', 'Panel', panel, {
         provenance,
-        style: { backgroundColor: '#10151b', borderColor: '#596675', borderRadius: 6, borderWidth: 1 },
+        style: {
+          backgroundColor: '#10151b',
+          borderColor: '#596675',
+          borderRadius: 6,
+          borderWidth: 1,
+          boxShadow: panelShadow(),
+        },
         children: [
           node('gallery-title', 'Text', {
             x: panel.x + edge,
@@ -130,7 +136,12 @@ function createGalleryRoot(
             height: 42,
           }, {
             text: projection.catalogs.find(item => item.id === projection.selectedCatalogId)?.title || 'Gallery',
-            style: { color: '#f5f7fa', fontSize: 34, fontWeight: 700 },
+            style: {
+              color: '#f5f7fa',
+              fontSize: 34,
+              fontWeight: 700,
+              textShadow: titleShadow(),
+            },
             provenance,
           }),
           node('gallery-count', 'Text', {
@@ -352,6 +363,26 @@ function buttonStyle(backgroundColor: string) {
     color: '#f1f4f7',
     fontSize: 17,
     textAlign: 'center' as const,
+  }
+}
+
+function panelShadow() {
+  return {
+    offsetX: 0,
+    offsetY: 18,
+    blurRadius: 48,
+    spreadRadius: 0,
+    color: 'rgba(0,0,0,0.42)',
+  }
+}
+
+function titleShadow() {
+  return {
+    offsetX: 0,
+    offsetY: 2,
+    blurRadius: 10,
+    spreadRadius: 0,
+    color: 'rgba(0,0,0,0.72)',
   }
 }
 

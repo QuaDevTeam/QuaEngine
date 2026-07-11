@@ -117,6 +117,8 @@ Renderer settings UI emits update/reset intents. Validation, persistence, apply 
 
 Native products explicitly register `createSettingsNativeRendererFeature()` in the same feature-surface list used for frame serialization and `NativeHostPlugin`. It projects exposed form fields in logical safe-area coordinates, cycles switch/select/numeric controls through explicit `settings-update` intents, keeps unsupported text/complex controls read-only, preserves runtime scope provenance, and delegates validation/persistence/apply behavior to the settings bridge.
 
+The official native settings surface uses a compact centered panel, structured label/description/value rows, and structured `boxShadow` / `textShadow` style IR to follow the Web settings hierarchy. These are render-only nodes; the parent field row retains the allowlisted settings intent and the renderer must not persist field values locally.
+
 Settings panel placement comes from the engine-owned generic UI overlay projection, not renderer-local state. `engine.showUI('settings', config)` and `config.scene.overlay` may include `overlayStack`, `stackPriority`, and `zIndex`; official renderers use `overlay` stack with settings zIndex `60` by default when no placement is projected.
 
 ## Plugin Integration Rules

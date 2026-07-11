@@ -117,6 +117,8 @@ Achievement board selection, filter updates, close requests, and notification di
 
 Native products explicitly register `createAchievementNativeRendererFeature()` in the same feature-surface list used for frame serialization and `NativeHostPlugin`. It emits separate safe-area board and toast overlays, preserves QPK provenance, masks locked hidden achievement details, and allowlists only existing board/filter/notification pipeline intents.
 
+The official native achievement surface uses structured `boxShadow` and `textShadow` style IR for Web-aligned board/title depth. Shadows remain render-only and must not affect unlock state, hidden-detail masking, progress, rewards, or toast authority.
+
 Achievement overlay placement is plugin projection metadata. `AchievementOpenOptions` and `AchievementProjection` accept `overlayStack`, `stackPriority`, and `zIndex`; the board defaults to `overlay` stack with achievement board zIndex `80`. `AchievementNotificationOptions` and `AchievementNotificationProjection` also accept placement fields; toast notifications default to `toast` stack with zIndex `0`. Web-family renderers should render board and toast as separate official overlay roots, and Cocos should keep board/toast in separate layers so the two stacks do not mix.
 
 ## Settings

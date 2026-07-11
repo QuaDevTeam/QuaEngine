@@ -89,6 +89,8 @@ describe('achievement native renderer feature', () => {
     const item = findNode(boardSurface.root, 'achievement-item-0')
     const title = findNode(boardSurface.root, 'achievement-detail-title')
     const image = findNode(boardSurface.root, 'achievement-detail-image')
+    const panel = findNode(boardSurface.root, 'achievement-panel')
+    const boardTitle = findNode(boardSurface.root, 'achievement-title')
 
     expect(boardSurface.key).toBe(ACHIEVEMENT_NATIVE_BOARD_SURFACE_KEY)
     expect(toastSurface.key).toBe(ACHIEVEMENT_NATIVE_TOAST_SURFACE_KEY)
@@ -100,6 +102,8 @@ describe('achievement native renderer feature', () => {
       contentPackageId: 'runtime.toast',
       requiredRuntimePackages: ['runtime.achievements', 'runtime.icons'],
     })
+    expect(panel?.style?.boxShadow).toEqual(expect.objectContaining({ blurRadius: 48, offsetY: 18 }))
+    expect(boardTitle?.style?.textShadow).toEqual(expect.objectContaining({ blurRadius: 10, offsetY: 2 }))
   })
 
   it('maps only allowlisted actions to achievement-owned events', () => {

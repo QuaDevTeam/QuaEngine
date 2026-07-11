@@ -120,6 +120,8 @@ Renderer components receive `GalleryProjection`, render locked/unlocked entries,
 
 Native products explicitly register `createGalleryNativeRendererFeature()` in the same feature-surface list used for frame serialization and `NativeHostPlugin`. Its safe-area layout reads only the spoiler-safe `GalleryProjection`, preserves catalog/entry/content QPK provenance, and allowlists close, catalog/entry/content selection, and unlocked-filter actions to existing gallery events.
 
+The official native gallery surface uses structured `boxShadow` and `textShadow` style IR for Web-aligned panel/title depth. This visual projection must not reveal hidden entry data or move selection/filter authority into the renderer.
+
 Gallery scene placement is plugin projection metadata. `GalleryOpenOptions` and `GalleryProjection` accept `overlayStack`, `stackPriority`, and `zIndex`; the default placement is `overlay` stack with gallery zIndex `70`. Save/load back into the gallery scene must preserve those placement fields, and renderers must project them on the official gallery overlay root.
 
 ## Settings

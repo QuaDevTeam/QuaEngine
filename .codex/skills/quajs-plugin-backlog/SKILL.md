@@ -105,6 +105,8 @@ Renderer UI emits open, close, jump, and voice replay requests through backlog r
 
 Native products explicitly register `createBacklogNativeRendererFeature()` in the same feature-surface entry list used by native frame serialization and `NativeHostPlugin`. The surface is resolved in logical stage coordinates from the native safe area, preserves entry/runtime-package provenance, and maps only `backlog-close`, `backlog-jump`, and `backlog-replay-voice` to the existing backlog pipeline events.
 
+The official native backlog surface uses structured `boxShadow` and `textShadow` style IR for Web-aligned panel/title depth. Shadows remain renderer projection metadata and do not change backlog retention, rewind, voice replay, or provenance authority.
+
 Default Web/Vue/Cocos backlog renderers show entry `gameTimeMs` in the item metadata. Themes may expose `recordedAt` as secondary detail, but real-world time should not replace game time by default.
 
 Backlog UI scenes can use `overlay.defaultChrome: false` when the scene should not mount the renderer's default dialogue, choices, HUD, or quick-menu chrome behind the backlog surface.

@@ -92,6 +92,7 @@ function createBacklogRoot(
         borderColor: '#5f6773',
         borderRadius: 6,
         borderWidth: 1,
+        boxShadow: panelShadow(),
       },
       provenance,
       children: [
@@ -102,7 +103,12 @@ function createBacklogRoot(
           height: headerHeight - edge * 0.5,
         }, {
           text: 'Backlog',
-          style: { color: '#f4f5f7', fontSize: 34, fontWeight: 700 },
+          style: {
+            color: '#f4f5f7',
+            fontSize: 34,
+            fontWeight: 700,
+            textShadow: titleShadow(),
+          },
           provenance,
         }),
         node('backlog-close', 'Button', {
@@ -240,6 +246,26 @@ function buttonStyle(backgroundColor: string) {
     color: '#f5f6f8',
     fontSize: 18,
     textAlign: 'center' as const,
+  }
+}
+
+function panelShadow() {
+  return {
+    offsetX: 0,
+    offsetY: 18,
+    blurRadius: 48,
+    spreadRadius: 0,
+    color: 'rgba(0,0,0,0.42)',
+  }
+}
+
+function titleShadow() {
+  return {
+    offsetX: 0,
+    offsetY: 2,
+    blurRadius: 10,
+    spreadRadius: 0,
+    color: 'rgba(0,0,0,0.72)',
   }
 }
 

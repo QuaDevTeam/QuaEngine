@@ -78,6 +78,8 @@ describe('gallery native renderer feature', () => {
     const surface = overlay.surface as { key: string, root: NativeUiSurfaceNodeProjection }
     const locked = findNode(surface.root, 'gallery-entry-0')
     const media = findNode(surface.root, 'gallery-preview-media')
+    const panel = findNode(surface.root, 'gallery-panel')
+    const title = findNode(surface.root, 'gallery-title')
 
     expect(surface.key).toBe(GALLERY_NATIVE_SURFACE_KEY)
     expect(locked?.text).toBe('Locked Record')
@@ -87,6 +89,8 @@ describe('gallery native renderer feature', () => {
       contentPackageId: 'runtime.gallery',
       requiredRuntimePackages: ['runtime.gallery', 'runtime.images'],
     })
+    expect(panel?.style?.boxShadow).toEqual(expect.objectContaining({ blurRadius: 48, offsetY: 18 }))
+    expect(title?.style?.textShadow).toEqual(expect.objectContaining({ blurRadius: 10, offsetY: 2 }))
   })
 
   it('maps only allowlisted actions to gallery-owned events', () => {
