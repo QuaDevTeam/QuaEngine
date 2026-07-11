@@ -82,6 +82,71 @@ const AUDIO_EVENTS = {
 } as const
 
 describe('@quajs/engine-native renderer intents', () => {
+  it('maps allowlisted feature surface actions into plugin pipeline events', async () => {
+    const pipeline = createTestPipeline()
+    const received: unknown[] = []
+    pipeline.on('backlog/close_request', context => received.push(context.event.payload))
+    const featureSurfaces = [{
+      pluginId: 'backlog',
+      createOverlays: () => undefined,
+      intentActions: [{
+        action: 'backlog-close',
+        event: 'backlog/close_request',
+        createPayload: (payload: Readonly<Record<string, unknown>>) => ({
+          source: payload.source,
+        }),
+      }],
+    }]
+
+    await expect(emitNativeRendererIntentToPipeline(
+      pipeline as any,
+      createNativeRendererIntent({
+        type: 'ui/intent',
+        payload: {
+          action: 'backlog-close',
+          elementId: 'backlog:close',
+          source: 'native',
+        },
+      }),
+      { featureSurfaces },
+    )).resolves.toEqual({
+      handled: true,
+      emittedEvents: [
+        {
+          type: RenderToLogicEvents.UI_INTENT,
+          payload: {
+            action: 'backlog-close',
+            elementId: 'backlog:close',
+            source: 'native',
+          },
+        },
+        {
+          type: 'backlog/close_request',
+          payload: { source: 'native' },
+        },
+      ],
+    })
+    expect(received).toEqual([{ source: 'native' }])
+  })
+
+  it('rejects duplicate feature surface action registrations', async () => {
+    const pipeline = createTestPipeline()
+    const duplicate = {
+      pluginId: 'duplicate',
+      createOverlays: () => undefined,
+      intentActions: [{ action: 'feature-close', event: 'feature/close' }],
+    }
+
+    await expect(emitNativeRendererIntentToPipeline(
+      pipeline as any,
+      createNativeRendererIntent({
+        type: 'ui/intent',
+        payload: { action: 'feature-close', elementId: 'feature:close' },
+      }),
+      { featureSurfaces: [duplicate, duplicate] },
+    )).rejects.toThrow('Native renderer feature intent action "feature-close" is registered more than once.')
+  })
+
   it('maps native renderer pointer intents into render-to-logic pipeline events', async () => {
     const pipeline = createTestPipeline()
     const received: Array<{ type: string, payload: unknown }> = []

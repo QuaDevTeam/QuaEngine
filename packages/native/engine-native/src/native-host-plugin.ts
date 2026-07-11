@@ -1,6 +1,7 @@
 import type { EngineContext, EnginePlugin } from '@quajs/engine'
 import { emitRenderToLogic, LogicToRenderEvents, onLogicToRender, RenderToLogicEvents } from '@quajs/engine'
 import type { NativeRendererIntentBridgeDisposer, NativeRendererIntentDrainResult } from './renderer-intents'
+import type { NativeRendererFeatureSurfaceEntry } from './feature-surfaces'
 import type {
   ExclusiveTargetBootstrapValidationResult,
   NativeRendererIntent,
@@ -24,6 +25,7 @@ import { drainNativeRendererIntentsToPipeline, installNativeRendererIntentBridge
 import type { NativeQuickJsPipelineSubscriptionBridge } from './runtime-module-loader'
 
 export interface NativeHostPluginOptions {
+  featureSurfaces?: readonly NativeRendererFeatureSurfaceEntry[]
   host: QuaNativeHostApi
   info?: QuaNativeHostInfo
   quickJsPipelineSubscriptionBridge?: NativeQuickJsPipelineSubscriptionBridge
@@ -61,6 +63,7 @@ export class NativeHostPlugin implements EnginePlugin {
         this.options.host,
         context.pipeline,
         {
+          featureSurfaces: this.options.featureSurfaces,
           onError: (error, event) => {
             void this.recordRendererIntentError(context.pipeline!, error, event)
           },
@@ -121,6 +124,7 @@ export class NativeHostPlugin implements EnginePlugin {
       this.options.host,
       pipeline,
       {
+        featureSurfaces: this.options.featureSurfaces,
         onError: (error, event) => {
           void this.recordRendererIntentError(pipeline, error, event)
         },
