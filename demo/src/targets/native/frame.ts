@@ -48,67 +48,14 @@ export async function createDemoNativeFrame(outputPath = DEFAULT_FRAME_PATH): Pr
 
   configureCharacterRuntime({ engine: runtime.engine, waitForAdvance: false })
   try {
-    await runtime.background.setBackground('backgrounds/blackout-city.jpg', {
-      fit: 'cover',
-      opacity: 0.92,
-    })
-
-    const lin = createCharacter('lin', {
-      displayName: 'Lin',
-      speakerStyle: {
-        fontFamily: 'Noto Sans',
-        fontSize: 24,
-        fontWeight: 700,
-      },
-      sprite: 'lin/focus.png',
-      position: { x: 520, y: 650, scale: 1 },
-      layer: 2,
-    })
-    const mara = createCharacter('mara', {
-      displayName: 'Mara',
-      sprite: 'mara/alert.png',
-      position: { x: 1260, y: 650, scale: 1 },
-      layer: 3,
-    })
-    await lin.show()
-    await mara.show()
-    await lin.speak({
-      kind: 'rich-text',
-      blocks: [{
-        spans: [{ text: 'The Tokyo uplink is down. Mara, confirm the last human signal.' }],
-      }],
-      fontFamily: 'Noto Sans',
-      fontSize: 28,
-      lineHeight: 44,
-    }, { wait: false })
-    await runtime.engine.showChoices([
-      { id: 'trace', text: 'TRACE SIGNAL', enabled: true },
-      { id: 'hold', text: 'HOLD SILENCE', enabled: true },
-    ])
-    await runtime.animation.playTimeline({
-      id: 'demo.native.mara-breathe',
-      duration: 1800,
-      loop: true,
-      tracks: [{
-        target: 'character:mara',
-        property: 'position.y',
-        keyframes: [
-          { at: 0, value: 650 },
-          { at: 900, value: 638, easing: 'ease-in-out' },
-          { at: 1800, value: 650, easing: 'ease-in-out' },
-        ],
-      }, {
-        target: 'character:mara',
-        property: 'opacity',
-        keyframes: [
-          { at: 0, value: 0.9 },
-          { at: 900, value: 1 },
-          { at: 1800, value: 0.9 },
-        ],
-      }],
-    }, { wait: false })
-    await runtime.engine.showUI('native-dev-status', createNativeDevSurface())
     const nativePanel = process.env.QUA_NATIVE_DEMO_PANEL
+    if (nativePanel === 'parity') {
+      await stageWebParityScene(runtime)
+    }
+    else {
+      await stageNativeCoverageScene(runtime)
+      await runtime.engine.showUI('native-dev-status', createNativeDevSurface())
+    }
     await openNativeDemoPanel(runtime, nativePanel)
     if (nativePanel === 'effects') {
       await runtime.engine.applyEffect({
@@ -206,12 +153,104 @@ async function openNativeDemoPanel(
     case '':
     case 'transition':
     case 'effects':
+    case 'parity':
     case 'scene':
     case 'typewriter':
       break
     default:
       throw new Error(`Unsupported native demo panel "${panel}".`)
   }
+}
+
+async function stageWebParityScene(
+  runtime: Awaited<ReturnType<typeof createDemoEngineRuntime>>,
+): Promise<void> {
+  await runtime.background.setBackground('backgrounds/blackout-city.jpg', {
+    fit: 'cover',
+  })
+  const lin = createCharacter('lin', {
+    displayName: '神代漪',
+    speakerStyle: {
+      fontFamily: 'Noto Sans',
+      fontSize: 24,
+      fontWeight: 700,
+    },
+    sprite: 'lin/base.png',
+    position: { x: 520, y: 650, scale: 1 },
+    layer: 2,
+  })
+  await lin.show()
+  await lin.speak({
+    kind: 'rich-text',
+    blocks: [{ spans: [{ text: '东京的雨。' }] }],
+    fontFamily: 'Noto Sans',
+    fontSize: 27,
+    lineHeight: 36,
+  }, { wait: false })
+}
+
+async function stageNativeCoverageScene(
+  runtime: Awaited<ReturnType<typeof createDemoEngineRuntime>>,
+): Promise<void> {
+  await runtime.background.setBackground('backgrounds/blackout-city.jpg', {
+    fit: 'cover',
+    opacity: 0.92,
+  })
+
+  const lin = createCharacter('lin', {
+    displayName: 'Lin',
+    speakerStyle: {
+      fontFamily: 'Noto Sans',
+      fontSize: 24,
+      fontWeight: 700,
+    },
+    sprite: 'lin/focus.png',
+    position: { x: 520, y: 650, scale: 1 },
+    layer: 2,
+  })
+  const mara = createCharacter('mara', {
+    displayName: 'Mara',
+    sprite: 'mara/alert.png',
+    position: { x: 1260, y: 650, scale: 1 },
+    layer: 3,
+  })
+  await lin.show()
+  await mara.show()
+  await lin.speak({
+    kind: 'rich-text',
+    blocks: [{
+      spans: [{ text: 'The Tokyo uplink is down. Mara, confirm the last human signal.' }],
+    }],
+    fontFamily: 'Noto Sans',
+    fontSize: 28,
+    lineHeight: 44,
+  }, { wait: false })
+  await runtime.engine.showChoices([
+    { id: 'trace', text: 'TRACE SIGNAL', enabled: true },
+    { id: 'hold', text: 'HOLD SILENCE', enabled: true },
+  ])
+  await runtime.animation.playTimeline({
+    id: 'demo.native.mara-breathe',
+    duration: 1800,
+    loop: true,
+    tracks: [{
+      target: 'character:mara',
+      property: 'position.y',
+      keyframes: [
+        { at: 0, value: 650 },
+        { at: 900, value: 638, easing: 'ease-in-out' },
+        { at: 1800, value: 650, easing: 'ease-in-out' },
+      ],
+    }, {
+      target: 'character:mara',
+      property: 'opacity',
+      keyframes: [
+        { at: 0, value: 0.9 },
+        { at: 900, value: 1 },
+        { at: 1800, value: 0.9 },
+      ],
+    }],
+  }, { wait: false })
 }
 
 function createNativeDevSurface(): Record<string, unknown> {

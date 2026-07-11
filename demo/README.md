@@ -65,10 +65,13 @@ pnpm --filter demo build
 pnpm --filter demo typecheck
 pnpm --filter demo dev:native -- --panel=settings
 pnpm --filter demo native:smoke
+pnpm --filter demo native:smoke:parity
 pnpm --filter demo native:smoke:backlog
 pnpm --filter demo native:smoke:gallery
 pnpm --filter demo native:smoke:achievement
 ```
+
+`native:smoke:parity` projects the same first prologue background, character asset/position, speaker, and dialogue line as the Web demo for direct screenshot comparison. `native:smoke:scene` remains the broader two-character and choice coverage frame.
 
 Asset commands:
 

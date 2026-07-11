@@ -233,8 +233,21 @@ async function validateNativeFeatureFrame(panelName) {
     console.log('Native demo frame validated engine effect projection.')
     return
   }
-  if (panelName === 'scene') {
-    console.log('Native demo frame validated the unmodified scene projection.')
+  if (panelName === 'scene' || panelName === 'parity') {
+    if (panelName === 'parity') {
+      const frame = JSON.parse(await readFile(FRAME_PATH, 'utf8'))
+      const characters = frame.view?.characters
+      if (!Array.isArray(characters)
+        || characters.length !== 1
+        || characters[0]?.id !== 'lin'
+        || characters[0]?.sprite !== 'lin/base.png'
+        || frame.view?.dialogue?.characterName !== '神代漪') {
+        throw new Error('Native parity frame did not match the Web prologue character projection.')
+      }
+      console.log('Native demo frame validated the Web prologue parity projection.')
+      return
+    }
+    console.log('Native demo frame validated the unmodified coverage scene projection.')
     return
   }
   if (panelName === 'transition') {
