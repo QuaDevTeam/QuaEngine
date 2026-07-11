@@ -10,6 +10,9 @@
     ],
     "skipLibCheck": true,
     "moduleResolution": "bundler",
+    "types": [
+      "node"
+    ],
     "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
     "isolatedModules": true,

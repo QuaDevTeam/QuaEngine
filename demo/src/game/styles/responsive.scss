@@ -4,7 +4,7 @@
     --vn-dialogue-min-height: 124px;
     --vn-dialogue-padding-x: 18px;
     --vn-dialogue-padding-y: 18px;
-    --vn-dialogue-toolbar-offset: calc(11.5dvh + 6px);
+    --vn-dialogue-toolbar-offset: calc(11.5cqh + 6px);
     --vn-choice-max-width: 100%;
     --vn-choice-dialogue-gap: 72px;
   }
@@ -59,12 +59,12 @@
   .game-root[data-system-overlay] .qua-backlog-panel,
   .game-root[data-system-overlay] .qua-gallery-panel,
   .game-root[data-system-overlay] .qua-achievement-panel {
-    width: min(560px, 92vw);
-    max-height: 82vh;
+    width: min(560px, 92cqw);
+    max-height: 82cqh;
   }
 
   .game-root[data-system-overlay] .qua-backlog-panel {
-    height: 82vh;
+    height: 82cqh;
   }
 
   .game-root[data-system-overlay] .qua-gallery-panel {

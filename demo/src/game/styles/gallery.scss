@@ -12,10 +12,10 @@
   position: relative;
   grid-template-rows: auto minmax(0, 1fr);
   display: grid;
-  width: min(1180px, 92vw);
-  height: min(760px, 86vh);
+  width: min(1180px, 92cqw);
+  height: min(760px, 86cqh);
   margin: auto;
-  padding: clamp(18px, 3vw, 28px);
+  padding: clamp(18px, 3cqw, 28px);
   overflow: hidden;
   border: 1px solid rgba(245, 226, 190, 0.32);
   border-radius: 2px;
@@ -68,7 +68,7 @@
 .game-root[data-system-overlay] .qua-gallery-title {
   margin: 0;
   color: #fff8ea;
-  font-size: clamp(25px, 3.2vw, 38px);
+  font-size: clamp(25px, 3.2cqw, 38px);
   line-height: 1;
   letter-spacing: 0;
 }

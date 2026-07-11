@@ -4,12 +4,12 @@ import { BACKLOG_PLUGIN_ID, BacklogRenderToLogicEvents, type BacklogProjection }
 import { GALLERY_PLUGIN_ID, type GalleryProjection } from '@quajs/plugin-gallery'
 import { resolveActiveUiSceneProjection, uiSceneAllowsDialogueChrome, uiSceneAllowsHudChrome, type ViewUiSceneProjection } from '@quajs/render-core'
 import { DialoguePresenceRuntime } from '@quajs/renderer-web'
-import { QuaRenderer } from '@quajs/renderer-vue'
+import { QuaRenderer, type QuaVueRendererPlugin } from '@quajs/renderer-vue'
 import { createVisualNovelRendererPlugins } from '@quajs/renderer-vue/plugins/preset'
 import { QuaSettingsLayer } from '@quajs/renderer-vue/plugins/settings'
 import { QuaStoryTree } from '@quajs/renderer-vue/plugins/ui'
 import type { StoryChapterSelectProjection } from '@quajs/story-graph'
-import { computed, defineComponent, h, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, defineComponent, Fragment, h, onBeforeUnmount, ref, watch } from 'vue'
 import menuRouteBackgroundUrl from '../../assets/images/ui/menu-route.jpg?url'
 import {
   BGM,
@@ -415,34 +415,10 @@ export async function createQuaGameApp() {
   await playDemoBgm(BGM.title, { gainDb: -10 })
   bootMessage.value = ''
 
-  return defineComponent({
-    name: 'QuaGameRoot',
+  const DemoStageUi = defineComponent({
+    name: 'DemoStageUi',
     setup() {
-      const rendererPlugins = createVisualNovelRendererPlugins()
-      onBeforeUnmount(() => {
-        for (const dispose of uiDisposers) {
-          dispose()
-        }
-        if (toastTimer) {
-          clearTimeout(toastTimer)
-        }
-      })
-      return () => h('main', {
-        class: 'game-root',
-        style: {
-          '--vn-menu-background': `url("${menuRouteBackgroundUrl}")`,
-        },
-        'data-chapter': hud.value.chapter,
-        'data-route': hud.value.route,
-        'data-signal': hud.value.signal,
-        'data-ui-scene-id': renderedActiveUiScene.value?.id,
-        'data-ui-scene-hide-dialogue': renderedActiveUiScene.value?.overlay?.hideDialogue ? 'true' : undefined,
-        'data-main-menu': showMainMenu.value ? 'true' : undefined,
-        'data-system-overlay': systemOverlayMode.value,
-        'data-title-surface': titleSurfaceActive.value ? 'true' : undefined,
-        'data-hud-chrome': hudChromeVisible.value ? 'true' : 'false',
-        'data-dialogue-chrome': dialogueChromeVisible.value ? 'true' : 'false',
-      }, [
+      return () => h(Fragment, [
         h('div', { class: 'vn-title-surface', 'aria-hidden': 'true', 'data-qua-input-ignore': '' }),
         hudChromeVisible.value
           ? h('div', { class: 'vn-title-plate', 'data-qua-input-ignore': '' }, [
@@ -496,22 +472,6 @@ export async function createQuaGameApp() {
             onClick: openGameMenu,
           }, 'MENU'),
         ]),
-        h(QuaRenderer, {
-          pipeline: engine.getPipeline(),
-          assets,
-          initialView: engine.getViewState(),
-          plugins: rendererPlugins,
-          runtimePluginLoader,
-          saveSlots: engine.getStore(),
-          className: 'vn-renderer',
-        }, {
-          settings: () => h(QuaSettingsLayer, undefined, {
-            'form-header': renderDemoSettingsHeader,
-            'form-actions': renderDemoSettingsActions,
-            'scope-header': renderDemoSettingsScopeHeader,
-            'field-control': renderDemoSettingsControl,
-          }),
-        }),
         showMainMenu.value
           ? h('section', { class: 'vn-main-menu', 'data-qua-input-ignore': '' }, [
               h('div', { class: 'vn-main-menu__inner' }, [
@@ -574,6 +534,64 @@ export async function createQuaGameApp() {
             }, toast.value.message)
           : null,
         h('p', { class: 'boot-message', 'data-qua-input-ignore': '' }, bootMessage.value),
+      ])
+    },
+  })
+  const demoStageUiPlugin: QuaVueRendererPlugin = {
+    name: 'demo-stage-ui',
+    setup() {},
+    layers: [{
+      id: 'demo-stage-ui',
+      plane: 'stage',
+      order: 10_000,
+      component: DemoStageUi,
+    }],
+  }
+
+  return defineComponent({
+    name: 'QuaGameRoot',
+    setup() {
+      const rendererPlugins = [...createVisualNovelRendererPlugins(), demoStageUiPlugin]
+      onBeforeUnmount(() => {
+        for (const dispose of uiDisposers) {
+          dispose()
+        }
+        if (toastTimer) {
+          clearTimeout(toastTimer)
+        }
+      })
+      return () => h('main', {
+        class: 'game-root',
+        style: {
+          '--vn-menu-background': `url("${menuRouteBackgroundUrl}")`,
+        },
+        'data-chapter': hud.value.chapter,
+        'data-route': hud.value.route,
+        'data-signal': hud.value.signal,
+        'data-ui-scene-id': renderedActiveUiScene.value?.id,
+        'data-ui-scene-hide-dialogue': renderedActiveUiScene.value?.overlay?.hideDialogue ? 'true' : undefined,
+        'data-main-menu': showMainMenu.value ? 'true' : undefined,
+        'data-system-overlay': systemOverlayMode.value,
+        'data-title-surface': titleSurfaceActive.value ? 'true' : undefined,
+        'data-hud-chrome': hudChromeVisible.value ? 'true' : 'false',
+        'data-dialogue-chrome': dialogueChromeVisible.value ? 'true' : 'false',
+      }, [
+        h(QuaRenderer, {
+          pipeline: engine.getPipeline(),
+          assets,
+          initialView: engine.getViewState(),
+          plugins: rendererPlugins,
+          runtimePluginLoader,
+          saveSlots: engine.getStore(),
+          className: 'vn-renderer',
+        }, {
+          settings: () => h(QuaSettingsLayer, undefined, {
+            'form-header': renderDemoSettingsHeader,
+            'form-actions': renderDemoSettingsActions,
+            'scope-header': renderDemoSettingsScopeHeader,
+            'field-control': renderDemoSettingsControl,
+          }),
+        }),
       ])
     },
   })

@@ -1,11 +1,11 @@
 .game-root {
   --vn-dialogue-bottom: 5%;
-  --vn-dialogue-bottom-reserve: 5dvh;
+  --vn-dialogue-bottom-reserve: 5cqh;
   --vn-dialogue-inset-x: 5%;
   --vn-dialogue-min-height: 132px;
   --vn-dialogue-padding-x: 28px;
   --vn-dialogue-padding-y: 22px;
-  --vn-dialogue-toolbar-offset: calc(12.25dvh + 8px);
+  --vn-dialogue-toolbar-offset: calc(12.25cqh + 8px);
   --vn-dialogue-toolbar-height: 40px;
   --vn-dialogue-chrome-gap: 14px;
   --vn-dialogue-chrome-reserve: calc(
@@ -216,7 +216,7 @@
   display: grid;
   place-items: center;
   overflow: hidden;
-  padding: clamp(18px, 4vw, 42px);
+  padding: clamp(18px, 4cqw, 42px);
 }
 
 .game-root[data-system-overlay="game"][data-dialogue-chrome="true"] .qua-overlay-layer,
@@ -224,7 +224,7 @@
 .game-root[data-system-overlay="game"][data-dialogue-chrome="true"] .qua-backlog-layer,
 .game-root[data-system-overlay="game"][data-dialogue-chrome="true"] .qua-gallery-layer,
 .game-root[data-system-overlay="game"][data-dialogue-chrome="true"] .qua-achievement-layer {
-  padding-bottom: max(clamp(18px, 4vw, 42px), var(--vn-dialogue-chrome-reserve));
+  padding-bottom: max(clamp(18px, 4cqw, 42px), var(--vn-dialogue-chrome-reserve));
 }
 
 .game-root[data-system-overlay] .qua-overlay-layer::before,
@@ -281,8 +281,8 @@
   position: relative;
   inset: auto;
   z-index: 1;
-  width: min(980px, 92vw);
-  max-height: min(660px, 84vh);
+  width: min(980px, 92cqw);
+  max-height: min(660px, 84cqh);
   margin: 0;
 }
 
@@ -292,7 +292,7 @@
 .game-root[data-system-overlay="game"][data-dialogue-chrome="true"] .qua-confirm-overlay,
 .game-root[data-system-overlay="game"][data-dialogue-chrome="true"] .qua-backlog-panel,
 .game-root[data-system-overlay="game"][data-dialogue-chrome="true"] .qua-achievement-panel {
-  max-height: min(660px, calc(100dvh - clamp(18px, 4vw, 42px) - var(--vn-dialogue-chrome-reserve)));
+  max-height: min(660px, calc(100cqh - clamp(18px, 4cqw, 42px) - var(--vn-dialogue-chrome-reserve)));
 }
 
 .game-root[data-system-overlay] .qua-menu-overlay,
@@ -406,8 +406,8 @@
 }
 
 .vn-main-menu__inner {
-  width: min(660px, 86vw);
-  margin-left: min(9vw, 130px);
+  width: min(660px, 86cqw);
+  margin-left: min(9cqw, 130px);
   justify-self: start;
   padding: 34px 0;
   color: #fff8ea;
@@ -417,14 +417,14 @@
 .vn-main-menu__title {
   margin: 0;
   color: #fffaf0;
-  font-size: clamp(56px, 7vw, 104px);
+  font-size: clamp(56px, 7cqw, 104px);
   font-weight: 700;
   line-height: 0.96;
   letter-spacing: 0;
 }
 
 .vn-main-menu__english-title {
-  width: min(520px, 86vw);
+  width: min(520px, 86cqw);
   margin: 14px 0 34px;
   color: rgba(235, 204, 144, 0.78);
   font-family: "SFMono-Regular", "Menlo", monospace;
@@ -434,7 +434,7 @@
 
 .vn-main-menu__actions {
   display: grid;
-  width: min(360px, 82vw);
+  width: min(360px, 82cqw);
   gap: 9px;
 }
 
@@ -551,9 +551,9 @@
 .vn-toast {
   position: absolute;
   top: 78px;
-  right: clamp(20px, 5vw, 72px);
+  right: clamp(20px, 5cqw, 72px);
   z-index: 74;
-  max-width: min(380px, 82vw);
+  max-width: min(380px, 82cqw);
   margin: 0;
   padding: 10px 14px;
   border: 1px solid rgba(245, 226, 190, 0.32);

@@ -2,6 +2,10 @@ use quajs_native_runtime::{InMemoryNativeHostApi, NativeMountedBundleInfo};
 
 use crate::startup::{compile_time_native_app_config, create_native_startup_host_info};
 
+use super::config::WINDOW_DEV_QPK_ENV;
+use super::dev_qpk::mount_native_dev_qpk;
+use super::error::NativeWindowSmokeError;
+
 const WINDOW_SMOKE_RUNTIME_UI_PACKAGE_ID: &str = "runtime.ui";
 const WINDOW_SMOKE_BASE_PACKAGE_ID: &str = "base";
 
@@ -36,6 +40,15 @@ pub(super) fn create_window_smoke_texture_host() -> InMemoryNativeHostApi {
     }
 
     host
+}
+
+pub(super) fn create_window_smoke_texture_host_from_env(
+) -> Result<InMemoryNativeHostApi, NativeWindowSmokeError> {
+    let host = create_window_smoke_texture_host();
+    let Some(path) = std::env::var_os(WINDOW_DEV_QPK_ENV) else {
+        return Ok(host);
+    };
+    mount_native_dev_qpk(host, path)
 }
 
 fn window_smoke_bundle(name: &str, runtime_package_id: &str) -> NativeMountedBundleInfo {

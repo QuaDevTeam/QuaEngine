@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 
 use serde::Serialize;
 
+use quajs_wgpu_renderer::render_graph::DrawCommandKind;
 use quajs_wgpu_renderer::renderer::{
     NativeBackendExecutionReport, NativeRendererFrameResult, NativeRendererMetrics,
 };
@@ -20,6 +21,9 @@ pub struct NativeRendererSmokeSummary {
     pub pass_count: usize,
     pub batch_count: usize,
     pub command_count: usize,
+    pub command_graph_signature: String,
+    pub command_ids: Vec<String>,
+    pub command_kind_counts: BTreeMap<String, usize>,
     pub resource_count: usize,
     pub missing_resource_count: usize,
     pub fallback_count: usize,
@@ -61,6 +65,9 @@ impl NativeRendererSmokeSummary {
             pass_count: result.submission.pass_count,
             batch_count: result.submission.batch_count,
             command_count: result.submission.command_count,
+            command_graph_signature: command_graph_signature(result),
+            command_ids: command_ids(result),
+            command_kind_counts: command_kind_counts(result),
             resource_count: result.submission.resource_count,
             missing_resource_count: result.submission.missing_resource_count,
             fallback_count: result.submission.fallback_summary.fallback_count,
@@ -115,5 +122,68 @@ impl NativeRendererSmokeSummary {
             ),
             audio_memory_by_package: package_memory_summary(&metrics.resources.audio.by_package),
         }
+    }
+}
+
+fn command_ids(result: &NativeRendererFrameResult) -> Vec<String> {
+    result
+        .submission
+        .passes
+        .iter()
+        .flat_map(|pass| pass.batches.iter())
+        .flat_map(|batch| batch.commands.iter())
+        .map(|submission| submission.command.id.clone())
+        .collect()
+}
+
+fn command_kind_counts(result: &NativeRendererFrameResult) -> BTreeMap<String, usize> {
+    let mut counts = BTreeMap::new();
+    for kind in result
+        .submission
+        .passes
+        .iter()
+        .flat_map(|pass| pass.batches.iter())
+        .flat_map(|batch| batch.commands.iter())
+        .map(|submission| submission.command.kind)
+    {
+        *counts
+            .entry(command_kind_name(kind).to_string())
+            .or_insert(0) += 1;
+    }
+    counts
+}
+
+fn command_graph_signature(result: &NativeRendererFrameResult) -> String {
+    let mut hash = 0xcbf29ce484222325_u64;
+    for command in result
+        .submission
+        .passes
+        .iter()
+        .flat_map(|pass| pass.batches.iter())
+        .flat_map(|batch| batch.commands.iter())
+        .map(|submission| &submission.command)
+    {
+        for byte in format!("{command:?}\n").as_bytes() {
+            hash ^= u64::from(*byte);
+            hash = hash.wrapping_mul(0x100000001b3);
+        }
+    }
+    format!("fnv1a64:{hash:016x}")
+}
+
+fn command_kind_name(kind: DrawCommandKind) -> &'static str {
+    match kind {
+        DrawCommandKind::Clear => "clear",
+        DrawCommandKind::Image => "image",
+        DrawCommandKind::NineSlice => "nineSlice",
+        DrawCommandKind::Text => "text",
+        DrawCommandKind::RichText => "richText",
+        DrawCommandKind::Rect => "rect",
+        DrawCommandKind::RoundedRect => "roundedRect",
+        DrawCommandKind::ClipStart => "clipStart",
+        DrawCommandKind::ClipEnd => "clipEnd",
+        DrawCommandKind::VideoFrame => "videoFrame",
+        DrawCommandKind::UiSurface => "uiSurface",
+        DrawCommandKind::Custom => "custom",
     }
 }

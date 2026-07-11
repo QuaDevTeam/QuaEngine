@@ -4,7 +4,7 @@ use winit::dpi::{LogicalSize, PhysicalSize};
 use winit::event_loop::ActiveEventLoop;
 use winit::window::Window;
 
-use super::config::load_window_smoke_target_frame_count;
+use super::config::{load_window_smoke_target_frame_count, native_window_dev_enabled};
 use super::error::NativeWindowSmokeError;
 use super::frame::{frame_json_for_window, normalized_physical_size, window_frame_dimensions};
 use super::input::NativeWindowSmokeInputState;
@@ -13,7 +13,7 @@ use super::metrics::{
 };
 use super::report::NativeWindowSmokeReport;
 use super::report_builder::{build_window_smoke_report, NativeWindowSmokeReportInput};
-use super::texture_host::create_window_smoke_texture_host;
+use super::texture_host::create_window_smoke_texture_host_from_env;
 use crate::product_app_shell::{NativeProductAppShell, NativeProductAppShellAction};
 use crate::product_window::{NativeProductWindowInMemoryRuntime, NativeProductWindowPhysicalSize};
 use crate::product_window_loop::NativeProductWindowInMemoryLoop;
@@ -52,7 +52,11 @@ impl NativeWindowSmokeApp {
             event_loop
                 .create_window(
                     Window::default_attributes()
-                        .with_title("Qua Native Renderer Smoke")
+                        .with_title(if native_window_dev_enabled() {
+                            "Qua Native Renderer Dev"
+                        } else {
+                            "Qua Native Renderer Smoke"
+                        })
                         .with_inner_size(LogicalSize::new(960.0, 540.0)),
                 )
                 .map_err(|error| {
@@ -62,7 +66,7 @@ impl NativeWindowSmokeApp {
                 })?,
         );
         let physical_size = normalized_physical_size(window.inner_size());
-        let texture_host = create_window_smoke_texture_host();
+        let texture_host = create_window_smoke_texture_host_from_env()?;
         let instance =
             wgpu::Instance::new(wgpu::InstanceDescriptor::new_with_display_handle_from_env(
                 Box::new(event_loop.owned_display_handle()),
@@ -112,8 +116,12 @@ impl NativeWindowSmokeApp {
         let product_frame_result = product_shell
             .window_loop_mut()
             .render_projection_json_frame(&frame_json, |renderer, host| {
-                self.input
-                    .run_open_settings_probe(renderer, host, &frame_json)
+                if native_window_dev_enabled() {
+                    Ok(())
+                } else {
+                    self.input
+                        .run_open_settings_probe(renderer, host, &frame_json)
+                }
             });
         self.product_shell = Some(product_shell);
 
