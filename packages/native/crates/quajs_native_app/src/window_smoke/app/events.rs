@@ -18,7 +18,7 @@ use crate::window_smoke::input::{pointer_button_from_winit, pointer_phase_from_e
 impl ApplicationHandler for NativeWindowSmokeApp {
     fn user_event(&mut self, _event_loop: &ActiveEventLoop, _event: ()) {
         #[cfg(feature = "quickjs-rquickjs")]
-        self.request_redraw_for_quickjs_revision();
+        self.ingest_quickjs_pipeline_updates();
     }
 
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
@@ -157,6 +157,9 @@ impl ApplicationHandler for NativeWindowSmokeApp {
             }
             WindowEvent::RedrawRequested => {
                 if !self.needs_more_frames() {
+                    if native_window_dev_enabled() {
+                        return;
+                    }
                     event_loop.exit();
                     return;
                 }
@@ -174,7 +177,7 @@ impl ApplicationHandler for NativeWindowSmokeApp {
 
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
         #[cfg(feature = "quickjs-rquickjs")]
-        self.request_redraw_for_quickjs_revision();
+        self.ingest_quickjs_pipeline_updates();
         let action = match self.product_shell.as_mut() {
             Some(product_shell) => product_shell.about_to_wait(),
             None => return,
@@ -189,6 +192,18 @@ impl ApplicationHandler for NativeWindowSmokeApp {
 
 impl NativeWindowSmokeApp {
     fn needs_more_frames(&self) -> bool {
+        #[cfg(feature = "quickjs-rquickjs")]
+        if self.quickjs_product.is_some() {
+            return native_window_dev_enabled()
+                || self.renderer_redraw_pending
+                || self.renderer_local_work_active
+                || (native_window_interaction_probe_enabled()
+                    && !self.interaction_probe_advance_observed
+                    && self
+                        .interaction_probe_started_at
+                        .map(|started_at| started_at.elapsed() < INTERACTION_PROBE_TIMEOUT)
+                        .unwrap_or(true));
+        }
         if native_window_interaction_probe_enabled() {
             return !self.interaction_probe_advance_observed
                 && self
@@ -214,8 +229,27 @@ impl NativeWindowSmokeApp {
                 };
                 match action {
                     Ok(action) => {
+                        #[cfg(feature = "quickjs-rquickjs")]
+                        let request_redraw = if self.quickjs_product.is_some() {
+                            self.renderer_local_work_active
+                                || (native_window_interaction_probe_enabled()
+                                    && !self.interaction_probe_advance_observed
+                                    && self
+                                        .interaction_probe_started_at
+                                        .map(|started_at| {
+                                            started_at.elapsed() < INTERACTION_PROBE_TIMEOUT
+                                        })
+                                        .unwrap_or(true))
+                        } else {
+                            action.request_redraw
+                        };
+                        #[cfg(not(feature = "quickjs-rquickjs"))]
                         let request_redraw = action.request_redraw;
-                        self.apply_product_shell_action(event_loop, action) && request_redraw
+                        let applied = self.apply_product_shell_action(event_loop, action);
+                        if request_redraw {
+                            self.request_redraw();
+                        }
+                        applied && request_redraw
                     }
                     Err(error) => {
                         self.fail_and_exit(

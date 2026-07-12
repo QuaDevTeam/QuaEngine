@@ -44,7 +44,6 @@ export interface NativeRuntimeAdaptersOptions {
   quickJsPipelineSubscriptionBridge?: NativeQuickJsPipelineSubscriptionBridge
   quickJsRendererIntentBridge?: NativeQuickJsRendererIntentBridge
   rendererId?: string
-  requestRender?: () => void
   quickJsStepContextSerializer?: NativeQuickJsStepContextSerializer
   requireSignature?: boolean
   runtimeModuleLoader?: RuntimeModuleLoader
@@ -98,7 +97,6 @@ export function createNativeEngineBootstrap(host: QuaNativeHostApi, options: Nat
       quickJsPipelineSubscriptionBridge: adapters.quickJsPipelineSubscriptionBridge,
       quickJsRendererIntentBridge: options.quickJsRendererIntentBridge,
       rendererId: options.rendererId,
-      requestRender: options.requestRender,
       targetBootstrapPackages: options.targetBootstrapPackages,
       targetBundleManifest: options.targetBundleManifest,
     }),

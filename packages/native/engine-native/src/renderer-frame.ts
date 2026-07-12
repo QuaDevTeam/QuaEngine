@@ -17,8 +17,6 @@ import {
   projectUiOverlay,
 } from '@quajs/render-core'
 import type { NativeRendererFeatureSurfaceEntry } from './feature-surfaces'
-import type { NativeDialogueTypewriterController } from './dialogue-typewriter'
-import type { NativeSceneTransitionProjection } from './scene-transition'
 import { createNativeRendererFeatureSurfaceOverlays } from './feature-surfaces'
 
 type JsonRecord = Record<string, unknown>
@@ -59,10 +57,8 @@ export type NativeRendererEngineViewProjection = Readonly<JsonRecord & {
 export interface CreateNativeRendererJsonFrameInputOptions {
   container?: NativeRendererStageContainerInput
   featureSurfaces?: readonly NativeRendererFeatureSurfaceEntry[]
-  dialogueTypewriter?: NativeDialogueTypewriterController
   layout?: unknown
   now?: number
-  sceneTransition?: Readonly<NativeSceneTransitionProjection>
 }
 
 export function createNativeRendererJsonFrameInput(
@@ -72,9 +68,7 @@ export function createNativeRendererJsonFrameInput(
   const frame: NativeRendererJsonFrameInput = {
     view: createNativeRendererViewProjection(view, {
       featureSurfaces: options.featureSurfaces,
-      dialogueTypewriter: options.dialogueTypewriter,
       now: options.now,
-      sceneTransition: options.sceneTransition,
     }),
   }
   const layout = cloneJsonValue(options.layout ?? view.layout)
@@ -89,23 +83,23 @@ export function createNativeRendererJsonFrameInput(
 }
 
 export interface CreateNativeRendererViewProjectionOptions {
-  dialogueTypewriter?: NativeDialogueTypewriterController
   featureSurfaces?: readonly NativeRendererFeatureSurfaceEntry[]
+  projectAnimations?: boolean
   now?: number
-  sceneTransition?: Readonly<NativeSceneTransitionProjection>
 }
 
 export function createNativeRendererViewProjection(
   view: NativeRendererEngineViewProjection,
   options: CreateNativeRendererViewProjectionOptions = {},
 ): JsonRecord {
-  const animations = nativeAnimationProjections(view.animations)
+  const animations = options.projectAnimations === false
+    ? []
+    : nativeAnimationProjections(view.animations)
   const now = options.now ?? Date.now()
   const plugins = asRecord(view.plugins)
   const background = projectNativeBackground(view.background, animations, now)
   const characters = projectNativeCharacters(view.characters, animations, now)
   const dialogue = projectNativeDialogue(view.dialogue, plugins?.dialogue, animations, now)
-  const visibleDialogue = projectNativeDialogueTypewriter(dialogue, options.dialogueTypewriter, now)
   const effects = projectNativeEffects(view.effects, animations, now)
   const choices = projectNativeChoices(view.choices, plugins?.choices, animations, now)
   const ui = projectNativeUi(view.ui, animations, now)
@@ -115,12 +109,12 @@ export function createNativeRendererViewProjection(
     : plugins?.audio
 
   return omitUndefined({
-    sceneTransition: cloneJsonValue(options.sceneTransition ?? view.sceneTransition),
+    sceneTransition: cloneJsonValue(view.sceneTransition),
     background: createNativeBackgroundProjection(background),
     characters: Array.isArray(characters)
       ? characters.map(createNativeCharacterProjection).filter(isJsonRecord)
       : undefined,
-    dialogue: createNativeDialogueProjection(visibleDialogue),
+    dialogue: createNativeDialogueProjection(dialogue),
     effects: effects.length > 0
       ? effects.map(createNativeEffectProjection).filter(isJsonRecord)
       : undefined,
@@ -128,18 +122,8 @@ export function createNativeRendererViewProjection(
     ui: mergeNativeUiProjection(createNativeUiProjection(ui), featureOverlays),
     audio: createNativeAudioProjection(audio),
     plugins: createNativePluginProjection(view.plugins),
+    animations: cloneJsonValue(view.animations),
   })
-}
-
-function projectNativeDialogueTypewriter(
-  dialogue: unknown,
-  controller: NativeDialogueTypewriterController | undefined,
-  now: number,
-): unknown {
-  const record = asRecord(dialogue)
-  return record && controller
-    ? controller.project(record as unknown as Readonly<ViewDialogueProjection>, now).dialogue
-    : dialogue
 }
 
 function projectNativeEffects(
@@ -442,6 +426,7 @@ function createNativeDialogueProjection(dialogue: unknown): JsonRecord | undefin
   }
   const text = createNativeRichTextContent(record.text ?? '')
   return omitUndefined({
+    revision: integerValue(record.revision),
     visible: record.visible !== false,
     characterId: stringValue(record.characterId),
     characterName: stringValue(record.characterName),
@@ -450,6 +435,7 @@ function createNativeDialogueProjection(dialogue: unknown): JsonRecord | undefin
     speakerStyle: createNativeRichTextStyle(record.speakerStyle),
     text,
     mode: record.mode === 'narration' ? 'narration' : 'say',
+    typewriter: cloneJsonValue(record.typewriter),
     provenance: createPackageProvenance(record),
   })
 }

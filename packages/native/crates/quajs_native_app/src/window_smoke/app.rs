@@ -1,6 +1,6 @@
 use std::sync::Arc;
-use std::{env, fs, path::Path};
 use std::time::{Duration, Instant};
+use std::{env, fs, path::Path};
 
 use winit::dpi::{LogicalSize, PhysicalSize};
 use winit::event_loop::{ActiveEventLoop, EventLoopProxy};
@@ -26,6 +26,8 @@ use crate::product_app_shell::{NativeProductAppShell, NativeProductAppShellActio
 use crate::product_loop::NativeProductLoopFrameResult;
 use crate::product_window::{NativeProductWindowInMemoryRuntime, NativeProductWindowPhysicalSize};
 use crate::product_window_loop::NativeProductWindowInMemoryLoop;
+#[cfg(feature = "quickjs-rquickjs")]
+use quajs_wgpu_renderer::projection_runtime::NativeRendererProjectionRuntime;
 use quajs_wgpu_renderer::renderer::RealWgpuEncodedFrameCapture;
 
 mod events;
@@ -42,7 +44,13 @@ pub(super) struct NativeWindowSmokeApp {
     #[cfg(feature = "quickjs-rquickjs")]
     quickjs_product: Option<NativeWindowQuickJsProduct>,
     #[cfg(feature = "quickjs-rquickjs")]
-    quickjs_revision: u64,
+    quickjs_pipeline_sequence: u64,
+    #[cfg(feature = "quickjs-rquickjs")]
+    renderer_redraw_pending: bool,
+    #[cfg(feature = "quickjs-rquickjs")]
+    renderer_local_work_active: bool,
+    #[cfg(feature = "quickjs-rquickjs")]
+    projection_runtime: Option<NativeRendererProjectionRuntime>,
     interaction_probe_story_observed: bool,
     interaction_probe_advance_sent: bool,
     interaction_probe_advance_observed: bool,
@@ -64,7 +72,13 @@ impl NativeWindowSmokeApp {
             #[cfg(feature = "quickjs-rquickjs")]
             quickjs_product: None,
             #[cfg(feature = "quickjs-rquickjs")]
-            quickjs_revision: 0,
+            quickjs_pipeline_sequence: 0,
+            #[cfg(feature = "quickjs-rquickjs")]
+            renderer_redraw_pending: false,
+            #[cfg(feature = "quickjs-rquickjs")]
+            renderer_local_work_active: false,
+            #[cfg(feature = "quickjs-rquickjs")]
+            projection_runtime: None,
             interaction_probe_story_observed: false,
             interaction_probe_advance_sent: false,
             interaction_probe_advance_observed: false,
@@ -129,6 +143,30 @@ impl NativeWindowSmokeApp {
         #[cfg(feature = "quickjs-rquickjs")]
         {
             self.quickjs_product = quickjs_product;
+            if let Some(product) = self.quickjs_product.as_ref() {
+                let update = product.drain_pipeline_update()?;
+                let mut projection_runtime =
+                    NativeRendererProjectionRuntime::from_frame_json(&update.projection_source)
+                        .map_err(|error| {
+                            NativeWindowSmokeError::new(format!(
+                                "Failed to initialize the Rust native projection runtime: {error}."
+                            ))
+                        })?;
+                for message in update.messages {
+                    projection_runtime
+                        .apply_pipeline_event(&message.event, &message.payload_json)
+                        .map_err(|error| {
+                            NativeWindowSmokeError::new(format!(
+                                "Failed to apply initial native pipeline event {}: {error}.",
+                                message.event
+                            ))
+                        })?;
+                }
+                self.quickjs_pipeline_sequence = product.pipeline_sequence();
+                self.projection_runtime = Some(projection_runtime);
+                self.renderer_redraw_pending = true;
+                window.request_redraw();
+            }
         }
         self.window = Some(window.clone());
 
@@ -142,9 +180,17 @@ impl NativeWindowSmokeApp {
         })?;
         let dimensions = window_frame_dimensions(window.inner_size(), window.scale_factor());
         #[cfg(feature = "quickjs-rquickjs")]
-        let frame_source = match self.quickjs_product.as_ref() {
-            Some(product) => product.render_frame_source()?,
-            None => self.frame_source.clone(),
+        let frame_source: Arc<str> = match self.projection_runtime.as_mut() {
+            Some(runtime) => {
+                let projection = runtime.project_now().map_err(|error| {
+                    NativeWindowSmokeError::new(format!(
+                        "Rust native projection runtime failed to project a frame: {error}."
+                    ))
+                })?;
+                self.renderer_local_work_active = projection.local_work_active;
+                Arc::from(projection.json)
+            }
+            None => self.frame_source.clone().into(),
         };
         #[cfg(not(feature = "quickjs-rquickjs"))]
         let frame_source = self.frame_source.clone();
@@ -182,7 +228,8 @@ impl NativeWindowSmokeApp {
         };
 
         let target_frame_count = product_shell.window_loop().target_frame_count();
-        if self.interaction_probe_advance_observed {
+        let should_shutdown_after_next_frame = self.interaction_probe_advance_observed;
+        if should_shutdown_after_next_frame {
             product_shell
                 .window_loop_mut()
                 .request_shutdown_after_next_frame();
@@ -230,6 +277,9 @@ impl NativeWindowSmokeApp {
                 },
             );
         self.product_shell = Some(product_shell);
+        if should_shutdown_after_next_frame {
+            self.request_redraw();
+        }
         self.flush_dev_renderer_intents()?;
 
         let loop_frame =
@@ -239,6 +289,10 @@ impl NativeWindowSmokeApp {
         let synced_frame = product_frame.synced_frame;
         let synced_frame = synced_frame.frame;
         let frame_result = synced_frame.frame;
+        #[cfg(feature = "quickjs-rquickjs")]
+        if self.quickjs_product.is_some() {
+            self.renderer_redraw_pending = false;
+        }
         let input_metrics = self.input.metrics();
         if let Some(shutdown) = loop_frame.shutdown {
             self.texture_metrics.record_shutdown_cleanup(&shutdown);
@@ -455,7 +509,11 @@ impl NativeWindowSmokeApp {
             .cancel_ime_composition(product_shell.window_loop_mut().runtime_mut().host_mut())
     }
 
-    fn request_redraw(&self) {
+    fn request_redraw(&mut self) {
+        #[cfg(feature = "quickjs-rquickjs")]
+        if self.quickjs_product.is_some() {
+            self.renderer_redraw_pending = true;
+        }
         if let Some(window) = &self.window {
             window.request_redraw();
         }
@@ -478,7 +536,7 @@ impl NativeWindowSmokeApp {
     fn flush_dev_renderer_intents(&mut self) -> Result<(), NativeWindowSmokeError> {
         #[cfg(feature = "quickjs-rquickjs")]
         if self.quickjs_product.is_some() {
-            let intents = {
+            let renderer_intents = {
                 let Some(product_shell) = self.product_shell.as_mut() else {
                     return Ok(());
                 };
@@ -489,16 +547,37 @@ impl NativeWindowSmokeApp {
                 }
                 intents[self.input.dispatched_intent_count..].to_vec()
             };
+            let mut intents = self
+                .projection_runtime
+                .as_mut()
+                .map(NativeRendererProjectionRuntime::drain_intents)
+                .unwrap_or_default();
+            let mut forwarded_renderer_intent_count = 0usize;
+            for intent in renderer_intents {
+                if is_advance_intent(&intent)
+                    && self
+                        .projection_runtime
+                        .as_mut()
+                        .is_some_and(NativeRendererProjectionRuntime::reveal_dialogue_on_advance)
+                {
+                    self.request_redraw();
+                    forwarded_renderer_intent_count =
+                        forwarded_renderer_intent_count.saturating_add(1);
+                    continue;
+                }
+                intents.push(intent);
+                forwarded_renderer_intent_count = forwarded_renderer_intent_count.saturating_add(1);
+            }
             let Some(product) = self.quickjs_product.as_mut() else {
                 return Ok(());
             };
-            for intent in intents.iter().cloned() {
+            for intent in intents {
                 product.dispatch_renderer_intent(intent)?;
             }
             self.input.dispatched_intent_count = self
                 .input
                 .dispatched_intent_count
-                .saturating_add(intents.len());
+                .saturating_add(forwarded_renderer_intent_count);
             return Ok(());
         }
 
@@ -506,15 +585,36 @@ impl NativeWindowSmokeApp {
     }
 
     #[cfg(feature = "quickjs-rquickjs")]
-    fn request_redraw_for_quickjs_revision(&mut self) {
+    fn ingest_quickjs_pipeline_updates(&mut self) {
         let Some(product) = self.quickjs_product.as_ref() else {
             return;
         };
-        let revision = product.revision();
-        if revision == self.quickjs_revision {
+        let sequence = product.pipeline_sequence();
+        if sequence == self.quickjs_pipeline_sequence {
             return;
         }
-        self.quickjs_revision = revision;
+        let update = match product.drain_pipeline_update() {
+            Ok(update) => update,
+            Err(error) => {
+                self.error = Some(error);
+                return;
+            }
+        };
+        let Some(runtime) = self.projection_runtime.as_mut() else {
+            return;
+        };
+        for message in update.messages {
+            if let Err(error) = runtime.apply_pipeline_event(&message.event, &message.payload_json)
+            {
+                self.error = Some(NativeWindowSmokeError::new(format!(
+                    "Failed to apply native pipeline event {}: {error}.",
+                    message.event
+                )));
+                return;
+            }
+        }
+        self.quickjs_pipeline_sequence = sequence;
+        self.renderer_redraw_pending = true;
         self.request_redraw();
     }
 
@@ -527,7 +627,11 @@ impl NativeWindowSmokeApp {
             self.texture_metrics
                 .record_lifecycle_sync(&lifecycle_report);
         }
-        if action.request_redraw {
+        #[cfg(feature = "quickjs-rquickjs")]
+        let request_redraw = action.request_redraw && self.quickjs_product.is_none();
+        #[cfg(not(feature = "quickjs-rquickjs"))]
+        let request_redraw = action.request_redraw;
+        if request_redraw {
             self.request_redraw();
         }
         true
@@ -537,6 +641,21 @@ impl NativeWindowSmokeApp {
         self.error = Some(error);
         event_loop.exit();
     }
+}
+
+#[cfg(feature = "quickjs-rquickjs")]
+fn is_advance_intent(intent: &quajs_native_runtime::NativeRendererIntent) -> bool {
+    if intent.r#type != "user/input_command" {
+        return false;
+    }
+    intent
+        .payload_json
+        .as_deref()
+        .and_then(|payload| serde_json::from_str::<serde_json::Value>(payload).ok())
+        .is_some_and(|payload| {
+            payload.get("command").and_then(serde_json::Value::as_str) == Some("advance")
+                && payload.get("pressed").and_then(serde_json::Value::as_bool) != Some(false)
+        })
 }
 
 fn native_demo_story_frame_visible(frame_json: &str) -> bool {

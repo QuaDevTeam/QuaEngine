@@ -23,9 +23,9 @@ use super::{
     QuickJsGameStepWaitRequest, QuickJsModuleEvaluator, QuickJsModuleExportCallRequest,
     QuickJsModuleExportCallResponse, QuickJsModuleExportCallResult,
     QuickJsPipelineListenerDispatchRequest, QuickJsPipelineListenerDispatchResponse,
-    QuickJsPipelineListenerDispatchResult, QuickJsPipelineSubscriptionChange,
-    QuickJsPipelineSubscriptionOperation, QuickJsRendererIntentDispatchResult,
-    QuickJsSandboxLimits,
+    QuickJsPipelineListenerDispatchResult, QuickJsPipelineMessage,
+    QuickJsPipelineSubscriptionChange, QuickJsPipelineSubscriptionOperation,
+    QuickJsRendererIntentDispatchResult, QuickJsSandboxLimits,
 };
 
 const NATIVE_QUICKJS_RENDERER_BRIDGE_SOURCE: &str = r#"
@@ -165,6 +165,31 @@ const NATIVE_QUICKJS_RENDERER_BRIDGE_SOURCE: &str = r#"
   });
   Object.defineProperty(globalThis, '__quaNativeRendererBridge', {
     value: bridge,
+    enumerable: false,
+    configurable: false,
+    writable: false
+  });
+  const pipelineMessages = [];
+  const pipelineBridge = Object.freeze({
+    emit(event, payload) {
+      if (typeof event !== 'string' || event.length === 0) {
+        throw new TypeError('Native pipeline bridge requires an event name.');
+      }
+      const payloadJson = payload === undefined ? '{}' : JSON.stringify(payload);
+      if (payloadJson === undefined) {
+        throw new TypeError(`Native pipeline event ${event} payload is not JSON-serializable.`);
+      }
+      pipelineMessages.push({ event, payloadJson });
+    },
+    drain() {
+      if (pipelineMessages.length === 0) {
+        return '[]';
+      }
+      return JSON.stringify(pipelineMessages.splice(0, pipelineMessages.length));
+    }
+  });
+  Object.defineProperty(globalThis, '__quaNativePipelineBridge', {
+    value: pipelineBridge,
     enumerable: false,
     configurable: false,
     writable: false
@@ -1068,6 +1093,58 @@ impl RquickJsModuleEvaluator {
 
     pub fn pipeline_listener_handle_count(&self) -> usize {
         self.pipeline_listener_handles.len()
+    }
+
+    pub fn drain_native_pipeline_messages(
+        &mut self,
+    ) -> Result<Vec<QuickJsPipelineMessage>, QuickJsEvaluationError> {
+        let messages_json = self.context.with(|ctx| -> rquickjs::Result<String> {
+            let bridge: Object = ctx.globals().get("__quaNativePipelineBridge")?;
+            let drain: Function = bridge.get("drain")?;
+            drain.call(())
+        });
+        let messages_json = messages_json.map_err(|error| {
+            call_error(
+                QuickJsEvaluationErrorCode::EvaluationFailed,
+                "Native QuickJS pipeline bridge could not be drained.".to_string(),
+                Some(error.to_string()),
+            )
+        })?;
+        serde_json::from_str(&messages_json).map_err(|error| {
+            call_error(
+                QuickJsEvaluationErrorCode::UnsupportedReturnValue,
+                "Native QuickJS pipeline bridge returned invalid messages.".to_string(),
+                Some(error.to_string()),
+            )
+        })
+    }
+
+    pub fn pump_native_jobs(&mut self) -> Result<(), QuickJsEvaluationError> {
+        self.context.with(|ctx| {
+            let pump: Function = ctx
+                .globals()
+                .get("__quaNativePumpTimers")
+                .map_err(|error| {
+                    call_error(
+                        QuickJsEvaluationErrorCode::EvaluationFailed,
+                        "Native QuickJS timer pump is unavailable.".to_string(),
+                        Some(error.to_string()),
+                    )
+                })?;
+            pump.call::<_, ()>(()).map_err(|error| {
+                call_error(
+                    QuickJsEvaluationErrorCode::EvaluationFailed,
+                    "Native QuickJS timer callback failed.".to_string(),
+                    Some(error.to_string()),
+                )
+            })?;
+            for _ in 0..MAX_NATIVE_PENDING_JOBS_PER_TICK {
+                if !ctx.execute_pending_job() {
+                    break;
+                }
+            }
+            Ok(())
+        })
     }
 
     fn apply_pipeline_subscription_updates(
@@ -3711,6 +3788,34 @@ mod tests {
             call.value_json,
             Some(r#"{"before":false,"after":true,"reason":"cancelled"}"#.to_string())
         );
+    }
+
+    #[test]
+    fn drains_logic_to_renderer_pipeline_messages_without_render_exports() {
+        let mut evaluator = RquickJsModuleEvaluator::new().unwrap();
+        evaluator
+            .evaluate_module(&request_for_code(
+                "scripts/native-pipeline.js",
+                r#"
+                globalThis.__quaNativePipelineBridge.emit('view/update', {
+                    view: { dialogue: { visible: true, text: 'hello' } }
+                });
+                export const ready = true;
+                "#,
+            ))
+            .unwrap();
+
+        let messages = evaluator.drain_native_pipeline_messages().unwrap();
+        assert_eq!(messages.len(), 1);
+        assert_eq!(messages[0].event, "view/update");
+        assert_eq!(
+            messages[0].payload_json,
+            r#"{"view":{"dialogue":{"visible":true,"text":"hello"}}}"#
+        );
+        assert!(evaluator
+            .drain_native_pipeline_messages()
+            .unwrap()
+            .is_empty());
     }
 
     #[test]

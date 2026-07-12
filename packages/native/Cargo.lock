@@ -1715,6 +1715,7 @@ dependencies = [
  "serde_json",
  "unicode-bidi",
  "unicode-linebreak",
+ "unicode-segmentation",
  "wgpu",
 ]
 
