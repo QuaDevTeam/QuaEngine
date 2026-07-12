@@ -144,11 +144,11 @@ fn emits_soft_box_shadow_as_one_gpu_gradient_draw() {
     let pass = &plan.passes[0];
     assert_eq!(pass.draw_call_count, 1);
     assert_eq!(pass.draw_calls[0].command_id, "ui:panel:box-shadow");
-    assert_eq!(pass.draw_calls[0].vertex_count, 57);
-    assert_eq!(pass.draw_calls[0].index_count, 252);
+    assert_eq!(pass.draw_calls[0].vertex_count, 56);
+    assert_eq!(pass.draw_calls[0].index_count, 168);
     assert_eq!(pass.vertices[0].color, [0.0, 0.0, 0.0, 0.0]);
     assert_eq!(pass.vertices[1].color, [0.0, 0.0, 0.0, 128.0 / 255.0]);
-    assert_eq!(pass.vertices[56].color, [0.0, 0.0, 0.0, 128.0 / 255.0]);
+    assert_eq!(pass.vertices[55].color, [0.0, 0.0, 0.0, 128.0 / 255.0]);
 }
 
 #[test]
