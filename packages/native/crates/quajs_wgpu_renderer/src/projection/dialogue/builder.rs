@@ -57,7 +57,6 @@ pub fn build_dialogue_commands(
             .params(DrawCommandParams::Panel(PanelDrawParams {
                 role: "dialogue-panel".to_string(),
                 corner_radius: 2.0,
-                shadow_blur_radius: 0.0,
                 fill_color: "rgba(7,8,12,0.97)".to_string(),
                 border: BorderDrawParams {
                     color: Some("rgba(245,226,190,0.28)".to_string()),
@@ -158,7 +157,6 @@ fn panel_command(
         DrawCommandParams::Panel(PanelDrawParams {
             role: role.to_string(),
             corner_radius,
-            shadow_blur_radius: 0.0,
             fill_color: fill_color.to_string(),
             border,
             padding: EdgeInsetsDrawParam::default(),
@@ -201,6 +199,7 @@ fn text_command(
                     "#f7f2ea"
                 },
             ),
+            blur_radius: 0.0,
             padding: EdgeInsetsDrawParam::default(),
             role: role.to_string(),
         }))
@@ -232,6 +231,8 @@ fn avatar_command(
         origin: MediaOrigin::default(),
         source: avatar_bounds(panel),
         rotation_degrees: 0.0,
+        brightness: 1.0,
+        saturation: 1.0,
     }));
 
     Some(apply_provenance(command, &avatar.provenance))

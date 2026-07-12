@@ -17,6 +17,9 @@ use super::types::{
 };
 
 pub fn resolve_background_color(style: &UiSurfaceResolvedStyle, fallback: &str) -> String {
+    if style.background_gradient.is_some() {
+        return "transparent".to_string();
+    }
     style
         .background_color
         .as_deref()
@@ -43,6 +46,18 @@ pub fn resolve_background_position(
     fallback: MediaOrigin,
 ) -> MediaOrigin {
     resolve_media_origin(style.background_position, fallback)
+}
+
+pub fn resolve_image_filter(style: &UiSurfaceResolvedStyle) -> (f64, f64) {
+    style
+        .filter
+        .map(|filter| {
+            (
+                filter.brightness.clamp(0.0, 8.0),
+                filter.saturate.clamp(0.0, 8.0),
+            )
+        })
+        .unwrap_or((1.0, 1.0))
 }
 
 pub fn resolve_text_color(style: &UiSurfaceResolvedStyle, fallback: &str) -> String {

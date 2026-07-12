@@ -50,7 +50,7 @@ fn noop_device_materializes_text_placeholder_with_builtin_text_atlas_bind_group(
         WgpuNativeRenderRuntimeOperation::SetVertexBuffer {
             pass_label: "pass".to_string(),
             buffer_label: "vertex".to_string(),
-            byte_len: 128,
+            byte_len: QUAD_VERTEX_BYTE_LEN,
         },
         WgpuNativeRenderRuntimeOperation::SetIndexBuffer {
             pass_label: "pass".to_string(),

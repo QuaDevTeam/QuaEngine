@@ -8,7 +8,8 @@ use super::error::NativeWindowSmokeError;
 use super::frame::WindowFrameDimensions;
 
 const SAMPLE_COUNT: usize = 120;
-const HUD_REFRESH_INTERVAL: Duration = Duration::from_millis(500);
+const HUD_REFRESH_INTERVAL: Duration = Duration::from_millis(100);
+const MAX_ACTIVE_FRAME_INTERVAL: Duration = Duration::from_millis(250);
 
 #[derive(Debug)]
 pub(super) struct NativeWindowPerformanceHud {
@@ -20,6 +21,7 @@ pub(super) struct NativeWindowPerformanceHud {
     batch_count: usize,
     last_hud_refresh_at: Option<Instant>,
     displayed_fps: f64,
+    displayed_active: bool,
     displayed_frame_time: Duration,
     displayed_command_count: usize,
     displayed_pass_count: usize,
@@ -37,6 +39,7 @@ impl Default for NativeWindowPerformanceHud {
             batch_count: 0,
             last_hud_refresh_at: None,
             displayed_fps: 0.0,
+            displayed_active: false,
             displayed_frame_time: Duration::ZERO,
             displayed_command_count: 0,
             displayed_pass_count: 0,
@@ -93,10 +96,16 @@ impl NativeWindowPerformanceHud {
     ) {
         let now = Instant::now();
         if let Some(previous) = self.last_presented_at.replace(now) {
-            self.frame_intervals
-                .push_back(now.saturating_duration_since(previous));
-            if self.frame_intervals.len() > SAMPLE_COUNT {
-                self.frame_intervals.pop_front();
+            let interval = now.saturating_duration_since(previous);
+            if interval <= MAX_ACTIVE_FRAME_INTERVAL {
+                self.frame_intervals.push_back(interval);
+                if self.frame_intervals.len() > SAMPLE_COUNT {
+                    self.frame_intervals.pop_front();
+                }
+            } else {
+                // Event-driven idle time is not render time. Start a fresh
+                // active-frame sample window after input or pipeline wake-up.
+                self.frame_intervals.clear();
             }
         }
         self.last_frame_time = frame_time;
@@ -112,6 +121,7 @@ impl NativeWindowPerformanceHud {
         }
         self.last_hud_refresh_at = Some(now);
         self.displayed_fps = self.fps();
+        self.displayed_active = !self.frame_intervals.is_empty();
         self.displayed_frame_time = self.last_frame_time;
         self.displayed_command_count = self.command_count;
         self.displayed_pass_count = self.pass_count;
@@ -121,8 +131,13 @@ impl NativeWindowPerformanceHud {
     fn overlay(&self, dimensions: WindowFrameDimensions) -> Value {
         let fps = self.displayed_fps;
         let frame_ms = self.displayed_frame_time.as_secs_f64() * 1_000.0;
+        let performance_line = if self.displayed_active {
+            format!("FPS {:>5.1}   FRAME {:>5.2} ms", fps, frame_ms)
+        } else {
+            format!("FPS  IDLE   FRAME {:>5.2} ms", frame_ms)
+        };
         let lines = [
-            format!("FPS {:>5.1}   FRAME {:>5.2} ms", fps, frame_ms),
+            performance_line,
             format!(
                 "DRAW {:>4}   PASS {:>2}   BATCH {:>3}",
                 self.displayed_command_count, self.displayed_pass_count, self.displayed_batch_count
@@ -236,5 +251,38 @@ mod tests {
             .unwrap();
 
         assert_eq!(first, second);
+    }
+
+    #[test]
+    fn excludes_event_driven_idle_gaps_from_active_fps_samples() {
+        let mut hud = NativeWindowPerformanceHud::default();
+        hud.last_presented_at = Some(Instant::now() - Duration::from_secs(1));
+
+        hud.record_frame(Duration::from_millis(8), 12, 1, 3);
+
+        assert!(hud.frame_intervals.is_empty());
+        assert_eq!(hud.displayed_fps, 0.0);
+        assert!(!hud.displayed_active);
+
+        let idle_frame = hud
+            .inject(
+                r#"{"view":{"ui":{"overlays":[]}}}"#,
+                WindowFrameDimensions {
+                    logical_width: 960.0,
+                    logical_height: 540.0,
+                    physical_size: winit::dpi::PhysicalSize::new(1920, 1080),
+                    device_pixel_ratio: 2.0,
+                },
+            )
+            .unwrap();
+        assert!(idle_frame.contains("FPS  IDLE"));
+
+        hud.last_hud_refresh_at = Some(Instant::now() - HUD_REFRESH_INTERVAL);
+        hud.last_presented_at = Some(Instant::now() - Duration::from_millis(16));
+        hud.record_frame(Duration::from_millis(8), 12, 1, 3);
+
+        assert_eq!(hud.frame_intervals.len(), 1);
+        assert!(hud.displayed_active);
+        assert!((40.0..=80.0).contains(&hud.displayed_fps));
     }
 }

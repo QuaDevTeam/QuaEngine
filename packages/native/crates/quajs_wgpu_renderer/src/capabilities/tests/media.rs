@@ -9,6 +9,7 @@ fn image_capability_declares_image_fit_and_origin_features() {
 
     assert!(image.qss_features.contains(&"object-fit".to_string()));
     assert!(image.qss_features.contains(&"object-position".to_string()));
+    assert!(image.qss_features.contains(&"filter".to_string()));
     assert!(image.qui_components.contains(&"Image".to_string()));
     assert!(!image.qui_components.contains(&"Layer".to_string()));
     assert!(!image.qui_components.contains(&"Video".to_string()));

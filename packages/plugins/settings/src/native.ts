@@ -554,6 +554,7 @@ function createSwitchControlNodes(
           blurRadius: 10,
           spreadRadius: 0,
           color: 'rgba(0,0,0,0.36)',
+          inset: false,
         },
       },
     }),
@@ -708,6 +709,7 @@ function panelShadow() {
     blurRadius: 48,
     spreadRadius: 0,
     color: 'rgba(0,0,0,0.42)',
+    inset: false,
   }
 }
 
@@ -718,6 +720,7 @@ function titleShadow() {
     blurRadius: 10,
     spreadRadius: 0,
     color: 'rgba(0,0,0,0.72)',
+    inset: false,
   }
 }
 

@@ -8,7 +8,7 @@ use winit::window::Window;
 
 use super::config::{
     load_window_smoke_target_frame_count, native_window_dev_enabled,
-    native_window_interaction_probe_enabled,
+    native_window_interaction_probe_enabled, native_window_title,
 };
 use super::error::NativeWindowSmokeError;
 use super::frame::{frame_json_for_window, normalized_physical_size, window_frame_dimensions};
@@ -100,11 +100,7 @@ impl NativeWindowSmokeApp {
             event_loop
                 .create_window(
                     Window::default_attributes()
-                        .with_title(if native_window_dev_enabled() {
-                            "Qua Native Renderer Dev"
-                        } else {
-                            "Qua Native Renderer Smoke"
-                        })
+                        .with_title(native_window_title())
                         .with_inner_size(LogicalSize::new(960.0, 540.0)),
                 )
                 .map_err(|error| {

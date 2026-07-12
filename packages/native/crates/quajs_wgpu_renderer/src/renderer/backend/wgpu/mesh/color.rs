@@ -19,6 +19,33 @@ impl WgpuNativeRenderColor {
         b: 1.0,
         a: 1.0,
     };
+
+    pub(in crate::renderer::backend::wgpu) fn to_linear_rgba(self) -> [f32; 4] {
+        [
+            srgb_channel_to_linear(self.r),
+            srgb_channel_to_linear(self.g),
+            srgb_channel_to_linear(self.b),
+            self.a.clamp(0.0, 1.0),
+        ]
+    }
+}
+
+impl WgpuNativeRenderPaintColor {
+    pub(in crate::renderer::backend::wgpu) fn to_linear_rgba(self) -> [f32; 4] {
+        match self {
+            Self::Rgba(color) => color.to_linear_rgba(),
+            Self::CurrentColor => WgpuNativeRenderColor::WHITE.to_linear_rgba(),
+        }
+    }
+}
+
+fn srgb_channel_to_linear(channel: f32) -> f32 {
+    let channel = channel.clamp(0.0, 1.0);
+    if channel <= 0.04045 {
+        channel / 12.92
+    } else {
+        ((channel + 0.055) / 1.055).powf(2.4)
+    }
 }
 
 pub(super) fn parse_color_literal(literal: &str) -> Option<WgpuNativeRenderPaintColor> {

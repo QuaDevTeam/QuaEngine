@@ -7,7 +7,7 @@ use super::super::color::color_to_rgba;
 use super::super::geometry::WgpuNativeRenderBufferGeometry;
 use super::super::text_geometry::text_placeholder_geometry;
 use super::super::types::{WgpuNativeRenderBufferVertex, WgpuNativeRenderDrawCall};
-use super::append_geometry_buffers;
+use super::{append_prepared_geometry_buffers, prepare_text_blur_geometry};
 use crate::fonts::FontBackendAtlasLayoutMap;
 use crate::resources::ResourceId;
 
@@ -27,6 +27,7 @@ pub(in crate::renderer::backend::wgpu::buffer) fn append_text_overlay_buffers(
         return;
     };
 
+    let geometry = prepare_text_blur_geometry(geometry, overlay.style.blur_radius as f32);
     let physical_bounds = geometry.physical_bounds;
     let first_vertex = vertices.len() as u32;
     let first_index = indices.len() as u32;
@@ -41,14 +42,15 @@ pub(in crate::renderer::backend::wgpu::buffer) fn append_text_overlay_buffers(
         paint,
         opacity: quad.opacity,
         corner_radius: 0.0,
-        shadow_blur_radius: 0.0,
+        effect0: [0.0; 4],
+        effect1: [0.0; 4],
         border: None,
         text_overlay: None,
         owner_package_id: quad.owner_package_id.clone(),
         required_package_ids: quad.required_package_ids.clone(),
         resource_ids: atlas_resource_id.into_iter().collect(),
     };
-    append_geometry_buffers(geometry, vertices, indices);
+    append_prepared_geometry_buffers(geometry, vertices, indices);
     draw_calls.push(WgpuNativeRenderDrawCall::from_quad_range(
         &overlay_quad,
         first_vertex,

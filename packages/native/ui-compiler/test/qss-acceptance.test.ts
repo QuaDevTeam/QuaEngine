@@ -65,12 +65,13 @@ const qssAcceptanceCases: Record<string, QssAcceptanceCase> = {
   },
   'box-shadow': {
     validDeclarations: ['box-shadow: 0 18px 48px 2px rgba(0,0,0,0.32)'],
-    invalidDeclaration: 'box-shadow: inset 0 4px 12px #000',
+    invalidDeclaration: 'box-shadow: 0 4px 12px #000, 0 8px 20px #000',
     expected: {
       style: {
         boxShadow: {
           blurRadius: 48,
           color: 'rgba(0,0,0,0.32)',
+          inset: false,
           offsetX: 0,
           offsetY: 18,
           spreadRadius: 2,
@@ -103,6 +104,11 @@ const qssAcceptanceCases: Record<string, QssAcceptanceCase> = {
     validDeclarations: ['display: none'],
     invalidDeclaration: 'display: block',
     expected: { style: {}, visible: false },
+  },
+  'filter': {
+    validDeclarations: ['filter: brightness(46%) saturate(0.88)'],
+    invalidDeclaration: 'filter: blur(8px)',
+    expected: { style: { filter: { brightness: 0.46, saturate: 0.88 } } },
   },
   'font-family': {
     validDeclarations: ['font-family: "Inter", system-ui'],
@@ -292,6 +298,7 @@ const qssAcceptanceCases: Record<string, QssAcceptanceCase> = {
         textShadow: {
           blurRadius: 10,
           color: 'rgba(0,0,0,0.72)',
+          inset: false,
           offsetX: 0,
           offsetY: 2,
           spreadRadius: 0,
@@ -303,6 +310,85 @@ const qssAcceptanceCases: Record<string, QssAcceptanceCase> = {
     validDeclarations: ['text-transform: uppercase'],
     invalidDeclaration: 'text-transform: titlecase',
     expected: { style: { textTransform: 'uppercase' } },
+  },
+  'transform': {
+    validDeclarations: ['transform: translate(12px, -4px) scale(1.5, 0.5)'],
+    invalidDeclaration: 'transform: rotate(45deg)',
+    expected: {
+      layout: {
+        transform: {
+          originX: 0.5,
+          originY: 0.5,
+          scaleX: 1.5,
+          scaleY: 0.5,
+          translateX: 12,
+          translateY: -4,
+        },
+      },
+      style: {},
+    },
+  },
+  'transform-origin': {
+    validDeclarations: ['transform-origin: right bottom'],
+    invalidDeclaration: 'transform-origin: 120% center',
+    expected: {
+      layout: {
+        transform: {
+          originX: 1,
+          originY: 1,
+          scaleX: 1,
+          scaleY: 1,
+          translateX: 0,
+          translateY: 0,
+        },
+      },
+      style: {},
+    },
+  },
+  'transition': {
+    validDeclarations: ['transition: transform 180ms ease-out, background-color 0.16s ease'],
+    invalidDeclaration: 'transition: transform 8s spring',
+    expected: {
+      style: {},
+      transitions: [
+        { durationMs: 180, easing: 'ease-out', property: 'transform' },
+        { durationMs: 160, easing: 'ease', property: 'background-color' },
+      ],
+    },
+  },
+  'translate': {
+    validDeclarations: ['translate: 10px -3px'],
+    invalidDeclaration: 'translate: calc(1px) 0',
+    expected: {
+      layout: {
+        transform: {
+          originX: 0.5,
+          originY: 0.5,
+          scaleX: 1,
+          scaleY: 1,
+          translateX: 10,
+          translateY: -3,
+        },
+      },
+      style: {},
+    },
+  },
+  'scale': {
+    validDeclarations: ['scale: 1.25 0.75'],
+    invalidDeclaration: 'scale: -1',
+    expected: {
+      layout: {
+        transform: {
+          originX: 0.5,
+          originY: 0.5,
+          scaleX: 1.25,
+          scaleY: 0.75,
+          translateX: 0,
+          translateY: 0,
+        },
+      },
+      style: {},
+    },
   },
   'top': {
     validDeclarations: ['top: -4px'],

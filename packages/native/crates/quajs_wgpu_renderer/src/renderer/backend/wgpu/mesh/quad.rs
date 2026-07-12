@@ -3,6 +3,7 @@ use crate::resources::ResourceId;
 
 use super::super::physical::WgpuPhysicalRect;
 use super::super::primitive::{WgpuNativeRenderPrimitive, WgpuNativeRenderPrimitiveKind};
+use super::color::parse_color_literal;
 use super::geometry::primitive_geometry;
 use super::paint::{
     paint_from_primitive, WgpuNativeRenderPaint, WgpuNativeRenderQuadBorder,
@@ -25,7 +26,8 @@ pub struct WgpuNativeRenderQuad {
     pub paint: WgpuNativeRenderPaint,
     pub opacity: f32,
     pub corner_radius: f32,
-    pub shadow_blur_radius: f32,
+    pub effect0: [f32; 4],
+    pub effect1: [f32; 4],
     pub border: Option<WgpuNativeRenderQuadBorder>,
     pub text_overlay: Option<WgpuNativeRenderTextOverlay>,
     pub owner_package_id: Option<String>,
@@ -44,6 +46,26 @@ impl WgpuNativeRenderQuad {
                 _ => {}
             }
         }
+        if let WgpuNativeRenderPrimitiveKind::Shadow {
+            source_offset_x,
+            source_offset_y,
+            source_width,
+            source_height,
+            ..
+        } = &primitive.kind
+        {
+            let source_width = (*source_width as f32).max(1.0);
+            let source_height = (*source_height as f32).max(1.0);
+            let source_x = primitive.physical_bounds.x as f32 + *source_offset_x as f32;
+            let source_y = primitive.physical_bounds.y as f32 + *source_offset_y as f32;
+            for vertex in &mut geometry.vertices {
+                vertex.uv = [
+                    (vertex.position[0] - source_x) / source_width,
+                    (vertex.position[1] - source_y) / source_height,
+                ];
+            }
+        }
+        let (effect0, effect1) = effect_params_from_primitive(primitive);
 
         Self {
             command_id: primitive.command_id.clone(),
@@ -56,7 +78,8 @@ impl WgpuNativeRenderQuad {
             paint,
             opacity: opacity_from_primitive(primitive),
             corner_radius,
-            shadow_blur_radius: shadow_blur_radius_from_primitive(primitive),
+            effect0,
+            effect1,
             border,
             text_overlay,
             owner_package_id: primitive.owner_package_id.clone(),
@@ -71,6 +94,74 @@ impl WgpuNativeRenderQuad {
             && self.opacity > 0.0
             && self.paint.is_drawable()
             && !self.paint.has_invalid_color()
+    }
+}
+
+fn effect_params_from_primitive(primitive: &WgpuNativeRenderPrimitive) -> ([f32; 4], [f32; 4]) {
+    match &primitive.kind {
+        WgpuNativeRenderPrimitiveKind::Shadow {
+            offset_x,
+            offset_y,
+            source_width,
+            source_height,
+            blur_radius,
+            spread_radius,
+            corner_radius,
+            inset,
+            ..
+        } => (
+            [
+                if *inset { 2.0 } else { 1.0 },
+                (*blur_radius as f32 * 0.5).max(0.0),
+                (*corner_radius as f32).max(0.0),
+                *spread_radius as f32,
+            ],
+            [
+                *offset_x as f32,
+                *offset_y as f32,
+                (*source_width as f32).max(1.0),
+                -(*source_height as f32).max(1.0),
+            ],
+        ),
+        WgpuNativeRenderPrimitiveKind::Gradient {
+            kind,
+            end_color,
+            angle_degrees,
+            center_x,
+            center_y,
+            radius,
+            ..
+        } => {
+            let end_color = parse_color_literal(end_color)
+                .map(|color| color.to_linear_rgba())
+                .unwrap_or([0.0; 4]);
+            let parameters = match kind {
+                crate::render_graph::GradientDrawKind::Linear => {
+                    let radians = angle_degrees.to_radians();
+                    [radians.sin() as f32, -radians.cos() as f32, 0.0, 4.0]
+                }
+                crate::render_graph::GradientDrawKind::Radial => [
+                    *center_x as f32,
+                    *center_y as f32,
+                    (*radius as f32).max(0.0001),
+                    5.0,
+                ],
+            };
+            (end_color, parameters)
+        }
+        WgpuNativeRenderPrimitiveKind::Image {
+            brightness,
+            saturation,
+            ..
+        } if (*brightness - 1.0).abs() > f64::EPSILON
+            || (*saturation - 1.0).abs() > f64::EPSILON =>
+        {
+            (
+                [*brightness as f32, *saturation as f32, 0.0, 0.0],
+                [1.0, 0.0, 0.0, 0.0],
+            )
+        }
+        _ => ([0.0; 4], [0.0; 4]),
     }
 }
 
@@ -89,15 +180,6 @@ fn apply_triangle_vertices(vertices: &mut [WgpuNativeRenderVertex; 4], points_up
     vertices[1].position = [right, edge_y];
     vertices[2].position = [center_x, point_y];
     vertices[3] = vertices[2];
-}
-
-fn shadow_blur_radius_from_primitive(primitive: &WgpuNativeRenderPrimitive) -> f32 {
-    match &primitive.kind {
-        WgpuNativeRenderPrimitiveKind::Panel {
-            shadow_blur_radius, ..
-        } => *shadow_blur_radius as f32,
-        _ => 0.0,
-    }
 }
 
 fn opacity_from_primitive(primitive: &WgpuNativeRenderPrimitive) -> f32 {

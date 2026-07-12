@@ -12,13 +12,17 @@ pub use projection::UiProjection;
 pub use surface::{
     UiSurfaceBackgroundPositionProjection, UiSurfaceBorderStyleProjection,
     UiSurfaceControlOptionProjection, UiSurfaceControlProjection, UiSurfaceEdgeInsetsProjection,
-    UiSurfaceFontStyleProjection, UiSurfaceImageProjection, UiSurfaceNodeKind,
-    UiSurfaceNodeProjection, UiSurfaceNodeRect, UiSurfaceObjectFitProjection,
+    UiSurfaceFilterProjection, UiSurfaceFontStyleProjection, UiSurfaceGradientKindProjection,
+    UiSurfaceGradientProjection, UiSurfaceImageProjection, UiSurfaceNodeKind,
+    UiSurfaceNodeProjection, UiSurfaceNodeRect, UiSurfaceNodeStateProjection,
+    UiSurfaceObjectFitProjection, UiSurfacePseudoStateProjection,
     UiSurfaceRangeControlPartsProjection, UiSurfaceResolvedStyle,
     UiSurfaceSelectControlPartsProjection, UiSurfaceShadowProjection,
     UiSurfaceSwitchControlPartsProjection, UiSurfaceTextAlignProjection,
     UiSurfaceTextDecorationProjection, UiSurfaceTextOverflowProjection,
-    UiSurfaceTextTransformProjection, UiSurfaceWhiteSpaceProjection,
+    UiSurfaceTextTransformProjection, UiSurfaceTransitionEasingProjection,
+    UiSurfaceTransitionProjection, UiSurfaceTransitionPropertyProjection,
+    UiSurfaceWhiteSpaceProjection,
 };
 
 fn default_image_asset_type() -> String {

@@ -2,7 +2,12 @@ import type {
   NativeQuiActionArgumentValue,
   NativeQuiActionEvent,
 } from './types'
-import type { NativeQssBackgroundImageValue, NativeQssResolvedStyle } from './qss-types'
+import type {
+  NativeQssBackgroundImageValue,
+  NativeQssInteractivePseudoState,
+  NativeQssResolvedStyle,
+  NativeQssTransitionValue,
+} from './qss-types'
 
 export interface NativeUiSurfaceProjection {
   root?: NativeUiSurfaceNodeProjection
@@ -104,7 +109,14 @@ export interface NativeUiSurfaceNodeProjection {
   scrollOffsetX?: number
   scrollOffsetY?: number
   style?: NativeQssResolvedStyle
+  stateStyles?: Partial<Record<NativeQssInteractivePseudoState, NativeUiSurfaceNodeStateProjection>>
   text?: string
+  transitions?: NativeQssTransitionValue[]
   visible: boolean
   zIndex?: number
+}
+
+export interface NativeUiSurfaceNodeStateProjection {
+  bounds: NativeUiSurfaceRect
+  style: NativeQssResolvedStyle
 }

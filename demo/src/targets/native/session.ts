@@ -24,7 +24,7 @@ import {
   stageWebParityScene,
 } from './scenes'
 
-export type NativeDemoFixture = NativeDemoPanel | 'effects' | 'interactive' | 'parity' | 'transition' | 'typewriter'
+export type NativeDemoFixture = NativeDemoPanel | 'effects' | 'interactive' | 'menu' | 'parity' | 'transition' | 'typewriter'
 
 export interface DemoNativeSession {
   connectPipelineBridge: (bridge: NativeQuickJsPipelineBridge) => () => void
@@ -60,14 +60,14 @@ export async function createDemoNativeSession(fixture?: string): Promise<DemoNat
     },
     systemLocale: 'zh-cn',
   })
-  const interactiveStory = fixture === undefined || fixture === 'interactive'
+  const interactiveStory = fixture === undefined || fixture === 'interactive' || fixture === 'menu'
   configureCharacterRuntime({ engine: runtime.engine, waitForAdvance: interactiveStory ? true : false })
 
   if (fixture === 'parity') {
     await stageWebParityScene(runtime)
   }
   else if (interactiveStory) {
-    await runtime.background.setBackground('backgrounds/blackout-city.jpg', { fit: 'cover' })
+    await runtime.background.setBackground('ui/menu-route.jpg', { fit: 'cover' })
     await runtime.engine.showUI('native-main-menu', createNativeMainMenuSurface())
   }
   else {

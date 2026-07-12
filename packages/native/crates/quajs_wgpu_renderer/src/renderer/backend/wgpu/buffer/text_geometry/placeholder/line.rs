@@ -196,6 +196,7 @@ mod tests {
             text_overflow: TextOverflowDrawParam::Clip,
             text_transform: TextTransformDrawParam::None,
             white_space: WhiteSpaceDrawParam::Normal,
+            blur_radius: 0.0,
             padding: EdgeInsetsDrawParam::default(),
         }
     }

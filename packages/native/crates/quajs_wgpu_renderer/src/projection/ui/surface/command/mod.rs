@@ -3,8 +3,8 @@ mod clip;
 mod nodes;
 
 use crate::render_graph::{
-    BorderDrawParams, DrawCommand, DrawCommandKind, DrawCommandParams, EdgeInsetsDrawParam,
-    LogicalRect, PanelDrawParams, RenderPlane, RendererIntent,
+    DrawCommand, DrawCommandKind, DrawCommandParams, LogicalRect, RenderPlane, RendererIntent,
+    ShadowDrawParams, ShadowDrawStyle,
 };
 
 use super::super::types::{UiOverlayProjection, UiSurfaceNodeKind, UiSurfaceNodeProjection};
@@ -15,8 +15,12 @@ use nodes::{
     button_node_command, image_node_command, surface_panel_node_command, text_node_command,
 };
 
-pub(super) use background::surface_background_image_command;
+pub(super) use background::{
+    surface_background_gradient_command, surface_background_image_command,
+};
 pub(super) use clip::scroll_clip_command;
+
+const MAX_NATIVE_SHADOW_BLUR_RADIUS: f64 = 256.0;
 
 pub(super) fn surface_box_shadow_commands(
     overlay: &UiOverlayProjection,
@@ -25,6 +29,7 @@ pub(super) fn surface_box_shadow_commands(
     clip_bounds: &[LogicalRect],
     offset: SurfaceNodeOffset,
     effective_opacity: f32,
+    style: ShadowDrawStyle,
 ) -> Vec<DrawCommand> {
     if !matches!(
         node.kind,
@@ -39,14 +44,34 @@ pub(super) fn surface_box_shadow_commands(
     let Some(shadow) = node.style.box_shadow.as_ref() else {
         return Vec::new();
     };
+    if shadow.inset != matches!(style, ShadowDrawStyle::Inset) {
+        return Vec::new();
+    }
     let bounds = node_rect(node.bounds, offset);
-    let blur_radius = shadow.blur_radius.max(0.0);
-    let expansion = shadow.spread_radius.max(0.0) + blur_radius;
-    let shadow_bounds = LogicalRect {
-        x: bounds.x + shadow.offset_x - expansion,
-        y: bounds.y + shadow.offset_y - expansion,
-        width: bounds.width + expansion * 2.0,
-        height: bounds.height + expansion * 2.0,
+    let blur_radius = shadow.blur_radius.clamp(0.0, MAX_NATIVE_SHADOW_BLUR_RADIUS);
+    let spread_radius = shadow.spread_radius;
+    let shadow_shape = LogicalRect {
+        x: bounds.x + shadow.offset_x - spread_radius,
+        y: bounds.y + shadow.offset_y - spread_radius,
+        width: bounds.width + spread_radius * 2.0,
+        height: bounds.height + spread_radius * 2.0,
+    };
+    if shadow_shape.is_empty() {
+        return Vec::new();
+    }
+    // Chromium maps CSS blur radius to sigma ~= radius / 2 and keeps roughly
+    // three sigma of the transition. This bounds the analytic draw while
+    // retaining the visible tail of the Gaussian profile.
+    let blur_extent = blur_radius * 1.5;
+    let shadow_bounds = if shadow.inset {
+        bounds
+    } else {
+        LogicalRect {
+            x: shadow_shape.x - blur_extent,
+            y: shadow_shape.y - blur_extent,
+            width: shadow_shape.width + blur_extent * 2.0,
+            height: shadow_shape.height + blur_extent * 2.0,
+        }
     };
     let command = DrawCommand::new(
         format!("ui:{}:{}:box-shadow", overlay.element_id, node.id),
@@ -54,17 +79,21 @@ pub(super) fn surface_box_shadow_commands(
         DrawCommandKind::RoundedRect,
         shadow_bounds,
     )
-    .z_index(z_base.saturating_add(node.z_index).saturating_sub(1))
+    // Keep the shadow in the node's paint layer; RenderGraph's stable sort
+    // preserves outer-shadow -> fill -> inset-shadow insertion order.
+    .z_index(z_base.saturating_add(node.z_index))
     .opacity(effective_opacity)
     .clip_bounds(clip_bounds.iter().copied())
-    .params(DrawCommandParams::Panel(PanelDrawParams {
+    .params(DrawCommandParams::Shadow(ShadowDrawParams {
         role: "ui-box-shadow".to_string(),
-        corner_radius: super::super::style::resolve_border_radius(&node.style, 0.0) + expansion,
-        shadow_blur_radius: blur_radius,
-        fill_color: shadow.color.clone(),
-        border: BorderDrawParams::default(),
-        padding: EdgeInsetsDrawParam::default(),
-        intent: None,
+        source_bounds: bounds,
+        offset_x: shadow.offset_x,
+        offset_y: shadow.offset_y,
+        blur_radius,
+        spread_radius,
+        corner_radius: super::super::style::resolve_border_radius(&node.style, 0.0),
+        color: shadow.color.clone(),
+        style,
     }));
     let command = apply_provenance(command, &overlay.provenance);
     vec![apply_provenance(command, &node.provenance)]
@@ -87,16 +116,22 @@ pub(super) fn surface_text_shadow_commands(
     let Some(shadow) = node.style.text_shadow.as_ref() else {
         return Vec::new();
     };
+    if shadow.inset || shadow.spread_radius != 0.0 {
+        return Vec::new();
+    }
     let bounds = node_rect(node.bounds, offset);
     let kind = if node.kind == UiSurfaceNodeKind::RichText {
         DrawCommandKind::RichText
     } else {
         DrawCommandKind::Text
     };
+    let blur_radius = shadow.blur_radius.clamp(0.0, MAX_NATIVE_SHADOW_BLUR_RADIUS);
+    let blur_extent = blur_radius * 1.5;
     let shadow_bounds = LogicalRect {
-        x: bounds.x + shadow.offset_x,
-        y: bounds.y + shadow.offset_y,
-        ..bounds
+        x: bounds.x + shadow.offset_x - blur_extent,
+        y: bounds.y + shadow.offset_y - blur_extent,
+        width: bounds.width + blur_extent * 2.0,
+        height: bounds.height + blur_extent * 2.0,
     };
     let Some(mut command) = text_node_command(
         node,
@@ -109,9 +144,14 @@ pub(super) fn surface_text_shadow_commands(
     };
     if let DrawCommandParams::Text(params) = &mut command.params {
         params.color = shadow.color.clone();
+        params.blur_radius = blur_radius;
+        params.padding.top += blur_extent;
+        params.padding.right += blur_extent;
+        params.padding.bottom += blur_extent;
+        params.padding.left += blur_extent;
     }
     command = command
-        .z_index(z_base.saturating_add(node.z_index).saturating_sub(1))
+        .z_index(z_base.saturating_add(node.z_index))
         .opacity(effective_opacity)
         .clip_bounds(clip_bounds.iter().copied());
     command = apply_provenance(command, &overlay.provenance);

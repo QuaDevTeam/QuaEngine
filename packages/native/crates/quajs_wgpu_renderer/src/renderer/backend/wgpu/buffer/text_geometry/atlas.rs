@@ -575,6 +575,8 @@ fn vertex(position: [f32; 2], uv: [f32; 2], color: [f32; 4]) -> WgpuNativeRender
         position,
         uv,
         color,
+        effect0: [0.0; 4],
+        effect1: [0.0; 4],
     }
 }
 
@@ -891,6 +893,7 @@ mod tests {
             text_overflow: TextOverflowDrawParam::Clip,
             text_transform: TextTransformDrawParam::None,
             white_space: WhiteSpaceDrawParam::Normal,
+            blur_radius: 0.0,
             padding: EdgeInsetsDrawParam::default(),
         }
     }

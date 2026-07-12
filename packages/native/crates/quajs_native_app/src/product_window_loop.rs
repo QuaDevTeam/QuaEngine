@@ -290,7 +290,14 @@ where
     }
 
     pub(crate) fn needs_more_frames(&self) -> bool {
-        self.state.needs_more_frames()
+        self.state.needs_more_frames() || self.has_active_interaction_transition()
+    }
+
+    pub(crate) fn has_active_interaction_transition(&self) -> bool {
+        self.runtime
+            .renderer()
+            .state()
+            .has_active_interaction_transition()
     }
 
     pub(crate) fn request_shutdown_after_next_frame(&mut self) {
@@ -353,9 +360,9 @@ where
                 product_frame.clone(),
             )
         })?;
-        let will_complete_target =
-            self.state.completed_frame_count.saturating_add(1) >= self.state.target_frame_count()
-                || self.state.shutdown_after_next_frame;
+        let will_complete_target = self.state.completed_frame_count.saturating_add(1)
+            >= self.state.target_frame_count()
+            || self.state.shutdown_after_next_frame;
         let shutdown = if will_complete_target {
             Some(
                 self.runtime

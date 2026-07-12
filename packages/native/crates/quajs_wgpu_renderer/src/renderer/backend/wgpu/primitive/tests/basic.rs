@@ -52,6 +52,8 @@ fn lowers_execution_draws_into_wgpu_primitives() {
                 origin: MediaOrigin::default(),
                 source: LogicalRect::default(),
                 rotation_degrees: 0.0,
+                brightness: 1.0,
+                saturation: 1.0,
             })),
             physical_bounds: physical_rect(0, 0, 1280, 720),
             clip_depth: 0,
@@ -116,12 +118,16 @@ fn lowers_execution_draws_into_wgpu_primitives() {
             origin,
             source,
             rotation_degrees,
+            brightness,
+            saturation,
         } if asset_type == "images"
             && asset_name == "bg/school.png"
             && *fit == MediaFit::Cover
             && origin == &MediaOrigin::default()
             && source == &LogicalRect::default()
             && *rotation_degrees == 0.0
+            && *brightness == 1.0
+            && *saturation == 1.0
     ));
     assert_eq!(
         image.resource_ids,

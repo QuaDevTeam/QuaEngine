@@ -71,12 +71,16 @@ pub(in super::super) fn validate_draw(
                 format!("draw '{}' index byte range overflows", draw.command_id),
             )
         })?;
-    let required_vertex_bytes = (vertex_end as usize).checked_mul(32).ok_or_else(|| {
-        WgpuNativeRenderRuntimeError::new(
-            WgpuNativeRenderRuntimeErrorKind::InvalidOperationOrder,
-            format!("draw '{}' vertex byte range overflows", draw.command_id),
-        )
-    })?;
+    let required_vertex_bytes = (vertex_end as usize)
+        .checked_mul(std::mem::size_of::<
+            crate::renderer::backend::wgpu::buffer::WgpuNativeRenderBufferVertex,
+        >())
+        .ok_or_else(|| {
+            WgpuNativeRenderRuntimeError::new(
+                WgpuNativeRenderRuntimeErrorKind::InvalidOperationOrder,
+                format!("draw '{}' vertex byte range overflows", draw.command_id),
+            )
+        })?;
     if required_index_bytes > index_buffer.byte_len {
         return invalid_order(format!(
             "draw '{}' index range requires {required_index_bytes} bytes, but index buffer has {}",

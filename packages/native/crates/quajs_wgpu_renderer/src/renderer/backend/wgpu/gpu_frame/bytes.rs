@@ -12,6 +12,8 @@ pub(super) fn vertex_bytes(vertices: &[WgpuNativeRenderBufferVertex]) -> Vec<u8>
             .iter()
             .chain(vertex.uv.iter())
             .chain(vertex.color.iter())
+            .chain(vertex.effect0.iter())
+            .chain(vertex.effect1.iter())
         {
             bytes.extend_from_slice(&value.to_le_bytes());
         }

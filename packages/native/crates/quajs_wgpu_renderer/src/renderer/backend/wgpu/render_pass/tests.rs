@@ -281,6 +281,8 @@ fn vertex(x: f32, y: f32) -> WgpuNativeRenderBufferVertex {
         position: [x, y],
         uv: [0.0, 0.0],
         color: [1.0, 1.0, 1.0, 1.0],
+        effect0: [0.0; 4],
+        effect1: [0.0; 4],
     }
 }
 

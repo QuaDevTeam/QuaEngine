@@ -137,6 +137,7 @@ fn text_style(
         text_overflow: TextOverflowDrawParam::Clip,
         text_transform: TextTransformDrawParam::None,
         white_space: WhiteSpaceDrawParam::Normal,
+        blur_radius: 0.0,
         padding,
     }
 }
@@ -155,6 +156,7 @@ fn rich_text_style() -> WgpuNativeRenderTextStyle {
         text_overflow: TextOverflowDrawParam::Ellipsis,
         text_transform: TextTransformDrawParam::Uppercase,
         white_space: WhiteSpaceDrawParam::NoWrap,
+        blur_radius: 0.0,
         padding: EdgeInsetsDrawParam {
             top: 2.0,
             right: 8.0,
@@ -185,6 +187,8 @@ fn _draw_param_compile_guard() {
         origin: MediaOrigin::default(),
         source: LogicalRect::default(),
         rotation_degrees: 0.0,
+        brightness: 1.0,
+        saturation: 1.0,
     });
     let _ = DrawCommandParams::Text(TextDrawParams {
         text: "x".to_string(),
@@ -200,13 +204,13 @@ fn _draw_param_compile_guard() {
         text_transform: TextTransformDrawParam::None,
         white_space: WhiteSpaceDrawParam::Normal,
         color: "#fff".to_string(),
+        blur_radius: 0.0,
         padding: EdgeInsetsDrawParam::default(),
         role: "body".to_string(),
     });
     let _ = DrawCommandParams::Panel(PanelDrawParams {
         role: "panel".to_string(),
         corner_radius: 0.0,
-        shadow_blur_radius: 0.0,
         fill_color: "#000".to_string(),
         border: BorderDrawParams::default(),
         padding: EdgeInsetsDrawParam::default(),

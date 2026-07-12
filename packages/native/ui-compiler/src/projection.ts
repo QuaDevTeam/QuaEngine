@@ -1,5 +1,6 @@
 import type {
   NativeQssDocument,
+  NativeQssResolvedNodeStyle,
   NativePackageProvenance,
   NativeQuiAstNode,
   NativeQuiDocument,
@@ -133,7 +134,16 @@ function surfaceNodeFromQuiNode(
 
   const resolvedStyle = resolveStyleForNode({ node, ancestors: context.ancestors }, qssDocuments)
   const resolveNumberProp = scopedNumberPropResolver(context.scope)
-  const rect = rectFromProps(node.props, resolvedStyle.bounds, context.parentBounds, resolveNumberProp)
+  const untransformedRect = rectFromProps(
+    node.props,
+    resolvedStyle.bounds,
+    context.parentBounds,
+    resolveNumberProp,
+  )
+  const rect = applyResolvedTransform(
+    untransformedRect,
+    resolvedStyle.layout?.transform,
+  )
   const childContext: QuiProjectionContext = {
     ...context,
     ancestors: [...context.ancestors, node],
@@ -170,12 +180,39 @@ function surfaceNodeFromQuiNode(
     image,
     intent,
     style: resolvedStyle.style,
+    stateStyles: resolvedStyle.stateStyles
+      ? Object.fromEntries(Object.entries(resolvedStyle.stateStyles).map(([state, stateStyle]) => [
+          state,
+          {
+            bounds: applyResolvedTransform(untransformedRect, stateStyle?.layout?.transform),
+            style: stateStyle?.style || {},
+          },
+        ]))
+      : undefined,
+    transitions: resolvedStyle.transitions,
     compilerLayout: resolvedStyle.layout,
     ...(provenance ? { provenance } : {}),
     children,
   }
 
   return [pruneSurfaceNode(surfaceNode) as NativeUiCompilerSurfaceNodeProjection]
+}
+
+function applyResolvedTransform(
+  rect: NativeUiSurfaceRect,
+  transform: NonNullable<NativeQssResolvedNodeStyle['layout']>['transform'],
+): NativeUiSurfaceRect {
+  if (!transform)
+    return rect
+
+  const width = rect.width * transform.scaleX
+  const height = rect.height * transform.scaleY
+  return {
+    x: rect.x + transform.translateX + (rect.width - width) * transform.originX,
+    y: rect.y + transform.translateY + (rect.height - height) * transform.originY,
+    width,
+    height,
+  }
 }
 
 function surfaceNodesFromQuiSlot(

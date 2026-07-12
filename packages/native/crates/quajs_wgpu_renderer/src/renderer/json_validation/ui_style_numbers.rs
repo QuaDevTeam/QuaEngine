@@ -17,25 +17,114 @@ pub(super) fn invalid_native_json_ui_style_number_reason(
     validate_optional_opacity("opacity", style.opacity)
         .or_else(|| validate_background_position(style.background_position))
         .or_else(|| validate_object_position(style.object_position))
+        .or_else(|| validate_gradient(style.background_gradient.as_ref()))
+        .or_else(|| validate_filter(style.filter))
         .or_else(|| validate_optional_logical_value("borderRadius", style.border_radius))
         .or_else(|| validate_optional_logical_value("borderWidth", style.border_width))
         .or_else(|| validate_optional_logical_value("fontSize", style.font_size))
         .or_else(|| validate_optional_logical_value("letterSpacing", style.letter_spacing))
         .or_else(|| validate_optional_logical_value("lineHeight", style.line_height))
-        .or_else(|| validate_shadow("boxShadow", style.box_shadow.as_ref()))
-        .or_else(|| validate_shadow("textShadow", style.text_shadow.as_ref()))
+        .or_else(|| validate_box_shadow(style.box_shadow.as_ref()))
+        .or_else(|| validate_text_shadow(style.text_shadow.as_ref()))
         .or_else(|| validate_padding(style.padding))
 }
 
-fn validate_shadow(
-    field: &'static str,
+fn validate_gradient(
+    gradient: Option<&crate::projection::ui::UiSurfaceGradientProjection>,
+) -> Option<(&'static str, String, String)> {
+    let gradient = gradient?;
+    match gradient.kind {
+        crate::projection::ui::UiSurfaceGradientKindProjection::Linear => {
+            let angle = gradient.angle_degrees?;
+            if !angle.is_finite() || angle.abs() > 360_000.0 {
+                return Some((
+                    "backgroundGradient.angleDegrees",
+                    angle.to_string(),
+                    "UI linear gradient angle must be finite and bounded".to_string(),
+                ));
+            }
+        }
+        crate::projection::ui::UiSurfaceGradientKindProjection::Radial => {
+            for (field, value) in [
+                ("backgroundGradient.centerX", gradient.center_x?),
+                ("backgroundGradient.centerY", gradient.center_y?),
+            ] {
+                if !value.is_finite() || !(0.0..=1.0).contains(&value) {
+                    return Some((
+                        field,
+                        value.to_string(),
+                        "UI radial gradient center must be finite and normalized to 0..=1"
+                            .to_string(),
+                    ));
+                }
+            }
+            let radius = gradient.radius?;
+            if !radius.is_finite() || radius <= 0.0 || radius > 2.0 {
+                return Some((
+                    "backgroundGradient.radius",
+                    radius.to_string(),
+                    "UI radial gradient radius must be finite, positive, and at most 2".to_string(),
+                ));
+            }
+        }
+    }
+    None
+}
+
+fn validate_filter(
+    filter: Option<crate::projection::ui::UiSurfaceFilterProjection>,
+) -> Option<(&'static str, String, String)> {
+    let filter = filter?;
+    for (field, value) in [
+        ("filter.brightness", filter.brightness),
+        ("filter.saturate", filter.saturate),
+    ] {
+        if !value.is_finite() || !(0.0..=8.0).contains(&value) {
+            return Some((
+                field,
+                value.to_string(),
+                "UI image filter values must be finite and between 0 and 8".to_string(),
+            ));
+        }
+    }
+    None
+}
+
+fn validate_box_shadow(
     shadow: Option<&UiSurfaceShadowProjection>,
 ) -> Option<(&'static str, String, String)> {
     let shadow = shadow?;
-    validate_coordinate_value(field, shadow.offset_x)
-        .or_else(|| validate_coordinate_value(field, shadow.offset_y))
-        .or_else(|| validate_logical_value(field, shadow.blur_radius))
-        .or_else(|| validate_logical_value(field, shadow.spread_radius))
+    validate_coordinate_value("boxShadow", shadow.offset_x)
+        .or_else(|| validate_coordinate_value("boxShadow", shadow.offset_y))
+        .or_else(|| validate_logical_value("boxShadow", shadow.blur_radius))
+        .or_else(|| validate_coordinate_value("boxShadow", shadow.spread_radius))
+}
+
+fn validate_text_shadow(
+    shadow: Option<&UiSurfaceShadowProjection>,
+) -> Option<(&'static str, String, String)> {
+    let shadow = shadow?;
+    validate_coordinate_value("textShadow", shadow.offset_x)
+        .or_else(|| validate_coordinate_value("textShadow", shadow.offset_y))
+        .or_else(|| validate_logical_value("textShadow", shadow.blur_radius))
+        .or_else(|| {
+            (shadow.spread_radius != 0.0).then(|| {
+                (
+                    "textShadow",
+                    shadow.spread_radius.to_string(),
+                    "UI text shadows do not support spreadRadius".to_string(),
+                )
+            })
+        })
+        .or_else(|| {
+            shadow.inset.then(|| {
+                (
+                    "textShadow",
+                    "true".to_string(),
+                    "UI text shadows do not support inset".to_string(),
+                )
+            })
+        })
 }
 
 fn validate_coordinate_value(

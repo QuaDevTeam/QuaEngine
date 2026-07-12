@@ -6,10 +6,7 @@ use crate::render_graph::EdgeInsetsDrawParam;
 use crate::renderer::backend::wgpu::WgpuPhysicalRect;
 
 pub(super) use rect::{physical_rect_from_float, rect_vertices, union_physical_rect};
-pub(super) use rounded::{
-    rounded_border_geometry, rounded_rect_geometry, rounded_rect_geometry_with_uv_bounds,
-    rounded_shadow_geometry,
-};
+pub(super) use rounded::{rounded_border_geometry, rounded_rect_geometry_with_uv_bounds};
 
 #[derive(Clone, Debug, PartialEq)]
 pub(super) struct WgpuNativeRenderBufferGeometry {
@@ -101,5 +98,7 @@ fn vertex_with_uv_bounds(
             uv_top_left[1] + (uv_bottom_right[1] - uv_top_left[1]) * v,
         ],
         color,
+        effect0: [0.0; 4],
+        effect1: [0.0; 4],
     }
 }

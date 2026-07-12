@@ -101,6 +101,71 @@ pub struct UiSurfaceShadowProjection {
     #[serde(default)]
     pub spread_radius: f64,
     pub color: String,
+    #[serde(default)]
+    pub inset: bool,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum UiSurfaceGradientKindProjection {
+    Linear,
+    Radial,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UiSurfaceGradientProjection {
+    pub kind: UiSurfaceGradientKindProjection,
+    pub start_color: String,
+    pub end_color: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub angle_degrees: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub center_x: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub center_y: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub radius: Option<f64>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UiSurfaceFilterProjection {
+    pub brightness: f64,
+    pub saturate: f64,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum UiSurfaceTransitionPropertyProjection {
+    All,
+    BackgroundColor,
+    BorderColor,
+    BoxShadow,
+    Color,
+    Filter,
+    Opacity,
+    Scale,
+    Transform,
+    Translate,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum UiSurfaceTransitionEasingProjection {
+    Ease,
+    EaseIn,
+    EaseInOut,
+    EaseOut,
+    Linear,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UiSurfaceTransitionProjection {
+    pub property: UiSurfaceTransitionPropertyProjection,
+    pub duration_ms: f64,
+    pub easing: UiSurfaceTransitionEasingProjection,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
@@ -109,6 +174,8 @@ pub struct UiSurfaceResolvedStyle {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub background_color: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub background_gradient: Option<UiSurfaceGradientProjection>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub background_image: Option<UiSurfaceImageProjection>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub background_position: Option<UiSurfaceBackgroundPositionProjection>,
@@ -116,6 +183,8 @@ pub struct UiSurfaceResolvedStyle {
     pub background_size: Option<UiSurfaceObjectFitProjection>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub color: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub filter: Option<UiSurfaceFilterProjection>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub border_radius: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

@@ -4,11 +4,14 @@ use crate::render_graph::DrawBatchPipeline;
 use crate::renderer::backend::wgpu::{
     InMemoryWgpuNativeRenderRuntimeExecutor, WgpuNativeRenderBindGroupLayout,
     WgpuNativeRenderBlendMode, WgpuNativeRenderBufferDescriptor, WgpuNativeRenderBufferRole,
-    WgpuNativeRenderBufferUsage, WgpuNativeRenderPipelineKey, WgpuNativeRenderRuntimeDevice,
-    WgpuNativeRenderRuntimeErrorKind, WgpuNativeRenderRuntimeExecutionReport,
-    WgpuNativeRenderRuntimeExecutor, WgpuNativeRenderRuntimeOperation, WgpuNativeRenderRuntimePlan,
+    WgpuNativeRenderBufferUsage, WgpuNativeRenderBufferVertex, WgpuNativeRenderPipelineKey,
+    WgpuNativeRenderRuntimeDevice, WgpuNativeRenderRuntimeErrorKind,
+    WgpuNativeRenderRuntimeExecutionReport, WgpuNativeRenderRuntimeExecutor,
+    WgpuNativeRenderRuntimeOperation, WgpuNativeRenderRuntimePlan,
     WgpuNativeRenderRuntimeTexturePackageMemory, WgpuNativeRenderShader, WgpuPhysicalRect,
 };
+
+const QUAD_VERTEX_BYTE_LEN: usize = WgpuNativeRenderBufferVertex::QUAD_BYTE_LEN;
 
 mod bind_group_pipeline;
 mod bind_group_validation;
@@ -36,7 +39,7 @@ fn pipeline_descriptor(
         label: label.to_string(),
         key,
         vertex_layout: crate::renderer::backend::wgpu::WgpuNativeRenderVertexLayout {
-            array_stride: 32,
+            array_stride: WgpuNativeRenderBufferVertex::BYTE_LEN,
             step_mode: crate::renderer::backend::wgpu::WgpuNativeRenderVertexStepMode::Vertex,
             attributes: vec![],
         },
@@ -48,10 +51,13 @@ fn pipeline_descriptor(
 
 fn quad_vertex_bytes() -> Vec<u8> {
     [
-        8.0_f32, 8.0_f32, 0.0_f32, 0.0_f32, 0.2_f32, 0.4_f32, 0.8_f32, 1.0_f32, 56.0_f32, 8.0_f32,
-        1.0_f32, 0.0_f32, 0.2_f32, 0.4_f32, 0.8_f32, 1.0_f32, 56.0_f32, 56.0_f32, 1.0_f32, 1.0_f32,
-        0.2_f32, 0.4_f32, 0.8_f32, 1.0_f32, 8.0_f32, 56.0_f32, 0.0_f32, 1.0_f32, 0.2_f32, 0.4_f32,
-        0.8_f32, 1.0_f32,
+        8.0_f32, 8.0_f32, 0.0_f32, 0.0_f32, 0.2_f32, 0.4_f32, 0.8_f32, 1.0_f32, 0.0_f32, 0.0_f32,
+        0.0_f32, 0.0_f32, 0.0_f32, 0.0_f32, 0.0_f32, 0.0_f32, 56.0_f32, 8.0_f32, 1.0_f32, 0.0_f32,
+        0.2_f32, 0.4_f32, 0.8_f32, 1.0_f32, 0.0_f32, 0.0_f32, 0.0_f32, 0.0_f32, 0.0_f32, 0.0_f32,
+        0.0_f32, 0.0_f32, 56.0_f32, 56.0_f32, 1.0_f32, 1.0_f32, 0.2_f32, 0.4_f32, 0.8_f32, 1.0_f32,
+        0.0_f32, 0.0_f32, 0.0_f32, 0.0_f32, 0.0_f32, 0.0_f32, 0.0_f32, 0.0_f32, 8.0_f32, 56.0_f32,
+        0.0_f32, 1.0_f32, 0.2_f32, 0.4_f32, 0.8_f32, 1.0_f32, 0.0_f32, 0.0_f32, 0.0_f32, 0.0_f32,
+        0.0_f32, 0.0_f32, 0.0_f32, 0.0_f32,
     ]
     .into_iter()
     .flat_map(f32::to_le_bytes)

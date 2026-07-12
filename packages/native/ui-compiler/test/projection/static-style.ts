@@ -188,6 +188,81 @@ Button.secondary {
     }))
   })
 
+  it('projects interactive pseudo-state styles, transformed bounds, and transitions', () => {
+    const qui = analyzeQuiSource(`
+Button.primary(id: "start", label: "START", action: ui.start(), x: 100, y: 80, width: 240, height: 64)
+`)
+    const qss = analyzeQssSource(`
+Button.primary {
+  background-color: #101820;
+  color: #f7f3e8;
+  border-color: #6b7280;
+  transform: translate(2px, 0) scale(1);
+  transform-origin: left center;
+  transition: transform 180ms ease-out, background-color 160ms ease, color 160ms ease;
+}
+Button.primary:hover {
+  background-color: #243348;
+  color: #ffffff;
+  transform: translate(14px, 0) scale(1.05);
+}
+Button.primary:active {
+  transform: translate(12px, 2px) scale(0.98);
+}
+Button.primary:focus-visible {
+  border-color: #f0c15a;
+}
+`)
+
+    expect(qui.diagnostics).toEqual([])
+    expect(qss.diagnostics).toEqual([])
+    expect(compileNativeUiSurfaceProjection(qui, { qss })).toEqual(withDefaultVisible({
+      root: {
+        id: 'start',
+        kind: 'Button',
+        bounds: { x: 102, y: 80, width: 240, height: 64 },
+        text: 'START',
+        intent: { event: 'ui/intent', action: 'start' },
+        style: {
+          backgroundColor: '#101820',
+          borderColor: '#6b7280',
+          color: '#f7f3e8',
+        },
+        stateStyles: {
+          hover: {
+            bounds: { x: 114, y: 78.4, width: 252, height: 67.2 },
+            style: {
+              backgroundColor: '#243348',
+              borderColor: '#6b7280',
+              color: '#ffffff',
+            },
+          },
+          active: {
+            bounds: { x: 112, y: 82.64, width: 235.2, height: 62.72 },
+            style: {
+              backgroundColor: '#101820',
+              borderColor: '#6b7280',
+              color: '#f7f3e8',
+            },
+          },
+          'focus-visible': {
+            bounds: { x: 102, y: 80, width: 240, height: 64 },
+            style: {
+              backgroundColor: '#101820',
+              borderColor: '#f0c15a',
+              color: '#f7f3e8',
+            },
+          },
+        },
+        transitions: [
+          { durationMs: 180, easing: 'ease-out', property: 'transform' },
+          { durationMs: 160, easing: 'ease', property: 'background-color' },
+          { durationMs: 160, easing: 'ease', property: 'color' },
+        ],
+      },
+    }))
+  })
+
   it('applies QSS gap to structural Row, Column, and Grid children during projection', () => {
     const qui = analyzeQuiSource(`
 Panel(id: "root", width: 420, height: 260) {

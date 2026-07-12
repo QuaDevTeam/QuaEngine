@@ -9,6 +9,13 @@ pub struct WgpuNativeRenderBufferVertex {
     pub position: [f32; 2],
     pub uv: [f32; 2],
     pub color: [f32; 4],
+    pub effect0: [f32; 4],
+    pub effect1: [f32; 4],
+}
+
+impl WgpuNativeRenderBufferVertex {
+    pub const BYTE_LEN: usize = std::mem::size_of::<Self>();
+    pub const QUAD_BYTE_LEN: usize = 4 * Self::BYTE_LEN;
 }
 
 #[derive(Clone, Debug, PartialEq)]

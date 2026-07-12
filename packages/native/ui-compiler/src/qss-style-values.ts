@@ -6,6 +6,8 @@ import type {
   NativeQssBoxSizingValue,
   NativeQssFontStyleValue,
   NativeQssFontWeightValue,
+  NativeQssFilterValue,
+  NativeQssGradientValue,
   NativeQssJustifyContentValue,
   NativeQssObjectFitValue,
   NativeQssPointerEventsValue,
@@ -15,6 +17,10 @@ import type {
   NativeQssTextDecorationValue,
   NativeQssTextOverflowValue,
   NativeQssTextTransformValue,
+  NativeQssTransformValue,
+  NativeQssTransitionEasing,
+  NativeQssTransitionProperty,
+  NativeQssTransitionValue,
   NativeQssWhiteSpaceValue,
 } from './types'
 import { isSafeNativeAssetType, isSafePackageAssetName } from './assets'
@@ -58,6 +64,25 @@ const JUSTIFY_CONTENT_VALUES = new Set<NativeQssJustifyContentValue>([
   'space-between',
   'space-evenly',
 ])
+const TRANSITION_PROPERTIES = new Set<NativeQssTransitionProperty>([
+  'all',
+  'background-color',
+  'border-color',
+  'box-shadow',
+  'color',
+  'filter',
+  'opacity',
+  'scale',
+  'transform',
+  'translate',
+])
+const TRANSITION_EASINGS = new Set<NativeQssTransitionEasing>([
+  'ease',
+  'ease-in',
+  'ease-in-out',
+  'ease-out',
+  'linear',
+])
 
 export function parseNativeQssBackgroundImage(value: string): NativeQssBackgroundImageValue | undefined {
   const match = /^asset\(\s*(?:"([^"]+)"|'([^']+)')\s*(?:,\s*(?:"([^"]+)"|'([^']+)'))?\s*\)$/i.exec(value.trim())
@@ -73,24 +98,324 @@ export function parseNativeQssBackgroundImage(value: string): NativeQssBackgroun
   return { assetType, assetName }
 }
 
-export function parseNativeQssShadow(value: string): NativeQssShadowValue | undefined {
+export function parseNativeQssBackgroundGradient(value: string): NativeQssGradientValue | undefined {
+  const trimmed = value.trim()
+  const linear = /^linear-gradient\((.*)\)$/i.exec(trimmed)
+  if (linear)
+    return parseLinearGradient(linear[1])
+
+  const radial = /^radial-gradient\((.*)\)$/i.exec(trimmed)
+  if (radial)
+    return parseRadialGradient(radial[1])
+
+  return undefined
+}
+
+export function parseNativeQssFilter(value: string): NativeQssFilterValue | undefined {
+  const source = value.trim()
+  if (source.toLowerCase() === 'none')
+    return { brightness: 1, saturate: 1 }
+
+  const result: NativeQssFilterValue = { brightness: 1, saturate: 1 }
+  const seen = new Set<string>()
+  let cursor = 0
+  const pattern = /(brightness|saturate)\(\s*(\d+(?:\.\d+)?%?)\s*\)/gi
+  let match: RegExpExecArray | null
+  while ((match = pattern.exec(source))) {
+    if (source.slice(cursor, match.index).trim() || seen.has(match[1].toLowerCase()))
+      return undefined
+    cursor = pattern.lastIndex
+    const name = match[1].toLowerCase() as 'brightness' | 'saturate'
+    const amount = parseFilterAmount(match[2])
+    if (amount === undefined)
+      return undefined
+    result[name] = amount
+    seen.add(name)
+  }
+  if (seen.size === 0 || source.slice(cursor).trim())
+    return undefined
+  return result
+}
+
+export function parseNativeQssTransition(value: string): NativeQssTransitionValue[] | undefined {
+  const source = value.trim().toLowerCase()
+  if (source === 'none')
+    return []
+
+  const entries = splitQssCommaComponents(source)
+  if (entries.length === 0)
+    return undefined
+
+  const seen = new Set<NativeQssTransitionProperty>()
+  const transitions: NativeQssTransitionValue[] = []
+  for (const entry of entries) {
+    const parts = entry.split(/\s+/).filter(Boolean)
+    if (parts.length < 2 || parts.length > 3)
+      return undefined
+    const property = parts[0] as NativeQssTransitionProperty
+    const durationMs = parseTransitionDuration(parts[1])
+    const easing = (parts[2] || 'ease') as NativeQssTransitionEasing
+    if (
+      !TRANSITION_PROPERTIES.has(property)
+      || durationMs === undefined
+      || !TRANSITION_EASINGS.has(easing)
+      || seen.has(property)
+      || (property === 'all' && entries.length > 1)
+    ) {
+      return undefined
+    }
+    seen.add(property)
+    transitions.push({ durationMs, easing, property })
+  }
+  return transitions
+}
+
+function parseTransitionDuration(value: string): number | undefined {
+  const match = /^(\d+(?:\.\d+)?)(ms|s)$/.exec(value)
+  if (!match)
+    return undefined
+  const duration = Number(match[1]) * (match[2] === 's' ? 1000 : 1)
+  return Number.isFinite(duration) && duration >= 0 && duration <= 5000
+    ? duration
+    : undefined
+}
+
+export function parseNativeQssTransform(value: string): NativeQssTransformValue | undefined {
+  const source = value.trim()
+  const result = defaultNativeQssTransform()
+  if (source.toLowerCase() === 'none')
+    return result
+
+  let cursor = 0
+  let matched = false
+  const pattern = /(translate|scale)\(([^)]*)\)/gi
+  let match: RegExpExecArray | null
+  while ((match = pattern.exec(source))) {
+    if (source.slice(cursor, match.index).trim())
+      return undefined
+    cursor = pattern.lastIndex
+    matched = true
+    if (match[1].toLowerCase() === 'translate') {
+      const translate = parseNativeQssTranslate(match[2])
+      if (!translate)
+        return undefined
+      result.translateX = translate.x
+      result.translateY = translate.y
+    }
+    else {
+      const scale = parseNativeQssScale(match[2])
+      if (!scale)
+        return undefined
+      result.scaleX = scale.x
+      result.scaleY = scale.y
+    }
+  }
+  return matched && !source.slice(cursor).trim() ? result : undefined
+}
+
+export function parseNativeQssTranslate(value: string): { x: number, y: number } | undefined {
+  const parts = value.trim().split(/[\s,]+/).filter(Boolean)
+  if (parts.length < 1 || parts.length > 2)
+    return undefined
+  const x = parseNativeQssCoordinateNumber(parts[0])
+  const y = parts[1] === undefined ? 0 : parseNativeQssCoordinateNumber(parts[1])
+  return x === undefined || y === undefined ? undefined : { x, y }
+}
+
+export function parseNativeQssScale(value: string): { x: number, y: number } | undefined {
+  const parts = value.trim().split(/[\s,]+/).filter(Boolean)
+  if (parts.length < 1 || parts.length > 2)
+    return undefined
+  const x = parseBoundedScale(parts[0])
+  const y = parts[1] === undefined ? x : parseBoundedScale(parts[1])
+  return x === undefined || y === undefined ? undefined : { x, y }
+}
+
+export function parseNativeQssTransformOrigin(value: string): { x: number, y: number } | undefined {
+  return parseNativeQssBackgroundPosition(value)
+}
+
+export function defaultNativeQssTransform(): NativeQssTransformValue {
+  return {
+    originX: 0.5,
+    originY: 0.5,
+    scaleX: 1,
+    scaleY: 1,
+    translateX: 0,
+    translateY: 0,
+  }
+}
+
+function parseBoundedScale(value: string): number | undefined {
+  if (!/^\d+(?:\.\d+)?$/.test(value))
+    return undefined
+  const scale = Number(value)
+  return Number.isFinite(scale) && scale >= 0 && scale <= 8 ? scale : undefined
+}
+
+function parseFilterAmount(value: string): number | undefined {
+  const percent = value.endsWith('%')
+  const amount = Number(percent ? value.slice(0, -1) : value)
+  const normalized = percent ? amount / 100 : amount
+  return Number.isFinite(normalized) && normalized >= 0 && normalized <= 8
+    ? normalized
+    : undefined
+}
+
+function parseLinearGradient(value: string): NativeQssGradientValue | undefined {
+  const parts = splitQssCommaComponents(value)
+  if (parts.length < 2 || parts.length > 3)
+    return undefined
+
+  const hasDirection = parts.length === 3
+  const angleDegrees = hasDirection ? parseGradientAngle(parts[0]) : 180
+  const startColor = parseNativeQssColor(parts[hasDirection ? 1 : 0])
+  const endColor = parseNativeQssColor(parts[hasDirection ? 2 : 1])
+  if (angleDegrees === undefined || !startColor || !endColor)
+    return undefined
+
+  return { angleDegrees, endColor, kind: 'linear', startColor }
+}
+
+function parseRadialGradient(value: string): NativeQssGradientValue | undefined {
+  const parts = splitQssCommaComponents(value)
+  if (parts.length < 2 || parts.length > 3)
+    return undefined
+
+  const hasShape = parts.length === 3
+  const position = hasShape ? parseRadialGradientPosition(parts[0]) : { x: 0.5, y: 0.5 }
+  const startColor = parseNativeQssColor(parts[hasShape ? 1 : 0])
+  const endColor = parseNativeQssColor(parts[hasShape ? 2 : 1])
+  if (!position || !startColor || !endColor)
+    return undefined
+
+  return {
+    centerX: position.x,
+    centerY: position.y,
+    endColor,
+    kind: 'radial',
+    radius: Math.max(
+      Math.hypot(position.x, position.y),
+      Math.hypot(1 - position.x, position.y),
+      Math.hypot(position.x, 1 - position.y),
+      Math.hypot(1 - position.x, 1 - position.y),
+    ),
+    startColor,
+  }
+}
+
+function parseGradientAngle(value: string): number | undefined {
+  const lower = value.trim().toLowerCase()
+  const keywordAngles: Record<string, number> = {
+    'to top': 0,
+    'to right': 90,
+    'to bottom': 180,
+    'to left': 270,
+  }
+  if (keywordAngles[lower] !== undefined)
+    return keywordAngles[lower]
+
+  const match = /^(-?\d+(?:\.\d+)?)deg$/.exec(lower)
+  if (!match)
+    return undefined
+  const angle = Number(match[1])
+  return Number.isFinite(angle) ? ((angle % 360) + 360) % 360 : undefined
+}
+
+function parseRadialGradientPosition(value: string): { x: number, y: number } | undefined {
+  const match = /^circle(?:\s+at\s+(.+))?$/i.exec(value.trim())
+  if (!match)
+    return undefined
+  return match[1]
+    ? parseNativeQssBackgroundPosition(match[1])
+    : { x: 0.5, y: 0.5 }
+}
+
+function splitQssCommaComponents(value: string): string[] {
+  const parts: string[] = []
+  let current = ''
+  let depth = 0
+  let quote: '"' | "'" | undefined
+  for (const character of value) {
+    if (quote) {
+      current += character
+      if (character === quote)
+        quote = undefined
+      continue
+    }
+    if (character === '"' || character === "'") {
+      quote = character
+      current += character
+      continue
+    }
+    if (character === '(') {
+      depth += 1
+      current += character
+      continue
+    }
+    if (character === ')') {
+      depth -= 1
+      if (depth < 0)
+        return []
+      current += character
+      continue
+    }
+    if (character === ',' && depth === 0) {
+      if (!current.trim())
+        return []
+      parts.push(current.trim())
+      current = ''
+      continue
+    }
+    current += character
+  }
+  if (depth !== 0 || quote || !current.trim())
+    return []
+  parts.push(current.trim())
+  return parts
+}
+
+export function parseNativeQssBoxShadow(value: string): NativeQssShadowValue | undefined {
   const parts = splitQssValueComponents(value.trim())
-  if (parts.length < 3 || parts.length > 5 || parts.some(part => part.toLowerCase() === 'inset'))
+  const insetParts = parts.filter(part => part.toLowerCase() === 'inset')
+  if (insetParts.length > 1)
+    return undefined
+
+  const shadowParts = parts.filter(part => part.toLowerCase() !== 'inset')
+  return parseNativeQssShadowParts(shadowParts, insetParts.length === 1, true)
+}
+
+export function parseNativeQssTextShadow(value: string): NativeQssShadowValue | undefined {
+  const parts = splitQssValueComponents(value.trim())
+  if (parts.some(part => part.toLowerCase() === 'inset'))
+    return undefined
+
+  return parseNativeQssShadowParts(parts, false, false)
+}
+
+function parseNativeQssShadowParts(
+  parts: readonly string[],
+  inset: boolean,
+  allowSpread: boolean,
+): NativeQssShadowValue | undefined {
+  const maxPartCount = allowSpread ? 5 : 4
+  if (parts.length < 3 || parts.length > maxPartCount)
     return undefined
 
   const color = parseNativeQssColor(parts.at(-1) || '')
   const lengths = parts.slice(0, -1)
-  if (!color || lengths.length < 2 || lengths.length > 4)
+  const maxLengthCount = allowSpread ? 4 : 3
+  if (!color || lengths.length < 2 || lengths.length > maxLengthCount)
     return undefined
 
   const offsetX = parseNativeQssCoordinateNumber(lengths[0])
   const offsetY = parseNativeQssCoordinateNumber(lengths[1])
   const blurRadius = lengths[2] === undefined ? 0 : parseNativeQssLogicalNumber(lengths[2])
-  const spreadRadius = lengths[3] === undefined ? 0 : parseNativeQssLogicalNumber(lengths[3])
+  const spreadRadius = lengths[3] === undefined ? 0 : parseNativeQssCoordinateNumber(lengths[3])
   if (offsetX === undefined || offsetY === undefined || blurRadius === undefined || spreadRadius === undefined)
     return undefined
 
-  return { blurRadius, color, offsetX, offsetY, spreadRadius }
+  return { blurRadius, color, inset, offsetX, offsetY, spreadRadius }
 }
 
 function splitQssValueComponents(value: string): string[] {

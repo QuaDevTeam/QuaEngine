@@ -1,9 +1,9 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::resources::ResourceId;
 use crate::stage_layout::StageSafeArea;
 
-use super::style::{DrawCommandParams, UiControlDrawParam};
+use super::style::{DrawCommandParams, DrawTransition, UiControlDrawParam};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum RenderPlane {
@@ -53,12 +53,51 @@ pub enum DrawCommandKind {
     Custom,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum DrawInteractionState {
+    Active,
+    Focus,
+    FocusVisible,
+    Hover,
+}
+
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct LogicalRect {
     pub x: f64,
     pub y: f64,
     pub width: f64,
     pub height: f64,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct DrawCommandVariant {
+    pub bounds: LogicalRect,
+    pub clip_bounds: Vec<LogicalRect>,
+    pub kind: DrawCommandKind,
+    pub opacity: f32,
+    pub params: DrawCommandParams,
+    pub resource_ids: Vec<ResourceId>,
+    pub z_index: i32,
+}
+
+impl DrawCommandVariant {
+    pub fn from_command(command: &DrawCommand) -> Self {
+        Self {
+            bounds: command.bounds,
+            clip_bounds: command.clip_bounds.clone(),
+            kind: command.kind,
+            opacity: command.opacity,
+            params: command.params.clone(),
+            resource_ids: command.resource_ids.clone(),
+            z_index: command.z_index,
+        }
+    }
+
+    pub fn hidden_from_command(command: &DrawCommand) -> Self {
+        let mut variant = Self::from_command(command);
+        variant.opacity = 0.0;
+        variant
+    }
 }
 
 impl LogicalRect {
@@ -92,6 +131,9 @@ pub struct DrawCommand {
     pub interactive: bool,
     pub control: Option<UiControlDrawParam>,
     pub label: Option<String>,
+    pub interaction_group_id: Option<String>,
+    pub interaction_variants: BTreeMap<DrawInteractionState, DrawCommandVariant>,
+    pub interaction_transitions: Vec<DrawTransition>,
 }
 
 impl DrawCommand {
@@ -116,6 +158,9 @@ impl DrawCommand {
             interactive: false,
             control: None,
             label: None,
+            interaction_group_id: None,
+            interaction_variants: BTreeMap::new(),
+            interaction_transitions: Vec::new(),
         }
     }
 
@@ -190,6 +235,28 @@ impl DrawCommand {
 
     pub fn label(mut self, label: impl Into<String>) -> Self {
         self.label = Some(label.into());
+        self
+    }
+
+    pub fn interaction_group(mut self, group_id: impl Into<String>) -> Self {
+        self.interaction_group_id = Some(group_id.into());
+        self
+    }
+
+    pub fn interaction_variant(
+        mut self,
+        state: DrawInteractionState,
+        variant: DrawCommandVariant,
+    ) -> Self {
+        self.interaction_variants.insert(state, variant);
+        self
+    }
+
+    pub fn interaction_transitions<I>(mut self, transitions: I) -> Self
+    where
+        I: IntoIterator<Item = DrawTransition>,
+    {
+        self.interaction_transitions.extend(transitions);
         self
     }
 }

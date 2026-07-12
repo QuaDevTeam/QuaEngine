@@ -169,7 +169,13 @@ impl ApplicationHandler for NativeWindowSmokeApp {
                 if self.redraw_once_or_schedule_retry(event_loop) {
                     return;
                 }
-                event_loop.exit();
+                // Dev windows stay interactive after a frame that does not
+                // schedule another redraw. Smoke runs exit once their target
+                // frame count has been reached, while dev runs must wait for
+                // user input, resize, or a QuickJS pipeline update.
+                if !native_window_dev_enabled() {
+                    event_loop.exit();
+                }
             }
             _ => {}
         }
@@ -197,6 +203,10 @@ impl NativeWindowSmokeApp {
             return native_window_dev_enabled()
                 || self.renderer_redraw_pending
                 || self.renderer_local_work_active
+                || self
+                    .product_shell
+                    .as_ref()
+                    .is_some_and(|shell| shell.window_loop().has_active_interaction_transition())
                 || (native_window_interaction_probe_enabled()
                     && !self.interaction_probe_advance_observed
                     && self
@@ -232,6 +242,9 @@ impl NativeWindowSmokeApp {
                         #[cfg(feature = "quickjs-rquickjs")]
                         let request_redraw = if self.quickjs_product.is_some() {
                             self.renderer_local_work_active
+                                || self.product_shell.as_ref().is_some_and(|shell| {
+                                    shell.window_loop().has_active_interaction_transition()
+                                })
                                 || (native_window_interaction_probe_enabled()
                                     && !self.interaction_probe_advance_observed
                                     && self

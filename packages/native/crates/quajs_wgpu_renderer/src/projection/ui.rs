@@ -10,13 +10,17 @@ pub use types::{
     UiOverlaySceneShellProjection, UiOverlaySurfaceProjection, UiProjection,
     UiSurfaceBackgroundPositionProjection, UiSurfaceBorderStyleProjection,
     UiSurfaceControlOptionProjection, UiSurfaceControlProjection, UiSurfaceEdgeInsetsProjection,
-    UiSurfaceFontStyleProjection, UiSurfaceImageProjection, UiSurfaceNodeKind,
-    UiSurfaceNodeProjection, UiSurfaceNodeRect, UiSurfaceObjectFitProjection,
+    UiSurfaceFilterProjection, UiSurfaceFontStyleProjection, UiSurfaceGradientKindProjection,
+    UiSurfaceGradientProjection, UiSurfaceImageProjection, UiSurfaceNodeKind,
+    UiSurfaceNodeProjection, UiSurfaceNodeRect, UiSurfaceNodeStateProjection,
+    UiSurfaceObjectFitProjection, UiSurfacePseudoStateProjection,
     UiSurfaceRangeControlPartsProjection, UiSurfaceResolvedStyle,
     UiSurfaceSelectControlPartsProjection, UiSurfaceShadowProjection,
     UiSurfaceSwitchControlPartsProjection, UiSurfaceTextAlignProjection,
     UiSurfaceTextDecorationProjection, UiSurfaceTextOverflowProjection,
-    UiSurfaceTextTransformProjection, UiSurfaceWhiteSpaceProjection,
+    UiSurfaceTextTransformProjection, UiSurfaceTransitionEasingProjection,
+    UiSurfaceTransitionProjection, UiSurfaceTransitionPropertyProjection,
+    UiSurfaceWhiteSpaceProjection,
 };
 
 #[cfg(test)]

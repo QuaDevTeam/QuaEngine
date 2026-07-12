@@ -90,7 +90,6 @@ fn overlay_command(graph: &RenderGraph, effect: &EffectProjection) -> Option<Dra
     .params(DrawCommandParams::Panel(PanelDrawParams {
         role: format!("effect:{}", effect.effect_type),
         corner_radius: 0.0,
-        shadow_blur_radius: 0.0,
         fill_color: color.to_string(),
         border: BorderDrawParams::default(),
         padding: EdgeInsetsDrawParam::default(),

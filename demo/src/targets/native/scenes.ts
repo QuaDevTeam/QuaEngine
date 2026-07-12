@@ -172,9 +172,67 @@ export function createNativeMainMenuSurface(): Record<string, unknown> {
         bounds: { x: 0, y: 0, width: 1920, height: 1080 },
         visible: true,
         style: {
-          backgroundColor: 'rgba(4,5,8,0.06)',
+          backgroundColor: 'rgba(4,5,8,0.02)',
         },
         children: [
+          {
+            id: 'native-main-menu-background',
+            kind: 'Image',
+            bounds: { x: 0, y: 0, width: 1920, height: 1080 },
+            visible: true,
+            image: { assetType: 'images', assetName: 'ui/menu-route.jpg' },
+            style: {
+              objectFit: 'cover',
+              filter: { brightness: 0.46, saturate: 0.88 },
+            },
+          },
+          {
+            id: 'native-main-menu-radial-scrim',
+            kind: 'Box',
+            bounds: { x: 0, y: 0, width: 1920, height: 1080 },
+            visible: true,
+            style: {
+              backgroundGradient: {
+                kind: 'radial',
+                startColor: 'rgba(8,10,16,0.16)',
+                endColor: 'rgba(3,4,8,0.86)',
+                centerX: 0.30,
+                centerY: 0.46,
+                radius: 0.86,
+              },
+            },
+          },
+          {
+            id: 'native-main-menu-linear-scrim',
+            kind: 'Box',
+            bounds: { x: 0, y: 0, width: 1920, height: 1080 },
+            visible: true,
+            style: {
+              backgroundGradient: {
+                kind: 'linear',
+                startColor: 'rgba(5,7,12,0.82)',
+                endColor: 'rgba(5,7,12,0.06)',
+                angleDegrees: 90,
+              },
+            },
+          },
+          {
+            id: 'native-main-menu-accent',
+            kind: 'Box',
+            bounds: { x: 196, y: 274, width: 3, height: 494 },
+            visible: true,
+            style: {
+              backgroundColor: 'rgba(245,194,86,0.78)',
+              boxShadow: {
+                offsetX: 0,
+                offsetY: 0,
+                blurRadius: 12,
+                spreadRadius: 0,
+                color: 'rgba(245,194,86,0.34)',
+                inset: false,
+              },
+            },
+          },
           {
             id: 'native-main-menu-title',
             kind: 'Text',
@@ -187,6 +245,14 @@ export function createNativeMainMenuSurface(): Record<string, unknown> {
               fontSize: 92,
               fontWeight: 700,
               lineHeight: 92,
+              textShadow: {
+                offsetX: 0,
+                offsetY: 2,
+                blurRadius: 18,
+                spreadRadius: 0,
+                color: 'rgba(0,0,0,0.70)',
+                inset: false,
+              },
             },
           },
           {
@@ -202,19 +268,16 @@ export function createNativeMainMenuSurface(): Record<string, unknown> {
               letterSpacing: 2.5,
             },
           },
-          ...buttons.map(([label, action, metadata], index) => ({
-            id: `native-main-menu-${label.toLowerCase().replaceAll(' ', '-')}`,
-            kind: 'Button',
-            bounds: { x: 220, y: 480 + index * 58, width: 360, height: 48 },
-            visible: true,
-            text: label,
-            intent: {
-              event: 'ui/intent',
-              action,
-              ...(metadata ? { metadata } : {}),
-            },
-            style: {
-              backgroundColor: 'rgba(9,12,18,0.86)',
+          ...buttons.flatMap(([label, action, metadata], index) => {
+            const id = `native-main-menu-${label.toLowerCase().replaceAll(' ', '-')}`
+            const bounds = { x: 220, y: 480 + index * 58, width: 360, height: 48 }
+            const baseStyle = {
+              backgroundGradient: {
+                kind: 'linear',
+                startColor: 'rgba(9,12,18,0.96)',
+                endColor: 'rgba(25,30,42,0.76)',
+                angleDegrees: 90,
+              },
               borderColor: 'rgba(245,226,190,0.30)',
               borderWidth: 1,
               borderRadius: 2,
@@ -226,17 +289,105 @@ export function createNativeMainMenuSurface(): Record<string, unknown> {
               textAlign: 'left',
               boxShadow: {
                 offsetX: 0,
-                offsetY: 14,
-                blurRadius: 38,
+                offsetY: 1,
+                blurRadius: 0,
                 spreadRadius: 0,
-                color: 'rgba(0,0,0,0.26)',
+                color: 'rgba(255,255,255,0.10)',
+                inset: true,
               },
-            },
-          })),
+            }
+            const hoverStyle = {
+              ...baseStyle,
+              backgroundGradient: {
+                kind: 'linear',
+                startColor: 'rgba(42,35,25,0.98)',
+                endColor: 'rgba(34,35,46,0.82)',
+                angleDegrees: 90,
+              },
+              borderColor: 'rgba(245,226,190,0.52)',
+              color: '#ffe8b3',
+              boxShadow: {
+                offsetX: 0,
+                offsetY: 1,
+                blurRadius: 8,
+                spreadRadius: 0,
+                color: 'rgba(255,194,86,0.20)',
+                inset: true,
+              },
+            }
+            const activeStyle = {
+              ...hoverStyle,
+              backgroundGradient: {
+                kind: 'linear',
+                startColor: 'rgba(60,45,24,0.98)',
+                endColor: 'rgba(38,34,38,0.88)',
+                angleDegrees: 90,
+              },
+            }
+            return [
+              {
+                id: `${id}-outer-shadow`,
+                kind: 'Box',
+                bounds,
+                visible: true,
+                style: {
+                  boxShadow: {
+                    offsetX: 0,
+                    offsetY: 14,
+                    blurRadius: 38,
+                    spreadRadius: 0,
+                    color: 'rgba(0,0,0,0.30)',
+                    inset: false,
+                  },
+                },
+              },
+              {
+                id,
+                kind: 'Button',
+                bounds,
+                visible: true,
+                text: label,
+                intent: {
+                  event: 'ui/intent',
+                  action,
+                  ...(metadata ? { metadata } : {}),
+                },
+                stateStyles: {
+                  hover: { bounds: { ...bounds, x: bounds.x + 3 }, style: hoverStyle },
+                  active: { bounds: { ...bounds, x: bounds.x + 2, y: bounds.y + 2 }, style: activeStyle },
+                  focus: { bounds: { ...bounds, x: bounds.x + 3 }, style: hoverStyle },
+                  'focus-visible': {
+                    bounds: { ...bounds, x: bounds.x + 3 },
+                    style: { ...hoverStyle, borderColor: '#f0c15a' },
+                  },
+                },
+                transitions: [
+                  { property: 'transform', durationMs: 160, easing: 'ease-out' },
+                  { property: 'background-color', durationMs: 160, easing: 'ease' },
+                  { property: 'color', durationMs: 160, easing: 'ease' },
+                  { property: 'border-color', durationMs: 160, easing: 'ease' },
+                  { property: 'box-shadow', durationMs: 160, easing: 'ease' },
+                ],
+                style: baseStyle,
+              },
+              ...nativeMenuChevron(`${id}-chevron`, bounds),
+            ]
+          }),
         ],
       },
     },
   }
+}
+
+function nativeMenuChevron(id: string, bounds: { x: number, y: number, width: number, height: number }): Record<string, unknown>[] {
+  const x = bounds.x + bounds.width - 18
+  const y = bounds.y + bounds.height / 2 - 7
+  const color = 'rgba(255,232,179,0.72)'
+  return [
+    { id: `${id}-top`, kind: 'Divider', bounds: { x: x, y, width: 6, height: 2 }, visible: true, style: { backgroundColor: color } },
+    { id: `${id}-mid`, kind: 'Divider', bounds: { x: x + 4, y: y + 5, width: 5, height: 2 }, visible: true, style: { backgroundColor: color } },
+    { id: `${id}-bottom`, kind: 'Divider', bounds: { x: x + 7, y: y + 10, width: 2, height: 2 }, visible: true, style: { backgroundColor: color } },
+  ]
 }
 
 export function createNativeStoryTreeSurface(): Record<string, unknown> {
@@ -286,6 +437,7 @@ function createNativeMenuOverlaySurface(
             blurRadius: 48,
             spreadRadius: 0,
             color: 'rgba(0,0,0,0.42)',
+            inset: false,
           },
         },
         children: [

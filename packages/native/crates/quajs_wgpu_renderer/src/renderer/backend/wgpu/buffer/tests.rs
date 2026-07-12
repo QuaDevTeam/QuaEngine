@@ -87,7 +87,8 @@ fn quad(
         paint,
         opacity: 1.0,
         corner_radius: 0.0,
-        shadow_blur_radius: 0.0,
+        effect0: [0.0; 4],
+        effect1: [0.0; 4],
         border: None,
         text_overlay: None,
         owner_package_id: Some("runtime.ui".to_string()),
@@ -114,6 +115,7 @@ fn text_style(
         text_overflow: TextOverflowDrawParam::Clip,
         text_transform: TextTransformDrawParam::None,
         white_space: WhiteSpaceDrawParam::Normal,
+        blur_radius: 0.0,
         padding,
     }
 }

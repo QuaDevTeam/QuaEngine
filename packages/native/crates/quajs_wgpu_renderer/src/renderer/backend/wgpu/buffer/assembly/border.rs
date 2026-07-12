@@ -52,14 +52,15 @@ pub(in crate::renderer::backend::wgpu::buffer) fn append_border_buffers(
             paint: WgpuNativeRenderPaint::Solid { color, literal },
             opacity: quad.opacity,
             corner_radius: quad.corner_radius,
-            shadow_blur_radius: 0.0,
+            effect0: [0.0; 4],
+            effect1: [0.0; 4],
             border: None,
             text_overlay: None,
             owner_package_id: quad.owner_package_id.clone(),
             required_package_ids: quad.required_package_ids.clone(),
             resource_ids: Vec::new(),
         };
-        append_geometry_buffers(geometry, vertices, indices);
+        append_geometry_buffers(geometry, vertices, indices, [0.0; 4], [0.0; 4]);
         draw_calls.push(WgpuNativeRenderDrawCall::from_quad_range(
             &border_quad,
             first_vertex,
@@ -89,7 +90,8 @@ pub(in crate::renderer::backend::wgpu::buffer) fn append_border_buffers(
             },
             opacity: quad.opacity,
             corner_radius: 0.0,
-            shadow_blur_radius: 0.0,
+            effect0: [0.0; 4],
+            effect1: [0.0; 4],
             border: None,
             text_overlay: None,
             owner_package_id: quad.owner_package_id.clone(),

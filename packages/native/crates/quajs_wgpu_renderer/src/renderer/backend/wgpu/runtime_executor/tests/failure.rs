@@ -3,7 +3,13 @@ use super::*;
 
 #[test]
 fn failed_runtime_device_apply_keeps_previous_committed_snapshot() {
-    let first = runtime_plan(1, 128, "bind-group::old", "images:old.png", None);
+    let first = runtime_plan(
+        1,
+        QUAD_VERTEX_BYTE_LEN,
+        "bind-group::old",
+        "images:old.png",
+        None,
+    );
     let second = second_runtime_plan();
     let mut executor =
         InMemoryWgpuNativeRenderRuntimeExecutor::with_device(FailOnRevisionRuntimeDevice {

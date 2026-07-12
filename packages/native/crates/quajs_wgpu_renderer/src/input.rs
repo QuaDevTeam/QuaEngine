@@ -3,6 +3,7 @@ pub mod event;
 pub mod intent;
 pub mod pointer;
 
+pub(crate) use event::NativePointerVisualTransition;
 pub use event::{
     resolve_pointer_event, resolve_pointer_event_with_interaction, NativePointerButton,
     NativePointerEvent, NativePointerEventPhase, NativePointerEventResolution,

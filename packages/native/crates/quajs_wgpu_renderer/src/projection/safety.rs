@@ -29,6 +29,7 @@ pub(crate) const MAX_NATIVE_UI_LOGICAL_COORDINATE: f64 = 1_000_000.0;
 pub(crate) const MAX_NATIVE_UI_LOGICAL_DIMENSION: f64 = 1_000_000.0;
 pub(crate) const MAX_NATIVE_UI_SCROLL_OFFSET: f64 = 1_000_000.0;
 pub(crate) const MAX_NATIVE_UI_STYLE_LOGICAL_VALUE: f64 = 1_000_000.0;
+pub(crate) const MAX_NATIVE_UI_TRANSITION_DURATION_MS: f64 = 5_000.0;
 pub(crate) const MAX_NATIVE_RICH_TEXT_LOGICAL_VALUE: f64 = 1_000_000.0;
 pub(crate) const MAX_NATIVE_TEXT_PAYLOAD_BYTES: usize = 64 * 1024;
 pub(crate) const MAX_NATIVE_COLOR_LITERAL_BYTES: usize = 128;
@@ -133,6 +134,13 @@ pub(crate) fn is_safe_native_ui_surface_node_numbers(node: &UiSurfaceNodeProject
         && is_safe_native_ui_scroll_offset(node.scroll_offset_x)
         && is_safe_native_ui_scroll_offset(node.scroll_offset_y)
         && is_safe_native_ui_style_numbers(&node.style)
+        && node.state_styles.values().all(|state| {
+            is_safe_native_ui_rect(&state.bounds) && is_safe_native_ui_style_numbers(&state.style)
+        })
+        && node.transitions.iter().all(|transition| {
+            transition.duration_ms.is_finite()
+                && (0.0..=MAX_NATIVE_UI_TRANSITION_DURATION_MS).contains(&transition.duration_ms)
+        })
 }
 
 pub(crate) fn is_safe_native_ui_surface_offset(x: f64, y: f64) -> bool {

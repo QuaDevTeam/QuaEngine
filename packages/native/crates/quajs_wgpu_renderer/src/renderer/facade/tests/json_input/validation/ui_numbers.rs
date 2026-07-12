@@ -269,17 +269,31 @@ fn json_frame_ui_style_validation_rejects_malformed_style_object_fields() {
 fn json_frame_ui_style_validation_accepts_resolved_shadow_objects() {
     let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
 
-    for field in ["boxShadow", "textShadow"] {
-        let input = json_frame_with_malformed_ui_style_object_input(
-            field,
+    for (field, value_json) in [
+        (
+            "boxShadow",
             r#"{
                 "offsetX": 0,
                 "offsetY": 12,
                 "blurRadius": 32,
-                "spreadRadius": 1,
-                "color": "rgba(0,0,0,0.42)"
+                "spreadRadius": -2,
+                "color": "rgba(0,0,0,0.42)",
+                "inset": true
             }"#,
-        );
+        ),
+        (
+            "textShadow",
+            r#"{
+                "offsetX": 0,
+                "offsetY": 2,
+                "blurRadius": 10,
+                "spreadRadius": 0,
+                "color": "rgba(0,0,0,0.72)",
+                "inset": false
+            }"#,
+        ),
+    ] {
+        let input = json_frame_with_malformed_ui_style_object_input(field, value_json);
         renderer
             .prepare_frame_json_str(&input)
             .unwrap_or_else(|error| panic!("expected valid {field} projection, got {error:?}"));
@@ -314,9 +328,9 @@ fn json_frame_ui_style_validation_rejects_unsupported_resolved_fields() {
         ),
         (
             "boxShadow",
-            r##"{ "offsetX": 0, "offsetY": 4, "color": "#000", "inset": true }"##,
-            "view.ui.overlays[0].surface.root.style.boxShadow.inset",
-            "inset",
+            r##"{ "offsetX": 0, "offsetY": 4, "blurRadius": 8, "spreadRadius": 0, "color": "#000", "inset": false, "multiple": true }"##,
+            "view.ui.overlays[0].surface.root.style.boxShadow.multiple",
+            "multiple",
             "supported native UI surface style boxShadow field",
         ),
         (

@@ -45,6 +45,8 @@ fn packs_visible_quads_into_contiguous_vertex_and_index_buffers() {
             position: [10.0, 20.0],
             uv: [0.0, 0.0],
             color: [0.033_104_762, 0.132_868_33, 0.318_546_83, 1.0],
+            effect0: [0.0; 4],
+            effect1: [0.0; 4],
         }
     );
     assert_eq!(
@@ -53,6 +55,8 @@ fn packs_visible_quads_into_contiguous_vertex_and_index_buffers() {
             position: [0.0, 720.0],
             uv: [0.0, 1.0],
             color: [1.0, 1.0, 1.0, 1.0],
+            effect0: [0.0; 4],
+            effect1: [0.0; 4],
         }
     );
 

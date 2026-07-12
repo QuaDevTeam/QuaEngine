@@ -13,11 +13,11 @@ pub(super) fn vertex_buffer_operation() -> WgpuNativeRenderRuntimeOperation {
         descriptor: WgpuNativeRenderBufferDescriptor {
             label: "vertex".to_string(),
             role: WgpuNativeRenderBufferRole::Vertex,
-            byte_len: 128,
+            byte_len: QUAD_VERTEX_BYTE_LEN,
             element_count: 4,
             usage: WgpuNativeRenderBufferUsage::VertexCopyDst,
         },
-        byte_len: 128,
+        byte_len: QUAD_VERTEX_BYTE_LEN,
     }
 }
 
@@ -43,7 +43,7 @@ pub(super) fn pipeline_descriptor(
         label: pipeline_label(label),
         key,
         vertex_layout: WgpuNativeRenderVertexLayout {
-            array_stride: 32,
+            array_stride: WgpuNativeRenderBufferVertex::BYTE_LEN,
             step_mode: WgpuNativeRenderVertexStepMode::Vertex,
             attributes: vec![],
         },

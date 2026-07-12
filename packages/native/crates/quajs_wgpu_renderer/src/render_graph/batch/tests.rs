@@ -56,7 +56,6 @@ fn keeps_different_planes_and_kinds_in_separate_batches() {
         .params(DrawCommandParams::Panel(PanelDrawParams {
             role: "panel".to_string(),
             corner_radius: 8.0,
-            shadow_blur_radius: 0.0,
             fill_color: "#000".to_string(),
             border: BorderDrawParams::default(),
             padding: EdgeInsetsDrawParam::default(),

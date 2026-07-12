@@ -1,8 +1,8 @@
 use crate::render_graph::{
     BorderDrawParams, DrawBatchPipeline, DrawCommandKind, EdgeInsetsDrawParam, FontStyleDrawParam,
-    FontWeightDrawParam, LogicalRect, MediaFit, MediaOrigin, TextAlign, TextDecorationDrawParam,
-    TextDrawParams, TextOverflowDrawParam, TextTransformDrawParam, UiButtonDrawParams,
-    WhiteSpaceDrawParam,
+    FontWeightDrawParam, GradientDrawKind, LogicalRect, MediaFit, MediaOrigin, TextAlign,
+    TextDecorationDrawParam, TextDrawParams, TextOverflowDrawParam, TextTransformDrawParam,
+    UiButtonDrawParams, WhiteSpaceDrawParam,
 };
 use crate::resources::ResourceId;
 
@@ -51,6 +51,7 @@ pub struct WgpuNativeRenderTextStyle {
     pub text_overflow: TextOverflowDrawParam,
     pub text_transform: TextTransformDrawParam,
     pub white_space: WhiteSpaceDrawParam,
+    pub blur_radius: f64,
     pub padding: EdgeInsetsDrawParam,
 }
 
@@ -87,6 +88,7 @@ impl WgpuNativeRenderTextStyle {
             text_overflow: params.text_overflow,
             text_transform: params.text_transform,
             white_space: params.white_space,
+            blur_radius: params.blur_radius * physical_scale,
             padding: scale_edge_insets(params.padding, physical_scale),
         }
     }
@@ -105,6 +107,7 @@ impl WgpuNativeRenderTextStyle {
             text_overflow: params.text_overflow,
             text_transform: params.text_transform,
             white_space: params.white_space,
+            blur_radius: 0.0,
             padding: scale_edge_insets(params.padding, physical_scale),
         }
     }
@@ -125,6 +128,8 @@ pub enum WgpuNativeRenderPrimitiveKind {
         origin: MediaOrigin,
         source: LogicalRect,
         rotation_degrees: f64,
+        brightness: f64,
+        saturation: f64,
     },
     VideoFallback {
         asset_type: String,
@@ -169,8 +174,30 @@ pub enum WgpuNativeRenderPrimitiveKind {
         role: String,
         fill_color: String,
         corner_radius: f64,
-        shadow_blur_radius: f64,
         border: WgpuNativeRenderPrimitiveBorder,
+    },
+    Shadow {
+        color: String,
+        source_offset_x: f64,
+        source_offset_y: f64,
+        source_width: f64,
+        source_height: f64,
+        offset_x: f64,
+        offset_y: f64,
+        blur_radius: f64,
+        spread_radius: f64,
+        corner_radius: f64,
+        inset: bool,
+    },
+    Gradient {
+        kind: GradientDrawKind,
+        start_color: String,
+        end_color: String,
+        angle_degrees: f64,
+        center_x: f64,
+        center_y: f64,
+        radius: f64,
+        corner_radius: f64,
     },
     UiButton {
         label: String,

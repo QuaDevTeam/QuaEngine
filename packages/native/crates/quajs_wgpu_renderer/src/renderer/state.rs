@@ -51,6 +51,15 @@ impl NativeRendererState {
         &self.pointer_interaction
     }
 
+    pub fn has_active_interaction_transition(&self) -> bool {
+        self.frame.as_ref().is_some_and(|frame| {
+            crate::renderer::interaction_feedback::interaction_transition_active(
+                frame,
+                &self.pointer_interaction,
+            )
+        })
+    }
+
     pub fn audio_backend_tracks(&self) -> &AudioBackendTrackStateMap {
         &self.audio_backend_tracks
     }

@@ -43,7 +43,7 @@ fn projects_surface_background_image_as_package_image_command() {
     let panel = &commands[2];
     assert_eq!(image.kind, DrawCommandKind::Image);
     assert_eq!(image.plane, RenderPlane::Screen);
-    assert_eq!(image.z_index, panel.z_index - 1);
+    assert_eq!(image.z_index, panel.z_index);
     assert_eq!(image.bounds, panel.bounds);
     assert!((image.opacity - 0.5).abs() < 0.0001);
     assert_eq!(
@@ -78,6 +78,60 @@ fn projects_surface_background_image_as_package_image_command() {
             assert_eq!(params.role, "ui-box");
         }
         _ => panic!("expected panel params"),
+    }
+}
+
+#[test]
+fn projects_surface_gradient_in_the_same_stable_paint_layer_as_the_surface() {
+    let layout = test_layout();
+    let ui = UiProjection::new(vec![UiOverlayProjection {
+        surface: Some(
+            UiOverlaySurfaceProjection::new("ui/gradient.qui").with_root(
+                UiSurfaceNodeProjection::new(
+                    "root",
+                    UiSurfaceNodeKind::Box,
+                    rect(20.0, 30.0, 320.0, 180.0),
+                )
+                .with_style(UiSurfaceResolvedStyle {
+                    background_gradient: Some(UiSurfaceGradientProjection {
+                        kind: UiSurfaceGradientKindProjection::Linear,
+                        start_color: "rgba(5,7,12,0.82)".to_string(),
+                        end_color: "rgba(5,7,12,0.06)".to_string(),
+                        angle_degrees: Some(90.0),
+                        center_x: None,
+                        center_y: None,
+                        radius: None,
+                    }),
+                    ..Default::default()
+                }),
+            ),
+        ),
+        ..UiOverlayProjection::new("gradient")
+    }]);
+
+    let commands = build_ui_commands(&layout, &ui);
+    assert_eq!(
+        commands
+            .iter()
+            .map(|command| command.id.as_str())
+            .collect::<Vec<_>>(),
+        vec![
+            "ui:gradient",
+            "ui:gradient:root:background-gradient",
+            "ui:gradient:root",
+        ]
+    );
+    let gradient = &commands[1];
+    let surface = &commands[2];
+    assert_eq!(gradient.z_index, surface.z_index);
+    match &gradient.params {
+        DrawCommandParams::Gradient(params) => {
+            assert_eq!(params.kind, GradientDrawKind::Linear);
+            assert_eq!(params.start_color, "rgba(5,7,12,0.82)");
+            assert_eq!(params.end_color, "rgba(5,7,12,0.06)");
+            assert_eq!(params.angle_degrees, 90.0);
+        }
+        _ => panic!("expected gradient params"),
     }
 }
 

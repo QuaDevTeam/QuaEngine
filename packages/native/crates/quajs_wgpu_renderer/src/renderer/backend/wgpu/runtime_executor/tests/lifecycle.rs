@@ -17,7 +17,7 @@ fn applies_runtime_plan_and_tracks_resident_resources() {
     assert_eq!(report.bind_group_create_count, 1);
     assert_eq!(report.queue_write_count, 2);
     assert_eq!(report.resident_buffer_count, 2);
-    assert_eq!(report.resident_buffer_byte_len, 152);
+    assert_eq!(report.resident_buffer_byte_len, 280);
     assert_eq!(report.resident_pipeline_count, 1);
     assert_eq!(report.resident_bind_group_count, 1);
     assert_eq!(report.submitted_command_buffer_count, 1);
@@ -26,7 +26,7 @@ fn applies_runtime_plan_and_tracks_resident_resources() {
         executor.snapshot(),
         WgpuNativeRenderRuntimeSnapshot {
             resident_buffer_count: 2,
-            resident_buffer_byte_len: 152,
+            resident_buffer_byte_len: 280,
             resident_pipeline_count: 1,
             resident_bind_group_count: 1,
             resident_texture_count: 0,
@@ -149,7 +149,7 @@ fn applies_recreate_and_release_across_frames() {
     executor
         .apply_runtime_plan(&runtime_plan(
             1,
-            128,
+            QUAD_VERTEX_BYTE_LEN,
             "bind-group::old",
             "images:old.png",
             None,
@@ -165,7 +165,10 @@ fn applies_recreate_and_release_across_frames() {
     assert_eq!(report.bind_group_release_count, 1);
     assert_eq!(report.bind_group_create_count, 1);
     assert_eq!(report.resident_buffer_count, 2);
-    assert_eq!(report.resident_buffer_byte_len, 184);
+    assert_eq!(
+        report.resident_buffer_byte_len,
+        5 * WgpuNativeRenderBufferVertex::BYTE_LEN + 24
+    );
     assert_eq!(report.resident_pipeline_count, 1);
     assert_eq!(report.resident_bind_group_count, 1);
     assert_eq!(report.submitted_command_buffer_count, 2);
@@ -174,7 +177,13 @@ fn applies_recreate_and_release_across_frames() {
 #[test]
 fn rejects_reusing_pipeline_with_mismatched_key() {
     let mut executor = InMemoryWgpuNativeRenderRuntimeExecutor::new();
-    let first = runtime_plan(1, 128, "bind-group::old", "images:old.png", None);
+    let first = runtime_plan(
+        1,
+        QUAD_VERTEX_BYTE_LEN,
+        "bind-group::old",
+        "images:old.png",
+        None,
+    );
     let first_report = executor.apply_runtime_plan(&first).unwrap();
     let committed_snapshot = executor.snapshot();
     let mut second = second_runtime_plan();

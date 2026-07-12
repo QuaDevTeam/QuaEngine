@@ -103,6 +103,7 @@ pub(super) fn text_node_command(
                 text_transform: resolve_text_transform(&node.style),
                 white_space: resolve_white_space(&node.style),
                 color: resolve_text_color(&node.style, "#ffffff"),
+                blur_radius: 0.0,
                 padding: resolve_padding(&node.style),
                 role: role.to_string(),
             })),
@@ -118,6 +119,7 @@ pub(super) fn image_node_command(
         .image
         .as_ref()
         .filter(|image| is_safe_native_asset_ref(&image.asset_type, &image.asset_name))?;
+    let (brightness, saturation) = super::super::super::style::resolve_image_filter(&node.style);
     let command = DrawCommand::new(
         command_id,
         RenderPlane::Screen,
@@ -135,6 +137,8 @@ pub(super) fn image_node_command(
         origin: resolve_object_position(&node.style, MediaOrigin::default()),
         source: bounds,
         rotation_degrees: 0.0,
+        brightness,
+        saturation,
     }));
 
     Some(command)
@@ -163,7 +167,6 @@ pub(super) fn surface_panel_node_command(
     .params(DrawCommandParams::Panel(PanelDrawParams {
         role: role.to_string(),
         corner_radius: resolve_border_radius(&node.style, 0.0),
-        shadow_blur_radius: 0.0,
         fill_color: resolve_background_color(&node.style, fallback_fill_color),
         border: surface_border_params(&node.style),
         padding: resolve_padding(&node.style),

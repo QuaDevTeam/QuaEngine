@@ -17,6 +17,7 @@ export interface NativeUiSurfaceProjectionRequirements {
 const QSS_FEATURE_BY_STYLE_FIELD: Record<keyof NativeQssResolvedStyle, string> = {
   backgroundColor: 'background-color',
   backgroundImage: 'background-image',
+  backgroundGradient: 'background-image',
   backgroundPosition: 'background-position',
   backgroundSize: 'background-size',
   borderColor: 'border-color',
@@ -26,6 +27,7 @@ const QSS_FEATURE_BY_STYLE_FIELD: Record<keyof NativeQssResolvedStyle, string> =
   boxShadow: 'box-shadow',
   color: 'color',
   fontFamily: 'font-family',
+  filter: 'filter',
   fontSize: 'font-size',
   fontStyle: 'font-style',
   fontWeight: 'font-weight',
@@ -112,6 +114,15 @@ function collectNativeUiSurfaceNodeRequirements(
   }
   if (node.children?.length)
     requirements.projectionFields.add('children')
+  if (node.stateStyles && Object.keys(node.stateStyles).length > 0) {
+    requirements.projectionFields.add('stateStyles')
+    for (const state of Object.values(node.stateStyles))
+      collectStyleRequirements(state?.style, requirements)
+  }
+  if (node.transitions?.length) {
+    requirements.projectionFields.add('transitions')
+    requirements.qssFeatures.add('transition')
+  }
 
   for (const child of node.children || [])
     collectNativeUiSurfaceNodeRequirements(child, requirements)
