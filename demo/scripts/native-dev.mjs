@@ -19,6 +19,7 @@ const REPO_ROOT = resolve(DEMO_ROOT, '..')
 const FRAME_PATH = resolve(DEMO_ROOT, 'dist/native/dev/frame.json')
 const CAPTURE_PATH = resolve(DEMO_ROOT, 'dist/native/dev/frame.png')
 const QUICKJS_APP_ASSET = 'assets/scripts/native-app.mjs'
+const GENERATED_QUICKJS_APP_WATCH_PATH = 'scripts/native-app.mjs'
 const ASSET_INDEX_PATH = resolve(DEMO_ROOT, 'dist/assets/index.json')
 const NATIVE_FEATURES = 'native-window,native-audio-rodio,quickjs-rquickjs'
 const smoke = process.argv.includes('--smoke')
@@ -223,7 +224,7 @@ function installWatchers() {
     resolve(REPO_ROOT, 'packages/plugins/settings/src'),
   ]) {
     watchers.push(watch(directory, { recursive: true }, (_event, filename) => {
-      if (!filename || filename.includes('/dist/') || filename.endsWith('.tmp')) {
+      if (rebuilding || shouldIgnoreNativeDevWatchEvent(filename)) {
         return
       }
       clearTimeout(debounceTimer)
@@ -239,6 +240,17 @@ function installWatchers() {
       debounceTimer = setTimeout(() => void rebuildAndLaunch().catch(error => console.error(error)), 180)
     }))
   }
+}
+
+function shouldIgnoreNativeDevWatchEvent(filename) {
+  if (!filename) {
+    return true
+  }
+  const normalized = filename.replaceAll('\\', '/')
+  return normalized === GENERATED_QUICKJS_APP_WATCH_PATH
+    || normalized.includes('/dist/')
+    || normalized.endsWith('.tmp')
+    || normalized.endsWith('.qpk')
 }
 
 async function validateNativeFeatureFrame(panelName) {
