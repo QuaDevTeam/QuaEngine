@@ -1,5 +1,6 @@
 import type {
   NativeQssDocument,
+  NativeQssInteractivePseudoState,
   NativeQssResolvedNodeStyle,
   NativeQssRule,
   NativeQuiAstNode,
@@ -21,6 +22,7 @@ interface SelectorSegment {
 
 interface SelectorChain {
   direct: boolean[]
+  pseudoState?: NativeQssInteractivePseudoState
   segments: SelectorSegment[]
   specificity: number
 }
@@ -35,28 +37,79 @@ export function resolveStyleForNode(
   context: NativeQuiProjectionStyleContext,
   qssDocuments: readonly NativeQssDocument[],
 ): NativeQssResolvedNodeStyle {
-  const matched = qssDocuments
-    .flatMap(document => document.rules)
-    .flatMap((rule, order): MatchedRule[] => matchingSpecificities(context, rule)
-      .map(specificity => ({ rule, order, specificity })))
-    .sort((left, right) => left.specificity - right.specificity || left.order - right.order)
-  const declarations = matched.flatMap(item => item.rule.declarations)
-  return resolveNativeQssDeclarations(declarations)
+  const rules = qssDocuments.flatMap(document => document.rules)
+  const baseMatched = matchingRules(context, rules)
+  const resolved = resolveNativeQssDeclarations(baseMatched.flatMap(item => item.rule.declarations))
+
+  for (const state of NATIVE_INTERACTIVE_PSEUDO_STATES) {
+    const stateMatched = matchingRules(context, rules, state)
+    if (stateMatched.length === 0)
+      continue
+    const stateResolved = resolveNativeQssDeclarations(
+      [...baseMatched, ...stateMatched]
+        .sort(compareMatchedRules)
+        .flatMap(item => item.rule.declarations),
+    )
+    resolved.stateStyles ||= {}
+    resolved.stateStyles[state] = {
+      style: stateResolved.style,
+      ...(stateResolved.layout?.transform
+        ? { layout: { transform: stateResolved.layout.transform } }
+        : {}),
+    }
+  }
+
+  return resolved
 }
 
-function matchingSpecificities(context: NativeQuiProjectionStyleContext, rule: NativeQssRule): number[] {
+const NATIVE_INTERACTIVE_PSEUDO_STATES: readonly NativeQssInteractivePseudoState[] = [
+  'hover',
+  'active',
+  'focus',
+  'focus-visible',
+]
+
+function matchingRules(
+  context: NativeQuiProjectionStyleContext,
+  rules: readonly NativeQssRule[],
+  pseudoState?: NativeQssInteractivePseudoState,
+): MatchedRule[] {
+  return rules
+    .flatMap((rule, order): MatchedRule[] => matchingSpecificities(context, rule, pseudoState)
+      .map(specificity => ({ rule, order, specificity })))
+    .sort(compareMatchedRules)
+}
+
+function compareMatchedRules(left: MatchedRule, right: MatchedRule): number {
+  return left.specificity - right.specificity || left.order - right.order
+}
+
+function matchingSpecificities(
+  context: NativeQuiProjectionStyleContext,
+  rule: NativeQssRule,
+  pseudoState?: NativeQssInteractivePseudoState,
+): number[] {
   return splitTopLevel(rule.selector, ',')
     .map(item => parseSelectorChain(item.text.trim()))
     .filter((chain): chain is SelectorChain => Boolean(chain))
+    .filter(chain => chain.pseudoState === pseudoState)
     .filter(chain => matchesSelectorChain(context, chain))
     .map(chain => chain.specificity)
 }
 
 function parseSelectorChain(selector: string): SelectorChain | undefined {
-  if (!selector || selector.includes('::') || selector.includes(':') || selector.includes('['))
+  if (!selector || selector.includes('::') || selector.includes('['))
     return undefined
 
-  const normalized = selector.replace(/\s*>\s*/g, ' > ').trim()
+  const pseudoMatch = /:(hover|active|focus-visible|focus)$/.exec(selector)
+  const pseudoState = pseudoMatch?.[1] as NativeQssInteractivePseudoState | undefined
+  const selectorWithoutPseudo = pseudoMatch
+    ? selector.slice(0, -pseudoMatch[0].length)
+    : selector
+  if (selectorWithoutPseudo.includes(':'))
+    return undefined
+
+  const normalized = selectorWithoutPseudo.replace(/\s*>\s*/g, ' > ').trim()
   const rawParts = normalized.split(/\s+/).filter(Boolean)
   if (rawParts.length === 0 || rawParts.includes('*'))
     return undefined
@@ -83,7 +136,12 @@ function parseSelectorChain(selector: string): SelectorChain | undefined {
   }
 
   return segments.length > 0 && !nextDirect
-    ? { segments, direct, specificity: selectorSpecificity(segments) }
+    ? {
+        segments,
+        direct,
+        pseudoState,
+        specificity: selectorSpecificity(segments) + (pseudoState ? 10 : 0),
+      }
     : undefined
 }
 

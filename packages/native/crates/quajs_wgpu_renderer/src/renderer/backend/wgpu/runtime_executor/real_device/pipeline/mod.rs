@@ -61,9 +61,21 @@ pub(super) fn create_real_pipeline(
             offset: 16,
             shader_location: 2,
         },
+        wgpu::VertexAttribute {
+            format: wgpu::VertexFormat::Float32x4,
+            offset: 32,
+            shader_location: 3,
+        },
+        wgpu::VertexAttribute {
+            format: wgpu::VertexFormat::Float32x4,
+            offset: 48,
+            shader_location: 4,
+        },
     ];
     let vertex_buffers = [wgpu::VertexBufferLayout {
-        array_stride: 32,
+        array_stride: std::mem::size_of::<
+            crate::renderer::backend::wgpu::buffer::WgpuNativeRenderBufferVertex,
+        >() as u64,
         step_mode: wgpu::VertexStepMode::Vertex,
         attributes: &attributes,
     }];

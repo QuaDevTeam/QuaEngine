@@ -1,4 +1,4 @@
-use crate::render_graph::{DrawBatchPipeline, DrawCommandKind, DrawCommandParams};
+use crate::render_graph::{DrawBatchPipeline, DrawCommandKind, DrawCommandParams, LogicalRect};
 use crate::resources::ResourceId;
 
 use super::super::super::NativeBackendEncoderSkipReason;
@@ -69,7 +69,12 @@ impl WgpuNativeRenderPrimitive {
             command_id: command_id.to_string(),
             pipeline,
             draw_kind,
-            kind: primitive_kind_from_params(draw_kind, &metadata.params, physical_scale),
+            kind: primitive_kind_from_params(
+                draw_kind,
+                &metadata.params,
+                metadata.bounds,
+                physical_scale,
+            ),
             logical_bounds: metadata.bounds,
             physical_bounds,
             scissor,
@@ -112,6 +117,7 @@ impl WgpuNativeRenderPrimitive {
 fn primitive_kind_from_params(
     draw_kind: DrawCommandKind,
     params: &DrawCommandParams,
+    bounds: LogicalRect,
     physical_scale: f64,
 ) -> WgpuNativeRenderPrimitiveKind {
     match params {
@@ -122,6 +128,8 @@ fn primitive_kind_from_params(
             origin: params.origin,
             source: params.source,
             rotation_degrees: params.rotation_degrees,
+            brightness: params.brightness,
+            saturation: params.saturation,
         },
         DrawCommandParams::Video(params) => match &params.frame_resource_id {
             Some(frame_resource_id) if params.fallback_reason.is_none() => {
@@ -170,11 +178,33 @@ fn primitive_kind_from_params(
             role: params.role.clone(),
             fill_color: params.fill_color.clone(),
             corner_radius: params.corner_radius * physical_scale,
-            shadow_blur_radius: params.shadow_blur_radius * physical_scale,
             border: WgpuNativeRenderPrimitiveBorder::from_draw_params(
                 &params.border,
                 physical_scale,
             ),
+        },
+        DrawCommandParams::Shadow(params) => WgpuNativeRenderPrimitiveKind::Shadow {
+            color: params.color.clone(),
+            source_offset_x: (params.source_bounds.x - bounds.x) * physical_scale,
+            source_offset_y: (params.source_bounds.y - bounds.y) * physical_scale,
+            source_width: params.source_bounds.width * physical_scale,
+            source_height: params.source_bounds.height * physical_scale,
+            offset_x: params.offset_x * physical_scale,
+            offset_y: params.offset_y * physical_scale,
+            blur_radius: params.blur_radius * physical_scale,
+            spread_radius: params.spread_radius * physical_scale,
+            corner_radius: params.corner_radius * physical_scale,
+            inset: matches!(params.style, crate::render_graph::ShadowDrawStyle::Inset),
+        },
+        DrawCommandParams::Gradient(params) => WgpuNativeRenderPrimitiveKind::Gradient {
+            kind: params.kind,
+            start_color: params.start_color.clone(),
+            end_color: params.end_color.clone(),
+            angle_degrees: params.angle_degrees,
+            center_x: params.center_x,
+            center_y: params.center_y,
+            radius: params.radius,
+            corner_radius: params.corner_radius * physical_scale,
         },
         DrawCommandParams::UiButton(params) => WgpuNativeRenderPrimitiveKind::UiButton {
             label: params.label.clone(),
@@ -204,7 +234,6 @@ fn primitive_kind_from_draw_kind(draw_kind: DrawCommandKind) -> WgpuNativeRender
                 role: "shape".to_string(),
                 fill_color: "#ffffff".to_string(),
                 corner_radius: 0.0,
-                shadow_blur_radius: 0.0,
                 border: WgpuNativeRenderPrimitiveBorder::default(),
             }
         }
@@ -246,9 +275,11 @@ fn resource_ids_from_params(params: &DrawCommandParams) -> Vec<ResourceId> {
             .iter()
             .filter_map(|surface_key| optional_resource_id("surface", surface_key))
             .collect(),
-        DrawCommandParams::Panel(_) | DrawCommandParams::UiButton(_) | DrawCommandParams::None => {
-            Vec::new()
-        }
+        DrawCommandParams::Panel(_)
+        | DrawCommandParams::Shadow(_)
+        | DrawCommandParams::Gradient(_)
+        | DrawCommandParams::UiButton(_)
+        | DrawCommandParams::None => Vec::new(),
     }
 }
 

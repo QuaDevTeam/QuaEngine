@@ -3,10 +3,12 @@ use super::*;
 use crate::render_graph::DrawBatchPipeline;
 use crate::renderer::backend::wgpu::{
     WgpuNativeRenderBindGroupLayout, WgpuNativeRenderBufferDescriptor, WgpuNativeRenderBufferRole,
-    WgpuNativeRenderBufferUsage, WgpuNativeRenderPipelineDescriptor,
+    WgpuNativeRenderBufferUsage, WgpuNativeRenderBufferVertex, WgpuNativeRenderPipelineDescriptor,
     WgpuNativeRenderResourceCachePlan, WgpuNativeRenderRuntimeOperation,
     WgpuNativeRenderRuntimePlan, WgpuPhysicalRect,
 };
+
+const QUAD_VERTEX_BYTE_LEN: usize = WgpuNativeRenderBufferVertex::QUAD_BYTE_LEN;
 
 mod bind_draw;
 mod buffers;

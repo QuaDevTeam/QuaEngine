@@ -84,6 +84,8 @@ pub(super) fn vertex(position: [f32; 2], uv: [f32; 2]) -> WgpuNativeRenderBuffer
         position,
         uv,
         color: [1.0, 1.0, 1.0, 1.0],
+        effect0: [0.0; 4],
+        effect1: [0.0; 4],
     }
 }
 

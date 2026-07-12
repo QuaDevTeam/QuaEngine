@@ -6,6 +6,7 @@ fn noop_device_materializes_textured_quad_with_placeholder_sampler() {
     let device = RealWgpuNativeRenderRuntimeDevice::new(target);
     let mut executor = InMemoryWgpuNativeRenderRuntimeExecutor::with_device(device);
     let vertex_bytes = quad_vertex_bytes();
+    let vertex_byte_len = vertex_bytes.len();
     let index_bytes = quad_index_bytes();
     let pipeline_key = WgpuNativeRenderPipelineKey {
         pipeline: DrawBatchPipeline::Image,
@@ -34,7 +35,7 @@ fn noop_device_materializes_textured_quad_with_placeholder_sampler() {
                     element_count: 4,
                     usage: WgpuNativeRenderBufferUsage::VertexCopyDst,
                 },
-                byte_len: vertex_bytes.len(),
+                byte_len: vertex_byte_len,
             },
             WgpuNativeRenderRuntimeOperation::CreateBuffer {
                 label: "index".to_string(),
@@ -63,7 +64,7 @@ fn noop_device_materializes_textured_quad_with_placeholder_sampler() {
                 target_label: "vertex".to_string(),
                 staging_byte_offset: 0,
                 buffer_byte_offset: 0,
-                byte_len: vertex_bytes.len(),
+                byte_len: vertex_byte_len,
                 checksum: checksum_bytes(&vertex_bytes),
                 bytes: vertex_bytes,
             },
@@ -97,7 +98,7 @@ fn noop_device_materializes_textured_quad_with_placeholder_sampler() {
             WgpuNativeRenderRuntimeOperation::SetVertexBuffer {
                 pass_label: "pass".to_string(),
                 buffer_label: "vertex".to_string(),
-                byte_len: 128,
+                byte_len: vertex_byte_len,
             },
             WgpuNativeRenderRuntimeOperation::SetIndexBuffer {
                 pass_label: "pass".to_string(),

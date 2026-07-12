@@ -1,6 +1,64 @@
 use super::*;
 
 #[test]
+fn scales_analytic_shadow_metrics_and_source_box_to_physical_pixels() {
+    let plan =
+        WgpuNativeRenderPrimitivePlan::from_execution_plan(&execution_plan_with_physical_scale(
+            vec![WgpuNativeRenderExecutionOperation::Draw {
+                command_id: "ui:panel:box-shadow".to_string(),
+                pipeline: DrawBatchPipeline::Shape,
+                kind: DrawCommandKind::RoundedRect,
+                metadata: draw_metadata(DrawCommandParams::Shadow(ShadowDrawParams {
+                    role: "ui-box-shadow".to_string(),
+                    source_bounds: LogicalRect {
+                        x: 14.0,
+                        y: 26.0,
+                        width: 100.0,
+                        height: 30.0,
+                    },
+                    offset_x: 2.0,
+                    offset_y: 3.0,
+                    blur_radius: 12.0,
+                    spread_radius: -2.0,
+                    corner_radius: 8.0,
+                    color: "rgba(0,0,0,0.4)".to_string(),
+                    style: ShadowDrawStyle::Inset,
+                })),
+                physical_bounds: physical_rect(20, 40, 240, 72),
+                clip_depth: 0,
+                resource_count: 0,
+            }],
+            2.0,
+        ));
+
+    assert!(matches!(
+        &plan.passes[0].primitives[0].kind,
+        WgpuNativeRenderPrimitiveKind::Shadow {
+            source_offset_x,
+            source_offset_y,
+            source_width,
+            source_height,
+            offset_x,
+            offset_y,
+            blur_radius,
+            spread_radius,
+            corner_radius,
+            inset,
+            ..
+        } if *source_offset_x == 8.0
+            && *source_offset_y == 12.0
+            && *source_width == 200.0
+            && *source_height == 60.0
+            && *offset_x == 4.0
+            && *offset_y == 6.0
+            && *blur_radius == 24.0
+            && *spread_radius == -4.0
+            && *corner_radius == 16.0
+            && *inset
+    ));
+}
+
+#[test]
 fn scales_ui_paint_and_typography_metrics_to_physical_pixels() {
     let plan =
         WgpuNativeRenderPrimitivePlan::from_execution_plan(&execution_plan_with_physical_scale(
@@ -12,7 +70,6 @@ fn scales_ui_paint_and_typography_metrics_to_physical_pixels() {
                     metadata: draw_metadata(DrawCommandParams::Panel(PanelDrawParams {
                         role: "panel".to_string(),
                         corner_radius: 8.0,
-                        shadow_blur_radius: 0.0,
                         fill_color: "#000000".to_string(),
                         border: BorderDrawParams {
                             color: Some("#ffffff".to_string()),
@@ -43,6 +100,7 @@ fn scales_ui_paint_and_typography_metrics_to_physical_pixels() {
                         text_transform: TextTransformDrawParam::None,
                         white_space: WhiteSpaceDrawParam::Normal,
                         color: "#ffffff".to_string(),
+                        blur_radius: 0.0,
                         padding: EdgeInsetsDrawParam {
                             top: 2.0,
                             right: 4.0,
@@ -89,7 +147,6 @@ fn lowers_foundational_ui_surface_primitives() {
             metadata: draw_metadata(DrawCommandParams::Panel(PanelDrawParams {
                 role: "ui-panel".to_string(),
                 corner_radius: 12.0,
-                shadow_blur_radius: 0.0,
                 fill_color: "rgba(16,24,32,0.75)".to_string(),
                 border: BorderDrawParams {
                     color: Some("#5ac8fa".to_string()),
@@ -125,6 +182,7 @@ fn lowers_foundational_ui_surface_primitives() {
                 text_transform: TextTransformDrawParam::Uppercase,
                 white_space: WhiteSpaceDrawParam::NoWrap,
                 color: "#ffffff".to_string(),
+                blur_radius: 0.0,
                 padding: EdgeInsetsDrawParam {
                     top: 2.0,
                     right: 4.0,
@@ -244,6 +302,7 @@ fn lowers_rich_text_draws_into_text_primitives_without_losing_draw_kind() {
                 text_transform: TextTransformDrawParam::None,
                 white_space: WhiteSpaceDrawParam::PreLine,
                 color: "#f7f3e8".to_string(),
+                blur_radius: 0.0,
                 padding: EdgeInsetsDrawParam {
                     top: 4.0,
                     right: 6.0,

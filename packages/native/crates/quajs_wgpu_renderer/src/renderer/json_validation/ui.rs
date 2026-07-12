@@ -167,6 +167,25 @@ impl JsonProjectionValidator {
             self.validate_ui_control(control, &format!("{path}.control"));
         }
         self.validate_ui_style(&format!("{path}.style"), &node.style);
+        for (state, state_style) in &node.state_styles {
+            let state_path = format!("{path}.stateStyles.{state:?}");
+            self.validate_ui_rect(&format!("{state_path}.bounds"), &state_style.bounds);
+            self.validate_ui_style(&format!("{state_path}.style"), &state_style.style);
+        }
+        for (index, transition) in node.transitions.iter().enumerate() {
+            if !transition.duration_ms.is_finite()
+                || !(0.0..=crate::projection::safety::MAX_NATIVE_UI_TRANSITION_DURATION_MS)
+                    .contains(&transition.duration_ms)
+            {
+                self.errors.push(NativeRendererJsonValidationError {
+                    path: format!("{path}.transitions[{index}].durationMs"),
+                    asset_name: transition.duration_ms.to_string(),
+                    reason:
+                        "native UI transition duration must be finite and between 0ms and 5000ms"
+                            .to_string(),
+                });
+            }
+        }
         for (index, child) in node.children.iter().enumerate() {
             self.validate_ui_surface_node(
                 child,
@@ -263,6 +282,16 @@ impl JsonProjectionValidator {
         }
         if let Some(color) = &style.color {
             self.validate_color_literal(&format!("{path}.color"), color);
+        }
+        if let Some(gradient) = &style.background_gradient {
+            self.validate_color_literal(
+                &format!("{path}.backgroundGradient.startColor"),
+                &gradient.start_color,
+            );
+            self.validate_color_literal(
+                &format!("{path}.backgroundGradient.endColor"),
+                &gradient.end_color,
+            );
         }
         if let Some(shadow) = &style.box_shadow {
             self.validate_color_literal(&format!("{path}.boxShadow.color"), &shadow.color);

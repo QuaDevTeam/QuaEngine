@@ -14,6 +14,7 @@ import {
 } from './qss-resolved-style-helpers'
 import {
   parseNativeQssAlignItems,
+  parseNativeQssBackgroundGradient,
   parseNativeQssBackgroundImage,
   parseNativeQssBackgroundPosition,
   parseNativeQssBorderStyle,
@@ -22,6 +23,7 @@ import {
   parseNativeQssCoordinateNumber,
   parseNativeQssDisplay,
   parseNativeQssEdgeInsets,
+  parseNativeQssFilter,
   parseNativeQssFontFamilyList,
   parseNativeQssFontStyle,
   parseNativeQssFontWeight,
@@ -34,17 +36,24 @@ import {
   parseNativeQssOverflow,
   parseNativeQssPointerEvents,
   parseNativeQssPosition,
-  parseNativeQssShadow,
+  parseNativeQssBoxShadow,
   parseNativeQssTextAlign,
   parseNativeQssTextDecoration,
   parseNativeQssTextOverflow,
   parseNativeQssTextTransform,
+  parseNativeQssTextShadow,
+  parseNativeQssTransform,
+  parseNativeQssTransformOrigin,
+  parseNativeQssTranslate,
+  parseNativeQssScale,
+  parseNativeQssTransition,
   parseNativeQssVisibility,
   parseNativeQssWhiteSpace,
 } from './qss-style-values'
 
 export {
   parseNativeQssAlignItems,
+  parseNativeQssBackgroundGradient,
   parseNativeQssBackgroundImage,
   parseNativeQssBackgroundPosition,
   parseNativeQssBorderStyle,
@@ -53,6 +62,7 @@ export {
   parseNativeQssCoordinateNumber,
   parseNativeQssDisplay,
   parseNativeQssEdgeInsets,
+  parseNativeQssFilter,
   parseNativeQssFontFamilyList,
   parseNativeQssFontStyle,
   parseNativeQssFontWeight,
@@ -66,11 +76,17 @@ export {
   parseNativeQssOverflow,
   parseNativeQssPointerEvents,
   parseNativeQssPosition,
-  parseNativeQssShadow,
+  parseNativeQssBoxShadow,
   parseNativeQssTextAlign,
   parseNativeQssTextDecoration,
   parseNativeQssTextOverflow,
   parseNativeQssTextTransform,
+  parseNativeQssTextShadow,
+  parseNativeQssTransform,
+  parseNativeQssTransformOrigin,
+  parseNativeQssTranslate,
+  parseNativeQssScale,
+  parseNativeQssTransition,
   parseNativeQssVisibility,
   parseNativeQssWhiteSpace,
 } from './qss-style-values'
@@ -97,7 +113,10 @@ export function resolveNativeQssDeclarations(
         resolved.style.backgroundColor = parseNativeQssColor(value)
         break
       case 'background-image':
-        resolved.style.backgroundImage = parseNativeQssBackgroundImage(value)
+        resolved.style.backgroundGradient = parseNativeQssBackgroundGradient(value)
+        resolved.style.backgroundImage = resolved.style.backgroundGradient
+          ? undefined
+          : parseNativeQssBackgroundImage(value)
         break
       case 'background-position':
         resolved.style.backgroundPosition = parseNativeQssBackgroundPosition(value)
@@ -121,7 +140,7 @@ export function resolveNativeQssDeclarations(
         boxSizing = parseNativeQssBoxSizing(value)
         break
       case 'box-shadow':
-        resolved.style.boxShadow = value.toLowerCase() === 'none' ? undefined : parseNativeQssShadow(value)
+        resolved.style.boxShadow = value.toLowerCase() === 'none' ? undefined : parseNativeQssBoxShadow(value)
         break
       case 'color':
         resolved.style.color = parseNativeQssColor(value)
@@ -129,6 +148,9 @@ export function resolveNativeQssDeclarations(
       case 'display':
         if (parseNativeQssDisplay(value) === false)
           displayNone = true
+        break
+      case 'filter':
+        resolved.style.filter = parseNativeQssFilter(value)
         break
       case 'font-family':
         resolved.style.fontFamily = parseNativeQssFontFamilyList(value)
@@ -257,8 +279,76 @@ export function resolveNativeQssDeclarations(
         resolved.style.textTransform = parseNativeQssTextTransform(value)
         break
       case 'text-shadow':
-        resolved.style.textShadow = value.toLowerCase() === 'none' ? undefined : parseNativeQssShadow(value)
+        resolved.style.textShadow = value.toLowerCase() === 'none' ? undefined : parseNativeQssTextShadow(value)
         break
+      case 'transform': {
+        const transform = parseNativeQssTransform(value)
+        if (transform) {
+          resolved.layout = {
+            ...resolved.layout,
+            transform: {
+              ...transform,
+              originX: resolved.layout?.transform?.originX ?? transform.originX,
+              originY: resolved.layout?.transform?.originY ?? transform.originY,
+            },
+          }
+        }
+        break
+      }
+      case 'transform-origin': {
+        const origin = parseNativeQssTransformOrigin(value)
+        if (origin) {
+          resolved.layout = {
+            ...resolved.layout,
+            transform: {
+              originX: origin.x,
+              originY: origin.y,
+              scaleX: resolved.layout?.transform?.scaleX ?? 1,
+              scaleY: resolved.layout?.transform?.scaleY ?? 1,
+              translateX: resolved.layout?.transform?.translateX ?? 0,
+              translateY: resolved.layout?.transform?.translateY ?? 0,
+            },
+          }
+        }
+        break
+      }
+      case 'translate': {
+        const translate = parseNativeQssTranslate(value)
+        if (translate) {
+          resolved.layout = {
+            ...resolved.layout,
+            transform: {
+              originX: resolved.layout?.transform?.originX ?? 0.5,
+              originY: resolved.layout?.transform?.originY ?? 0.5,
+              scaleX: resolved.layout?.transform?.scaleX ?? 1,
+              scaleY: resolved.layout?.transform?.scaleY ?? 1,
+              translateX: translate.x,
+              translateY: translate.y,
+            },
+          }
+        }
+        break
+      }
+      case 'transition':
+        resolved.transitions = parseNativeQssTransition(value)
+        break
+      case 'scale': {
+        const scale = parseNativeQssScale(value)
+        if (scale) {
+          resolved.layout = {
+            ...resolved.layout,
+            transform: {
+              originX: resolved.layout?.transform?.originX ?? 0.5,
+              originY: resolved.layout?.transform?.originY ?? 0.5,
+              scaleX: scale.x,
+              scaleY: scale.y,
+              translateX: resolved.layout?.transform?.translateX ?? 0,
+              translateY: resolved.layout?.transform?.translateY ?? 0,
+            },
+          }
+        }
+        break
+      }
       case 'visibility':
         resolved.visible = parseNativeQssVisibility(value)
         break

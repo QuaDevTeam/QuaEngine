@@ -34,6 +34,7 @@ Panel {
       boxShadow: {
         blurRadius: 48,
         color: 'rgba(0,0,0,0.32)',
+        inset: false,
         offsetX: 0,
         offsetY: 18,
         spreadRadius: 2,
@@ -41,6 +42,7 @@ Panel {
       textShadow: {
         blurRadius: 10,
         color: '#000a',
+        inset: false,
         offsetX: 0,
         offsetY: 2,
         spreadRadius: 0,
@@ -48,15 +50,23 @@ Panel {
     })
   })
 
-  it('rejects inset, multiple, and unsafe native shadows', () => {
+  it('accepts inset and negative box spread while rejecting multiple text shadows', () => {
     const document = analyzeQssSource(`
 Panel {
-  box-shadow: inset 0 2px 8px #000;
+  box-shadow: inset 0 2px 8px -3px #000;
   text-shadow: 0 2px 8px #000, 0 4px 16px #000;
 }
 `)
 
-    expect(document.diagnostics.filter(item => item.code === 'QSS_INVALID_VALUE')).toHaveLength(2)
+    expect(document.diagnostics.filter(item => item.code === 'QSS_INVALID_VALUE')).toHaveLength(1)
+    expect(resolveNativeQssDeclarations(document.rules[0].declarations).style.boxShadow).toEqual({
+      blurRadius: 8,
+      color: '#000',
+      inset: true,
+      offsetX: 0,
+      offsetY: 2,
+      spreadRadius: -3,
+    })
   })
 
   it('accepts opacity as a native-wgpu QSS feature', () => {

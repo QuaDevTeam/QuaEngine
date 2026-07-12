@@ -18,22 +18,22 @@ fn noop_device_snapshots_vertex_and_index_buffers_per_draw() {
             descriptor: WgpuNativeRenderBufferDescriptor {
                 label: "vertex-a".to_string(),
                 role: WgpuNativeRenderBufferRole::Vertex,
-                byte_len: 128,
+                byte_len: QUAD_VERTEX_BYTE_LEN,
                 element_count: 4,
                 usage: WgpuNativeRenderBufferUsage::VertexCopyDst,
             },
-            byte_len: 128,
+            byte_len: QUAD_VERTEX_BYTE_LEN,
         },
         WgpuNativeRenderRuntimeOperation::CreateBuffer {
             label: "vertex-b".to_string(),
             descriptor: WgpuNativeRenderBufferDescriptor {
                 label: "vertex-b".to_string(),
                 role: WgpuNativeRenderBufferRole::Vertex,
-                byte_len: 128,
+                byte_len: QUAD_VERTEX_BYTE_LEN,
                 element_count: 4,
                 usage: WgpuNativeRenderBufferUsage::VertexCopyDst,
             },
-            byte_len: 128,
+            byte_len: QUAD_VERTEX_BYTE_LEN,
         },
         WgpuNativeRenderRuntimeOperation::CreateBuffer {
             label: "index".to_string(),
@@ -83,7 +83,7 @@ fn noop_device_snapshots_vertex_and_index_buffers_per_draw() {
         WgpuNativeRenderRuntimeOperation::SetVertexBuffer {
             pass_label: "pass".to_string(),
             buffer_label: "vertex-a".to_string(),
-            byte_len: 128,
+            byte_len: QUAD_VERTEX_BYTE_LEN,
         },
         WgpuNativeRenderRuntimeOperation::DrawIndexed {
             pass_label: "pass".to_string(),
@@ -103,7 +103,7 @@ fn noop_device_snapshots_vertex_and_index_buffers_per_draw() {
         WgpuNativeRenderRuntimeOperation::SetVertexBuffer {
             pass_label: "pass".to_string(),
             buffer_label: "vertex-b".to_string(),
-            byte_len: 128,
+            byte_len: QUAD_VERTEX_BYTE_LEN,
         },
         WgpuNativeRenderRuntimeOperation::DrawIndexed {
             pass_label: "pass".to_string(),

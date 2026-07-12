@@ -1,10 +1,12 @@
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 
 use crate::projection::common::PackageProvenance;
 use crate::projection::defaults::{default_one_f32, default_true};
 
 use super::UiSurfaceControlProjection;
-use super::UiSurfaceResolvedStyle;
+use super::{UiSurfaceResolvedStyle, UiSurfaceTransitionProjection};
 use crate::projection::ui::types::{
     default_image_asset_type, is_false, is_zero_f64, UiIntentProjection,
 };
@@ -53,6 +55,23 @@ pub struct UiSurfaceImageProjection {
     pub asset_name: String,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, PartialOrd, Ord, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum UiSurfacePseudoStateProjection {
+    Active,
+    Focus,
+    FocusVisible,
+    Hover,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UiSurfaceNodeStateProjection {
+    pub bounds: UiSurfaceNodeRect,
+    #[serde(default)]
+    pub style: UiSurfaceResolvedStyle,
+}
+
 impl UiSurfaceImageProjection {
     pub fn new(asset_name: impl Into<String>) -> Self {
         Self {
@@ -94,6 +113,10 @@ pub struct UiSurfaceNodeProjection {
     pub role: Option<String>,
     #[serde(default)]
     pub style: UiSurfaceResolvedStyle,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub state_styles: BTreeMap<UiSurfacePseudoStateProjection, UiSurfaceNodeStateProjection>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub transitions: Vec<UiSurfaceTransitionProjection>,
     #[serde(default, skip_serializing_if = "PackageProvenance::is_empty")]
     pub provenance: PackageProvenance,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -118,6 +141,8 @@ impl UiSurfaceNodeProjection {
             control: None,
             role: None,
             style: UiSurfaceResolvedStyle::default(),
+            state_styles: BTreeMap::new(),
+            transitions: Vec::new(),
             provenance: PackageProvenance::default(),
             children: Vec::new(),
         }

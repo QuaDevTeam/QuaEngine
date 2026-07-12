@@ -120,6 +120,61 @@ export interface NativeQssBackgroundImageValue {
   assetName: string
 }
 
+export interface NativeQssGradientValue {
+  angleDegrees?: number
+  centerX?: number
+  centerY?: number
+  endColor: string
+  kind: 'linear' | 'radial'
+  radius?: number
+  startColor: string
+}
+
+export interface NativeQssFilterValue {
+  brightness: number
+  saturate: number
+}
+
+export interface NativeQssTransformValue {
+  originX: number
+  originY: number
+  scaleX: number
+  scaleY: number
+  translateX: number
+  translateY: number
+}
+
+export type NativeQssInteractivePseudoState
+  = | 'active'
+    | 'focus'
+    | 'focus-visible'
+    | 'hover'
+
+export type NativeQssTransitionProperty
+  = | 'all'
+    | 'background-color'
+    | 'border-color'
+    | 'box-shadow'
+    | 'color'
+    | 'filter'
+    | 'opacity'
+    | 'scale'
+    | 'transform'
+    | 'translate'
+
+export type NativeQssTransitionEasing
+  = | 'ease'
+    | 'ease-in'
+    | 'ease-in-out'
+    | 'ease-out'
+    | 'linear'
+
+export interface NativeQssTransitionValue {
+  durationMs: number
+  easing: NativeQssTransitionEasing
+  property: NativeQssTransitionProperty
+}
+
 export interface NativeQssBackgroundPositionValue {
   x: number
   y: number
@@ -139,6 +194,7 @@ export interface NativeQssResolvedLayout {
   margin?: NativeQssEdgeInsetsValue
   position?: NativeQssPositionValue
   rowGap?: number
+  transform?: NativeQssTransformValue
 }
 
 export interface NativeQssResolvedBounds {
@@ -157,6 +213,7 @@ export interface NativeQssResolvedBounds {
 export interface NativeQssShadowValue {
   blurRadius: number
   color: string
+  inset: boolean
   offsetX: number
   offsetY: number
   spreadRadius: number
@@ -164,6 +221,7 @@ export interface NativeQssShadowValue {
 
 export interface NativeQssResolvedStyle {
   backgroundColor?: string
+  backgroundGradient?: NativeQssGradientValue
   backgroundImage?: NativeQssBackgroundImageValue
   backgroundPosition?: NativeQssBackgroundPositionValue
   backgroundSize?: NativeQssObjectFitValue
@@ -173,6 +231,7 @@ export interface NativeQssResolvedStyle {
   borderWidth?: number
   boxShadow?: NativeQssShadowValue
   color?: string
+  filter?: NativeQssFilterValue
   fontFamily?: string[]
   fontSize?: number
   fontStyle?: NativeQssFontStyleValue
@@ -196,7 +255,14 @@ export interface NativeQssResolvedNodeStyle {
   clipChildren?: boolean
   interactive?: boolean
   layout?: NativeQssResolvedLayout
+  stateStyles?: Partial<Record<NativeQssInteractivePseudoState, NativeQssResolvedStateStyle>>
   style: NativeQssResolvedStyle
+  transitions?: NativeQssTransitionValue[]
   visible?: boolean
   zIndex?: number
+}
+
+export interface NativeQssResolvedStateStyle {
+  layout?: Pick<NativeQssResolvedLayout, 'transform'>
+  style: NativeQssResolvedStyle
 }

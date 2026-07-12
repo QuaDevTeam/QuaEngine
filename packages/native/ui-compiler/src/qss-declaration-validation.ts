@@ -6,6 +6,7 @@ import type {
 import { findNativeQssProperty } from './registry'
 import {
   parseNativeQssAlignItems,
+  parseNativeQssBackgroundGradient,
   parseNativeQssBackgroundImage,
   parseNativeQssBackgroundPosition,
   parseNativeQssBorderStyle,
@@ -14,6 +15,7 @@ import {
   parseNativeQssCoordinateNumber,
   parseNativeQssDisplay,
   parseNativeQssEdgeInsets,
+  parseNativeQssFilter,
   parseNativeQssFontFamilyList,
   parseNativeQssFontStyle,
   parseNativeQssFontWeight,
@@ -27,11 +29,17 @@ import {
   parseNativeQssOverflow,
   parseNativeQssPointerEvents,
   parseNativeQssPosition,
-  parseNativeQssShadow,
+  parseNativeQssBoxShadow,
   parseNativeQssTextAlign,
   parseNativeQssTextDecoration,
   parseNativeQssTextOverflow,
   parseNativeQssTextTransform,
+  parseNativeQssTextShadow,
+  parseNativeQssTransform,
+  parseNativeQssTransformOrigin,
+  parseNativeQssTranslate,
+  parseNativeQssScale,
+  parseNativeQssTransition,
   parseNativeQssVisibility,
   parseNativeQssWhiteSpace,
 } from './qss-resolved-style'
@@ -116,9 +124,9 @@ function validateNativeWgpuDeclarationValue(declaration: NativeQssDeclaration): 
         ? undefined
         : `${declaration.name} must be a safe native color literal: hex, rgb(...), rgba(...), transparent, currentColor, or a basic named color.`
     case 'background-image':
-      return parseNativeQssBackgroundImage(value)
+      return parseNativeQssBackgroundImage(value) || parseNativeQssBackgroundGradient(value)
         ? undefined
-        : 'background-image must use package-relative asset("path") or asset("path", "asset-kind") references.'
+        : 'background-image must use package-relative asset(...) or a two-color linear-gradient(...) / radial-gradient(...).'
     case 'background-position':
     case 'object-position':
       return parseNativeQssBackgroundPosition(value)
@@ -138,10 +146,13 @@ function validateNativeWgpuDeclarationValue(declaration: NativeQssDeclaration): 
         ? undefined
         : 'box-sizing supports border-box or content-box.'
     case 'box-shadow':
-    case 'text-shadow':
-      return value.toLowerCase() === 'none' || parseNativeQssShadow(value)
+      return value.toLowerCase() === 'none' || parseNativeQssBoxShadow(value)
         ? undefined
-        : `${declaration.name} supports one outer shadow: offset-x offset-y [blur-radius] [spread-radius] color.`
+        : 'box-shadow supports one shadow: [inset] offset-x offset-y [blur-radius] [spread-radius] color.'
+    case 'text-shadow':
+      return value.toLowerCase() === 'none' || parseNativeQssTextShadow(value)
+        ? undefined
+        : 'text-shadow supports one shadow: offset-x offset-y [blur-radius] color.'
     case 'gap':
       return parseNativeQssGap(value) !== undefined
         ? undefined
@@ -185,6 +196,10 @@ function validateNativeWgpuDeclarationValue(declaration: NativeQssDeclaration): 
       return parseNativeQssDisplay(value) !== undefined
         ? undefined
         : 'display currently supports none only.'
+    case 'filter':
+      return parseNativeQssFilter(value)
+        ? undefined
+        : 'filter supports none and bounded brightness(...) / saturate(...) functions.'
     case 'font-family':
       return parseNativeQssFontFamilyList(value)
         ? undefined
@@ -250,6 +265,26 @@ function validateNativeWgpuDeclarationValue(declaration: NativeQssDeclaration): 
       return parseNativeQssTextTransform(value)
         ? undefined
         : 'text-transform supports none, uppercase, lowercase, or capitalize.'
+    case 'transform':
+      return parseNativeQssTransform(value)
+        ? undefined
+        : 'transform supports bounded translate(...) and scale(...) functions.'
+    case 'transform-origin':
+      return parseNativeQssTransformOrigin(value)
+        ? undefined
+        : 'transform-origin supports left/center/right, top/center/bottom, and 0%..100% origins.'
+    case 'translate':
+      return parseNativeQssTranslate(value)
+        ? undefined
+        : 'translate supports one or two finite logical px or unitless coordinates.'
+    case 'scale':
+      return parseNativeQssScale(value)
+        ? undefined
+        : 'scale supports one or two bounded non-negative numbers.'
+    case 'transition':
+      return parseNativeQssTransition(value)
+        ? undefined
+        : 'transition supports all or native paint/transform properties with a 0ms..5s duration and standard easing.'
     case 'visibility':
       return parseNativeQssVisibility(value) !== undefined
         ? undefined

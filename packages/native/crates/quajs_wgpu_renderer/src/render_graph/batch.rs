@@ -73,7 +73,9 @@ fn batch_pipeline(command: &DrawCommand) -> DrawBatchPipeline {
         DrawCommandParams::Video(_) => DrawBatchPipeline::Video,
         DrawCommandParams::Character(_) => DrawBatchPipeline::Character,
         DrawCommandParams::Text(_) => DrawBatchPipeline::Text,
-        DrawCommandParams::Panel(_) => DrawBatchPipeline::Shape,
+        DrawCommandParams::Panel(_)
+        | DrawCommandParams::Shadow(_)
+        | DrawCommandParams::Gradient(_) => DrawBatchPipeline::Shape,
         DrawCommandParams::UiButton(_) => DrawBatchPipeline::Ui,
         DrawCommandParams::UiSurface(_) => DrawBatchPipeline::Ui,
         DrawCommandParams::None => match command.kind {

@@ -9,11 +9,15 @@ pub use control::{
 };
 pub use node::{
     UiSurfaceImageProjection, UiSurfaceNodeKind, UiSurfaceNodeProjection, UiSurfaceNodeRect,
+    UiSurfaceNodeStateProjection, UiSurfacePseudoStateProjection,
 };
 pub use style::{
     UiSurfaceBackgroundPositionProjection, UiSurfaceBorderStyleProjection,
-    UiSurfaceEdgeInsetsProjection, UiSurfaceFontStyleProjection, UiSurfaceObjectFitProjection,
+    UiSurfaceEdgeInsetsProjection, UiSurfaceFilterProjection, UiSurfaceFontStyleProjection,
+    UiSurfaceGradientKindProjection, UiSurfaceGradientProjection, UiSurfaceObjectFitProjection,
     UiSurfaceResolvedStyle, UiSurfaceShadowProjection, UiSurfaceTextAlignProjection,
     UiSurfaceTextDecorationProjection, UiSurfaceTextOverflowProjection,
-    UiSurfaceTextTransformProjection, UiSurfaceWhiteSpaceProjection,
+    UiSurfaceTextTransformProjection, UiSurfaceTransitionEasingProjection,
+    UiSurfaceTransitionProjection, UiSurfaceTransitionPropertyProjection,
+    UiSurfaceWhiteSpaceProjection,
 };

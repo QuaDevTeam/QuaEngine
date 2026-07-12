@@ -34,6 +34,8 @@ pub struct ImageDrawParams {
     pub origin: MediaOrigin,
     pub source: LogicalRect,
     pub rotation_degrees: f64,
+    pub brightness: f64,
+    pub saturation: f64,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -137,6 +139,7 @@ pub struct TextDrawParams {
     pub text_transform: TextTransformDrawParam,
     pub white_space: WhiteSpaceDrawParam,
     pub color: String,
+    pub blur_radius: f64,
     pub padding: EdgeInsetsDrawParam,
     pub role: String,
 }
@@ -168,11 +171,76 @@ impl Default for BorderDrawParams {
 pub struct PanelDrawParams {
     pub role: String,
     pub corner_radius: f64,
-    pub shadow_blur_radius: f64,
     pub fill_color: String,
     pub border: BorderDrawParams,
     pub padding: EdgeInsetsDrawParam,
     pub intent: Option<RendererIntent>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ShadowDrawStyle {
+    Outer,
+    Inset,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DrawTransitionProperty {
+    All,
+    BackgroundColor,
+    BorderColor,
+    BoxShadow,
+    Color,
+    Filter,
+    Opacity,
+    Transform,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DrawTransitionEasing {
+    Ease,
+    EaseIn,
+    EaseInOut,
+    EaseOut,
+    Linear,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct DrawTransition {
+    pub property: DrawTransitionProperty,
+    pub duration_ms: f64,
+    pub easing: DrawTransitionEasing,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ShadowDrawParams {
+    pub role: String,
+    pub source_bounds: LogicalRect,
+    pub offset_x: f64,
+    pub offset_y: f64,
+    pub blur_radius: f64,
+    pub spread_radius: f64,
+    pub corner_radius: f64,
+    pub color: String,
+    pub style: ShadowDrawStyle,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum GradientDrawKind {
+    Linear,
+    Radial,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct GradientDrawParams {
+    pub role: String,
+    pub kind: GradientDrawKind,
+    pub start_color: String,
+    pub end_color: String,
+    pub angle_degrees: f64,
+    pub center_x: f64,
+    pub center_y: f64,
+    pub radius: f64,
+    pub corner_radius: f64,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -263,6 +331,8 @@ pub enum DrawCommandParams {
     Character(CharacterDrawParams),
     Text(TextDrawParams),
     Panel(PanelDrawParams),
+    Shadow(ShadowDrawParams),
+    Gradient(GradientDrawParams),
     UiButton(UiButtonDrawParams),
     UiSurface(UiSurfaceDrawParams),
     #[default]

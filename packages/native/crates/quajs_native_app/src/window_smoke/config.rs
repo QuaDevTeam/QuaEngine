@@ -7,6 +7,7 @@ pub const WINDOW_SMOKE_FRAME_ENV: &str = "QUA_NATIVE_RENDERER_WINDOW_SMOKE_FRAME
 pub const WINDOW_SMOKE_FRAMES_ENV: &str = "QUA_NATIVE_RENDERER_WINDOW_SMOKE_FRAMES";
 pub const WINDOW_DEV_ENV: &str = "QUA_NATIVE_RENDERER_WINDOW_DEV";
 pub const WINDOW_DEV_QPK_ENV: &str = "QUA_NATIVE_RENDERER_WINDOW_DEV_QPK";
+pub const WINDOW_TITLE_ENV: &str = "QUA_NATIVE_RENDERER_WINDOW_TITLE";
 pub const WINDOW_INTERACTION_PROBE_ENV: &str = "QUA_NATIVE_RENDERER_WINDOW_INTERACTION_PROBE";
 
 const DEFAULT_WINDOW_SMOKE_FRAME_COUNT: usize = 1;
@@ -26,6 +27,20 @@ pub(super) fn native_window_smoke_enabled() -> bool {
 
 pub(super) fn native_window_dev_enabled() -> bool {
     env_flag_enabled(WINDOW_DEV_ENV)
+}
+
+pub(super) fn native_window_title() -> String {
+    std::env::var(WINDOW_TITLE_ENV)
+        .ok()
+        .map(|title| title.trim().to_string())
+        .filter(|title| !title.is_empty())
+        .unwrap_or_else(|| {
+            if native_window_dev_enabled() {
+                "Qua Native Renderer Dev".to_string()
+            } else {
+                "Qua Native Renderer Smoke".to_string()
+            }
+        })
 }
 
 pub(super) fn native_window_interaction_probe_enabled() -> bool {

@@ -1,7 +1,13 @@
 use super::*;
 
 pub(super) fn first_runtime_plan() -> WgpuNativeRenderRuntimePlan {
-    runtime_plan(1, 128, "bind-group::new", "images:new.png", None)
+    runtime_plan(
+        1,
+        QUAD_VERTEX_BYTE_LEN,
+        "bind-group::new",
+        "images:new.png",
+        None,
+    )
 }
 
 pub(super) fn runtime_plan(
@@ -28,7 +34,11 @@ pub(super) fn second_runtime_plan() -> WgpuNativeRenderRuntimePlan {
     let first_device = device_plan(
         1,
         vec![
-            buffer("vertex", WgpuNativeRenderBufferRole::Vertex, 128),
+            buffer(
+                "vertex",
+                WgpuNativeRenderBufferRole::Vertex,
+                QUAD_VERTEX_BYTE_LEN,
+            ),
             buffer("index", WgpuNativeRenderBufferRole::Index, 24),
         ],
         vec![pipeline("pipeline::ui", DrawBatchPipeline::Ui)],
@@ -37,7 +47,7 @@ pub(super) fn second_runtime_plan() -> WgpuNativeRenderRuntimePlan {
     let first_cache = WgpuNativeRenderResourceCachePlan::from_device_plan(None, &first_device);
     runtime_plan(
         2,
-        160,
+        5 * WgpuNativeRenderBufferVertex::BYTE_LEN,
         "bind-group::new",
         "images:new.png",
         Some(&first_cache),

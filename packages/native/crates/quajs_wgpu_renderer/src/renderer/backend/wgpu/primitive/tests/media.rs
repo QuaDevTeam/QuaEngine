@@ -20,6 +20,8 @@ fn preserves_image_source_rect_when_lowering_primitives() {
                 origin: MediaOrigin::default(),
                 source,
                 rotation_degrees: 12.5,
+                brightness: 1.0,
+                saturation: 1.0,
             })),
             physical_bounds: physical_rect(20, 30, 200, 100),
             clip_depth: 0,
@@ -38,12 +40,16 @@ fn preserves_image_source_rect_when_lowering_primitives() {
             origin,
             source: primitive_source,
             rotation_degrees,
+            brightness,
+            saturation,
         } if asset_type == "images"
             && asset_name == "atlas/menu.png"
             && *fit == MediaFit::Contain
             && origin == &MediaOrigin::default()
             && primitive_source == &source
             && *rotation_degrees == 12.5
+            && *brightness == 1.0
+            && *saturation == 1.0
     ));
 }
 
@@ -61,6 +67,8 @@ fn skips_empty_param_resource_ids_when_no_resources_are_bound() {
                 origin: MediaOrigin::default(),
                 source: LogicalRect::default(),
                 rotation_degrees: 0.0,
+                brightness: 1.0,
+                saturation: 1.0,
             }),
         ),
         unbound_draw(
@@ -116,6 +124,7 @@ fn skips_empty_param_resource_ids_when_no_resources_are_bound() {
                 text_transform: TextTransformDrawParam::None,
                 white_space: WhiteSpaceDrawParam::Normal,
                 color: "#ffffff".to_string(),
+                blur_radius: 0.0,
                 padding: EdgeInsetsDrawParam::default(),
                 role: "ui-text".to_string(),
             }),

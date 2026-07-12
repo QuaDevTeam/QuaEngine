@@ -141,6 +141,8 @@ export const nativeQssProperties: readonly NativeQssPropertyDefinition[] = [
   property('background-image', 'p1', true, 'Package asset background image for panel-like native surfaces via asset("...").', [
     value('asset("...")', 'Reference a package-relative native asset.', 'asset("$1")'),
     value('asset("...", "images")', 'Reference a package-relative native image asset.', 'asset("$1", "images")'),
+    value('linear-gradient(90deg, #10141f, #202838)', 'Render a two-color analytic linear gradient.'),
+    value('radial-gradient(circle at center, #182234, #030407)', 'Render a two-color analytic radial gradient.'),
   ]),
   property('background-size', 'p1', true, 'Background image fitting mode for native surface image backgrounds.', imageFitValues),
   property('background-position', 'p1', true, 'Background image origin for native surface image backgrounds.', backgroundPositionValues),
@@ -153,11 +155,18 @@ export const nativeQssProperties: readonly NativeQssPropertyDefinition[] = [
     value('visible', 'Render the node when no QUI show prop overrides it.'),
     value('hidden', 'Skip the node and its children when no QUI show prop overrides it.'),
   ]),
-  property('box-shadow', 'p1', true, 'One outer panel/button shadow projected through native style IR.', [
+  property('box-shadow', 'p1', true, 'One analytic outer or inset panel/button shadow projected through native style IR.', [
     value('0 18px 48px rgba(0,0,0,0.32)', 'Render one offset outer shadow.'),
+    value('inset 0 2px 8px -2px rgba(0,0,0,0.4)', 'Render one inset shadow with negative spread.'),
     value('none', 'Disable the shadow.'),
   ]),
   property('clip-path', 'p2', false, 'Qua subset clipping planned for native style IR.'),
+  property('filter', 'p1', true, 'Linear-space image brightness and saturation adjustment.', [
+    value('none', 'Disable image color filtering.'),
+    value('brightness(0.5)', 'Scale image brightness.'),
+    value('saturate(0.8)', 'Scale image color saturation.'),
+    value('brightness(0.5) saturate(0.8)', 'Combine brightness and saturation.'),
+  ]),
   property('font-style', 'p1', true, 'Text style for native text and button label draw params.', [
     value('normal', 'Use an upright font face.'),
     value('italic', 'Use an italic font face when available.'),
@@ -190,14 +199,23 @@ export const nativeQssProperties: readonly NativeQssPropertyDefinition[] = [
     value('underline', 'Render text with an underline.'),
     value('line-through', 'Render text with a strike-through line.'),
   ]),
-  property('text-shadow', 'p1', true, 'One offset text shadow projected through native style IR.', [
-    value('0 2px 10px rgba(0,0,0,0.72)', 'Render one offset text shadow.'),
+  property('text-shadow', 'p1', true, 'One blurred atlas text shadow projected through native style IR.', [
+    value('0 2px 10px rgba(0,0,0,0.72)', 'Render one offset blurred text shadow.'),
     value('none', 'Disable the text shadow.'),
   ]),
-  property('transform', 'p2', false, '2D transform metadata planned for native style IR.'),
-  property('transform-origin', 'p2', false, 'Transform origin metadata planned for native style IR.'),
-  property('translate', 'p2', false, 'Transform longhand planned for native style IR.'),
-  property('scale', 'p2', false, 'Transform longhand planned for native style IR.'),
+  property('transform', 'p1', true, 'Compiler-resolved translate and scale applied to final logical bounds.', [
+    value('translate(12px, 0) scale(1.05)', 'Translate and scale around the resolved transform origin.'),
+    value('none', 'Use identity transform bounds.'),
+  ]),
+  property('transform-origin', 'p1', true, 'Origin used when compiler-resolving scale into logical bounds.', backgroundPositionValues),
+  property('translate', 'p1', true, 'Logical x/y translation compiled into final native surface bounds.'),
+  property('scale', 'p1', true, 'Bounded x/y scale compiled into final native surface bounds.'),
+  property('transition', 'p1', true, 'Renderer-local interpolation for native pseudo-state paint and transform changes.', [
+    value('all 180ms ease-out', 'Interpolate every supported state property.'),
+    value('transform 180ms ease-out', 'Interpolate resolved logical bounds.'),
+    value('background-color 160ms ease, color 160ms ease', 'Interpolate surface and text colors.'),
+    value('none', 'Apply state changes immediately.'),
+  ]),
   property('rotate', 'p2', false, 'Transform longhand planned for native style IR.'),
 ] as const
 

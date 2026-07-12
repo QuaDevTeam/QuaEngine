@@ -62,7 +62,7 @@ fn vertex_buffer(label: &str) -> WgpuNativeRenderRuntimeOperation {
     WgpuNativeRenderRuntimeOperation::CreateBuffer {
         label: label.to_string(),
         descriptor: vertex_buffer_descriptor(label),
-        byte_len: 128,
+        byte_len: QUAD_VERTEX_BYTE_LEN,
     }
 }
 
@@ -70,7 +70,7 @@ fn vertex_buffer_descriptor(label: &str) -> WgpuNativeRenderBufferDescriptor {
     WgpuNativeRenderBufferDescriptor {
         label: label.to_string(),
         role: WgpuNativeRenderBufferRole::Vertex,
-        byte_len: 128,
+        byte_len: QUAD_VERTEX_BYTE_LEN,
         element_count: 4,
         usage: WgpuNativeRenderBufferUsage::VertexCopyDst,
     }
@@ -127,7 +127,7 @@ fn set_vertex_buffer(label: &str) -> WgpuNativeRenderRuntimeOperation {
     WgpuNativeRenderRuntimeOperation::SetVertexBuffer {
         pass_label: "pass".to_string(),
         buffer_label: label.to_string(),
-        byte_len: 128,
+        byte_len: QUAD_VERTEX_BYTE_LEN,
     }
 }
 

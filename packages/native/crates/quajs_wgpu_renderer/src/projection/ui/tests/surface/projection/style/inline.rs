@@ -1,6 +1,13 @@
 use super::*;
-use crate::projection::ui::UiSurfaceShadowProjection;
-use crate::render_graph::MediaOrigin;
+use crate::projection::ui::{
+    UiSurfaceNodeStateProjection, UiSurfacePseudoStateProjection, UiSurfaceShadowProjection,
+    UiSurfaceTransitionEasingProjection, UiSurfaceTransitionProjection,
+    UiSurfaceTransitionPropertyProjection,
+};
+use crate::render_graph::{
+    DrawInteractionState, DrawTransitionEasing, DrawTransitionProperty, MediaOrigin,
+    ShadowDrawStyle,
+};
 
 #[test]
 fn maps_resolved_qss_style_to_inline_surface_node_draw_params() {
@@ -227,6 +234,7 @@ fn projects_box_and_text_shadows_before_surface_content() {
                         blur_radius: 40.0,
                         spread_radius: 2.0,
                         color: "rgba(0,0,0,0.42)".to_string(),
+                        inset: false,
                     }),
                     ..Default::default()
                 })
@@ -244,6 +252,7 @@ fn projects_box_and_text_shadows_before_surface_content() {
                         blur_radius: 10.0,
                         spread_radius: 0.0,
                         color: "rgba(0,0,0,0.72)".to_string(),
+                        inset: false,
                     }),
                     ..Default::default()
                 })]),
@@ -267,28 +276,174 @@ fn projects_box_and_text_shadows_before_surface_content() {
         ]
     );
     let box_shadow = &commands[1];
-    assert_eq!(box_shadow.bounds.x, 58.0);
-    assert_eq!(box_shadow.bounds.y, 56.0);
-    assert_eq!(box_shadow.bounds.width, 484.0);
-    assert_eq!(box_shadow.bounds.height, 324.0);
+    assert_eq!(box_shadow.z_index, commands[2].z_index);
+    assert_eq!(box_shadow.bounds.x, 38.0);
+    assert_eq!(box_shadow.bounds.y, 36.0);
+    assert_eq!(box_shadow.bounds.width, 524.0);
+    assert_eq!(box_shadow.bounds.height, 364.0);
     assert_eq!(box_shadow.opacity, 1.0);
     match &box_shadow.params {
-        DrawCommandParams::Panel(params) => {
-            assert_eq!(params.fill_color, "rgba(0,0,0,0.42)");
-            assert_eq!(params.corner_radius, 50.0);
-            assert_eq!(params.shadow_blur_radius, 40.0);
+        DrawCommandParams::Shadow(params) => {
+            assert_eq!(params.color, "rgba(0,0,0,0.42)");
+            assert_eq!(params.corner_radius, 8.0);
+            assert_eq!(params.blur_radius, 40.0);
+            assert_eq!(params.spread_radius, 2.0);
+            assert_eq!(params.style, ShadowDrawStyle::Outer);
         }
         _ => panic!("expected box shadow panel params"),
     }
     let text_shadow = &commands[3];
-    assert_eq!(text_shadow.bounds.x, 133.0);
-    assert_eq!(text_shadow.bounds.y, 114.0);
+    assert_eq!(text_shadow.z_index, commands[4].z_index);
+    assert_eq!(text_shadow.bounds.x, 118.0);
+    assert_eq!(text_shadow.bounds.y, 99.0);
+    assert_eq!(text_shadow.bounds.width, 290.0);
+    assert_eq!(text_shadow.bounds.height, 78.0);
     assert_eq!(text_shadow.opacity, 1.0);
     match &text_shadow.params {
         DrawCommandParams::Text(params) => {
             assert_eq!(params.text, "Shadow title");
             assert_eq!(params.color, "rgba(0,0,0,0.72)");
+            assert_eq!(params.blur_radius, 10.0);
+            assert_eq!(params.padding.top, 15.0);
+            assert_eq!(params.padding.right, 15.0);
+            assert_eq!(params.padding.bottom, 15.0);
+            assert_eq!(params.padding.left, 15.0);
         }
         _ => panic!("expected text shadow params"),
     }
+}
+
+#[test]
+fn projects_inset_shadow_after_the_surface_fill() {
+    let layout = test_layout();
+    let ui = UiProjection::new(vec![UiOverlayProjection {
+        surface: Some(
+            UiOverlaySurfaceProjection::new("ui/inset.qui").with_root(
+                UiSurfaceNodeProjection::new(
+                    "panel",
+                    UiSurfaceNodeKind::Panel,
+                    rect(100.0, 80.0, 400.0, 240.0),
+                )
+                .with_style(UiSurfaceResolvedStyle {
+                    background_color: Some("#101820".to_string()),
+                    box_shadow: Some(UiSurfaceShadowProjection {
+                        offset_x: 0.0,
+                        offset_y: 1.0,
+                        blur_radius: 8.0,
+                        spread_radius: 0.0,
+                        color: "rgba(255,255,255,0.12)".to_string(),
+                        inset: true,
+                    }),
+                    ..Default::default()
+                }),
+            ),
+        ),
+        ..UiOverlayProjection::new("inset")
+    }]);
+
+    let commands = build_ui_commands(&layout, &ui);
+    let panel_index = commands
+        .iter()
+        .position(|command| command.id == "ui:inset:panel")
+        .unwrap();
+    let shadow_index = commands
+        .iter()
+        .position(|command| command.id == "ui:inset:panel:box-shadow")
+        .unwrap();
+
+    assert!(panel_index < shadow_index);
+    assert!(matches!(
+        commands[shadow_index].params,
+        DrawCommandParams::Shadow(crate::render_graph::ShadowDrawParams {
+            style: ShadowDrawStyle::Inset,
+            ..
+        })
+    ));
+}
+
+#[test]
+fn carries_pseudo_state_commands_and_transitions_into_the_render_graph() {
+    let layout = test_layout();
+    let mut button = UiSurfaceNodeProjection::new(
+        "start",
+        UiSurfaceNodeKind::Button,
+        rect(220.0, 480.0, 360.0, 48.0),
+    )
+    .with_text("START")
+    .with_intent(UiIntentProjection::new("ui/intent"))
+    .with_style(UiSurfaceResolvedStyle {
+        background_color: Some("#101820".to_string()),
+        color: Some("#fffaf2".to_string()),
+        ..Default::default()
+    });
+    button.state_styles.insert(
+        UiSurfacePseudoStateProjection::Hover,
+        UiSurfaceNodeStateProjection {
+            bounds: rect(223.0, 480.0, 360.0, 48.0),
+            style: UiSurfaceResolvedStyle {
+                background_color: Some("#342819".to_string()),
+                color: Some("#ffe8b3".to_string()),
+                box_shadow: Some(UiSurfaceShadowProjection {
+                    offset_x: 0.0,
+                    offset_y: 1.0,
+                    blur_radius: 8.0,
+                    spread_radius: 0.0,
+                    color: "rgba(255,194,86,0.20)".to_string(),
+                    inset: true,
+                }),
+                ..Default::default()
+            },
+        },
+    );
+    button.transitions = vec![
+        UiSurfaceTransitionProjection {
+            property: UiSurfaceTransitionPropertyProjection::Transform,
+            duration_ms: 160.0,
+            easing: UiSurfaceTransitionEasingProjection::EaseOut,
+        },
+        UiSurfaceTransitionProjection {
+            property: UiSurfaceTransitionPropertyProjection::Color,
+            duration_ms: 160.0,
+            easing: UiSurfaceTransitionEasingProjection::Ease,
+        },
+    ];
+    let ui = UiProjection::new(vec![UiOverlayProjection {
+        surface: Some(UiOverlaySurfaceProjection::new("ui/menu.qui").with_root(button)),
+        ..UiOverlayProjection::new("menu")
+    }]);
+
+    let commands = build_ui_commands(&layout, &ui);
+    let button = commands
+        .iter()
+        .find(|command| command.id == "ui:menu:start")
+        .unwrap();
+    let hover = button
+        .interaction_variants
+        .get(&DrawInteractionState::Hover)
+        .unwrap();
+    assert_eq!(hover.bounds.x, 223.0);
+    assert!(matches!(
+        &hover.params,
+        DrawCommandParams::UiButton(params)
+            if params.background_color == "#342819" && params.text_color == "#ffe8b3"
+    ));
+    assert!(button.interaction_transitions.iter().any(|transition| {
+        transition.property == DrawTransitionProperty::Transform
+            && transition.duration_ms == 160.0
+            && transition.easing == DrawTransitionEasing::EaseOut
+    }));
+
+    let shadow = commands
+        .iter()
+        .find(|command| command.id == "ui:menu:start:box-shadow")
+        .unwrap();
+    assert_eq!(shadow.opacity, 0.0);
+    assert_eq!(
+        shadow
+            .interaction_variants
+            .get(&DrawInteractionState::Hover)
+            .unwrap()
+            .opacity,
+        1.0
+    );
 }

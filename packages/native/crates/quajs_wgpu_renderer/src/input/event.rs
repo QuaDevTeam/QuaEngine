@@ -1,4 +1,5 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
+use std::time::Instant;
 
 use crate::stage_layout::{StageClientPoint, StageClientRectOrigin};
 
@@ -70,6 +71,15 @@ pub struct NativePointerInteractionState {
     hovered_command_id: Option<String>,
     focused_command_id: Option<String>,
     pub(crate) controls: NativeUiControlInteractionState,
+    visual_transition: Option<NativePointerVisualTransition>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct NativePointerVisualTransition {
+    pub(crate) started_at: Instant,
+    pub(crate) hovered_command_id: Option<String>,
+    pub(crate) focused_command_id: Option<String>,
+    pub(crate) pressed_command_ids: BTreeSet<String>,
 }
 
 impl NativePointerInteractionState {
@@ -106,10 +116,19 @@ impl NativePointerInteractionState {
             || self.controls.has_feedback()
     }
 
+    pub(crate) fn visual_transition(&self) -> Option<&NativePointerVisualTransition> {
+        self.visual_transition.as_ref()
+    }
+
     pub fn cancel_pointer(&mut self, pointer_id: u64) -> bool {
+        let previous = self.visual_snapshot();
         let press_changed = self.active_presses.remove(&pointer_id).is_some();
         let hover_changed = self.hovered_command_id.take().is_some();
-        press_changed || hover_changed
+        let changed = press_changed || hover_changed;
+        if changed {
+            self.visual_transition = Some(previous);
+        }
+        changed
     }
 
     pub fn clear(&mut self) {
@@ -117,6 +136,20 @@ impl NativePointerInteractionState {
         self.hovered_command_id = None;
         self.focused_command_id = None;
         self.controls.clear();
+        self.visual_transition = None;
+    }
+
+    fn visual_snapshot(&self) -> NativePointerVisualTransition {
+        NativePointerVisualTransition {
+            started_at: Instant::now(),
+            hovered_command_id: self.hovered_command_id.clone(),
+            focused_command_id: self.focused_command_id.clone(),
+            pressed_command_ids: self
+                .active_presses
+                .values()
+                .map(|press| press.command_id.clone())
+                .collect(),
+        }
     }
 }
 
@@ -178,13 +211,26 @@ pub fn resolve_pointer_event_with_interaction(
         NativePointerEventPhase::Move => None,
     };
 
+    let visual_state_changed = previous_hover != interaction.hovered_command_id
+        || previous_focus != interaction.focused_command_id
+        || previous_pressed != interaction.active_presses;
+    if visual_state_changed {
+        interaction.visual_transition = Some(NativePointerVisualTransition {
+            started_at: Instant::now(),
+            hovered_command_id: previous_hover,
+            focused_command_id: previous_focus,
+            pressed_command_ids: previous_pressed
+                .values()
+                .map(|press| press.command_id.clone())
+                .collect(),
+        });
+    }
+
     NativePointerEventResolution {
         event,
         pointer,
         intent_to_dispatch,
-        visual_state_changed: previous_hover != interaction.hovered_command_id
-            || previous_focus != interaction.focused_command_id
-            || previous_pressed != interaction.active_presses,
+        visual_state_changed,
     }
 }
 

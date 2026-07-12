@@ -62,7 +62,7 @@ fn rejects_releasing_buffer_referenced_by_queued_draw_in_active_pass() {
             &WgpuNativeRenderRuntimeOperation::SetVertexBuffer {
                 pass_label: "pass".to_string(),
                 buffer_label: "vertex::second".to_string(),
-                byte_len: 128,
+                byte_len: QUAD_VERTEX_BYTE_LEN,
             },
             &mut report,
         )
@@ -72,7 +72,7 @@ fn rejects_releasing_buffer_referenced_by_queued_draw_in_active_pass() {
         .apply_runtime_operation(
             &WgpuNativeRenderRuntimeOperation::ReleaseBuffer {
                 label: "vertex::first".to_string(),
-                byte_len: 128,
+                byte_len: QUAD_VERTEX_BYTE_LEN,
             },
             &mut report,
         )

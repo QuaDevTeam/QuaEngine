@@ -55,6 +55,10 @@ export function pruneSurfaceNode(node: NativeUiSurfaceNodeProjection): NativeUiS
     delete node.control
   if (!node.style || Object.keys(node.style).length === 0)
     delete node.style
+  if (!node.stateStyles || Object.keys(node.stateStyles).length === 0)
+    delete node.stateStyles
+  if (!node.transitions || node.transitions.length === 0)
+    delete node.transitions
   if (!node.provenance || Object.keys(node.provenance).length === 0)
     delete node.provenance
   if (!node.children || node.children.length === 0)

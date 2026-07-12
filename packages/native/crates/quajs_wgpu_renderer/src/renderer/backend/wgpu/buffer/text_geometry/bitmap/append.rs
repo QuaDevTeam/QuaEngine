@@ -255,6 +255,8 @@ fn bitmap_vertex(
         position,
         uv,
         color,
+        effect0: [0.0; 4],
+        effect1: [0.0; 4],
     }
 }
 

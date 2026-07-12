@@ -30,7 +30,6 @@ fn intersects_active_scissors_when_lowering_draws_into_primitives() {
             metadata: draw_metadata(DrawCommandParams::Panel(PanelDrawParams {
                 role: "ui-panel".to_string(),
                 corner_radius: 0.0,
-                shadow_blur_radius: 0.0,
                 fill_color: "#101820".to_string(),
                 border: BorderDrawParams::default(),
                 padding: EdgeInsetsDrawParam::default(),
@@ -48,7 +47,6 @@ fn intersects_active_scissors_when_lowering_draws_into_primitives() {
             metadata: draw_metadata(DrawCommandParams::Panel(PanelDrawParams {
                 role: "ui-panel".to_string(),
                 corner_radius: 0.0,
-                shadow_blur_radius: 0.0,
                 fill_color: "#101820".to_string(),
                 border: BorderDrawParams::default(),
                 padding: EdgeInsetsDrawParam::default(),
@@ -89,7 +87,6 @@ fn fully_clipped_scissor_makes_primitive_non_visible() {
             metadata: draw_metadata(DrawCommandParams::Panel(PanelDrawParams {
                 role: "ui-panel".to_string(),
                 corner_radius: 0.0,
-                shadow_blur_radius: 0.0,
                 fill_color: "#101820".to_string(),
                 border: BorderDrawParams::default(),
                 padding: EdgeInsetsDrawParam::default(),

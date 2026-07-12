@@ -15,8 +15,16 @@ fn apply_queued_draw_setup(
         device,
         report,
         vec![
-            create_buffer_operation("vertex::first", WgpuNativeRenderBufferRole::Vertex, 128),
-            create_buffer_operation("vertex::second", WgpuNativeRenderBufferRole::Vertex, 128),
+            create_buffer_operation(
+                "vertex::first",
+                WgpuNativeRenderBufferRole::Vertex,
+                QUAD_VERTEX_BYTE_LEN,
+            ),
+            create_buffer_operation(
+                "vertex::second",
+                WgpuNativeRenderBufferRole::Vertex,
+                QUAD_VERTEX_BYTE_LEN,
+            ),
             create_buffer_operation("index", WgpuNativeRenderBufferRole::Index, 24),
             WgpuNativeRenderRuntimeOperation::CreatePipeline {
                 cache_label: pipeline_request.cache_label.clone(),
@@ -61,7 +69,7 @@ fn apply_queued_draw_setup(
             WgpuNativeRenderRuntimeOperation::SetVertexBuffer {
                 pass_label: "pass".to_string(),
                 buffer_label: "vertex::first".to_string(),
-                byte_len: 128,
+                byte_len: QUAD_VERTEX_BYTE_LEN,
             },
             WgpuNativeRenderRuntimeOperation::SetIndexBuffer {
                 pass_label: "pass".to_string(),

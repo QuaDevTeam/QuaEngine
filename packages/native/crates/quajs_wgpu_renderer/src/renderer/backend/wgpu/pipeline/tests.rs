@@ -82,6 +82,7 @@ fn text_style() -> WgpuNativeRenderTextStyle {
         text_overflow: TextOverflowDrawParam::Clip,
         text_transform: TextTransformDrawParam::None,
         white_space: WhiteSpaceDrawParam::NoWrap,
+        blur_radius: 0.0,
         padding: EdgeInsetsDrawParam::default(),
     }
 }

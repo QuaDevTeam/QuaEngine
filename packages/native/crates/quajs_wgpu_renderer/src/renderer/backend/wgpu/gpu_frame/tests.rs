@@ -12,6 +12,9 @@ use fixture::{
     upload_descriptor, vertex,
 };
 
+const VERTEX_BYTE_LEN: usize =
+    std::mem::size_of::<crate::renderer::backend::wgpu::WgpuNativeRenderBufferVertex>();
+
 #[test]
 fn materializes_upload_bytes_and_draw_batches() {
     let buffer_plan = WgpuNativeRenderBufferPlan {
@@ -56,7 +59,7 @@ fn materializes_upload_bytes_and_draw_batches() {
         passes: vec![pipeline_pass(
             0,
             vec![
-                upload_descriptor(WgpuNativeRenderBufferRole::Vertex, 64, 2),
+                upload_descriptor(WgpuNativeRenderBufferRole::Vertex, 2 * VERTEX_BYTE_LEN, 2),
                 upload_descriptor(WgpuNativeRenderBufferRole::Index, 12, 3),
                 WgpuNativeRenderPipelineOperation::SetRenderPipeline {
                     command_id: "ui:panel".to_string(),
@@ -111,8 +114,8 @@ fn materializes_upload_bytes_and_draw_batches() {
     assert_eq!(plan.revision, 11);
     assert_eq!(plan.pass_count, 1);
     assert_eq!(plan.upload_count, 2);
-    assert_eq!(plan.upload_byte_len, 76);
-    assert_eq!(plan.vertex_upload_byte_len, 64);
+    assert_eq!(plan.upload_byte_len, 140);
+    assert_eq!(plan.vertex_upload_byte_len, 128);
     assert_eq!(plan.index_upload_byte_len, 12);
     assert_eq!(plan.draw_batch_count, 2);
     assert_eq!(plan.resource_bind_group_count, 1);
@@ -121,7 +124,7 @@ fn materializes_upload_bytes_and_draw_batches() {
     let pass = &plan.passes[0];
     assert_eq!(pass.uploads[0].staging_byte_offset, 0);
     assert_eq!(pass.uploads[0].buffer_byte_offset, 0);
-    assert_eq!(pass.uploads[0].byte_len, 64);
+    assert_eq!(pass.uploads[0].byte_len, 128);
     assert_eq!(pass.uploads[0].element_count, 2);
     assert_eq!(
         pass.uploads[0].descriptor.role,
@@ -130,10 +133,11 @@ fn materializes_upload_bytes_and_draw_batches() {
     assert_eq!(
         pass.uploads[0].bytes,
         floats_to_bytes(&[
-            1.0, 2.0, 0.25, 0.5, 1.0, 1.0, 1.0, 1.0, 3.0, 4.0, 0.75, 1.0, 1.0, 1.0, 1.0, 1.0,
+            1.0, 2.0, 0.25, 0.5, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 3.0,
+            4.0, 0.75, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
         ])
     );
-    assert_eq!(pass.uploads[1].staging_byte_offset, 64);
+    assert_eq!(pass.uploads[1].staging_byte_offset, 128);
     assert_eq!(pass.uploads[1].byte_len, 12);
     assert_eq!(
         pass.uploads[1].descriptor.role,
@@ -202,14 +206,14 @@ fn keeps_staging_offsets_unique_across_passes() {
             pipeline_pass(
                 0,
                 vec![
-                    upload_descriptor(WgpuNativeRenderBufferRole::Vertex, 32, 1),
+                    upload_descriptor(WgpuNativeRenderBufferRole::Vertex, VERTEX_BYTE_LEN, 1),
                     upload_descriptor(WgpuNativeRenderBufferRole::Index, 4, 1),
                 ],
             ),
             pipeline_pass(
                 1,
                 vec![
-                    upload_descriptor(WgpuNativeRenderBufferRole::Vertex, 64, 2),
+                    upload_descriptor(WgpuNativeRenderBufferRole::Vertex, 2 * VERTEX_BYTE_LEN, 2),
                     upload_descriptor(WgpuNativeRenderBufferRole::Index, 8, 2),
                 ],
             ),
@@ -219,13 +223,13 @@ fn keeps_staging_offsets_unique_across_passes() {
     let plan =
         WgpuNativeRenderGpuFramePlan::from_buffer_and_pipeline_plans(&buffer_plan, &pipeline_plan);
 
-    assert_eq!(plan.upload_byte_len, 108);
+    assert_eq!(plan.upload_byte_len, 204);
     assert_eq!(
         plan.passes
             .iter()
             .flat_map(|pass| pass.uploads.iter())
             .map(|upload| upload.staging_byte_offset)
             .collect::<Vec<_>>(),
-        vec![0, 32, 36, 100]
+        vec![0, 64, 68, 196]
     );
 }

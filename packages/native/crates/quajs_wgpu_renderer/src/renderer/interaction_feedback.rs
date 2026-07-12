@@ -1,7 +1,11 @@
+use std::time::{Duration, Instant};
+
 use crate::frame::PreparedNativeFrame;
-use crate::input::NativePointerInteractionState;
+use crate::input::{NativePointerInteractionState, NativePointerVisualTransition};
 use crate::render_graph::{
-    plan_render_passes, BorderDrawParams, DrawCommand, DrawCommandParams, PanelDrawParams,
+    plan_render_passes, BorderDrawParams, DrawCommand, DrawCommandParams, DrawCommandVariant,
+    DrawInteractionState, DrawTransition, DrawTransitionEasing, DrawTransitionProperty,
+    PanelDrawParams, ShadowDrawParams,
 };
 use crate::renderer::control_feedback::apply_control_feedback;
 
@@ -9,10 +13,18 @@ pub(super) fn frame_with_interaction_feedback(
     frame: &PreparedNativeFrame,
     interaction: &NativePointerInteractionState,
 ) -> Option<PreparedNativeFrame> {
-    if !interaction.has_visual_feedback() {
+    if !interaction.has_visual_feedback() && interaction.visual_transition().is_none() {
         return None;
     }
 
+    frame_with_interaction_feedback_at(frame, interaction, Instant::now())
+}
+
+fn frame_with_interaction_feedback_at(
+    frame: &PreparedNativeFrame,
+    interaction: &NativePointerInteractionState,
+    now: Instant,
+) -> Option<PreparedNativeFrame> {
     let feedback_commands = frame
         .graph
         .commands()
@@ -27,8 +39,9 @@ pub(super) fn frame_with_interaction_feedback(
         })
         .collect::<Vec<_>>();
     let mut feedback_frame = frame.clone();
+    let variant_changed = apply_interaction_variants(&mut feedback_frame, interaction, now);
     let control_changed = apply_control_feedback(&mut feedback_frame, &interaction.controls);
-    if feedback_commands.is_empty() && !control_changed {
+    if feedback_commands.is_empty() && !control_changed && !variant_changed {
         return None;
     }
     feedback_frame.graph.extend(feedback_commands);
@@ -37,13 +50,582 @@ pub(super) fn frame_with_interaction_feedback(
     Some(feedback_frame)
 }
 
+pub(super) fn interaction_transition_active(
+    frame: &PreparedNativeFrame,
+    interaction: &NativePointerInteractionState,
+) -> bool {
+    let Some(transition) = interaction.visual_transition() else {
+        return false;
+    };
+    let elapsed = transition.started_at.elapsed();
+    frame.graph.commands().iter().any(|command| {
+        !command.interaction_variants.is_empty()
+            && selected_interaction_state_for_snapshot(
+                command,
+                command.interaction_group_id.as_deref().unwrap_or_default(),
+                interaction,
+            ) != selected_interaction_state_for_transition(command, transition)
+            && command
+                .interaction_transitions
+                .iter()
+                .any(|item| elapsed < Duration::from_secs_f64(item.duration_ms.max(0.0) / 1000.0))
+    })
+}
+
+fn apply_interaction_variants(
+    frame: &mut PreparedNativeFrame,
+    interaction: &NativePointerInteractionState,
+    now: Instant,
+) -> bool {
+    let mut changed = false;
+    for command in frame.graph.commands_mut() {
+        let Some(group_id) = command.interaction_group_id.as_deref() else {
+            continue;
+        };
+        let current_state = selected_interaction_state(command, group_id, interaction);
+        let has_transition = interaction.visual_transition().is_some();
+        let previous_state = interaction
+            .visual_transition()
+            .and_then(|transition| selected_interaction_state_for_transition(command, transition));
+        let base = DrawCommandVariant::from_command(command);
+        let target = current_state
+            .and_then(|state| command.interaction_variants.get(&state))
+            .unwrap_or(&base);
+        let source = previous_state
+            .and_then(|state| command.interaction_variants.get(&state))
+            .unwrap_or(&base);
+        let elapsed = interaction
+            .visual_transition()
+            .map(|transition| {
+                now.checked_duration_since(transition.started_at)
+                    .unwrap_or_default()
+                    .as_secs_f64()
+                    * 1000.0
+            })
+            .unwrap_or(f64::MAX);
+        let variant = if !has_transition || previous_state == current_state {
+            target.clone()
+        } else {
+            interpolate_variant(source, target, &command.interaction_transitions, elapsed)
+        };
+        let transition_in_progress = previous_state != current_state
+            && command
+                .interaction_transitions
+                .iter()
+                .any(|transition| elapsed < transition.duration_ms.max(0.0));
+        if variant != base || current_state.is_some() || transition_in_progress {
+            apply_command_variant(command, &variant);
+            changed = true;
+        }
+    }
+    if changed {
+        frame.graph.extend(std::iter::empty());
+    }
+    changed
+}
+
+fn selected_interaction_state(
+    command: &DrawCommand,
+    group_id: &str,
+    interaction: &NativePointerInteractionState,
+) -> Option<DrawInteractionState> {
+    let hovered = interaction.hovered_command_id() == Some(group_id);
+    let focused = interaction.focused_command_id() == Some(group_id);
+    let pressed = hovered && interaction.is_pressed(group_id);
+    if pressed
+        && command
+            .interaction_variants
+            .contains_key(&DrawInteractionState::Active)
+    {
+        return Some(DrawInteractionState::Active);
+    }
+    if hovered
+        && command
+            .interaction_variants
+            .contains_key(&DrawInteractionState::Hover)
+    {
+        return Some(DrawInteractionState::Hover);
+    }
+    if focused
+        && command
+            .interaction_variants
+            .contains_key(&DrawInteractionState::FocusVisible)
+    {
+        return Some(DrawInteractionState::FocusVisible);
+    }
+    if focused
+        && command
+            .interaction_variants
+            .contains_key(&DrawInteractionState::Focus)
+    {
+        return Some(DrawInteractionState::Focus);
+    }
+    None
+}
+
+fn selected_interaction_state_for_transition(
+    command: &DrawCommand,
+    transition: &NativePointerVisualTransition,
+) -> Option<DrawInteractionState> {
+    let hovered =
+        transition.hovered_command_id.as_deref() == command.interaction_group_id.as_deref();
+    let focused =
+        transition.focused_command_id.as_deref() == command.interaction_group_id.as_deref();
+    let pressed = hovered
+        && transition
+            .pressed_command_ids
+            .contains(command.interaction_group_id.as_deref().unwrap_or_default());
+    select_state_for_flags(command, hovered, focused, pressed)
+}
+
+fn selected_interaction_state_for_snapshot(
+    command: &DrawCommand,
+    group_id: &str,
+    interaction: &NativePointerInteractionState,
+) -> Option<DrawInteractionState> {
+    select_state_for_flags(
+        command,
+        interaction.hovered_command_id() == Some(group_id),
+        interaction.focused_command_id() == Some(group_id),
+        interaction.is_pressed(group_id),
+    )
+}
+
+fn select_state_for_flags(
+    command: &DrawCommand,
+    hovered: bool,
+    focused: bool,
+    pressed: bool,
+) -> Option<DrawInteractionState> {
+    if pressed
+        && command
+            .interaction_variants
+            .contains_key(&DrawInteractionState::Active)
+    {
+        return Some(DrawInteractionState::Active);
+    }
+    if hovered
+        && command
+            .interaction_variants
+            .contains_key(&DrawInteractionState::Hover)
+    {
+        return Some(DrawInteractionState::Hover);
+    }
+    if focused
+        && command
+            .interaction_variants
+            .contains_key(&DrawInteractionState::FocusVisible)
+    {
+        return Some(DrawInteractionState::FocusVisible);
+    }
+    if focused
+        && command
+            .interaction_variants
+            .contains_key(&DrawInteractionState::Focus)
+    {
+        return Some(DrawInteractionState::Focus);
+    }
+    None
+}
+
+fn interpolate_variant(
+    source: &DrawCommandVariant,
+    target: &DrawCommandVariant,
+    transitions: &[DrawTransition],
+    elapsed_ms: f64,
+) -> DrawCommandVariant {
+    let transform_progress =
+        transition_progress(transitions, DrawTransitionProperty::Transform, elapsed_ms);
+    let opacity_progress =
+        transition_progress(transitions, DrawTransitionProperty::Opacity, elapsed_ms);
+    let mut result = target.clone();
+    result.bounds = lerp_rect(source.bounds, target.bounds, transform_progress);
+    result.clip_bounds = lerp_rects(&source.clip_bounds, &target.clip_bounds, transform_progress);
+    result.opacity = lerp_f32(source.opacity, target.opacity, opacity_progress);
+    result.params = interpolate_params(&source.params, &target.params, transitions, elapsed_ms);
+    result
+}
+
+fn transition_progress(
+    transitions: &[DrawTransition],
+    property: DrawTransitionProperty,
+    elapsed_ms: f64,
+) -> f64 {
+    let transition = transitions
+        .iter()
+        .find(|transition| transition.property == property)
+        .or_else(|| {
+            transitions
+                .iter()
+                .find(|transition| transition.property == DrawTransitionProperty::All)
+        });
+    let Some(transition) = transition else {
+        return 1.0;
+    };
+    if transition.duration_ms <= 0.0 {
+        return 1.0;
+    }
+    let progress = (elapsed_ms / transition.duration_ms).clamp(0.0, 1.0);
+    ease_progress(progress, transition.easing)
+}
+
+fn ease_progress(value: f64, easing: DrawTransitionEasing) -> f64 {
+    match easing {
+        DrawTransitionEasing::Linear => value,
+        DrawTransitionEasing::EaseIn => value * value,
+        DrawTransitionEasing::EaseOut => 1.0 - (1.0 - value) * (1.0 - value),
+        DrawTransitionEasing::EaseInOut => {
+            if value < 0.5 {
+                2.0 * value * value
+            } else {
+                1.0 - (-2.0 * value + 2.0).powi(2) / 2.0
+            }
+        }
+        DrawTransitionEasing::Ease => value * value * (3.0 - 2.0 * value),
+    }
+}
+
+fn interpolate_params(
+    source: &DrawCommandParams,
+    target: &DrawCommandParams,
+    transitions: &[DrawTransition],
+    elapsed_ms: f64,
+) -> DrawCommandParams {
+    let color_progress =
+        transition_progress(transitions, DrawTransitionProperty::Color, elapsed_ms);
+    let background_progress = transition_progress(
+        transitions,
+        DrawTransitionProperty::BackgroundColor,
+        elapsed_ms,
+    );
+    let border_progress =
+        transition_progress(transitions, DrawTransitionProperty::BorderColor, elapsed_ms);
+    let shadow_progress =
+        transition_progress(transitions, DrawTransitionProperty::BoxShadow, elapsed_ms);
+    let filter_progress =
+        transition_progress(transitions, DrawTransitionProperty::Filter, elapsed_ms);
+    match (source, target) {
+        (DrawCommandParams::Panel(source), DrawCommandParams::Panel(target)) => {
+            let mut result = target.clone();
+            result.fill_color =
+                blend_color(&source.fill_color, &target.fill_color, background_progress);
+            result.border = blend_border(&source.border, &target.border, border_progress);
+            result.corner_radius = lerp_f64(
+                source.corner_radius,
+                target.corner_radius,
+                background_progress,
+            );
+            DrawCommandParams::Panel(result)
+        }
+        (DrawCommandParams::UiButton(source), DrawCommandParams::UiButton(target)) => {
+            let mut result = target.clone();
+            result.background_color = blend_color(
+                &source.background_color,
+                &target.background_color,
+                background_progress,
+            );
+            result.text_color = blend_color(&source.text_color, &target.text_color, color_progress);
+            result.border = blend_border(&source.border, &target.border, border_progress);
+            result.corner_radius = lerp_f64(
+                source.corner_radius,
+                target.corner_radius,
+                background_progress,
+            );
+            DrawCommandParams::UiButton(result)
+        }
+        (DrawCommandParams::Text(source), DrawCommandParams::Text(target)) => {
+            let mut result = target.clone();
+            result.color = blend_color(&source.color, &target.color, color_progress);
+            DrawCommandParams::Text(result)
+        }
+        (DrawCommandParams::Image(source), DrawCommandParams::Image(target)) => {
+            let mut result = target.clone();
+            result.brightness = lerp_f64(source.brightness, target.brightness, filter_progress);
+            result.saturation = lerp_f64(source.saturation, target.saturation, filter_progress);
+            DrawCommandParams::Image(result)
+        }
+        (DrawCommandParams::Shadow(source), DrawCommandParams::Shadow(target)) => {
+            DrawCommandParams::Shadow(interpolate_shadow(source, target, shadow_progress))
+        }
+        (DrawCommandParams::Gradient(source), DrawCommandParams::Gradient(target)) => {
+            let mut result = target.clone();
+            result.start_color = blend_color(
+                &source.start_color,
+                &target.start_color,
+                background_progress,
+            );
+            result.end_color =
+                blend_color(&source.end_color, &target.end_color, background_progress);
+            DrawCommandParams::Gradient(result)
+        }
+        _ => target.clone(),
+    }
+}
+
+fn interpolate_shadow(
+    source: &ShadowDrawParams,
+    target: &ShadowDrawParams,
+    progress: f64,
+) -> ShadowDrawParams {
+    let mut result = target.clone();
+    result.source_bounds = lerp_rect(source.source_bounds, target.source_bounds, progress);
+    result.offset_x = lerp_f64(source.offset_x, target.offset_x, progress);
+    result.offset_y = lerp_f64(source.offset_y, target.offset_y, progress);
+    result.blur_radius = lerp_f64(source.blur_radius, target.blur_radius, progress);
+    result.spread_radius = lerp_f64(source.spread_radius, target.spread_radius, progress);
+    result.corner_radius = lerp_f64(source.corner_radius, target.corner_radius, progress);
+    result.color = blend_color(&source.color, &target.color, progress);
+    result
+}
+
+fn blend_border(
+    source: &BorderDrawParams,
+    target: &BorderDrawParams,
+    progress: f64,
+) -> BorderDrawParams {
+    BorderDrawParams {
+        color: blend_optional_color(source.color.as_deref(), target.color.as_deref(), progress),
+        width: lerp_f64(source.width, target.width, progress),
+    }
+}
+
+fn lerp_rect(
+    source: crate::render_graph::LogicalRect,
+    target: crate::render_graph::LogicalRect,
+    progress: f64,
+) -> crate::render_graph::LogicalRect {
+    crate::render_graph::LogicalRect {
+        x: lerp_f64(source.x, target.x, progress),
+        y: lerp_f64(source.y, target.y, progress),
+        width: lerp_f64(source.width, target.width, progress),
+        height: lerp_f64(source.height, target.height, progress),
+    }
+}
+
+fn lerp_rects(
+    source: &[crate::render_graph::LogicalRect],
+    target: &[crate::render_graph::LogicalRect],
+    progress: f64,
+) -> Vec<crate::render_graph::LogicalRect> {
+    if source.len() != target.len() {
+        return target.to_vec();
+    }
+    source
+        .iter()
+        .zip(target)
+        .map(|(source, target)| lerp_rect(*source, *target, progress))
+        .collect()
+}
+
+fn lerp_f64(source: f64, target: f64, progress: f64) -> f64 {
+    source + (target - source) * progress
+}
+
+fn lerp_f32(source: f32, target: f32, progress: f64) -> f32 {
+    lerp_f64(source as f64, target as f64, progress) as f32
+}
+
+#[derive(Clone, Copy)]
+struct RgbaColor {
+    r: f64,
+    g: f64,
+    b: f64,
+    a: f64,
+}
+
+fn blend_optional_color(
+    source: Option<&str>,
+    target: Option<&str>,
+    progress: f64,
+) -> Option<String> {
+    match (source, target) {
+        (None, None) => None,
+        (Some(source), Some(target)) => Some(blend_color(source, target, progress)),
+        (None, Some(target)) => Some(blend_color("rgba(0,0,0,0)", target, progress)),
+        (Some(source), None) => {
+            if progress >= 1.0 {
+                None
+            } else {
+                Some(blend_color(source, "rgba(0,0,0,0)", progress))
+            }
+        }
+    }
+}
+
+fn blend_color(source: &str, target: &str, progress: f64) -> String {
+    if progress <= 0.0 {
+        return source.to_string();
+    }
+    if progress >= 1.0 {
+        return target.to_string();
+    }
+    let (Some(source), Some(target)) = (parse_color(source), parse_color(target)) else {
+        return if progress >= 0.5 {
+            target.to_string()
+        } else {
+            source.to_string()
+        };
+    };
+    let source_alpha = source.a;
+    let target_alpha = target.a;
+    let alpha = lerp_f64(source_alpha, target_alpha, progress);
+    let source_rgb = [
+        srgb_to_linear(source.r),
+        srgb_to_linear(source.g),
+        srgb_to_linear(source.b),
+    ];
+    let target_rgb = [
+        srgb_to_linear(target.r),
+        srgb_to_linear(target.g),
+        srgb_to_linear(target.b),
+    ];
+    let mut rgb = [0.0; 3];
+    for index in 0..3 {
+        let source_premultiplied = source_rgb[index] * source_alpha;
+        let target_premultiplied = target_rgb[index] * target_alpha;
+        rgb[index] = if alpha > 0.00001 {
+            lerp_f64(source_premultiplied, target_premultiplied, progress) / alpha
+        } else {
+            0.0
+        };
+    }
+    format!(
+        "rgba({},{},{},{:.4})",
+        (linear_to_srgb(rgb[0]).clamp(0.0, 1.0) * 255.0).round(),
+        (linear_to_srgb(rgb[1]).clamp(0.0, 1.0) * 255.0).round(),
+        (linear_to_srgb(rgb[2]).clamp(0.0, 1.0) * 255.0).round(),
+        alpha.clamp(0.0, 1.0)
+    )
+}
+
+fn parse_color(value: &str) -> Option<RgbaColor> {
+    let value = value.trim().to_ascii_lowercase();
+    if value == "transparent" {
+        return Some(RgbaColor {
+            r: 0.0,
+            g: 0.0,
+            b: 0.0,
+            a: 0.0,
+        });
+    }
+    let value = match value.as_str() {
+        "black" => "#000000",
+        "white" => "#ffffff",
+        "red" => "#ff0000",
+        "green" => "#008000",
+        "blue" => "#0000ff",
+        _ => value.as_str(),
+    };
+    if let Some(hex) = value.strip_prefix('#') {
+        let expanded = match hex.len() {
+            3 => format!(
+                "{}{}{}{}{}{}",
+                &hex[0..1],
+                &hex[0..1],
+                &hex[1..2],
+                &hex[1..2],
+                &hex[2..3],
+                &hex[2..3]
+            ),
+            4 => format!(
+                "{}{}{}{}{}{}{}{}",
+                &hex[0..1],
+                &hex[0..1],
+                &hex[1..2],
+                &hex[1..2],
+                &hex[2..3],
+                &hex[2..3],
+                &hex[3..4],
+                &hex[3..4]
+            ),
+            6 | 8 => hex.to_string(),
+            _ => return None,
+        };
+        let parse = |range: std::ops::Range<usize>| {
+            u8::from_str_radix(&expanded[range], 16)
+                .ok()
+                .map(|value| value as f64 / 255.0)
+        };
+        return Some(RgbaColor {
+            r: parse(0..2)?,
+            g: parse(2..4)?,
+            b: parse(4..6)?,
+            a: if expanded.len() == 8 {
+                parse(6..8)?
+            } else {
+                1.0
+            },
+        });
+    }
+    let (prefix, suffix) = if let Some(value) = value.strip_prefix("rgba(") {
+        ("rgba", value.strip_suffix(')')?)
+    } else if let Some(value) = value.strip_prefix("rgb(") {
+        ("rgb", value.strip_suffix(')')?)
+    } else {
+        return None;
+    };
+    let parts = suffix.split(',').map(str::trim).collect::<Vec<_>>();
+    if (prefix == "rgb" && parts.len() != 3) || (prefix == "rgba" && parts.len() != 4) {
+        return None;
+    }
+    let channel = |value: &str| {
+        value
+            .parse::<f64>()
+            .ok()
+            .filter(|value| (0.0..=255.0).contains(value))
+            .map(|value| value / 255.0)
+    };
+    let alpha = if parts.len() == 4 {
+        parts[3]
+            .parse::<f64>()
+            .ok()
+            .filter(|value| (0.0..=1.0).contains(value))?
+    } else {
+        1.0
+    };
+    Some(RgbaColor {
+        r: channel(parts[0])?,
+        g: channel(parts[1])?,
+        b: channel(parts[2])?,
+        a: alpha,
+    })
+}
+
+fn srgb_to_linear(value: f64) -> f64 {
+    if value <= 0.04045 {
+        value / 12.92
+    } else {
+        ((value + 0.055) / 1.055).powf(2.4)
+    }
+}
+fn linear_to_srgb(value: f64) -> f64 {
+    if value <= 0.0031308 {
+        value * 12.92
+    } else {
+        1.055 * value.powf(1.0 / 2.4) - 0.055
+    }
+}
+
+fn apply_command_variant(command: &mut DrawCommand, variant: &DrawCommandVariant) {
+    command.bounds = variant.bounds;
+    command.clip_bounds = variant.clip_bounds.clone();
+    command.kind = variant.kind;
+    command.opacity = variant.opacity;
+    command.params = variant.params.clone();
+    command.resource_ids = variant.resource_ids.clone();
+    command.z_index = variant.z_index;
+}
+
 fn interaction_feedback_command(
     command: &DrawCommand,
     interaction: &NativePointerInteractionState,
     logical_width: f64,
     logical_height: f64,
 ) -> Option<DrawCommand> {
-    if !command.interactive || covers_stage_background(command, logical_width, logical_height) {
+    if !command.interactive
+        || !command.interaction_variants.is_empty()
+        || covers_stage_background(command, logical_width, logical_height)
+    {
         return None;
     }
 
@@ -97,7 +679,6 @@ fn interaction_feedback_command(
             }
             .to_string(),
             corner_radius,
-            shadow_blur_radius: 0.0,
             fill_color: fill_color.to_string(),
             border,
             padding: Default::default(),
@@ -181,7 +762,6 @@ mod tests {
             .params(DrawCommandParams::Panel(PanelDrawParams {
                 role: "backdrop".to_string(),
                 corner_radius: 0.0,
-                shadow_blur_radius: 0.0,
                 fill_color: "#000000".to_string(),
                 border: Default::default(),
                 padding: Default::default(),
@@ -230,6 +810,83 @@ mod tests {
         );
 
         assert!(frame_with_interaction_feedback(&frame, &interaction).is_none());
+    }
+
+    #[test]
+    fn interpolates_declared_hover_bounds_and_colors_without_generic_feedback() {
+        let mut frame = fixture_frame();
+        let base = frame.graph.commands()[0].clone();
+        let mut target = base.clone();
+        target.bounds.x = 40.0;
+        if let DrawCommandParams::UiButton(params) = &mut target.params {
+            params.background_color = "#804020".to_string();
+            params.text_color = "#ffe8b3".to_string();
+        }
+        let command = &mut frame.graph.commands_mut()[0];
+        command.interaction_group_id = Some("button".to_string());
+        command.interaction_variants.insert(
+            DrawInteractionState::Hover,
+            DrawCommandVariant::from_command(&target),
+        );
+        command.interaction_transitions = vec![
+            DrawTransition {
+                property: DrawTransitionProperty::Transform,
+                duration_ms: 1_000.0,
+                easing: DrawTransitionEasing::Linear,
+            },
+            DrawTransition {
+                property: DrawTransitionProperty::BackgroundColor,
+                duration_ms: 1_000.0,
+                easing: DrawTransitionEasing::Linear,
+            },
+            DrawTransition {
+                property: DrawTransitionProperty::Color,
+                duration_ms: 1_000.0,
+                easing: DrawTransitionEasing::Linear,
+            },
+        ];
+
+        let mut interaction = NativePointerInteractionState::new();
+        resolve_pointer_event_with_interaction(
+            &mut interaction,
+            NativePointerEvent::new(
+                NativePointerEventPhase::Move,
+                StageClientPoint::default(),
+                StageClientRectOrigin::default(),
+            ),
+            fixture_pointer(),
+        );
+        let started_at = interaction.visual_transition().unwrap().started_at;
+        let feedback = frame_with_interaction_feedback_at(
+            &frame,
+            &interaction,
+            started_at + Duration::from_millis(500),
+        )
+        .unwrap();
+
+        assert_eq!(frame.graph.commands()[0].bounds.x, 20.0);
+        assert_eq!(feedback.graph.commands().len(), 1);
+        let command = &feedback.graph.commands()[0];
+        assert_eq!(command.bounds.x, 30.0);
+        match &command.params {
+            DrawCommandParams::UiButton(params) => {
+                assert_ne!(params.background_color, "#202020");
+                assert_ne!(params.background_color, "#804020");
+                assert!(params.background_color.starts_with("rgba("));
+                assert_ne!(params.text_color, "#ffffff");
+                assert_ne!(params.text_color, "#ffe8b3");
+            }
+            params => panic!("unexpected feedback params: {params:?}"),
+        }
+        assert!(interaction_transition_active(&frame, &interaction));
+
+        let completed = frame_with_interaction_feedback_at(
+            &frame,
+            &interaction,
+            started_at + Duration::from_millis(1_000),
+        )
+        .unwrap();
+        assert_eq!(completed.graph.commands()[0].bounds.x, 40.0);
     }
 
     fn fixture_frame() -> PreparedNativeFrame {

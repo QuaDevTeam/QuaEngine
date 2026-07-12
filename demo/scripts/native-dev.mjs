@@ -209,7 +209,9 @@ async function validateNativeAudioFrame() {
   const bgm = Array.isArray(tracks)
     ? tracks.find(track => track?.id === 'demo-native-bgm')
     : undefined
-  const expectedAssetName = panel === 'interactive' ? 'bgm/title-menu.m4a' : 'bgm/blackout-cold-open.m4a'
+  const expectedAssetName = panel === 'interactive' || panel === 'menu'
+    ? 'bgm/title-menu.m4a'
+    : 'bgm/blackout-cold-open.m4a'
   if (bgm?.kind !== 'bgm'
     || bgm?.assetName !== expectedAssetName
     || bgm?.playbackState !== 'playing'
@@ -276,15 +278,46 @@ async function validateNativeFeatureFrame(panelName) {
     console.log(`Native demo frame validated engine typewriter projection (${text.length} code units). Rust owns reveal timing in the live window.`)
     return
   }
-  if (panelName === 'interactive') {
+  if (panelName === 'interactive' || panelName === 'menu') {
     const frame = JSON.parse(await readFile(FRAME_PATH, 'utf8'))
     const overlays = frame.view?.ui?.overlays
-    const found = Array.isArray(overlays)
-      && overlays.some(overlay => overlay?.surface?.key === 'demo/native-main-menu.qui')
-    if (!found) {
-      throw new Error('Native interactive smoke frame did not start from the Web-aligned main menu.')
+    const menuOverlay = Array.isArray(overlays)
+      ? overlays.find(overlay => overlay?.surface?.key === 'demo/native-main-menu.qui')
+      : undefined
+    if (!menuOverlay) {
+      throw new Error('Native main-menu smoke frame did not start from the Web-aligned main menu.')
     }
-    console.log('Native demo frame validated the complete main-menu entry projection.')
+    const nodes = []
+    const collectNodes = node => {
+      if (!node || typeof node !== 'object') {
+        return
+      }
+      nodes.push(node)
+      for (const child of Array.isArray(node.children) ? node.children : []) {
+        collectNodes(child)
+      }
+    }
+    collectNodes(menuOverlay.surface?.root)
+    const background = nodes.find(node => node.id === 'native-main-menu-background')
+    const buttonNodes = nodes.filter(node => node.kind === 'Button')
+    const gradientCount = nodes.filter(node => node.style?.backgroundGradient).length
+    const boxShadowCount = nodes.filter(node => node.style?.boxShadow).length
+    const textShadowCount = nodes.filter(node => node.style?.textShadow).length
+    const stateStyleCount = buttonNodes.filter(node => {
+      const states = node.stateStyles
+      return states?.hover && states?.active && states?.focus && states?.['focus-visible']
+    }).length
+    const transitionCount = buttonNodes.filter(node => Array.isArray(node.transitions) && node.transitions.length > 0).length
+    if (background?.style?.filter?.brightness !== 0.46
+      || background?.style?.filter?.saturate !== 0.88
+      || gradientCount < 2
+      || boxShadowCount < 5
+      || textShadowCount < 1
+      || stateStyleCount < 4
+      || transitionCount < 4) {
+      throw new Error('Native main-menu smoke frame is missing the expected filter, gradient, shadow, state, or transition projections.')
+    }
+    console.log(`Native demo frame validated the complete main-menu entry projection (gradients=${gradientCount}, shadows=${boxShadowCount}, statefulButtons=${stateStyleCount}, transitions=${transitionCount}).`)
     return
   }
   if (panelName === 'effects') {

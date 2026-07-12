@@ -4,9 +4,10 @@ use super::*;
 use crate::render_graph::{
     BorderDrawParams, CharacterAnchor, CharacterDrawParams, DrawBatchPipeline, DrawCommandKind,
     DrawCommandParams, EdgeInsetsDrawParam, FontStyleDrawParam, ImageDrawParams, LogicalRect,
-    MediaFit, MediaOrigin, PanelDrawParams, RenderPlane, RenderViewport, TextAlign,
-    TextDecorationDrawParam, TextDrawParams, TextOverflowDrawParam, TextTransformDrawParam,
-    UiButtonDrawParams, UiSurfaceDrawParams, VideoDrawParams, WhiteSpaceDrawParam,
+    MediaFit, MediaOrigin, PanelDrawParams, RenderPlane, RenderViewport, ShadowDrawParams,
+    ShadowDrawStyle, TextAlign, TextDecorationDrawParam, TextDrawParams, TextOverflowDrawParam,
+    TextTransformDrawParam, UiButtonDrawParams, UiSurfaceDrawParams, VideoDrawParams,
+    WhiteSpaceDrawParam,
 };
 use crate::renderer::backend::wgpu::{
     WgpuNativeRenderDrawMetadata, WgpuNativeRenderExecutionOperation,

@@ -1,16 +1,24 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::projection::common::is_safe_native_dispatch_identifier;
 use crate::projection::safety::{
     is_safe_native_ui_surface_node_numbers, is_safe_native_ui_surface_offset,
 };
-use crate::render_graph::{DrawCommand, DrawCommandKind, LogicalRect};
+use crate::render_graph::{
+    DrawCommand, DrawCommandKind, DrawCommandVariant, DrawInteractionState, DrawTransition,
+    DrawTransitionEasing, DrawTransitionProperty, LogicalRect, ShadowDrawStyle,
+};
 
 use super::super::style::resolve_opacity;
-use super::super::types::{UiOverlayProjection, UiSurfaceNodeKind, UiSurfaceNodeProjection};
+use super::super::types::{
+    UiOverlayProjection, UiSurfaceNodeKind, UiSurfaceNodeProjection,
+    UiSurfacePseudoStateProjection, UiSurfaceTransitionEasingProjection,
+    UiSurfaceTransitionPropertyProjection,
+};
 use super::command::{
-    scroll_clip_command, surface_background_image_command, surface_box_shadow_commands,
-    surface_node_command, surface_scroll_panel_command, surface_text_shadow_commands,
+    scroll_clip_command, surface_background_gradient_command, surface_background_image_command,
+    surface_box_shadow_commands, surface_node_command, surface_scroll_panel_command,
+    surface_text_shadow_commands,
 };
 use super::helpers::{node_rect, SurfaceNodeOffset};
 use super::{SCROLL_CHILD_Z_OFFSET, SCROLL_CLIP_END_Z_OFFSET};
@@ -152,6 +160,7 @@ fn append_scroll_node_commands(
         clip_bounds,
         offset,
         effective_opacity,
+        ShadowDrawStyle::Outer,
     ));
     commands.extend(surface_text_shadow_commands(
         overlay,
@@ -161,6 +170,17 @@ fn append_scroll_node_commands(
         offset,
         effective_opacity,
     ));
+    if let Some(command) = surface_background_gradient_command(
+        overlay,
+        node,
+        z_base,
+        clip_bounds,
+        &command_id,
+        bounds,
+        effective_opacity,
+    ) {
+        commands.push(command);
+    }
     if let Some(command) = surface_background_image_command(
         overlay,
         node,
@@ -180,6 +200,15 @@ fn append_scroll_node_commands(
         &command_id,
         bounds,
         effective_opacity,
+    ));
+    commands.extend(surface_box_shadow_commands(
+        overlay,
+        node,
+        z_base,
+        clip_bounds,
+        offset,
+        effective_opacity,
+        ShadowDrawStyle::Inset,
     ));
     commands.push(scroll_clip_command(
         overlay,
@@ -228,6 +257,35 @@ fn append_painted_surface_node_commands(
     offset: SurfaceNodeOffset,
     effective_opacity: f32,
 ) {
+    let mut node_commands = painted_surface_node_commands(
+        overlay,
+        node,
+        z_base,
+        clip_bounds,
+        offset,
+        effective_opacity,
+    );
+    attach_interaction_variants(
+        &mut node_commands,
+        overlay,
+        node,
+        z_base,
+        clip_bounds,
+        offset,
+        effective_opacity,
+    );
+    commands.extend(node_commands);
+}
+
+fn painted_surface_node_commands(
+    overlay: &UiOverlayProjection,
+    node: &UiSurfaceNodeProjection,
+    z_base: i32,
+    clip_bounds: &[LogicalRect],
+    offset: SurfaceNodeOffset,
+    effective_opacity: f32,
+) -> Vec<DrawCommand> {
+    let mut commands = Vec::new();
     let bounds = node_rect(node.bounds, offset);
     let command_id = format!("ui:{}:{}", overlay.element_id, node.id);
     commands.extend(surface_box_shadow_commands(
@@ -237,6 +295,7 @@ fn append_painted_surface_node_commands(
         clip_bounds,
         offset,
         effective_opacity,
+        ShadowDrawStyle::Outer,
     ));
     commands.extend(surface_text_shadow_commands(
         overlay,
@@ -246,6 +305,17 @@ fn append_painted_surface_node_commands(
         offset,
         effective_opacity,
     ));
+    if let Some(command) = surface_background_gradient_command(
+        overlay,
+        node,
+        z_base,
+        clip_bounds,
+        &command_id,
+        bounds,
+        effective_opacity,
+    ) {
+        commands.push(command);
+    }
     if let Some(command) = surface_background_image_command(
         overlay,
         node,
@@ -267,6 +337,144 @@ fn append_painted_surface_node_commands(
         effective_opacity,
     ) {
         commands.push(command);
+    }
+    commands.extend(surface_box_shadow_commands(
+        overlay,
+        node,
+        z_base,
+        clip_bounds,
+        offset,
+        effective_opacity,
+        ShadowDrawStyle::Inset,
+    ));
+    commands
+}
+
+fn attach_interaction_variants(
+    base_commands: &mut Vec<DrawCommand>,
+    overlay: &UiOverlayProjection,
+    node: &UiSurfaceNodeProjection,
+    z_base: i32,
+    clip_bounds: &[LogicalRect],
+    offset: SurfaceNodeOffset,
+    effective_opacity: f32,
+) {
+    if node.state_styles.is_empty() {
+        return;
+    }
+
+    let group_id = format!("ui:{}:{}", overlay.element_id, node.id);
+    let transitions = node
+        .transitions
+        .iter()
+        .map(|transition| DrawTransition {
+            property: match transition.property {
+                UiSurfaceTransitionPropertyProjection::All => DrawTransitionProperty::All,
+                UiSurfaceTransitionPropertyProjection::BackgroundColor => {
+                    DrawTransitionProperty::BackgroundColor
+                }
+                UiSurfaceTransitionPropertyProjection::BorderColor => {
+                    DrawTransitionProperty::BorderColor
+                }
+                UiSurfaceTransitionPropertyProjection::BoxShadow => {
+                    DrawTransitionProperty::BoxShadow
+                }
+                UiSurfaceTransitionPropertyProjection::Color => DrawTransitionProperty::Color,
+                UiSurfaceTransitionPropertyProjection::Filter => DrawTransitionProperty::Filter,
+                UiSurfaceTransitionPropertyProjection::Opacity => DrawTransitionProperty::Opacity,
+                UiSurfaceTransitionPropertyProjection::Scale
+                | UiSurfaceTransitionPropertyProjection::Transform
+                | UiSurfaceTransitionPropertyProjection::Translate => {
+                    DrawTransitionProperty::Transform
+                }
+            },
+            duration_ms: transition.duration_ms,
+            easing: match transition.easing {
+                UiSurfaceTransitionEasingProjection::Ease => DrawTransitionEasing::Ease,
+                UiSurfaceTransitionEasingProjection::EaseIn => DrawTransitionEasing::EaseIn,
+                UiSurfaceTransitionEasingProjection::EaseInOut => DrawTransitionEasing::EaseInOut,
+                UiSurfaceTransitionEasingProjection::EaseOut => DrawTransitionEasing::EaseOut,
+                UiSurfaceTransitionEasingProjection::Linear => DrawTransitionEasing::Linear,
+            },
+        })
+        .collect::<Vec<_>>();
+    let state_commands = node
+        .state_styles
+        .iter()
+        .map(|(state, state_style)| {
+            let mut state_node = node.clone();
+            state_node.bounds = state_style.bounds;
+            state_node.style = state_style.style.clone();
+            state_node.state_styles.clear();
+            state_node.transitions.clear();
+            (
+                interaction_state(*state),
+                painted_surface_node_commands(
+                    overlay,
+                    &state_node,
+                    z_base,
+                    clip_bounds,
+                    offset,
+                    effective_opacity,
+                ),
+            )
+        })
+        .collect::<BTreeMap<_, _>>();
+
+    let mut ordered_ids = base_commands
+        .iter()
+        .map(|command| command.id.clone())
+        .collect::<Vec<_>>();
+    for commands in state_commands.values() {
+        for command in commands {
+            if !ordered_ids.contains(&command.id) {
+                ordered_ids.push(command.id.clone());
+            }
+        }
+    }
+    let base_by_id = base_commands
+        .drain(..)
+        .map(|command| (command.id.clone(), command))
+        .collect::<BTreeMap<_, _>>();
+
+    for id in ordered_ids {
+        let seed = base_by_id.get(&id).cloned().or_else(|| {
+            state_commands
+                .values()
+                .find_map(|commands| commands.iter().find(|command| command.id == id).cloned())
+        });
+        let Some(mut command) = seed else {
+            continue;
+        };
+        if !base_by_id.contains_key(&id) {
+            command.opacity = 0.0;
+            command.interactive = false;
+        }
+        command.interaction_group_id = Some(group_id.clone());
+        command.interaction_transitions = transitions.clone();
+        for (state, commands) in &state_commands {
+            let variant = commands
+                .iter()
+                .find(|variant| variant.id == id)
+                .map(DrawCommandVariant::from_command)
+                .unwrap_or_else(|| DrawCommandVariant::hidden_from_command(&command));
+            for resource in &variant.resource_ids {
+                if !command.resource_ids.contains(resource) {
+                    command.resource_ids.push(resource.clone());
+                }
+            }
+            command.interaction_variants.insert(*state, variant);
+        }
+        base_commands.push(command);
+    }
+}
+
+fn interaction_state(state: UiSurfacePseudoStateProjection) -> DrawInteractionState {
+    match state {
+        UiSurfacePseudoStateProjection::Active => DrawInteractionState::Active,
+        UiSurfacePseudoStateProjection::Focus => DrawInteractionState::Focus,
+        UiSurfacePseudoStateProjection::FocusVisible => DrawInteractionState::FocusVisible,
+        UiSurfacePseudoStateProjection::Hover => DrawInteractionState::Hover,
     }
 }
 

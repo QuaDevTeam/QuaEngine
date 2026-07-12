@@ -17,4 +17,5 @@ fn text_capability_matches_current_qss_text_subset() {
     assert!(text.qss_features.contains(&"text-transform".to_string()));
     assert!(text.qss_features.contains(&"white-space".to_string()));
     assert!(text.qss_features.contains(&"color".to_string()));
+    assert!(text.qss_features.contains(&"text-shadow".to_string()));
 }

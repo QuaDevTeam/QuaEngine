@@ -288,8 +288,25 @@ function withBounds(
   child: NativeUiCompilerSurfaceNodeProjection,
   bounds: NativeUiSurfaceRect,
 ): NativeUiCompilerSurfaceNodeProjection {
+  const deltaX = bounds.x - child.bounds.x
+  const deltaY = bounds.y - child.bounds.y
   return {
     ...child,
     bounds,
+    stateStyles: child.stateStyles
+      ? Object.fromEntries(Object.entries(child.stateStyles).map(([state, style]) => [
+          state,
+          style
+            ? {
+                ...style,
+                bounds: {
+                  ...style.bounds,
+                  x: style.bounds.x + deltaX,
+                  y: style.bounds.y + deltaY,
+                },
+              }
+            : style,
+        ]))
+      : undefined,
   }
 }

@@ -11,7 +11,6 @@ fn lowers_primitives_into_gpu_quads_and_paints() {
                 role: String::new(),
                 fill_color: "#336699cc".to_string(),
                 corner_radius: 12.0,
-                shadow_blur_radius: 0.0,
                 border: WgpuNativeRenderPrimitiveBorder {
                     color: Some("rgba(255,255,255,0.5)".to_string()),
                     width: 2.0,
@@ -56,6 +55,8 @@ fn lowers_primitives_into_gpu_quads_and_paints() {
                 origin: MediaOrigin::default(),
                 source: LogicalRect::default(),
                 rotation_degrees: 0.0,
+                brightness: 1.0,
+                saturation: 1.0,
             },
             physical_rect(0, 0, 1280, 720),
             vec![ResourceId::from("images:bg/school.png")],

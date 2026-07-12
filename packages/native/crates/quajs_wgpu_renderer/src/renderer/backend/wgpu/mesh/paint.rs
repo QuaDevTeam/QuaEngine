@@ -88,7 +88,6 @@ pub(super) fn paint_from_primitive(
         WgpuNativeRenderPrimitiveKind::Panel {
             fill_color,
             corner_radius,
-            shadow_blur_radius: _,
             border,
             ..
         } => (
@@ -97,6 +96,16 @@ pub(super) fn paint_from_primitive(
             quad_border(border),
             None,
         ),
+        WgpuNativeRenderPrimitiveKind::Shadow {
+            color,
+            corner_radius,
+            ..
+        } => (solid_paint(color), *corner_radius as f32, None, None),
+        WgpuNativeRenderPrimitiveKind::Gradient {
+            start_color,
+            corner_radius,
+            ..
+        } => (solid_paint(start_color), *corner_radius as f32, None, None),
         WgpuNativeRenderPrimitiveKind::UiButton {
             label,
             enabled: _,

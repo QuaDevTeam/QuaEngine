@@ -132,6 +132,8 @@ fn background_image_command(
             origin: media_origin(background.origin.as_deref()),
             source: full_stage_rect(layout),
             rotation_degrees: background.rotation,
+            brightness: 1.0,
+            saturation: 1.0,
         }));
 
     Some(apply_provenance(command, &background.provenance))
@@ -175,6 +177,8 @@ fn background_layer_command(
         origin: media_origin(layer.origin.as_deref()),
         source: full_stage_rect(layout),
         rotation_degrees: layer.rotation,
+        brightness: 1.0,
+        saturation: 1.0,
     }));
 
     Some(apply_provenance(command, &layer.provenance))
