@@ -345,6 +345,19 @@ impl NativeProductInputController {
             .pointer_event_and_emit_intent(event, host)
             .map_err(NativeProductInputError::from_host_error)?;
 
+        // Match the Web renderer's stage click behavior: only an unhandled primary
+        // release advances dialogue. Interactive controls keep their own intent.
+        if dispatch.is_none()
+            && phase == NativePointerEventPhase::Release
+            && button == NativePointerButton::Primary
+        {
+            emit_native_renderer_intent(
+                host,
+                "user/input_command",
+                Some(build_pointer_advance_payload()),
+            )?;
+        }
+
         Ok(NativeProductPointerDispatchReport {
             dispatched: dispatch.is_some(),
             visual_state_changed: dispatch
@@ -382,6 +395,17 @@ impl NativeProductInputController {
                 .unwrap_or(false),
         })
     }
+}
+
+fn build_pointer_advance_payload() -> Value {
+    json!({
+        "command": "advance",
+        "device": "pointer",
+        "source": "pointer:primary",
+        "pressed": true,
+        "repeat": false,
+        "timestamp": native_input_timestamp_ms(),
+    })
 }
 
 fn next_ime_composition_state(

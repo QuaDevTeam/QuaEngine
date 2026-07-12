@@ -90,6 +90,8 @@ pub struct UiSurfaceNodeProjection {
     pub intent: Option<UiIntentProjection>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub control: Option<UiSurfaceControlProjection>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub role: Option<String>,
     #[serde(default)]
     pub style: UiSurfaceResolvedStyle,
     #[serde(default, skip_serializing_if = "PackageProvenance::is_empty")]
@@ -114,6 +116,7 @@ impl UiSurfaceNodeProjection {
             image: None,
             intent: None,
             control: None,
+            role: None,
             style: UiSurfaceResolvedStyle::default(),
             provenance: PackageProvenance::default(),
             children: Vec::new(),

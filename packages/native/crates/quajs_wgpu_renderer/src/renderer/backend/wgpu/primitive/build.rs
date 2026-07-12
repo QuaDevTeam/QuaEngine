@@ -167,6 +167,7 @@ fn primitive_kind_from_params(
             style: WgpuNativeRenderTextStyle::from_text_params(params, physical_scale),
         },
         DrawCommandParams::Panel(params) => WgpuNativeRenderPrimitiveKind::Panel {
+            role: params.role.clone(),
             fill_color: params.fill_color.clone(),
             corner_radius: params.corner_radius * physical_scale,
             shadow_blur_radius: params.shadow_blur_radius * physical_scale,
@@ -200,6 +201,7 @@ fn primitive_kind_from_draw_kind(draw_kind: DrawCommandKind) -> WgpuNativeRender
     match draw_kind {
         DrawCommandKind::Rect | DrawCommandKind::RoundedRect => {
             WgpuNativeRenderPrimitiveKind::Panel {
+                role: "shape".to_string(),
                 fill_color: "#ffffff".to_string(),
                 corner_radius: 0.0,
                 shadow_blur_radius: 0.0,
