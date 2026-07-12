@@ -8,6 +8,7 @@ fn lowers_primitives_into_gpu_quads_and_paints() {
             DrawBatchPipeline::Ui,
             DrawCommandKind::RoundedRect,
             WgpuNativeRenderPrimitiveKind::Panel {
+                role: String::new(),
                 fill_color: "#336699cc".to_string(),
                 corner_radius: 12.0,
                 shadow_blur_radius: 0.0,

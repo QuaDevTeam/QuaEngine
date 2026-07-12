@@ -52,7 +52,8 @@ pub(super) struct NativeWindowSmokeApp {
     #[cfg(feature = "quickjs-rquickjs")]
     projection_runtime: Option<NativeRendererProjectionRuntime>,
     interaction_probe_story_observed: bool,
-    interaction_probe_advance_sent: bool,
+    interaction_probe_advance_count: usize,
+    interaction_probe_typewriter_revealed: bool,
     interaction_probe_advance_observed: bool,
     interaction_probe_started_at: Option<Instant>,
     event_loop_proxy: EventLoopProxy<()>,
@@ -80,7 +81,8 @@ impl NativeWindowSmokeApp {
             #[cfg(feature = "quickjs-rquickjs")]
             projection_runtime: None,
             interaction_probe_story_observed: false,
-            interaction_probe_advance_sent: false,
+            interaction_probe_advance_count: 0,
+            interaction_probe_typewriter_revealed: false,
             interaction_probe_advance_observed: false,
             interaction_probe_started_at: None,
             event_loop_proxy,
@@ -212,9 +214,11 @@ impl NativeWindowSmokeApp {
         }
         let should_run_advance_probe = native_window_interaction_probe_enabled()
             && self.interaction_probe_story_observed
-            && !self.interaction_probe_advance_sent;
+            && (self.interaction_probe_advance_count == 0
+                || (self.interaction_probe_advance_count == 1
+                    && self.interaction_probe_typewriter_revealed));
         if native_window_interaction_probe_enabled()
-            && self.interaction_probe_advance_sent
+            && self.interaction_probe_advance_count > 0
             && !self.interaction_probe_advance_observed
             && native_demo_advanced_story_frame_visible(&frame_json)
         {
@@ -226,6 +230,20 @@ impl NativeWindowSmokeApp {
                 "Native renderer smoke runtime is not initialized.",
             ));
         };
+
+        #[cfg(feature = "quickjs-rquickjs")]
+        if let Some(runtime) = self.projection_runtime.as_ref() {
+            product_shell
+                .window_loop_mut()
+                .runtime_mut()
+                .renderer_mut()
+                .prewarm_font_texts(&runtime.font_prewarm_texts())
+                .map_err(|error| {
+                    NativeWindowSmokeError::new(format!(
+                        "Failed to prewarm native typewriter font glyphs: {error}."
+                    ))
+                })?;
+        }
 
         let target_frame_count = product_shell.window_loop().target_frame_count();
         let should_shutdown_after_next_frame = self.interaction_probe_advance_observed;
@@ -247,7 +265,8 @@ impl NativeWindowSmokeApp {
                             self.interaction_probe_started_at = Some(Instant::now());
                             Ok(())
                         } else if should_run_advance_probe {
-                            self.interaction_probe_advance_sent = true;
+                            self.interaction_probe_advance_count =
+                                self.interaction_probe_advance_count.saturating_add(1);
                             self.input
                                 .run_native_demo_advance_probe(renderer, host, &frame_json)
                         } else {
@@ -560,6 +579,7 @@ impl NativeWindowSmokeApp {
                         .as_mut()
                         .is_some_and(NativeRendererProjectionRuntime::reveal_dialogue_on_advance)
                 {
+                    self.interaction_probe_typewriter_revealed = true;
                     self.request_redraw();
                     forwarded_renderer_intent_count =
                         forwarded_renderer_intent_count.saturating_add(1);
