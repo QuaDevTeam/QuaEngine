@@ -347,7 +347,11 @@ impl NativeProductInputController {
 
         // Match the Web renderer's stage click behavior: only an unhandled primary
         // release advances dialogue. Interactive controls keep their own intent.
-        if dispatch.is_none()
+        let hit_interactive_intent = dispatch
+            .as_ref()
+            .and_then(|dispatch| dispatch.resolution.pointer.intent.as_ref())
+            .is_some();
+        if !hit_interactive_intent
             && phase == NativePointerEventPhase::Release
             && button == NativePointerButton::Primary
         {
@@ -806,6 +810,50 @@ mod tests {
         assert_eq!(advance_payload["source"], "keyboard:Space");
         assert_eq!(advance_payload["metadata"]["code"], "Space");
         assert!(advance_payload["timestamp"].as_u64().is_some());
+    }
+
+    #[test]
+    fn advances_on_release_outside_interactive_renderer_commands() {
+        let mut renderer =
+            NativeRenderer::new(quajs_wgpu_renderer::renderer::NullNativeRenderBackend::new());
+        renderer
+            .prepare_and_render_json_str(include_str!(
+                "../../../test-fixtures/renderer/qui-qss-surface-frame.json"
+            ))
+            .expect("fixture frame should render");
+        let mut host = product_input_host();
+        let mut input = NativeProductInputController::new();
+        let point = StageClientPoint {
+            client_x: 20.0,
+            client_y: 20.0,
+        };
+
+        input
+            .dispatch_pointer_event(
+                &mut renderer,
+                &mut host,
+                NativePointerEventPhase::Press,
+                point,
+                NativePointerButton::Primary,
+            )
+            .expect("pointer press should be handled");
+        input
+            .dispatch_pointer_event(
+                &mut renderer,
+                &mut host,
+                NativePointerEventPhase::Release,
+                point,
+                NativePointerButton::Primary,
+            )
+            .expect("pointer release should advance");
+
+        assert_eq!(host.renderer_intents().len(), 1);
+        assert_eq!(host.renderer_intents()[0].r#type, "user/input_command");
+        assert!(host.renderer_intents()[0]
+            .payload_json
+            .as_deref()
+            .unwrap_or_default()
+            .contains("\"command\":\"advance\""));
     }
 
     #[test]

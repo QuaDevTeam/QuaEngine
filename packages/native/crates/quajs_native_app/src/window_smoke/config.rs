@@ -7,6 +7,7 @@ pub const WINDOW_SMOKE_FRAME_ENV: &str = "QUA_NATIVE_RENDERER_WINDOW_SMOKE_FRAME
 pub const WINDOW_SMOKE_FRAMES_ENV: &str = "QUA_NATIVE_RENDERER_WINDOW_SMOKE_FRAMES";
 pub const WINDOW_DEV_ENV: &str = "QUA_NATIVE_RENDERER_WINDOW_DEV";
 pub const WINDOW_DEV_QPK_ENV: &str = "QUA_NATIVE_RENDERER_WINDOW_DEV_QPK";
+pub const WINDOW_INTERACTION_PROBE_ENV: &str = "QUA_NATIVE_RENDERER_WINDOW_INTERACTION_PROBE";
 
 const DEFAULT_WINDOW_SMOKE_FRAME_COUNT: usize = 1;
 const MAX_WINDOW_SMOKE_FRAME_COUNT: usize = 120;
@@ -27,6 +28,10 @@ pub(super) fn native_window_dev_enabled() -> bool {
     env_flag_enabled(WINDOW_DEV_ENV)
 }
 
+pub(super) fn native_window_interaction_probe_enabled() -> bool {
+    env_flag_enabled(WINDOW_INTERACTION_PROBE_ENV)
+}
+
 pub(super) fn load_window_smoke_frame_source() -> Result<String, NativeWindowSmokeError> {
     let path = std::env::var_os(WINDOW_SMOKE_FRAME_ENV)
         .or_else(|| std::env::var_os(crate::renderer_smoke::RENDERER_SMOKE_FRAME_ENV));
@@ -43,7 +48,7 @@ pub(super) fn load_window_smoke_frame_source() -> Result<String, NativeWindowSmo
 }
 
 pub(super) fn load_window_smoke_target_frame_count() -> usize {
-    if native_window_dev_enabled() {
+    if native_window_dev_enabled() || native_window_interaction_probe_enabled() {
         return usize::MAX;
     }
     let Some(value) = std::env::var_os(WINDOW_SMOKE_FRAMES_ENV) else {

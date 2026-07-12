@@ -26,6 +26,7 @@ const smoke = process.argv.includes('--smoke')
 const once = process.argv.includes('--once') || smoke
 const requestedPanel = process.argv.find(argument => argument.startsWith('--panel='))?.slice('--panel='.length)
 const panel = requestedPanel || (smoke ? 'settings' : undefined)
+const interactionSmoke = smoke && panel === 'interactive'
 
 process.chdir(DEMO_ROOT)
 
@@ -160,8 +161,14 @@ async function rebuildAndLaunch() {
         QUA_NATIVE_RENDERER_WINDOW_SMOKE_FRAME: FRAME_PATH,
         QUA_NATIVE_RENDERER_WINDOW_DEV_QPK: qpkPath,
         ...(smoke ? { QUA_NATIVE_RENDERER_WINDOW_CAPTURE_PATH: CAPTURE_PATH } : {}),
+        ...(interactionSmoke
+          ? {
+              QUA_NATIVE_RENDERER_WINDOW_DEV_QUICKJS_APP_ASSET: QUICKJS_APP_ASSET,
+              QUA_NATIVE_RENDERER_WINDOW_INTERACTION_PROBE: '1',
+            }
+          : {}),
         ...(smoke
-          ? { QUA_NATIVE_RENDERER_WINDOW_SMOKE_FRAMES: '2' }
+          ? { QUA_NATIVE_RENDERER_WINDOW_SMOKE_FRAMES: interactionSmoke ? '60' : '2' }
           : {
               QUA_NATIVE_RENDERER_WINDOW_DEV: '1',
               QUA_NATIVE_RENDERER_WINDOW_DEV_QUICKJS_APP_ASSET: QUICKJS_APP_ASSET,
@@ -202,8 +209,9 @@ async function validateNativeAudioFrame() {
   const bgm = Array.isArray(tracks)
     ? tracks.find(track => track?.id === 'demo-native-bgm')
     : undefined
+  const expectedAssetName = panel === 'interactive' ? 'bgm/title-menu.m4a' : 'bgm/blackout-cold-open.m4a'
   if (bgm?.kind !== 'bgm'
-    || bgm?.assetName !== 'bgm/blackout-cold-open.m4a'
+    || bgm?.assetName !== expectedAssetName
     || bgm?.playbackState !== 'playing'
     || bgm?.looped !== true) {
     throw new Error('Native demo frame did not project the expected engine-owned BGM track.')
@@ -262,6 +270,17 @@ async function validateNativeFeatureFrame(panelName) {
       throw new Error('Native demo frame did not project a partial typewriter dialogue line.')
     }
     console.log(`Native demo frame validated typewriter projection (${text.length}/${fullText.length} code units).`)
+    return
+  }
+  if (panelName === 'interactive') {
+    const frame = JSON.parse(await readFile(FRAME_PATH, 'utf8'))
+    const overlays = frame.view?.ui?.overlays
+    const found = Array.isArray(overlays)
+      && overlays.some(overlay => overlay?.surface?.key === 'demo/native-main-menu.qui')
+    if (!found) {
+      throw new Error('Native interactive smoke frame did not start from the Web-aligned main menu.')
+    }
+    console.log('Native demo frame validated the complete main-menu entry projection.')
     return
   }
   if (panelName === 'effects') {
@@ -457,8 +476,27 @@ async function validateNativeSmokeOutput(output) {
   }
   const report = JSON.parse(line.slice(prefix.length))
   const failures = []
-  if (report.presented !== true || report.presentStatus !== 'Presented') {
+  if (interactionSmoke) {
+    if (!output.includes('Native interaction probe observed the first story dialogue frame.')) {
+      failures.push('START did not advance the resident QuickJS demo into a story dialogue frame')
+    }
+    if (report.pointerProbeCount < 1 || report.pointerIntentEmitCount < 1) {
+      failures.push('the native pointer probe did not emit START through the renderer intent bridge')
+    }
+    if (!output.includes('Native interaction probe dispatched user/input_command')) {
+      failures.push('the native dialogue probe did not emit an advance input command')
+    }
+    if (!output.includes('Native interaction probe observed dialogue advance to the next line.')) {
+      failures.push('the resident QuickJS story did not advance to the next dialogue line')
+    }
+  }
+  const occludedWithValidCapture = report.presentStatus === 'OccludedAfterRetry'
+    && report.frameCapturePngSignatureValid === true
+    && report.frameCaptureVisiblePixelCount > 0
+  if ((report.presented !== true || report.presentStatus !== 'Presented') && !occludedWithValidCapture) {
     failures.push(`surface was not presented (${report.presentStatus || 'unknown'})`)
+  } else if (occludedWithValidCapture) {
+    console.warn('Native renderer smoke window was occluded after retry; accepting the valid captured frame.')
   }
   if (report.textureUploadErrorCount !== 0) {
     failures.push(`${report.textureUploadErrorCount} texture upload error(s)`)

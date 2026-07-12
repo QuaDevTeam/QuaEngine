@@ -80,7 +80,11 @@ fn apply_triangle_vertices(vertices: &mut [WgpuNativeRenderVertex; 4], points_up
     let right = vertices[2].position[0];
     let bottom = vertices[2].position[1];
     let center_x = (left + right) * 0.5;
-    let (edge_y, point_y) = if points_up { (bottom, top) } else { (top, bottom) };
+    let (edge_y, point_y) = if points_up {
+        (bottom, top)
+    } else {
+        (top, bottom)
+    };
     vertices[0].position = [left, edge_y];
     vertices[1].position = [right, edge_y];
     vertices[2].position = [center_x, point_y];

@@ -115,6 +115,7 @@ struct NativeProductWindowLoopState {
     resize_state: NativeProductWindowResizeState,
     completed_frame_count: usize,
     last_present_failure_kind: Option<NativeProductWindowPresentFailureKind>,
+    shutdown_after_next_frame: bool,
 }
 
 impl NativeProductWindowLoopState {
@@ -124,6 +125,7 @@ impl NativeProductWindowLoopState {
             resize_state: NativeProductWindowResizeState::default(),
             completed_frame_count: 0,
             last_present_failure_kind: None,
+            shutdown_after_next_frame: false,
         }
     }
 
@@ -170,6 +172,10 @@ impl NativeProductWindowLoopState {
 
     fn record_completed_frame(&mut self) {
         self.completed_frame_count = self.completed_frame_count.saturating_add(1);
+    }
+
+    fn request_shutdown_after_next_frame(&mut self) {
+        self.shutdown_after_next_frame = true;
     }
 
     fn record_resize(&mut self, physical_size: NativeProductWindowPhysicalSize) {
@@ -287,6 +293,10 @@ where
         self.state.needs_more_frames()
     }
 
+    pub(crate) fn request_shutdown_after_next_frame(&mut self) {
+        self.state.request_shutdown_after_next_frame();
+    }
+
     pub(crate) fn render_projection_json_frame<F, E, A, AE>(
         &mut self,
         input: &str,
@@ -344,7 +354,8 @@ where
             )
         })?;
         let will_complete_target =
-            self.state.completed_frame_count.saturating_add(1) >= self.state.target_frame_count();
+            self.state.completed_frame_count.saturating_add(1) >= self.state.target_frame_count()
+                || self.state.shutdown_after_next_frame;
         let shutdown = if will_complete_target {
             Some(
                 self.runtime

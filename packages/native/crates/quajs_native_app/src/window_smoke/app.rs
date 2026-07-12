@@ -1,11 +1,15 @@
 use std::sync::Arc;
 use std::{env, fs, path::Path};
+use std::time::{Duration, Instant};
 
 use winit::dpi::{LogicalSize, PhysicalSize};
 use winit::event_loop::{ActiveEventLoop, EventLoopProxy};
 use winit::window::Window;
 
-use super::config::{load_window_smoke_target_frame_count, native_window_dev_enabled};
+use super::config::{
+    load_window_smoke_target_frame_count, native_window_dev_enabled,
+    native_window_interaction_probe_enabled,
+};
 use super::error::NativeWindowSmokeError;
 use super::frame::{frame_json_for_window, normalized_physical_size, window_frame_dimensions};
 use super::input::NativeWindowSmokeInputState;
@@ -26,6 +30,8 @@ use quajs_wgpu_renderer::renderer::RealWgpuEncodedFrameCapture;
 
 mod events;
 
+const INTERACTION_PROBE_TIMEOUT: Duration = Duration::from_secs(5);
+
 pub(super) struct NativeWindowSmokeApp {
     frame_source: String,
     window: Option<Arc<Window>>,
@@ -37,6 +43,10 @@ pub(super) struct NativeWindowSmokeApp {
     quickjs_product: Option<NativeWindowQuickJsProduct>,
     #[cfg(feature = "quickjs-rquickjs")]
     quickjs_revision: u64,
+    interaction_probe_story_observed: bool,
+    interaction_probe_advance_sent: bool,
+    interaction_probe_advance_observed: bool,
+    interaction_probe_started_at: Option<Instant>,
     event_loop_proxy: EventLoopProxy<()>,
     pub(super) report: Option<NativeWindowSmokeReport>,
     pub(super) error: Option<NativeWindowSmokeError>,
@@ -55,6 +65,10 @@ impl NativeWindowSmokeApp {
             quickjs_product: None,
             #[cfg(feature = "quickjs-rquickjs")]
             quickjs_revision: 0,
+            interaction_probe_story_observed: false,
+            interaction_probe_advance_sent: false,
+            interaction_probe_advance_observed: false,
+            interaction_probe_started_at: None,
             event_loop_proxy,
             report: None,
             error: None,
@@ -143,6 +157,24 @@ impl NativeWindowSmokeApp {
         if native_window_dev_enabled() {
             frame_json = self.performance_hud.inject(&frame_json, dimensions)?;
         }
+        if native_window_interaction_probe_enabled()
+            && !self.interaction_probe_story_observed
+            && native_demo_story_frame_visible(&frame_json)
+        {
+            self.interaction_probe_story_observed = true;
+            println!("Native interaction probe observed the first story dialogue frame.");
+        }
+        let should_run_advance_probe = native_window_interaction_probe_enabled()
+            && self.interaction_probe_story_observed
+            && !self.interaction_probe_advance_sent;
+        if native_window_interaction_probe_enabled()
+            && self.interaction_probe_advance_sent
+            && !self.interaction_probe_advance_observed
+            && native_demo_advanced_story_frame_visible(&frame_json)
+        {
+            self.interaction_probe_advance_observed = true;
+            println!("Native interaction probe observed dialogue advance to the next line.");
+        }
         let Some(mut product_shell) = self.product_shell.take() else {
             return Err(NativeWindowSmokeError::new(
                 "Native renderer smoke runtime is not initialized.",
@@ -150,13 +182,31 @@ impl NativeWindowSmokeApp {
         };
 
         let target_frame_count = product_shell.window_loop().target_frame_count();
+        if self.interaction_probe_advance_observed {
+            product_shell
+                .window_loop_mut()
+                .request_shutdown_after_next_frame();
+        }
         let mut frame_capture = None;
         let product_frame_result = product_shell
             .window_loop_mut()
             .render_projection_json_frame(
                 &frame_json,
                 |renderer, host| {
-                    if native_window_dev_enabled() {
+                    if native_window_interaction_probe_enabled() {
+                        if self.input.metrics().pointer_probe_count == 0 {
+                            self.input
+                                .run_native_demo_start_probe(renderer, host, &frame_json)?;
+                            self.interaction_probe_started_at = Some(Instant::now());
+                            Ok(())
+                        } else if should_run_advance_probe {
+                            self.interaction_probe_advance_sent = true;
+                            self.input
+                                .run_native_demo_advance_probe(renderer, host, &frame_json)
+                        } else {
+                            Ok(())
+                        }
+                    } else if native_window_dev_enabled() {
                         Ok(())
                     } else {
                         self.input
@@ -164,7 +214,10 @@ impl NativeWindowSmokeApp {
                     }
                 },
                 |runtime| {
-                    if runtime.rendered_frame_count() >= target_frame_count {
+                    if runtime.rendered_frame_count() >= target_frame_count
+                        || (native_window_interaction_probe_enabled()
+                            && self.interaction_probe_advance_observed)
+                    {
                         let capture = runtime.capture_frame_png().map_err(|error| {
                             NativeWindowSmokeError::new(format!(
                                 "Failed to capture native renderer smoke frame: {error}."
@@ -484,6 +537,28 @@ impl NativeWindowSmokeApp {
         self.error = Some(error);
         event_loop.exit();
     }
+}
+
+fn native_demo_story_frame_visible(frame_json: &str) -> bool {
+    let Ok(frame) = serde_json::from_str::<serde_json::Value>(frame_json) else {
+        return false;
+    };
+    frame
+        .pointer("/view/dialogue/text")
+        .and_then(serde_json::Value::as_str)
+        .map(|text| !text.is_empty())
+        .unwrap_or(false)
+}
+
+fn native_demo_advanced_story_frame_visible(frame_json: &str) -> bool {
+    let Ok(frame) = serde_json::from_str::<serde_json::Value>(frame_json) else {
+        return false;
+    };
+    frame
+        .pointer("/view/dialogue/text")
+        .and_then(serde_json::Value::as_str)
+        .map(|text| text.starts_with('和'))
+        .unwrap_or(false)
 }
 
 fn persist_frame_capture_artifact(

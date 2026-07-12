@@ -5,7 +5,7 @@ use quajs_wgpu_renderer::fonts::{
     FontBackendAssetLoad, FontBackendAtlasFaceLayout, FontBackendAtlasGlyph,
     FontBackendAtlasLayout, FontBackendAtlasTexture, FontBackendCommandKind,
     FontBackendCommandPlan, FontBackendFaceState, FontBackendShapingFace, NativeFontBackend,
-    NativeFontBackendResult,
+    NativeFontBackendResult, NATIVE_BITMAP_FONT_FAMILY,
 };
 use quajs_wgpu_renderer::frame::PreparedNativeFrame;
 use quajs_wgpu_renderer::render_graph::{DrawCommandParams, TextTransformDrawParam};
@@ -106,19 +106,26 @@ impl NativeFontBackend for SimpleNativeFontAtlasBackend {
         {
             let characters = requested_glyphs.remove(&family).unwrap_or_default();
             let texts = requested_texts.remove(&family).unwrap_or_default();
-            let glyphs_changed = self
+            let mut atlas_characters = self
                 .requested_glyphs
                 .get(&family)
-                .map(|current| current != &characters)
-                .unwrap_or(true);
-            let texts_changed = self
-                .requested_texts
-                .get(&family)
-                .map(|current| current != &texts)
-                .unwrap_or(true);
-            if glyphs_changed || texts_changed {
-                self.requested_glyphs.insert(family.clone(), characters);
-                self.requested_texts.insert(family.clone(), texts);
+                .cloned()
+                .unwrap_or_default();
+            let glyphs_changed = characters
+                .iter()
+                .any(|character| !atlas_characters.contains(character));
+            atlas_characters.extend(characters);
+            // Atlas resources are keyed by the glyphs they contain. The
+            // product HUD intentionally changes numeric text every frame;
+            // rebuilding the whole high-resolution atlas for those strings
+            // would serialize the render loop on Rustybuzz/rasterization and
+            // prevent stable WGPU plan reuse. Keep the latest shaping strings
+            // for the next real atlas rebuild, but only rebuild when a new
+            // character must be uploaded.
+            self.requested_texts.insert(family.clone(), texts);
+            if glyphs_changed {
+                self.requested_glyphs
+                    .insert(family.clone(), atlas_characters);
                 self.rebuild_family_atlas(&family);
             }
         }
@@ -263,6 +270,12 @@ impl SimpleNativeFontAtlasBackend {
     }
 
     fn resolve_family(&self, requested: &[String]) -> Option<String> {
+        if requested
+            .iter()
+            .any(|family| family == NATIVE_BITMAP_FONT_FAMILY)
+        {
+            return None;
+        }
         requested
             .iter()
             .find(|family| {
