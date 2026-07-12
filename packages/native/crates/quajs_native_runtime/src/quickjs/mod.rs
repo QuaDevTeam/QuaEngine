@@ -121,6 +121,13 @@ pub struct QuickJsModuleExportCallResponse {
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct QuickJsPipelineMessage {
+    pub event: String,
+    pub payload_json: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct QuickJsGameStepFactoryCallRequest {
     pub module_namespace_id: String,
     pub export_name: String,

@@ -34,9 +34,9 @@ describe('native renderer frame serialization', () => {
     }))
   })
 
-  it('serializes a transient scene transition without mutating engine view state', () => {
-    const view = { layout: { width: 1920, height: 1080 } }
-    const frame = createNativeRendererJsonFrameInput(view, {
+  it('serializes the engine-owned scene transition projection without mutating it', () => {
+    const view = {
+      layout: { width: 1920, height: 1080 },
       sceneTransition: {
         active: true,
         type: 'wipe',
@@ -47,7 +47,8 @@ describe('native renderer frame serialization', () => {
         progress: 0.5,
         easedProgress: 0.5,
       },
-    })
+    }
+    const frame = createNativeRendererJsonFrameInput(view)
 
     expect(frame.view.sceneTransition).toEqual(expect.objectContaining({
       active: true,
@@ -55,7 +56,7 @@ describe('native renderer frame serialization', () => {
       toScene: 'chapter-1',
       progress: 0.5,
     }))
-    expect(view).toEqual({ layout: { width: 1920, height: 1080 } })
+    expect(view.sceneTransition.progress).toBe(0.5)
   })
 
   it('merges registered feature surfaces from engine-owned plugin projections', () => {

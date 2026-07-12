@@ -25,9 +25,6 @@ import { drainNativeRendererIntentsToPipeline, installNativeRendererIntentBridge
 import type { NativeQuickJsPipelineSubscriptionBridge } from './runtime-module-loader'
 import type { CreateNativeRendererJsonFrameInputOptions, NativeRendererEngineViewProjection, NativeRendererJsonFrameInput } from './renderer-frame'
 import { createNativeRendererJsonFrameInput } from './renderer-frame'
-import type { NativeSceneTransitionProjection } from './scene-transition'
-import { NativeSceneTransitionController } from './scene-transition'
-import { NativeDialogueTypewriterController } from './dialogue-typewriter'
 import type { NativeSavePreviewCaptureProvider } from './save-preview-capture'
 import { installNativeSavePreviewCaptureResponder } from './save-preview-capture'
 import type { NativeQuickJsRendererIntentBridge } from './quickjs-renderer-bridge'
@@ -41,7 +38,6 @@ export interface NativeHostPluginOptions {
   quickJsPipelineSubscriptionBridge?: NativeQuickJsPipelineSubscriptionBridge
   quickJsRendererIntentBridge?: NativeQuickJsRendererIntentBridge
   rendererId?: string
-  requestRender?: () => void
   targetBootstrapPackages?: readonly string[]
   targetBundleManifest?: TargetBundleManifest
 }
@@ -61,22 +57,8 @@ export class NativeHostPlugin implements EnginePlugin {
   private disposeRuntimePackageUnloadListener?: () => void
   private disposeSavePreviewCaptureResponder?: () => void
   private rendererIntentPipeline?: NonNullable<EngineContext['pipeline']>
-  private readonly sceneTransitionController: NativeSceneTransitionController
-  private readonly dialogueTypewriterController: NativeDialogueTypewriterController
-
   constructor(private readonly options: NativeHostPluginOptions) {
     this.hostInfo = options.info
-    this.sceneTransitionController = new NativeSceneTransitionController({
-      requestRender: options.requestRender,
-      onError: (error, sceneId) => {
-        const pipeline = this.rendererIntentPipeline
-        if (pipeline)
-          void this.recordSceneTransitionError(pipeline, error, sceneId)
-      },
-    })
-    this.dialogueTypewriterController = new NativeDialogueTypewriterController({
-      requestRender: options.requestRender,
-    })
   }
 
   async init(context: EngineContext): Promise<void> {
@@ -88,7 +70,6 @@ export class NativeHostPlugin implements EnginePlugin {
       this.rendererIntentPipeline = context.pipeline
       const rendererIntentBridgeOptions = {
         featureSurfaces: this.options.featureSurfaces,
-        interceptInputCommand: (payload: { command: string, pressed?: boolean }) => this.interceptInputCommand(payload),
         onError: (error: unknown, event: NativeRendererIntent) => {
           void this.recordRendererIntentError(context.pipeline!, error, event)
         },
@@ -127,7 +108,6 @@ export class NativeHostPlugin implements EnginePlugin {
           rendererId: this.options.rendererId,
         },
       )
-      this.sceneTransitionController.setup(context.pipeline)
     }
   }
 
@@ -140,8 +120,6 @@ export class NativeHostPlugin implements EnginePlugin {
     this.disposeRuntimePackageUnloadListener = undefined
     this.disposeSavePreviewCaptureResponder?.()
     this.disposeSavePreviewCaptureResponder = undefined
-    this.sceneTransitionController.destroy()
-    this.dialogueTypewriterController.destroy()
     this.rendererIntentPipeline = undefined
     this.options.quickJsPipelineSubscriptionBridge?.dispose()
   }
@@ -170,19 +148,11 @@ export class NativeHostPlugin implements EnginePlugin {
     return this.targetBundleManifestValidation
   }
 
-  getSceneTransitionSnapshot(now?: number): NativeSceneTransitionProjection | undefined {
-    return this.sceneTransitionController.getSnapshot(now)
-  }
-
   createRendererJsonFrameInput(
     view: NativeRendererEngineViewProjection,
     options: CreateNativeRendererJsonFrameInputOptions = {},
   ): NativeRendererJsonFrameInput {
-    return createNativeRendererJsonFrameInput(view, {
-      ...options,
-      sceneTransition: options.sceneTransition ?? this.getSceneTransitionSnapshot(options.now),
-      dialogueTypewriter: options.dialogueTypewriter ?? this.dialogueTypewriterController,
-    })
+    return createNativeRendererJsonFrameInput(view, options)
   }
 
   async drainRendererIntents(): Promise<NativeRendererIntentDrainResult> {
@@ -199,21 +169,11 @@ export class NativeHostPlugin implements EnginePlugin {
       pipeline,
       {
         featureSurfaces: this.options.featureSurfaces,
-        interceptInputCommand: payload => this.interceptInputCommand(payload),
         onError: (error, event) => {
           void this.recordRendererIntentError(pipeline, error, event)
         },
       },
     )
-  }
-
-  private interceptInputCommand(payload: {
-    command: string
-    pressed?: boolean
-  }): boolean {
-    return payload.command === 'advance'
-      && payload.pressed !== false
-      && this.dialogueTypewriterController.revealNow()
   }
 
   private async resolveHostInfo(): Promise<QuaNativeHostInfo> {
@@ -319,26 +279,6 @@ export class NativeHostPlugin implements EnginePlugin {
     })
   }
 
-  private async recordSceneTransitionError(
-    pipeline: NonNullable<EngineContext['pipeline']>,
-    error: unknown,
-    sceneId: string,
-  ): Promise<void> {
-    const normalized = error instanceof Error ? error : new Error(String(error))
-    await emitRenderToLogic(pipeline, RenderToLogicEvents.RENDER_ERROR, {
-      message: normalized.message,
-      error: {
-        name: normalized.name,
-        message: normalized.message,
-        stack: normalized.stack,
-      },
-      source: 'native-renderer',
-      phase: 'scene-transition:ready',
-      recoverable: true,
-      timestamp: Date.now(),
-      metadata: { sceneId },
-    })
-  }
 }
 
 export async function readNativeHostInfo(host: QuaNativeHostApi): Promise<QuaNativeHostInfo> {

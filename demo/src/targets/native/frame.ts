@@ -13,7 +13,7 @@ export async function createDemoNativeFrame(
 ): Promise<string> {
   const session = await createDemoNativeSession(fixture)
   try {
-    await writeFrameAtomically(outputPath, session.renderFrame())
+    await writeFrameAtomically(outputPath, session.renderOfflineFrame())
     return outputPath
   }
   finally {
@@ -26,11 +26,11 @@ export async function createDemoNativeController(
   fixture = process.env.QUA_NATIVE_DEMO_PANEL,
 ) {
   const session = await createDemoNativeSession(fixture)
-  await writeFrameAtomically(outputPath, session.renderFrame())
+  await writeFrameAtomically(outputPath, session.renderOfflineFrame())
   return {
     async dispatchIntent(intent: NativeRendererIntent) {
       await session.dispatchIntent(intent)
-      await writeFrameAtomically(outputPath, session.renderFrame())
+      await writeFrameAtomically(outputPath, session.renderOfflineFrame())
     },
     async destroy() {
       await session.destroy()

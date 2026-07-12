@@ -3,12 +3,13 @@ import { createMemoryAssetsAdapter } from '@quajs/assets-memory'
 import { LogicToRenderEvents, QuaEngine, RenderToLogicEvents } from '@quajs/engine'
 import {
   createNativeRendererJsonFrameInput,
+  createNativeRendererViewProjection,
   emitNativeRendererIntentToPipeline,
-  NativeDialogueTypewriterController,
+  installNativeQuickJsPipelineBridge,
+  type NativeQuickJsPipelineBridge,
   type NativeRendererEngineViewProjection,
 } from '@quajs/engine-native'
 import { parseNativeRendererIntentPayload, type NativeRendererIntent } from '@quajs/native-contracts'
-import type { ViewDialogueProjection } from '@quajs/render-core'
 import { BGM, DEFAULT_BGM_OPTIONS } from '../../game/config'
 import { createDemoEngineRuntime } from '../../game/runtime-shared'
 import { MainScene } from '../../game/story/main-scene'
@@ -26,10 +27,11 @@ import {
 export type NativeDemoFixture = NativeDemoPanel | 'effects' | 'interactive' | 'parity' | 'transition' | 'typewriter'
 
 export interface DemoNativeSession {
+  connectPipelineBridge: (bridge: NativeQuickJsPipelineBridge) => () => void
   destroy: () => Promise<void>
   dispatchIntent: (intent: NativeRendererIntent) => Promise<void>
   getInteractionDiagnostics: () => Record<string, unknown>
-  renderFrame: () => ReturnType<typeof createNativeRendererJsonFrameInput>
+  renderOfflineFrame: () => ReturnType<typeof createNativeRendererJsonFrameInput>
 }
 
 interface InteractionDiagnostics {
@@ -155,16 +157,44 @@ export async function createDemoNativeSession(fixture?: string): Promise<DemoNat
     }
   }
 
-  const initialView = runtime.engine.getViewState()
-  const startedAt = initialView.animations[0]?.startedAt ?? Date.now()
-  const typewriter = interactiveStory || fixture === 'typewriter'
-    ? new NativeDialogueTypewriterController()
-    : undefined
-  if (typewriter) {
-    typewriter.project(initialView.dialogue as Readonly<ViewDialogueProjection>, startedAt)
-  }
-
   return {
+    connectPipelineBridge(bridge) {
+      const nativeProjectionBridge: NativeQuickJsPipelineBridge = {
+        emit(event, payload) {
+          const record = payload && typeof payload === 'object' && !Array.isArray(payload)
+            ? payload as Record<string, unknown>
+            : undefined
+          if (event === LogicToRenderEvents.VIEW_UPDATE && record?.view) {
+            bridge.emit(event, {
+              ...record,
+              view: createNativeRendererViewProjection(
+                record.view as NativeRendererEngineViewProjection,
+                {
+                  featureSurfaces: DEMO_NATIVE_FEATURE_SURFACES,
+                  projectAnimations: false,
+                },
+              ),
+            })
+            return
+          }
+          bridge.emit(event, payload)
+        },
+      }
+      const dispose = installNativeQuickJsPipelineBridge(nativeProjectionBridge, runtime.engine.getPipeline(), {
+        initialView: runtime.engine.getViewState(),
+      })
+      if (fixture === 'transition') {
+        void runtime.engine.getPipeline().emit(LogicToRenderEvents.SCENE_CHANGE, {
+          fromScene: 'native-demo-loading',
+          toScene: 'native-demo',
+          transition: {
+            type: 'wipe',
+            duration: 800,
+          },
+        })
+      }
+      return dispose
+    },
     async dispatchIntent(intent) {
       diagnostics.intentCount += 1
       diagnostics.lastIntentType = intent.type
@@ -216,9 +246,6 @@ export async function createDemoNativeSession(fixture?: string): Promise<DemoNat
       if (interactiveStory && intent.type === RenderToLogicEvents.USER_INPUT_COMMAND) {
         const record = payload as Record<string, unknown> | undefined
         if (record?.command === 'advance' && record.pressed !== false) {
-          if (typewriter?.revealNow()) {
-            return
-          }
           await runtime.engine.getPipeline().emit(RenderToLogicEvents.USER_ADVANCE, {
             source: record.source || 'native',
           })
@@ -238,24 +265,25 @@ export async function createDemoNativeSession(fixture?: string): Promise<DemoNat
         error: diagnostics.error,
       }
     },
-    renderFrame() {
+    renderOfflineFrame() {
       const view = runtime.engine.getViewState()
-      return createNativeRendererJsonFrameInput(view as unknown as NativeRendererEngineViewProjection, {
-        dialogueTypewriter: typewriter,
-        featureSurfaces: DEMO_NATIVE_FEATURE_SURFACES,
-        now: fixture === 'typewriter' ? startedAt + 600 : Date.now(),
-        sceneTransition: fixture === 'transition'
-          ? {
+      const projectedView = fixture === 'transition'
+        ? {
+            ...view,
+            sceneTransition: {
               active: true,
               type: 'wipe',
               fromScene: 'native-demo-loading',
               toScene: 'native-demo',
               duration: 800,
-              startedAt: startedAt + 500,
+              startedAt: Date.now() - 400,
               progress: 0.5,
               easedProgress: 0.5,
-            }
-          : undefined,
+            },
+          }
+        : view
+      return createNativeRendererJsonFrameInput(projectedView as unknown as NativeRendererEngineViewProjection, {
+        featureSurfaces: DEMO_NATIVE_FEATURE_SURFACES,
       })
     },
     async destroy() {

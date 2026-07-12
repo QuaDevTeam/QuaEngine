@@ -35,8 +35,9 @@ pub use quickjs::{
     QuickJsModuleExportCallResponse, QuickJsModuleExportCallResult, QuickJsModuleNamespaceRecord,
     QuickJsModuleNamespaceRegistry, QuickJsModuleNamespaceSummary,
     QuickJsPipelineListenerDispatchRequest, QuickJsPipelineListenerDispatchResponse,
-    QuickJsPipelineListenerDispatchResult, QuickJsPipelineSubscriptionChange,
-    QuickJsPipelineSubscriptionOperation, QuickJsRendererIntentDispatchResult,
-    QuickJsRendererIntentHost, QuickJsRuntimeModuleKind, QuickJsRuntimeModuleRecord,
-    QuickJsSandboxLimits, UnsupportedQuickJsModuleEvaluator, UNSUPPORTED_QUICKJS_VERSION,
+    QuickJsPipelineListenerDispatchResult, QuickJsPipelineMessage,
+    QuickJsPipelineSubscriptionChange, QuickJsPipelineSubscriptionOperation,
+    QuickJsRendererIntentDispatchResult, QuickJsRendererIntentHost, QuickJsRuntimeModuleKind,
+    QuickJsRuntimeModuleRecord, QuickJsSandboxLimits, UnsupportedQuickJsModuleEvaluator,
+    UNSUPPORTED_QUICKJS_VERSION,
 };

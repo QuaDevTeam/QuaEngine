@@ -12,18 +12,18 @@ export {
   installNativeQuickJsRendererIntentBridge,
   resolveNativeQuickJsRendererIntentBridge,
 } from './quickjs-renderer-bridge'
+export {
+  installNativeQuickJsPipelineBridge,
+  resolveNativeQuickJsPipelineBridge,
+} from './quickjs-pipeline-bridge'
+export type {
+  NativeQuickJsPipelineBridge,
+  NativeQuickJsPipelineBridgeOptions,
+} from './quickjs-pipeline-bridge'
 export type {
   NativeQuickJsRendererIntentBridge,
   NativeQuickJsRendererIntentSubscriptionOptions,
 } from './quickjs-renderer-bridge'
-export {
-  NativeDialogueTypewriterController,
-  sliceNativeRichTextContent,
-} from './dialogue-typewriter'
-export type {
-  NativeDialogueTypewriterControllerOptions,
-  NativeDialogueTypewriterProjectResult,
-} from './dialogue-typewriter'
 export {
   installNativeSavePreviewCaptureResponder,
 } from './save-preview-capture'
@@ -32,15 +32,6 @@ export type {
   NativeSavePreviewCaptureProvider,
   NativeSavePreviewCaptureResponderOptions,
 } from './save-preview-capture'
-export {
-  DEFAULT_NATIVE_SCENE_TRANSITION_DURATION,
-  NativeSceneTransitionController,
-  normalizeNativeSceneTransition,
-} from './scene-transition'
-export type {
-  NativeSceneTransitionControllerOptions,
-  NativeSceneTransitionProjection,
-} from './scene-transition'
 export {
   createNativeRendererFeatureSurfaceOverlays,
   resolveNativeRendererFeatureIntent,

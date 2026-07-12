@@ -49,7 +49,6 @@ export interface NativeRendererIntentDispatchResult {
 
 export interface NativeRendererIntentBridgeOptions {
   featureSurfaces?: readonly NativeRendererFeatureSurfaceEntry[]
-  interceptInputCommand?: (payload: RendererInputCommandPayload) => boolean | Promise<boolean>
   onError?: (error: unknown, event: NativeRendererIntent) => void
 }
 
@@ -71,7 +70,7 @@ export async function emitNativeRendererIntentToPipeline(
     case 'ui/intent':
       return await emitNativeUiIntent(pipeline, event, options)
     case RenderToLogicEvents.USER_INPUT_COMMAND:
-      return await emitNativeInputCommandIntent(pipeline, event, options)
+      return await emitNativeInputCommandIntent(pipeline, event)
     case RenderToLogicEvents.USER_TEXT_INPUT:
       return await emitNativeTextInputIntent(pipeline, event)
     case RenderToLogicEvents.WINDOW_FOCUS:
@@ -250,13 +249,9 @@ async function emitNativeUiIntent(
 async function emitNativeInputCommandIntent(
   pipeline: NativeRendererIntentPipeline,
   event: NativeRendererIntent,
-  options: NativeRendererIntentBridgeOptions,
 ): Promise<NativeRendererIntentDispatchResult> {
   const payload = parseNativeRendererIntentPayloadRecord(event)
   const inputCommandPayload = normalizeInputCommandPayload(payload)
-  if (await options.interceptInputCommand?.(inputCommandPayload)) {
-    return { handled: true, emittedEvents: [] }
-  }
   const emittedEvents = [
     {
       type: RenderToLogicEvents.USER_INPUT_COMMAND,

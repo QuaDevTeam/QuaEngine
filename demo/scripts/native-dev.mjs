@@ -264,12 +264,16 @@ function shouldIgnoreNativeDevWatchEvent(filename) {
 async function validateNativeFeatureFrame(panelName) {
   if (panelName === 'typewriter') {
     const frame = JSON.parse(await readFile(FRAME_PATH, 'utf8'))
-    const text = frame.view?.dialogue?.text
-    const fullText = 'The Tokyo uplink is down. Mara, confirm the last human signal.'
-    if (typeof text !== 'string' || text.length <= 0 || text.length >= fullText.length || !fullText.startsWith(text)) {
-      throw new Error('Native demo frame did not project a partial typewriter dialogue line.')
+    const text = typeof frame.view?.dialogue?.text === 'string'
+      ? frame.view.dialogue.text
+      : frame.view?.dialogue?.text?.blocks?.flatMap?.(block => block?.spans || [])
+        ?.map?.(span => span?.text || '')
+        ?.join?.('')
+    const typewriter = frame.view?.dialogue?.typewriter
+    if (typeof text !== 'string' || text.length <= 0 || typewriter?.enabled !== true) {
+      throw new Error('Native demo frame did not preserve the engine typewriter projection.')
     }
-    console.log(`Native demo frame validated typewriter projection (${text.length}/${fullText.length} code units).`)
+    console.log(`Native demo frame validated engine typewriter projection (${text.length} code units). Rust owns reveal timing in the live window.`)
     return
   }
   if (panelName === 'interactive') {
