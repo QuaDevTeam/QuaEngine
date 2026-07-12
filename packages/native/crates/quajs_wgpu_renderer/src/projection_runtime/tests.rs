@@ -21,6 +21,7 @@ fn typewriter_progresses_without_new_pipeline_messages() {
         .unwrap();
     assert!(!revealed.local_work_active);
     assert!(revealed.json.contains("abcdef"));
+    assert_eq!(runtime.font_prewarm_texts(), vec!["abcdef"]);
 }
 
 #[test]

@@ -37,6 +37,13 @@ where
         Ok(())
     }
 
+    pub fn prewarm_font_texts(&mut self, texts: &[String]) -> NativeFontBackendResult {
+        if let Some(font_backend) = &mut self.font_backend {
+            font_backend.prewarm_texts(texts)?;
+        }
+        Ok(())
+    }
+
     pub fn prepare_frame_and_apply_font(
         &mut self,
         layout: ResolvedStageLayout,

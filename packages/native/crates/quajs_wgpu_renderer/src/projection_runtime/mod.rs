@@ -43,6 +43,7 @@ pub struct NativeRendererProjectionRuntime {
     dialogue_reveal: Option<DialogueReveal>,
     scene_transition: Option<SceneTransition>,
     pending_intents: Vec<NativeRendererIntent>,
+    cached_static_projection_json: Option<String>,
 }
 
 impl NativeRendererProjectionRuntime {
@@ -57,6 +58,7 @@ impl NativeRendererProjectionRuntime {
             dialogue_reveal: None,
             scene_transition: None,
             pending_intents: Vec::new(),
+            cached_static_projection_json: None,
         };
         runtime.sync_dialogue(epoch);
         Ok(runtime)
@@ -66,6 +68,7 @@ impl NativeRendererProjectionRuntime {
         self.base_frame = serde_json::from_str(input)?;
         self.received_at = Instant::now();
         self.received_epoch_ms = current_epoch_ms();
+        self.cached_static_projection_json = None;
         self.sync_dialogue(self.received_epoch_ms);
         Ok(())
     }
@@ -85,6 +88,7 @@ impl NativeRendererProjectionRuntime {
                 });
                 self.received_at = Instant::now();
                 self.received_epoch_ms = current_epoch_ms();
+                self.cached_static_projection_json = None;
                 self.sync_dialogue(self.received_epoch_ms);
                 Ok(true)
             }
@@ -112,6 +116,19 @@ impl NativeRendererProjectionRuntime {
         std::mem::take(&mut self.pending_intents)
     }
 
+    pub fn font_prewarm_texts(&self) -> Vec<String> {
+        let text = self
+            .base_frame
+            .pointer("/view/dialogue/text")
+            .map(|value| dialogue_text(Some(value)))
+            .unwrap_or_default();
+        if text.is_empty() {
+            Vec::new()
+        } else {
+            vec![text]
+        }
+    }
+
     pub fn project_now(&mut self) -> Result<NativeRendererProjectionFrame, serde_json::Error> {
         let elapsed = self.received_at.elapsed();
         self.project_at_epoch_ms(self.received_epoch_ms + elapsed.as_secs_f64() * 1000.0)
@@ -121,6 +138,33 @@ impl NativeRendererProjectionRuntime {
         &mut self,
         now_ms: f64,
     ) -> Result<NativeRendererProjectionFrame, serde_json::Error> {
+        let has_animations = self
+            .base_frame
+            .pointer("/view/animations")
+            .and_then(Value::as_array)
+            .is_some_and(|animations| !animations.is_empty());
+        let has_dialogue_work = self
+            .dialogue_reveal
+            .as_ref()
+            .is_some_and(|reveal| !reveal.revealed_all);
+        if !has_animations && !has_dialogue_work && self.scene_transition.is_none() {
+            if let Some(json) = self.cached_static_projection_json.clone() {
+                return Ok(NativeRendererProjectionFrame {
+                    json,
+                    local_work_active: false,
+                });
+            }
+            let mut frame = self.base_frame.clone();
+            if let Some(view) = frame.get_mut("view").and_then(Value::as_object_mut) {
+                view.remove("animations");
+            }
+            let json = serde_json::to_string(&frame)?;
+            self.cached_static_projection_json = Some(json.clone());
+            return Ok(NativeRendererProjectionFrame {
+                json,
+                local_work_active: false,
+            });
+        }
         let mut frame = self.base_frame.clone();
         let mut local_work_active = false;
         if let Some(view) = frame.get_mut("view").and_then(Value::as_object_mut) {
