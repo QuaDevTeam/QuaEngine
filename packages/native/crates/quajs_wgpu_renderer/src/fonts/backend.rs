@@ -321,6 +321,10 @@ pub trait NativeFontBackend {
 
     fn apply_font_commands(&mut self, plan: &FontBackendCommandPlan) -> NativeFontBackendResult;
 
+    fn prewarm_texts(&mut self, _texts: &[String]) -> NativeFontBackendResult {
+        Ok(())
+    }
+
     fn prepare_frame_text(&mut self, _frame: &PreparedNativeFrame) -> NativeFontBackendResult {
         Ok(())
     }
