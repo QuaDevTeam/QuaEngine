@@ -138,19 +138,10 @@ pub(in crate::renderer::backend::wgpu::buffer) fn rounded_shadow_geometry(
         vertices.push(vertex(*outer_point, outer, outer_color));
         vertices.push(vertex(*inner_point, outer, color));
     }
-    let center_index = vertices.len() as u32;
-    vertices.push(vertex(
-        [inner.x + inner.width * 0.5, inner.y + inner.height * 0.5],
-        outer,
-        color,
-    ));
-
-    let mut indices = rounded_border_indices(outer_points.len());
-    for index in 0..outer_points.len() {
-        let inner_current = (index * 2 + 1) as u32;
-        let inner_next = (((index + 1) % outer_points.len()) * 2 + 1) as u32;
-        indices.extend([center_index, inner_current, inner_next]);
-    }
+    // Keep the shadow as a feathered ring. Filling the inner region makes a
+    // translucent panel look like a solid block when its own background is
+    // transparent; the element draw that follows owns the interior pixels.
+    let indices = rounded_border_indices(outer_points.len());
 
     Some(WgpuNativeRenderBufferGeometry {
         physical_bounds: bounds,
