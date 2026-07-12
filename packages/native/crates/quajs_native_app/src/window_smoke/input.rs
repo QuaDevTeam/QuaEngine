@@ -24,6 +24,8 @@ pub(super) use crate::product_input::{
 
 const WINDOW_SMOKE_OPEN_SETTINGS_CENTER: StageLogicalPoint =
     StageLogicalPoint { x: 408.0, y: 354.0 };
+const NATIVE_DEMO_START_CENTER: StageLogicalPoint = StageLogicalPoint { x: 400.0, y: 504.0 };
+const NATIVE_DEMO_ADVANCE_CENTER: StageLogicalPoint = StageLogicalPoint { x: 960.0, y: 820.0 };
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(super) struct NativeWindowSmokeInputMetrics {
@@ -351,6 +353,106 @@ impl NativeWindowSmokeInputState {
             NativePointerButton::Primary,
         )
         .map(|_| ())
+    }
+
+    pub(super) fn run_native_demo_start_probe<B, A, V, F>(
+        &mut self,
+        renderer: &mut NativeRenderer<B, A, V, F>,
+        host: &mut InMemoryNativeHostApi,
+        frame_json: &str,
+    ) -> Result<(), NativeWindowSmokeError>
+    where
+        B: NativeRenderBackend,
+    {
+        if self.metrics.pointer_probe_count > 0 {
+            return Ok(());
+        }
+
+        self.metrics.pointer_probe_count = self.metrics.pointer_probe_count.saturating_add(1);
+        let input = parse_native_renderer_json_frame_input(frame_json).map_err(|error| {
+            NativeWindowSmokeError::new(format!(
+                "Native demo interaction probe frame validation failed: {error}."
+            ))
+        })?;
+        let client = stage_logical_to_client_point(
+            &input.resolved_layout(),
+            NATIVE_DEMO_START_CENTER,
+            StageClientRectOrigin::default(),
+        );
+        self.dispatch_pointer_event(
+            renderer,
+            host,
+            NativePointerEventPhase::Press,
+            client,
+            NativePointerButton::Primary,
+        )?;
+        self.dispatch_pointer_event(
+            renderer,
+            host,
+            NativePointerEventPhase::Release,
+            client,
+            NativePointerButton::Primary,
+        )?;
+        if let Some(intent) = host.renderer_intents().last() {
+            println!(
+                "Native interaction probe dispatched {} {}.",
+                intent.r#type,
+                intent.payload_json.as_deref().unwrap_or("{}")
+            );
+        }
+        Ok(())
+    }
+
+    pub(super) fn run_native_demo_advance_probe<B, A, V, F>(
+        &mut self,
+        renderer: &mut NativeRenderer<B, A, V, F>,
+        host: &mut InMemoryNativeHostApi,
+        frame_json: &str,
+    ) -> Result<(), NativeWindowSmokeError>
+    where
+        B: NativeRenderBackend,
+    {
+        let input = parse_native_renderer_json_frame_input(frame_json).map_err(|error| {
+            NativeWindowSmokeError::new(format!(
+                "Native demo advance probe frame validation failed: {error}."
+            ))
+        })?;
+        let client = stage_logical_to_client_point(
+            &input.resolved_layout(),
+            NATIVE_DEMO_ADVANCE_CENTER,
+            StageClientRectOrigin::default(),
+        );
+        // The first click completes typewriter reveal; the second exercises
+        // the actual engine USER_ADVANCE path.
+        for _ in 0..2 {
+            self.dispatch_pointer_event(
+                renderer,
+                host,
+                NativePointerEventPhase::Press,
+                client,
+                NativePointerButton::Primary,
+            )?;
+            self.dispatch_pointer_event(
+                renderer,
+                host,
+                NativePointerEventPhase::Release,
+                client,
+                NativePointerButton::Primary,
+            )?;
+        }
+        if let Some(intent) = host
+            .renderer_intents()
+            .iter()
+            .rev()
+            .find(|intent| intent.r#type == "user/input_command")
+        {
+            println!(
+                "Native interaction probe dispatched {} {}.",
+                intent.r#type,
+                intent.payload_json.as_deref().unwrap_or("{}")
+            );
+        }
+        Ok(())
     }
 }
 

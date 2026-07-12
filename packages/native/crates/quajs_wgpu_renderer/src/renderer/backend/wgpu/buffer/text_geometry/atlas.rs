@@ -178,6 +178,13 @@ fn select_layout<'a>(
     style: &WgpuNativeRenderTextStyle,
     atlases: &'a FontBackendAtlasLayoutMap,
 ) -> Option<&'a FontBackendAtlasLayout> {
+    if style
+        .font_family
+        .iter()
+        .any(|family| family == crate::fonts::NATIVE_BITMAP_FONT_FAMILY)
+    {
+        return None;
+    }
     for family in &style.font_family {
         let resource_id = ResourceId::from(format!("fonts:{family}"));
         if let Some(layout) = atlases.get(&resource_id) {

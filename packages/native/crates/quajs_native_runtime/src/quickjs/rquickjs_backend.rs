@@ -39,6 +39,104 @@ const NATIVE_QUICKJS_RENDERER_BRIDGE_SOURCE: &str = r#"
       writable: false
     });
   }
+  // QuaEngine uses AbortController to cancel in-flight story steps. QuickJS is
+  // intentionally not a browser environment, so provide only the small
+  // AbortSignal surface the engine needs instead of importing Web APIs.
+  if (typeof globalThis.AbortController !== 'function') {
+    class QuaAbortSignal {
+      constructor() {
+        this.aborted = false;
+        this.reason = undefined;
+        this._listeners = [];
+      }
+      addEventListener(type, listener) {
+        if (type === 'abort' && typeof listener === 'function') {
+          this._listeners.push(listener);
+        }
+      }
+      removeEventListener(type, listener) {
+        if (type === 'abort') {
+          this._listeners = this._listeners.filter(candidate => candidate !== listener);
+        }
+      }
+    }
+    class QuaAbortController {
+      constructor() {
+        this.signal = new QuaAbortSignal();
+      }
+      abort(reason) {
+        if (this.signal.aborted) {
+          return;
+        }
+        this.signal.aborted = true;
+        this.signal.reason = reason;
+        for (const listener of this.signal._listeners.slice()) {
+          listener.call(this.signal, { type: 'abort', target: this.signal });
+        }
+      }
+    }
+    Object.defineProperty(globalThis, 'AbortSignal', {
+      value: QuaAbortSignal,
+      enumerable: false,
+      configurable: true,
+      writable: true
+    });
+    Object.defineProperty(globalThis, 'AbortController', {
+      value: QuaAbortController,
+      enumerable: false,
+      configurable: true,
+      writable: true
+    });
+  }
+  if (typeof globalThis.setTimeout !== 'function') {
+    let nextTimerId = 1;
+    const timers = new Map();
+    Object.defineProperty(globalThis, 'setTimeout', {
+      value(callback, delay = 0, ...args) {
+        if (typeof callback !== 'function') {
+          throw new TypeError('setTimeout callback must be a function.');
+        }
+        const id = nextTimerId++;
+        const normalizedDelay = Number.isFinite(Number(delay))
+          ? Math.max(0, Number(delay))
+          : 0;
+        timers.set(id, {
+          callback,
+          args,
+          dueAt: Date.now() + normalizedDelay
+        });
+        return id;
+      },
+      enumerable: false,
+      configurable: true,
+      writable: true
+    });
+    Object.defineProperty(globalThis, 'clearTimeout', {
+      value(id) {
+        timers.delete(id);
+      },
+      enumerable: false,
+      configurable: true,
+      writable: true
+    });
+    Object.defineProperty(globalThis, '__quaNativePumpTimers', {
+      value() {
+        const now = Date.now();
+        const due = Array.from(timers.entries())
+          .filter(([, timer]) => timer.dueAt <= now)
+          .sort((left, right) => left[1].dueAt - right[1].dueAt || left[0] - right[0]);
+        for (const [id, timer] of due) {
+          if (!timers.delete(id)) {
+            continue;
+          }
+          timer.callback(...timer.args);
+        }
+      },
+      enumerable: false,
+      configurable: false,
+      writable: false
+    });
+  }
   const state = { listener: undefined };
   const bridge = Object.freeze({
     subscribe(listener) {
@@ -58,7 +156,11 @@ const NATIVE_QUICKJS_RENDERER_BRIDGE_SOURCE: &str = r#"
       if (typeof state.listener !== 'function') {
         return false;
       }
-      return Promise.resolve(state.listener(intent)).then(() => true);
+      const pending = state.listener(intent);
+      Promise.resolve(pending).catch(error => {
+        state.lastError = error instanceof Error ? error.message : String(error);
+      });
+      return true;
     }
   });
   Object.defineProperty(globalThis, '__quaNativeRendererBridge', {
@@ -71,6 +173,8 @@ const NATIVE_QUICKJS_RENDERER_BRIDGE_SOURCE: &str = r#"
 "#;
 
 pub const RQUICKJS_BACKEND_VERSION: &str = "rquickjs-0.12.1";
+
+const MAX_NATIVE_PENDING_JOBS_PER_TICK: usize = 1_024;
 
 const NATIVE_QUICKJS_GAME_STEP_ENGINE_COMMAND_METHODS: &[&str] = &[
     "showDialogue",
@@ -1089,6 +1193,28 @@ impl QuickJsModuleEvaluator for RquickJsModuleEvaluator {
         };
 
         let result: Result<Option<String>, QuickJsEvaluationError> = self.context.with(|ctx| {
+            let pump: Function = ctx
+                .globals()
+                .get("__quaNativePumpTimers")
+                .map_err(|error| {
+                    call_error(
+                        QuickJsEvaluationErrorCode::EvaluationFailed,
+                        "Native QuickJS timer pump is unavailable.".to_string(),
+                        Some(error.to_string()),
+                    )
+                })?;
+            pump.call::<_, ()>(()).map_err(|error| {
+                call_error(
+                    QuickJsEvaluationErrorCode::EvaluationFailed,
+                    "Native QuickJS timer callback failed.".to_string(),
+                    Some(error.to_string()),
+                )
+            })?;
+            for _ in 0..MAX_NATIVE_PENDING_JOBS_PER_TICK {
+                if !ctx.execute_pending_job() {
+                    break;
+                }
+            }
             let namespace = namespace.restore(&ctx).map_err(|error| {
                 call_error(
                     QuickJsEvaluationErrorCode::EvaluationFailed,
@@ -3551,6 +3677,79 @@ mod tests {
         evaluator.release_module_namespace(&namespace_id);
 
         assert!(!evaluator.contains_module_namespace(&namespace_id));
+    }
+
+    #[test]
+    fn installs_minimal_abort_controller_for_engine_modules() {
+        let mut evaluator = RquickJsModuleEvaluator::new().unwrap();
+        let response = evaluator
+            .evaluate_module(&request_for_code(
+                "scripts/abort-controller.js",
+                r#"
+                const controller = new AbortController();
+                export function state() {
+                    const before = controller.signal.aborted;
+                    controller.abort('cancelled');
+                    return {
+                        before,
+                        after: controller.signal.aborted,
+                        reason: controller.signal.reason,
+                    };
+                }
+                "#,
+            ))
+            .unwrap();
+        let namespace_id = response.module_namespace_id.unwrap();
+        let call = evaluator
+            .call_module_export(&QuickJsModuleExportCallRequest {
+                module_namespace_id: namespace_id,
+                export_name: "state".to_string(),
+                args_json: Some("[]".to_string()),
+            })
+            .unwrap();
+        assert_eq!(
+            call.value_json,
+            Some(r#"{"before":false,"after":true,"reason":"cancelled"}"#.to_string())
+        );
+    }
+
+    #[test]
+    fn installs_cancellable_pumped_timer_for_engine_modules() {
+        let mut evaluator = RquickJsModuleEvaluator::new().unwrap();
+        let response = evaluator
+            .evaluate_module(&request_for_code(
+                "scripts/timer.js",
+                r#"
+                const events = [];
+                export function schedule() {
+                    const cancelled = setTimeout(() => events.push('cancelled'), 0);
+                    clearTimeout(cancelled);
+                    setTimeout(() => events.push('fired'), 0);
+                    return events;
+                }
+                export function state() {
+                    return events;
+                }
+                "#,
+            ))
+            .unwrap();
+        let namespace_id = response.module_namespace_id.unwrap();
+        let scheduled = evaluator
+            .call_module_export(&QuickJsModuleExportCallRequest {
+                module_namespace_id: namespace_id.clone(),
+                export_name: "schedule".to_string(),
+                args_json: Some("[]".to_string()),
+            })
+            .unwrap();
+        assert_eq!(scheduled.value_json, Some("[]".to_string()));
+        let call = evaluator
+            .call_module_export(&QuickJsModuleExportCallRequest {
+                module_namespace_id: namespace_id,
+                export_name: "state".to_string(),
+                args_json: Some("[]".to_string()),
+            })
+            .unwrap();
+        assert_eq!(call.value_json, Some(r#"["fired"]"#.to_string()));
     }
 
     #[test]

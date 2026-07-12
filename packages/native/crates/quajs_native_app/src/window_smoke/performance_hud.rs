@@ -1,6 +1,7 @@
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 
+use quajs_wgpu_renderer::fonts::NATIVE_BITMAP_FONT_FAMILY;
 use serde_json::{json, Value};
 
 use super::error::NativeWindowSmokeError;
@@ -162,7 +163,7 @@ impl NativeWindowPerformanceHud {
                         "text": text,
                         "style": {
                             "color": if index == 0 { "#81e5ff" } else { "rgba(255,248,234,0.82)" },
-                            "fontFamily": ["Noto Sans", "system-ui"],
+                            "fontFamily": [NATIVE_BITMAP_FONT_FAMILY],
                             "fontSize": 17,
                             "fontWeight": if index == 0 { 700 } else { 500 },
                             "lineHeight": 22

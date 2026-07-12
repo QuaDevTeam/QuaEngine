@@ -2,6 +2,10 @@ pub mod backend;
 pub mod commands;
 pub mod text_atlas;
 
+/// Reserved family marker for renderer-owned diagnostic text that should use
+/// the tiny built-in atlas instead of product font shaping.
+pub const NATIVE_BITMAP_FONT_FAMILY: &str = "__qua_native_bitmap__";
+
 pub use backend::{
     FontBackendAssetLoad, FontBackendAtlasFaceLayout, FontBackendAtlasGlyph,
     FontBackendAtlasLayout, FontBackendAtlasLayoutMap, FontBackendAtlasTexture,

@@ -49,6 +49,50 @@ pub(in crate::renderer::json_validation) fn invalid_native_json_ui_dispatch_iden
     None
 }
 
+pub(in crate::renderer::json_validation) fn invalid_native_json_character_id_reason(
+    value: &str,
+) -> Option<String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return Some("character ids must not be empty".to_string());
+    }
+    if trimmed != value {
+        return Some("character ids must not contain surrounding whitespace".to_string());
+    }
+    if value.chars().any(char::is_control) {
+        return Some("character ids must not contain control characters".to_string());
+    }
+    if has_forbidden_ui_dispatch_uri_scheme(value) {
+        return Some("character ids must not be URLs or dangerous URI schemes".to_string());
+    }
+    if value.contains(['?', '#']) {
+        return Some("character ids must not contain query or hash suffixes".to_string());
+    }
+    if value.starts_with('/') {
+        return Some("character ids must be identifiers, not absolute paths".to_string());
+    }
+    let normalized = value.replace('\\', "/");
+    if normalized.split('/').any(|segment| segment == "..") || value.contains("..") {
+        return Some("character ids must not contain traversal markers".to_string());
+    }
+    if value.contains(['/', '\\']) {
+        return Some("character ids must be identifiers, not paths".to_string());
+    }
+    if is_forbidden_native_payload_reference(value) {
+        return Some("character ids must not point to native payloads".to_string());
+    }
+    if !value.chars().any(char::is_alphanumeric) {
+        return Some("character ids must contain at least one letter or digit".to_string());
+    }
+    if !value
+        .chars()
+        .all(|char| char.is_alphanumeric() || matches!(char, '.' | '-' | '_' | ':'))
+    {
+        return Some("character ids must be safe native identifiers".to_string());
+    }
+    None
+}
+
 pub(in crate::renderer::json_validation) fn invalid_native_json_asset_type_reason(
     asset_type: &str,
 ) -> Option<String> {

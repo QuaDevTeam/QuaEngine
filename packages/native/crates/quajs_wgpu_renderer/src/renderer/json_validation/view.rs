@@ -15,6 +15,7 @@ use super::audio_numbers::{
 use super::character_numbers::{
     invalid_native_json_character_opacity_reason, invalid_native_json_character_position_reason,
 };
+use super::safe_strings::invalid_native_json_character_id_reason;
 use super::JsonProjectionValidator;
 
 impl JsonProjectionValidator {
@@ -137,7 +138,13 @@ impl JsonProjectionValidator {
         path: &str,
         character_ids: &mut BTreeSet<String>,
     ) {
-        self.validate_ui_dispatch_identifier(&format!("{path}.id"), &character.id, "character ids");
+        if let Some(reason) = invalid_native_json_character_id_reason(&character.id) {
+            self.errors.push(NativeRendererJsonValidationError {
+                path: format!("{path}.id"),
+                asset_name: character.id.clone(),
+                reason,
+            });
+        }
         self.validate_unique_identifier(
             &format!("{path}.id"),
             &character.id,

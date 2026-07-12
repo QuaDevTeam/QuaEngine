@@ -204,11 +204,7 @@ fn replace_text(frame: &mut PreparedNativeFrame, command_id: &str, text: &str) -
     true
 }
 
-fn replace_select_chevron(
-    frame: &mut PreparedNativeFrame,
-    command_id: &str,
-    open: bool,
-) -> bool {
+fn replace_select_chevron(frame: &mut PreparedNativeFrame, command_id: &str, open: bool) -> bool {
     let Some(command) = find_command_mut(frame, command_id) else {
         return false;
     };

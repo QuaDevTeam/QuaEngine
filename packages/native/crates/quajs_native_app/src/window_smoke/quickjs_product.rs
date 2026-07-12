@@ -16,6 +16,7 @@ pub(super) const WINDOW_DEV_QUICKJS_APP_ASSET_ENV: &str =
     "QUA_NATIVE_RENDERER_WINDOW_DEV_QUICKJS_APP_ASSET";
 
 const QUICKJS_STARTUP_TIMEOUT: Duration = Duration::from_secs(15);
+const QUICKJS_FRAME_TICK_INTERVAL: Duration = Duration::from_millis(16);
 
 pub(super) struct NativeWindowQuickJsProduct {
     sender: mpsc::Sender<QuickJsProductCommand>,
@@ -167,12 +168,16 @@ fn run_quickjs_product_worker(
         }
     }
 
-    while let Ok(command) = receiver.recv() {
-        match command {
-            QuickJsProductCommand::RendererIntent(intent) => {
-                let result = module
-                    .dispatch_renderer_intent(&intent)
-                    .and_then(|()| module.call_frame_export("renderFrame"));
+    loop {
+        match receiver.recv_timeout(QUICKJS_FRAME_TICK_INTERVAL) {
+            Ok(QuickJsProductCommand::RendererIntent(intent)) => {
+                let result = module.dispatch_renderer_intent(&intent);
+                if super::config::native_window_interaction_probe_enabled() {
+                    if let Ok(Some(diagnostics)) = module.call_export("getInteractionDiagnostics") {
+                        println!("Native QuickJS interaction diagnostics: {diagnostics}");
+                    }
+                }
+                let result = result.and_then(|()| module.call_frame_export("renderFrame"));
                 match result {
                     Ok(frame) => publish_frame(&latest, &revision, &event_loop_proxy, frame),
                     Err(error) => {
@@ -180,7 +185,15 @@ fn run_quickjs_product_worker(
                     }
                 }
             }
-            QuickJsProductCommand::Shutdown => break,
+            Ok(QuickJsProductCommand::Shutdown) | Err(mpsc::RecvTimeoutError::Disconnected) => {
+                break
+            }
+            Err(mpsc::RecvTimeoutError::Timeout) => match module.call_frame_export("renderFrame") {
+                Ok(frame) => publish_frame(&latest, &revision, &event_loop_proxy, frame),
+                Err(error) => {
+                    publish_error(&latest, &revision, &event_loop_proxy, error.to_string())
+                }
+            },
         }
     }
     module.destroy();
@@ -229,19 +242,22 @@ impl QuickJsProductModule {
     }
 
     fn call_frame_export(&mut self, export_name: &str) -> Result<String, NativeWindowSmokeError> {
-        self.evaluator
+        self.call_export(export_name)?.ok_or_else(|| {
+            NativeWindowSmokeError::new(format!(
+                "Native QuickJS demo app export {export_name} did not return a frame."
+            ))
+        })
+    }
+
+    fn call_export(&mut self, export_name: &str) -> Result<Option<String>, NativeWindowSmokeError> {
+        Ok(self.evaluator
             .call_module_export(&QuickJsModuleExportCallRequest {
                 module_namespace_id: self.namespace_id.clone(),
                 export_name: export_name.to_string(),
                 args_json: Some("[]".to_string()),
             })
             .map_err(quickjs_error)?
-            .value_json
-            .ok_or_else(|| {
-                NativeWindowSmokeError::new(format!(
-                    "Native QuickJS demo app export {export_name} did not return a frame."
-                ))
-            })
+            .value_json)
     }
 
     fn destroy(&mut self) {
@@ -299,6 +315,9 @@ fn publish_frame(
     frame: String,
 ) {
     if let Ok(mut snapshot) = latest.write() {
+        if snapshot.frame_source.as_deref() == Some(frame.as_str()) && snapshot.error.is_none() {
+            return;
+        }
         snapshot.frame_source = Some(frame);
         snapshot.error = None;
         revision.fetch_add(1, Ordering::Release);

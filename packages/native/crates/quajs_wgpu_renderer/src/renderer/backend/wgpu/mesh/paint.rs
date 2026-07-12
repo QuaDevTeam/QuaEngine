@@ -90,6 +90,7 @@ pub(super) fn paint_from_primitive(
             corner_radius,
             shadow_blur_radius: _,
             border,
+            ..
         } => (
             solid_paint(fill_color),
             *corner_radius as f32,

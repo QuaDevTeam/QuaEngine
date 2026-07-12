@@ -3,13 +3,15 @@ use winit::event::WindowEvent;
 use winit::event_loop::ActiveEventLoop;
 use winit::window::WindowId;
 
-use super::NativeWindowSmokeApp;
+use super::{NativeWindowSmokeApp, INTERACTION_PROBE_TIMEOUT};
 use crate::product_app_shell::NativeProductAppShellRedrawDecision;
 use crate::product_window::{
     NativeProductWindowPhysicalSize, NativeProductWindowPresentFailure,
     NativeProductWindowPresentFailureKind,
 };
-use crate::window_smoke::config::native_window_dev_enabled;
+use crate::window_smoke::config::{
+    native_window_dev_enabled, native_window_interaction_probe_enabled,
+};
 use crate::window_smoke::frame::normalized_physical_size;
 use crate::window_smoke::input::{pointer_button_from_winit, pointer_phase_from_element_state};
 
@@ -187,10 +189,19 @@ impl ApplicationHandler for NativeWindowSmokeApp {
 
 impl NativeWindowSmokeApp {
     fn needs_more_frames(&self) -> bool {
-        self.product_shell
+        if native_window_interaction_probe_enabled() {
+            return !self.interaction_probe_advance_observed
+                && self
+                    .interaction_probe_started_at
+                    .map(|started_at| started_at.elapsed() < INTERACTION_PROBE_TIMEOUT)
+                    .unwrap_or(true);
+        }
+        let product_needs_frames = self
+            .product_shell
             .as_ref()
             .map(|product_shell| product_shell.needs_more_frames())
-            .unwrap_or(true)
+            .unwrap_or(true);
+        product_needs_frames
     }
 
     fn redraw_once_or_schedule_retry(&mut self, event_loop: &ActiveEventLoop) -> bool {

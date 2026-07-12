@@ -7,6 +7,16 @@ import { createDemoNativeSession, type DemoNativeSession } from './session'
 let session: DemoNativeSession | undefined
 let disposeRendererBridge: (() => void) | undefined
 
+export function getInteractionDiagnostics() {
+  return session?.getInteractionDiagnostics() ?? {
+    intentCount: 0,
+    lastIntentType: null,
+    lastAction: null,
+    phases: [],
+    error: null,
+  }
+}
+
 export async function bootstrap(fixture?: string) {
   await destroy()
   session = await createDemoNativeSession(fixture)

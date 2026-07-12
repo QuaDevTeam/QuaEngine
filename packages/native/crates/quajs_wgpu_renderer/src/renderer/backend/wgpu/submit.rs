@@ -94,7 +94,11 @@ where
     ) -> bool {
         self.invalidated_bind_group_cache_labels.is_empty()
             && self.planned_font_atlas_upload_count == self.font_atlas_upload_count
-            && self.submissions.last() == Some(submission)
+            && self
+                .submissions
+                .last()
+                .map(|previous| stable_submission_equal(previous, submission))
+                .unwrap_or(false)
             && self.device_plans.last().is_some()
             && self.resource_cache_plans.last().is_some()
     }
@@ -130,6 +134,24 @@ where
         self.stable_plan_reuse_count = self.stable_plan_reuse_count.saturating_add(1);
         Ok(submission)
     }
+}
+
+fn stable_submission_equal(
+    previous: &crate::renderer::backend::NativeRenderSubmission,
+    current: &crate::renderer::backend::NativeRenderSubmission,
+) -> bool {
+    if previous.revision == current.revision {
+        return previous == current;
+    }
+
+    // Renderer revisions identify frame publication, not drawable content. A
+    // native window may publish a new revision for an unchanged projection;
+    // that must still reuse the existing device plan and font geometry.
+    let mut previous = previous.clone();
+    let mut current = current.clone();
+    previous.revision = 0;
+    current.revision = 0;
+    previous == current
 }
 
 fn replace_last_or_push<T>(values: &mut Vec<T>, value: T) {

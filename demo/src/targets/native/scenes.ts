@@ -1,5 +1,6 @@
 import { createCharacter } from '@quajs/character'
 import type { createDemoEngineRuntime } from '../../game/runtime-shared'
+import { STORY_TREE_NODES } from '../../game/content/story-tree'
 
 type DemoRuntime = Awaited<ReturnType<typeof createDemoEngineRuntime>>
 
@@ -145,6 +146,192 @@ export function createNativeDemoMenuSurface(): Record<string, unknown> {
             textAlign: 'center',
           },
         }))],
+      },
+    },
+  }
+}
+
+export function createNativeMainMenuSurface(): Record<string, unknown> {
+  const buttons = [
+    ['START', 'demo-start-story'],
+    ['LOAD', 'demo-open-save-load'],
+    ['STORY TREE', 'demo-open-story-tree'],
+    ['GALLERY', 'demo-open-panel', { panel: 'gallery' }],
+    ['CONFIG', 'demo-open-panel', { panel: 'settings' }],
+  ] as const
+  return {
+    visible: true,
+    interactive: true,
+    overlayStack: 'modal',
+    zIndex: 52,
+    surface: {
+      key: 'demo/native-main-menu.qui',
+      root: {
+        id: 'native-main-menu',
+        kind: 'Box',
+        bounds: { x: 0, y: 0, width: 1920, height: 1080 },
+        visible: true,
+        style: {
+          backgroundColor: 'rgba(4,5,8,0.06)',
+        },
+        children: [
+          {
+            id: 'native-main-menu-title',
+            kind: 'Text',
+            bounds: { x: 220, y: 286, width: 660, height: 112 },
+            visible: true,
+            text: '断链纪元',
+            style: {
+              color: '#fffaf0',
+              fontFamily: ['Noto Sans'],
+              fontSize: 92,
+              fontWeight: 700,
+              lineHeight: 92,
+            },
+          },
+          {
+            id: 'native-main-menu-subtitle',
+            kind: 'Text',
+            bounds: { x: 220, y: 414, width: 560, height: 30 },
+            visible: true,
+            text: 'BROKEN LINK ERA / TOKYO 2048',
+            style: {
+              color: 'rgba(235,204,144,0.82)',
+              fontFamily: ['Noto Sans'],
+              fontSize: 14,
+              letterSpacing: 2.5,
+            },
+          },
+          ...buttons.map(([label, action, metadata], index) => ({
+            id: `native-main-menu-${label.toLowerCase().replaceAll(' ', '-')}`,
+            kind: 'Button',
+            bounds: { x: 220, y: 480 + index * 58, width: 360, height: 48 },
+            visible: true,
+            text: label,
+            intent: {
+              event: 'ui/intent',
+              action,
+              ...(metadata ? { metadata } : {}),
+            },
+            style: {
+              backgroundColor: 'rgba(9,12,18,0.86)',
+              borderColor: 'rgba(245,226,190,0.30)',
+              borderWidth: 1,
+              borderRadius: 2,
+              color: '#fffaf2',
+              fontFamily: ['Noto Sans'],
+              fontSize: 13,
+              fontWeight: 500,
+              letterSpacing: 1.5,
+              textAlign: 'left',
+              boxShadow: {
+                offsetX: 0,
+                offsetY: 14,
+                blurRadius: 38,
+                spreadRadius: 0,
+                color: 'rgba(0,0,0,0.26)',
+              },
+            },
+          })),
+        ],
+      },
+    },
+  }
+}
+
+export function createNativeStoryTreeSurface(): Record<string, unknown> {
+  return createNativeMenuOverlaySurface(
+    'native-story-tree',
+    'ROUTE MAP',
+    'STORY TREE',
+    STORY_TREE_NODES.map(node => `CH ${node.chapter}  ${node.title} / ${node.description}`),
+  )
+}
+
+export function createNativeSaveLoadSurface(
+  slots: readonly { id: string, name?: string, updatedAt?: number }[],
+): Record<string, unknown> {
+  const lines = slots.length > 0
+    ? slots.map(slot => `${slot.name || slot.id}  ${slot.updatedAt ? new Date(slot.updatedAt).toLocaleString() : ''}`.trim())
+    : ['NO SAVE DATA']
+  return createNativeMenuOverlaySurface('native-save-load', 'ARCHIVE', 'LOAD', lines)
+}
+
+function createNativeMenuOverlaySurface(
+  id: string,
+  eyebrow: string,
+  title: string,
+  lines: readonly string[],
+): Record<string, unknown> {
+  return {
+    visible: true,
+    interactive: true,
+    overlayStack: 'modal',
+    zIndex: 60,
+    surface: {
+      key: `demo/${id}.qui`,
+      root: {
+        id,
+        kind: 'Panel',
+        bounds: { x: 220, y: 170, width: 780, height: 740 },
+        visible: true,
+        style: {
+          backgroundColor: 'rgba(7,8,12,0.92)',
+          borderColor: 'rgba(245,226,190,0.30)',
+          borderWidth: 1,
+          borderRadius: 2,
+          boxShadow: {
+            offsetX: 0,
+            offsetY: 18,
+            blurRadius: 48,
+            spreadRadius: 0,
+            color: 'rgba(0,0,0,0.42)',
+          },
+        },
+        children: [
+          {
+            id: `${id}-eyebrow`,
+            kind: 'Text',
+            bounds: { x: 270, y: 220, width: 680, height: 24 },
+            visible: true,
+            text: eyebrow,
+            style: { color: '#9ddff0', fontFamily: ['Noto Sans'], fontSize: 13, letterSpacing: 2 },
+          },
+          {
+            id: `${id}-title`,
+            kind: 'Text',
+            bounds: { x: 270, y: 252, width: 680, height: 54 },
+            visible: true,
+            text: title,
+            style: { color: '#fffaf0', fontFamily: ['Noto Sans'], fontSize: 42, fontWeight: 700 },
+          },
+          ...lines.map((line, index) => ({
+            id: `${id}-line-${index}`,
+            kind: 'Text',
+            bounds: { x: 270, y: 340 + index * 44, width: 680, height: 30 },
+            visible: true,
+            text: line,
+            style: { color: 'rgba(255,250,242,0.86)', fontFamily: ['Noto Sans'], fontSize: 16 },
+          })),
+          {
+            id: `${id}-close`,
+            kind: 'Button',
+            bounds: { x: 270, y: 820, width: 180, height: 44 },
+            visible: true,
+            text: 'CLOSE',
+            intent: { event: 'ui/intent', action: 'demo-close-main-overlay' },
+            style: {
+              backgroundColor: 'rgba(255,248,234,0.08)',
+              borderColor: 'rgba(245,226,190,0.26)',
+              borderWidth: 1,
+              borderRadius: 2,
+              color: '#fff8ea',
+              fontFamily: ['Noto Sans'],
+              fontSize: 13,
+              textAlign: 'center',
+            },
+          },
+        ],
       },
     },
   }
