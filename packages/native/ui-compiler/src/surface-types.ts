@@ -100,6 +100,7 @@ export interface NativeUiSurfaceNodeProjection {
   kind: NativeUiSurfaceNodeKind
   opacity?: number
   provenance?: NativePackageProvenance
+  role?: string
   scrollOffsetX?: number
   scrollOffsetY?: number
   style?: NativeQssResolvedStyle

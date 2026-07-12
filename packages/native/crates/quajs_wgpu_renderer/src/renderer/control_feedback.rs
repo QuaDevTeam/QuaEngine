@@ -59,7 +59,7 @@ pub(super) fn apply_control_feedback(
             } => {
                 changed |= replace_text(frame, value_command_id, &selected.label);
                 let is_open = controls.open_select_command_id() == Some(command.id.as_str());
-                changed |= replace_text(frame, chevron_command_id, if is_open { "⌃" } else { "⌄" });
+                changed |= replace_select_chevron(frame, chevron_command_id, is_open);
                 if is_open {
                     append_select_menu(frame, &command, &control, selected_index, &mut appended);
                     changed = true;
@@ -202,4 +202,30 @@ fn replace_text(frame: &mut PreparedNativeFrame, command_id: &str, text: &str) -
     };
     params.text = text.to_string();
     true
+}
+
+fn replace_select_chevron(
+    frame: &mut PreparedNativeFrame,
+    command_id: &str,
+    open: bool,
+) -> bool {
+    let Some(command) = find_command_mut(frame, command_id) else {
+        return false;
+    };
+    match &mut command.params {
+        DrawCommandParams::Panel(params) => {
+            params.role = if open {
+                "ui-select-chevron-up"
+            } else {
+                "ui-select-chevron-down"
+            }
+            .to_string();
+            true
+        }
+        DrawCommandParams::Text(params) => {
+            params.text = if open { "^" } else { "v" }.to_string();
+            true
+        }
+        _ => false,
+    }
 }

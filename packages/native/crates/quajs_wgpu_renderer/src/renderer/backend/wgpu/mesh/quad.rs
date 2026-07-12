@@ -36,7 +36,14 @@ pub struct WgpuNativeRenderQuad {
 impl WgpuNativeRenderQuad {
     pub(super) fn from_primitive(primitive: &WgpuNativeRenderPrimitive) -> Self {
         let (paint, corner_radius, border, text_overlay) = paint_from_primitive(primitive);
-        let geometry = primitive_geometry(primitive);
+        let mut geometry = primitive_geometry(primitive);
+        if let WgpuNativeRenderPrimitiveKind::Panel { role, .. } = &primitive.kind {
+            match role.as_str() {
+                "ui-select-chevron-down" => apply_triangle_vertices(&mut geometry.vertices, false),
+                "ui-select-chevron-up" => apply_triangle_vertices(&mut geometry.vertices, true),
+                _ => {}
+            }
+        }
 
         Self {
             command_id: primitive.command_id.clone(),
@@ -65,6 +72,19 @@ impl WgpuNativeRenderQuad {
             && self.paint.is_drawable()
             && !self.paint.has_invalid_color()
     }
+}
+
+fn apply_triangle_vertices(vertices: &mut [WgpuNativeRenderVertex; 4], points_up: bool) {
+    let left = vertices[0].position[0];
+    let top = vertices[0].position[1];
+    let right = vertices[2].position[0];
+    let bottom = vertices[2].position[1];
+    let center_x = (left + right) * 0.5;
+    let (edge_y, point_y) = if points_up { (bottom, top) } else { (top, bottom) };
+    vertices[0].position = [left, edge_y];
+    vertices[1].position = [right, edge_y];
+    vertices[2].position = [center_x, point_y];
+    vertices[3] = vertices[2];
 }
 
 fn shadow_blur_radius_from_primitive(primitive: &WgpuNativeRenderPrimitive) -> f32 {

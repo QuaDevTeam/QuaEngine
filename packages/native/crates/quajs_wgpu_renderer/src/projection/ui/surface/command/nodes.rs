@@ -148,6 +148,11 @@ pub(super) fn surface_panel_node_command(
     fallback_fill_color: &str,
     intent: Option<RendererIntent>,
 ) -> DrawCommand {
+    let role = match node.role.as_deref() {
+        Some("ui-select-chevron-down") => "ui-select-chevron-down",
+        Some("ui-select-chevron-up") => "ui-select-chevron-up",
+        _ => role,
+    };
     DrawCommand::new(
         command_id,
         RenderPlane::Screen,

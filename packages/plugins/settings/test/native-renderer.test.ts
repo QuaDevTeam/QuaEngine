@@ -118,7 +118,10 @@ describe('settings native renderer feature', () => {
     expect(speedTrack?.style?.backgroundColor).toBe('rgba(233,192,111,0.78)')
     expect(skipValue?.text).toBe('All Text')
     expect(skip?.control).toEqual(expect.objectContaining({ kind: 'select', selectedIndex: 1 }))
-    expect(skipChevron?.text).toBe('⌄')
+    expect(skipChevron).toEqual(expect.objectContaining({
+      kind: 'Box',
+      role: 'ui-select-chevron-down',
+    }))
     expect(close?.text).toBe('×')
     expect(groupLabel?.text).toBe('FLOW CONTROL')
     expect(groupLabel?.style?.fontSize).toBe(15)

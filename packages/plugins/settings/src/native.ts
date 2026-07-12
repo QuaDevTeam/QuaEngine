@@ -493,15 +493,15 @@ function createSelectControlNodes(
         provenance,
         style: { color: '#fff8ea', fontSize: 17 },
       }),
-      node(`${id}-select-chevron`, 'Text', {
-        x: bounds.x + bounds.width - 34,
-        y: bounds.y + 10,
-        width: 20,
-        height: 24,
+      node(`${id}-select-chevron`, 'Box', {
+        x: bounds.x + bounds.width - 28,
+        y: bounds.y + 19,
+        width: 12,
+        height: 8,
       }, {
-        text: '⌄',
         provenance,
-        style: { color: 'rgba(255,248,234,0.72)', fontSize: 15, textAlign: 'center' },
+        role: 'ui-select-chevron-down',
+        style: { backgroundColor: 'rgba(255,248,234,0.72)' },
       }),
     ],
   })]
