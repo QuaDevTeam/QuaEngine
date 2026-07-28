@@ -2,7 +2,7 @@ use crate::projection::common::{FontFamilyProjection, FontWeightProjection, Pack
 
 use serde::{Deserialize, Serialize};
 
-use crate::projection::defaults::default_true;
+use crate::projection::defaults::{default_one_f32, default_true, is_one_f32};
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -105,6 +105,11 @@ pub struct DialogueProjection {
     pub text: RichTextContent,
     #[serde(default)]
     pub mode: DialogueMode,
+    /// Renderer-local enter/exit presence opacity (0.0 = transparent, 1.0 =
+    /// fully visible). Injected by `NativeRendererProjectionRuntime`; absent
+    /// from engine-authored projections so the default of 1.0 is correct.
+    #[serde(default = "default_one_f32", skip_serializing_if = "is_one_f32")]
+    pub presence_opacity: f32,
     #[serde(default, skip_serializing_if = "PackageProvenance::is_empty")]
     pub provenance: PackageProvenance,
 }
@@ -120,6 +125,7 @@ impl DialogueProjection {
             speaker_style: RichTextStyle::default(),
             text: text.into(),
             mode: DialogueMode::Say,
+            presence_opacity: 1.0,
             provenance: PackageProvenance::default(),
         }
     }

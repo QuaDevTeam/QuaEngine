@@ -29,6 +29,8 @@ fn builds_full_view_graph_in_render_plane_order() {
             "character:yuki",
             "dialogue:shadow",
             "dialogue:panel",
+            "dialogue:gradient",
+            "dialogue:inset-highlight",
             "dialogue:accent",
             "dialogue:speaker",
             "dialogue:speaker-accent",
@@ -106,5 +108,5 @@ fn append_view_commands_keeps_existing_commands() {
     append_view_commands(&mut graph, &full_view());
 
     assert_eq!(graph.commands().last().unwrap().id, "screen:debug");
-    assert_eq!(graph.summary().command_count, 12);
+    assert_eq!(graph.summary().command_count, 14);
 }

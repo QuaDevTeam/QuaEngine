@@ -126,7 +126,7 @@ function validateNativeWgpuDeclarationValue(declaration: NativeQssDeclaration): 
     case 'background-image':
       return parseNativeQssBackgroundImage(value) || parseNativeQssBackgroundGradient(value)
         ? undefined
-        : 'background-image must use package-relative asset(...) or a two-color linear-gradient(...) / radial-gradient(...).'
+        : 'background-image must use package-relative asset(...) or a linear-gradient(...) / radial-gradient(...) with 2 to 8 strictly ordered color stops.'
     case 'background-position':
     case 'object-position':
       return parseNativeQssBackgroundPosition(value)
@@ -284,7 +284,7 @@ function validateNativeWgpuDeclarationValue(declaration: NativeQssDeclaration): 
     case 'transition':
       return parseNativeQssTransition(value)
         ? undefined
-        : 'transition supports all or native paint/transform properties with a 0ms..5s duration and standard easing.'
+        : 'transition supports all or native paint/transform properties with a 0ms..5s duration and either a standard easing keyword or cubic-bezier(x1, y1, x2, y2) with x coordinates in 0..1.'
     case 'visibility':
       return parseNativeQssVisibility(value) !== undefined
         ? undefined

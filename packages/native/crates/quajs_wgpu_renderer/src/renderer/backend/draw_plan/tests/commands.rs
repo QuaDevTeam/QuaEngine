@@ -30,6 +30,8 @@ fn lowers_submission_commands_into_backend_draw_plan() {
             "background:main",
             "dialogue:shadow",
             "dialogue:panel",
+            "dialogue:gradient",
+            "dialogue:inset-highlight",
             "dialogue:accent",
             "dialogue:text",
             "choices:panel",

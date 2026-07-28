@@ -20,12 +20,19 @@ impl WgpuNativeRenderBufferVertex {
             color,
             effect0: [0.0; 4],
             effect1: [0.0; 4],
+            effect2: [0.0; 4],
         }
     }
 
-    pub(super) fn with_effects(mut self, effect0: [f32; 4], effect1: [f32; 4]) -> Self {
+    pub(super) fn with_effects(
+        mut self,
+        effect0: [f32; 4],
+        effect1: [f32; 4],
+        effect2: [f32; 4],
+    ) -> Self {
         self.effect0 = effect0;
         self.effect1 = effect1;
+        self.effect2 = effect2;
         self
     }
 }
@@ -36,12 +43,13 @@ fn append_geometry_buffers(
     indices: &mut Vec<u32>,
     effect0: [f32; 4],
     effect1: [f32; 4],
+    effect2: [f32; 4],
 ) {
     vertices.extend(
         geometry
             .vertices
             .into_iter()
-            .map(|vertex| vertex.with_effects(effect0, effect1)),
+            .map(|vertex| vertex.with_effects(effect0, effect1, effect2)),
     );
     indices.extend(geometry.indices);
 }

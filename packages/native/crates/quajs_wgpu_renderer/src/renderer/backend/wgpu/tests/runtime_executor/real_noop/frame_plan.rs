@@ -30,9 +30,16 @@ fn real_noop_runtime_executor_renders_generated_solid_ui_frame_plan() {
     assert!(runtime_plan.operations.iter().any(|operation| matches!(
         operation,
         WgpuNativeRenderRuntimeOperation::QueueWrite { bytes, .. }
+            // `#335577` must reach the GPU still sRGB-encoded: the frame is
+            // composited in a non-sRGB target so blending matches CSS.
             if contains_f32_sequence(
                 bytes,
-                &[0.033_104_766, 0.090_841_72, 0.184_474_99, 1.0],
+                &[
+                    0x33 as f32 / 255.0,
+                    0x55 as f32 / 255.0,
+                    0x77 as f32 / 255.0,
+                    1.0,
+                ],
             )
     )));
     assert_eq!(

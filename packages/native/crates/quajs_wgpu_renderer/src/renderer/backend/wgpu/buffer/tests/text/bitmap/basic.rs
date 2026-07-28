@@ -23,7 +23,7 @@ fn renders_supported_ascii_text_as_bitmap_glyph_geometry() {
     assert_eq!(pass.index_count, pass.vertex_count / 4 * 6);
     assert_eq!(
         pass.vertices[0].color,
-        [0.014_443_844, 0.527_115_2, 1.0, 1.0]
+        [0x20 as f32 / 255.0, 0xc0 as f32 / 255.0, 1.0, 1.0]
     );
     assert!(pass.vertices.iter().any(|vertex| vertex.position[1] > 35.0));
     assert!(pass.vertices.iter().any(|vertex| vertex.uv[0] > 0.0));
@@ -53,7 +53,7 @@ fn renders_common_ascii_ui_symbols_as_bitmap_glyph_geometry() {
     assert_eq!(pass.index_count, pass.vertex_count / 4 * 6);
     assert_eq!(
         pass.vertices[0].color,
-        [1.0, 0.871_367_2, 0.215_860_53, 1.0]
+        [1.0, 0xf0 as f32 / 255.0, 0x80 as f32 / 255.0, 1.0]
     );
 }
 

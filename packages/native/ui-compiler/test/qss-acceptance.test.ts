@@ -106,8 +106,12 @@ const qssAcceptanceCases: Record<string, QssAcceptanceCase> = {
     expected: { style: {}, visible: false },
   },
   'filter': {
-    validDeclarations: ['filter: brightness(46%) saturate(0.88)'],
-    invalidDeclaration: 'filter: blur(8px)',
+    validDeclarations: [
+      'filter: blur(12px) contrast(1.2)',
+      // Must be last so the final value matches `expected`.
+      'filter: brightness(46%) saturate(0.88)',
+    ],
+    invalidDeclaration: 'filter: drop-shadow(2px 2px 4px black)',
     expected: { style: { filter: { brightness: 0.46, saturate: 0.88 } } },
   },
   'font-family': {
@@ -312,20 +316,26 @@ const qssAcceptanceCases: Record<string, QssAcceptanceCase> = {
     expected: { style: { textTransform: 'uppercase' } },
   },
   'transform': {
-    validDeclarations: ['transform: translate(12px, -4px) scale(1.5, 0.5)'],
-    invalidDeclaration: 'transform: rotate(45deg)',
+    validDeclarations: [
+      // Single declaration with rotate + translate + scale so the resolver
+      // produces a single combined output (rotate goes to both style.rotateDeg
+      // and layout.transform.rotateDeg per the resolver contract).
+      'transform: rotate(30deg) translate(12px, -4px) scale(1.5, 0.5)',
+    ],
+    invalidDeclaration: 'transform: skew(10deg)',
     expected: {
       layout: {
         transform: {
           originX: 0.5,
           originY: 0.5,
+          rotateDeg: 30,
           scaleX: 1.5,
           scaleY: 0.5,
           translateX: 12,
           translateY: -4,
         },
       },
-      style: {},
+      style: { rotateDeg: 30 },
     },
   },
   'transform-origin': {
@@ -346,7 +356,12 @@ const qssAcceptanceCases: Record<string, QssAcceptanceCase> = {
     },
   },
   'transition': {
-    validDeclarations: ['transition: transform 180ms ease-out, background-color 0.16s ease'],
+    validDeclarations: [
+      // cubic-bezier strings must parse — put them before the expected entry
+      // so the last declaration wins and matches `expected`.
+      'transition: transform 220ms cubic-bezier(0.19, 1, 0.22, 1)',
+      'transition: transform 180ms ease-out, background-color 0.16s ease',
+    ],
     invalidDeclaration: 'transition: transform 8s spring',
     expected: {
       style: {},

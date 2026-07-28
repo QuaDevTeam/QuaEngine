@@ -34,6 +34,7 @@ pub(crate) struct NativeProductAppLoopSnapshot {
     pub(crate) visibility_change_count: usize,
     pub(crate) lifecycle_tick_request_count: usize,
     pub(crate) redraw_request_count: usize,
+    pub(crate) continuous_rendering: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -47,6 +48,7 @@ pub(crate) struct NativeProductAppLoop {
     visibility_change_count: usize,
     lifecycle_tick_request_count: usize,
     redraw_request_count: usize,
+    continuous_rendering: bool,
 }
 
 impl Default for NativeProductAppLoop {
@@ -67,6 +69,7 @@ impl NativeProductAppLoop {
             visibility_change_count: 0,
             lifecycle_tick_request_count: 0,
             redraw_request_count: 0,
+            continuous_rendering: false,
         }
     }
 
@@ -81,7 +84,15 @@ impl NativeProductAppLoop {
             visibility_change_count: self.visibility_change_count,
             lifecycle_tick_request_count: self.lifecycle_tick_request_count,
             redraw_request_count: self.redraw_request_count,
+            continuous_rendering: self.continuous_rendering,
         }
+    }
+
+    /// Enables the browser-like render cadence. Frame pacing is delegated to the
+    /// wgpu surface present mode (vsync), so no software frame timer is used.
+    #[cfg_attr(not(feature = "native-window"), allow(dead_code))]
+    pub(crate) fn enable_continuous_rendering(&mut self) {
+        self.continuous_rendering = true;
     }
 
     pub(crate) fn record_resumed(&mut self) -> NativeProductAppLoopAction {
@@ -133,6 +144,13 @@ impl NativeProductAppLoop {
         &mut self,
         needs_more_frames: bool,
     ) -> NativeProductAppLoopAction {
+        // Vsync-paced continuous rendering leaves frame cadence to the
+        // compositor: the surface present call blocks until the next vblank, so
+        // the next redraw is requested from `about_to_wait` without a software
+        // frame timer.
+        if self.continuous_rendering && self.can_request_redraw() {
+            return NativeProductAppLoopAction::none();
+        }
         if needs_more_frames {
             self.maybe_request_redraw()
         } else {
@@ -148,6 +166,12 @@ impl NativeProductAppLoop {
     }
 
     pub(crate) fn about_to_wait(&mut self, needs_more_frames: bool) -> NativeProductAppLoopAction {
+        // Continuous rendering keeps one redraw in flight at a time. Vsync in
+        // the surface present path throttles the resulting loop, so the event
+        // loop can stay parked in `ControlFlow::Wait` between frames.
+        if self.continuous_rendering && self.can_request_redraw() {
+            return self.maybe_request_redraw();
+        }
         if needs_more_frames {
             if !self.can_request_redraw() {
                 return self.lifecycle_tick_action();
@@ -310,5 +334,37 @@ mod tests {
         assert!(!app_loop.snapshot().redraw_pending);
         assert_eq!(app_loop.snapshot().redraw_request_count, 1);
         assert_eq!(app_loop.snapshot().lifecycle_tick_request_count, 3);
+    }
+
+    #[test]
+    fn continuous_rendering_requests_the_next_frame_without_a_software_timer() {
+        let mut app_loop = NativeProductAppLoop::new();
+        app_loop.enable_continuous_rendering();
+        app_loop.record_resumed();
+        app_loop.record_redraw_dispatch_started();
+
+        // Frame completion defers the redraw to `about_to_wait` so the event
+        // loop can sleep until vsync unblocks rather than spinning.
+        let completed = app_loop.record_frame_completed(false);
+        assert!(!completed.request_redraw);
+        assert!(!app_loop.snapshot().redraw_pending);
+
+        // `about_to_wait` issues the next redraw; present will block at vsync.
+        let waiting = app_loop.about_to_wait(false);
+        assert!(waiting.request_redraw);
+        assert!(app_loop.snapshot().redraw_pending);
+    }
+
+    #[test]
+    fn continuous_rendering_stops_scheduling_when_hidden() {
+        let mut app_loop = NativeProductAppLoop::new();
+        app_loop.enable_continuous_rendering();
+        app_loop.record_resumed();
+        app_loop.record_redraw_dispatch_started();
+        app_loop.record_frame_completed(false);
+        app_loop.record_visibility_changed(false);
+
+        assert!(!app_loop.about_to_wait(false).request_redraw);
+        assert!(!app_loop.snapshot().redraw_pending);
     }
 }

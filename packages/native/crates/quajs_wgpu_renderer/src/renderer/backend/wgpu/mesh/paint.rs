@@ -82,7 +82,12 @@ pub(super) fn paint_from_primitive(
             None,
             None,
         ),
-        WgpuNativeRenderPrimitiveKind::Text { text, color, style } => {
+        WgpuNativeRenderPrimitiveKind::Text {
+            text,
+            color,
+            style,
+            ..
+        } => {
             (text_paint(text, color, style), 0.0, None, None)
         }
         WgpuNativeRenderPrimitiveKind::Panel {

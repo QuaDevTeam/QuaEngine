@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::projection::common::PackageProvenance;
-use crate::projection::defaults::default_true;
+use crate::projection::defaults::{default_one_f32, default_true, is_one_f32};
 
 use super::{UiIntentProjection, UiSurfaceNodeProjection};
 
@@ -37,6 +37,10 @@ pub struct UiOverlayProjection {
     pub intent: Option<UiIntentProjection>,
     #[serde(default, skip_serializing_if = "PackageProvenance::is_empty")]
     pub provenance: PackageProvenance,
+    /// Renderer-local enter/exit presence opacity, injected by
+    /// `NativeRendererProjectionRuntime`; absent from engine projections.
+    #[serde(default = "default_one_f32", skip_serializing_if = "is_one_f32")]
+    pub presence_opacity: f32,
 }
 
 impl UiOverlayProjection {
@@ -52,6 +56,7 @@ impl UiOverlayProjection {
             surface: None,
             scene: None,
             intent: None,
+            presence_opacity: 1.0,
             provenance: PackageProvenance::default(),
         }
     }

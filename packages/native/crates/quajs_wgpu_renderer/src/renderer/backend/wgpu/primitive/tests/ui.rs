@@ -69,6 +69,7 @@ fn scales_ui_paint_and_typography_metrics_to_physical_pixels() {
                     kind: DrawCommandKind::RoundedRect,
                     metadata: draw_metadata(DrawCommandParams::Panel(PanelDrawParams {
                         role: "panel".to_string(),
+                        rotation_degrees: 0.0,
                         corner_radius: 8.0,
                         fill_color: "#000000".to_string(),
                         border: BorderDrawParams {
@@ -108,6 +109,7 @@ fn scales_ui_paint_and_typography_metrics_to_physical_pixels() {
                             left: 4.0,
                         },
                         role: "text".to_string(),
+                        rotation_degrees: 0.0,
                     })),
                     physical_bounds: physical_rect(20, 20, 200, 80),
                     clip_depth: 0,
@@ -146,6 +148,7 @@ fn lowers_foundational_ui_surface_primitives() {
             kind: DrawCommandKind::RoundedRect,
             metadata: draw_metadata(DrawCommandParams::Panel(PanelDrawParams {
                 role: "ui-panel".to_string(),
+                rotation_degrees: 0.0,
                 corner_radius: 12.0,
                 fill_color: "rgba(16,24,32,0.75)".to_string(),
                 border: BorderDrawParams {
@@ -190,6 +193,7 @@ fn lowers_foundational_ui_surface_primitives() {
                     left: 4.0,
                 },
                 role: "ui-text".to_string(),
+                rotation_degrees: 0.0,
             })),
             physical_bounds: physical_rect(56, 64, 288, 36),
             clip_depth: 0,
@@ -237,6 +241,7 @@ fn lowers_foundational_ui_surface_primitives() {
             text,
             color,
             style,
+            ..
         } if text == "Menu"
             && color == "#ffffff"
             && style.font_family == vec!["Inter".to_string(), "Noto Sans".to_string()]
@@ -310,6 +315,7 @@ fn lowers_rich_text_draws_into_text_primitives_without_losing_draw_kind() {
                     left: 6.0,
                 },
                 role: "ui-rich-text".to_string(),
+                rotation_degrees: 0.0,
             })),
             physical_bounds: physical_rect(64, 128, 360, 96),
             clip_depth: 0,
@@ -322,7 +328,7 @@ fn lowers_rich_text_draws_into_text_primitives_without_losing_draw_kind() {
     assert_eq!(rich_text.draw_kind, DrawCommandKind::RichText);
     assert!(matches!(
         &rich_text.kind,
-        WgpuNativeRenderPrimitiveKind::Text { text, color, style }
+        WgpuNativeRenderPrimitiveKind::Text { text, color, style, .. }
             if text == "First line\nSecond line"
                 && color == "#f7f3e8"
                 && style.font_family == vec![

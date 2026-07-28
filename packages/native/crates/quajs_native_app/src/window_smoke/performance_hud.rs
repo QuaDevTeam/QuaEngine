@@ -19,6 +19,19 @@ pub(super) struct NativeWindowPerformanceHud {
     command_count: usize,
     pass_count: usize,
     batch_count: usize,
+    /// Total time spent waiting for a fresh projection frame from the worker,
+    /// or the time project_now() took on the render thread in legacy mode.
+    projection_ms: f64,
+    /// Whether the last frame used a freshly projected frame (true) or a
+    /// reused cached projection (false, happens while the worker is busy).
+    projection_fresh: bool,
+    /// Milliseconds from the most recent input event to this frame's draw.
+    /// `None` when no input has arrived since the app started or since the
+    /// last measurement was consumed.
+    input_latency_ms: Option<f64>,
+    /// Renderer-local transitions still running: timeline animations, presence
+    /// fades, typewriter reveals, and scene transitions.
+    active_transition_count: usize,
     last_hud_refresh_at: Option<Instant>,
     displayed_fps: f64,
     displayed_active: bool,
@@ -26,6 +39,10 @@ pub(super) struct NativeWindowPerformanceHud {
     displayed_command_count: usize,
     displayed_pass_count: usize,
     displayed_batch_count: usize,
+    displayed_projection_ms: f64,
+    displayed_projection_fresh: bool,
+    displayed_input_latency_ms: Option<f64>,
+    displayed_active_transition_count: usize,
 }
 
 impl Default for NativeWindowPerformanceHud {
@@ -37,6 +54,10 @@ impl Default for NativeWindowPerformanceHud {
             command_count: 0,
             pass_count: 0,
             batch_count: 0,
+            projection_ms: 0.0,
+            projection_fresh: true,
+            input_latency_ms: None,
+            active_transition_count: 0,
             last_hud_refresh_at: None,
             displayed_fps: 0.0,
             displayed_active: false,
@@ -44,6 +65,10 @@ impl Default for NativeWindowPerformanceHud {
             displayed_command_count: 0,
             displayed_pass_count: 0,
             displayed_batch_count: 0,
+            displayed_projection_ms: 0.0,
+            displayed_projection_fresh: true,
+            displayed_input_latency_ms: None,
+            displayed_active_transition_count: 0,
         }
     }
 }
@@ -93,6 +118,10 @@ impl NativeWindowPerformanceHud {
         command_count: usize,
         pass_count: usize,
         batch_count: usize,
+        projection_ms: f64,
+        projection_fresh: bool,
+        input_latency_ms: Option<f64>,
+        active_transition_count: usize,
     ) {
         let now = Instant::now();
         if let Some(previous) = self.last_presented_at.replace(now) {
@@ -112,6 +141,10 @@ impl NativeWindowPerformanceHud {
         self.command_count = command_count;
         self.pass_count = pass_count;
         self.batch_count = batch_count;
+        self.projection_ms = projection_ms;
+        self.projection_fresh = projection_fresh;
+        self.input_latency_ms = input_latency_ms;
+        self.active_transition_count = active_transition_count;
         if self
             .last_hud_refresh_at
             .map(|previous| now.saturating_duration_since(previous) < HUD_REFRESH_INTERVAL)
@@ -126,6 +159,10 @@ impl NativeWindowPerformanceHud {
         self.displayed_command_count = self.command_count;
         self.displayed_pass_count = self.pass_count;
         self.displayed_batch_count = self.batch_count;
+        self.displayed_projection_ms = self.projection_ms;
+        self.displayed_projection_fresh = self.projection_fresh;
+        self.displayed_input_latency_ms = self.input_latency_ms;
+        self.displayed_active_transition_count = self.active_transition_count;
     }
 
     fn overlay(&self, dimensions: WindowFrameDimensions) -> Value {
@@ -136,6 +173,17 @@ impl NativeWindowPerformanceHud {
         } else {
             format!("FPS  IDLE   FRAME {:>5.2} ms", frame_ms)
         };
+        let proj_tag = if self.displayed_projection_fresh { "LIVE" } else { "CACHE" };
+        let input_line = match self.displayed_input_latency_ms {
+            Some(ms) => format!(
+                "INPUT {:>5.1} ms   TRANS {:>2}",
+                ms, self.displayed_active_transition_count
+            ),
+            None => format!(
+                "INPUT   --- ms   TRANS {:>2}",
+                self.displayed_active_transition_count
+            ),
+        };
         let lines = [
             performance_line,
             format!(
@@ -143,8 +191,14 @@ impl NativeWindowPerformanceHud {
                 self.displayed_command_count, self.displayed_pass_count, self.displayed_batch_count
             ),
             format!(
-                "DPR {:.2}   {} x {} CSS",
+                "PROJ {:>5.2} ms  {}   DPR {:.2}",
+                self.displayed_projection_ms,
+                proj_tag,
                 dimensions.device_pixel_ratio,
+            ),
+            input_line,
+            format!(
+                "{} x {} CSS",
                 dimensions.logical_width.round() as u32,
                 dimensions.logical_height.round() as u32
             ),
@@ -162,7 +216,7 @@ impl NativeWindowPerformanceHud {
                 "root": {
                     "id": "performance-panel",
                     "kind": "Panel",
-                    "bounds": { "x": 24, "y": 24, "width": 420, "height": 112 },
+                    "bounds": { "x": 24, "y": 24, "width": 420, "height": 168 },
                     "visible": true,
                     "style": {
                         "backgroundColor": "rgba(3,5,8,0.88)",
@@ -173,7 +227,7 @@ impl NativeWindowPerformanceHud {
                     "children": lines.into_iter().enumerate().map(|(index, text)| json!({
                         "id": format!("performance-line-{index}"),
                         "kind": "Text",
-                        "bounds": { "x": 42, "y": 38 + index * 28, "width": 384, "height": 24 },
+                        "bounds": { "x": 42, "y": 28 + index * 26, "width": 384, "height": 24 },
                         "visible": true,
                         "text": text,
                         "style": {
@@ -241,11 +295,11 @@ mod tests {
             physical_size: winit::dpi::PhysicalSize::new(1920, 1080),
             device_pixel_ratio: 2.0,
         };
-        hud.record_frame(Duration::from_millis(8), 12, 1, 3);
+        hud.record_frame(Duration::from_millis(8), 12, 1, 3, 0.0, true, None, 0);
         let first = hud
             .inject(r#"{"view":{"ui":{"overlays":[]}}}"#, dimensions)
             .unwrap();
-        hud.record_frame(Duration::from_millis(30), 99, 4, 8);
+        hud.record_frame(Duration::from_millis(30), 99, 4, 8, 0.0, true, None, 0);
         let second = hud
             .inject(r#"{"view":{"ui":{"overlays":[]}}}"#, dimensions)
             .unwrap();
@@ -258,7 +312,7 @@ mod tests {
         let mut hud = NativeWindowPerformanceHud::default();
         hud.last_presented_at = Some(Instant::now() - Duration::from_secs(1));
 
-        hud.record_frame(Duration::from_millis(8), 12, 1, 3);
+        hud.record_frame(Duration::from_millis(8), 12, 1, 3, 0.0, true, None, 0);
 
         assert!(hud.frame_intervals.is_empty());
         assert_eq!(hud.displayed_fps, 0.0);
@@ -279,7 +333,7 @@ mod tests {
 
         hud.last_hud_refresh_at = Some(Instant::now() - HUD_REFRESH_INTERVAL);
         hud.last_presented_at = Some(Instant::now() - Duration::from_millis(16));
-        hud.record_frame(Duration::from_millis(8), 12, 1, 3);
+        hud.record_frame(Duration::from_millis(8), 12, 1, 3, 0.0, true, None, 0);
 
         assert_eq!(hud.frame_intervals.len(), 1);
         assert!(hud.displayed_active);

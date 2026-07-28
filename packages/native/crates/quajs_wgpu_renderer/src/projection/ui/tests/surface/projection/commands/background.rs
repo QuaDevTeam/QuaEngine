@@ -1,4 +1,5 @@
 use super::*;
+use crate::projection::ui::types::UiSurfaceGradientStopProjection;
 
 #[test]
 fn projects_surface_background_image_as_package_image_command() {
@@ -95,12 +96,25 @@ fn projects_surface_gradient_in_the_same_stable_paint_layer_as_the_surface() {
                 .with_style(UiSurfaceResolvedStyle {
                     background_gradient: Some(UiSurfaceGradientProjection {
                         kind: UiSurfaceGradientKindProjection::Linear,
-                        start_color: "rgba(5,7,12,0.82)".to_string(),
-                        end_color: "rgba(5,7,12,0.06)".to_string(),
                         angle_degrees: Some(90.0),
                         center_x: None,
                         center_y: None,
                         radius: None,
+                        shape: None,
+                        stops: vec![
+                            UiSurfaceGradientStopProjection {
+                                color: "rgba(5,7,12,0.82)".to_string(),
+                                position: 0.0,
+                            },
+                            UiSurfaceGradientStopProjection {
+                                color: "rgba(12,18,28,0.42)".to_string(),
+                                position: 0.4,
+                            },
+                            UiSurfaceGradientStopProjection {
+                                color: "rgba(5,7,12,0.06)".to_string(),
+                                position: 1.0,
+                            },
+                        ],
                     }),
                     ..Default::default()
                 }),
@@ -118,18 +132,36 @@ fn projects_surface_gradient_in_the_same_stable_paint_layer_as_the_surface() {
         vec![
             "ui:gradient",
             "ui:gradient:root:background-gradient",
+            "ui:gradient:root:background-gradient-1",
             "ui:gradient:root",
         ]
     );
-    let gradient = &commands[1];
-    let surface = &commands[2];
-    assert_eq!(gradient.z_index, surface.z_index);
-    match &gradient.params {
+    let first_gradient = &commands[1];
+    let second_gradient = &commands[2];
+    let surface = &commands[3];
+    assert_eq!(first_gradient.z_index, surface.z_index);
+    assert_eq!(second_gradient.z_index, surface.z_index);
+    match &first_gradient.params {
         DrawCommandParams::Gradient(params) => {
             assert_eq!(params.kind, GradientDrawKind::Linear);
             assert_eq!(params.start_color, "rgba(5,7,12,0.82)");
-            assert_eq!(params.end_color, "rgba(5,7,12,0.06)");
+            assert_eq!(params.end_color, "rgba(12,18,28,0.42)");
             assert_eq!(params.angle_degrees, 90.0);
+            assert_eq!(params.start_offset, 0.0);
+            assert_eq!(params.end_offset, 0.4);
+            assert!(params.fill_before_start);
+            assert!(!params.fill_after_end);
+        }
+        _ => panic!("expected gradient params"),
+    }
+    match &second_gradient.params {
+        DrawCommandParams::Gradient(params) => {
+            assert_eq!(params.start_color, "rgba(12,18,28,0.42)");
+            assert_eq!(params.end_color, "rgba(5,7,12,0.06)");
+            assert_eq!(params.start_offset, 0.4);
+            assert_eq!(params.end_offset, 1.0);
+            assert!(!params.fill_before_start);
+            assert!(params.fill_after_end);
         }
         _ => panic!("expected gradient params"),
     }

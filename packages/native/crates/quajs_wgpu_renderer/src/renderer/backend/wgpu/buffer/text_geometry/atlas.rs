@@ -577,6 +577,7 @@ fn vertex(position: [f32; 2], uv: [f32; 2], color: [f32; 4]) -> WgpuNativeRender
         color,
         effect0: [0.0; 4],
         effect1: [0.0; 4],
+        effect2: [0.0; 4],
     }
 }
 

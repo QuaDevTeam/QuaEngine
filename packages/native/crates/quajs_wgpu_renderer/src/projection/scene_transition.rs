@@ -108,6 +108,7 @@ pub fn scene_transition_command(
             border: BorderDrawParams::default(),
             padding: EdgeInsetsDrawParam::default(),
             intent: None,
+            rotation_degrees: 0.0,
         })),
     )
 }

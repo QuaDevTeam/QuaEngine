@@ -7,6 +7,8 @@ mod input;
 mod metrics;
 mod performance_hud;
 #[cfg(feature = "quickjs-rquickjs")]
+mod projection_worker;
+#[cfg(feature = "quickjs-rquickjs")]
 mod quickjs_product;
 mod report;
 mod report_builder;

@@ -2,11 +2,14 @@ use serde_json::{Map, Value};
 
 use super::{numeric_record, set_path};
 
-pub fn apply_animations(view: &mut Map<String, Value>, animations: &Value, now_ms: f64) -> bool {
+/// Applies every resolved animation track to `view` and returns how many
+/// animations are still running. The count feeds the dev performance HUD, and a
+/// non-zero count means the renderer still owes more frames.
+pub fn apply_animations(view: &mut Map<String, Value>, animations: &Value, now_ms: f64) -> usize {
     let Some(animations) = animations.as_array() else {
-        return false;
+        return 0;
     };
-    let mut active = false;
+    let mut active = 0usize;
     for animation in animations {
         let Some(animation) = animation.as_object() else {
             continue;
@@ -15,7 +18,7 @@ pub fn apply_animations(view: &mut Map<String, Value>, animations: &Value, now_m
             continue;
         };
         if local_is_active(animation, now_ms) {
-            active = true;
+            active += 1;
         }
         let Some(tracks) = animation.get("resolvedTracks").and_then(Value::as_array) else {
             continue;
@@ -428,22 +431,36 @@ fn parse_color(value: &str) -> Option<[f64; 4]> {
 
 pub fn ease_progress(progress: f64, easing: Option<&str>) -> f64 {
     let p = progress.clamp(0.0, 1.0);
+    let Some(easing) = easing else {
+        return p;
+    };
+    // CSS standard keywords and cubic-bezier / steps functions delegate to the
+    // shared CSS-spec solver so that both the timeline path and the
+    // interaction-feedback transition path produce identical bezier outputs.
+    if let Some(value) = super::easing::ease_for_css_keyword(p, easing) {
+        return value;
+    }
+    // render-core / legacy aliases that have no CSS standard equivalent.
     match easing {
-        Some("linear") => p,
-        Some("ease-in") | Some("easeIn") | Some("quad-in") | Some("quadIn") => p * p,
-        Some("ease-out") | Some("easeOut") | Some("quad-out") | Some("quadOut") => {
-            1.0 - (1.0 - p) * (1.0 - p)
-        }
-        Some("ease-in-out") | Some("easeInOut") | Some("quad-in-out") | Some("quadInOut") => {
+        "easeIn" | "quad-in" | "quadIn" => p * p,
+        "easeOut" | "quad-out" | "quadOut" => 1.0 - (1.0 - p) * (1.0 - p),
+        "easeInOut" | "quad-in-out" | "quadInOut" => {
             if p < 0.5 {
                 2.0 * p * p
             } else {
                 1.0 - ((-2.0 * p + 2.0).powi(2)) / 2.0
             }
         }
-        Some("cubic-in") | Some("cubicIn") | Some("easeInCubic") => p.powi(3),
-        Some("cubic-out") | Some("cubicOut") | Some("easeOutCubic") => 1.0 - (1.0 - p).powi(3),
-        Some(value) if value.starts_with("cubic-bezier(") => p,
+        "cubic-in" | "cubicIn" | "easeInCubic" => p.powi(3),
+        "cubic-out" | "cubicOut" | "easeOutCubic" => 1.0 - (1.0 - p).powi(3),
+        "cubic-in-out" | "cubicInOut" | "easeInOutCubic" => {
+            if p < 0.5 {
+                4.0 * p.powi(3)
+            } else {
+                1.0 - ((-2.0 * p + 2.0).powi(3)) / 2.0
+            }
+        }
+        // Unknown keyword → linear, matching render-core fallback.
         _ => p,
     }
 }

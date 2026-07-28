@@ -14,7 +14,9 @@ use crate::resources::ResourceId;
 
 mod basic;
 mod button;
+mod chevron;
 mod diagnostics;
+mod gradient; // Analytic gradient geometry and stop-interval coverage.
 mod media;
 mod text;
 
@@ -189,6 +191,11 @@ fn _draw_param_compile_guard() {
         rotation_degrees: 0.0,
         brightness: 1.0,
         saturation: 1.0,
+        contrast: 1.0,
+        grayscale: 0.0,
+        sepia: 0.0,
+        hue_rotate_radians: 0.0,
+        invert: 0.0,
     });
     let _ = DrawCommandParams::Text(TextDrawParams {
         text: "x".to_string(),
@@ -207,9 +214,11 @@ fn _draw_param_compile_guard() {
         blur_radius: 0.0,
         padding: EdgeInsetsDrawParam::default(),
         role: "body".to_string(),
+        rotation_degrees: 0.0,
     });
     let _ = DrawCommandParams::Panel(PanelDrawParams {
         role: "panel".to_string(),
+        rotation_degrees: 0.0,
         corner_radius: 0.0,
         fill_color: "#000".to_string(),
         border: BorderDrawParams::default(),

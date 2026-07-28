@@ -18,6 +18,8 @@ use super::metrics::{
 };
 use super::performance_hud::NativeWindowPerformanceHud;
 #[cfg(feature = "quickjs-rquickjs")]
+use super::projection_worker::NativeProjectionWorker;
+#[cfg(feature = "quickjs-rquickjs")]
 use super::quickjs_product::NativeWindowQuickJsProduct;
 use super::report::NativeWindowSmokeReport;
 use super::report_builder::{build_window_smoke_report, NativeWindowSmokeReportInput};
@@ -41,6 +43,9 @@ pub(super) struct NativeWindowSmokeApp {
     input: NativeWindowSmokeInputState,
     texture_metrics: NativeWindowSmokeTextureMetrics,
     performance_hud: NativeWindowPerformanceHud,
+    /// When the most recent input event (pointer/keyboard/wheel) arrived.
+    /// Used to compute input-to-first-frame latency in the HUD.
+    last_input_at: Option<Instant>,
     #[cfg(feature = "quickjs-rquickjs")]
     quickjs_product: Option<NativeWindowQuickJsProduct>,
     #[cfg(feature = "quickjs-rquickjs")]
@@ -49,8 +54,16 @@ pub(super) struct NativeWindowSmokeApp {
     renderer_redraw_pending: bool,
     #[cfg(feature = "quickjs-rquickjs")]
     renderer_local_work_active: bool,
+    /// Owns the JS-shaped projection work on a dedicated thread so the winit
+    /// event thread only encodes and presents wgpu frames.
     #[cfg(feature = "quickjs-rquickjs")]
-    projection_runtime: Option<NativeRendererProjectionRuntime>,
+    projection_worker: Option<NativeProjectionWorker>,
+    /// Last projection the render thread consumed. Reused whenever the worker
+    /// has not published a newer frame yet, so present never waits on JS work.
+    #[cfg(feature = "quickjs-rquickjs")]
+    last_projection_json: Option<Arc<str>>,
+    #[cfg(feature = "quickjs-rquickjs")]
+    last_projection_font_prewarm_texts: Vec<String>,
     interaction_probe_story_observed: bool,
     interaction_probe_advance_count: usize,
     interaction_probe_typewriter_revealed: bool,
@@ -70,6 +83,7 @@ impl NativeWindowSmokeApp {
             input: NativeWindowSmokeInputState::default(),
             texture_metrics: NativeWindowSmokeTextureMetrics::default(),
             performance_hud: NativeWindowPerformanceHud::default(),
+            last_input_at: None,
             #[cfg(feature = "quickjs-rquickjs")]
             quickjs_product: None,
             #[cfg(feature = "quickjs-rquickjs")]
@@ -79,7 +93,11 @@ impl NativeWindowSmokeApp {
             #[cfg(feature = "quickjs-rquickjs")]
             renderer_local_work_active: false,
             #[cfg(feature = "quickjs-rquickjs")]
-            projection_runtime: None,
+            projection_worker: None,
+            #[cfg(feature = "quickjs-rquickjs")]
+            last_projection_json: None,
+            #[cfg(feature = "quickjs-rquickjs")]
+            last_projection_font_prewarm_texts: Vec::new(),
             interaction_probe_story_observed: false,
             interaction_probe_advance_count: 0,
             interaction_probe_typewriter_revealed: false,
@@ -137,6 +155,8 @@ impl NativeWindowSmokeApp {
 
         let window_loop =
             NativeProductWindowInMemoryLoop::new(runtime, load_window_smoke_target_frame_count());
+        // The native app shell owns a browser-like render cadence. Smoke runs
+        // still stop at their target frame count from the window event handler.
         self.product_shell = Some(NativeProductAppShell::new(window_loop));
         #[cfg(feature = "quickjs-rquickjs")]
         {
@@ -160,8 +180,22 @@ impl NativeWindowSmokeApp {
                             ))
                         })?;
                 }
+                // Seed the first projection on this thread so the very first
+                // frame has something to render, then hand the runtime to the
+                // worker so later projections never block present.
+                let seed = projection_runtime.project_now().map_err(|error| {
+                    NativeWindowSmokeError::new(format!(
+                        "Rust native projection runtime failed to project the first frame: {error}."
+                    ))
+                })?;
+                self.renderer_local_work_active = seed.local_work_active;
+                self.last_projection_font_prewarm_texts = projection_runtime.font_prewarm_texts();
+                self.last_projection_json = Some(Arc::from(seed.json));
+                self.projection_worker = Some(NativeProjectionWorker::spawn(
+                    projection_runtime,
+                    self.event_loop_proxy.clone(),
+                )?);
                 self.quickjs_pipeline_sequence = product.pipeline_sequence();
-                self.projection_runtime = Some(projection_runtime);
                 self.renderer_redraw_pending = true;
                 window.request_redraw();
             }
@@ -178,15 +212,23 @@ impl NativeWindowSmokeApp {
         })?;
         let dimensions = window_frame_dimensions(window.inner_size(), window.scale_factor());
         #[cfg(feature = "quickjs-rquickjs")]
-        let frame_source: Arc<str> = match self.projection_runtime.as_mut() {
-            Some(runtime) => {
-                let projection = runtime.project_now().map_err(|error| {
-                    NativeWindowSmokeError::new(format!(
-                        "Rust native projection runtime failed to project a frame: {error}."
-                    ))
-                })?;
-                self.renderer_local_work_active = projection.local_work_active;
-                Arc::from(projection.json)
+        let frame_source: Arc<str> = match self.projection_worker.as_ref() {
+            Some(worker) => {
+                // The projection worker publishes finished frames off-thread.
+                // Consume the newest one if it landed, otherwise re-present the
+                // last projection instead of stalling on JS-side work.
+                if let Some(projection) = worker.take_latest_projection()? {
+                    self.renderer_local_work_active = projection.local_work_active;
+                    self.last_projection_font_prewarm_texts = projection.font_prewarm_texts;
+                    self.last_projection_json = Some(Arc::from(projection.json));
+                }
+                // Kick the next projection before the wgpu encode/present so the
+                // worker overlaps with GPU submission instead of serializing.
+                worker.request_tick();
+                match self.last_projection_json.as_ref() {
+                    Some(json) => json.clone(),
+                    None => self.frame_source.clone().into(),
+                }
             }
             None => self.frame_source.clone().into(),
         };
@@ -228,12 +270,14 @@ impl NativeWindowSmokeApp {
         };
 
         #[cfg(feature = "quickjs-rquickjs")]
-        if let Some(runtime) = self.projection_runtime.as_ref() {
+        if self.projection_worker.is_some() {
+            // Prewarm texts are computed by the worker alongside the projection,
+            // so the render thread never locks the projection runtime here.
             product_shell
                 .window_loop_mut()
                 .runtime_mut()
                 .renderer_mut()
-                .prewarm_font_texts(&runtime.font_prewarm_texts())
+                .prewarm_font_texts(&self.last_projection_font_prewarm_texts)
                 .map_err(|error| {
                     NativeWindowSmokeError::new(format!(
                         "Failed to prewarm native typewriter font glyphs: {error}."
@@ -242,7 +286,14 @@ impl NativeWindowSmokeApp {
         }
 
         let target_frame_count = product_shell.window_loop().target_frame_count();
-        let should_shutdown_after_next_frame = self.interaction_probe_advance_observed;
+        let next_render_reaches_target = product_shell
+            .window_loop()
+            .runtime()
+            .rendered_frame_count()
+            .saturating_add(1)
+            >= target_frame_count;
+        let should_shutdown_after_next_frame = self.interaction_probe_advance_observed
+            || (!native_window_dev_enabled() && next_render_reaches_target);
         if should_shutdown_after_next_frame {
             product_shell
                 .window_loop_mut()
@@ -391,11 +442,32 @@ impl NativeWindowSmokeApp {
             frame_capture: frame_capture.as_ref(),
         });
         if native_window_dev_enabled() {
+            #[cfg(feature = "quickjs-rquickjs")]
+            let (proj_ms, proj_fresh, active_transitions) = self
+                .projection_worker
+                .as_ref()
+                .map(|w| {
+                    (
+                        w.last_projection_ms(),
+                        !w.last_frame_was_cached(),
+                        w.last_active_transition_count(),
+                    )
+                })
+                .unwrap_or((0.0, true, 0));
+            #[cfg(not(feature = "quickjs-rquickjs"))]
+            let (proj_ms, proj_fresh, active_transitions) = (0.0_f64, true, 0usize);
+            let input_latency_ms = self
+                .last_input_at
+                .map(|t| t.elapsed().as_secs_f64() * 1000.0);
             self.performance_hud.record_frame(
                 frame_started_at.elapsed(),
                 frame_result.submission.command_count,
                 frame_result.submission.pass_count,
                 frame_result.submission.batch_count,
+                proj_ms,
+                proj_fresh,
+                input_latency_ms,
+                active_transitions,
             );
         }
         Ok(report)
@@ -441,6 +513,19 @@ impl NativeWindowSmokeApp {
             .dispatch_pointer_event(renderer, host, phase, point, button);
         self.flush_dev_renderer_intents()?;
         result
+    }
+
+    /// Scrolls the innermost scroll container under the current cursor position.
+    /// Returns true when a scroll node was found and the offsets changed.
+    fn dispatch_window_scroll(&mut self, delta_x: f64, delta_y: f64) -> bool {
+        let Some(point) = self.input.cursor_client_point() else {
+            return false;
+        };
+        #[cfg(feature = "quickjs-rquickjs")]
+        if let Some(worker) = self.projection_worker.as_ref() {
+            return worker.scroll_at(point.client_x, point.client_y, delta_x, delta_y);
+        }
+        false
     }
 
     fn dispatch_window_pointer_move(
@@ -563,17 +648,17 @@ impl NativeWindowSmokeApp {
                 intents[self.input.dispatched_intent_count..].to_vec()
             };
             let mut intents = self
-                .projection_runtime
-                .as_mut()
-                .map(NativeRendererProjectionRuntime::drain_intents)
+                .projection_worker
+                .as_ref()
+                .map(NativeProjectionWorker::drain_intents)
                 .unwrap_or_default();
             let mut forwarded_renderer_intent_count = 0usize;
             for intent in renderer_intents {
                 if is_advance_intent(&intent)
                     && self
-                        .projection_runtime
-                        .as_mut()
-                        .is_some_and(NativeRendererProjectionRuntime::reveal_dialogue_on_advance)
+                        .projection_worker
+                        .as_ref()
+                        .is_some_and(NativeProjectionWorker::reveal_dialogue_on_advance)
                 {
                     self.interaction_probe_typewriter_revealed = true;
                     self.request_redraw();
@@ -616,18 +701,14 @@ impl NativeWindowSmokeApp {
                 return;
             }
         };
-        let Some(runtime) = self.projection_runtime.as_mut() else {
+        let Some(worker) = self.projection_worker.as_ref() else {
             return;
         };
-        for message in update.messages {
-            if let Err(error) = runtime.apply_pipeline_event(&message.event, &message.payload_json)
-            {
-                self.error = Some(NativeWindowSmokeError::new(format!(
-                    "Failed to apply native pipeline event {}: {error}.",
-                    message.event
-                )));
-                return;
-            }
+        // Pipeline events are applied on the projection worker thread so the
+        // render thread never blocks on JS-shaped projection work.
+        if let Err(error) = worker.apply_pipeline_events(update.messages) {
+            self.error = Some(error);
+            return;
         }
         self.quickjs_pipeline_sequence = sequence;
         self.renderer_redraw_pending = true;

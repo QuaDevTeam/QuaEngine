@@ -24,7 +24,8 @@ pub(super) use crate::product_input::{
 
 const WINDOW_SMOKE_OPEN_SETTINGS_CENTER: StageLogicalPoint =
     StageLogicalPoint { x: 408.0, y: 354.0 };
-const NATIVE_DEMO_START_CENTER: StageLogicalPoint = StageLogicalPoint { x: 400.0, y: 504.0 };
+/// Centre of the demo main menu's START button (`x 130..490`, `y 483..531`).
+const NATIVE_DEMO_START_CENTER: StageLogicalPoint = StageLogicalPoint { x: 310.0, y: 507.0 };
 const NATIVE_DEMO_ADVANCE_CENTER: StageLogicalPoint = StageLogicalPoint { x: 960.0, y: 820.0 };
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]

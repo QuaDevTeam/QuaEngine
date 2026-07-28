@@ -1,8 +1,8 @@
 use crate::render_graph::{
     BorderDrawParams, DrawBatchPipeline, DrawCommandKind, EdgeInsetsDrawParam, FontStyleDrawParam,
-    FontWeightDrawParam, GradientDrawKind, LogicalRect, MediaFit, MediaOrigin, TextAlign,
-    TextDecorationDrawParam, TextDrawParams, TextOverflowDrawParam, TextTransformDrawParam,
-    UiButtonDrawParams, WhiteSpaceDrawParam,
+    FontWeightDrawParam, GradientDrawKind, GradientDrawRadialShape, LogicalRect, MediaFit,
+    MediaOrigin, TextAlign, TextDecorationDrawParam, TextDrawParams, TextOverflowDrawParam,
+    TextTransformDrawParam, UiButtonDrawParams, WhiteSpaceDrawParam,
 };
 use crate::resources::ResourceId;
 
@@ -130,6 +130,11 @@ pub enum WgpuNativeRenderPrimitiveKind {
         rotation_degrees: f64,
         brightness: f64,
         saturation: f64,
+        contrast: f64,
+        grayscale: f64,
+        sepia: f64,
+        hue_rotate_radians: f64,
+        invert: f64,
     },
     VideoFallback {
         asset_type: String,
@@ -164,17 +169,20 @@ pub enum WgpuNativeRenderPrimitiveKind {
         character_id: String,
         sprite_asset_name: String,
         rotation_degrees: f64,
+        flip_horizontal: bool,
     },
     Text {
         text: String,
         color: String,
         style: WgpuNativeRenderTextStyle,
+        rotation_degrees: f64,
     },
     Panel {
         role: String,
         fill_color: String,
         corner_radius: f64,
         border: WgpuNativeRenderPrimitiveBorder,
+        rotation_degrees: f64,
     },
     Shadow {
         color: String,
@@ -191,12 +199,17 @@ pub enum WgpuNativeRenderPrimitiveKind {
     },
     Gradient {
         kind: GradientDrawKind,
+        radial_shape: GradientDrawRadialShape,
         start_color: String,
         end_color: String,
         angle_degrees: f64,
         center_x: f64,
         center_y: f64,
         radius: f64,
+        start_offset: f64,
+        end_offset: f64,
+        fill_before_start: bool,
+        fill_after_end: bool,
         corner_radius: f64,
     },
     UiButton {

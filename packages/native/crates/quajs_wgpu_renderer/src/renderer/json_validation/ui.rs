@@ -284,14 +284,12 @@ impl JsonProjectionValidator {
             self.validate_color_literal(&format!("{path}.color"), color);
         }
         if let Some(gradient) = &style.background_gradient {
-            self.validate_color_literal(
-                &format!("{path}.backgroundGradient.startColor"),
-                &gradient.start_color,
-            );
-            self.validate_color_literal(
-                &format!("{path}.backgroundGradient.endColor"),
-                &gradient.end_color,
-            );
+            for (index, stop) in gradient.stops.iter().enumerate() {
+                self.validate_color_literal(
+                    &format!("{path}.backgroundGradient.stops[{index}].color"),
+                    &stop.color,
+                );
+            }
         }
         if let Some(shadow) = &style.box_shadow {
             self.validate_color_literal(&format!("{path}.boxShadow.color"), &shadow.color);

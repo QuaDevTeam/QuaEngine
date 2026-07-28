@@ -91,6 +91,55 @@ Layer {
     expect(document.rules[0].declarations.map(item => item.name)).toContain('z-index')
   })
 
+  it('preserves and distributes ordered multi-stop gradient positions', () => {
+    const document = analyzeQssSource(`
+Panel.linear {
+  background-image: linear-gradient(90deg, #010203 10%, #223344, #fefefe 90%);
+}
+Panel.radial {
+  background-image: radial-gradient(ellipse at center, transparent 46%, rgba(0,0,0,0.34) 100%);
+}
+`)
+
+    expect(document.diagnostics).toEqual([])
+    expect(resolveNativeQssDeclarations(document.rules[0].declarations).style.backgroundGradient).toEqual({
+      angleDegrees: 90,
+      kind: 'linear',
+      stops: [
+        { color: '#010203', position: 0.1 },
+        { color: '#223344', position: 0.5 },
+        { color: '#fefefe', position: 0.9 },
+      ],
+    })
+    expect(resolveNativeQssDeclarations(document.rules[1].declarations).style.backgroundGradient).toEqual({
+      centerX: 0.5,
+      centerY: 0.5,
+      kind: 'radial',
+      radius: Math.SQRT1_2,
+      shape: 'ellipse',
+      stops: [
+        { color: 'transparent', position: 0.46 },
+        { color: 'rgba(0,0,0,0.34)', position: 1 },
+      ],
+    })
+  })
+
+  it('rejects decreasing or hard-stop gradient positions before projection', () => {
+    const document = analyzeQssSource(`
+Panel.decreasing {
+  background-image: linear-gradient(#000 70%, #fff 20%);
+}
+Panel.hard-stop {
+  background-image: radial-gradient(circle, #000 40%, #fff 40%);
+}
+`)
+
+    expect(document.diagnostics.filter(item => item.code === 'QSS_INVALID_VALUE')).toHaveLength(2)
+    for (const rule of document.rules) {
+      expect(resolveNativeQssDeclarations(rule.declarations).style.backgroundGradient).toBeUndefined()
+    }
+  })
+
   it('resolves position declarations into compiler-only layout metadata', () => {
     const document = analyzeQssSource(`
 Button {

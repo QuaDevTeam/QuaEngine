@@ -1,6 +1,7 @@
 import type {
   NativeQssDocument,
   NativeQssResolvedNodeStyle,
+  NativeQssResolvedStyle,
   NativePackageProvenance,
   NativeQuiAstNode,
   NativeQuiDocument,
@@ -179,13 +180,16 @@ function surfaceNodeFromQuiNode(
     text,
     image,
     intent,
-    style: resolvedStyle.style,
+    style: resolveGradientGeometry(resolvedStyle.style, rect),
     stateStyles: resolvedStyle.stateStyles
       ? Object.fromEntries(Object.entries(resolvedStyle.stateStyles).map(([state, stateStyle]) => [
           state,
           {
             bounds: applyResolvedTransform(untransformedRect, stateStyle?.layout?.transform),
-            style: stateStyle?.style || {},
+            style: resolveGradientGeometry(
+              stateStyle?.style || {},
+              applyResolvedTransform(untransformedRect, stateStyle?.layout?.transform),
+            ),
           },
         ]))
       : undefined,
@@ -196,6 +200,31 @@ function surfaceNodeFromQuiNode(
   }
 
   return [pruneSurfaceNode(surfaceNode) as NativeUiCompilerSurfaceNodeProjection]
+}
+
+function resolveGradientGeometry(
+  style: NativeQssResolvedStyle,
+  bounds: NativeUiSurfaceRect,
+): NativeQssResolvedStyle {
+  const gradient = style.backgroundGradient
+  if (gradient?.kind !== 'radial' || gradient.shape !== 'circle')
+    return style
+
+  const centerX = gradient.centerX ?? 0.5
+  const centerY = gradient.centerY ?? 0.5
+  const aspect = bounds.width > 0 && bounds.height > 0
+    ? bounds.height / bounds.width
+    : 1
+  const horizontalDistance = Math.max(centerX, 1 - centerX)
+  const verticalDistance = Math.max(centerY, 1 - centerY) * aspect
+
+  return {
+    ...style,
+    backgroundGradient: {
+      ...gradient,
+      radius: Math.hypot(horizontalDistance, verticalDistance),
+    },
+  }
 }
 
 function applyResolvedTransform(

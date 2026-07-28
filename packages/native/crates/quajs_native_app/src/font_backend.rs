@@ -17,6 +17,19 @@ const GLYPH_CELL_PADDING: usize = 6;
 const GLYPH_ATLAS_COLUMNS: usize = 16;
 const MAX_DECODED_FONT_BYTES: usize = 64 * 1024 * 1024;
 
+/// Pixel scale at which one em measures `RASTER_SCALE` px, i.e. CSS font-size
+/// semantics. `PxScale::from(RASTER_SCALE)` would instead pin the
+/// ascender-to-descender span, which for CJK faces is ~1.4 em and silently
+/// renders every glyph ~30% smaller than the same font-size on the Web.
+fn em_px_scale(font: &FontArc) -> PxScale {
+    let units_per_em = font.units_per_em().unwrap_or_else(|| font.height_unscaled());
+    if units_per_em > 0.0 {
+        PxScale::from(RASTER_SCALE * font.height_unscaled() / units_per_em)
+    } else {
+        PxScale::from(RASTER_SCALE)
+    }
+}
+
 #[derive(Debug, Default)]
 pub(crate) struct SimpleNativeFontAtlasBackend {
     loaded_assets: BTreeMap<String, FontBackendAssetLoad>,
@@ -461,7 +474,7 @@ fn rasterize_font_family(
         })
         .collect();
 
-    let scaled = faces[0].font.as_scaled(PxScale::from(RASTER_SCALE));
+    let scaled = faces[0].font.as_scaled(em_px_scale(&faces[0].font));
     let resource_id = font_family_resource_id(family);
     let layout = FontBackendAtlasLayout {
         resource_id: resource_id.clone(),
@@ -571,9 +584,10 @@ fn rasterize_font_glyph(
     atlas_width: usize,
     atlas_height: usize,
 ) -> FontBackendAtlasGlyph {
-    let scaled = font.as_scaled(PxScale::from(RASTER_SCALE));
+    let raster_scale = em_px_scale(font);
+    let scaled = font.as_scaled(raster_scale);
     let advance = scaled.h_advance(glyph_id);
-    let glyph = glyph_id.with_scale_and_position(PxScale::from(RASTER_SCALE), point(0.0, 0.0));
+    let glyph = glyph_id.with_scale_and_position(raster_scale, point(0.0, 0.0));
     let Some(outlined) = font.outline_glyph(glyph) else {
         return empty_glyph(advance, cell_x, cell_y, atlas_width, atlas_height);
     };

@@ -71,6 +71,11 @@ pub(super) fn create_real_pipeline(
             offset: 48,
             shader_location: 4,
         },
+        wgpu::VertexAttribute {
+            format: wgpu::VertexFormat::Float32x4,
+            offset: 64,
+            shader_location: 5,
+        },
     ];
     let vertex_buffers = [wgpu::VertexBufferLayout {
         array_stride: std::mem::size_of::<
@@ -80,7 +85,7 @@ pub(super) fn create_real_pipeline(
         attributes: &attributes,
     }];
     let color_targets = [Some(wgpu::ColorTargetState {
-        format: target.color_format(),
+        format: target.frame_color_format(),
         blend: blend_state(key.blend),
         write_mask: wgpu::ColorWrites::ALL,
     })];

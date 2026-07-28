@@ -49,8 +49,22 @@ impl RealWgpuNativeRenderRuntimeTarget {
         self.extent = normalized_extent(extent);
     }
 
+    /// Format of the surface/presentation texture this target hands frames to.
     pub fn color_format(&self) -> wgpu::TextureFormat {
         self.color_format
+    }
+
+    /// Format the offscreen frame is composited in. Always the non-sRGB variant
+    /// of [`Self::color_format`], so the fixed-function blender operates on
+    /// sRGB-encoded values the way CSS does instead of on decoded linear light.
+    /// Presenting is a raw texture copy, which wgpu allows between formats that
+    /// differ only in sRGB-ness, so the swapchain still receives the same bytes.
+    ///
+    /// Pipelines and the frame texture must both derive their color target from
+    /// here; reading [`Self::color_format`] instead would fail render-pass
+    /// format validation.
+    pub fn frame_color_format(&self) -> wgpu::TextureFormat {
+        self.color_format.remove_srgb_suffix()
     }
 
     pub fn extent(&self) -> wgpu::Extent3d {

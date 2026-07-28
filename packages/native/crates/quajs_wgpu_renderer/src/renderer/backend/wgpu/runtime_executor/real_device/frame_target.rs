@@ -25,14 +25,14 @@ impl RealRuntimeFrameTarget {
             texture,
             view,
             extent: target.extent(),
-            color_format: target.color_format(),
+            color_format: target.frame_color_format(),
             completed_pass_count: 0,
             clear_next_pass: true,
         }
     }
 
     pub(super) fn begin_frame(&mut self, target: &RealWgpuNativeRenderRuntimeTarget) {
-        if self.extent != target.extent() || self.color_format != target.color_format() {
+        if self.extent != target.extent() || self.color_format != target.frame_color_format() {
             *self = Self::new(target);
             return;
         }
@@ -89,7 +89,7 @@ fn create_frame_texture(target: &RealWgpuNativeRenderRuntimeTarget) -> wgpu::Tex
         mip_level_count: 1,
         sample_count: 1,
         dimension: wgpu::TextureDimension::D2,
-        format: target.color_format(),
+        format: target.frame_color_format(),
         usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
         view_formats: &[],
     })
@@ -118,5 +118,25 @@ mod tests {
             wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT)
         ));
         assert_eq!(frame_target.snapshot().completed_pass_count, 0);
+    }
+
+    #[test]
+    fn composites_in_the_non_srgb_variant_of_the_presentation_format() {
+        // Blending has to happen on sRGB-encoded values to match CSS. An sRGB
+        // attachment would make the fixed-function blender decode to linear
+        // light first, which composites translucent layers noticeably brighter
+        // than the Web target. Presenting stays a raw copy, so the swapchain
+        // still receives the same bytes.
+        let target = RealWgpuNativeRenderRuntimeTarget::noop(320, 180);
+        assert!(target.color_format().is_srgb());
+
+        let frame_target = RealRuntimeFrameTarget::new(&target);
+
+        assert!(!frame_target.color_format().is_srgb());
+        assert_eq!(
+            frame_target.color_format(),
+            target.color_format().remove_srgb_suffix()
+        );
+        assert_eq!(frame_target.texture().format(), frame_target.color_format());
     }
 }

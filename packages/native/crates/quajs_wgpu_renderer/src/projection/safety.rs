@@ -95,7 +95,8 @@ pub(crate) fn is_safe_native_character_position(position: &CharacterPosition) ->
         && is_safe_optional_coordinate(position.x_percent, MAX_NATIVE_CHARACTER_PERCENT)
         && is_safe_optional_coordinate(position.y_percent, MAX_NATIVE_CHARACTER_PERCENT)
         && position.scale.is_none_or(|scale| {
-            scale.is_finite() && scale > 0.0 && scale <= MAX_NATIVE_CHARACTER_SCALE
+            // Negative scale is the flip signal; abs() gives the render scale.
+            scale.is_finite() && scale != 0.0 && scale.abs() <= MAX_NATIVE_CHARACTER_SCALE
         })
         && position.rotation.is_none_or(|rotation| {
             rotation.is_finite() && rotation.abs() <= MAX_NATIVE_CHARACTER_ROTATION_DEGREES
@@ -162,12 +163,46 @@ pub(crate) fn is_safe_native_ui_scroll_offset(value: f64) -> bool {
 pub(crate) fn is_safe_native_ui_style_numbers(style: &UiSurfaceResolvedStyle) -> bool {
     style.opacity.is_none_or(is_safe_native_opacity)
         && is_safe_native_ui_background_position(style.background_position)
+        && is_safe_native_ui_gradient(style.background_gradient.as_ref())
         && is_safe_optional_logical_value(style.border_radius, MAX_NATIVE_UI_STYLE_LOGICAL_VALUE)
         && is_safe_optional_logical_value(style.border_width, MAX_NATIVE_UI_STYLE_LOGICAL_VALUE)
         && is_safe_optional_logical_value(style.font_size, MAX_NATIVE_UI_STYLE_LOGICAL_VALUE)
         && is_safe_optional_logical_value(style.letter_spacing, MAX_NATIVE_UI_STYLE_LOGICAL_VALUE)
         && is_safe_optional_logical_value(style.line_height, MAX_NATIVE_UI_STYLE_LOGICAL_VALUE)
         && is_safe_native_ui_padding(style.padding)
+}
+
+fn is_safe_native_ui_gradient(
+    gradient: Option<&crate::projection::ui::UiSurfaceGradientProjection>,
+) -> bool {
+    let Some(gradient) = gradient else {
+        return true;
+    };
+    let geometry_is_safe = match gradient.kind {
+        crate::projection::ui::UiSurfaceGradientKindProjection::Linear => gradient
+            .angle_degrees
+            .is_some_and(|angle| angle.is_finite() && angle.abs() <= 360_000.0),
+        crate::projection::ui::UiSurfaceGradientKindProjection::Radial => {
+            gradient.center_x.is_some_and(is_safe_normalized_value)
+                && gradient.center_y.is_some_and(is_safe_normalized_value)
+                && gradient
+                    .radius
+                    .is_some_and(|radius| radius.is_finite() && radius > 0.0 && radius <= 2.0)
+                && gradient.shape.is_some()
+        }
+    };
+    if !geometry_is_safe || !(2..=8).contains(&gradient.stops.len()) {
+        return false;
+    }
+
+    let mut previous_position = None;
+    gradient.stops.iter().all(|stop| {
+        let is_safe = is_safe_native_color_literal(&stop.color)
+            && is_safe_normalized_value(stop.position)
+            && previous_position.is_none_or(|previous| stop.position > previous);
+        previous_position = Some(stop.position);
+        is_safe
+    })
 }
 
 pub(crate) fn is_safe_native_audio_track_numbers(track: &AudioTrackProjection) -> bool {

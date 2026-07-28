@@ -20,11 +20,11 @@ export async function openNativeDemoPanel(runtime: DemoRuntime, panel: NativeDem
     case 'backlog':
       await runtime.backlog.setVisible(true, {
         overlayStack: 'overlay',
-        zIndex: 50,
+        zIndex: 80,
         scene: {
           id: 'native-backlog',
           presentation: 'overlay',
-          overlay: { defaultChrome: false, overlayStack: 'overlay', zIndex: 50 },
+          overlay: { defaultChrome: false, overlayStack: 'overlay', zIndex: 80 },
         },
       })
       break

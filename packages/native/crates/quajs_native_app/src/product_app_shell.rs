@@ -75,8 +75,10 @@ where
     W: NativeProductAppShellWindowLoop,
 {
     pub(crate) fn new(window_loop: W) -> Self {
+        let mut app_loop = NativeProductAppLoop::new();
+        app_loop.enable_continuous_rendering();
         Self {
-            app_loop: NativeProductAppLoop::new(),
+            app_loop,
             window_loop,
         }
     }
@@ -212,7 +214,7 @@ mod tests {
     }
 
     #[test]
-    fn completed_frame_schedules_next_redraw_when_window_needs_more_frames() {
+    fn completed_frame_requests_the_next_continuous_redraw() {
         let mut shell = NativeProductAppShell::new(FakeWindowLoop {
             needs_more_frames: true,
             ..Default::default()
@@ -226,9 +228,10 @@ mod tests {
             .record_frame_completed()
             .expect("completed frame action should succeed");
 
-        assert!(action.request_redraw);
+        // Frame completion does not schedule a deadline. The next redraw fires
+        // from `about_to_wait` so the event loop can sleep while vsync blocks.
+        assert!(!action.request_redraw);
         assert!(action.lifecycle_report.is_none());
-        assert_eq!(shell.app_loop().snapshot().redraw_request_count, 2);
     }
 
     #[test]

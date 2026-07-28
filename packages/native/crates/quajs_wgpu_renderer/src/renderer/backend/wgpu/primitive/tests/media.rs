@@ -22,6 +22,11 @@ fn preserves_image_source_rect_when_lowering_primitives() {
                 rotation_degrees: 12.5,
                 brightness: 1.0,
                 saturation: 1.0,
+        contrast: 1.0,
+        grayscale: 0.0,
+        sepia: 0.0,
+        hue_rotate_radians: 0.0,
+        invert: 0.0,
             })),
             physical_bounds: physical_rect(20, 30, 200, 100),
             clip_depth: 0,
@@ -42,6 +47,7 @@ fn preserves_image_source_rect_when_lowering_primitives() {
             rotation_degrees,
             brightness,
             saturation,
+            ..
         } if asset_type == "images"
             && asset_name == "atlas/menu.png"
             && *fit == MediaFit::Contain
@@ -69,6 +75,11 @@ fn skips_empty_param_resource_ids_when_no_resources_are_bound() {
                 rotation_degrees: 0.0,
                 brightness: 1.0,
                 saturation: 1.0,
+                contrast: 1.0,
+                grayscale: 0.0,
+                sepia: 0.0,
+                hue_rotate_radians: 0.0,
+                invert: 0.0,
             }),
         ),
         unbound_draw(
@@ -104,6 +115,7 @@ fn skips_empty_param_resource_ids_when_no_resources_are_bound() {
                 anchor: CharacterAnchor::Center,
                 scale: 1.0,
                 rotation_degrees: 0.0,
+                flip_horizontal: false,
             }),
         ),
         unbound_draw(
@@ -127,6 +139,7 @@ fn skips_empty_param_resource_ids_when_no_resources_are_bound() {
                 blur_radius: 0.0,
                 padding: EdgeInsetsDrawParam::default(),
                 role: "ui-text".to_string(),
+                rotation_degrees: 0.0,
             }),
         ),
         unbound_draw(
@@ -316,6 +329,7 @@ fn lowers_character_primitives_with_character_resource_namespace() {
                 anchor: CharacterAnchor::Center,
                 scale: 1.0,
                 rotation_degrees: 0.0,
+                flip_horizontal: false,
             })),
             physical_bounds: physical_rect(400, 80, 480, 640),
             clip_depth: 0,
@@ -331,6 +345,7 @@ fn lowers_character_primitives_with_character_resource_namespace() {
             character_id,
             sprite_asset_name,
             rotation_degrees,
+            ..
         } if character_id == "yuki"
             && sprite_asset_name == "yuki/default.png"
             && *rotation_degrees == 0.0
@@ -361,6 +376,7 @@ fn prefers_bound_resources_over_params_when_lowering_primitives() {
                 anchor: CharacterAnchor::Center,
                 scale: 1.0,
                 rotation_degrees: 0.0,
+                flip_horizontal: false,
             })),
             physical_bounds: physical_rect(400, 80, 480, 640),
             clip_depth: 0,

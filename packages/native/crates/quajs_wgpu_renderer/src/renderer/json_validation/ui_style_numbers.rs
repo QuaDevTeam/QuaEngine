@@ -68,6 +68,39 @@ fn validate_gradient(
             }
         }
     }
+    validate_gradient_stops(gradient)
+}
+
+fn validate_gradient_stops(
+    gradient: &crate::projection::ui::UiSurfaceGradientProjection,
+) -> Option<(&'static str, String, String)> {
+    if !(2..=8).contains(&gradient.stops.len()) {
+        return Some((
+            "backgroundGradient.stops",
+            gradient.stops.len().to_string(),
+            "UI gradients require between 2 and 8 color stops".to_string(),
+        ));
+    }
+
+    let mut previous_position = None;
+    for stop in &gradient.stops {
+        if !stop.position.is_finite() || !(0.0..=1.0).contains(&stop.position) {
+            return Some((
+                "backgroundGradient.stops",
+                stop.position.to_string(),
+                "UI gradient stop positions must be finite and normalized to 0..=1".to_string(),
+            ));
+        }
+        if previous_position.is_some_and(|previous| stop.position <= previous) {
+            return Some((
+                "backgroundGradient.stops",
+                stop.position.to_string(),
+                "UI gradient stop positions must be strictly increasing".to_string(),
+            ));
+        }
+        previous_position = Some(stop.position);
+    }
+
     None
 }
 

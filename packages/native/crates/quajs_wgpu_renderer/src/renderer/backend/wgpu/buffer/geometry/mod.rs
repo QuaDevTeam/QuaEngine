@@ -100,5 +100,6 @@ fn vertex_with_uv_bounds(
         color,
         effect0: [0.0; 4],
         effect1: [0.0; 4],
+        effect2: [0.0; 4],
     }
 }

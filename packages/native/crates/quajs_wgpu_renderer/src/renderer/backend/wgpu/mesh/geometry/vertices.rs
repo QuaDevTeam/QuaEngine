@@ -9,6 +9,12 @@ pub(super) fn rotation_degrees(primitive: &WgpuNativeRenderPrimitive) -> f32 {
         }
         | WgpuNativeRenderPrimitiveKind::Character {
             rotation_degrees, ..
+        }
+        | WgpuNativeRenderPrimitiveKind::Panel {
+            rotation_degrees, ..
+        }
+        | WgpuNativeRenderPrimitiveKind::Text {
+            rotation_degrees, ..
         } => *rotation_degrees,
         _ => 0.0,
     };
@@ -17,6 +23,24 @@ pub(super) fn rotation_degrees(primitive: &WgpuNativeRenderPrimitive) -> f32 {
         degrees as f32
     } else {
         0.0
+    }
+}
+
+/// Returns true when the character primitive has `flip_horizontal` set.
+pub(super) fn character_flip_horizontal(primitive: &WgpuNativeRenderPrimitive) -> bool {
+    match &primitive.kind {
+        WgpuNativeRenderPrimitiveKind::Character {
+            flip_horizontal, ..
+        } => *flip_horizontal,
+        _ => false,
+    }
+}
+
+pub(super) fn apply_uv_flip_horizontal(
+    vertices: &mut [WgpuNativeRenderVertex; 4],
+) {
+    for v in vertices.iter_mut() {
+        v.uv[0] = 1.0 - v.uv[0];
     }
 }
 

@@ -68,7 +68,10 @@ fn noop_device_rejects_draw_vertex_range_exceeding_vertex_buffer() {
         error.kind,
         WgpuNativeRenderRuntimeErrorKind::InvalidOperationOrder
     );
-    assert!(error.message.contains("vertex range requires 256 bytes"));
+    let required_bytes = 4 * WgpuNativeRenderBufferVertex::BYTE_LEN;
+    assert!(error
+        .message
+        .contains(&format!("vertex range requires {required_bytes} bytes")));
     assert!(error.message.contains("vertex buffer has 64"));
 }
 

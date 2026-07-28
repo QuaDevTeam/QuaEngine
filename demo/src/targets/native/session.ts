@@ -19,6 +19,7 @@ import {
   createNativeDemoMenuSurface,
   createNativeMainMenuSurface,
   createNativeSaveLoadSurface,
+  createNativeShellVignetteOverlay,
   createNativeStoryTreeSurface,
   stageNativeCoverageScene,
   stageWebParityScene,
@@ -74,6 +75,8 @@ export async function createDemoNativeSession(fixture?: string): Promise<DemoNat
     await stageNativeCoverageScene(runtime)
     await runtime.engine.showUI('native-dev-status', createNativeDemoMenuSurface())
   }
+  // Always-on game-shell vignette (z-index 2, HUD stack).
+  await runtime.engine.showUI('native-shell-vignette', createNativeShellVignetteOverlay())
   await runtime.audio.playBGM(interactiveStory ? BGM.title : BGM.blackout, {
     ...DEFAULT_BGM_OPTIONS,
     id: 'demo-native-bgm',

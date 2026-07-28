@@ -36,6 +36,16 @@ pub struct ImageDrawParams {
     pub rotation_degrees: f64,
     pub brightness: f64,
     pub saturation: f64,
+    /// CSS `contrast(N)` — 1.0 = unchanged. Packed into effect0.z.
+    pub contrast: f64,
+    /// CSS `grayscale(N)` — 0.0 = full color, 1.0 = fully gray. effect0.w.
+    pub grayscale: f64,
+    /// CSS `sepia(N)` — 0.0 = unchanged, 1.0 = fully sepia. effect1.y.
+    pub sepia: f64,
+    /// CSS `hue-rotate(Ndeg)` converted to radians. effect1.z.
+    pub hue_rotate_radians: f64,
+    /// CSS `invert(N)` — 0.0 = unchanged, 1.0 = fully inverted. effect1.w.
+    pub invert: f64,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -72,6 +82,10 @@ pub struct CharacterDrawParams {
     pub anchor: CharacterAnchor,
     pub scale: f64,
     pub rotation_degrees: f64,
+    /// Mirrors the sprite horizontally when true. Equivalent to CSS
+    /// `transform: scaleX(-1)` and used when the engine emits a negative
+    /// scaleX on the character position.
+    pub flip_horizontal: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -142,6 +156,7 @@ pub struct TextDrawParams {
     pub blur_radius: f64,
     pub padding: EdgeInsetsDrawParam,
     pub role: String,
+    pub rotation_degrees: f64,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -175,6 +190,7 @@ pub struct PanelDrawParams {
     pub border: BorderDrawParams,
     pub padding: EdgeInsetsDrawParam,
     pub intent: Option<RendererIntent>,
+    pub rotation_degrees: f64,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -195,19 +211,25 @@ pub enum DrawTransitionProperty {
     Transform,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum DrawTransitionEasing {
     Ease,
     EaseIn,
     EaseInOut,
     EaseOut,
     Linear,
+    /// CSS `cubic-bezier(x1, y1, x2, y2)` control points.
+    CubicBezier([f64; 4]),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct DrawTransition {
     pub property: DrawTransitionProperty,
     pub duration_ms: f64,
+    /// CSS `transition-delay`: milliseconds before the transition begins.
+    /// Negative values start the transition mid-way (clamp to 0 for the
+    /// duration check).
+    pub delay_ms: f64,
     pub easing: DrawTransitionEasing,
 }
 
@@ -230,6 +252,12 @@ pub enum GradientDrawKind {
     Radial,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum GradientDrawRadialShape {
+    Circle,
+    Ellipse,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct GradientDrawParams {
     pub role: String,
@@ -240,6 +268,13 @@ pub struct GradientDrawParams {
     pub center_x: f64,
     pub center_y: f64,
     pub radius: f64,
+    pub radial_shape: GradientDrawRadialShape,
+    pub start_offset: f64,
+    pub end_offset: f64,
+    /// The first and last segments extend the edge stop colors outside the
+    /// authored stop interval, matching CSS color-stop fixup behavior.
+    pub fill_before_start: bool,
+    pub fill_after_end: bool,
     pub corner_radius: f64,
 }
 

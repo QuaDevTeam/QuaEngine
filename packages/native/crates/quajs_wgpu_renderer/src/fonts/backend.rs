@@ -99,8 +99,8 @@ impl FontBackendShapingFace {
         }
         let mut face = rustybuzz::Face::from_slice(&self.bytes, self.face_index)?;
         face.set_variations(&self.variations);
-        let font_height = f32::from(face.ascender()) - f32::from(face.descender());
-        if font_height <= 0.0 {
+        let units_per_em = face.units_per_em() as f32;
+        if units_per_em <= 0.0 {
             return None;
         }
         let bidi = unicode_bidi::BidiInfo::new(text, None);
@@ -110,8 +110,10 @@ impl FontBackendShapingFace {
         } else {
             FontBackendShapedDirection::LeftToRight
         };
-        // Match ab_glyph's PxScale contract, which scales ascent-to-descent height.
-        let scale = raster_size / font_height;
+        // CSS font-size semantics: `raster_size` px per em. This must stay in
+        // lockstep with the atlas rasterizer's `em_px_scale`, or shaped
+        // advances drift from the glyph bitmaps they position.
+        let scale = raster_size / units_per_em;
         let (levels, visual_runs) = bidi.visual_runs(paragraph, paragraph.range.clone());
         let mut glyphs = Vec::new();
         for run in visual_runs {

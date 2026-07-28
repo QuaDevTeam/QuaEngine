@@ -94,6 +94,7 @@ fn overlay_command(graph: &RenderGraph, effect: &EffectProjection) -> Option<Dra
         border: BorderDrawParams::default(),
         padding: EdgeInsetsDrawParam::default(),
         intent: None,
+        rotation_degrees: 0.0,
     }));
     command = apply_provenance(command, &effect.provenance);
     Some(command)

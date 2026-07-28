@@ -141,8 +141,8 @@ export const nativeQssProperties: readonly NativeQssPropertyDefinition[] = [
   property('background-image', 'p1', true, 'Package asset background image for panel-like native surfaces via asset("...").', [
     value('asset("...")', 'Reference a package-relative native asset.', 'asset("$1")'),
     value('asset("...", "images")', 'Reference a package-relative native image asset.', 'asset("$1", "images")'),
-    value('linear-gradient(90deg, #10141f, #202838)', 'Render a two-color analytic linear gradient.'),
-    value('radial-gradient(circle at center, #182234, #030407)', 'Render a two-color analytic radial gradient.'),
+    value('linear-gradient(90deg, #10141f, #202838 50%, #080a10)', 'Render an analytic linear gradient with 2 to 8 ordered color stops.'),
+    value('radial-gradient(circle at center, transparent 46%, #030407)', 'Render an analytic circle or ellipse gradient with 2 to 8 ordered color stops.'),
   ]),
   property('background-size', 'p1', true, 'Background image fitting mode for native surface image backgrounds.', imageFitValues),
   property('background-position', 'p1', true, 'Background image origin for native surface image backgrounds.', backgroundPositionValues),
@@ -214,6 +214,7 @@ export const nativeQssProperties: readonly NativeQssPropertyDefinition[] = [
     value('all 180ms ease-out', 'Interpolate every supported state property.'),
     value('transform 180ms ease-out', 'Interpolate resolved logical bounds.'),
     value('background-color 160ms ease, color 160ms ease', 'Interpolate surface and text colors.'),
+    value('transform 220ms cubic-bezier(0.19, 1, 0.22, 1)', 'Interpolate with a custom CSS timing function.'),
     value('none', 'Apply state changes immediately.'),
   ]),
   property('rotate', 'p2', false, 'Transform longhand planned for native style IR.'),

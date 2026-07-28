@@ -122,6 +122,12 @@ impl WgpuNativeRenderVertexLayout {
                     format: WgpuNativeRenderVertexFormat::Float32x4,
                     semantic: WgpuNativeRenderVertexSemantic::Effect1,
                 },
+                WgpuNativeRenderVertexAttribute {
+                    shader_location: 5,
+                    offset: 64,
+                    format: WgpuNativeRenderVertexFormat::Float32x4,
+                    semantic: WgpuNativeRenderVertexSemantic::Effect2,
+                },
             ],
         }
     }
@@ -153,6 +159,7 @@ pub enum WgpuNativeRenderVertexSemantic {
     Color,
     Effect0,
     Effect1,
+    Effect2,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
