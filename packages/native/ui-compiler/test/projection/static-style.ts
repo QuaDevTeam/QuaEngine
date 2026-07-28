@@ -7,6 +7,32 @@ import {
 import { withDefaultVisible } from './helpers'
 
 describe('@quajs/native-ui-compiler projection static style', () => {
+  it('resolves circle gradient geometry from the final non-square node bounds', () => {
+    const qui = analyzeQuiSource(`
+Box.vignette(id: "vignette", x: 0, y: 0, width: 1920, height: 1080)
+`)
+    const qss = analyzeQssSource(`
+Box.vignette {
+  background-image: radial-gradient(circle at center, transparent 46%, rgba(0,0,0,0.34) 100%);
+}
+`)
+
+    expect(qui.diagnostics).toEqual([])
+    expect(qss.diagnostics).toEqual([])
+    const projection = compileNativeUiSurfaceProjection(qui, { qss })
+    expect(projection.root?.style?.backgroundGradient).toEqual({
+      centerX: 0.5,
+      centerY: 0.5,
+      kind: 'radial',
+      radius: Math.hypot(0.5, 0.5 * (1080 / 1920)),
+      shape: 'circle',
+      stops: [
+        { color: 'transparent', position: 0.46 },
+        { color: 'rgba(0,0,0,0.34)', position: 1 },
+      ],
+    })
+  })
+
   it('compiles static QUI and QSS into native UI surface projection JSON', () => {
     const qui = analyzeQuiSource(`
 Panel.dialog(id: "menu", x: 10, y: 20, width: 520, height: 320) {

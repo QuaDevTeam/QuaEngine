@@ -2,16 +2,17 @@ use crate::projection::common::{is_safe_native_asset_ref, PackageProvenance};
 use crate::projection::typography::font_family_resource_ids;
 use crate::render_graph::{
     BorderDrawParams, DrawCommand, DrawCommandKind, DrawCommandParams, EdgeInsetsDrawParam,
-    FontStyleDrawParam, ImageDrawParams, MediaFit, MediaOrigin, PanelDrawParams, RenderGraph,
-    RenderPlane, TextDecorationDrawParam, TextDrawParams, TextOverflowDrawParam,
-    TextTransformDrawParam, WhiteSpaceDrawParam,
+    FontStyleDrawParam, GradientDrawKind, GradientDrawParams, GradientDrawRadialShape,
+    ImageDrawParams, LogicalRect, MediaFit, MediaOrigin, PanelDrawParams, RenderGraph, RenderPlane,
+    ShadowDrawParams, ShadowDrawStyle, TextDecorationDrawParam, TextDrawParams,
+    TextOverflowDrawParam, TextTransformDrawParam, WhiteSpaceDrawParam,
 };
 use crate::resources::ResourceId;
 use crate::stage_layout::ResolvedStageLayout;
 
 use super::layout::{
-    avatar_bounds, dialogue_accent_bounds, dialogue_panel_bounds, dialogue_shadow_bounds,
-    speaker_accent_bounds, speaker_bounds, text_bounds,
+    avatar_bounds, dialogue_accent_bounds, dialogue_panel_bounds, speaker_accent_bounds,
+    speaker_bounds, text_bounds,
 };
 use super::rich_text::{
     is_safe_rich_text_payload, resolve_font_family, resolve_font_size, resolve_font_weight,
@@ -33,17 +34,38 @@ pub fn build_dialogue_commands(
     }
 
     let panel = dialogue_panel_bounds(layout);
+
+    // Outer drop shadow: box-shadow 0 22px 80px rgba(0,0,0,0.62)
+    let shadow_blur = 80.0_f64;
+    let shadow_offset_y = 22.0_f64;
+    let shadow_extent = shadow_blur * 1.5;
+    let shadow_bounds = LogicalRect {
+        x: panel.x - shadow_extent,
+        y: panel.y + shadow_offset_y - shadow_extent,
+        width: panel.width + shadow_extent * 2.0,
+        height: panel.height + shadow_extent * 2.0,
+    };
+
     let mut commands = vec![
         apply_provenance(
-            panel_command(
+            DrawCommand::new(
                 "dialogue:shadow",
-                dialogue_shadow_bounds(panel),
-                "dialogue-shadow",
-                "rgba(0,0,0,0.46)",
-                8.0,
-                BorderDrawParams::default(),
+                RenderPlane::Safe,
+                DrawCommandKind::RoundedRect,
+                shadow_bounds,
             )
-            .z_index(-1),
+            .z_index(-2)
+            .params(DrawCommandParams::Shadow(ShadowDrawParams {
+                role: "dialogue-shadow".to_string(),
+                source_bounds: panel,
+                offset_x: 0.0,
+                offset_y: shadow_offset_y,
+                blur_radius: shadow_blur,
+                spread_radius: 0.0,
+                corner_radius: 2.0,
+                color: "rgba(0,0,0,0.62)".to_string(),
+                style: ShadowDrawStyle::Outer,
+            })),
             &dialogue.provenance,
         ),
         apply_provenance(
@@ -64,6 +86,56 @@ pub fn build_dialogue_commands(
                 },
                 padding: EdgeInsetsDrawParam::default(),
                 intent: None,
+                rotation_degrees: 0.0,
+            })),
+            &dialogue.provenance,
+        ),
+        // Subtle 180° gradient overlay for depth (top-lit, transparent end).
+        apply_provenance(
+            DrawCommand::new(
+                "dialogue:gradient",
+                RenderPlane::Safe,
+                DrawCommandKind::RoundedRect,
+                panel,
+            )
+            .z_index(0)
+            .params(DrawCommandParams::Gradient(GradientDrawParams {
+                role: "dialogue-gradient".to_string(),
+                kind: GradientDrawKind::Linear,
+                start_color: "rgba(255,255,255,0.04)".to_string(),
+                end_color: "rgba(0,0,0,0.0)".to_string(),
+                angle_degrees: 180.0,
+                center_x: 0.0,
+                center_y: 0.0,
+                radius: 0.0,
+                radial_shape: GradientDrawRadialShape::Circle,
+                start_offset: 0.0,
+                end_offset: 0.45,
+                fill_before_start: true,
+                fill_after_end: true,
+                corner_radius: 2.0,
+            })),
+            &dialogue.provenance,
+        ),
+        // Inset highlight: box-shadow inset 0 1px 0 rgba(255,226,166,0.14)
+        apply_provenance(
+            DrawCommand::new(
+                "dialogue:inset-highlight",
+                RenderPlane::Safe,
+                DrawCommandKind::RoundedRect,
+                panel,
+            )
+            .z_index(0)
+            .params(DrawCommandParams::Shadow(ShadowDrawParams {
+                role: "dialogue-inset-highlight".to_string(),
+                source_bounds: panel,
+                offset_x: 0.0,
+                offset_y: 1.0,
+                blur_radius: 0.0,
+                spread_radius: 0.0,
+                corner_radius: 2.0,
+                color: "rgba(255,226,166,0.14)".to_string(),
+                style: ShadowDrawStyle::Inset,
             })),
             &dialogue.provenance,
         ),
@@ -142,6 +214,13 @@ pub fn build_dialogue_commands(
         }
     }
 
+    // Apply presence fade (enter/exit transition driven by the runtime).
+    if dialogue.presence_opacity < 1.0 {
+        for command in &mut commands {
+            command.opacity = (command.opacity * dialogue.presence_opacity).clamp(0.0, 1.0);
+        }
+    }
+
     commands
 }
 
@@ -161,6 +240,7 @@ fn panel_command(
             border,
             padding: EdgeInsetsDrawParam::default(),
             intent: None,
+            rotation_degrees: 0.0,
         }),
     )
 }
@@ -202,6 +282,7 @@ fn text_command(
             blur_radius: 0.0,
             padding: EdgeInsetsDrawParam::default(),
             role: role.to_string(),
+            rotation_degrees: 0.0,
         }))
 }
 
@@ -233,6 +314,11 @@ fn avatar_command(
         rotation_degrees: 0.0,
         brightness: 1.0,
         saturation: 1.0,
+        contrast: 1.0,
+        grayscale: 0.0,
+        sepia: 0.0,
+        hue_rotate_radians: 0.0,
+        invert: 0.0,
     }));
 
     Some(apply_provenance(command, &avatar.provenance))

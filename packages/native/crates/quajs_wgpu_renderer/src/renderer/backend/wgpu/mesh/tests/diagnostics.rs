@@ -12,6 +12,7 @@ fn tracks_skipped_and_invalid_paint_quads() {
                 text: "Invalid".to_string(),
                 color: "rgb(300,0,0)".to_string(),
                 style: text_style(18.0, TextAlign::Left, EdgeInsetsDrawParam::default()),
+            rotation_degrees: 0.0,
             },
             physical_rect(40, 20, 120, 28),
             Vec::new(),

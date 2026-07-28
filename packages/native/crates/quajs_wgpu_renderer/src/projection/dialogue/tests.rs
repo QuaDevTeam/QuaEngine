@@ -37,7 +37,7 @@ fn builds_dialogue_panel_and_text_commands() {
 
     let commands = build_dialogue_commands(&layout, &dialogue);
 
-    assert_eq!(commands.len(), 6);
+    assert_eq!(commands.len(), 8);
     assert_eq!(commands[0].id, "dialogue:shadow");
     let panel = commands
         .iter()
@@ -177,7 +177,7 @@ fn skips_unsafe_speaker_but_keeps_safe_dialogue_text() {
 
     let commands = build_dialogue_commands(&layout, &dialogue);
 
-    assert_eq!(commands.len(), 4);
+    assert_eq!(commands.len(), 6);
     assert!(commands
         .iter()
         .all(|command| command.id != "dialogue:speaker"));
@@ -347,7 +347,7 @@ fn falls_back_from_unsafe_dialogue_style_on_direct_projection() {
 
     let commands = build_dialogue_commands(&layout, &dialogue);
 
-    assert_eq!(commands.len(), 6);
+    assert_eq!(commands.len(), 8);
 
     let speaker = commands
         .iter()
@@ -408,7 +408,7 @@ fn skips_empty_avatar_asset_on_direct_projection() {
 
     let commands = build_dialogue_commands(&layout, &dialogue);
 
-    assert_eq!(commands.len(), 4);
+    assert_eq!(commands.len(), 6);
     assert!(commands
         .iter()
         .all(|command| command.id != "dialogue:avatar"));
@@ -441,7 +441,7 @@ fn skips_unsafe_avatar_asset_names_on_direct_projection() {
 
         let commands = build_dialogue_commands(&layout, &dialogue);
 
-        assert_eq!(commands.len(), 4);
+        assert_eq!(commands.len(), 6);
         assert!(
             commands
                 .iter()
@@ -465,7 +465,7 @@ fn skips_unsafe_avatar_asset_type_on_direct_projection() {
 
     let commands = build_dialogue_commands(&layout, &dialogue);
 
-    assert_eq!(commands.len(), 4);
+    assert_eq!(commands.len(), 6);
     assert!(commands
         .iter()
         .all(|command| command.id != "dialogue:avatar"));
@@ -482,7 +482,7 @@ fn appends_dialogue_commands_to_graph() {
 
     assert_eq!(
         graph.summary().by_plane[&RenderPlane::Safe].command_count,
-        4
+        6
     );
 }
 

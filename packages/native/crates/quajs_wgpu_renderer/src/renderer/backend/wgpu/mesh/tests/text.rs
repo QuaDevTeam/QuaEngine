@@ -11,6 +11,7 @@ fn text_placeholder_preserves_glyph_inputs() {
             text: "Hello".to_string(),
             color: "rgb(10, 20, 30)".to_string(),
             style: style.clone(),
+            rotation_degrees: 0.0,
         },
         physical_rect(20, 20, 300, 40),
         vec![ResourceId::from("fonts:Inter")],
@@ -47,6 +48,7 @@ fn rich_text_placeholder_preserves_draw_kind_and_glyph_inputs() {
             text: "First line\nSecond line".to_string(),
             color: "#f7f3e8".to_string(),
             style: style.clone(),
+            rotation_degrees: 0.0,
         },
         physical_rect(24, 32, 360, 96),
         vec![

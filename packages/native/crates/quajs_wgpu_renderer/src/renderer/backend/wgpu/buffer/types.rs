@@ -11,6 +11,7 @@ pub struct WgpuNativeRenderBufferVertex {
     pub color: [f32; 4],
     pub effect0: [f32; 4],
     pub effect1: [f32; 4],
+    pub effect2: [f32; 4],
 }
 
 impl WgpuNativeRenderBufferVertex {

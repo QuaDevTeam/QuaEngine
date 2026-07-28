@@ -54,6 +54,11 @@ fn lowers_execution_draws_into_wgpu_primitives() {
                 rotation_degrees: 0.0,
                 brightness: 1.0,
                 saturation: 1.0,
+                contrast: 1.0,
+                grayscale: 0.0,
+                sepia: 0.0,
+                hue_rotate_radians: 0.0,
+                invert: 0.0,
             })),
             physical_bounds: physical_rect(0, 0, 1280, 720),
             clip_depth: 0,
@@ -120,6 +125,7 @@ fn lowers_execution_draws_into_wgpu_primitives() {
             rotation_degrees,
             brightness,
             saturation,
+            ..
         } if asset_type == "images"
             && asset_name == "bg/school.png"
             && *fit == MediaFit::Cover

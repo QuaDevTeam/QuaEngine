@@ -394,6 +394,7 @@ mod tests {
                 visibility_change_count: 2,
                 lifecycle_tick_request_count: 3,
                 redraw_request_count: 4,
+                continuous_rendering: false,
             },
             last_resize_physical_size: Some(NativeProductWindowPhysicalSize::new(960, 540)),
             dimensions: WindowFrameDimensions {

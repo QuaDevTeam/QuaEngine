@@ -82,16 +82,9 @@ fn validate_gradient_object_field(
         return;
     };
     let required_fields: &[&str] = match gradient.get("kind").and_then(Value::as_str) {
-        Some("linear") => &["kind", "startColor", "endColor", "angleDegrees"],
-        Some("radial") => &[
-            "kind",
-            "startColor",
-            "endColor",
-            "centerX",
-            "centerY",
-            "radius",
-        ],
-        _ => &["kind", "startColor", "endColor"],
+        Some("linear") => &["kind", "angleDegrees", "stops"],
+        Some("radial") => &["kind", "centerX", "centerY", "radius", "shape", "stops"],
+        _ => &["kind", "stops"],
     };
     for required_field in required_fields {
         if gradient.get(*required_field).is_none_or(Value::is_null) {
@@ -101,6 +94,57 @@ fn validate_gradient_object_field(
                 reason: "must be explicitly provided for native UI surface backgroundGradient in resolved projection JSON".to_string(),
             });
             return;
+        }
+    }
+
+    let Some(stops) = gradient.get("stops").and_then(Value::as_array) else {
+        errors.push(NativeRendererJsonValidationError {
+            path: format!("{path}.style.backgroundGradient.stops"),
+            asset_name: String::new(),
+            reason: "must be an array for native UI surface backgroundGradient stops".to_string(),
+        });
+        return;
+    };
+    if !(2..=8).contains(&stops.len()) {
+        errors.push(NativeRendererJsonValidationError {
+            path: format!("{path}.style.backgroundGradient.stops"),
+            asset_name: stops.len().to_string(),
+            reason: "must contain between 2 and 8 resolved color stops".to_string(),
+        });
+        return;
+    }
+    for (index, stop) in stops.iter().enumerate() {
+        let Some(stop) = stop.as_object() else {
+            errors.push(NativeRendererJsonValidationError {
+                path: format!("{path}.style.backgroundGradient.stops[{index}]"),
+                asset_name: String::new(),
+                reason: "must be an object with color and position fields".to_string(),
+            });
+            return;
+        };
+        for field in stop.keys() {
+            if matches!(field.as_str(), "color" | "position") {
+                continue;
+            }
+            errors.push(NativeRendererJsonValidationError {
+                path: format!("{path}.style.backgroundGradient.stops[{index}].{field}"),
+                asset_name: field.to_string(),
+                reason: "is not a supported native UI surface gradient stop field".to_string(),
+            });
+            return;
+        }
+        for required_field in ["color", "position"] {
+            if stop.get(required_field).is_none_or(Value::is_null) {
+                errors.push(NativeRendererJsonValidationError {
+                    path: format!(
+                        "{path}.style.backgroundGradient.stops[{index}].{required_field}"
+                    ),
+                    asset_name: String::new(),
+                    reason: "must be explicitly provided for every native UI surface gradient stop"
+                        .to_string(),
+                });
+                return;
+            }
         }
     }
 }
@@ -284,7 +328,7 @@ fn is_native_ui_surface_shadow_field(field: &str) -> bool {
 fn is_native_ui_surface_gradient_field(field: &str) -> bool {
     matches!(
         field,
-        "kind" | "startColor" | "endColor" | "angleDegrees" | "centerX" | "centerY" | "radius"
+        "kind" | "angleDegrees" | "centerX" | "centerY" | "radius" | "shape" | "stops"
     )
 }
 

@@ -11,7 +11,7 @@ use super::vertex::WgpuNativeRenderVertex;
 use clip::media_scissor;
 use fit::media_vertex_rect;
 use uv::texture_uv_rect;
-use vertices::{quad_vertices, rotation_degrees};
+use vertices::{apply_uv_flip_horizontal, character_flip_horizontal, quad_vertices, rotation_degrees};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(super) struct WgpuPrimitiveGeometry {
@@ -21,13 +21,16 @@ pub(super) struct WgpuPrimitiveGeometry {
 
 pub(super) fn primitive_geometry(primitive: &WgpuNativeRenderPrimitive) -> WgpuPrimitiveGeometry {
     let vertex_rect = media_vertex_rect(primitive);
-
+    let mut vertices = quad_vertices(
+        vertex_rect,
+        texture_uv_rect(primitive),
+        rotation_degrees(primitive),
+    );
+    if character_flip_horizontal(primitive) {
+        apply_uv_flip_horizontal(&mut vertices);
+    }
     WgpuPrimitiveGeometry {
-        vertices: quad_vertices(
-            vertex_rect,
-            texture_uv_rect(primitive),
-            rotation_degrees(primitive),
-        ),
+        vertices,
         scissor: media_scissor(primitive, vertex_rect),
     }
 }

@@ -64,6 +64,16 @@ export async function createDemoEngineRuntime(options: DemoEngineRuntimeOptions)
     style: 'normal',
     display: 'swap',
   })
+  // The title plate is set in a serif face. Registering it explicitly keeps Web
+  // and native on the same glyphs: the Web font stack would otherwise fall
+  // through to whatever serif the host OS happens to ship, and native has no
+  // system font fallback at all.
+  await fonts.registerFont('Noto Serif', 'NotoSerifSC-Regular.otf', {
+    id: 'demo-noto-serif-regular',
+    weight: 400,
+    style: 'normal',
+    display: 'swap',
+  })
   await registerDemoGallery(gallery)
   await achievement.registerDefinitions({
     groups: [{

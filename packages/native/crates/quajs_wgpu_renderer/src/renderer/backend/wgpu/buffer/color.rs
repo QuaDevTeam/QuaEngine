@@ -1,11 +1,11 @@
 use super::super::mesh::{WgpuNativeRenderColor, WgpuNativeRenderPaintColor};
 
 pub(super) fn color_to_rgba(color: WgpuNativeRenderPaintColor) -> [f32; 4] {
-    color.to_linear_rgba()
+    color.to_gpu_rgba()
 }
 
 pub(super) fn color_struct_to_rgba(color: WgpuNativeRenderColor) -> [f32; 4] {
-    color.to_linear_rgba()
+    color.to_gpu_rgba()
 }
 
 #[cfg(test)]
@@ -13,7 +13,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn converts_css_srgb_channels_to_linear_gpu_output() {
+    fn keeps_css_srgb_channels_encoded_for_gpu_output() {
+        // The frame is composited in a non-sRGB target so blending matches CSS.
+        // Channels must reach the GPU still sRGB-encoded; decoding to linear
+        // here would blend in the wrong space and wash the frame out.
         let actual = color_struct_to_rgba(WgpuNativeRenderColor {
             r: 0x12 as f32 / 255.0,
             g: 0x17 as f32 / 255.0,
@@ -21,9 +24,9 @@ mod tests {
             a: 0.42,
         });
 
-        assert_channel_close(actual[0], 0.006_049);
-        assert_channel_close(actual[1], 0.008_568);
-        assert_channel_close(actual[2], 0.012_286);
+        assert_channel_close(actual[0], 0x12 as f32 / 255.0);
+        assert_channel_close(actual[1], 0x17 as f32 / 255.0);
+        assert_channel_close(actual[2], 0x1d as f32 / 255.0);
         assert_channel_close(actual[3], 0.42);
     }
 

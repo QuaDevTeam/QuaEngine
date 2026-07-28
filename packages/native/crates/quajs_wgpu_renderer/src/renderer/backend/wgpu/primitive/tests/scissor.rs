@@ -29,6 +29,7 @@ fn intersects_active_scissors_when_lowering_draws_into_primitives() {
             kind: DrawCommandKind::RoundedRect,
             metadata: draw_metadata(DrawCommandParams::Panel(PanelDrawParams {
                 role: "ui-panel".to_string(),
+                rotation_degrees: 0.0,
                 corner_radius: 0.0,
                 fill_color: "#101820".to_string(),
                 border: BorderDrawParams::default(),
@@ -46,6 +47,7 @@ fn intersects_active_scissors_when_lowering_draws_into_primitives() {
             kind: DrawCommandKind::RoundedRect,
             metadata: draw_metadata(DrawCommandParams::Panel(PanelDrawParams {
                 role: "ui-panel".to_string(),
+                rotation_degrees: 0.0,
                 corner_radius: 0.0,
                 fill_color: "#101820".to_string(),
                 border: BorderDrawParams::default(),
@@ -86,6 +88,7 @@ fn fully_clipped_scissor_makes_primitive_non_visible() {
             kind: DrawCommandKind::RoundedRect,
             metadata: draw_metadata(DrawCommandParams::Panel(PanelDrawParams {
                 role: "ui-panel".to_string(),
+                rotation_degrees: 0.0,
                 corner_radius: 0.0,
                 fill_color: "#101820".to_string(),
                 border: BorderDrawParams::default(),

@@ -5,6 +5,7 @@ struct VertexInput {
     @location(2) color: vec4<f32>,
     @location(3) effect0: vec4<f32>,
     @location(4) effect1: vec4<f32>,
+    @location(5) effect2: vec4<f32>,
 };
 
 struct VertexOutput {
@@ -13,6 +14,7 @@ struct VertexOutput {
     @location(1) color: vec4<f32>,
     @location(2) effect0: vec4<f32>,
     @location(3) effect1: vec4<f32>,
+    @location(4) effect2: vec4<f32>,
 };
 
 struct FrameUniforms {
@@ -35,6 +37,7 @@ fn vs_main(input: VertexInput) -> VertexOutput {
     output.color = input.color;
     output.effect0 = input.effect0;
     output.effect1 = input.effect1;
+    output.effect2 = input.effect2;
     return output;
 }
 
@@ -68,15 +71,39 @@ fn gaussian_cdf(distance: f32, sigma: f32) -> f32 {
 
 @fragment
 fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
+    // Gradient UVs are pre-warped on the CPU for linear/circle geometry.
+    // effect2 carries [stopStart, stopEnd, fillsBefore, fillsAfter]. Adjacent
+    // multi-stop draws discard outside their own interval, so translucent
+    // segments do not overpaint one another.
     let gradient_mode = input.effect1.w;
     if (gradient_mode > 3.5 && gradient_mode < 4.5) {
-        let direction = input.effect1.xy;
-        let extent = max(0.5 * (abs(direction.x) + abs(direction.y)), 0.0001);
-        let progress = clamp(dot(input.uv - vec2<f32>(0.5), direction) / (2.0 * extent) + 0.5, 0.0, 1.0);
+        let global_progress = dot(input.uv - vec2<f32>(0.5), input.effect1.xy) + input.effect1.z;
+        if (global_progress < input.effect2.x && input.effect2.z < 0.5) {
+            discard;
+        }
+        if (global_progress >= input.effect2.y && input.effect2.w < 0.5) {
+            discard;
+        }
+        let progress = clamp(
+            (global_progress - input.effect2.x) / max(input.effect2.y - input.effect2.x, 0.000001),
+            0.0,
+            1.0,
+        );
         return mix(input.color, input.effect0, progress);
     }
     if (gradient_mode > 4.5) {
-        let progress = clamp(distance(input.uv, input.effect1.xy) / max(input.effect1.z, 0.0001), 0.0, 1.0);
+        let global_progress = distance(input.uv, input.effect1.xy) * input.effect1.z;
+        if (global_progress < input.effect2.x && input.effect2.z < 0.5) {
+            discard;
+        }
+        if (global_progress >= input.effect2.y && input.effect2.w < 0.5) {
+            discard;
+        }
+        let progress = clamp(
+            (global_progress - input.effect2.x) / max(input.effect2.y - input.effect2.x, 0.000001),
+            0.0,
+            1.0,
+        );
         return mix(input.color, input.effect0, progress);
     }
 
@@ -165,14 +192,68 @@ fn vs_main(input: VertexInput) -> VertexOutput {
     return output;
 }
 
+// CSS hue-rotate matrix (W3C SVG filter spec).
+fn hue_rotate(rgb: vec3<f32>, radians: f32) -> vec3<f32> {
+    let c = cos(radians);
+    let s = sin(radians);
+    let r = dot(rgb, vec3<f32>(
+        0.213 + c * 0.787 - s * 0.213,
+        0.715 - c * 0.715 - s * 0.715,
+        0.072 - c * 0.072 + s * 0.928));
+    let g = dot(rgb, vec3<f32>(
+        0.213 - c * 0.213 + s * 0.143,
+        0.715 + c * 0.285 + s * 0.140,
+        0.072 - c * 0.072 - s * 0.283));
+    let b = dot(rgb, vec3<f32>(
+        0.213 - c * 0.213 - s * 0.787,
+        0.715 - c * 0.715 + s * 0.715,
+        0.072 + c * 0.928 + s * 0.072));
+    return vec3<f32>(r, g, b);
+}
+
+// CSS sepia matrix.
+fn sepia(rgb: vec3<f32>, amount: f32) -> vec3<f32> {
+    let r = dot(rgb, vec3<f32>(0.393, 0.769, 0.189));
+    let g = dot(rgb, vec3<f32>(0.349, 0.686, 0.168));
+    let b = dot(rgb, vec3<f32>(0.272, 0.534, 0.131));
+    return mix(rgb, vec3<f32>(r, g, b), amount);
+}
+
 @fragment
 fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     let sample = textureSample(texture_source, texture_sampler, input.uv);
     if (input.effect1.x > 0.5) {
-        let luminance = dot(sample.rgb, vec3<f32>(0.2126, 0.7152, 0.0722));
-        let desaturated = vec3<f32>(luminance);
-        let filtered = mix(desaturated, sample.rgb, max(input.effect0.y, 0.0));
-        return vec4<f32>(filtered * max(input.effect0.x, 0.0), sample.a) * input.color;
+        var rgb = sample.rgb;
+        // effect0: [brightness, saturation, contrast, grayscale]
+        // effect1: [activation, sepia_amount, hue_rotate_radians, invert]
+        let brightness    = max(input.effect0.x, 0.0);
+        let saturation    = max(input.effect0.y, 0.0);
+        let contrast      = max(input.effect0.z, 0.0);
+        let grayscale_amt = clamp(input.effect0.w, 0.0, 1.0);
+        let sepia_amt     = clamp(input.effect1.y, 0.0, 1.0);
+        let hue_rad       = input.effect1.z;
+        let invert_amt    = clamp(input.effect1.w, 0.0, 1.0);
+
+        // 1. Invert
+        rgb = mix(rgb, 1.0 - rgb, invert_amt);
+        // 2. Grayscale
+        let lum = dot(rgb, vec3<f32>(0.2126, 0.7152, 0.0722));
+        rgb = mix(rgb, vec3<f32>(lum), grayscale_amt);
+        // 3. Sepia
+        rgb = sepia(rgb, sepia_amt);
+        // 4. Hue-rotate (skip if near identity to avoid trig cost)
+        if (abs(hue_rad) > 0.001) {
+            rgb = hue_rotate(rgb, hue_rad);
+        }
+        // 5. Saturate
+        let lum2 = dot(rgb, vec3<f32>(0.2126, 0.7152, 0.0722));
+        rgb = mix(vec3<f32>(lum2), rgb, saturation);
+        // 6. Brightness
+        rgb = rgb * brightness;
+        // 7. Contrast: (rgb - 0.5) * contrast + 0.5
+        rgb = clamp((rgb - vec3<f32>(0.5)) * contrast + vec3<f32>(0.5), vec3<f32>(0.0), vec3<f32>(1.0));
+
+        return vec4<f32>(rgb, sample.a) * input.color;
     }
     return sample * input.color;
 }

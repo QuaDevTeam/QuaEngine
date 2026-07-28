@@ -15,11 +15,11 @@ pub use pass::{plan_render_passes, RenderPass, RenderPassPlan, RenderViewport};
 pub use style::{
     BorderDrawParams, CharacterAnchor, CharacterDrawParams, DrawCommandParams, DrawTransition,
     DrawTransitionEasing, DrawTransitionProperty, EdgeInsetsDrawParam, FontStyleDrawParam,
-    FontWeightDrawParam, GradientDrawKind, GradientDrawParams, ImageDrawParams, MediaFit,
-    MediaOrigin, PanelDrawParams, RendererIntent, ShadowDrawParams, ShadowDrawStyle, TextAlign,
-    TextDecorationDrawParam, TextDrawParams, TextOverflowDrawParam, TextTransformDrawParam,
-    UiButtonDrawParams, UiControlDrawParam, UiControlOptionDrawParam, UiControlPartsDrawParam,
-    UiSurfaceDrawParams, VideoDrawParams, WhiteSpaceDrawParam,
+    FontWeightDrawParam, GradientDrawKind, GradientDrawParams, GradientDrawRadialShape,
+    ImageDrawParams, MediaFit, MediaOrigin, PanelDrawParams, RendererIntent, ShadowDrawParams,
+    ShadowDrawStyle, TextAlign, TextDecorationDrawParam, TextDrawParams, TextOverflowDrawParam,
+    TextTransformDrawParam, UiButtonDrawParams, UiControlDrawParam, UiControlOptionDrawParam,
+    UiControlPartsDrawParam, UiSurfaceDrawParams, VideoDrawParams, WhiteSpaceDrawParam,
 };
 pub use summary::{
     RenderGraphPackageSummary, RenderGraphResourceSummary, RenderGraphSummary, RenderPlaneSummary,

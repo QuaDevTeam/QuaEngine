@@ -120,24 +120,48 @@ export interface NativeQssBackgroundImageValue {
   assetName: string
 }
 
+/** A single color stop in a multi-stop gradient. */
+export interface NativeQssGradientStop {
+  /** CSS color string. */
+  color: string
+  /** Normalized position 0–1 along the gradient line/radius. */
+  position: number
+}
+
+export type NativeQssRadialGradientShape = 'circle' | 'ellipse'
+
 export interface NativeQssGradientValue {
   angleDegrees?: number
   centerX?: number
   centerY?: number
-  endColor: string
   kind: 'linear' | 'radial'
   radius?: number
-  startColor: string
+  shape?: NativeQssRadialGradientShape
+  /** Ordered CSS color stops. Native QSS supports two to eight stops. */
+  stops: NativeQssGradientStop[]
 }
 
 export interface NativeQssFilterValue {
   brightness: number
   saturate: number
+  /** CSS `blur(Npx)` — 0 when absent. */
+  blur?: number
+  /** CSS `contrast(N)` — 1 when absent. */
+  contrast?: number
+  /** CSS `grayscale(N)` — 0 when absent. */
+  grayscale?: number
+  /** CSS `sepia(N)` — 0 when absent. */
+  sepia?: number
+  /** CSS `hue-rotate(Ndeg)` — 0 when absent. */
+  hueRotate?: number
+  /** CSS `invert(N)` — 0 when absent. */
+  invert?: number
 }
 
 export interface NativeQssTransformValue {
   originX: number
   originY: number
+  rotateDeg?: number
   scaleX: number
   scaleY: number
   translateX: number
@@ -162,14 +186,25 @@ export type NativeQssTransitionProperty
     | 'transform'
     | 'translate'
 
+/**
+ * Transition timing function. Besides the CSS keywords, a
+ * `cubic-bezier(x1, y1, x2, y2)` string is accepted and forwarded verbatim to
+ * the native renderer, which solves it as a true CSS curve.
+ */
 export type NativeQssTransitionEasing
   = | 'ease'
     | 'ease-in'
     | 'ease-in-out'
     | 'ease-out'
     | 'linear'
+    | `cubic-bezier(${string})`
 
 export interface NativeQssTransitionValue {
+  /**
+   * CSS `transition-delay` in milliseconds. Omitted when zero so existing
+   * projections serialize unchanged; Rust defaults the field to 0.
+   */
+  delayMs?: number
   durationMs: number
   easing: NativeQssTransitionEasing
   property: NativeQssTransitionProperty
@@ -227,6 +262,10 @@ export interface NativeQssResolvedStyle {
   backgroundSize?: NativeQssObjectFitValue
   borderColor?: string
   borderRadius?: number
+  borderTopLeftRadius?: number
+  borderTopRightRadius?: number
+  borderBottomRightRadius?: number
+  borderBottomLeftRadius?: number
   borderStyle?: NativeQssBorderStyleValue
   borderWidth?: number
   boxShadow?: NativeQssShadowValue
@@ -242,6 +281,7 @@ export interface NativeQssResolvedStyle {
   objectPosition?: NativeQssBackgroundPositionValue
   opacity?: number
   padding?: NativeQssEdgeInsetsValue
+  rotateDeg?: number
   textAlign?: NativeQssTextAlignValue
   textDecoration?: NativeQssTextDecorationValue
   textOverflow?: NativeQssTextOverflowValue

@@ -2,7 +2,7 @@ use crate::projection::common::PackageProvenance;
 
 use serde::{Deserialize, Serialize};
 
-use crate::projection::defaults::{default_one_f32, default_true};
+use crate::projection::defaults::{default_one_f32, default_true, is_one_f32};
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -19,6 +19,11 @@ pub struct CharacterProjection {
     pub position: CharacterPosition,
     #[serde(default = "default_one_f32")]
     pub opacity: f32,
+    /// Renderer-local enter/exit presence opacity. Injected by
+    /// `NativeRendererProjectionRuntime`; absent from engine frames so the
+    /// default of 1.0 is correct.
+    #[serde(default = "default_one_f32", skip_serializing_if = "is_one_f32")]
+    pub presence_opacity: f32,
     #[serde(default)]
     pub layer: i32,
     #[serde(default, skip_serializing_if = "PackageProvenance::is_empty")]
@@ -35,6 +40,7 @@ impl CharacterProjection {
             expression: None,
             position: CharacterPosition::default(),
             opacity: 1.0,
+            presence_opacity: 1.0,
             layer: 0,
             provenance: PackageProvenance::default(),
         }

@@ -162,6 +162,7 @@ fn append_select_menu(
                 width: 1.0,
             },
             padding: Default::default(),
+            rotation_degrees: 0.0,
             intent: None,
         });
         output.push(panel);

@@ -17,7 +17,10 @@ fn copies_completed_frame_target_to_external_texture() {
     assert_eq!(report.submitted_command_buffer_count, 1);
     assert_eq!(copy.extent.width, 64);
     assert_eq!(copy.extent.height, 64);
-    assert_eq!(copy.color_format, wgpu::TextureFormat::Rgba8UnormSrgb);
+    // The frame is composited in the non-sRGB variant of the target format, and
+    // copies to the sRGB-format destination anyway — that cross-sRGB copy is the
+    // real present path.
+    assert_eq!(copy.color_format, wgpu::TextureFormat::Rgba8Unorm);
     assert_eq!(copy.submitted_command_buffer_count, 2);
     assert_eq!(
         executor.device().snapshot().submitted_command_buffer_count,

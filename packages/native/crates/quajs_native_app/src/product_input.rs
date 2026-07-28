@@ -573,15 +573,16 @@ fn resolve_keyboard_command(
     phase: ElementState,
     repeat: bool,
 ) -> Option<&'static str> {
-    if repeat {
-        return None;
-    }
     match (code, phase) {
+        // Allow repeat on advance so holding Enter/Space/ArrowRight progresses
+        // through dialogue continuously — matches browser VN behaviour.
         (KeyCode::Enter, ElementState::Pressed)
         | (KeyCode::Space, ElementState::Pressed)
         | (KeyCode::ArrowRight, ElementState::Pressed)
         | (KeyCode::ArrowDown, ElementState::Pressed)
         | (KeyCode::PageDown, ElementState::Pressed) => Some("advance"),
+        // Non-advance commands are one-shot; ignore auto-repeat.
+        _ if repeat => None,
         (KeyCode::ControlLeft | KeyCode::ControlRight, ElementState::Pressed) => Some("skip:start"),
         (KeyCode::ControlLeft | KeyCode::ControlRight, ElementState::Released) => Some("skip:stop"),
         (KeyCode::KeyF, ElementState::Pressed) => Some("fastForward:start"),

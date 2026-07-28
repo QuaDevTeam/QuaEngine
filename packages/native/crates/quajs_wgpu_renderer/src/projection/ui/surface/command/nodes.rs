@@ -12,8 +12,8 @@ use super::super::super::style::{
     resolve_background_color, resolve_border_color, resolve_border_radius, resolve_border_width,
     resolve_font_family, resolve_font_size, resolve_font_style, resolve_font_weight,
     resolve_letter_spacing, resolve_line_height, resolve_object_fit, resolve_object_position,
-    resolve_padding, resolve_text_align, resolve_text_color, resolve_text_decoration,
-    resolve_text_overflow, resolve_text_transform, resolve_white_space,
+    resolve_padding, resolve_rotate_deg, resolve_text_align, resolve_text_color,
+    resolve_text_decoration, resolve_text_overflow, resolve_text_transform, resolve_white_space,
 };
 use super::super::super::types::{
     UiOverlayProjection, UiSurfaceNodeProjection, UiSurfaceResolvedStyle,
@@ -103,9 +103,14 @@ pub(super) fn text_node_command(
                 text_transform: resolve_text_transform(&node.style),
                 white_space: resolve_white_space(&node.style),
                 color: resolve_text_color(&node.style, "#ffffff"),
+                // Wire the text-shadow blur radius from the resolved style.
+                // `surface_text_shadow_commands` generates a separate blurred draw for
+                // the shadow itself; `blur_radius` here is the text-body glow (CSS
+                // `filter: blur(Npx)` on the text layer itself), not the shadow blur.
                 blur_radius: 0.0,
                 padding: resolve_padding(&node.style),
                 role: role.to_string(),
+                rotation_degrees: resolve_rotate_deg(&node.style),
             })),
     )
 }
@@ -119,7 +124,8 @@ pub(super) fn image_node_command(
         .image
         .as_ref()
         .filter(|image| is_safe_native_asset_ref(&image.asset_type, &image.asset_name))?;
-    let (brightness, saturation) = super::super::super::style::resolve_image_filter(&node.style);
+    let (brightness, saturation, contrast, grayscale, sepia, hue_rotate_radians, invert) =
+        super::super::super::style::resolve_image_filter(&node.style);
     let command = DrawCommand::new(
         command_id,
         RenderPlane::Screen,
@@ -136,9 +142,14 @@ pub(super) fn image_node_command(
         fit: resolve_object_fit(&node.style, MediaFit::Contain),
         origin: resolve_object_position(&node.style, MediaOrigin::default()),
         source: bounds,
-        rotation_degrees: 0.0,
+        rotation_degrees: resolve_rotate_deg(&node.style),
         brightness,
         saturation,
+        contrast,
+        grayscale,
+        sepia,
+        hue_rotate_radians,
+        invert,
     }));
 
     Some(command)
@@ -155,6 +166,8 @@ pub(super) fn surface_panel_node_command(
     let role = match node.role.as_deref() {
         Some("ui-select-chevron-down") => "ui-select-chevron-down",
         Some("ui-select-chevron-up") => "ui-select-chevron-up",
+        Some("ui-chevron-right") => "ui-chevron-right",
+        Some("ui-chevron-left") => "ui-chevron-left",
         _ => role,
     };
     DrawCommand::new(
@@ -171,6 +184,7 @@ pub(super) fn surface_panel_node_command(
         border: surface_border_params(&node.style),
         padding: resolve_padding(&node.style),
         intent,
+        rotation_degrees: resolve_rotate_deg(&node.style),
     }))
 }
 

@@ -130,6 +130,11 @@ fn primitive_kind_from_params(
             rotation_degrees: params.rotation_degrees,
             brightness: params.brightness,
             saturation: params.saturation,
+            contrast: params.contrast,
+            grayscale: params.grayscale,
+            sepia: params.sepia,
+            hue_rotate_radians: params.hue_rotate_radians,
+            invert: params.invert,
         },
         DrawCommandParams::Video(params) => match &params.frame_resource_id {
             Some(frame_resource_id) if params.fallback_reason.is_none() => {
@@ -168,11 +173,13 @@ fn primitive_kind_from_params(
             character_id: params.character_id.clone(),
             sprite_asset_name: params.sprite_asset_name.clone(),
             rotation_degrees: params.rotation_degrees,
+            flip_horizontal: params.flip_horizontal,
         },
         DrawCommandParams::Text(params) => WgpuNativeRenderPrimitiveKind::Text {
             text: params.text.clone(),
             color: params.color.clone(),
             style: WgpuNativeRenderTextStyle::from_text_params(params, physical_scale),
+            rotation_degrees: params.rotation_degrees,
         },
         DrawCommandParams::Panel(params) => WgpuNativeRenderPrimitiveKind::Panel {
             role: params.role.clone(),
@@ -182,6 +189,7 @@ fn primitive_kind_from_params(
                 &params.border,
                 physical_scale,
             ),
+            rotation_degrees: params.rotation_degrees,
         },
         DrawCommandParams::Shadow(params) => WgpuNativeRenderPrimitiveKind::Shadow {
             color: params.color.clone(),
@@ -198,12 +206,17 @@ fn primitive_kind_from_params(
         },
         DrawCommandParams::Gradient(params) => WgpuNativeRenderPrimitiveKind::Gradient {
             kind: params.kind,
+            radial_shape: params.radial_shape,
             start_color: params.start_color.clone(),
             end_color: params.end_color.clone(),
             angle_degrees: params.angle_degrees,
             center_x: params.center_x,
             center_y: params.center_y,
             radius: params.radius,
+            start_offset: params.start_offset,
+            end_offset: params.end_offset,
+            fill_before_start: params.fill_before_start,
+            fill_after_end: params.fill_after_end,
             corner_radius: params.corner_radius * physical_scale,
         },
         DrawCommandParams::UiButton(params) => WgpuNativeRenderPrimitiveKind::UiButton {
@@ -235,6 +248,7 @@ fn primitive_kind_from_draw_kind(draw_kind: DrawCommandKind) -> WgpuNativeRender
                 fill_color: "#ffffff".to_string(),
                 corner_radius: 0.0,
                 border: WgpuNativeRenderPrimitiveBorder::default(),
+                rotation_degrees: 0.0,
             }
         }
         _ => WgpuNativeRenderPrimitiveKind::Empty,

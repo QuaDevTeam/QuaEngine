@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::projection::common::{FontFamilyProjection, FontWeightProjection};
+use crate::projection::ui::types::{default_one_f64, is_one_f64_ref, is_zero_f64};
 
 use super::UiSurfaceImageProjection;
 
@@ -112,12 +113,17 @@ pub enum UiSurfaceGradientKindProjection {
     Radial,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum UiSurfaceRadialGradientShapeProjection {
+    Circle,
+    Ellipse,
+}
+
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UiSurfaceGradientProjection {
     pub kind: UiSurfaceGradientKindProjection,
-    pub start_color: String,
-    pub end_color: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub angle_degrees: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -126,13 +132,46 @@ pub struct UiSurfaceGradientProjection {
     pub center_y: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub radius: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub shape: Option<UiSurfaceRadialGradientShapeProjection>,
+    /// Ordered resolved color stops. The native bridge requires 2..=8 stops.
+    pub stops: Vec<UiSurfaceGradientStopProjection>,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+/// A single color stop in a multi-stop gradient.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UiSurfaceGradientStopProjection {
+    pub color: String,
+    /// Normalized position 0.0–1.0 along the gradient line/radius.
+    pub position: f64,
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UiSurfaceFilterProjection {
+    #[serde(default)]
     pub brightness: f64,
+    #[serde(default)]
     pub saturate: f64,
+    /// CSS `blur(Npx)` — Gaussian blur radius in logical pixels.
+    #[serde(default, skip_serializing_if = "is_zero_f64")]
+    pub blur: f64,
+    /// CSS `contrast(N)` — multiplicative contrast factor; 1.0 = unchanged.
+    #[serde(default = "default_one_f64", skip_serializing_if = "is_one_f64_ref")]
+    pub contrast: f64,
+    /// CSS `grayscale(N)` — 0.0 = full color, 1.0 = fully grayscale.
+    #[serde(default, skip_serializing_if = "is_zero_f64")]
+    pub grayscale: f64,
+    /// CSS `sepia(N)` — 0.0 = unchanged, 1.0 = fully sepia.
+    #[serde(default, skip_serializing_if = "is_zero_f64")]
+    pub sepia: f64,
+    /// CSS `hue-rotate(Ndeg)` — degrees to shift the hue wheel.
+    #[serde(default, skip_serializing_if = "is_zero_f64")]
+    pub hue_rotate: f64,
+    /// CSS `invert(N)` — 0.0 = unchanged, 1.0 = fully inverted.
+    #[serde(default, skip_serializing_if = "is_zero_f64")]
+    pub invert: f64,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
@@ -150,14 +189,85 @@ pub enum UiSurfaceTransitionPropertyProjection {
     Translate,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "kebab-case")]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum UiSurfaceTransitionEasingProjection {
     Ease,
     EaseIn,
     EaseInOut,
     EaseOut,
     Linear,
+    /// `cubic-bezier(x1, y1, x2, y2)` control points, matching the CSS
+    /// `transition-timing-function` form. The x coordinates must be normalized
+    /// to `0..=1` like CSS requires; y may overshoot.
+    CubicBezier([f64; 4]),
+}
+
+impl UiSurfaceTransitionEasingProjection {
+    fn as_keyword(&self) -> Option<&'static str> {
+        match self {
+            Self::Ease => Some("ease"),
+            Self::EaseIn => Some("ease-in"),
+            Self::EaseInOut => Some("ease-in-out"),
+            Self::EaseOut => Some("ease-out"),
+            Self::Linear => Some("linear"),
+            Self::CubicBezier(_) => None,
+        }
+    }
+
+    fn parse(value: &str) -> Option<Self> {
+        match value {
+            "ease" => return Some(Self::Ease),
+            "ease-in" => return Some(Self::EaseIn),
+            "ease-in-out" => return Some(Self::EaseInOut),
+            "ease-out" => return Some(Self::EaseOut),
+            "linear" => return Some(Self::Linear),
+            _ => {}
+        }
+        let body = value.strip_prefix("cubic-bezier(")?.strip_suffix(')')?;
+        let mut points = [0.0f64; 4];
+        let mut count = 0;
+        for part in body.split(',') {
+            if count >= 4 {
+                return None;
+            }
+            points[count] = part.trim().parse::<f64>().ok().filter(|v| v.is_finite())?;
+            count += 1;
+        }
+        if count != 4 {
+            return None;
+        }
+        // CSS requires the x control points inside the unit interval so the
+        // curve stays a function of time.
+        if !(0.0..=1.0).contains(&points[0]) || !(0.0..=1.0).contains(&points[2]) {
+            return None;
+        }
+        Some(Self::CubicBezier(points))
+    }
+}
+
+impl Serialize for UiSurfaceTransitionEasingProjection {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        match self.as_keyword() {
+            Some(keyword) => serializer.serialize_str(keyword),
+            None => {
+                let Self::CubicBezier([x1, y1, x2, y2]) = self else {
+                    unreachable!("keyword variants serialized above")
+                };
+                serializer.serialize_str(&format!("cubic-bezier({x1}, {y1}, {x2}, {y2})"))
+            }
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for UiSurfaceTransitionEasingProjection {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let value = String::deserialize(deserializer)?;
+        Self::parse(&value).ok_or_else(|| {
+            serde::de::Error::custom(format!(
+                "unsupported native UI transition easing `{value}`; expected ease, ease-in, ease-in-out, ease-out, linear, or cubic-bezier(x1, y1, x2, y2) with x coordinates in 0..=1"
+            ))
+        })
+    }
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
@@ -166,6 +276,11 @@ pub struct UiSurfaceTransitionProjection {
     pub property: UiSurfaceTransitionPropertyProjection,
     pub duration_ms: f64,
     pub easing: UiSurfaceTransitionEasingProjection,
+    /// CSS `transition-delay`. Held-back time before the curve starts; the
+    /// transition is still considered active during the delay so the renderer
+    /// keeps requesting frames. Defaults to 0 for engine-authored projections.
+    #[serde(default, skip_serializing_if = "is_zero_f64")]
+    pub delay_ms: f64,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
@@ -187,6 +302,14 @@ pub struct UiSurfaceResolvedStyle {
     pub filter: Option<UiSurfaceFilterProjection>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub border_radius: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub border_top_left_radius: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub border_top_right_radius: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub border_bottom_right_radius: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub border_bottom_left_radius: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub border_color: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -227,4 +350,52 @@ pub struct UiSurfaceResolvedStyle {
     pub opacity: Option<f32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub padding: Option<UiSurfaceEdgeInsetsProjection>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rotate_deg: Option<f64>,
+}
+
+#[cfg(test)]
+mod easing_tests {
+    use super::UiSurfaceTransitionEasingProjection;
+
+    #[test]
+    fn parses_keywords_and_css_cubic_bezier_strings() {
+        let parsed: UiSurfaceTransitionEasingProjection =
+            serde_json::from_str("\"ease-in-out\"").unwrap();
+        assert_eq!(parsed, UiSurfaceTransitionEasingProjection::EaseInOut);
+
+        let parsed: UiSurfaceTransitionEasingProjection =
+            serde_json::from_str("\"cubic-bezier(0.19, 1, 0.22, 1)\"").unwrap();
+        assert_eq!(
+            parsed,
+            UiSurfaceTransitionEasingProjection::CubicBezier([0.19, 1.0, 0.22, 1.0])
+        );
+        // Round-trips through the same CSS string form.
+        assert_eq!(
+            serde_json::to_string(&parsed).unwrap(),
+            "\"cubic-bezier(0.19, 1, 0.22, 1)\""
+        );
+        assert_eq!(
+            serde_json::to_string(&UiSurfaceTransitionEasingProjection::EaseOut).unwrap(),
+            "\"ease-out\""
+        );
+    }
+
+    #[test]
+    fn rejects_malformed_or_non_css_bezier_strings() {
+        for value in [
+            "\"bounce\"",
+            "\"cubic-bezier(0.19, 1, 0.22)\"",
+            "\"cubic-bezier(0.19, 1, 0.22, 1, 2)\"",
+            // x control points must stay inside the unit interval per CSS.
+            "\"cubic-bezier(-0.1, 1, 0.22, 1)\"",
+            "\"cubic-bezier(0.19, 1, 1.22, 1)\"",
+            "\"cubic-bezier(nan, 1, 0.22, 1)\"",
+        ] {
+            assert!(
+                serde_json::from_str::<UiSurfaceTransitionEasingProjection>(value).is_err(),
+                "expected `{value}` to be rejected"
+            );
+        }
+    }
 }

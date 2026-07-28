@@ -39,7 +39,7 @@ pub fn build_ui_surface_node_commands(
         base_z_index.saturating_add(SURFACE_NODE_Z_OFFSET),
         &[],
         SurfaceNodeOffset::default(),
-        ROOT_SURFACE_OPACITY,
+        ROOT_SURFACE_OPACITY * overlay.presence_opacity,
     );
     commands
 }

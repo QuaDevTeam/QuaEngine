@@ -17,7 +17,7 @@ fn applies_runtime_plan_and_tracks_resident_resources() {
     assert_eq!(report.bind_group_create_count, 1);
     assert_eq!(report.queue_write_count, 2);
     assert_eq!(report.resident_buffer_count, 2);
-    assert_eq!(report.resident_buffer_byte_len, 280);
+    assert_eq!(report.resident_buffer_byte_len, QUAD_VERTEX_BYTE_LEN + 24);
     assert_eq!(report.resident_pipeline_count, 1);
     assert_eq!(report.resident_bind_group_count, 1);
     assert_eq!(report.submitted_command_buffer_count, 1);
@@ -26,7 +26,7 @@ fn applies_runtime_plan_and_tracks_resident_resources() {
         executor.snapshot(),
         WgpuNativeRenderRuntimeSnapshot {
             resident_buffer_count: 2,
-            resident_buffer_byte_len: 280,
+            resident_buffer_byte_len: QUAD_VERTEX_BYTE_LEN + 24,
             resident_pipeline_count: 1,
             resident_bind_group_count: 1,
             resident_texture_count: 0,

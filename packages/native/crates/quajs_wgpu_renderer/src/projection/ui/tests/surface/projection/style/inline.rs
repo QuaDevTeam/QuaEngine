@@ -400,11 +400,13 @@ fn carries_pseudo_state_commands_and_transitions_into_the_render_graph() {
             property: UiSurfaceTransitionPropertyProjection::Transform,
             duration_ms: 160.0,
             easing: UiSurfaceTransitionEasingProjection::EaseOut,
+            delay_ms: 0.0,
         },
         UiSurfaceTransitionProjection {
             property: UiSurfaceTransitionPropertyProjection::Color,
             duration_ms: 160.0,
             easing: UiSurfaceTransitionEasingProjection::Ease,
+            delay_ms: 0.0,
         },
     ];
     let ui = UiProjection::new(vec![UiOverlayProjection {

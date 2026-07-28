@@ -63,8 +63,10 @@ fn character_command(
     let scale = character
         .position
         .scale
-        .filter(|value| value.is_finite() && *value > 0.0)
+        .filter(|value| value.is_finite() && value.abs() > 0.0)
         .unwrap_or(1.0);
+    let flip_horizontal = scale < 0.0;
+    let scale = scale.abs();
     let rotation_degrees = character
         .position
         .rotation
@@ -77,7 +79,7 @@ fn character_command(
         bounds,
     )
     .z_index(character.layer)
-    .opacity(character.opacity)
+    .opacity(character.opacity * character.presence_opacity)
     .resource(character_resource_id(sprite_asset_name))
     .params(DrawCommandParams::Character(CharacterDrawParams {
         character_id: character.id.clone(),
@@ -87,6 +89,7 @@ fn character_command(
         anchor,
         scale,
         rotation_degrees,
+        flip_horizontal,
     }));
 
     if let Some(package_id) = character.provenance.safe_content_package_id() {

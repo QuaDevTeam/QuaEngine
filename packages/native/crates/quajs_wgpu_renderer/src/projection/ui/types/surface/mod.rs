@@ -14,10 +14,10 @@ pub use node::{
 pub use style::{
     UiSurfaceBackgroundPositionProjection, UiSurfaceBorderStyleProjection,
     UiSurfaceEdgeInsetsProjection, UiSurfaceFilterProjection, UiSurfaceFontStyleProjection,
-    UiSurfaceGradientKindProjection, UiSurfaceGradientProjection, UiSurfaceObjectFitProjection,
-    UiSurfaceResolvedStyle, UiSurfaceShadowProjection, UiSurfaceTextAlignProjection,
-    UiSurfaceTextDecorationProjection, UiSurfaceTextOverflowProjection,
-    UiSurfaceTextTransformProjection, UiSurfaceTransitionEasingProjection,
-    UiSurfaceTransitionProjection, UiSurfaceTransitionPropertyProjection,
-    UiSurfaceWhiteSpaceProjection,
+    UiSurfaceGradientKindProjection, UiSurfaceGradientProjection, UiSurfaceGradientStopProjection,
+    UiSurfaceObjectFitProjection, UiSurfaceRadialGradientShapeProjection, UiSurfaceResolvedStyle,
+    UiSurfaceShadowProjection, UiSurfaceTextAlignProjection, UiSurfaceTextDecorationProjection,
+    UiSurfaceTextOverflowProjection, UiSurfaceTextTransformProjection,
+    UiSurfaceTransitionEasingProjection, UiSurfaceTransitionProjection,
+    UiSurfaceTransitionPropertyProjection, UiSurfaceWhiteSpaceProjection,
 };

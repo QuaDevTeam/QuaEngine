@@ -48,16 +48,21 @@ pub fn resolve_background_position(
     resolve_media_origin(style.background_position, fallback)
 }
 
-pub fn resolve_image_filter(style: &UiSurfaceResolvedStyle) -> (f64, f64) {
+/// Returns `(brightness, saturation, contrast, grayscale, sepia, hue_rotate_radians, invert)`.
+/// All values are clamped to sensible CSS ranges.
+pub fn resolve_image_filter(style: &UiSurfaceResolvedStyle) -> (f64, f64, f64, f64, f64, f64, f64) {
     style
         .filter
-        .map(|filter| {
-            (
-                filter.brightness.clamp(0.0, 8.0),
-                filter.saturate.clamp(0.0, 8.0),
-            )
-        })
-        .unwrap_or((1.0, 1.0))
+        .map(|filter| (
+            filter.brightness.clamp(0.0, 8.0),
+            filter.saturate.clamp(0.0, 8.0),
+            filter.contrast.clamp(0.0, 8.0),
+            filter.grayscale.clamp(0.0, 1.0),
+            filter.sepia.clamp(0.0, 1.0),
+            filter.hue_rotate.to_radians(),
+            filter.invert.clamp(0.0, 1.0),
+        ))
+        .unwrap_or((1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0))
 }
 
 pub fn resolve_text_color(style: &UiSurfaceResolvedStyle, fallback: &str) -> String {
@@ -69,8 +74,45 @@ pub fn resolve_text_color(style: &UiSurfaceResolvedStyle, fallback: &str) -> Str
         .to_string()
 }
 
+/// Collapses the four corners to the single radius the GPU params currently
+/// carry. Per-corner radii are preserved by [`resolve_corner_radii`]; until the
+/// shader consumes them, the largest corner keeps rounded shapes from silently
+/// squaring off. `fallback` applies only when no radius is specified at all.
 pub fn resolve_border_radius(style: &UiSurfaceResolvedStyle, fallback: f64) -> f64 {
-    resolve_positive_number(style.border_radius, fallback)
+    corner_radii_with_base(
+        style,
+        resolve_positive_number(style.border_radius, fallback),
+    )
+    .into_iter()
+    .fold(f64::NEG_INFINITY, f64::max)
+}
+
+/// Returns `[top_left, top_right, bottom_right, bottom_left]` in logical
+/// pixels. Each corner falls back to `border-radius`, then `0.0`.
+pub fn resolve_corner_radii(style: &UiSurfaceResolvedStyle) -> [f64; 4] {
+    corner_radii_with_base(style, resolve_positive_number(style.border_radius, 0.0))
+}
+
+/// Resolves the CSS `rotate()` angle applied to a node's draw quad.
+///
+/// The value arrives from untrusted projection JSON, so non-finite angles are
+/// dropped rather than forwarded to vertex math. Finite angles are wrapped into
+/// `-360.0..360.0` so a runaway animated value cannot grow without bound.
+pub fn resolve_rotate_deg(style: &UiSurfaceResolvedStyle) -> f64 {
+    style
+        .rotate_deg
+        .filter(|degrees| degrees.is_finite())
+        .map(|degrees| degrees % 360.0)
+        .unwrap_or(0.0)
+}
+
+fn corner_radii_with_base(style: &UiSurfaceResolvedStyle, base: f64) -> [f64; 4] {
+    [
+        resolve_positive_number(style.border_top_left_radius, base),
+        resolve_positive_number(style.border_top_right_radius, base),
+        resolve_positive_number(style.border_bottom_right_radius, base),
+        resolve_positive_number(style.border_bottom_left_radius, base),
+    ]
 }
 
 pub fn resolve_border_color(style: &UiSurfaceResolvedStyle) -> Option<String> {
@@ -241,5 +283,71 @@ fn resolve_edge_inset(value: f64) -> f64 {
         value
     } else {
         0.0
+    }
+}
+
+#[cfg(test)]
+mod corner_and_rotation_tests {
+    use super::*;
+
+    fn style() -> UiSurfaceResolvedStyle {
+        UiSurfaceResolvedStyle::default()
+    }
+
+    #[test]
+    fn corner_radii_fall_back_to_uniform_border_radius() {
+        let mut style = style();
+        style.border_radius = Some(12.0);
+        assert_eq!(resolve_corner_radii(&style), [12.0, 12.0, 12.0, 12.0]);
+        assert_eq!(resolve_border_radius(&style, 0.0), 12.0);
+    }
+
+    #[test]
+    fn per_corner_radii_override_uniform_in_css_order() {
+        let mut style = style();
+        style.border_radius = Some(4.0);
+        style.border_top_left_radius = Some(1.0);
+        style.border_top_right_radius = Some(2.0);
+        style.border_bottom_right_radius = Some(3.0);
+        style.border_bottom_left_radius = Some(8.0);
+        // `[top_left, top_right, bottom_right, bottom_left]`.
+        assert_eq!(resolve_corner_radii(&style), [1.0, 2.0, 3.0, 8.0]);
+        // The collapsed GPU value keeps the largest corner so a rounded shape
+        // does not silently square off before the shader reads all four.
+        assert_eq!(resolve_border_radius(&style, 0.0), 8.0);
+    }
+
+    #[test]
+    fn unspecified_radius_uses_caller_fallback() {
+        assert_eq!(resolve_border_radius(&style(), 9.0), 9.0);
+        assert_eq!(resolve_corner_radii(&style()), [0.0, 0.0, 0.0, 0.0]);
+    }
+
+    #[test]
+    fn a_single_corner_leaves_the_others_square() {
+        let mut style = style();
+        style.border_top_left_radius = Some(6.0);
+        assert_eq!(resolve_corner_radii(&style), [6.0, 0.0, 0.0, 0.0]);
+    }
+
+    #[test]
+    fn rotation_normalizes_and_rejects_unsafe_values() {
+        let mut style = style();
+        assert_eq!(resolve_rotate_deg(&style), 0.0);
+
+        style.rotate_deg = Some(30.0);
+        assert_eq!(resolve_rotate_deg(&style), 30.0);
+
+        style.rotate_deg = Some(-45.0);
+        assert_eq!(resolve_rotate_deg(&style), -45.0);
+
+        // Wraps into a single turn rather than accumulating unbounded spin.
+        style.rotate_deg = Some(450.0);
+        assert_eq!(resolve_rotate_deg(&style), 90.0);
+
+        for unsafe_value in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            style.rotate_deg = Some(unsafe_value);
+            assert_eq!(resolve_rotate_deg(&style), 0.0);
+        }
     }
 }

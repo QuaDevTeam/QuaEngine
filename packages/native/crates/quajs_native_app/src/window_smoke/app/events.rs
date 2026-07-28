@@ -1,9 +1,12 @@
 use winit::application::ApplicationHandler;
-use winit::event::WindowEvent;
-use winit::event_loop::ActiveEventLoop;
+use winit::event::{MouseScrollDelta, WindowEvent};
+use winit::event_loop::{ActiveEventLoop, ControlFlow};
 use winit::window::WindowId;
 
 use super::{NativeWindowSmokeApp, INTERACTION_PROBE_TIMEOUT};
+/// Logical pixels per notched wheel line. Browsers use ~40 px; matching that
+/// keeps native scroll speed consistent with the Web demo.
+const WHEEL_LINE_LOGICAL_PIXELS: f64 = 40.0;
 use crate::product_app_shell::NativeProductAppShellRedrawDecision;
 use crate::product_window::{
     NativeProductWindowPhysicalSize, NativeProductWindowPresentFailure,
@@ -18,7 +21,18 @@ use crate::window_smoke::input::{pointer_button_from_winit, pointer_phase_from_e
 impl ApplicationHandler for NativeWindowSmokeApp {
     fn user_event(&mut self, _event_loop: &ActiveEventLoop, _event: ()) {
         #[cfg(feature = "quickjs-rquickjs")]
-        self.ingest_quickjs_pipeline_updates();
+        {
+            self.ingest_quickjs_pipeline_updates();
+            // The projection worker also wakes the loop after publishing a
+            // frame. Draw it instead of waiting for the next input event.
+            if self
+                .projection_worker
+                .as_ref()
+                .is_some_and(|worker| worker.has_fresh_projection())
+            {
+                self.request_redraw();
+            }
+        }
     }
 
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
@@ -137,6 +151,7 @@ impl ApplicationHandler for NativeWindowSmokeApp {
                 self.record_focus_changed(event_loop, focused);
             }
             WindowEvent::KeyboardInput { event, .. } => {
+                self.last_input_at = Some(std::time::Instant::now());
                 if let Err(error) = self.dispatch_window_keyboard_event(&event) {
                     self.fail_and_exit(event_loop, error);
                 }
@@ -147,12 +162,46 @@ impl ApplicationHandler for NativeWindowSmokeApp {
                 }
             }
             WindowEvent::MouseInput { state, button, .. } => {
+                self.last_input_at = Some(std::time::Instant::now());
                 let phase = pointer_phase_from_element_state(state);
                 let button = pointer_button_from_winit(button);
                 match self.dispatch_window_pointer_input(phase, button) {
                     Ok(true) => self.request_redraw(),
                     Ok(false) => {}
                     Err(error) => self.fail_and_exit(event_loop, error),
+                }
+            }
+            WindowEvent::MouseWheel { delta, .. } => {
+                let (delta_x, delta_y) = match delta {
+                    // A line delta is a notched wheel. Browsers translate one
+                    // notch to roughly 40 logical pixels, so match that to keep
+                    // native scroll distance comparable to the Web build.
+                    MouseScrollDelta::LineDelta(x, y) => (
+                        f64::from(x) * WHEEL_LINE_LOGICAL_PIXELS,
+                        f64::from(y) * WHEEL_LINE_LOGICAL_PIXELS,
+                    ),
+                    // A pixel delta is a trackpad/precision device and arrives in
+                    // physical pixels, so it needs the same scale-factor divide
+                    // the cursor position gets.
+                    MouseScrollDelta::PixelDelta(position) => {
+                        let scale_factor = self
+                            .window
+                            .as_ref()
+                            .map(|window| window.scale_factor())
+                            .unwrap_or(1.0);
+                        let scale_factor = if scale_factor > 0.0 {
+                            scale_factor
+                        } else {
+                            1.0
+                        };
+                        (position.x / scale_factor, position.y / scale_factor)
+                    }
+                };
+                // Wheel y is positive when scrolling up, but scroll offsets grow
+                // downward, so the sign flips.
+                self.last_input_at = Some(std::time::Instant::now());
+                if self.dispatch_window_scroll(-delta_x, -delta_y) {
+                    self.request_redraw();
                 }
             }
             WindowEvent::RedrawRequested => {
@@ -184,6 +233,10 @@ impl ApplicationHandler for NativeWindowSmokeApp {
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
         #[cfg(feature = "quickjs-rquickjs")]
         self.ingest_quickjs_pipeline_updates();
+        // Frame pacing is owned by the surface present mode (vsync), so the
+        // event loop simply sleeps until winit, the compositor, or the
+        // projection worker wakes it. No software frame deadline is polled.
+        event_loop.set_control_flow(ControlFlow::Wait);
         let action = match self.product_shell.as_mut() {
             Some(product_shell) => product_shell.about_to_wait(),
             None => return,
@@ -200,7 +253,12 @@ impl NativeWindowSmokeApp {
     fn needs_more_frames(&self) -> bool {
         #[cfg(feature = "quickjs-rquickjs")]
         if self.quickjs_product.is_some() {
+            let product_needs_frames = self
+                .product_shell
+                .as_ref()
+                .is_some_and(|shell| shell.needs_more_frames());
             return native_window_dev_enabled()
+                || product_needs_frames
                 || self.renderer_redraw_pending
                 || self.renderer_local_work_active
                 || self
@@ -241,7 +299,10 @@ impl NativeWindowSmokeApp {
                     Ok(action) => {
                         #[cfg(feature = "quickjs-rquickjs")]
                         let request_redraw = if self.quickjs_product.is_some() {
-                            self.renderer_local_work_active
+                            self.product_shell
+                                .as_ref()
+                                .is_some_and(|shell| shell.needs_more_frames())
+                                || self.renderer_local_work_active
                                 || self.product_shell.as_ref().is_some_and(|shell| {
                                     shell.window_loop().has_active_interaction_transition()
                                 })

@@ -60,6 +60,7 @@ fn keeps_different_planes_and_kinds_in_separate_batches() {
             border: BorderDrawParams::default(),
             padding: EdgeInsetsDrawParam::default(),
             intent: None,
+            rotation_degrees: 0.0,
         })),
     ]);
 

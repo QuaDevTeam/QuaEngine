@@ -36,9 +36,15 @@ impl RealWgpuNativeRenderRuntimeDevice {
         if !destination.usage().contains(wgpu::TextureUsages::COPY_DST) {
             return invalid_copy("destination texture must include COPY_DST usage");
         }
-        if destination.format() != self.frame_target.color_format() {
+        // The frame is composited in the non-sRGB variant of the surface format
+        // so blending matches CSS. A texture-to-texture copy is a raw byte move
+        // and wgpu permits it between formats that differ only in sRGB-ness, so
+        // compare the base formats rather than requiring an exact match.
+        if destination.format().remove_srgb_suffix()
+            != self.frame_target.color_format().remove_srgb_suffix()
+        {
             return invalid_copy(format!(
-                "destination texture format {:?} does not match frame format {:?}",
+                "destination texture format {:?} is not copy-compatible with frame format {:?}",
                 destination.format(),
                 self.frame_target.color_format()
             ));

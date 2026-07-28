@@ -3,9 +3,9 @@ use crate::projection::dialogue::layout::dialogue_panel_bounds;
 use crate::projection::safety::is_safe_native_text_payload;
 use crate::render_graph::{
     BorderDrawParams, DrawCommand, DrawCommandKind, DrawCommandParams, EdgeInsetsDrawParam,
-    FontStyleDrawParam, PanelDrawParams, RenderGraph, RenderPlane, RendererIntent, TextAlign,
-    TextDecorationDrawParam, TextOverflowDrawParam, TextTransformDrawParam, UiButtonDrawParams,
-    WhiteSpaceDrawParam,
+    FontStyleDrawParam, GradientDrawKind, GradientDrawParams, GradientDrawRadialShape, RenderGraph,
+    RenderPlane, RendererIntent, TextAlign, TextDecorationDrawParam, TextOverflowDrawParam,
+    TextTransformDrawParam, UiButtonDrawParams, WhiteSpaceDrawParam,
 };
 use crate::stage_layout::ResolvedStageLayout;
 
@@ -71,13 +71,21 @@ pub fn build_choice_commands_with_dialogue(
             panel,
         )
         .z_index(10)
-        .params(DrawCommandParams::Panel(PanelDrawParams {
+        .params(DrawCommandParams::Gradient(GradientDrawParams {
             role: "choices-panel".to_string(),
+            kind: GradientDrawKind::Linear,
+            start_color: "rgba(4,5,8,0.0)".to_string(),
+            end_color: "rgba(4,5,8,0.72)".to_string(),
+            angle_degrees: 90.0,
+            center_x: 0.0,
+            center_y: 0.0,
+            radius: 0.0,
+            radial_shape: GradientDrawRadialShape::Circle,
+            start_offset: 0.0,
+            end_offset: 1.0,
+            fill_before_start: true,
+            fill_after_end: true,
             corner_radius: 2.0,
-            fill_color: "rgba(0,0,0,0.0)".to_string(),
-            border: BorderDrawParams::default(),
-            padding: EdgeInsetsDrawParam::default(),
-            intent: None,
         })),
         &choices.provenance,
     )];
@@ -114,7 +122,7 @@ fn choice_command(
         text_color: "#fff8ea".to_string(),
         corner_radius: 2.0,
         border: BorderDrawParams {
-            color: Some("rgba(245,226,190,0.34)".to_string()),
+            color: Some("rgba(245,226,190,0.28)".to_string()),
             width: 1.0,
         },
         font_family: vec!["Noto Sans".to_string()],

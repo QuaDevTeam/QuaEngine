@@ -231,6 +231,109 @@ fn json_frame_ui_style_number_validation_rejects_unsafe_resolved_values() {
 }
 
 #[test]
+fn json_frame_ui_gradient_validation_accepts_canonical_stops_and_rejects_legacy_or_unsafe_data() {
+    let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
+    let valid_radial = json_frame_with_malformed_ui_style_object_input(
+        "backgroundGradient",
+        r#"{
+            "kind": "radial",
+            "centerX": 0.5,
+            "centerY": 0.5,
+            "radius": 0.70710678118,
+            "shape": "ellipse",
+            "stops": [
+                { "color": "transparent", "position": 0.46 },
+                { "color": "rgba(0,0,0,0.34)", "position": 1.0 }
+            ]
+        }"#,
+    );
+    renderer
+        .prepare_frame_json_str(&valid_radial)
+        .unwrap_or_else(|error| {
+            panic!("expected non-zero radial start stop to be valid: {error:?}")
+        });
+
+    for (value_json, expected_path_suffix, expected_reason) in [
+        (
+            r##"{
+                "kind": "linear",
+                "angleDegrees": 90,
+                "startColor": "#000",
+                "endColor": "#fff"
+            }"##,
+            "backgroundGradient.endColor",
+            "not a supported",
+        ),
+        (
+            r##"{
+                "kind": "radial",
+                "centerX": 0.5,
+                "centerY": 0.5,
+                "radius": 0.7,
+                "stops": [
+                    { "color": "#000", "position": 0.2 },
+                    { "color": "#fff", "position": 1.0 }
+                ]
+            }"##,
+            "backgroundGradient.shape",
+            "explicitly provided",
+        ),
+        (
+            r##"{
+                "kind": "linear",
+                "angleDegrees": 90,
+                "stops": [{ "color": "#000", "position": 0.0 }]
+            }"##,
+            "backgroundGradient.stops",
+            "between 2 and 8",
+        ),
+        (
+            r##"{
+                "kind": "linear",
+                "angleDegrees": 90,
+                "stops": [
+                    { "color": "#000", "position": 0.7 },
+                    { "color": "#fff", "position": 0.2 }
+                ]
+            }"##,
+            "backgroundGradient.stops",
+            "strictly increasing",
+        ),
+        (
+            r##"{
+                "kind": "linear",
+                "angleDegrees": 90,
+                "stops": [
+                    { "color": "url(native.dll)", "position": 0.0 },
+                    { "color": "#fff", "position": 1.0 }
+                ]
+            }"##,
+            "backgroundGradient.stops[0].color",
+            "color literals must",
+        ),
+    ] {
+        let input =
+            json_frame_with_malformed_ui_style_object_input("backgroundGradient", value_json);
+        let error = renderer.prepare_frame_json_str(&input).unwrap_err();
+        match error {
+            NativeRendererJsonFrameError::Validation(validation) => {
+                assert!(
+                    validation.path.ends_with(expected_path_suffix),
+                    "unexpected validation path: {}",
+                    validation.path
+                );
+                assert!(
+                    validation.reason.contains(expected_reason),
+                    "unexpected validation reason: {}",
+                    validation.reason
+                );
+            }
+            other => panic!("expected gradient validation error, got {other:?}"),
+        }
+    }
+}
+
+#[test]
 fn json_frame_ui_style_validation_rejects_malformed_style_object_fields() {
     let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
 

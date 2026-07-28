@@ -265,24 +265,27 @@ fn transition_progress(
     if transition.duration_ms <= 0.0 {
         return 1.0;
     }
-    let progress = (elapsed_ms / transition.duration_ms).clamp(0.0, 1.0);
+    let delayed_elapsed = (elapsed_ms - transition.delay_ms.max(0.0)).max(0.0);
+    let progress = (delayed_elapsed / transition.duration_ms).clamp(0.0, 1.0);
     ease_progress(progress, transition.easing)
 }
 
+/// Hover/press transitions mirror the browser's native CSS `transition`
+/// engine, so the keywords resolve to the CSS-specified bezier control points
+/// and are solved exactly (x-solve, then y). Delegates to the shared
+/// `projection_runtime::easing` CSS-spec solver so both paths use identical
+/// arithmetic.
 fn ease_progress(value: f64, easing: DrawTransitionEasing) -> f64 {
-    match easing {
-        DrawTransitionEasing::Linear => value,
-        DrawTransitionEasing::EaseIn => value * value,
-        DrawTransitionEasing::EaseOut => 1.0 - (1.0 - value) * (1.0 - value),
-        DrawTransitionEasing::EaseInOut => {
-            if value < 0.5 {
-                2.0 * value * value
-            } else {
-                1.0 - (-2.0 * value + 2.0).powi(2) / 2.0
-            }
-        }
-        DrawTransitionEasing::Ease => value * value * (3.0 - 2.0 * value),
-    }
+    let value = value.clamp(0.0, 1.0);
+    let [x1, y1, x2, y2] = match easing {
+        DrawTransitionEasing::Linear => return value,
+        DrawTransitionEasing::Ease => [0.25, 0.1, 0.25, 1.0],
+        DrawTransitionEasing::EaseIn => [0.42, 0.0, 1.0, 1.0],
+        DrawTransitionEasing::EaseOut => [0.0, 0.0, 0.58, 1.0],
+        DrawTransitionEasing::EaseInOut => [0.42, 0.0, 0.58, 1.0],
+        DrawTransitionEasing::CubicBezier(points) => points,
+    };
+    crate::projection_runtime::easing::css_bezier(value, x1, y1, x2, y2)
 }
 
 fn interpolate_params(
@@ -304,6 +307,10 @@ fn interpolate_params(
         transition_progress(transitions, DrawTransitionProperty::BoxShadow, elapsed_ms);
     let filter_progress =
         transition_progress(transitions, DrawTransitionProperty::Filter, elapsed_ms);
+    // `transform` / `scale` / `translate` transitions all collapse onto the
+    // Transform channel in the surface traversal, so rotation rides along here.
+    let transform_progress =
+        transition_progress(transitions, DrawTransitionProperty::Transform, elapsed_ms);
     match (source, target) {
         (DrawCommandParams::Panel(source), DrawCommandParams::Panel(target)) => {
             let mut result = target.clone();
@@ -314,6 +321,11 @@ fn interpolate_params(
                 source.corner_radius,
                 target.corner_radius,
                 background_progress,
+            );
+            result.rotation_degrees = lerp_f64(
+                source.rotation_degrees,
+                target.rotation_degrees,
+                transform_progress,
             );
             DrawCommandParams::Panel(result)
         }
@@ -336,12 +348,27 @@ fn interpolate_params(
         (DrawCommandParams::Text(source), DrawCommandParams::Text(target)) => {
             let mut result = target.clone();
             result.color = blend_color(&source.color, &target.color, color_progress);
+            result.rotation_degrees = lerp_f64(
+                source.rotation_degrees,
+                target.rotation_degrees,
+                transform_progress,
+            );
             DrawCommandParams::Text(result)
         }
         (DrawCommandParams::Image(source), DrawCommandParams::Image(target)) => {
             let mut result = target.clone();
-            result.brightness = lerp_f64(source.brightness, target.brightness, filter_progress);
-            result.saturation = lerp_f64(source.saturation, target.saturation, filter_progress);
+            result.brightness         = lerp_f64(source.brightness, target.brightness, filter_progress);
+            result.saturation         = lerp_f64(source.saturation, target.saturation, filter_progress);
+            result.contrast           = lerp_f64(source.contrast, target.contrast, filter_progress);
+            result.grayscale          = lerp_f64(source.grayscale, target.grayscale, filter_progress);
+            result.sepia              = lerp_f64(source.sepia, target.sepia, filter_progress);
+            result.hue_rotate_radians = lerp_f64(source.hue_rotate_radians, target.hue_rotate_radians, filter_progress);
+            result.invert             = lerp_f64(source.invert, target.invert, filter_progress);
+            result.rotation_degrees = lerp_f64(
+                source.rotation_degrees,
+                target.rotation_degrees,
+                transform_progress,
+            );
             DrawCommandParams::Image(result)
         }
         (DrawCommandParams::Shadow(source), DrawCommandParams::Shadow(target)) => {
@@ -469,16 +496,11 @@ fn blend_color(source: &str, target: &str, progress: f64) -> String {
     let source_alpha = source.a;
     let target_alpha = target.a;
     let alpha = lerp_f64(source_alpha, target_alpha, progress);
-    let source_rgb = [
-        srgb_to_linear(source.r),
-        srgb_to_linear(source.g),
-        srgb_to_linear(source.b),
-    ];
-    let target_rgb = [
-        srgb_to_linear(target.r),
-        srgb_to_linear(target.g),
-        srgb_to_linear(target.b),
-    ];
+    // CSS interpolates transition colors in sRGB, premultiplied by alpha. Doing
+    // this in linear light would make mid-transition hover/press frames diverge
+    // from the Web target even though both endpoints agree.
+    let source_rgb = [source.r, source.g, source.b];
+    let target_rgb = [target.r, target.g, target.b];
     let mut rgb = [0.0; 3];
     for index in 0..3 {
         let source_premultiplied = source_rgb[index] * source_alpha;
@@ -491,9 +513,9 @@ fn blend_color(source: &str, target: &str, progress: f64) -> String {
     }
     format!(
         "rgba({},{},{},{:.4})",
-        (linear_to_srgb(rgb[0]).clamp(0.0, 1.0) * 255.0).round(),
-        (linear_to_srgb(rgb[1]).clamp(0.0, 1.0) * 255.0).round(),
-        (linear_to_srgb(rgb[2]).clamp(0.0, 1.0) * 255.0).round(),
+        (rgb[0].clamp(0.0, 1.0) * 255.0).round(),
+        (rgb[1].clamp(0.0, 1.0) * 255.0).round(),
+        (rgb[2].clamp(0.0, 1.0) * 255.0).round(),
         alpha.clamp(0.0, 1.0)
     )
 }
@@ -591,21 +613,6 @@ fn parse_color(value: &str) -> Option<RgbaColor> {
     })
 }
 
-fn srgb_to_linear(value: f64) -> f64 {
-    if value <= 0.04045 {
-        value / 12.92
-    } else {
-        ((value + 0.055) / 1.055).powf(2.4)
-    }
-}
-fn linear_to_srgb(value: f64) -> f64 {
-    if value <= 0.0031308 {
-        value * 12.92
-    } else {
-        1.055 * value.powf(1.0 / 2.4) - 0.055
-    }
-}
-
 fn apply_command_variant(command: &mut DrawCommand, variant: &DrawCommandVariant) {
     command.bounds = variant.bounds;
     command.clip_bounds = variant.clip_bounds.clone();
@@ -636,9 +643,12 @@ fn interaction_feedback_command(
         return None;
     }
 
-    let corner_radius = match &command.params {
-        DrawCommandParams::UiButton(params) => params.corner_radius,
-        DrawCommandParams::Panel(params) => params.corner_radius,
+    // The feedback overlay shares the source node's geometry, so it has to pick up
+    // the node's rotation as well or the highlight would sit axis-aligned over a
+    // rotated node. `UiButton` has no rotation of its own today.
+    let (corner_radius, rotation_degrees) = match &command.params {
+        DrawCommandParams::UiButton(params) => (params.corner_radius, 0.0),
+        DrawCommandParams::Panel(params) => (params.corner_radius, params.rotation_degrees),
         _ => return None,
     };
     let fill_color = if pressed {
@@ -683,6 +693,7 @@ fn interaction_feedback_command(
             border,
             padding: Default::default(),
             intent: None,
+            rotation_degrees,
         })),
     )
 }
@@ -707,6 +718,45 @@ mod tests {
         resolve_stage_layout, StageClientPoint, StageClientRectOrigin, StageContainerInput,
         StageHitTestPoint,
     };
+
+    #[test]
+    fn evaluates_css_transition_easing_keywords_as_true_bezier_curves() {
+        // Reference values from the canonical WebKit UnitBezier solver; the
+        // hover/press path must match the browser's CSS transition engine.
+        let close = |actual: f64, expected: f64| {
+            assert!(
+                (actual - expected).abs() <= 1e-6,
+                "expected {expected}, got {actual}"
+            );
+        };
+        close(
+            ease_progress(0.1, DrawTransitionEasing::Ease),
+            0.094_796_306,
+        );
+        close(
+            ease_progress(0.25, DrawTransitionEasing::Ease),
+            0.408_510_593,
+        );
+        close(
+            ease_progress(0.5, DrawTransitionEasing::Ease),
+            0.802_403_388,
+        );
+        close(
+            ease_progress(0.75, DrawTransitionEasing::Ease),
+            0.960_458_978,
+        );
+        close(
+            ease_progress(0.9, DrawTransitionEasing::Ease),
+            0.994_316_478,
+        );
+        let expo = DrawTransitionEasing::CubicBezier([0.19, 1.0, 0.22, 1.0]);
+        close(ease_progress(0.1, expo), 0.479_754_619);
+        close(ease_progress(0.5, expo), 0.977_824_592);
+        close(ease_progress(0.9, expo), 0.999_911_198);
+        close(ease_progress(0.0, expo), 0.0);
+        close(ease_progress(1.0, expo), 1.0);
+        close(ease_progress(0.5, DrawTransitionEasing::Linear), 0.5);
+    }
 
     #[test]
     fn appends_hover_and_focus_paint_without_mutating_the_projected_frame() {
@@ -772,6 +822,7 @@ mod tests {
                     action: Some("close".to_string()),
                     metadata: Default::default(),
                 }),
+                rotation_degrees: 0.0,
             })),
         );
         let frame = PreparedNativeFrame {
@@ -832,16 +883,19 @@ mod tests {
             DrawTransition {
                 property: DrawTransitionProperty::Transform,
                 duration_ms: 1_000.0,
+                delay_ms: 0.0,
                 easing: DrawTransitionEasing::Linear,
             },
             DrawTransition {
                 property: DrawTransitionProperty::BackgroundColor,
                 duration_ms: 1_000.0,
+                delay_ms: 0.0,
                 easing: DrawTransitionEasing::Linear,
             },
             DrawTransition {
                 property: DrawTransitionProperty::Color,
                 duration_ms: 1_000.0,
+                delay_ms: 0.0,
                 easing: DrawTransitionEasing::Linear,
             },
         ];

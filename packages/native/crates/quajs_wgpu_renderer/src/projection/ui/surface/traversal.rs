@@ -170,7 +170,7 @@ fn append_scroll_node_commands(
         offset,
         effective_opacity,
     ));
-    if let Some(command) = surface_background_gradient_command(
+    commands.extend(surface_background_gradient_command(
         overlay,
         node,
         z_base,
@@ -178,9 +178,7 @@ fn append_scroll_node_commands(
         &command_id,
         bounds,
         effective_opacity,
-    ) {
-        commands.push(command);
-    }
+    ));
     if let Some(command) = surface_background_image_command(
         overlay,
         node,
@@ -305,7 +303,7 @@ fn painted_surface_node_commands(
         offset,
         effective_opacity,
     ));
-    if let Some(command) = surface_background_gradient_command(
+    commands.extend(surface_background_gradient_command(
         overlay,
         node,
         z_base,
@@ -313,9 +311,7 @@ fn painted_surface_node_commands(
         &command_id,
         bounds,
         effective_opacity,
-    ) {
-        commands.push(command);
-    }
+    ));
     if let Some(command) = surface_background_image_command(
         overlay,
         node,
@@ -389,12 +385,16 @@ fn attach_interaction_variants(
                 }
             },
             duration_ms: transition.duration_ms,
+            delay_ms: transition.delay_ms,
             easing: match transition.easing {
                 UiSurfaceTransitionEasingProjection::Ease => DrawTransitionEasing::Ease,
                 UiSurfaceTransitionEasingProjection::EaseIn => DrawTransitionEasing::EaseIn,
                 UiSurfaceTransitionEasingProjection::EaseInOut => DrawTransitionEasing::EaseInOut,
                 UiSurfaceTransitionEasingProjection::EaseOut => DrawTransitionEasing::EaseOut,
                 UiSurfaceTransitionEasingProjection::Linear => DrawTransitionEasing::Linear,
+                UiSurfaceTransitionEasingProjection::CubicBezier(points) => {
+                    DrawTransitionEasing::CubicBezier(points)
+                }
             },
         })
         .collect::<Vec<_>>();

@@ -13,11 +13,11 @@ pub use surface::{
     UiSurfaceBackgroundPositionProjection, UiSurfaceBorderStyleProjection,
     UiSurfaceControlOptionProjection, UiSurfaceControlProjection, UiSurfaceEdgeInsetsProjection,
     UiSurfaceFilterProjection, UiSurfaceFontStyleProjection, UiSurfaceGradientKindProjection,
-    UiSurfaceGradientProjection, UiSurfaceImageProjection, UiSurfaceNodeKind,
-    UiSurfaceNodeProjection, UiSurfaceNodeRect, UiSurfaceNodeStateProjection,
+    UiSurfaceGradientProjection, UiSurfaceGradientStopProjection, UiSurfaceImageProjection,
+    UiSurfaceNodeKind, UiSurfaceNodeProjection, UiSurfaceNodeRect, UiSurfaceNodeStateProjection,
     UiSurfaceObjectFitProjection, UiSurfacePseudoStateProjection,
-    UiSurfaceRangeControlPartsProjection, UiSurfaceResolvedStyle,
-    UiSurfaceSelectControlPartsProjection, UiSurfaceShadowProjection,
+    UiSurfaceRadialGradientShapeProjection, UiSurfaceRangeControlPartsProjection,
+    UiSurfaceResolvedStyle, UiSurfaceSelectControlPartsProjection, UiSurfaceShadowProjection,
     UiSurfaceSwitchControlPartsProjection, UiSurfaceTextAlignProjection,
     UiSurfaceTextDecorationProjection, UiSurfaceTextOverflowProjection,
     UiSurfaceTextTransformProjection, UiSurfaceTransitionEasingProjection,
@@ -39,4 +39,12 @@ fn is_false(value: &bool) -> bool {
 
 fn is_zero_f64(value: &f64) -> bool {
     *value == 0.0
+}
+
+pub(super) fn default_one_f64() -> f64 {
+    1.0
+}
+
+pub(super) fn is_one_f64_ref(value: &f64) -> bool {
+    *value == 1.0
 }

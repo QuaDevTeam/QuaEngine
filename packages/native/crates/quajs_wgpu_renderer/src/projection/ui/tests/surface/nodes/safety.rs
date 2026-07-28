@@ -2,7 +2,8 @@ use crate::projection::common::FontFamilyProjection;
 use crate::projection::safety::MAX_NATIVE_TEXT_PAYLOAD_BYTES;
 use crate::projection::ui::{
     UiOverlaySceneProjection, UiOverlaySceneShellProjection, UiSurfaceBackgroundPositionProjection,
-    UiSurfaceBorderStyleProjection, UiSurfaceEdgeInsetsProjection,
+    UiSurfaceBorderStyleProjection, UiSurfaceEdgeInsetsProjection, UiSurfaceGradientKindProjection,
+    UiSurfaceGradientProjection, UiSurfaceGradientStopProjection,
 };
 
 use super::*;
@@ -78,6 +79,32 @@ fn skips_surface_nodes_with_unsafe_resolved_numbers() {
                 right: 0.0,
                 bottom: 0.0,
                 left: 1_000_001.0,
+            }),
+            ..Default::default()
+        }),
+        UiSurfaceNodeProjection::new(
+            "bad-gradient-stops",
+            UiSurfaceNodeKind::Panel,
+            rect(20.0, 312.0, 160.0, 40.0),
+        )
+        .with_style(UiSurfaceResolvedStyle {
+            background_gradient: Some(UiSurfaceGradientProjection {
+                kind: UiSurfaceGradientKindProjection::Linear,
+                angle_degrees: Some(90.0),
+                center_x: None,
+                center_y: None,
+                radius: None,
+                shape: None,
+                stops: vec![
+                    UiSurfaceGradientStopProjection {
+                        color: "#000".to_string(),
+                        position: 0.8,
+                    },
+                    UiSurfaceGradientStopProjection {
+                        color: "#fff".to_string(),
+                        position: 0.2,
+                    },
+                ],
             }),
             ..Default::default()
         }),

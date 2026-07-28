@@ -130,6 +130,18 @@ export function resolveNativeQssDeclarations(
       case 'border-radius':
         resolved.style.borderRadius = parseNativeQssLogicalNumber(value)
         break
+      case 'border-top-left-radius':
+        resolved.style.borderTopLeftRadius = parseNativeQssLogicalNumber(value)
+        break
+      case 'border-top-right-radius':
+        resolved.style.borderTopRightRadius = parseNativeQssLogicalNumber(value)
+        break
+      case 'border-bottom-right-radius':
+        resolved.style.borderBottomRightRadius = parseNativeQssLogicalNumber(value)
+        break
+      case 'border-bottom-left-radius':
+        resolved.style.borderBottomLeftRadius = parseNativeQssLogicalNumber(value)
+        break
       case 'border-style':
         resolved.style.borderStyle = parseNativeQssBorderStyle(value)
         break
@@ -291,6 +303,9 @@ export function resolveNativeQssDeclarations(
               originX: resolved.layout?.transform?.originX ?? transform.originX,
               originY: resolved.layout?.transform?.originY ?? transform.originY,
             },
+          }
+          if (transform.rotateDeg !== undefined) {
+            resolved.style.rotateDeg = transform.rotateDeg
           }
         }
         break

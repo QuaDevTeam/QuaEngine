@@ -134,6 +134,11 @@ fn background_image_command(
             rotation_degrees: background.rotation,
             brightness: 1.0,
             saturation: 1.0,
+            contrast: 1.0,
+            grayscale: 0.0,
+            sepia: 0.0,
+            hue_rotate_radians: 0.0,
+            invert: 0.0,
         }));
 
     Some(apply_provenance(command, &background.provenance))
@@ -179,6 +184,11 @@ fn background_layer_command(
         rotation_degrees: layer.rotation,
         brightness: 1.0,
         saturation: 1.0,
+        contrast: 1.0,
+        grayscale: 0.0,
+        sepia: 0.0,
+        hue_rotate_radians: 0.0,
+        invert: 0.0,
     }));
 
     Some(apply_provenance(command, &layer.provenance))

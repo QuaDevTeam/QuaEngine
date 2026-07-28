@@ -417,6 +417,10 @@
 .vn-main-menu__title {
   margin: 0;
   color: #fffaf0;
+  // Pinned rather than inherited from --qua-font-body: that stack ends in a
+  // generic `serif`, so the CJK title would render in whatever face the host OS
+  // supplies and drift from the native build.
+  font-family: "Noto Serif", ui-serif, Georgia, serif;
   font-size: clamp(56px, 7cqw, 104px);
   font-weight: 700;
   line-height: 0.96;
