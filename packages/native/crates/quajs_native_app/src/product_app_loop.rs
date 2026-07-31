@@ -88,8 +88,10 @@ impl NativeProductAppLoop {
         }
     }
 
-    /// Enables the browser-like render cadence. Frame pacing is delegated to the
-    /// wgpu surface present mode (vsync), so no software frame timer is used.
+    /// Enables the browser-like render cadence. This loop decides *whether* a
+    /// frame is owed; the target frame rate is enforced by
+    /// [`crate::product_frame_pacer::NativeProductFramePacer`], which the winit
+    /// layer uses to park in `ControlFlow::WaitUntil` between frames.
     #[cfg_attr(not(feature = "native-window"), allow(dead_code))]
     pub(crate) fn enable_continuous_rendering(&mut self) {
         self.continuous_rendering = true;
@@ -144,10 +146,9 @@ impl NativeProductAppLoop {
         &mut self,
         needs_more_frames: bool,
     ) -> NativeProductAppLoopAction {
-        // Vsync-paced continuous rendering leaves frame cadence to the
-        // compositor: the surface present call blocks until the next vblank, so
-        // the next redraw is requested from `about_to_wait` without a software
-        // frame timer.
+        // Continuous rendering defers the next redraw to `about_to_wait`, which
+        // pairs it with the pacer's frame deadline. Requesting it here would
+        // bypass pacing and spin at whatever rate the work allows.
         if self.continuous_rendering && self.can_request_redraw() {
             return NativeProductAppLoopAction::none();
         }
@@ -166,9 +167,9 @@ impl NativeProductAppLoop {
     }
 
     pub(crate) fn about_to_wait(&mut self, needs_more_frames: bool) -> NativeProductAppLoopAction {
-        // Continuous rendering keeps one redraw in flight at a time. Vsync in
-        // the surface present path throttles the resulting loop, so the event
-        // loop can stay parked in `ControlFlow::Wait` between frames.
+        // Continuous rendering keeps one redraw in flight at a time. The winit
+        // layer parks in `ControlFlow::WaitUntil(pacer.next_deadline())`, so the
+        // redraw requested here is dispatched at the target frame rate.
         if self.continuous_rendering && self.can_request_redraw() {
             return self.maybe_request_redraw();
         }
@@ -337,19 +338,19 @@ mod tests {
     }
 
     #[test]
-    fn continuous_rendering_requests_the_next_frame_without_a_software_timer() {
+    fn continuous_rendering_defers_the_next_frame_to_the_paced_wait() {
         let mut app_loop = NativeProductAppLoop::new();
         app_loop.enable_continuous_rendering();
         app_loop.record_resumed();
         app_loop.record_redraw_dispatch_started();
 
-        // Frame completion defers the redraw to `about_to_wait` so the event
-        // loop can sleep until vsync unblocks rather than spinning.
+        // Frame completion must not request the redraw itself: that would
+        // bypass the frame deadline and spin as fast as the work allows.
         let completed = app_loop.record_frame_completed(false);
         assert!(!completed.request_redraw);
         assert!(!app_loop.snapshot().redraw_pending);
 
-        // `about_to_wait` issues the next redraw; present will block at vsync.
+        // `about_to_wait` issues the next redraw, paired with the pacer deadline.
         let waiting = app_loop.about_to_wait(false);
         assert!(waiting.request_redraw);
         assert!(app_loop.snapshot().redraw_pending);

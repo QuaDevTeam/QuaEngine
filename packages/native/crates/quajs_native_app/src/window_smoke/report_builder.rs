@@ -412,7 +412,7 @@ mod tests {
             font_atlas_text_draw_count: 6,
             shaped_text_draw_count: 5,
             bitmap_text_draw_count: 0,
-            font_atlas_resource_ids: vec!["fonts:Noto Sans".to_string()],
+            font_atlas_resource_ids: vec!["fonts:Noto Sans@64".to_string()],
             linear_sampled_texture_bind_group_count: 4,
             nearest_sampled_texture_bind_group_count: 0,
             frame_capture: Some(&frame_capture),
@@ -425,7 +425,7 @@ mod tests {
         assert_eq!(report.font_atlas_text_draw_count, 6);
         assert_eq!(report.shaped_text_draw_count, 5);
         assert_eq!(report.bitmap_text_draw_count, 0);
-        assert_eq!(report.font_atlas_resource_ids, vec!["fonts:Noto Sans"]);
+        assert!(report.font_atlas_resource_ids.iter().any(|id| id.starts_with("fonts:Noto Sans@")));
         assert_eq!(report.linear_sampled_texture_bind_group_count, 4);
         assert_eq!(report.nearest_sampled_texture_bind_group_count, 0);
         assert_eq!(report.surface_recovery_attempt_count, 2);

@@ -1,8 +1,10 @@
 mod app;
 mod config;
+mod demo_e2e;
 mod dev_qpk;
 mod error;
 mod frame;
+mod frame_composer;
 mod input;
 mod metrics;
 mod performance_hud;
@@ -20,8 +22,8 @@ use winit::event_loop::EventLoop;
 
 #[allow(unused_imports)]
 pub use config::{
-    WINDOW_DEV_ENV, WINDOW_DEV_QPK_ENV, WINDOW_SMOKE_ENV, WINDOW_SMOKE_FRAMES_ENV,
-    WINDOW_SMOKE_FRAME_ENV,
+    WINDOW_DEMO_E2E_ENV, WINDOW_DEV_ENV, WINDOW_DEV_QPK_ENV, WINDOW_SMOKE_ENV,
+    WINDOW_SMOKE_FRAMES_ENV, WINDOW_SMOKE_FRAME_ENV,
 };
 pub use error::NativeWindowSmokeError;
 pub use report::NativeWindowSmokeReport;

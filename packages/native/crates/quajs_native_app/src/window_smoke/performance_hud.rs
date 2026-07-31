@@ -33,6 +33,10 @@ pub(super) struct NativeWindowPerformanceHud {
     /// fades, typewriter reveals, and scene transitions.
     active_transition_count: usize,
     last_hud_refresh_at: Option<Instant>,
+    /// Bumped whenever the displayed values change, which is at most once per
+    /// [`HUD_REFRESH_INTERVAL`]. The frame composer keys its cache on this, so
+    /// between refreshes the whole frame JSON is reused instead of recomposed.
+    revision: u64,
     displayed_fps: f64,
     displayed_active: bool,
     displayed_frame_time: Duration,
@@ -43,6 +47,9 @@ pub(super) struct NativeWindowPerformanceHud {
     displayed_projection_fresh: bool,
     displayed_input_latency_ms: Option<f64>,
     displayed_active_transition_count: usize,
+    displayed_target_fps: u32,
+    displayed_compose_ms: f64,
+    displayed_compose_cache_hit: bool,
 }
 
 impl Default for NativeWindowPerformanceHud {
@@ -59,6 +66,7 @@ impl Default for NativeWindowPerformanceHud {
             input_latency_ms: None,
             active_transition_count: 0,
             last_hud_refresh_at: None,
+            revision: 0,
             displayed_fps: 0.0,
             displayed_active: false,
             displayed_frame_time: Duration::ZERO,
@@ -69,6 +77,9 @@ impl Default for NativeWindowPerformanceHud {
             displayed_projection_fresh: true,
             displayed_input_latency_ms: None,
             displayed_active_transition_count: 0,
+            displayed_target_fps: 0,
+            displayed_compose_ms: 0.0,
+            displayed_compose_cache_hit: false,
         }
     }
 }
@@ -112,6 +123,13 @@ impl NativeWindowPerformanceHud {
         })
     }
 
+    /// Returns the revision counter. Bumped at most once per
+    /// [`HUD_REFRESH_INTERVAL`]; the frame composer uses it as a cheap cache
+    /// key so the full frame JSON is not recomposed between HUD updates.
+    pub(super) fn revision(&self) -> u64 {
+        self.revision
+    }
+
     pub(super) fn record_frame(
         &mut self,
         frame_time: Duration,
@@ -122,6 +140,9 @@ impl NativeWindowPerformanceHud {
         projection_fresh: bool,
         input_latency_ms: Option<f64>,
         active_transition_count: usize,
+        target_fps: u32,
+        compose_ms: f64,
+        compose_cache_hit: bool,
     ) {
         let now = Instant::now();
         if let Some(previous) = self.last_presented_at.replace(now) {
@@ -132,8 +153,6 @@ impl NativeWindowPerformanceHud {
                     self.frame_intervals.pop_front();
                 }
             } else {
-                // Event-driven idle time is not render time. Start a fresh
-                // active-frame sample window after input or pipeline wake-up.
                 self.frame_intervals.clear();
             }
         }
@@ -153,6 +172,7 @@ impl NativeWindowPerformanceHud {
             return;
         }
         self.last_hud_refresh_at = Some(now);
+        self.revision = self.revision.wrapping_add(1);
         self.displayed_fps = self.fps();
         self.displayed_active = !self.frame_intervals.is_empty();
         self.displayed_frame_time = self.last_frame_time;
@@ -163,17 +183,38 @@ impl NativeWindowPerformanceHud {
         self.displayed_projection_fresh = self.projection_fresh;
         self.displayed_input_latency_ms = self.input_latency_ms;
         self.displayed_active_transition_count = self.active_transition_count;
+        self.displayed_target_fps = target_fps;
+        self.displayed_compose_ms = compose_ms;
+        self.displayed_compose_cache_hit = compose_cache_hit;
+    }
+
+    /// Forces a HUD refresh for tests that need to exercise the cache miss
+    /// path. Not available in production code.
+    #[cfg(test)]
+    pub(super) fn force_refresh_for_test(&mut self) {
+        self.last_hud_refresh_at = self
+            .last_hud_refresh_at
+            .map(|t| t - HUD_REFRESH_INTERVAL * 2);
+        self.record_frame(Duration::ZERO, 0, 0, 0, 0.0, true, None, 0, 60, 0.0, false);
     }
 
     fn overlay(&self, dimensions: WindowFrameDimensions) -> Value {
         let fps = self.displayed_fps;
         let frame_ms = self.displayed_frame_time.as_secs_f64() * 1_000.0;
         let performance_line = if self.displayed_active {
-            format!("FPS {:>5.1}   FRAME {:>5.2} ms", fps, frame_ms)
+            if self.displayed_target_fps > 0 {
+                format!(
+                    "FPS {:>5.1}/{:<3}  FRAME {:>5.2} ms",
+                    fps, self.displayed_target_fps, frame_ms
+                )
+            } else {
+                format!("FPS {:>5.1}   FRAME {:>5.2} ms", fps, frame_ms)
+            }
         } else {
             format!("FPS  IDLE   FRAME {:>5.2} ms", frame_ms)
         };
-        let proj_tag = if self.displayed_projection_fresh { "LIVE" } else { "CACHE" };
+        let proj_tag = if self.displayed_projection_fresh { "LIVE " } else { "CACHE" };
+        let comp_tag = if self.displayed_compose_cache_hit { "HIT " } else { "MISS" };
         let input_line = match self.displayed_input_latency_ms {
             Some(ms) => format!(
                 "INPUT {:>5.1} ms   TRANS {:>2}",
@@ -196,12 +237,14 @@ impl NativeWindowPerformanceHud {
                 proj_tag,
                 dimensions.device_pixel_ratio,
             ),
-            input_line,
             format!(
-                "{} x {} CSS",
+                "COMP {:>5.2} ms  {}  {} x {} CSS",
+                self.displayed_compose_ms,
+                comp_tag,
                 dimensions.logical_width.round() as u32,
-                dimensions.logical_height.round() as u32
+                dimensions.logical_height.round() as u32,
             ),
+            input_line,
         ];
         json!({
             "elementId": "native-performance-hud",
@@ -295,11 +338,11 @@ mod tests {
             physical_size: winit::dpi::PhysicalSize::new(1920, 1080),
             device_pixel_ratio: 2.0,
         };
-        hud.record_frame(Duration::from_millis(8), 12, 1, 3, 0.0, true, None, 0);
+        hud.record_frame(Duration::from_millis(8), 12, 1, 3, 0.0, true, None, 0, 60, 0.0, false);
         let first = hud
             .inject(r#"{"view":{"ui":{"overlays":[]}}}"#, dimensions)
             .unwrap();
-        hud.record_frame(Duration::from_millis(30), 99, 4, 8, 0.0, true, None, 0);
+        hud.record_frame(Duration::from_millis(30), 99, 4, 8, 0.0, true, None, 0, 60, 0.0, false);
         let second = hud
             .inject(r#"{"view":{"ui":{"overlays":[]}}}"#, dimensions)
             .unwrap();
@@ -312,7 +355,7 @@ mod tests {
         let mut hud = NativeWindowPerformanceHud::default();
         hud.last_presented_at = Some(Instant::now() - Duration::from_secs(1));
 
-        hud.record_frame(Duration::from_millis(8), 12, 1, 3, 0.0, true, None, 0);
+        hud.record_frame(Duration::from_millis(8), 12, 1, 3, 0.0, true, None, 0, 60, 0.0, false);
 
         assert!(hud.frame_intervals.is_empty());
         assert_eq!(hud.displayed_fps, 0.0);
@@ -333,7 +376,7 @@ mod tests {
 
         hud.last_hud_refresh_at = Some(Instant::now() - HUD_REFRESH_INTERVAL);
         hud.last_presented_at = Some(Instant::now() - Duration::from_millis(16));
-        hud.record_frame(Duration::from_millis(8), 12, 1, 3, 0.0, true, None, 0);
+        hud.record_frame(Duration::from_millis(8), 12, 1, 3, 0.0, true, None, 0, 60, 0.0, false);
 
         assert_eq!(hud.frame_intervals.len(), 1);
         assert!(hud.displayed_active);

@@ -3,7 +3,7 @@ use winit::event::{MouseScrollDelta, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow};
 use winit::window::WindowId;
 
-use super::{NativeWindowSmokeApp, INTERACTION_PROBE_TIMEOUT};
+use super::NativeWindowSmokeApp;
 /// Logical pixels per notched wheel line. Browsers use ~40 px; matching that
 /// keeps native scroll speed consistent with the Web demo.
 const WHEEL_LINE_LOGICAL_PIXELS: f64 = 40.0;
@@ -12,9 +12,7 @@ use crate::product_window::{
     NativeProductWindowPhysicalSize, NativeProductWindowPresentFailure,
     NativeProductWindowPresentFailureKind,
 };
-use crate::window_smoke::config::{
-    native_window_dev_enabled, native_window_interaction_probe_enabled,
-};
+use crate::window_smoke::config::native_window_dev_enabled;
 use crate::window_smoke::frame::normalized_physical_size;
 use crate::window_smoke::input::{pointer_button_from_winit, pointer_phase_from_element_state};
 
@@ -40,6 +38,7 @@ impl ApplicationHandler for NativeWindowSmokeApp {
             self.fail_and_exit(event_loop, error);
             return;
         }
+        self.reset_frame_pacing();
         let action = match self.product_shell.as_mut() {
             Some(product_shell) => product_shell.record_resumed(),
             None => return,
@@ -95,6 +94,9 @@ impl ApplicationHandler for NativeWindowSmokeApp {
                 }
             }
             WindowEvent::ScaleFactorChanged { .. } => {
+                // A scale-factor change usually means the window moved to a
+                // different monitor, which may run at a different refresh rate.
+                self.refresh_display_refresh_rate();
                 let size = self.window.as_ref().map(|window| window.inner_size());
                 if let Some(size) = size {
                     if let Err(error) = self.resize_surface(size) {
@@ -104,6 +106,7 @@ impl ApplicationHandler for NativeWindowSmokeApp {
                     }
                 }
             }
+            WindowEvent::Moved(_) => self.refresh_display_refresh_rate(),
             WindowEvent::Occluded(occluded) => {
                 if occluded {
                     if let Err(error) = self.cancel_window_ime_composition() {
@@ -112,6 +115,11 @@ impl ApplicationHandler for NativeWindowSmokeApp {
                     }
                     self.cancel_window_pointer_interaction();
                     self.input.clear_cursor_position();
+                }
+                // Becoming visible again must not wait out a deadline computed
+                // before the occlusion gap.
+                if !occluded {
+                    self.reset_frame_pacing();
                 }
                 self.record_visibility_changed(event_loop, !occluded);
             }
@@ -222,7 +230,7 @@ impl ApplicationHandler for NativeWindowSmokeApp {
                 // schedule another redraw. Smoke runs exit once their target
                 // frame count has been reached, while dev runs must wait for
                 // user input, resize, or a QuickJS pipeline update.
-                if !native_window_dev_enabled() {
+                if self.demo_e2e.is_finished() || !native_window_dev_enabled() {
                     event_loop.exit();
                 }
             }
@@ -233,10 +241,16 @@ impl ApplicationHandler for NativeWindowSmokeApp {
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
         #[cfg(feature = "quickjs-rquickjs")]
         self.ingest_quickjs_pipeline_updates();
-        // Frame pacing is owned by the surface present mode (vsync), so the
-        // event loop simply sleeps until winit, the compositor, or the
-        // projection worker wakes it. No software frame deadline is polled.
-        event_loop.set_control_flow(ControlFlow::Wait);
+        // Continuous windows sleep until the next frame deadline so the cadence
+        // matches the configured target frame rate instead of running as fast as
+        // the display refresh rate allows. Windows that owe no frame — hidden,
+        // suspended, or a finite run that is done — park in `Wait` and are woken
+        // by input, the compositor, or the projection worker.
+        let control_flow = match self.next_frame_deadline() {
+            Some(deadline) if self.needs_more_frames() => ControlFlow::WaitUntil(deadline),
+            _ => ControlFlow::Wait,
+        };
+        event_loop.set_control_flow(control_flow);
         let action = match self.product_shell.as_mut() {
             Some(product_shell) => product_shell.about_to_wait(),
             None => return,
@@ -251,6 +265,9 @@ impl ApplicationHandler for NativeWindowSmokeApp {
 
 impl NativeWindowSmokeApp {
     fn needs_more_frames(&self) -> bool {
+        if self.demo_e2e.is_finished() {
+            return false;
+        }
         #[cfg(feature = "quickjs-rquickjs")]
         if self.quickjs_product.is_some() {
             let product_needs_frames = self
@@ -265,19 +282,10 @@ impl NativeWindowSmokeApp {
                     .product_shell
                     .as_ref()
                     .is_some_and(|shell| shell.window_loop().has_active_interaction_transition())
-                || (native_window_interaction_probe_enabled()
-                    && !self.interaction_probe_advance_observed
-                    && self
-                        .interaction_probe_started_at
-                        .map(|started_at| started_at.elapsed() < INTERACTION_PROBE_TIMEOUT)
-                        .unwrap_or(true));
+                || self.demo_e2e.is_running();
         }
-        if native_window_interaction_probe_enabled() {
-            return !self.interaction_probe_advance_observed
-                && self
-                    .interaction_probe_started_at
-                    .map(|started_at| started_at.elapsed() < INTERACTION_PROBE_TIMEOUT)
-                    .unwrap_or(true);
+        if self.demo_e2e.is_running() {
+            return true;
         }
         let product_needs_frames = self
             .product_shell
@@ -306,19 +314,13 @@ impl NativeWindowSmokeApp {
                                 || self.product_shell.as_ref().is_some_and(|shell| {
                                     shell.window_loop().has_active_interaction_transition()
                                 })
-                                || (native_window_interaction_probe_enabled()
-                                    && !self.interaction_probe_advance_observed
-                                    && self
-                                        .interaction_probe_started_at
-                                        .map(|started_at| {
-                                            started_at.elapsed() < INTERACTION_PROBE_TIMEOUT
-                                        })
-                                        .unwrap_or(true))
+                                || self.demo_e2e.is_running()
                         } else {
                             action.request_redraw
                         };
                         #[cfg(not(feature = "quickjs-rquickjs"))]
                         let request_redraw = action.request_redraw;
+                        let request_redraw = request_redraw && !self.demo_e2e.is_finished();
                         let applied = self.apply_product_shell_action(event_loop, action);
                         if request_redraw {
                             self.request_redraw();
@@ -353,6 +355,7 @@ impl NativeWindowSmokeApp {
             NativeProductWindowPhysicalSize::new(size.width, size.height)
         });
         let Some(product_shell) = self.product_shell.as_mut() else {
+            log::error!("Redraw failed with no product shell to recover through: {error}");
             self.error = Some(error);
             return false;
         };
@@ -375,10 +378,15 @@ impl NativeWindowSmokeApp {
                 {
                     return true;
                 }
+                log::error!(
+                    "Surface present failed unrecoverably (kind={:?}): {error}",
+                    present_failure.kind()
+                );
                 self.error = Some(error);
                 false
             }
             Err(recovery_error) => {
+                log::error!("Surface recovery failed: {recovery_error}");
                 self.error = Some(crate::window_smoke::NativeWindowSmokeError::new(format!(
                     "Failed to recover native renderer smoke product window surface: {recovery_error}."
                 )));

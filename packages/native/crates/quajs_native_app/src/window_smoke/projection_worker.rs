@@ -30,6 +30,7 @@ pub(super) struct NativeProjectionResult {
     pub(super) json: String,
     pub(super) local_work_active: bool,
     pub(super) font_prewarm_texts: Vec<String>,
+    pub(super) target_frame_rate: Option<u32>,
 }
 
 /// Everything the worker hands back to the render thread after a projection.
@@ -246,6 +247,10 @@ fn run_projection_worker(
     projection_ms_out: Arc<std::sync::atomic::AtomicU64>,
     transition_count_out: Arc<std::sync::atomic::AtomicUsize>,
 ) {
+    // JSON of the last frame we published. Kept on the worker side so we can
+    // skip the publish (and the event-loop wake) when nothing changed.
+    let mut last_published_json: Option<String> = None;
+
     while let Ok(request) = receiver.recv() {
         let mut requests = vec![request];
         // Coalesce everything already queued. A slow projection must not build a
@@ -302,6 +307,7 @@ fn run_projection_worker(
                         json: frame.json,
                         local_work_active: frame.local_work_active,
                         font_prewarm_texts: guard.font_prewarm_texts(),
+                        target_frame_rate: frame.target_frame_rate,
                     })
                 }
                 Err(error) => {
@@ -321,22 +327,46 @@ fn run_projection_worker(
         let intents = guard.drain_intents();
         drop(guard);
 
+        // Skip-republish: when the projection JSON is identical to the last
+        // published frame *and* there is no local work running (animations,
+        // typewriter, presence fades) and no intents, the render thread will
+        // produce exactly the same composed string it already has cached. Avoid
+        // waking the event loop at all; the pacer will still dispatch the next
+        // frame on schedule so the cadence is unaffected.
+        let should_publish = failure.is_some() || {
+            let unchanged = projected.as_ref().is_some_and(|p| {
+                !p.local_work_active
+                    && last_published_json
+                        .as_deref()
+                        .is_some_and(|prev| prev == p.json)
+            });
+            !unchanged || !intents.is_empty()
+        };
+
         {
             let Ok(mut publication) = publication.lock() else {
                 return;
             };
             if let Some(failure) = failure {
+                log::error!("Projection worker failed: {failure}");
                 publication.error = Some(failure);
             }
-            if let Some(result) = projected {
-                publication.result = Some(result);
+            if should_publish {
+                if let Some(result) = &projected {
+                    last_published_json = Some(result.json.clone());
+                }
+                if let Some(result) = projected {
+                    publication.result = Some(result);
+                }
             }
             publication.intents.extend(intents);
         }
 
-        // Wake the winit thread so it can pick the projection up and redraw.
-        if event_loop_proxy.send_event(()).is_err() {
-            return;
+        if should_publish {
+            // Wake the winit thread so it can pick the projection up and redraw.
+            if event_loop_proxy.send_event(()).is_err() {
+                return;
+            }
         }
     }
 }

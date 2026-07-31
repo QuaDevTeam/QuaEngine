@@ -10,6 +10,7 @@ default = []
 quickjs-rquickjs = ["dep:rquickjs", "rquickjs/loader"]
 
 [dependencies]
+log.workspace = true
 rquickjs = { version = "0.12.1", optional = true, default-features = false, features = ["std"] }
 serde.workspace = true
 serde_json.workspace = true

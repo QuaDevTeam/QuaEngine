@@ -8,6 +8,13 @@ version.workspace = true
 [features]
 default = []
 image-decode = ["quajs_wgpu_renderer/image-decode"]
+# Compile-time log ceiling. `log`'s `max_level_*` features are additive and
+# resolved by a least-verbose-wins cfg chain, so exposing one feature per level
+# would let a default `info` silently override an opt-in `debug`. Instead the
+# ceiling is Trace everywhere (runtime `QUA_NATIVE_LOG` does the filtering) and
+# this single flag strips `debug!`/`trace!` from shipping release builds so they
+# cost nothing at all.
+native-log-strip-release = ["log/release_max_level_info"]
 native-font-ab-glyph = ["dep:ab_glyph", "dep:wuff"]
 native-video-gif = ["dep:image"]
 native-audio-rodio = ["dep:rodio"]
@@ -25,6 +32,7 @@ native-window = [
 [dependencies]
 ab_glyph = { version = "0.2", optional = true }
 image = { version = "0.25", optional = true, default-features = false, features = ["gif"] }
+log.workspace = true
 quajs_native_runtime = { path = "../quajs_native_runtime" }
 quajs_wgpu_renderer = { path = "../quajs_wgpu_renderer" }
 pollster = { version = "0.4.0", optional = true }

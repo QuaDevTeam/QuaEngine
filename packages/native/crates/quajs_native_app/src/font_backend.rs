@@ -11,35 +11,97 @@ use quajs_wgpu_renderer::frame::PreparedNativeFrame;
 use quajs_wgpu_renderer::render_graph::{DrawCommandParams, TextTransformDrawParam};
 use quajs_wgpu_renderer::resources::ResourceId;
 
+/// Fallback raster size when a frame has not yet told us which sizes it needs.
 const RASTER_SCALE: f32 = 64.0;
-const GLYPH_CELL_SIZE: usize = 80;
-const GLYPH_CELL_PADDING: usize = 6;
 const GLYPH_ATLAS_COLUMNS: usize = 16;
 const MAX_DECODED_FONT_BYTES: usize = 64 * 1024 * 1024;
 
-/// Pixel scale at which one em measures `RASTER_SCALE` px, i.e. CSS font-size
-/// semantics. `PxScale::from(RASTER_SCALE)` would instead pin the
+/// Smallest and largest raster bucket we will build. Below ~6px there is no
+/// glyph detail left to preserve; above 320px a single atlas row gets huge.
+const MIN_RASTER_BUCKET: f32 = 6.0;
+const MAX_RASTER_BUCKET: f32 = 320.0;
+
+/// Per-family bucket cap. Buckets are cheap individually but a resizing window
+/// walks through many sizes, so the least-recently-drawn one is evicted.
+const MAX_BUCKETS_PER_FAMILY: usize = 8;
+
+/// Quantizes a physical font size onto a coarse ladder.
+///
+/// Glyphs are rasterized at the bucket size and drawn at `font_size / bucket`,
+/// so the goal is to keep that ratio near 1.0. Rounding **up** means the draw
+/// always minifies slightly rather than magnifying, which stays sharp under the
+/// linear sampler; magnification is what makes text look soft.
+///
+/// The step widens with size because a fixed step would produce far more
+/// buckets than the eye can tell apart at large sizes: worst-case error is
+/// ~1 step, i.e. under 7% at every tier.
+fn font_raster_bucket(physical_font_size: f32) -> u32 {
+    let size = if physical_font_size.is_finite() {
+        physical_font_size.clamp(MIN_RASTER_BUCKET, MAX_RASTER_BUCKET)
+    } else {
+        RASTER_SCALE
+    };
+    let step = if size <= 32.0 {
+        2.0
+    } else if size <= 64.0 {
+        4.0
+    } else if size <= 128.0 {
+        8.0
+    } else {
+        16.0
+    };
+    (((size / step).ceil() * step) as u32).max(MIN_RASTER_BUCKET as u32)
+}
+
+/// Atlas cell geometry for a raster size.
+///
+/// These were hardcoded at 80/6 for the old fixed 64px atlas; deriving them
+/// keeps that exact pairing at `raster == 64` while letting a 12px bucket use a
+/// ~17px cell instead of wasting a 80px one. Padding must scale too, otherwise
+/// neighbouring glyphs bleed into each other under linear filtering.
+fn glyph_cell_metrics(raster: f32) -> (usize, usize) {
+    let padding = ((raster * 0.09375).ceil() as usize).max(2);
+    // Cell stride includes both the glyph area and padding on both sides.
+    // ceil(raster * 1.25) reproduces the original GLYPH_CELL_SIZE=80 for
+    // raster=64; padding is a sub-region of the cell, NOT added on top of it.
+    let cell = (raster * 1.25).ceil() as usize;
+    (cell, padding)
+}
+
+/// Pixel scale at which one em measures `raster` px, i.e. CSS font-size
+/// semantics. `PxScale::from(raster)` would instead pin the
 /// ascender-to-descender span, which for CJK faces is ~1.4 em and silently
 /// renders every glyph ~30% smaller than the same font-size on the Web.
-fn em_px_scale(font: &FontArc) -> PxScale {
+fn em_px_scale(font: &FontArc, raster: f32) -> PxScale {
     let units_per_em = font.units_per_em().unwrap_or_else(|| font.height_unscaled());
     if units_per_em > 0.0 {
-        PxScale::from(RASTER_SCALE * font.height_unscaled() / units_per_em)
+        PxScale::from(raster * font.height_unscaled() / units_per_em)
     } else {
-        PxScale::from(RASTER_SCALE)
+        PxScale::from(raster)
     }
+}
+
+/// Atlas identity: one texture per font family *and* raster bucket.
+type FontAtlasKey = (String, u32);
+
+fn font_family_bucket_resource_id(family: &str, bucket: u32) -> ResourceId {
+    ResourceId::new(format!("fonts:{family}@{bucket}"))
 }
 
 #[derive(Debug, Default)]
 pub(crate) struct SimpleNativeFontAtlasBackend {
     loaded_assets: BTreeMap<String, FontBackendAssetLoad>,
     active_faces: BTreeMap<String, FontBackendFaceState>,
-    active_family_atlas_resources: BTreeMap<String, ResourceId>,
+    active_atlas_resources: BTreeMap<FontAtlasKey, ResourceId>,
     pending_atlases: Vec<FontBackendAtlasTexture>,
     pending_releases: Vec<ResourceId>,
-    requested_glyphs: BTreeMap<String, BTreeSet<char>>,
-    requested_texts: BTreeMap<String, BTreeSet<String>>,
+    requested_glyphs: BTreeMap<FontAtlasKey, BTreeSet<char>>,
+    requested_texts: BTreeMap<FontAtlasKey, BTreeSet<String>>,
     prewarm_texts: BTreeSet<String>,
+    /// Frame ordinal of the last draw that requested each bucket, used to pick
+    /// an eviction victim once `MAX_BUCKETS_PER_FAMILY` is exceeded.
+    bucket_last_used: BTreeMap<FontAtlasKey, u64>,
+    frame_ordinal: u64,
 }
 
 impl SimpleNativeFontAtlasBackend {
@@ -90,60 +152,89 @@ impl NativeFontBackend for SimpleNativeFontAtlasBackend {
             .collect::<BTreeSet<_>>();
         let changed = next != self.prewarm_texts;
         self.prewarm_texts = next.clone();
-        if changed {
-            let families = self
+        if !changed {
+            return Ok(());
+        }
+        // Prewarm carries no font size, so it feeds every bucket already in
+        // play for the family. Before the first frame there is none yet; seed
+        // the default bucket so prewarming still does useful work.
+        let mut keys = self
+            .requested_glyphs
+            .keys()
+            .chain(self.requested_texts.keys())
+            .cloned()
+            .collect::<BTreeSet<_>>();
+        if keys.is_empty() {
+            keys = self
                 .active_faces
                 .values()
-                .map(|face| face.family.clone())
-                .collect::<BTreeSet<_>>();
-            for family in families {
-                if self.merge_requested_texts(&family, &next) {
-                    self.rebuild_family_atlas(&family);
-                }
+                .map(|face| (face.family.clone(), font_raster_bucket(RASTER_SCALE)))
+                .collect();
+        }
+        for (family, bucket) in keys {
+            if self.merge_requested_texts(&family, bucket, &next) {
+                self.rebuild_bucket_atlas(&family, bucket);
             }
         }
         Ok(())
     }
 
     fn prepare_frame_text(&mut self, frame: &PreparedNativeFrame) -> NativeFontBackendResult {
-        let mut requested_glyphs = BTreeMap::<String, BTreeSet<char>>::new();
-        let mut requested_texts = BTreeMap::<String, BTreeSet<String>>::new();
+        // Draw commands carry logical font sizes; the atlas must be rasterized
+        // at the *physical* size the glyph will occupy, or the sampler has to
+        // minify/magnify and the text loses its edges.
+        let physical_scale = frame.graph.layout.physical_scale as f32;
+        let physical_scale = if physical_scale.is_finite() && physical_scale > 0.0 {
+            physical_scale
+        } else {
+            1.0
+        };
+        self.frame_ordinal = self.frame_ordinal.saturating_add(1);
+
+        let mut requested_glyphs = BTreeMap::<FontAtlasKey, BTreeSet<char>>::new();
+        let mut requested_texts = BTreeMap::<FontAtlasKey, BTreeSet<String>>::new();
         for command in frame.graph.commands() {
-            let (text, families, transform) = match &command.params {
+            let (text, families, transform, font_size) = match &command.params {
                 DrawCommandParams::Text(params) => (
                     params.text.as_str(),
                     params.font_family.as_slice(),
                     params.text_transform,
+                    params.font_size,
                 ),
                 DrawCommandParams::UiButton(params) => (
                     params.label.as_str(),
                     params.font_family.as_slice(),
                     params.text_transform,
+                    params.font_size,
                 ),
                 _ => continue,
             };
             let Some(family) = self.resolve_family(families) else {
                 continue;
             };
+            let bucket = font_raster_bucket(font_size as f32 * physical_scale);
+            let key = (family, bucket);
             let text = transform_text(text, transform);
+            self.bucket_last_used.insert(key.clone(), self.frame_ordinal);
             requested_glyphs
-                .entry(family.clone())
+                .entry(key.clone())
                 .or_default()
                 .extend(text.chars().filter(|character| !character.is_control()));
             if !text.is_empty() {
-                requested_texts.entry(family).or_default().insert(text);
+                requested_texts.entry(key).or_default().insert(text);
             }
         }
 
-        for family in requested_glyphs
+        let mut touched_families = BTreeSet::<String>::new();
+        for key in requested_glyphs
             .keys()
             .chain(requested_texts.keys())
             .cloned()
             .collect::<BTreeSet<_>>()
         {
-            let characters = requested_glyphs.remove(&family).unwrap_or_default();
-            let texts = requested_texts.remove(&family).unwrap_or_default();
-            let mut atlas_characters = self.requested_glyphs.remove(&family).unwrap_or_default();
+            let characters = requested_glyphs.remove(&key).unwrap_or_default();
+            let texts = requested_texts.remove(&key).unwrap_or_default();
+            let mut atlas_characters = self.requested_glyphs.remove(&key).unwrap_or_default();
             let glyphs_changed = characters
                 .iter()
                 .any(|character| !atlas_characters.contains(character));
@@ -156,14 +247,17 @@ impl NativeFontBackend for SimpleNativeFontAtlasBackend {
             // for the next real atlas rebuild, but only rebuild when a new
             // character must be uploaded.
             self.requested_texts
-                .entry(family.clone())
+                .entry(key.clone())
                 .or_default()
                 .extend(texts);
-            self.requested_glyphs
-                .insert(family.clone(), atlas_characters);
+            self.requested_glyphs.insert(key.clone(), atlas_characters);
             if glyphs_changed {
-                self.rebuild_family_atlas(&family);
+                self.rebuild_bucket_atlas(&key.0, key.1);
             }
+            touched_families.insert(key.0);
+        }
+        for family in touched_families {
+            self.evict_stale_buckets(&family);
         }
         Ok(())
     }
@@ -213,8 +307,16 @@ impl SimpleNativeFontAtlasBackend {
         }
         self.active_faces.insert(face.id.clone(), face.clone());
         let prewarm_texts = self.prewarm_texts.clone();
-        self.merge_requested_texts(&face.family, &prewarm_texts);
-        self.rebuild_family_atlas(&face.family);
+        let mut buckets = self.family_buckets(&face.family);
+        // If no bucket exists for this family yet but we have prewarm texts,
+        // seed the default bucket so the typewriter atlas is ready on first use.
+        if buckets.is_empty() && !prewarm_texts.is_empty() {
+            buckets.push(font_raster_bucket(RASTER_SCALE));
+        }
+        for bucket in buckets {
+            self.merge_requested_texts(&face.family, bucket, &prewarm_texts);
+            self.rebuild_bucket_atlas(&face.family, bucket);
+        }
     }
 
     fn release_face(&mut self, face: &FontBackendFaceState) {
@@ -229,30 +331,47 @@ impl SimpleNativeFontAtlasBackend {
             .values()
             .any(|active| active.family == family)
         {
-            self.rebuild_family_atlas(&family);
+            for bucket in self.family_buckets(&family) {
+                self.rebuild_bucket_atlas(&family, bucket);
+            }
         } else {
-            self.requested_glyphs.remove(&family);
-            self.requested_texts.remove(&family);
-            self.release_family_atlas(&family);
+            for bucket in self.family_buckets(&family) {
+                let key = (family.clone(), bucket);
+                self.requested_glyphs.remove(&key);
+                self.requested_texts.remove(&key);
+                self.bucket_last_used.remove(&key);
+                self.release_bucket_atlas(&family, bucket);
+            }
         }
     }
 
-    fn rebuild_family_atlas(&mut self, family: &str) {
+    /// Raster buckets this family currently tracks, in ascending size order.
+    fn family_buckets(&self, family: &str) -> Vec<u32> {
+        self.requested_glyphs
+            .keys()
+            .chain(self.requested_texts.keys())
+            .chain(self.active_atlas_resources.keys())
+            .filter(|(candidate, _)| candidate == family)
+            .map(|(_, bucket)| *bucket)
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect()
+    }
+
+    fn rebuild_bucket_atlas(&mut self, family: &str, bucket: u32) {
+        let key = (family.to_string(), bucket);
         let faces = self.loaded_family_faces(family);
-        let Some(characters) = self.requested_glyphs.get(family) else {
+        let Some(characters) = self.requested_glyphs.get(&key) else {
             return;
         };
-        let texts = self
-            .requested_texts
-            .get(family)
-            .cloned()
-            .unwrap_or_default();
+        let texts = self.requested_texts.get(&key).cloned().unwrap_or_default();
         if faces.is_empty() || characters.is_empty() {
-            self.release_family_atlas(family);
+            self.release_bucket_atlas(family, bucket);
             return;
         }
         let mut atlas = rasterize_font_family(
             family,
+            bucket,
             &faces,
             characters,
             &texts,
@@ -261,27 +380,71 @@ impl SimpleNativeFontAtlasBackend {
         let metadata = package_metadata_for_loaded_faces(&faces);
         atlas.owner_package_id = metadata.owner_package_id;
         atlas.required_package_ids = metadata.required_package_ids;
-        self.active_family_atlas_resources
-            .insert(family.to_string(), atlas.resource_id.clone());
+        log::debug!(
+            "rebuilt font atlas {} ({}x{}, {} glyphs, {} shaping texts)",
+            atlas.resource_id.as_str(),
+            atlas.width,
+            atlas.height,
+            characters.len(),
+            texts.len()
+        );
+        self.active_atlas_resources
+            .insert(key, atlas.resource_id.clone());
         self.pending_atlases.push(atlas);
     }
 
-    fn merge_requested_texts(&mut self, family: &str, texts: &BTreeSet<String>) -> bool {
+    fn merge_requested_texts(
+        &mut self,
+        family: &str,
+        bucket: u32,
+        texts: &BTreeSet<String>,
+    ) -> bool {
+        let key = (family.to_string(), bucket);
         let characters = texts
             .iter()
             .flat_map(|text| text.chars())
             .filter(|character| !character.is_control())
             .collect::<BTreeSet<_>>();
-        let glyphs = self.requested_glyphs.entry(family.to_string()).or_default();
+        let glyphs = self.requested_glyphs.entry(key.clone()).or_default();
         let changed = characters
             .iter()
             .any(|character| !glyphs.contains(character));
         glyphs.extend(characters);
         self.requested_texts
-            .entry(family.to_string())
+            .entry(key)
             .or_default()
             .extend(texts.iter().cloned());
         changed
+    }
+
+    /// Drops the least-recently-requested buckets once a family exceeds
+    /// `MAX_BUCKETS_PER_FAMILY`, so a long resize drag cannot grow the atlas
+    /// set without bound.
+    fn evict_stale_buckets(&mut self, family: &str) {
+        let mut buckets = self
+            .active_atlas_resources
+            .keys()
+            .filter(|(candidate, _)| candidate == family)
+            .map(|(_, bucket)| *bucket)
+            .collect::<Vec<_>>();
+        if buckets.len() <= MAX_BUCKETS_PER_FAMILY {
+            return;
+        }
+        buckets.sort_by_key(|bucket| {
+            self.bucket_last_used
+                .get(&(family.to_string(), *bucket))
+                .copied()
+                .unwrap_or(0)
+        });
+        let evict_count = buckets.len() - MAX_BUCKETS_PER_FAMILY;
+        for bucket in buckets.into_iter().take(evict_count) {
+            let key = (family.to_string(), bucket);
+            log::debug!("evicting stale font atlas bucket {family}@{bucket}");
+            self.requested_glyphs.remove(&key);
+            self.requested_texts.remove(&key);
+            self.bucket_last_used.remove(&key);
+            self.release_bucket_atlas(family, bucket);
+        }
     }
 
     fn loaded_family_faces(&self, family: &str) -> Vec<LoadedFontFace> {
@@ -311,8 +474,11 @@ impl SimpleNativeFontAtlasBackend {
         faces
     }
 
-    fn release_family_atlas(&mut self, family: &str) {
-        let Some(resource_id) = self.active_family_atlas_resources.remove(family) else {
+    fn release_bucket_atlas(&mut self, family: &str, bucket: u32) {
+        let Some(resource_id) = self
+            .active_atlas_resources
+            .remove(&(family.to_string(), bucket))
+        else {
             return;
         };
         self.pending_releases.push(resource_id);
@@ -359,11 +525,16 @@ struct FontAtlasPackageMetadata {
 
 fn rasterize_font_family(
     family: &str,
+    bucket: u32,
     faces: &[LoadedFontFace],
     characters: &BTreeSet<char>,
     texts: &BTreeSet<String>,
     is_default: bool,
 ) -> FontBackendAtlasTexture {
+    // Derived from the bucket rather than passed separately, so the resource id
+    // and the layout's `raster_size` can never disagree.
+    let raster = bucket as f32;
+    let (cell_size, cell_padding) = glyph_cell_metrics(raster);
     let shaping_faces = faces
         .iter()
         .map(|loaded| {
@@ -379,7 +550,7 @@ fn rasterize_font_family(
         .iter()
         .map(|face| {
             face.as_ref()
-                .map(|face| collect_shaped_glyph_ids(face, texts))
+                .map(|face| collect_shaped_glyph_ids(face, texts, raster))
                 .unwrap_or_default()
         })
         .collect::<Vec<_>>();
@@ -401,15 +572,16 @@ fn rasterize_font_family(
         );
     }
 
+    let (cell_size, cell_padding) = glyph_cell_metrics(raster);
     let rows = keys.len().div_ceil(GLYPH_ATLAS_COLUMNS).max(1);
-    let width = (GLYPH_ATLAS_COLUMNS * GLYPH_CELL_SIZE) as u32;
-    let height = (rows * GLYPH_CELL_SIZE) as u32;
+    let width = (GLYPH_ATLAS_COLUMNS * cell_size) as u32;
+    let height = (rows * cell_size) as u32;
     let mut rgba = vec![0; width as usize * height as usize * 4];
     let mut rasterized = BTreeMap::new();
 
     for (index, key) in keys.into_iter().enumerate() {
-        let cell_x = (index % GLYPH_ATLAS_COLUMNS) * GLYPH_CELL_SIZE + GLYPH_CELL_PADDING;
-        let cell_y = (index / GLYPH_ATLAS_COLUMNS) * GLYPH_CELL_SIZE + GLYPH_CELL_PADDING;
+        let cell_x = (index % GLYPH_ATLAS_COLUMNS) * cell_size + cell_padding;
+        let cell_y = (index / GLYPH_ATLAS_COLUMNS) * cell_size + cell_padding;
         let glyph = match key {
             RasterGlyphKey::Face {
                 face_index,
@@ -422,10 +594,18 @@ fn rasterize_font_family(
                 &mut rgba,
                 width as usize,
                 height as usize,
+                raster,
+                cell_size,
+                cell_padding,
             ),
-            RasterGlyphKey::Missing => {
-                rasterize_missing_glyph(cell_x, cell_y, &mut rgba, width as usize, height as usize)
-            }
+            RasterGlyphKey::Missing => rasterize_missing_glyph(
+                cell_x,
+                cell_y,
+                &mut rgba,
+                width as usize,
+                height as usize,
+                raster,
+            ),
         };
         rasterized.insert(key, glyph);
     }
@@ -474,12 +654,12 @@ fn rasterize_font_family(
         })
         .collect();
 
-    let scaled = faces[0].font.as_scaled(em_px_scale(&faces[0].font));
-    let resource_id = font_family_resource_id(family);
+    let scaled = faces[0].font.as_scaled(em_px_scale(&faces[0].font, raster));
+    let resource_id = font_family_bucket_resource_id(family, bucket);
     let layout = FontBackendAtlasLayout {
         resource_id: resource_id.clone(),
         family: family.to_string(),
-        raster_size: RASTER_SCALE,
+        raster_size: raster,
         ascent: scaled.ascent(),
         descent: scaled.descent(),
         line_height: scaled.height() + scaled.line_gap(),
@@ -494,6 +674,7 @@ fn rasterize_font_family(
 fn collect_shaped_glyph_ids(
     face: &FontBackendShapingFace,
     texts: &BTreeSet<String>,
+    raster: f32,
 ) -> BTreeSet<u32> {
     let mut glyph_ids = BTreeSet::new();
     for text in texts {
@@ -503,7 +684,7 @@ fn collect_shaped_glyph_ids(
             variants.insert(character.to_string());
         }
         for variant in variants {
-            if let Some(run) = face.shape(&variant, RASTER_SCALE) {
+            if let Some(run) = face.shape(&variant, raster) {
                 glyph_ids.extend(
                     run.glyphs
                         .into_iter()
@@ -575,6 +756,7 @@ fn parse_variation_axis(value: &str) -> Option<([u8; 4], f32)> {
     Some((tag.try_into().ok()?, value))
 }
 
+#[allow(clippy::too_many_arguments)]
 fn rasterize_font_glyph(
     font: &FontArc,
     glyph_id: GlyphId,
@@ -583,8 +765,11 @@ fn rasterize_font_glyph(
     rgba: &mut [u8],
     atlas_width: usize,
     atlas_height: usize,
+    raster: f32,
+    cell_size: usize,
+    cell_padding: usize,
 ) -> FontBackendAtlasGlyph {
-    let raster_scale = em_px_scale(font);
+    let raster_scale = em_px_scale(font, raster);
     let scaled = font.as_scaled(raster_scale);
     let advance = scaled.h_advance(glyph_id);
     let glyph = glyph_id.with_scale_and_position(raster_scale, point(0.0, 0.0));
@@ -592,7 +777,7 @@ fn rasterize_font_glyph(
         return empty_glyph(advance, cell_x, cell_y, atlas_width, atlas_height);
     };
     let bounds = outlined.px_bounds();
-    let max_size = GLYPH_CELL_SIZE.saturating_sub(GLYPH_CELL_PADDING * 2);
+    let max_size = cell_size.saturating_sub(cell_padding * 2);
     let glyph_width = bounds.width().ceil().max(1.0).min(max_size as f32) as usize;
     let glyph_height = bounds.height().ceil().max(1.0).min(max_size as f32) as usize;
     outlined.draw(|x, y, coverage| {
@@ -654,9 +839,10 @@ fn rasterize_missing_glyph(
     rgba: &mut [u8],
     atlas_width: usize,
     atlas_height: usize,
+    raster: f32,
 ) -> FontBackendAtlasGlyph {
-    let width = (RASTER_SCALE * 0.55) as usize;
-    let height = (RASTER_SCALE * 0.8) as usize;
+    let width = ((raster * 0.55) as usize).max(3);
+    let height = ((raster * 0.8) as usize).max(4);
     for y in 0..height {
         for x in 0..width {
             if x < 2 || y < 2 || x + 2 >= width || y + 2 >= height {
@@ -711,10 +897,6 @@ fn blend_atlas_pixel(rgba: &mut [u8], atlas_width: usize, x: usize, y: usize, al
     rgba[offset..offset + 4].copy_from_slice(&[0xff, 0xff, 0xff, next_alpha]);
 }
 
-fn font_family_resource_id(family: &str) -> ResourceId {
-    ResourceId::new(format!("fonts:{family}"))
-}
-
 fn single_package_candidate(face: &FontBackendFaceState) -> Option<String> {
     if face.package_candidates.len() == 1 {
         face.package_candidates.iter().next().cloned()
@@ -744,6 +926,7 @@ mod tests {
         }];
         let atlas = rasterize_font_family(
             "Qua Fallback",
+            font_raster_bucket(RASTER_SCALE),
             &faces,
             &['I', 'M'].into_iter().collect(),
             &BTreeSet::from(["IM".to_string()]),
@@ -751,7 +934,7 @@ mod tests {
         );
         let layout = atlas.layout.as_ref().unwrap();
 
-        assert_eq!(layout.raster_size, 64.0);
+        assert_eq!(layout.raster_size, font_raster_bucket(RASTER_SCALE) as f32);
         assert!(layout.is_default);
         assert!(layout.glyphs[&'M'].width > 5.0);
         assert!(layout.glyphs[&'M'].height > 7.0);
@@ -786,6 +969,7 @@ mod tests {
         let text = "office".to_string();
         let atlas = rasterize_font_family(
             "Noto Sans",
+            font_raster_bucket(RASTER_SCALE),
             &faces,
             &text.chars().collect(),
             &BTreeSet::from([text.clone()]),
@@ -866,6 +1050,7 @@ mod tests {
 
         let atlas = rasterize_font_family(
             "Noto Sans",
+            font_raster_bucket(RASTER_SCALE),
             &faces,
             &text.chars().collect(),
             &BTreeSet::from([text]),
@@ -926,7 +1111,7 @@ mod tests {
         let cjk = face("cjk", 1, "fonts/cjk.ttf");
         let mut backend = SimpleNativeFontAtlasBackend::new();
         backend.requested_glyphs.insert(
-            "Qua Fallback".to_string(),
+            ("Qua Fallback".to_string(), font_raster_bucket(RASTER_SCALE)),
             ['A', '界'].into_iter().collect(),
         );
         backend
@@ -1044,5 +1229,60 @@ mod tests {
             kind,
             face: Some(face.clone()),
         }
+    }
+
+    // ── Bucketing unit tests ──────────────────────────────────────────────────
+
+    #[test]
+    fn font_raster_bucket_rounds_up_to_nearest_step() {
+        // Tier ≤32: step 2
+        assert_eq!(font_raster_bucket(10.0), 10);
+        assert_eq!(font_raster_bucket(11.0), 12);
+        assert_eq!(font_raster_bucket(12.0), 12);
+        assert_eq!(font_raster_bucket(13.0), 14);
+        assert_eq!(font_raster_bucket(16.0), 16);
+        assert_eq!(font_raster_bucket(24.0), 24);
+        assert_eq!(font_raster_bucket(32.0), 32);
+
+        // Tier 33–64: step 4
+        assert_eq!(font_raster_bucket(33.0), 36);
+        assert_eq!(font_raster_bucket(36.0), 36);
+        assert_eq!(font_raster_bucket(38.0), 40);
+        assert_eq!(font_raster_bucket(56.0), 56);
+        assert_eq!(font_raster_bucket(64.0), 64);
+
+        // Tier 65–128: step 8
+        assert_eq!(font_raster_bucket(65.0), 72);
+        assert_eq!(font_raster_bucket(104.0), 104);
+        assert_eq!(font_raster_bucket(128.0), 128);
+
+        // Tier >128: step 16
+        assert_eq!(font_raster_bucket(129.0), 144);
+        assert_eq!(font_raster_bucket(256.0), 256);
+        assert_eq!(font_raster_bucket(320.0), 320);
+
+        // Edge cases
+        assert_eq!(font_raster_bucket(0.0), MIN_RASTER_BUCKET as u32);
+        assert_eq!(font_raster_bucket(f32::NAN), font_raster_bucket(RASTER_SCALE));
+    }
+
+    #[test]
+    fn glyph_cell_metrics_returns_backward_compatible_values_for_raster_64() {
+        // The old GLYPH_CELL_SIZE/GLYPH_CELL_PADDING constants were 80/6.
+        // Deriving them from raster 64 must reproduce those exact values so
+        // existing atlases and snapshot tests stay stable.
+        let (cell, padding) = glyph_cell_metrics(64.0);
+        assert_eq!(cell, 80);
+        assert_eq!(padding, 6);
+    }
+
+    #[test]
+    fn glyph_cell_metrics_scales_proportionally_and_keeps_minimum_padding() {
+        let (cell_12, padding_12) = glyph_cell_metrics(12.0);
+        assert!(padding_12 >= 2, "padding must be at least 2 px");
+        assert!(cell_12 > padding_12 * 2, "cell must have room for the glyph");
+        // Larger raster = larger cell
+        let (cell_128, _) = glyph_cell_metrics(128.0);
+        assert!(cell_128 > cell_12);
     }
 }
