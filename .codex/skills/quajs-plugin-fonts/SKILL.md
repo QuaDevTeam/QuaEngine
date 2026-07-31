@@ -79,7 +79,7 @@ The native-window OpenType backend consumes loaded QPK TTF/OTF/WOFF/WOFF2 faces 
 
 This high-resolution atlas path is not a full browser typography engine: vertical writing, language-specific hyphenation, font synthesis beyond the existing bold approximation, high-resolution text-decoration geometry, and per-cluster cross-face fallback remain separate work. Register faces that cover every required script; a Latin-only Noto Sans file does not provide complete CJK coverage.
 
-The demo registers the OFL `NotoSansCJKsc-Regular.otf` asset under the existing `Noto Sans` family so Latin and Simplified Chinese glyphs share the same QPK-backed Web/native face and native smoke can keep asserting the backward-compatible `fonts:Noto Sans` resource id. Keep the older Latin TTF asset available for compatibility with existing demo asset references.
+The demo registers the OFL `NotoSansCJKsc-Regular.otf` asset under the existing `Noto Sans` family so Latin and Simplified Chinese glyphs share the same QPK-backed Web/native face and the complete native E2E can keep asserting the backward-compatible `fonts:Noto Sans` resource id. Keep the older Latin TTF asset available for compatibility with existing demo asset references.
 
 ## Validation
 
@@ -87,7 +87,7 @@ The demo registers the OFL `NotoSansCJKsc-Regular.otf` asset under the existing 
 pnpm --filter @quajs/plugin-fonts test -- --run
 pnpm --filter @quajs/plugin-fonts typecheck
 pnpm --filter @quajs/plugin-fonts build
-pnpm -C demo native:smoke:save-preview
+pnpm native:e2e
 ```
 
 Run renderer font tests when projection shape changes.
@@ -99,4 +99,4 @@ Run renderer font tests when projection shape changes.
 - Are runtime package font refs package-aware?
 - Are style/theme concerns kept out of automatic renderer imports?
 - If font API, projection, or renderer behavior changed, was this skill updated?
-- Does native smoke prove a QPK atlas upload, shaped high-resolution atlas draws, zero bitmap fallback draws, and the expected `fonts:<family>` resource id?
+- Does the complete native E2E prove a QPK atlas upload, shaped high-resolution atlas draws, zero bitmap fallback draws, and the expected `fonts:<family>` resource id?
