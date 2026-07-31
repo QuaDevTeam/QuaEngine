@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 use std::{env, fs, path::Path};
 
 use winit::dpi::{LogicalSize, PhysicalSize};
@@ -7,15 +7,17 @@ use winit::event_loop::{ActiveEventLoop, EventLoopProxy};
 use winit::window::Window;
 
 use super::config::{
-    load_window_smoke_target_frame_count, native_window_dev_enabled,
-    native_window_interaction_probe_enabled, native_window_title,
+    load_window_smoke_target_frame_count, load_window_target_fps_override,
+    native_window_demo_e2e_enabled, native_window_dev_enabled, native_window_title,
 };
+use super::demo_e2e::NativeDemoE2eState;
 use super::error::NativeWindowSmokeError;
-use super::frame::{frame_json_for_window, normalized_physical_size, window_frame_dimensions};
+use super::frame::{normalized_physical_size, window_frame_dimensions};
 use super::input::NativeWindowSmokeInputState;
 use super::metrics::{
     NativeWindowSmokeAudioMetrics, NativeWindowSmokeTextureMetrics, NativeWindowSmokeVideoMetrics,
 };
+use super::frame_composer::NativeWindowFrameComposer;
 use super::performance_hud::NativeWindowPerformanceHud;
 #[cfg(feature = "quickjs-rquickjs")]
 use super::projection_worker::NativeProjectionWorker;
@@ -25,6 +27,7 @@ use super::report::NativeWindowSmokeReport;
 use super::report_builder::{build_window_smoke_report, NativeWindowSmokeReportInput};
 use super::texture_host::create_window_smoke_texture_host_from_env;
 use crate::product_app_shell::{NativeProductAppShell, NativeProductAppShellAction};
+use crate::product_frame_pacer::{NativeProductFramePacer, DEFAULT_TARGET_FPS};
 use crate::product_loop::NativeProductLoopFrameResult;
 use crate::product_window::{NativeProductWindowInMemoryRuntime, NativeProductWindowPhysicalSize};
 use crate::product_window_loop::NativeProductWindowInMemoryLoop;
@@ -34,8 +37,6 @@ use quajs_wgpu_renderer::renderer::RealWgpuEncodedFrameCapture;
 
 mod events;
 
-const INTERACTION_PROBE_TIMEOUT: Duration = Duration::from_secs(5);
-
 pub(super) struct NativeWindowSmokeApp {
     frame_source: String,
     window: Option<Arc<Window>>,
@@ -43,6 +44,20 @@ pub(super) struct NativeWindowSmokeApp {
     input: NativeWindowSmokeInputState,
     texture_metrics: NativeWindowSmokeTextureMetrics,
     performance_hud: NativeWindowPerformanceHud,
+    /// Caches the composed frame JSON (projection + container + HUD overlay)
+    /// keyed by projection identity, window dimensions, and HUD revision.
+    /// Reusing it skips two JSON parse+serialize round trips per frame when
+    /// nothing has changed on a static screen.
+    frame_composer: NativeWindowFrameComposer,
+    /// Owns the target render cadence. Continuous windows park in
+    /// `ControlFlow::WaitUntil(pacer.next_deadline())` between frames; finite
+    /// smoke and E2E runs bypass pacing so CI is not slowed down.
+    pacer: NativeProductFramePacer,
+    /// Whether this run enforces the frame deadline at all.
+    pacing_enabled: bool,
+    /// Set when `QUA_NATIVE_RENDERER_TARGET_FPS` pins the cadence, so a
+    /// projection-provided frame rate cannot override a developer's override.
+    target_fps_env_override: Option<u32>,
     /// When the most recent input event (pointer/keyboard/wheel) arrived.
     /// Used to compute input-to-first-frame latency in the HUD.
     last_input_at: Option<Instant>,
@@ -64,11 +79,7 @@ pub(super) struct NativeWindowSmokeApp {
     last_projection_json: Option<Arc<str>>,
     #[cfg(feature = "quickjs-rquickjs")]
     last_projection_font_prewarm_texts: Vec<String>,
-    interaction_probe_story_observed: bool,
-    interaction_probe_advance_count: usize,
-    interaction_probe_typewriter_revealed: bool,
-    interaction_probe_advance_observed: bool,
-    interaction_probe_started_at: Option<Instant>,
+    demo_e2e: NativeDemoE2eState,
     event_loop_proxy: EventLoopProxy<()>,
     pub(super) report: Option<NativeWindowSmokeReport>,
     pub(super) error: Option<NativeWindowSmokeError>,
@@ -76,6 +87,10 @@ pub(super) struct NativeWindowSmokeApp {
 
 impl NativeWindowSmokeApp {
     pub(super) fn new(frame_source: String, event_loop_proxy: EventLoopProxy<()>) -> Self {
+        let target_fps_env_override = load_window_target_fps_override();
+        // Only the continuous dev/product window paces. Finite smoke runs and
+        // the E2E flow render as fast as they can so CI stays quick.
+        let pacing_enabled = native_window_dev_enabled() && !native_window_demo_e2e_enabled();
         Self {
             frame_source,
             window: None,
@@ -83,6 +98,12 @@ impl NativeWindowSmokeApp {
             input: NativeWindowSmokeInputState::default(),
             texture_metrics: NativeWindowSmokeTextureMetrics::default(),
             performance_hud: NativeWindowPerformanceHud::default(),
+            frame_composer: NativeWindowFrameComposer::default(),
+            pacer: NativeProductFramePacer::new(
+                target_fps_env_override.unwrap_or(DEFAULT_TARGET_FPS),
+            ),
+            pacing_enabled,
+            target_fps_env_override,
             last_input_at: None,
             #[cfg(feature = "quickjs-rquickjs")]
             quickjs_product: None,
@@ -98,11 +119,7 @@ impl NativeWindowSmokeApp {
             last_projection_json: None,
             #[cfg(feature = "quickjs-rquickjs")]
             last_projection_font_prewarm_texts: Vec::new(),
-            interaction_probe_story_observed: false,
-            interaction_probe_advance_count: 0,
-            interaction_probe_typewriter_revealed: false,
-            interaction_probe_advance_observed: false,
-            interaction_probe_started_at: None,
+            demo_e2e: NativeDemoE2eState::new(native_window_demo_e2e_enabled()),
             event_loop_proxy,
             report: None,
             error: None,
@@ -128,6 +145,12 @@ impl NativeWindowSmokeApp {
                 })?,
         );
         let physical_size = normalized_physical_size(window.inner_size());
+        log::info!(
+            "window created: {}x{} physical, scale_factor={}",
+            physical_size.width,
+            physical_size.height,
+            window.scale_factor()
+        );
         let texture_host = create_window_smoke_texture_host_from_env()?;
         #[cfg(feature = "quickjs-rquickjs")]
         let quickjs_product =
@@ -201,68 +224,95 @@ impl NativeWindowSmokeApp {
             }
         }
         self.window = Some(window.clone());
+        self.refresh_display_refresh_rate();
 
         Ok(())
     }
 
+    /// Re-reads the refresh rate of the monitor the window currently sits on.
+    /// Called at init and whenever the window may have moved to another display,
+    /// so a 120 FPS target is capped to what the panel can actually present.
+    pub(super) fn refresh_display_refresh_rate(&mut self) {
+        let refresh_rate = self
+            .window
+            .as_ref()
+            .and_then(|window| window.current_monitor())
+            .and_then(|monitor| monitor.refresh_rate_millihertz())
+            .map(|millihertz| millihertz.div_ceil(1_000));
+        self.pacer.set_display_refresh_rate(refresh_rate);
+    }
+
+    /// Applies a target frame rate coming from the engine projection. An
+    /// explicit env override always wins, so a developer pinning the cadence is
+    /// not fought by the product's settings value.
+    #[cfg(feature = "quickjs-rquickjs")]
+    fn apply_projection_target_fps(&mut self, target_fps: Option<u32>) {
+        if self.target_fps_env_override.is_some() {
+            return;
+        }
+        let Some(target_fps) = target_fps else {
+            return;
+        };
+        self.pacer.set_requested_fps(target_fps);
+    }
+
+    /// Deadline the event loop should sleep until before the next frame.
+    /// `None` means "no pacing": dispatch as soon as the loop is idle.
+    pub(super) fn next_frame_deadline(&self) -> Option<Instant> {
+        if !self.pacing_enabled {
+            return None;
+        }
+        Some(self.pacer.next_deadline(Instant::now()))
+    }
+
+    pub(super) fn reset_frame_pacing(&mut self) {
+        self.pacer.reset();
+    }
+
     fn render_once(&mut self) -> Result<NativeWindowSmokeReport, NativeWindowSmokeError> {
         let frame_started_at = std::time::Instant::now();
+        // The next deadline is measured from frame start, so the cadence stays
+        // even no matter how long this frame ends up taking.
+        self.pacer.record_frame_started(frame_started_at);
         let window = self.window.as_ref().ok_or_else(|| {
             NativeWindowSmokeError::new("Native renderer smoke window is not initialized.")
         })?;
         let dimensions = window_frame_dimensions(window.inner_size(), window.scale_factor());
         #[cfg(feature = "quickjs-rquickjs")]
-        let frame_source: Arc<str> = match self.projection_worker.as_ref() {
-            Some(worker) => {
-                // The projection worker publishes finished frames off-thread.
-                // Consume the newest one if it landed, otherwise re-present the
-                // last projection instead of stalling on JS-side work.
-                if let Some(projection) = worker.take_latest_projection()? {
-                    self.renderer_local_work_active = projection.local_work_active;
-                    self.last_projection_font_prewarm_texts = projection.font_prewarm_texts;
-                    self.last_projection_json = Some(Arc::from(projection.json));
+        let (frame_source, projection_target_fps): (Arc<str>, Option<u32>) =
+            match self.projection_worker.as_ref() {
+                Some(worker) => {
+                    // Consume the newest projection if one landed.
+                    let mut projection_target_fps = None;
+                    if let Some(projection) = worker.take_latest_projection()? {
+                        self.renderer_local_work_active = projection.local_work_active;
+                        self.last_projection_font_prewarm_texts = projection.font_prewarm_texts;
+                        projection_target_fps = projection.target_frame_rate;
+                        self.last_projection_json = Some(Arc::from(projection.json));
+                    }
+                    // Kick the next projection before wgpu encode/present.
+                    worker.request_tick();
+                    let json = match self.last_projection_json.as_ref() {
+                        Some(json) => json.clone(),
+                        None => self.frame_source.clone().into(),
+                    };
+                    (json, projection_target_fps)
                 }
-                // Kick the next projection before the wgpu encode/present so the
-                // worker overlaps with GPU submission instead of serializing.
-                worker.request_tick();
-                match self.last_projection_json.as_ref() {
-                    Some(json) => json.clone(),
-                    None => self.frame_source.clone().into(),
-                }
-            }
-            None => self.frame_source.clone().into(),
-        };
+                None => (self.frame_source.clone().into(), None),
+            };
+        #[cfg(feature = "quickjs-rquickjs")]
+        self.apply_projection_target_fps(projection_target_fps);
         #[cfg(not(feature = "quickjs-rquickjs"))]
-        let frame_source = self.frame_source.clone();
-        let mut frame_json = frame_json_for_window(
-            &frame_source,
-            dimensions.logical_width,
-            dimensions.logical_height,
-            dimensions.device_pixel_ratio,
-        )?;
-        if native_window_dev_enabled() {
-            frame_json = self.performance_hud.inject(&frame_json, dimensions)?;
-        }
-        if native_window_interaction_probe_enabled()
-            && !self.interaction_probe_story_observed
-            && native_demo_story_frame_visible(&frame_json)
-        {
-            self.interaction_probe_story_observed = true;
-            println!("Native interaction probe observed the first story dialogue frame.");
-        }
-        let should_run_advance_probe = native_window_interaction_probe_enabled()
-            && self.interaction_probe_story_observed
-            && (self.interaction_probe_advance_count == 0
-                || (self.interaction_probe_advance_count == 1
-                    && self.interaction_probe_typewriter_revealed));
-        if native_window_interaction_probe_enabled()
-            && self.interaction_probe_advance_count > 0
-            && !self.interaction_probe_advance_observed
-            && native_demo_advanced_story_frame_visible(&frame_json)
-        {
-            self.interaction_probe_advance_observed = true;
-            println!("Native interaction probe observed dialogue advance to the next line.");
-        }
+        let frame_source: Arc<str> = Arc::from(self.frame_source.as_str());
+        let hud = if native_window_dev_enabled() {
+            Some(&self.performance_hud)
+        } else {
+            None
+        };
+        let composed = self.frame_composer.compose(&frame_source, dimensions, hud)?;
+        let frame_json: Arc<str> = composed.json.clone();
+        let compose_ms = composed.compose_duration.as_secs_f64() * 1000.0;
+        let compose_cache_hit = composed.cache_hit;
         let Some(mut product_shell) = self.product_shell.take() else {
             return Err(NativeWindowSmokeError::new(
                 "Native renderer smoke runtime is not initialized.",
@@ -292,7 +342,7 @@ impl NativeWindowSmokeApp {
             .rendered_frame_count()
             .saturating_add(1)
             >= target_frame_count;
-        let should_shutdown_after_next_frame = self.interaction_probe_advance_observed
+        let should_shutdown_after_next_frame = self.demo_e2e.is_awaiting_final_frame()
             || (!native_window_dev_enabled() && next_render_reaches_target);
         if should_shutdown_after_next_frame {
             product_shell
@@ -305,20 +355,9 @@ impl NativeWindowSmokeApp {
             .render_projection_json_frame(
                 &frame_json,
                 |renderer, host| {
-                    if native_window_interaction_probe_enabled() {
-                        if self.input.metrics().pointer_probe_count == 0 {
-                            self.input
-                                .run_native_demo_start_probe(renderer, host, &frame_json)?;
-                            self.interaction_probe_started_at = Some(Instant::now());
-                            Ok(())
-                        } else if should_run_advance_probe {
-                            self.interaction_probe_advance_count =
-                                self.interaction_probe_advance_count.saturating_add(1);
-                            self.input
-                                .run_native_demo_advance_probe(renderer, host, &frame_json)
-                        } else {
-                            Ok(())
-                        }
+                    if self.demo_e2e.is_running() {
+                        self.demo_e2e
+                            .tick(renderer, host, &mut self.input, &frame_json)
                     } else if native_window_dev_enabled() {
                         Ok(())
                     } else {
@@ -328,8 +367,7 @@ impl NativeWindowSmokeApp {
                 },
                 |runtime| {
                     if runtime.rendered_frame_count() >= target_frame_count
-                        || (native_window_interaction_probe_enabled()
-                            && self.interaction_probe_advance_observed)
+                        || should_shutdown_after_next_frame
                     {
                         let capture = runtime.capture_frame_png().map_err(|error| {
                             NativeWindowSmokeError::new(format!(
@@ -343,13 +381,13 @@ impl NativeWindowSmokeApp {
                 },
             );
         self.product_shell = Some(product_shell);
-        if should_shutdown_after_next_frame {
-            self.request_redraw();
-        }
         self.flush_dev_renderer_intents()?;
 
         let loop_frame =
             product_frame_result.map_err(NativeWindowSmokeError::from_window_loop_error)?;
+        let presented_e2e_final_frame = should_shutdown_after_next_frame
+            && self.demo_e2e.is_complete()
+            && loop_frame.shutdown.is_some();
         let product_frame = loop_frame.product_frame;
         self.record_product_frame_texture_metrics(&product_frame);
         let synced_frame = product_frame.synced_frame;
@@ -359,10 +397,16 @@ impl NativeWindowSmokeApp {
         if self.quickjs_product.is_some() {
             self.renderer_redraw_pending = false;
         }
-        let input_metrics = self.input.metrics();
         if let Some(shutdown) = loop_frame.shutdown {
             self.texture_metrics.record_shutdown_cleanup(&shutdown);
         }
+        if presented_e2e_final_frame {
+            self.demo_e2e.mark_final_frame_presented();
+        }
+        if self.demo_e2e.is_awaiting_final_frame() {
+            self.request_redraw();
+        }
+        let input_metrics = self.input.metrics();
         let product_shell = self.product_shell.as_ref().ok_or_else(|| {
             NativeWindowSmokeError::new("Native renderer smoke runtime is not initialized.")
         })?;
@@ -459,7 +503,7 @@ impl NativeWindowSmokeApp {
             let input_latency_ms = self
                 .last_input_at
                 .map(|t| t.elapsed().as_secs_f64() * 1000.0);
-            self.performance_hud.record_frame(
+                self.performance_hud.record_frame(
                 frame_started_at.elapsed(),
                 frame_result.submission.command_count,
                 frame_result.submission.pass_count,
@@ -468,6 +512,9 @@ impl NativeWindowSmokeApp {
                 proj_fresh,
                 input_latency_ms,
                 active_transitions,
+                self.pacer.effective_fps(),
+                compose_ms,
+                compose_cache_hit,
             );
         }
         Ok(report)
@@ -660,7 +707,6 @@ impl NativeWindowSmokeApp {
                         .as_ref()
                         .is_some_and(NativeProjectionWorker::reveal_dialogue_on_advance)
                 {
-                    self.interaction_probe_typewriter_revealed = true;
                     self.request_redraw();
                     forwarded_renderer_intent_count =
                         forwarded_renderer_intent_count.saturating_add(1);
@@ -673,6 +719,12 @@ impl NativeWindowSmokeApp {
                 return Ok(());
             };
             for intent in intents {
+                log::debug!(
+                    target: "quajs_native_app::intent",
+                    "dispatch {} payload={}",
+                    intent.r#type,
+                    intent.payload_json.as_deref().unwrap_or("none")
+                );
                 product.dispatch_renderer_intent(intent)?;
             }
             self.input.dispatched_intent_count = self
@@ -697,6 +749,10 @@ impl NativeWindowSmokeApp {
         let update = match product.drain_pipeline_update() {
             Ok(update) => update,
             Err(error) => {
+                log::error!(
+                    target: "quajs_native_app::pipeline",
+                    "Draining the QuickJS pipeline update failed: {error}"
+                );
                 self.error = Some(error);
                 return;
             }
@@ -707,6 +763,10 @@ impl NativeWindowSmokeApp {
         // Pipeline events are applied on the projection worker thread so the
         // render thread never blocks on JS-shaped projection work.
         if let Err(error) = worker.apply_pipeline_events(update.messages) {
+            log::error!(
+                target: "quajs_native_app::pipeline",
+                "Applying pipeline events on the projection worker failed: {error}"
+            );
             self.error = Some(error);
             return;
         }
@@ -735,6 +795,7 @@ impl NativeWindowSmokeApp {
     }
 
     fn fail_and_exit(&mut self, event_loop: &ActiveEventLoop, error: NativeWindowSmokeError) {
+        log::error!("Fatal native window error, exiting: {error}");
         self.error = Some(error);
         event_loop.exit();
     }
@@ -753,28 +814,6 @@ fn is_advance_intent(intent: &quajs_native_runtime::NativeRendererIntent) -> boo
             payload.get("command").and_then(serde_json::Value::as_str) == Some("advance")
                 && payload.get("pressed").and_then(serde_json::Value::as_bool) != Some(false)
         })
-}
-
-fn native_demo_story_frame_visible(frame_json: &str) -> bool {
-    let Ok(frame) = serde_json::from_str::<serde_json::Value>(frame_json) else {
-        return false;
-    };
-    frame
-        .pointer("/view/dialogue/text")
-        .and_then(serde_json::Value::as_str)
-        .map(|text| !text.is_empty())
-        .unwrap_or(false)
-}
-
-fn native_demo_advanced_story_frame_visible(frame_json: &str) -> bool {
-    let Ok(frame) = serde_json::from_str::<serde_json::Value>(frame_json) else {
-        return false;
-    };
-    frame
-        .pointer("/view/dialogue/text")
-        .and_then(serde_json::Value::as_str)
-        .map(|text| text.starts_with('和'))
-        .unwrap_or(false)
 }
 
 fn persist_frame_capture_artifact(

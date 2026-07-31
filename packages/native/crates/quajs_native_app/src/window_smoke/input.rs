@@ -24,9 +24,6 @@ pub(super) use crate::product_input::{
 
 const WINDOW_SMOKE_OPEN_SETTINGS_CENTER: StageLogicalPoint =
     StageLogicalPoint { x: 408.0, y: 354.0 };
-/// Centre of the demo main menu's START button (`x 130..490`, `y 483..531`).
-const NATIVE_DEMO_START_CENTER: StageLogicalPoint = StageLogicalPoint { x: 310.0, y: 507.0 };
-const NATIVE_DEMO_ADVANCE_CENTER: StageLogicalPoint = StageLogicalPoint { x: 960.0, y: 820.0 };
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(super) struct NativeWindowSmokeInputMetrics {
@@ -356,30 +353,41 @@ impl NativeWindowSmokeInputState {
         .map(|_| ())
     }
 
-    pub(super) fn run_native_demo_start_probe<B, A, V, F>(
+    pub(super) fn click_render_command<B, A, V, F>(
         &mut self,
         renderer: &mut NativeRenderer<B, A, V, F>,
         host: &mut InMemoryNativeHostApi,
-        frame_json: &str,
-    ) -> Result<(), NativeWindowSmokeError>
+        command_id: &str,
+    ) -> Result<bool, NativeWindowSmokeError>
     where
         B: NativeRenderBackend,
     {
-        if self.metrics.pointer_probe_count > 0 {
-            return Ok(());
+        let Some(frame) = renderer.state().frame() else {
+            return Ok(false);
+        };
+        let Some(command) = frame
+            .graph
+            .commands()
+            .iter()
+            .find(|command| command.id == command_id && command.interactive)
+        else {
+            return Ok(false);
+        };
+        let logical = StageLogicalPoint {
+            x: command.bounds.x + command.bounds.width / 2.0,
+            y: command.bounds.y + command.bounds.height / 2.0,
+        };
+        if frame
+            .graph
+            .hit_test(logical.x, logical.y)
+            .is_none_or(|hit| hit.id != command_id)
+        {
+            return Ok(false);
         }
-
+        let layout = frame.graph.layout;
+        let client =
+            stage_logical_to_client_point(&layout, logical, StageClientRectOrigin::default());
         self.metrics.pointer_probe_count = self.metrics.pointer_probe_count.saturating_add(1);
-        let input = parse_native_renderer_json_frame_input(frame_json).map_err(|error| {
-            NativeWindowSmokeError::new(format!(
-                "Native demo interaction probe frame validation failed: {error}."
-            ))
-        })?;
-        let client = stage_logical_to_client_point(
-            &input.resolved_layout(),
-            NATIVE_DEMO_START_CENTER,
-            StageClientRectOrigin::default(),
-        );
         self.dispatch_pointer_event(
             renderer,
             host,
@@ -394,66 +402,55 @@ impl NativeWindowSmokeInputState {
             client,
             NativePointerButton::Primary,
         )?;
-        if let Some(intent) = host.renderer_intents().last() {
-            println!(
-                "Native interaction probe dispatched {} {}.",
-                intent.r#type,
-                intent.payload_json.as_deref().unwrap_or("{}")
-            );
-        }
-        Ok(())
+        Ok(true)
     }
 
-    pub(super) fn run_native_demo_advance_probe<B, A, V, F>(
+    pub(super) fn click_unhandled_render_command_area<B, A, V, F>(
         &mut self,
         renderer: &mut NativeRenderer<B, A, V, F>,
         host: &mut InMemoryNativeHostApi,
-        frame_json: &str,
-    ) -> Result<(), NativeWindowSmokeError>
+        command_id: &str,
+    ) -> Result<bool, NativeWindowSmokeError>
     where
         B: NativeRenderBackend,
     {
-        let input = parse_native_renderer_json_frame_input(frame_json).map_err(|error| {
-            NativeWindowSmokeError::new(format!(
-                "Native demo advance probe frame validation failed: {error}."
-            ))
-        })?;
-        let client = stage_logical_to_client_point(
-            &input.resolved_layout(),
-            NATIVE_DEMO_ADVANCE_CENTER,
-            StageClientRectOrigin::default(),
-        );
-        // The first click completes typewriter reveal; the second exercises
-        // the actual engine USER_ADVANCE path.
-        for _ in 0..2 {
-            self.dispatch_pointer_event(
-                renderer,
-                host,
-                NativePointerEventPhase::Press,
-                client,
-                NativePointerButton::Primary,
-            )?;
-            self.dispatch_pointer_event(
-                renderer,
-                host,
-                NativePointerEventPhase::Release,
-                client,
-                NativePointerButton::Primary,
-            )?;
-        }
-        if let Some(intent) = host
-            .renderer_intents()
+        let Some(frame) = renderer.state().frame() else {
+            return Ok(false);
+        };
+        let Some(command) = frame
+            .graph
+            .commands()
             .iter()
-            .rev()
-            .find(|intent| intent.r#type == "user/input_command")
-        {
-            println!(
-                "Native interaction probe dispatched {} {}.",
-                intent.r#type,
-                intent.payload_json.as_deref().unwrap_or("{}")
-            );
-        }
-        Ok(())
+            .find(|command| command.id == command_id && !command.interactive)
+        else {
+            return Ok(false);
+        };
+        let logical = StageLogicalPoint {
+            x: command.bounds.x + command.bounds.width / 2.0,
+            y: command.bounds.y + command.bounds.height / 2.0,
+        };
+        let layout = frame.graph.layout;
+        let client =
+            stage_logical_to_client_point(&layout, logical, StageClientRectOrigin::default());
+        let before_intent_count = host.renderer_intents().len();
+        self.metrics.pointer_probe_count = self.metrics.pointer_probe_count.saturating_add(1);
+        self.dispatch_pointer_event(
+            renderer,
+            host,
+            NativePointerEventPhase::Press,
+            client,
+            NativePointerButton::Primary,
+        )?;
+        self.dispatch_pointer_event(
+            renderer,
+            host,
+            NativePointerEventPhase::Release,
+            client,
+            NativePointerButton::Primary,
+        )?;
+        Ok(host.renderer_intents()[before_intent_count..]
+            .iter()
+            .any(|intent| intent.r#type == "user/input_command"))
     }
 }
 

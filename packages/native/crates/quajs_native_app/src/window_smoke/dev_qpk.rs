@@ -50,8 +50,16 @@ pub(super) fn mount_native_dev_qpk(
         ))
     })?;
     let qpk = parse_native_dev_qpk(&bytes)?;
+    log::info!(
+        "mounted dev QPK \"{}\": bundle={} assets={} bytes={}",
+        path.display(),
+        qpk.bundle.name,
+        qpk.assets.len(),
+        metadata.len()
+    );
     host = host.with_mounted_bundle(qpk.bundle);
     for (asset_name, bytes) in qpk.assets {
+        log::trace!("dev QPK asset: {asset_name} ({} bytes)", bytes.len());
         host = host.with_asset(asset_name, bytes);
     }
     Ok(host)

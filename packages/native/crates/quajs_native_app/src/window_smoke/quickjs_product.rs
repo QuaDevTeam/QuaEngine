@@ -231,9 +231,9 @@ fn run_quickjs_product_worker(
                     module.pump_jobs()?;
                     module.drain_pipeline_messages()
                 });
-                if super::config::native_window_interaction_probe_enabled() {
+                if super::config::native_window_demo_e2e_enabled() {
                     if let Ok(Some(diagnostics)) = module.call_export("getInteractionDiagnostics") {
-                        println!("Native QuickJS interaction diagnostics: {diagnostics}");
+                        println!("Native QuickJS demo E2E diagnostics: {diagnostics}");
                     }
                 }
                 match result {
@@ -444,6 +444,7 @@ fn publish_error(
     event_loop_proxy: &EventLoopProxy<()>,
     error: String,
 ) {
+    log::error!(target: "quajs_native_app::quickjs", "{error}");
     if let Ok(mut snapshot) = latest.write() {
         snapshot.error = Some(error);
         pipeline_sequence.fetch_add(1, Ordering::Release);

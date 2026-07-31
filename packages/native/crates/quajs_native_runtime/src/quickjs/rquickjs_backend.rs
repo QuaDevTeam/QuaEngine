@@ -4,6 +4,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 
 use rquickjs::{
+    function::Func,
     loader::{ImportAttributes, Loader, Resolver},
     module::Declared,
     Array, Context, Ctx, Error, FromJs, Function, Module, Object, Persistent, Promise, Runtime,
@@ -28,12 +29,79 @@ use super::{
     QuickJsRendererIntentDispatchResult, QuickJsSandboxLimits,
 };
 
+/// Installed as a global before the bridge prelude runs, so `console.*` inside
+/// QuickJS forwards to the host `log` facade instead of being discarded.
+const NATIVE_QUICKJS_CONSOLE_WRITE: &str = "__quaNativeConsoleWrite";
+
 const NATIVE_QUICKJS_RENDERER_BRIDGE_SOURCE: &str = r#"
 (() => {
   if (!globalThis.console) {
-    const noop = () => {};
+    // `__quaNativeConsoleWrite(level, message)` is installed from Rust and
+    // routes into the host logger. Engine and game `console.*` calls used to be
+    // bound to no-ops here, which silently discarded every JS-side diagnostic.
+    const write = globalThis.__quaNativeConsoleWrite;
+    const format = (values) => {
+      let text = '';
+      for (let index = 0; index < values.length; index += 1) {
+        if (index > 0) {
+          text += ' ';
+        }
+        text += stringify(values[index]);
+      }
+      return text;
+    };
+    const stringify = (value) => {
+      if (typeof value === 'string') {
+        return value;
+      }
+      if (value instanceof Error) {
+        // QuickJS `error.stack` holds only frames, with no leading
+        // "Name: message" line the way browsers do. Always build the
+        // description first so the reason cannot be lost, then append frames.
+        const description = `${value.name || 'Error'}: ${value.message}`;
+        return value.stack ? `${description}\n${value.stack}` : description;
+      }
+      if (typeof value === 'bigint') {
+        return `${value}n`;
+      }
+      if (typeof value === 'function') {
+        return `[Function: ${value.name || 'anonymous'}]`;
+      }
+      if (typeof value === 'undefined') {
+        return 'undefined';
+      }
+      if (value === null) {
+        return 'null';
+      }
+      if (typeof value === 'object') {
+        try {
+          return JSON.stringify(value) ?? String(value);
+        }
+        catch {
+          return String(value);
+        }
+      }
+      return String(value);
+    };
+    const emit = typeof write === 'function'
+      ? level => (...values) => {
+          try {
+            write(level, format(values));
+          }
+          catch {
+            // Never let a logging failure break story execution.
+          }
+        }
+      : () => () => {};
     Object.defineProperty(globalThis, 'console', {
-      value: Object.freeze({ debug: noop, error: noop, info: noop, log: noop, warn: noop }),
+      value: Object.freeze({
+        debug: emit('debug'),
+        error: emit('error'),
+        info: emit('info'),
+        log: emit('info'),
+        trace: emit('trace'),
+        warn: emit('warn'),
+      }),
       enumerable: false,
       configurable: false,
       writable: false
@@ -1045,6 +1113,25 @@ enum QuickJsPipelineSubscriptionUpdate {
     },
 }
 
+/// Bridges QuickJS `console.*` to the `log` facade. Without this the prelude's
+/// console is a set of no-ops and every diagnostic the engine or game script
+/// writes is silently discarded, which makes native-only failures very hard to
+/// diagnose. Levels map straight through so `QUA_NATIVE_LOG` filters JS logs
+/// the same way it filters Rust ones.
+fn install_native_console_writer(ctx: &Ctx<'_>) -> Result<(), Error> {
+    let writer = Func::from(|level: String, message: String| {
+        let level = match level.as_str() {
+            "error" => log::Level::Error,
+            "warn" => log::Level::Warn,
+            "debug" => log::Level::Debug,
+            "trace" => log::Level::Trace,
+            _ => log::Level::Info,
+        };
+        log::log!(target: "quajs_quickjs::console", level, "{message}");
+    });
+    ctx.globals().set(NATIVE_QUICKJS_CONSOLE_WRITE, writer)
+}
+
 impl RquickJsModuleEvaluator {
     pub fn new() -> Result<Self, QuickJsEvaluationError> {
         let runtime = Runtime::new().map_err(backend_error)?;
@@ -1059,7 +1146,10 @@ impl RquickJsModuleEvaluator {
         );
         let context = Context::full(&runtime).map_err(backend_error)?;
         context
-            .with(|ctx| ctx.eval::<(), _>(NATIVE_QUICKJS_RENDERER_BRIDGE_SOURCE))
+            .with(|ctx| {
+                install_native_console_writer(&ctx)?;
+                ctx.eval::<(), _>(NATIVE_QUICKJS_RENDERER_BRIDGE_SOURCE)
+            })
             .map_err(backend_error)?;
         Ok(Self {
             namespaces: BTreeMap::new(),
@@ -3617,6 +3707,75 @@ mod tests {
 
         assert!(version.starts_with("quickjs-"));
         assert!(version.contains(RQUICKJS_BACKEND_VERSION));
+    }
+
+    #[test]
+    fn installs_a_callable_native_console_writer_global() {
+        let runtime = Runtime::new().unwrap();
+        let context = Context::full(&runtime).unwrap();
+
+        context.with(|ctx| {
+            install_native_console_writer(&ctx).unwrap();
+            let installed: bool = ctx
+                .eval(format!(
+                    "typeof globalThis.{NATIVE_QUICKJS_CONSOLE_WRITE} === 'function'"
+                ))
+                .unwrap();
+            assert!(installed, "native console writer must be installed");
+            // Reaches the `log` facade; with no logger registered this is a
+            // no-op, so the assertion is that the call does not throw.
+            ctx.eval::<(), _>(format!(
+                "globalThis.{NATIVE_QUICKJS_CONSOLE_WRITE}('warn', 'native console smoke')"
+            ))
+            .unwrap();
+        });
+    }
+
+    #[test]
+    fn console_shim_forwards_every_level_and_formats_arguments() {
+        let runtime = Runtime::new().unwrap();
+        let context = Context::full(&runtime).unwrap();
+
+        let captured = context.with(|ctx| {
+            // Stand in for the Rust writer so the assertion covers the JS shim's
+            // level mapping and argument formatting.
+            ctx.eval::<(), _>(
+                r#"
+                globalThis.__captured = [];
+                globalThis.__quaNativeConsoleWrite = (level, message) => {
+                  globalThis.__captured.push(level + '|' + message);
+                };
+                "#,
+            )
+            .unwrap();
+            ctx.eval::<(), _>(NATIVE_QUICKJS_RENDERER_BRIDGE_SOURCE)
+                .unwrap();
+            ctx.eval::<(), _>(
+                r#"
+                console.log('plain', 1, true);
+                console.info('info');
+                console.warn('warn');
+                console.error(new Error('boom'));
+                console.debug('debug');
+                console.trace('trace');
+                console.log({ a: 1 }, null, undefined);
+                "#,
+            )
+            .unwrap();
+            ctx.eval::<Vec<String>, _>("globalThis.__captured").unwrap()
+        });
+
+        assert_eq!(captured[0], "info|plain 1 true");
+        assert_eq!(captured[1], "info|info");
+        assert_eq!(captured[2], "warn|warn");
+        assert!(
+            captured[3].starts_with("error|") && captured[3].contains("boom"),
+            "errors must forward their message: {}",
+            captured[3]
+        );
+        assert_eq!(captured[4], "debug|debug");
+        assert_eq!(captured[5], "trace|trace");
+        assert_eq!(captured[6], r#"info|{"a":1} null undefined"#);
     }
 
     #[test]

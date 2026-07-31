@@ -8,7 +8,8 @@ pub const WINDOW_SMOKE_FRAMES_ENV: &str = "QUA_NATIVE_RENDERER_WINDOW_SMOKE_FRAM
 pub const WINDOW_DEV_ENV: &str = "QUA_NATIVE_RENDERER_WINDOW_DEV";
 pub const WINDOW_DEV_QPK_ENV: &str = "QUA_NATIVE_RENDERER_WINDOW_DEV_QPK";
 pub const WINDOW_TITLE_ENV: &str = "QUA_NATIVE_RENDERER_WINDOW_TITLE";
-pub const WINDOW_INTERACTION_PROBE_ENV: &str = "QUA_NATIVE_RENDERER_WINDOW_INTERACTION_PROBE";
+pub const WINDOW_DEMO_E2E_ENV: &str = "QUA_NATIVE_RENDERER_WINDOW_DEMO_E2E";
+pub const WINDOW_TARGET_FPS_ENV: &str = "QUA_NATIVE_RENDERER_TARGET_FPS";
 
 const DEFAULT_WINDOW_SMOKE_FRAME_COUNT: usize = 1;
 const MAX_WINDOW_SMOKE_FRAME_COUNT: usize = 120;
@@ -43,8 +44,8 @@ pub(super) fn native_window_title() -> String {
         })
 }
 
-pub(super) fn native_window_interaction_probe_enabled() -> bool {
-    env_flag_enabled(WINDOW_INTERACTION_PROBE_ENV)
+pub(super) fn native_window_demo_e2e_enabled() -> bool {
+    env_flag_enabled(WINDOW_DEMO_E2E_ENV)
 }
 
 pub(super) fn load_window_smoke_frame_source() -> Result<String, NativeWindowSmokeError> {
@@ -63,7 +64,7 @@ pub(super) fn load_window_smoke_frame_source() -> Result<String, NativeWindowSmo
 }
 
 pub(super) fn load_window_smoke_target_frame_count() -> usize {
-    if native_window_dev_enabled() || native_window_interaction_probe_enabled() {
+    if native_window_dev_enabled() || native_window_demo_e2e_enabled() {
         return usize::MAX;
     }
     let Some(value) = std::env::var_os(WINDOW_SMOKE_FRAMES_ENV) else {
@@ -79,6 +80,21 @@ pub(super) fn load_window_smoke_target_frame_count() -> usize {
         DEFAULT_WINDOW_SMOKE_FRAME_COUNT,
         MAX_WINDOW_SMOKE_FRAME_COUNT,
     )
+}
+
+/// Dev/CI override for the target render cadence. Player-facing frame rate
+/// selection arrives through `view.renderer.targetFrameRate`; this env only
+/// exists so a developer or a benchmark can pin the cadence without editing
+/// settings. Invalid values fall back to the default cadence.
+pub(super) fn load_window_target_fps_override() -> Option<u32> {
+    let value = std::env::var_os(WINDOW_TARGET_FPS_ENV)?;
+    let value = value.to_string_lossy();
+    let value = value.trim();
+    if value.is_empty() {
+        return None;
+    }
+    let fps = value.parse::<u32>().ok()?;
+    Some(crate::product_frame_pacer::clamp_target_fps(fps))
 }
 
 fn env_flag_enabled(name: &str) -> bool {

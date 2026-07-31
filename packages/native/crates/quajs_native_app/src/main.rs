@@ -8,12 +8,15 @@ mod font_backend;
 mod font_sync;
 #[cfg(any(test, feature = "image-decode"))]
 mod host_assets;
+mod logging;
 #[cfg(any(test, feature = "image-decode"))]
 mod product_app_loop;
 #[cfg(feature = "native-window")]
 mod product_app_shell;
 #[cfg(any(test, feature = "image-decode"))]
 mod product_bridge;
+#[cfg(any(test, feature = "native-window"))]
+mod product_frame_pacer;
 #[cfg(any(test, feature = "image-decode"))]
 mod product_frame_scheduler;
 #[cfg(feature = "native-window")]
@@ -47,7 +50,9 @@ use target_bundle::load_native_target_bundle_manifest;
 use window_smoke::run_native_window_smoke_from_env;
 
 fn main() {
+    let _ = logging::init_native_logging();
     if let Err(error) = run() {
+        log::error!("native app exited with an error: {error}");
         eprintln!("{error}");
         std::process::exit(1);
     }
@@ -92,13 +97,30 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         .into());
     }
 
-    let target_bundle_manifest = std::env::var_os("QUA_NATIVE_TARGET_BUNDLE_MANIFEST")
+    let manifest_path = std::env::var_os("QUA_NATIVE_TARGET_BUNDLE_MANIFEST");
+    match &manifest_path {
+        Some(path) => log::debug!(
+            "loading native target bundle manifest from {}",
+            std::path::Path::new(path).display()
+        ),
+        None => log::debug!("no QUA_NATIVE_TARGET_BUNDLE_MANIFEST set; using compile-time config"),
+    }
+    let target_bundle_manifest = manifest_path
         .map(load_native_target_bundle_manifest)
-        .transpose()?;
+        .transpose()
+        .inspect_err(|error| log::error!("native target bundle manifest failed to load: {error}"))?;
     let host_info = create_native_startup_host_info(
         compile_time_native_app_config(),
         target_bundle_manifest.as_ref(),
-    )?;
+    )
+    .inspect_err(|error| log::error!("native startup host info failed to build: {error}"))?;
+    log::info!(
+        "native host ready: renderer={} backend={} capabilities={}",
+        host_info.renderer_version(),
+        host_info.renderer.backend,
+        host_info.renderer.capabilities.len()
+    );
+    // Stays on stdout: `demo/scripts/native-dev.mjs` parses these two lines.
     println!(
         "Qua native host ready: renderer={} capabilities={}",
         host_info.renderer_version(),
