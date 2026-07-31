@@ -366,6 +366,7 @@ export interface QuaEngineInterface {
   startFastForward: () => Promise<void>
   stopFastForward: () => Promise<void>
   setLayoutProjection: (layout: ViewLayoutInput) => Promise<void>
+  setRendererOptions: (options: { targetFrameRate?: number }) => Promise<void>
   getPluginProjection: <T = unknown>(pluginId: string) => T | undefined
   setPluginProjection: <T = unknown>(pluginId: string, projection?: T) => Promise<void>
   waitFor: QuaEngineWaitFor

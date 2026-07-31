@@ -1075,6 +1075,14 @@ export class QuaEngine {
     await this.emitViewUpdate()
   }
 
+  async setRendererOptions(options: { targetFrameRate?: number }): Promise<void> {
+    this.assertInitialized()
+    this.store.commit('setRenderer', options.targetFrameRate != null
+      ? { targetFrameRate: Math.round(options.targetFrameRate) }
+      : undefined)
+    await this.emitViewUpdate()
+  }
+
   getPluginProjection<T = unknown>(pluginId: string): T | undefined {
     return cloneUnknownValue(this.getEngineState().view.plugins[pluginId]) as T | undefined
   }
@@ -3263,6 +3271,9 @@ function createEngineMutations() {
     setLayout(state: any, layout: ViewLayoutInput) {
       state.engine.view.layout = createViewLayoutProjection(layout)
     },
+    setRenderer(state: any, renderer: { targetFrameRate?: number } | undefined) {
+      state.engine.view.renderer = renderer ?? undefined
+    },
     setFlowControl(state: any, flowControl: ViewFlowControlProjection) {
       state.engine.view.flowControl = cloneFlowControlProjection(flowControl)
     },
@@ -3804,6 +3815,7 @@ function cloneViewProjection(view: QuaViewProjection): QuaViewProjection {
       })),
     })),
     plugins: cloneUnknownRecord(view.plugins || {}),
+    renderer: view.renderer ? { ...view.renderer } : undefined,
   }
 }
 

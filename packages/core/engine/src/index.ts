@@ -57,6 +57,7 @@ export {
   setLayoutProjection,
   setLocale,
   setPluginProjection,
+  setRendererOptions,
   setRollbackConfig,
   setStoryPoint,
   showChoices,
