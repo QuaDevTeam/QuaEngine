@@ -1,0 +1,292 @@
+Stack.native-app {
+  overflow: hidden;
+}
+
+Box.shell-vignette-radial {
+  background-image: radial-gradient(ellipse at center, transparent 46%, rgba(0,0,0,0.34) 100%);
+  pointer-events: none;
+  z-index: 2;
+}
+
+Box.shell-vignette-linear {
+  background-image: linear-gradient(180deg, rgba(5,5,7,0.24) 0%, transparent 18%, transparent 72%, rgba(5,5,7,0.34) 100%);
+  pointer-events: none;
+  z-index: 3;
+}
+
+Backdrop.title-input-blocker {
+  background-color: #030407;
+  /* Sit below the main-menu buttons in the z-stack so button hit-areas win. */
+  z-index: -1;
+}
+
+Image.title-background {
+  filter: brightness(0.46) saturate(0.88);
+  object-fit: cover;
+}
+
+Box.title-linear-scrim {
+  background-image: linear-gradient(90deg, rgba(4,5,8,0.94) 0%, rgba(4,5,8,0.34) 50%, rgba(4,5,8,0.84) 100%);
+}
+
+Box.title-radial-scrim {
+  background-image: radial-gradient(circle at 52% 40%, rgba(11,19,30,0.24) 0%, rgba(3,4,7,0.78) 64%);
+}
+
+Text.main-menu-title {
+  color: #fffaf0;
+  font-family: "Noto Serif";
+  font-size: 104px;
+  font-weight: 700;
+  line-height: 104px;
+  text-shadow: 0 2px 18px rgba(0,0,0,0.70);
+}
+
+Text.main-menu-subtitle {
+  color: rgba(235,204,144,0.78);
+  font-family: "Noto Sans";
+  font-size: 12px;
+  letter-spacing: 2.16px;
+  text-shadow: 0 2px 18px rgba(0,0,0,0.70);
+}
+
+Column.main-menu-actions {
+  row-gap: 9px;
+}
+
+Button.main-menu-action {
+  background-color: rgba(9,12,18,0.88);
+  background-image: linear-gradient(90deg, rgba(9,12,18,0.94) 0%, rgba(22,26,36,0.74) 100%);
+  border-color: rgba(245,226,190,0.24);
+  border-width: 1px;
+  box-shadow: 0 14px 38px rgba(0,0,0,0.26);
+  color: rgba(255,250,242,0.92);
+  font-family: "Noto Sans";
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1.56px;
+  padding: 0 18px 7px 20px;
+  text-align: left;
+  text-shadow: 0 2px 10px rgba(0,0,0,0.52);
+  transition: transform 160ms cubic-bezier(0.19,1,0.22,1), background-color 160ms ease, color 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+Button.main-menu-action:hover,
+Button.main-menu-action:focus,
+Button.main-menu-action:focus-visible {
+  background-color: rgba(18,18,23,0.92);
+  background-image: linear-gradient(90deg, rgba(34,29,22,0.96) 0%, rgba(27,29,36,0.78) 100%);
+  color: #ffe8b3;
+  translate: 3px 0;
+}
+
+Button.main-menu-action:active {
+  background-color: rgba(14,17,26,0.96);
+  background-image: linear-gradient(90deg, rgba(28,24,17,0.98) 0%, rgba(22,24,31,0.86) 100%);
+  color: rgba(255,224,160,0.80);
+  translate: 5px 0;
+}
+
+Row.title-plate {
+  align-items: center;
+  column-gap: 12px;
+}
+
+Text.title-plate-name {
+  color: #fff8ea;
+  font-family: "Noto Sans";
+  font-size: 24px;
+  font-weight: 700;
+  text-shadow: 0 2px 10px rgba(0,0,0,0.76);
+}
+
+Text.title-plate-subtitle,
+Text.hud-status-text {
+  color: rgba(235,204,144,0.78);
+  font-family: "Noto Sans";
+  font-size: 10px;
+  letter-spacing: 1.4px;
+  text-shadow: 0 2px 10px rgba(0,0,0,0.76);
+}
+
+Row.hud-status {
+  align-items: center;
+  column-gap: 10px;
+}
+
+Row.quick-menu {
+  align-items: center;
+  column-gap: 4px;
+  padding: 5px 9px;
+  border-color: rgba(245,226,190,0.22);
+  border-width: 1px;
+  background-image: linear-gradient(180deg, rgba(12,15,22,0.58) 0%, rgba(5,6,10,0.42) 100%);
+  box-shadow: 0 16px 42px rgba(0,0,0,0.42);
+}
+
+Button.quick-menu-action {
+  background-color: rgba(9,12,18,0.82);
+  border-color: rgba(245,226,190,0.24);
+  border-width: 1px;
+  color: rgba(255,250,242,0.90);
+  font-family: "Noto Sans";
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+}
+
+Button.quick-menu-action:hover,
+Button.quick-menu-action:focus-visible {
+  background-color: rgba(20,54,66,0.82);
+  border-color: rgba(129,229,255,0.72);
+  color: #d8f8ff;
+}
+
+Button.quick-menu-action:active {
+  background-color: rgba(14,42,54,0.88);
+  border-color: rgba(129,229,255,0.50);
+  color: rgba(216,248,255,0.80);
+}
+
+Backdrop.system-backdrop {
+  background-color: rgba(1,2,5,0.78);
+}
+
+Panel.game-menu-panel,
+Panel.confirm-panel,
+Panel.list-panel {
+  background-color: rgba(7,8,12,0.96);
+  background-image: linear-gradient(180deg, rgba(20,22,30,0.96) 0%, rgba(6,7,11,0.97) 100%);
+  border-color: rgba(245,226,190,0.34);
+  border-width: 1px;
+  border-radius: 2px;
+  box-shadow: 0 32px 120px rgba(0,0,0,0.72);
+}
+
+Text.panel-eyebrow {
+  color: #9ddff0;
+  font-family: "Noto Sans";
+  font-size: 13px;
+  letter-spacing: 2px;
+}
+
+Text.panel-title {
+  color: #fff8ea;
+  font-family: "Noto Sans";
+  font-size: 38px;
+  font-weight: 700;
+  text-shadow: 0 2px 10px rgba(0,0,0,0.60);
+}
+
+Text.panel-subtitle {
+  color: rgba(247,242,234,0.58);
+  font-family: "Noto Sans";
+  font-size: 11px;
+  letter-spacing: 1px;
+}
+
+Column.game-menu-actions {
+  row-gap: 8px;
+}
+
+Button.panel-action,
+Button.panel-close,
+Button.confirm-cancel,
+Button.confirm-accept {
+  background-color: rgba(9,12,18,0.82);
+  background-image: linear-gradient(90deg, rgba(9,12,18,0.90) 0%, rgba(23,27,37,0.66) 100%);
+  border-color: rgba(245,226,190,0.24);
+  border-width: 1px;
+  color: rgba(255,250,242,0.90);
+  font-family: "Noto Sans";
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  padding: 0 16px 0 18px;
+  text-align: left;
+  transition: transform 160ms ease, background-color 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+
+Button.panel-action:hover,
+Button.panel-action:focus-visible,
+Button.panel-close:hover,
+Button.panel-close:focus-visible,
+Button.confirm-cancel:hover,
+Button.confirm-cancel:focus-visible {
+  background-color: rgba(20,54,66,0.82);
+  border-color: rgba(129,229,255,0.72);
+  color: #d8f8ff;
+  translate: 2px 0;
+}
+
+Button.panel-action:active,
+Button.panel-close:active,
+Button.confirm-cancel:active {
+  background-color: rgba(14,42,54,0.88);
+  border-color: rgba(129,229,255,0.50);
+  color: rgba(216,248,255,0.80);
+  translate: 3px 0;
+}
+
+Button.title-action,
+Button.confirm-accept {
+  background-color: rgba(255,238,198,0.90);
+  background-image: linear-gradient(90deg, rgba(255,238,198,0.95) 0%, rgba(236,198,116,0.82) 100%);
+  border-color: rgba(255,226,166,0.88);
+  color: #080a0f;
+}
+
+Button.title-action:active,
+Button.confirm-accept:active {
+  background-color: rgba(236,210,158,0.94);
+  background-image: linear-gradient(90deg, rgba(236,210,158,0.98) 0%, rgba(210,170,88,0.88) 100%);
+  border-color: rgba(220,196,130,0.88);
+  color: rgba(8,10,15,0.78);
+}
+
+Text.confirm-description,
+Button.list-line {
+  color: rgba(255,250,242,0.86);
+  font-family: "Noto Sans";
+  font-size: 14px;
+  line-height: 20px;
+}
+
+Button.list-line {
+  background-color: rgba(20,24,33,0.90);
+  background-image: linear-gradient(180deg, rgba(20,24,33,0.90) 0%, rgba(7,8,12,0.92) 100%);
+  border-color: rgba(245,226,190,0.20);
+  border-width: 1px;
+  padding: 14px 18px;
+  text-align: left;
+  white-space: pre-line;
+}
+
+Button.list-line:hover,
+Button.list-line:focus-visible {
+  background-color: rgba(20,54,66,0.82);
+  border-color: rgba(129,229,255,0.72);
+  color: #d8f8ff;
+}
+
+Button.list-line:active {
+  background-color: rgba(14,42,54,0.88);
+  border-color: rgba(129,229,255,0.50);
+  color: rgba(216,248,255,0.80);
+}
+
+Row.confirm-actions {
+  align-items: center;
+  column-gap: 28px;
+}
+
+Button.confirm-cancel,
+Button.confirm-accept,
+Button.panel-close {
+  text-align: center;
+}
+
+Column.list-content {
+  row-gap: 10px;
+  overflow: hidden;
+}

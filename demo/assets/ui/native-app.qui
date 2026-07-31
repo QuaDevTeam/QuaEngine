@@ -1,0 +1,111 @@
+import style "./native-app.qss";
+
+Stack.native-app(id: "native-app-root", x: 0, y: 0, width: 1920, height: 1080) {
+  Stack.shell-vignette(id: "native-shell-vignette", x: 0, y: 0, width: 1920, height: 1080) {
+    Box.shell-vignette-radial(id: "native-shell-vignette-radial", x: 0, y: 0, width: 1920, height: 1080)
+    Box.shell-vignette-linear(id: "native-shell-vignette-linear", x: 0, y: 0, width: 1920, height: 1080)
+  }
+
+  Stack.title-surface(id: "native-title-surface", if: view.titleSurface, x: 0, y: 0, width: 1920, height: 1080) {
+    Backdrop.title-input-blocker(id: "native-title-input-blocker", if: view.screen == "title", action: ui.block("title"), x: 0, y: 0, width: 1920, height: 1080)
+    Image.title-background(id: "native-title-background", src: "ui/menu-route.jpg", x: -29, y: -16, width: 1978, height: 1112)
+    Box.title-linear-scrim(id: "native-title-linear-scrim", x: 0, y: 0, width: 1920, height: 1080)
+    Box.title-radial-scrim(id: "native-title-radial-scrim", x: 0, y: 0, width: 1920, height: 1080)
+  }
+
+  Stack.main-menu(id: "native-main-menu", if: view.screen == "title", x: 0, y: 0, width: 1920, height: 1080) {
+    Text.main-menu-title(id: "native-main-menu-title", x: 130, y: 268, width: 660, height: 160) { view.title }
+    Text.main-menu-subtitle(id: "native-main-menu-subtitle", x: 130, y: 424, width: 520, height: 28) { view.englishTitle }
+    Column.main-menu-actions(id: "native-main-menu-actions", x: 130, y: 483, width: 360, height: 276) {
+      Button.main-menu-action(id: "native-main-menu-start", label: "START", action: ui.open("story"), width: 360, height: 48)
+      Button.main-menu-action(id: "native-main-menu-load", label: "LOAD", action: ui.open("load"), width: 360, height: 48)
+      Button.main-menu-action(id: "native-main-menu-story-tree", label: "STORY TREE", action: ui.open("story-tree"), width: 360, height: 48)
+      Button.main-menu-action(id: "native-main-menu-gallery", label: "GALLERY", action: ui.open("gallery"), width: 360, height: 48)
+      Button.main-menu-action(id: "native-main-menu-config", label: "CONFIG", action: ui.open("settings"), width: 360, height: 48)
+    }
+  }
+
+  Stack.game-hud(id: "native-game-hud", if: view.screen == "game", x: 0, y: 0, width: 1920, height: 1080) {
+    Row.title-plate(id: "native-title-plate", x: 28, y: 20, width: 430, height: 34) {
+      Text.title-plate-name(id: "native-title-plate-name", width: 190, height: 30) { view.title }
+      Text.title-plate-subtitle(id: "native-title-plate-subtitle", width: 210, height: 24) { "TOKYO 2048" }
+    }
+    Row.hud-status(id: "native-hud-status", x: 28, y: 62, width: 520, height: 26) {
+      Text.hud-status-text(id: "native-hud-chapter", width: 150, height: 24) { view.hudChapter }
+      Text.hud-status-text(id: "native-hud-route", width: 250, height: 24) { view.hudRoute }
+      Text.hud-status-text(id: "native-hud-signal", width: 100, height: 24) { view.hudSignal }
+    }
+    Row.quick-menu(id: "native-quick-menu", x: 1468, y: 835, width: 356, height: 50) {
+      Button.quick-menu-action(id: "native-game-hud-auto", label: view.autoLabel, action: ui.toggle("auto"), width: 78, height: 40)
+      Button.quick-menu-action(id: "native-game-hud-skip", label: view.skipLabel, action: ui.toggle("skip"), width: 78, height: 40)
+      Button.quick-menu-action(id: "native-game-hud-log", label: "LOG", action: ui.open("backlog"), width: 78, height: 40)
+      Button.quick-menu-action(id: "native-game-hud-menu", label: "MENU", action: ui.open("game-menu"), width: 78, height: 40)
+    }
+  }
+
+  Stack.system-overlay(id: "native-game-menu-layer", if: view.screen == "game-menu", x: 0, y: 0, width: 1920, height: 1080) {
+    Backdrop.system-backdrop(id: "native-game-menu-backdrop", action: ui.close("game-menu"), x: 0, y: 0, width: 1920, height: 1080)
+    Panel.game-menu-panel(id: "native-game-menu-panel", x: 730, y: 160, width: 460, height: 650) {
+      Text.panel-title(id: "native-game-menu-title", x: 770, y: 202, width: 300, height: 54) { "MENU" }
+      Text.panel-subtitle(id: "native-game-menu-subtitle", x: 770, y: 264, width: 350, height: 26) { view.gameMenuSubtitle }
+      Column.game-menu-actions(id: "native-game-menu-actions", x: 770, y: 322, width: 380, height: 330) {
+        Button.panel-action(id: "native-game-menu-save", label: "SAVE", action: ui.open("save"), width: 380, height: 46)
+        Button.panel-action(id: "native-game-menu-load", label: "LOAD", action: ui.open("load"), width: 380, height: 46)
+        Button.panel-action(id: "native-game-menu-settings", label: "CONFIG", action: ui.open("settings"), width: 380, height: 46)
+        Button.panel-action(id: "native-game-menu-backlog", label: "BACKLOG", action: ui.open("backlog"), width: 380, height: 46)
+        Button.panel-action.title-action(id: "native-game-menu-title-action", label: "TITLE", action: ui.open("title-confirm"), width: 380, height: 46)
+        Button.panel-action(id: "native-game-menu-close", label: "CLOSE", action: ui.close("game-menu"), width: 380, height: 46)
+      }
+    }
+  }
+
+  Stack.system-overlay(id: "native-title-confirm-layer", if: view.screen == "title-confirm", x: 0, y: 0, width: 1920, height: 1080) {
+    Backdrop.system-backdrop(id: "native-title-confirm-backdrop", action: ui.close("title-confirm"), x: 0, y: 0, width: 1920, height: 1080)
+    Panel.confirm-panel(id: "native-title-confirm-panel", x: 700, y: 300, width: 520, height: 390) {
+      Text.panel-title(id: "native-title-confirm-title", x: 746, y: 344, width: 428, height: 56) { "回到标题菜单？" }
+      Text.panel-subtitle(id: "native-title-confirm-subtitle", x: 746, y: 410, width: 428, height: 28) { "当前进度不会自动保存" }
+      Text.confirm-description(id: "native-title-confirm-description", x: 746, y: 466, width: 428, height: 92) { "故事运行状态会保留在后台，START 会回到当前进度。" }
+      Row.confirm-actions(id: "native-title-confirm-actions", x: 746, y: 594, width: 428, height: 48) {
+        Button.confirm-cancel(id: "native-title-confirm-cancel", label: "CANCEL", action: ui.close("title-confirm"), width: 200, height: 46)
+        Button.confirm-accept(id: "native-title-confirm-confirm", label: "TITLE", action: ui.open("title"), width: 200, height: 46)
+      }
+    }
+  }
+
+  Stack.system-overlay(id: "native-game-over-layer", if: view.screen == "game-over", x: 0, y: 0, width: 1920, height: 1080) {
+    Backdrop.system-backdrop(id: "native-game-over-backdrop", action: ui.close("game-over"), x: 0, y: 0, width: 1920, height: 1080)
+    Panel.confirm-panel(id: "native-game-over-panel", x: 650, y: 270, width: 620, height: 450) {
+      Text.panel-title(id: "native-game-over-title", x: 704, y: 316, width: 512, height: 60) { view.gameOverTitle }
+      Text.panel-subtitle(id: "native-game-over-subtitle", x: 704, y: 388, width: 512, height: 28) { view.gameOverSubtitle }
+      Text.confirm-description(id: "native-game-over-description", x: 704, y: 446, width: 512, height: 116) { view.gameOverDescription }
+      Row.confirm-actions(id: "native-game-over-actions", x: 704, y: 624, width: 512, height: 48) {
+        Button.confirm-cancel(id: "native-game-over-close", label: "CLOSE", action: ui.close("game-over"), width: 242, height: 46)
+        Button.confirm-accept(id: "native-game-over-title-action", label: "TITLE", action: ui.open("title"), width: 242, height: 46)
+      }
+    }
+  }
+
+  Stack.system-overlay(id: "native-story-tree-layer", if: view.screen == "story-tree", x: 0, y: 0, width: 1920, height: 1080) {
+    Backdrop.system-backdrop(id: "native-story-tree-backdrop", action: ui.close("story-tree"), x: 0, y: 0, width: 1920, height: 1080)
+    Panel.list-panel(id: "native-story-tree-panel", x: 260, y: 160, width: 1400, height: 760) {
+      Text.panel-eyebrow(id: "native-story-tree-eyebrow", x: 310, y: 206, width: 400, height: 24) { "ROUTE MAP" }
+      Text.panel-title(id: "native-story-tree-title", x: 310, y: 242, width: 700, height: 58) { "STORY TREE" }
+      Column.list-content(id: "native-story-tree-list", x: 310, y: 340, width: 1300, height: 470) {
+        Text.list-line(for: (item, index) in view.storyTreeItems, key: item.id, width: 1300, height: 42) { item.label }
+      }
+      Button.panel-close(id: "native-story-tree-close", label: "CLOSE", action: ui.close("story-tree"), x: 1430, y: 830, width: 180, height: 44)
+    }
+  }
+
+  Stack.system-overlay(id: "native-save-load-layer", if: view.screen == "save-load", x: 0, y: 0, width: 1920, height: 1080) {
+    Backdrop.system-backdrop(id: "native-save-load-backdrop", action: ui.close("save-load"), x: 0, y: 0, width: 1920, height: 1080)
+    Panel.list-panel(id: "native-save-load-panel", x: 360, y: 160, width: 1200, height: 760) {
+      Text.panel-eyebrow(id: "native-save-load-eyebrow", x: 410, y: 206, width: 400, height: 24) { "ARCHIVE" }
+      Text.panel-title(id: "native-save-load-title", x: 410, y: 242, width: 700, height: 58) { view.saveLoadTitle }
+      Column.list-content(id: "native-save-load-list", x: 410, y: 340, width: 1100, height: 480) {
+        Button.list-line(id: item.id, for: (item, index) in view.saveSlotItems, key: item.id, label: item.label, action: save.select(item.id), width: 1100, height: 70)
+      }
+      Button.panel-close(id: "native-save-load-close", label: "CLOSE", action: ui.close("save-load"), x: 1280, y: 840, width: 180, height: 44)
+    }
+  }
+}

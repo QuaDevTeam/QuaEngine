@@ -49,6 +49,9 @@ for reuse. See `../TRADEMARKS.md`.
 | `src/game/styles.scss` | Demo theme entrypoint that imports feature-specific style modules |
 | `src/game/styles/*.scss` | Demo visual skin split by base, shell, dialogue, system panels, gallery, motion, and responsive rules |
 | `src/game/scenes/*.qs` | QuaScript scenario files |
+| `src/targets/native/session.ts` | Native application navigation over the shared engine, plugins, `MainScene`, and QuaScript story |
+| `assets/ui/native-app.qui` | Complete native title, HUD, game menu, confirmation, story tree, save/load, and game-over UI structure |
+| `assets/ui/native-app.qss` | Native demo shell presentation and interaction states |
 | `assets/images` | Backgrounds, CGs, and UI imagery |
 | `assets/characters` | Character sprite assets and expression families |
 | `scripts/generate-assets.mjs` | Asset generation/regeneration pipeline |
@@ -63,15 +66,13 @@ pnpm install
 pnpm --filter demo dev
 pnpm --filter demo build
 pnpm --filter demo typecheck
-pnpm --filter demo dev:native -- --panel=settings
-pnpm --filter demo native:smoke
-pnpm --filter demo native:smoke:parity
-pnpm --filter demo native:smoke:backlog
-pnpm --filter demo native:smoke:gallery
-pnpm --filter demo native:smoke:achievement
+pnpm dev:native
+pnpm native:e2e
 ```
 
-`native:smoke:parity` projects the same first prologue background, character asset/position, speaker, and dialogue line as the Web demo for direct screenshot comparison. `native:smoke:scene` remains the broader two-character and choice coverage frame.
+`pnpm dev:native` launches the complete native demo from its QPK and watches its TypeScript, QuaScript, QUI/QSS, assets, and native renderer sources. It does not accept panel or scene fixtures.
+
+`pnpm native:e2e` is the native demo availability gate. It drives the real rendered command bounds through the native input bridge: title menu, START, shared `MainScene` dialogue advance, the HUD skip control, a real story choice, game menu, title confirmation, settings, gallery, and the final return to the title menu. Skip is enabled and disabled through the rendered HUD after the E2E has already proved the typewriter and engine `USER_ADVANCE` path; it is not a session-state shortcut. Single-scene and single-panel smoke commands are intentionally not part of product validation.
 
 Asset commands:
 
@@ -128,7 +129,7 @@ The demo uses:
 - `@quajs/story-graph`
 - `@quajs/renderer-vue` visual novel preset
 
-The renderer remains projection-only. Menu, settings, save/load, backlog, achievements, and story tree actions flow through engine/plugin APIs or pipeline events. Native feature panels use the same explicit feature-surface list for frame serialization and `NativeHostPlugin`; `native:smoke*` validates the selected surface before running the Rust/WGPU window smoke.
+The renderer remains projection-only. Menu, settings, save/load, backlog, achievements, and story tree actions flow through engine/plugin APIs or pipeline events. The native app shell is authored in QUI/QSS, while the native and Web demos share the same `MainScene`, QuaScript files, engine runtime, plugin definitions, content catalogs, and story graph. Native product availability is established only by the complete `pnpm native:e2e` flow.
 
 ## Build Output
 

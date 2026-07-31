@@ -16,22 +16,22 @@ import { fileURLToPath } from 'node:url'
 
 const DEMO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const REPO_ROOT = resolve(DEMO_ROOT, '..')
-const FRAME_PATH = resolve(DEMO_ROOT, 'dist/native/dev/frame.json')
-const CAPTURE_PATH = resolve(DEMO_ROOT, 'dist/native/dev/frame.png')
+const CAPTURE_PATH = resolve(DEMO_ROOT, 'dist/native/dev/e2e-final.png')
 const QUICKJS_APP_ASSET = 'assets/scripts/native-app.mjs'
 const GENERATED_QUICKJS_APP_WATCH_PATH = 'scripts/native-app.mjs'
 const ASSET_INDEX_PATH = resolve(DEMO_ROOT, 'dist/assets/index.json')
 const NATIVE_FEATURES = 'native-window,native-audio-rodio,quickjs-rquickjs'
-const smoke = process.argv.includes('--smoke')
-const once = process.argv.includes('--once') || smoke
-const requestedPanel = process.argv.find(argument => argument.startsWith('--panel='))?.slice('--panel='.length)
-const panel = requestedPanel || (smoke ? 'settings' : undefined)
-const interactionSmoke = smoke && panel === 'interactive'
+const e2e = process.argv.includes('--e2e')
+const unsupportedArguments = process.argv.slice(2).filter(argument => argument !== '--e2e')
+
+if (unsupportedArguments.length > 0) {
+  throw new Error(`Unsupported native demo argument(s): ${unsupportedArguments.join(', ')}`)
+}
 
 process.chdir(DEMO_ROOT)
 
 let nativeWindow
-let nativeSmokeOutput = ''
+let nativeOutput = ''
 let rebuilding = false
 let rebuildQueued = false
 let stopped = false
@@ -40,16 +40,16 @@ const watchers = []
 
 try {
   await rebuildAndLaunch()
-  if (once) {
+  if (e2e) {
     const code = await waitForExit(nativeWindow)
-    if (smoke && code === 0) {
-      await validateNativeSmokeOutput(nativeSmokeOutput)
+    if (code === 0) {
+      await validateNativeE2eOutput(nativeOutput)
     }
     process.exitCode = code
   }
   else {
     installWatchers()
-    console.log('Native renderer dev is watching demo/src, demo/assets, and native renderer sources.')
+    console.log('Native demo is running and watching demo/src, demo/assets, and native renderer sources.')
     await new Promise(resolveDone => process.once('native-dev-stop', resolveDone))
   }
 }
@@ -76,34 +76,14 @@ async function rebuildAndLaunch() {
     await stopNativeWindow()
     console.log('Building native TypeScript renderer contracts...')
     await buildNativeTypeScriptPackages()
-    console.log('Bundling the native demo engine for QuickJS...')
+    console.log('Bundling the complete native demo engine for QuickJS...')
     await run(resolveBin('vite'), [
       'build',
       '--config',
       resolve(DEMO_ROOT, 'vite.native-quickjs.config.ts'),
     ], { cwd: DEMO_ROOT })
-    console.log('Building native demo assets...')
+    console.log('Building native demo assets and resident QuickJS app QPK...')
     await run(resolveBin('quack'), ['workspace:bundle', '--all'], { cwd: DEMO_ROOT })
-    if (smoke) {
-      console.log('Projecting QuaEngine state into a native renderer smoke frame...')
-      await run(resolveBin('vite'), [
-        'build',
-        '--config',
-        resolve(DEMO_ROOT, 'vite.native.config.ts'),
-      ], { cwd: DEMO_ROOT })
-      const nativeFrameModulePath = resolve(DEMO_ROOT, 'dist/native/dev-shell/frame.mjs')
-      await run(process.execPath, [nativeFrameModulePath, FRAME_PATH], {
-        cwd: DEMO_ROOT,
-        env: {
-          ...process.env,
-          ...(panel ? { QUA_NATIVE_DEMO_PANEL: panel } : {}),
-        },
-      })
-      await validateNativeAudioFrame()
-      if (panel) {
-        await validateNativeFeatureFrame(panel)
-      }
-    }
 
     const project = await loadQuaProjectConfig({ cwd: DEMO_ROOT })
     const plan = selectNativePlan(project)
@@ -146,9 +126,9 @@ async function rebuildAndLaunch() {
       ].map(specifier => ({ specifier, target: 'native' }))],
     })
     const qpkPath = await resolveLatestQpk(plan.platform)
-    console.log(`Launching native renderer with ${qpkPath}`)
-    nativeSmokeOutput = ''
-    if (smoke) {
+    console.log(`Launching complete native demo from ${qpkPath}`)
+    nativeOutput = ''
+    if (e2e) {
       await rm(CAPTURE_PATH, { force: true })
     }
     nativeWindow = spawn('cargo', cargoArgs(), {
@@ -156,40 +136,37 @@ async function rebuildAndLaunch() {
       env: {
         ...process.env,
         ...compileEnv,
+        // Native logs go to stderr, so they never interfere with the host-info
+        // JSON this script parses from stdout. Override with QUA_NATIVE_LOG,
+        // e.g. `QUA_NATIVE_LOG=trace` or `QUA_NATIVE_LOG=info,quajs_native_app::frame=trace`.
+        QUA_NATIVE_LOG: process.env.QUA_NATIVE_LOG ?? 'debug',
         QUA_NATIVE_TARGET_BUNDLE_MANIFEST: emitted.manifestPath,
         QUA_NATIVE_RENDERER_WINDOW_SMOKE: '1',
-        QUA_NATIVE_RENDERER_WINDOW_SMOKE_FRAME: FRAME_PATH,
         QUA_NATIVE_RENDERER_WINDOW_DEV_QPK: qpkPath,
-        ...(smoke ? { QUA_NATIVE_RENDERER_WINDOW_CAPTURE_PATH: CAPTURE_PATH } : {}),
-        ...(interactionSmoke
+        QUA_NATIVE_RENDERER_WINDOW_DEV_QUICKJS_APP_ASSET: QUICKJS_APP_ASSET,
+        ...(e2e
           ? {
-              QUA_NATIVE_RENDERER_WINDOW_DEV_QUICKJS_APP_ASSET: QUICKJS_APP_ASSET,
-              QUA_NATIVE_RENDERER_WINDOW_INTERACTION_PROBE: '1',
+              QUA_NATIVE_RENDERER_WINDOW_CAPTURE_PATH: CAPTURE_PATH,
+              QUA_NATIVE_RENDERER_WINDOW_DEMO_E2E: '1',
             }
-          : {}),
-        ...(smoke
-          ? { QUA_NATIVE_RENDERER_WINDOW_SMOKE_FRAMES: interactionSmoke ? '60' : '2' }
-          : {
-              QUA_NATIVE_RENDERER_WINDOW_DEV: '1',
-              QUA_NATIVE_RENDERER_WINDOW_DEV_QUICKJS_APP_ASSET: QUICKJS_APP_ASSET,
-            }),
+          : { QUA_NATIVE_RENDERER_WINDOW_DEV: '1' }),
       },
-      stdio: smoke ? ['ignore', 'pipe', 'pipe'] : 'inherit',
+      stdio: e2e ? ['ignore', 'pipe', 'pipe'] : 'inherit',
     })
-    if (smoke) {
+    if (e2e) {
       nativeWindow.stdout.setEncoding('utf8')
       nativeWindow.stderr.setEncoding('utf8')
       nativeWindow.stdout.on('data', (chunk) => {
-        nativeSmokeOutput += chunk
+        nativeOutput += chunk
         process.stdout.write(chunk)
       })
       nativeWindow.stderr.on('data', chunk => process.stderr.write(chunk))
     }
-    nativeWindow.on('error', error => console.error(`Native renderer failed to start: ${error.message}`))
-    if (!once) {
+    nativeWindow.on('error', error => console.error(`Native demo failed to start: ${error.message}`))
+    if (!e2e) {
       nativeWindow.on('exit', (code, signal) => {
         if (!stopped && !rebuilding) {
-          console.log(`Native renderer window closed (code=${code ?? 'none'}, signal=${signal ?? 'none'}). Waiting for a source change.`)
+          console.log(`Native demo window closed (code=${code ?? 'none'}, signal=${signal ?? 'none'}). Waiting for a source change.`)
         }
       })
     }
@@ -203,29 +180,12 @@ async function rebuildAndLaunch() {
   }
 }
 
-async function validateNativeAudioFrame() {
-  const frame = JSON.parse(await readFile(FRAME_PATH, 'utf8'))
-  const tracks = frame.view?.audio?.tracks
-  const bgm = Array.isArray(tracks)
-    ? tracks.find(track => track?.id === 'demo-native-bgm')
-    : undefined
-  const expectedAssetName = panel === 'interactive' || panel === 'menu'
-    ? 'bgm/title-menu.m4a'
-    : 'bgm/blackout-cold-open.m4a'
-  if (bgm?.kind !== 'bgm'
-    || bgm?.assetName !== expectedAssetName
-    || bgm?.playbackState !== 'playing'
-    || bgm?.looped !== true) {
-    throw new Error('Native demo frame did not project the expected engine-owned BGM track.')
-  }
-  console.log('Native demo frame validated engine-owned BGM projection.')
-}
-
 function installWatchers() {
   for (const directory of [
     resolve(DEMO_ROOT, 'src'),
     resolve(DEMO_ROOT, 'assets'),
     resolve(REPO_ROOT, 'packages/native/engine-native/src'),
+    resolve(REPO_ROOT, 'packages/native/ui-compiler/src'),
     resolve(REPO_ROOT, 'packages/native/crates/quajs_wgpu_renderer/src'),
     resolve(REPO_ROOT, 'packages/native/crates/quajs_native_app/src'),
     resolve(REPO_ROOT, 'packages/plugins/achievement/src'),
@@ -239,7 +199,7 @@ function installWatchers() {
       }
       clearTimeout(debounceTimer)
       debounceTimer = setTimeout(() => {
-        console.log(`Native dev reload: ${filename}`)
+        console.log(`Native demo reload: ${filename}`)
         void rebuildAndLaunch().catch(error => console.error(error))
       }, 180)
     }))
@@ -261,116 +221,6 @@ function shouldIgnoreNativeDevWatchEvent(filename) {
     || normalized.includes('/dist/')
     || normalized.endsWith('.tmp')
     || normalized.endsWith('.qpk')
-}
-
-async function validateNativeFeatureFrame(panelName) {
-  if (panelName === 'typewriter') {
-    const frame = JSON.parse(await readFile(FRAME_PATH, 'utf8'))
-    const text = typeof frame.view?.dialogue?.text === 'string'
-      ? frame.view.dialogue.text
-      : frame.view?.dialogue?.text?.blocks?.flatMap?.(block => block?.spans || [])
-        ?.map?.(span => span?.text || '')
-        ?.join?.('')
-    const typewriter = frame.view?.dialogue?.typewriter
-    if (typeof text !== 'string' || text.length <= 0 || typewriter?.enabled !== true) {
-      throw new Error('Native demo frame did not preserve the engine typewriter projection.')
-    }
-    console.log(`Native demo frame validated engine typewriter projection (${text.length} code units). Rust owns reveal timing in the live window.`)
-    return
-  }
-  if (panelName === 'interactive' || panelName === 'menu') {
-    const frame = JSON.parse(await readFile(FRAME_PATH, 'utf8'))
-    const overlays = frame.view?.ui?.overlays
-    const menuOverlay = Array.isArray(overlays)
-      ? overlays.find(overlay => overlay?.surface?.key === 'demo/native-main-menu.qui')
-      : undefined
-    if (!menuOverlay) {
-      throw new Error('Native main-menu smoke frame did not start from the Web-aligned main menu.')
-    }
-    const nodes = []
-    const collectNodes = node => {
-      if (!node || typeof node !== 'object') {
-        return
-      }
-      nodes.push(node)
-      for (const child of Array.isArray(node.children) ? node.children : []) {
-        collectNodes(child)
-      }
-    }
-    collectNodes(menuOverlay.surface?.root)
-    const background = nodes.find(node => node.id === 'native-main-menu-background')
-    const buttonNodes = nodes.filter(node => node.kind === 'Button')
-    const gradientCount = nodes.filter(node => node.style?.backgroundGradient).length
-    const boxShadowCount = nodes.filter(node => node.style?.boxShadow).length
-    const textShadowCount = nodes.filter(node => node.style?.textShadow).length
-    const stateStyleCount = buttonNodes.filter(node => {
-      const states = node.stateStyles
-      return states?.hover && states?.active && states?.focus && states?.['focus-visible']
-    }).length
-    const transitionCount = buttonNodes.filter(node => Array.isArray(node.transitions) && node.transitions.length > 0).length
-    if (background?.style?.filter?.brightness !== 0.46
-      || background?.style?.filter?.saturate !== 0.88
-      || gradientCount < 2
-      || boxShadowCount < 5
-      || textShadowCount < 1
-      || stateStyleCount < 4
-      || transitionCount < 4) {
-      throw new Error('Native main-menu smoke frame is missing the expected filter, gradient, shadow, state, or transition projections.')
-    }
-    console.log(`Native demo frame validated the complete main-menu entry projection (gradients=${gradientCount}, shadows=${boxShadowCount}, statefulButtons=${stateStyleCount}, transitions=${transitionCount}).`)
-    return
-  }
-  if (panelName === 'effects') {
-    const frame = JSON.parse(await readFile(FRAME_PATH, 'utf8'))
-    const effect = frame.view?.effects?.find?.(entry => entry?.id === 'demo.native.flash')
-    if (effect?.type !== 'flash' || effect?.opacity !== 0.24) {
-      throw new Error('Native demo frame did not project the expected engine effect.')
-    }
-    console.log('Native demo frame validated engine effect projection.')
-    return
-  }
-  if (panelName === 'scene' || panelName === 'parity') {
-    if (panelName === 'parity') {
-      const frame = JSON.parse(await readFile(FRAME_PATH, 'utf8'))
-      const characters = frame.view?.characters
-      if (!Array.isArray(characters)
-        || characters.length !== 1
-        || characters[0]?.id !== 'lin'
-        || characters[0]?.sprite !== 'lin/base.png'
-        || frame.view?.dialogue?.characterName !== '神代漪') {
-        throw new Error('Native parity frame did not match the Web prologue character projection.')
-      }
-      console.log('Native demo frame validated the Web prologue parity projection.')
-      return
-    }
-    console.log('Native demo frame validated the unmodified coverage scene projection.')
-    return
-  }
-  if (panelName === 'transition') {
-    const frame = JSON.parse(await readFile(FRAME_PATH, 'utf8'))
-    if (frame.view?.sceneTransition?.type !== 'wipe' || frame.view?.sceneTransition?.progress !== 0.5) {
-      throw new Error('Native demo frame did not project the expected scene transition.')
-    }
-    console.log('Native demo frame validated scene transition projection.')
-    return
-  }
-  const expectedSurface = {
-    achievement: 'plugin-achievement/native-board',
-    backlog: 'plugin-backlog/native',
-    gallery: 'plugin-gallery/native',
-    settings: 'plugin-settings/native',
-  }[panelName]
-  if (!expectedSurface) {
-    throw new Error(`Unsupported native demo panel "${panelName}".`)
-  }
-  const frame = JSON.parse(await readFile(FRAME_PATH, 'utf8'))
-  const overlays = frame.view?.ui?.overlays
-  const found = Array.isArray(overlays)
-    && overlays.some(overlay => overlay?.surface?.key === expectedSurface)
-  if (!found) {
-    throw new Error(`Native demo frame did not project expected surface "${expectedSurface}".`)
-  }
-  console.log(`Native demo frame validated feature surface ${expectedSurface}.`)
 }
 
 async function stopNativeWindow() {
@@ -456,6 +306,9 @@ function resolveBin(name) {
 async function buildNativeTypeScriptPackages() {
   for (const packageName of [
     '@quajs/native-ui-compiler',
+    '@quajs/plugin-achievement',
+    '@quajs/plugin-backlog',
+    '@quajs/plugin-gallery',
     '@quajs/plugin-settings',
     '@quajs/engine-native',
   ]) {
@@ -505,35 +358,67 @@ function waitForExit(child) {
   return new Promise(resolveExit => child.once('exit', code => resolveExit(code ?? 1)))
 }
 
-async function validateNativeSmokeOutput(output) {
-  const prefix = 'Qua native window smoke json: '
-  const line = output.split(/\r?\n/).find(candidate => candidate.startsWith(prefix))
-  if (!line) {
-    throw new Error('Native renderer smoke did not emit its JSON report.')
+async function validateNativeE2eOutput(output) {
+  const e2ePrefix = 'Qua native demo e2e json: '
+  const e2eLine = output.split(/\r?\n/).find(candidate => candidate.startsWith(e2ePrefix))
+  if (!e2eLine) {
+    throw new Error('Native demo E2E did not emit its complete-flow JSON report.')
   }
-  const report = JSON.parse(line.slice(prefix.length))
+  const e2eReport = JSON.parse(e2eLine.slice(e2ePrefix.length))
+  const windowPrefix = 'Qua native window smoke json: '
+  const windowLine = output.split(/\r?\n/).find(candidate => candidate.startsWith(windowPrefix))
+  if (!windowLine) {
+    throw new Error('Native demo E2E did not emit its native window JSON report.')
+  }
+  const report = JSON.parse(windowLine.slice(windowPrefix.length))
   const failures = []
-  if (interactionSmoke) {
-    if (!output.includes('Native interaction probe observed the first story dialogue frame.')) {
-      failures.push('START did not advance the resident QuickJS demo into a story dialogue frame')
-    }
-    if (report.pointerProbeCount < 1 || report.pointerIntentEmitCount < 1) {
-      failures.push('the native pointer probe did not emit START through the renderer intent bridge')
-    }
-    if (!output.includes('Native interaction probe dispatched user/input_command')) {
-      failures.push('the native dialogue probe did not emit an advance input command')
-    }
-    if (!output.includes('Native interaction probe observed dialogue advance to the next line.')) {
-      failures.push('the resident QuickJS story did not advance to the next dialogue line')
-    }
+  const expectedSteps = [
+    'title-menu',
+    'story-main',
+    'story-choice',
+    'story-branch',
+    'game-menu',
+    'title-confirmation',
+    'title-return',
+    'settings',
+    'settings-return',
+    'gallery',
+    'gallery-return',
+  ]
+  if (e2eReport.completed !== true) {
+    failures.push('the complete demo flow did not finish')
+  }
+  if (JSON.stringify(e2eReport.steps) !== JSON.stringify(expectedSteps)) {
+    failures.push(`unexpected E2E step order: ${JSON.stringify(e2eReport.steps)}`)
+  }
+  if (e2eReport.dialogueLineCount < 2 || e2eReport.dialogueAdvanceCount < 1) {
+    failures.push('the story did not advance through real dialogue lines')
+  }
+  if (e2eReport.skipUsed !== true) {
+    failures.push('the story did not reach its first choice through the real HUD skip control')
+  }
+  if (e2eReport.selectedChoiceId !== 'stealth') {
+    failures.push(`the story choice was not selected through native input (${e2eReport.selectedChoiceId || 'none'})`)
+  }
+  if (e2eReport.settingsVisited !== true || e2eReport.galleryVisited !== true) {
+    failures.push('settings and gallery were not both visited through the title menu')
+  }
+  // A panel that merely exists in the render graph can still be fully covered by
+  // the app shell. Assert it actually reached the top of the UI overlay stack.
+  if (e2eReport.settingsTopmost !== true) {
+    failures.push('the settings panel was occluded instead of being the topmost UI overlay')
+  }
+  if (e2eReport.galleryTopmost !== true) {
+    failures.push('the gallery panel was occluded instead of being the topmost UI overlay')
+  }
+  if (report.pointerProbeCount < expectedSteps.length || report.pointerIntentEmitCount < expectedSteps.length) {
+    failures.push('the native render-command clicks did not all emit through the renderer intent bridge')
   }
   const occludedWithValidCapture = report.presentStatus === 'OccludedAfterRetry'
     && report.frameCapturePngSignatureValid === true
     && report.frameCaptureVisiblePixelCount > 0
   if ((report.presented !== true || report.presentStatus !== 'Presented') && !occludedWithValidCapture) {
     failures.push(`surface was not presented (${report.presentStatus || 'unknown'})`)
-  } else if (occludedWithValidCapture) {
-    console.warn('Native renderer smoke window was occluded after retry; accepting the valid captured frame.')
   }
   if (report.textureUploadErrorCount !== 0) {
     failures.push(`${report.textureUploadErrorCount} texture upload error(s)`)
@@ -544,53 +429,38 @@ async function validateNativeSmokeOutput(output) {
   if (report.textureShutdownReleasedCount < 1) {
     failures.push('no resident WGPU texture was released during shutdown')
   }
-  if (report.fontAtlasUploadedCount < 1) {
-    failures.push('no high-resolution font atlas was uploaded from the demo QPK')
+  if (report.fontAtlasUploadedCount < 1 || report.fontAtlasTextDrawCount < 1) {
+    failures.push('the demo did not render through the high-resolution font atlas')
   }
   if (report.fontAtlasErrorCount !== 0 || report.textureShutdownFontAtlasErrorCount !== 0) {
     failures.push('the native font atlas lifecycle reported an error')
   }
-  if (report.fontAtlasTextDrawCount < 1) {
-    failures.push('no text draw used the uploaded high-resolution font atlas')
-  }
-  if (report.shapedTextDrawCount < 1) {
-    failures.push('no text draw used the native OpenType shaping path')
-  }
-  if (report.bitmapTextDrawCount !== 0) {
-    failures.push(`${report.bitmapTextDrawCount} text draw(s) fell back to the built-in bitmap atlas`)
+  if (report.shapedTextDrawCount < 1 || report.bitmapTextDrawCount !== 0) {
+    failures.push('the final title frame did not use native OpenType shaping exclusively')
   }
   if (!report.fontAtlasResourceIds?.includes('fonts:Noto Sans')) {
-    failures.push('the final WGPU text draws did not bind fonts:Noto Sans')
+    failures.push('the final title frame did not bind fonts:Noto Sans')
   }
-  if (report.linearSampledTextureBindGroupCount < 1) {
-    failures.push('no sampled WGPU texture bind group used linear filtering')
+  if (report.linearSampledTextureBindGroupCount < 1 || report.nearestSampledTextureBindGroupCount !== 0) {
+    failures.push('the final title texture sampling was not exclusively linear')
   }
-  if (report.nearestSampledTextureBindGroupCount !== 0) {
-    failures.push(`${report.nearestSampledTextureBindGroupCount} sampled WGPU texture bind group(s) still used nearest filtering`)
-  }
-  if (report.audioBackendAppliedPlanCount < 1) {
-    failures.push('the native audio backend did not receive a frame plan')
-  }
-  if (report.audioBackendAppliedCommandCount < 2) {
-    failures.push('the native audio backend did not load and start the projected BGM')
-  }
-  if (report.audioBackendPeakActiveTrackCount < 1) {
-    failures.push('the projected native BGM never became active in the product backend')
+  if (report.audioBackendAppliedPlanCount < 1
+    || report.audioBackendAppliedCommandCount < 2
+    || report.audioBackendPeakActiveTrackCount < 1) {
+    failures.push('the native audio backend did not project and play the demo BGM')
   }
   if (report.audioBackendActiveTrackCount !== 0) {
     failures.push('the native audio backend retained an active track after shutdown')
   }
   if (report.passCount < 1 || report.commandCount < 1 || report.submittedCommandBufferCount < 1) {
-    failures.push('the WGPU frame did not submit a non-empty render graph')
+    failures.push('the final WGPU frame did not submit a non-empty render graph')
   }
-  if (report.frameCaptureMimeType !== 'image/png') {
-    failures.push(`frame capture returned ${report.frameCaptureMimeType || 'no MIME type'} instead of image/png`)
-  }
-  if (report.frameCaptureByteCount <= 8 || report.frameCapturePngSignatureValid !== true) {
-    failures.push('frame capture did not return a valid encoded PNG')
-  }
-  if (report.frameCaptureVisiblePixelCount < 1 || report.frameCaptureColoredPixelCount < 1) {
-    failures.push('frame capture contains no visible rendered scene content')
+  if (report.frameCaptureMimeType !== 'image/png'
+    || report.frameCaptureByteCount <= 8
+    || report.frameCapturePngSignatureValid !== true
+    || report.frameCaptureVisiblePixelCount < 1
+    || report.frameCaptureColoredPixelCount < 1) {
+    failures.push('the final title frame capture is not a valid visible PNG')
   }
   if (report.frameCaptureWidth !== report.physicalWidth
     || report.frameCaptureHeight !== report.physicalHeight) {
@@ -602,15 +472,15 @@ async function validateNativeSmokeOutput(output) {
   }
   const captureBytes = await readFile(CAPTURE_PATH).catch(() => undefined)
   if (!captureBytes || captureBytes.length !== report.frameCaptureByteCount) {
-    failures.push('native frame capture artifact is missing or has an unexpected byte count')
+    failures.push('the final native frame capture artifact is missing or has an unexpected byte count')
   }
   else if (!captureBytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) {
-    failures.push('native frame capture artifact does not have a valid PNG signature')
+    failures.push('the final native frame capture artifact does not have a valid PNG signature')
   }
   if (failures.length > 0) {
-    throw new Error(`Native renderer smoke failed: ${failures.join('; ')}.`)
+    throw new Error(`Native demo E2E failed: ${failures.join('; ')}.`)
   }
-  console.log(`Native renderer smoke validated ${report.textureUploadAlreadyResidentCount || report.textureUploadUploadedCount} resident QPK texture(s), ${report.passCount} WGPU pass(es), and a ${report.frameCaptureWidth}x${report.frameCaptureHeight} PNG readback.`)
+  console.log(`Native demo E2E validated ${e2eReport.dialogueLineCount} dialogue lines, choice ${e2eReport.selectedChoiceId}, settings, gallery, ${report.passCount} WGPU pass(es), and a ${report.frameCaptureWidth}x${report.frameCaptureHeight} PNG readback.`)
 }
 
 for (const signal of ['SIGINT', 'SIGTERM']) {

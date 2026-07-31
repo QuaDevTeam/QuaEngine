@@ -12,7 +12,15 @@ license = "Apache-2.0"
 repository = "https://github.com/QuaDevTeam/QuaEngine"
 version = "0.1.0"
 
+# In debug builds the workspace's own crates stay unoptimized (fast recompile,
+# full debug info). All external dependencies are compiled at opt-level 3 so
+# wgpu, serde_json, rquickjs, and friends run at near-release speed. This
+# keeps dev fps close to 60 without requiring a full --release build.
+[profile.dev.package."*"]
+opt-level = 3
+
 [workspace.dependencies]
+log = "0.4"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10"
