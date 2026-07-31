@@ -192,9 +192,7 @@ fn select_layout<'a>(
     // the largest available bucket when all are smaller.
     let requested = (style.font_size as f32).max(1.0);
     for family in &style.font_family {
-        let candidates = atlases
-            .values()
-            .filter(|layout| layout.family == *family);
+        let candidates = atlases.values().filter(|layout| layout.family == *family);
         if let Some(layout) = select_nearest_bucket(candidates, requested) {
             return Some(layout);
         }

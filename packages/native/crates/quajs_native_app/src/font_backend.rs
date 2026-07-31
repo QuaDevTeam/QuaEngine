@@ -73,7 +73,9 @@ fn glyph_cell_metrics(raster: f32) -> (usize, usize) {
 /// ascender-to-descender span, which for CJK faces is ~1.4 em and silently
 /// renders every glyph ~30% smaller than the same font-size on the Web.
 fn em_px_scale(font: &FontArc, raster: f32) -> PxScale {
-    let units_per_em = font.units_per_em().unwrap_or_else(|| font.height_unscaled());
+    let units_per_em = font
+        .units_per_em()
+        .unwrap_or_else(|| font.height_unscaled());
     if units_per_em > 0.0 {
         PxScale::from(raster * font.height_unscaled() / units_per_em)
     } else {
@@ -215,7 +217,8 @@ impl NativeFontBackend for SimpleNativeFontAtlasBackend {
             let bucket = font_raster_bucket(font_size as f32 * physical_scale);
             let key = (family, bucket);
             let text = transform_text(text, transform);
-            self.bucket_last_used.insert(key.clone(), self.frame_ordinal);
+            self.bucket_last_used
+                .insert(key.clone(), self.frame_ordinal);
             requested_glyphs
                 .entry(key.clone())
                 .or_default()
@@ -1263,7 +1266,10 @@ mod tests {
 
         // Edge cases
         assert_eq!(font_raster_bucket(0.0), MIN_RASTER_BUCKET as u32);
-        assert_eq!(font_raster_bucket(f32::NAN), font_raster_bucket(RASTER_SCALE));
+        assert_eq!(
+            font_raster_bucket(f32::NAN),
+            font_raster_bucket(RASTER_SCALE)
+        );
     }
 
     #[test]
@@ -1280,7 +1286,10 @@ mod tests {
     fn glyph_cell_metrics_scales_proportionally_and_keeps_minimum_padding() {
         let (cell_12, padding_12) = glyph_cell_metrics(12.0);
         assert!(padding_12 >= 2, "padding must be at least 2 px");
-        assert!(cell_12 > padding_12 * 2, "cell must have room for the glyph");
+        assert!(
+            cell_12 > padding_12 * 2,
+            "cell must have room for the glyph"
+        );
         // Larger raster = larger cell
         let (cell_128, _) = glyph_cell_metrics(128.0);
         assert!(cell_128 > cell_12);
