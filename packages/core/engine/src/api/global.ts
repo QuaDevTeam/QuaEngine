@@ -313,6 +313,10 @@ export async function setLayoutProjection(layout: ViewLayoutInput): Promise<void
   return getEngine().setLayoutProjection(layout)
 }
 
+export async function setRendererOptions(options: { targetFrameRate?: number }): Promise<void> {
+  return getEngine().setRendererOptions(options)
+}
+
 export function getPluginProjection<T = unknown>(pluginId: string): T | undefined {
   return getEngine().getPluginProjection<T>(pluginId)
 }

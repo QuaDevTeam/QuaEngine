@@ -940,6 +940,17 @@ export interface QuaViewProjection {
   effects: readonly Readonly<ViewEffectProjection>[]
   animations: readonly Readonly<ActiveAnimationProjection>[]
   plugins: Readonly<ViewPluginProjectionMap>
+  renderer?: Readonly<ViewRendererProjection>
+}
+
+/** Platform-level renderer configuration projected from the engine to
+ *  renderer implementations. Web renderers ignore fields they do not need;
+ *  native renderers use `targetFrameRate` to drive the frame pacer. */
+export interface ViewRendererProjection {
+  /** Target cadence in frames per second. Valid values are 30, 60, or 120.
+   *  Native renderers clamp to the display refresh rate and to [30, 240].
+   *  Absent means "use the platform default (60 FPS)". */
+  targetFrameRate?: number
 }
 
 export interface ViewPluginProjectionMap {

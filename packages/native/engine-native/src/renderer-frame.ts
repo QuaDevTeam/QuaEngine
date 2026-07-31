@@ -52,6 +52,7 @@ export type NativeRendererEngineViewProjection = Readonly<JsonRecord & {
   plugins?: unknown
   animations?: readonly unknown[]
   sceneTransition?: unknown
+  renderer?: unknown
 }>
 
 export interface CreateNativeRendererJsonFrameInputOptions {
@@ -123,6 +124,7 @@ export function createNativeRendererViewProjection(
     audio: createNativeAudioProjection(audio),
     plugins: createNativePluginProjection(view.plugins),
     animations: cloneJsonValue(view.animations),
+    renderer: createNativeRendererOptionsProjection(view.renderer),
   })
 }
 
@@ -243,6 +245,20 @@ function projectNativeUi(
       projectUiOverlay(asRecord(overlay) || {}, elementId, animations, now),
     ])),
   }
+}
+
+function createNativeRendererOptionsProjection(renderer: unknown): JsonRecord | undefined {
+  const record = asRecord(renderer)
+  if (!record) {
+    return undefined
+  }
+  // Only forward targetFrameRate in the range [30, 240]. Other fields are
+  // ignored here so unknown web-only fields do not reach the Rust validator.
+  const fps = finiteNumber(record.targetFrameRate)
+  if (fps == null || fps < 30 || fps > 240) {
+    return undefined
+  }
+  return { targetFrameRate: Math.round(fps) }
 }
 
 function createNativePluginProjection(plugins: unknown): JsonRecord | undefined {
