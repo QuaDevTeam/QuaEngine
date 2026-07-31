@@ -41,6 +41,8 @@ pub struct FontFaceProjection {
     #[serde(default = "default_font_asset_type")]
     pub asset_type: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bundle_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub locale: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub style: Option<String>,
@@ -73,6 +75,7 @@ impl FontFaceProjection {
             family: family.into(),
             asset_name: asset_name.into(),
             asset_type: default_font_asset_type(),
+            bundle_name: None,
             locale: None,
             style: None,
             weight: None,

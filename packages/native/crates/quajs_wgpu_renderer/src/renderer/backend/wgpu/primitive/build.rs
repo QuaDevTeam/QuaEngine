@@ -236,6 +236,9 @@ fn primitive_kind_from_params(
             surface_key: params.surface_key.clone(),
             interactive: params.interactive,
         },
+        DrawCommandParams::BackdropBlur(params) => WgpuNativeRenderPrimitiveKind::BackdropBlur {
+            blur_radius: params.blur_radius * physical_scale,
+        },
         DrawCommandParams::None => primitive_kind_from_draw_kind(draw_kind),
     }
 }
@@ -289,6 +292,11 @@ fn resource_ids_from_params(params: &DrawCommandParams) -> Vec<ResourceId> {
             .iter()
             .filter_map(|surface_key| optional_resource_id("surface", surface_key))
             .collect(),
+        DrawCommandParams::BackdropBlur(_) => {
+            // The backdrop capture texture is registered at a fixed system
+            // resource ID so the TextureSampler bind group can resolve it.
+            vec![ResourceId::from("system:backdrop-capture")]
+        }
         DrawCommandParams::Panel(_)
         | DrawCommandParams::Shadow(_)
         | DrawCommandParams::Gradient(_)

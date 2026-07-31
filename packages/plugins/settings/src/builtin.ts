@@ -21,6 +21,9 @@ export interface BasePlayerSettings {
   autoAdvanceDelayMs: number
   skipMode: 'read' | 'all'
   confirmBeforeQuit: boolean
+  /** Target render cadence. 30 = battery saver, 60 = default, 120 = high
+   *  refresh rate. Native renderers clamp to the display's actual refresh rate. */
+  frameRateLimit: 30 | 60 | 120
 }
 
 export type BaseDeveloperSettingsInput = Partial<Omit<BaseDeveloperSettings, 'supportedLocales'>> & {
@@ -44,6 +47,7 @@ export const basePlayerSettingsDefaults: BasePlayerSettings = {
   autoAdvanceDelayMs: 2000,
   skipMode: 'read',
   confirmBeforeQuit: true,
+  frameRateLimit: 60,
 }
 
 export function createBaseSettingsScope(options: BaseSettingsScopeOptions = {}): SettingsScopeContribution<BaseDeveloperSettings, BasePlayerSettings> {
@@ -134,6 +138,12 @@ export function createBaseSettingsScope(options: BaseSettingsScopeOptions = {}):
             title: 'Confirm Before Quit',
             default: basePlayerSettingsDefaults.confirmBeforeQuit,
           },
+          frameRateLimit: {
+            type: 'number',
+            title: 'Frame Rate',
+            enum: [30, 60, 120],
+            default: basePlayerSettingsDefaults.frameRateLimit,
+          },
         },
       },
       defaults: playerSettings,
@@ -149,6 +159,10 @@ export function createBaseSettingsScope(options: BaseSettingsScopeOptions = {}):
           interaction: {
             label: 'Interaction',
             order: 1,
+          },
+          display: {
+            label: 'Display',
+            order: 2,
           },
         },
         controls: {
@@ -191,6 +205,16 @@ export function createBaseSettingsScope(options: BaseSettingsScopeOptions = {}):
             group: 'interaction',
             order: 1,
           },
+          frameRateLimit: {
+            control: 'select',
+            group: 'display',
+            order: 0,
+            options: [
+              { label: '30 FPS (Battery Saver)', value: 30 },
+              { label: '60 FPS (Default)', value: 60 },
+              { label: '120 FPS (High Refresh)', value: 120 },
+            ],
+          },
         },
       },
     },
@@ -220,6 +244,10 @@ export function createBaseSettingsScope(options: BaseSettingsScopeOptions = {}):
           ),
         },
       })
+      const frameRateLimit = player.frameRateLimit === 30 || player.frameRateLimit === 120
+        ? player.frameRateLimit
+        : 60
+      await engine.setRendererOptions({ targetFrameRate: frameRateLimit })
     },
   }
 }

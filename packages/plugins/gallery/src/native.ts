@@ -106,10 +106,9 @@ function createGalleryRoot(
     || filteredEntries[0]
   const selectedContent = selectedEntry?.contents.find(content => content.id === projection.selectedContentId)
     || selectedEntry?.contents[0]
-  const visibleEntries = centeredWindow(filteredEntries, selectedEntry?.id, MAX_ENTRIES)
-  const catalogWidth = Math.min(190, (listWidth - edge) / Math.max(1, Math.min(MAX_CATALOGS, projection.catalogs.length)))
   const entryGap = 12
-  const entryHeight = Math.max(72, (bodyHeight - entryGap * Math.max(0, visibleEntries.length - 1)) / Math.max(1, visibleEntries.length))
+  const entryHeight = Math.max(72, (bodyHeight - entryGap * Math.max(0, Math.min(filteredEntries.length, MAX_ENTRIES) - 1)) / Math.max(1, Math.min(filteredEntries.length, MAX_ENTRIES)))
+  const catalogWidth = Math.min(190, (listWidth - edge) / Math.max(1, Math.min(MAX_CATALOGS, projection.catalogs.length)))
 
   return node('gallery-root', 'Fragment', stage(context), {
     provenance,
@@ -122,9 +121,17 @@ function createGalleryRoot(
       node('gallery-panel', 'Panel', panel, {
         provenance,
         style: {
-          backgroundColor: '#10151b',
-          borderColor: '#596675',
-          borderRadius: 6,
+          backgroundColor: 'rgba(6,7,11,0.96)',
+          backgroundGradient: {
+            kind: 'linear',
+            angleDegrees: 180,
+            stops: [
+              { color: 'rgba(18,20,28,0.97)', position: 0 },
+              { color: 'rgba(5,6,10,0.97)', position: 1 },
+            ],
+          },
+          borderColor: 'rgba(245,226,190,0.32)',
+          borderRadius: 2,
           borderWidth: 1,
           boxShadow: panelShadow(),
         },
@@ -137,7 +144,7 @@ function createGalleryRoot(
           }, {
             text: projection.catalogs.find(item => item.id === projection.selectedCatalogId)?.title || 'Gallery',
             style: {
-              color: '#f5f7fa',
+              color: '#fff8ea',
               fontSize: 34,
               fontWeight: 700,
               textShadow: titleShadow(),
@@ -150,8 +157,8 @@ function createGalleryRoot(
             width: 130,
             height: 36,
           }, {
-            text: `${filteredEntries.filter(entry => entry.unlocked).length}/${filteredEntries.length}`,
-            style: { color: '#aeb8c4', fontSize: 20, textAlign: 'right' },
+            text: `${filteredEntries.filter(entry => entry.unlocked).length} / ${filteredEntries.length}`,
+            style: { color: 'rgba(255,226,166,0.82)', fontSize: 13, textAlign: 'right', letterSpacing: 1 },
             provenance,
           }),
           node('gallery-unlocked-filter', 'Button', {
@@ -162,42 +169,71 @@ function createGalleryRoot(
           }, {
             text: projection.filter.unlockedOnly ? 'All' : 'Unlocked',
             intent: uiIntent(ACTIONS.toggleUnlocked, { unlockedOnly: projection.filter.unlockedOnly !== true }),
-            style: buttonStyle('#263748'),
+            style: glassButtonStyle(false),
             provenance,
           }),
           node('gallery-close', 'Button', {
-            x: panel.x + panel.width - edge - 104,
+            x: panel.x + panel.width - edge - 44,
             y: panel.y + edge * 0.45,
-            width: 104,
+            width: 44,
             height: 44,
           }, {
-            text: 'Close',
+            text: '×',
             intent: uiIntent(ACTIONS.close),
-            style: buttonStyle('#303843'),
+            style: closeButtonStyle(),
             provenance,
           }),
-          ...projection.catalogs.slice(0, MAX_CATALOGS).map((catalog, index) => node(
-            `gallery-catalog-${index}`,
-            'Button',
-            {
-              x: panel.x + edge + index * catalogWidth,
-              y: panel.y + 68,
-              width: catalogWidth - 8,
-              height: 42,
-            },
-            {
-              text: `${catalog.title} ${catalog.unlockedEntries}/${catalog.totalEntries}`,
-              intent: uiIntent(ACTIONS.selectCatalog, { catalogId: catalog.id }),
-              style: buttonStyle(catalog.id === projection.selectedCatalogId ? '#735d35' : '#222a34'),
-              provenance: mergeProvenance(provenance, itemProvenance(catalog)),
-            },
-          )),
-          ...visibleEntries.map((entry, index) => createEntryButton(entry, index, {
+          node('gallery-catalogs-scroll', 'Scroll', {
             x: panel.x + edge,
-            y: bodyTop + index * (entryHeight + entryGap),
+            y: panel.y + 68,
+            width: listWidth - edge,
+            height: 50,
+          }, {
+            clipChildren: true,
+            provenance,
+            children: projection.catalogs.map((catalog, index) => node(
+              `gallery-catalog-${index}`,
+              'Button',
+              {
+                x: panel.x + edge + index * catalogWidth,
+                y: panel.y + 68,
+                width: catalogWidth - 8,
+                height: 42,
+              },
+              {
+                text: `${catalog.title} ${catalog.unlockedEntries}/${catalog.totalEntries}`,
+                intent: uiIntent(ACTIONS.selectCatalog, { catalogId: catalog.id }),
+                style: catalogButtonStyle(catalog.id === projection.selectedCatalogId),
+                provenance: mergeProvenance(provenance, itemProvenance(catalog)),
+              },
+            )),
+          }),
+          node('gallery-entries-scroll', 'Scroll', {
+            x: panel.x + edge,
+            y: bodyTop,
             width: listWidth - edge * 1.5,
-            height: entryHeight,
-          }, entry.id === selectedEntry?.id, provenance)),
+            height: bodyHeight,
+          }, {
+            clipChildren: true,
+            provenance,
+            children: filteredEntries.length > 0
+              ? filteredEntries.map((entry, index) => createEntryButton(entry, index, {
+                  x: panel.x + edge,
+                  y: bodyTop + index * (entryHeight + entryGap),
+                  width: listWidth - edge * 1.5,
+                  height: entryHeight,
+                }, entry.id === selectedEntry?.id, provenance))
+              : [node('gallery-entries-empty', 'Text', {
+                  x: panel.x + edge,
+                  y: bodyTop,
+                  width: listWidth - edge * 1.5,
+                  height: bodyHeight,
+                }, {
+                  text: 'No gallery entries',
+                  style: { color: '#9ea8b4', fontSize: 22, textAlign: 'center' },
+                  provenance,
+                })],
+          }),
           createPreview(selectedEntry, selectedContent, {
             x: previewX,
             y: bodyTop,
@@ -218,14 +254,18 @@ function createEntryButton(
   inherited: NativePackageProvenance,
 ): NativeUiSurfaceNodeProjection {
   const provenance = mergeProvenance(inherited, itemProvenance(entry))
-  const thumbnail = assetImage(entry.thumbnail)
+  // When locked, suppress the real title and thumbnail unless the entry is unlocked.
+  const thumbnail = entry.unlocked ? assetImage(entry.thumbnail) : undefined
+  const displayTitle = entry.unlocked
+    ? entry.title || 'Gallery entry'
+    : 'Locked'
   return node(`gallery-entry-${index}`, 'Button', bounds, {
-    text: entry.title || (entry.unlocked ? 'Gallery entry' : 'Locked'),
+    text: displayTitle,
     image: thumbnail,
     intent: uiIntent(ACTIONS.selectEntry, { entryId: entry.id }),
     provenance,
     style: {
-      ...buttonStyle(selected ? '#66502f' : '#1b222b'),
+      ...entryButtonStyle(selected),
       objectFit: 'cover',
       textAlign: thumbnail ? 'right' : 'left',
     },
@@ -246,7 +286,9 @@ function createPreview(
     })
   }
   const provenance = mergeProvenance(inherited, itemProvenance(entry), itemProvenance(content))
-  const contentButtons = entry.contents.slice(0, 5)
+  const locked = !entry.unlocked
+  // Suppress content tabs and media for locked entries.
+  const contentButtons = locked ? [] : entry.contents.slice(0, 5)
   const tabsHeight = contentButtons.length > 1 ? 48 : 0
   const titleHeight = 92
   const mediaBounds = {
@@ -255,29 +297,44 @@ function createPreview(
     width: bounds.width,
     height: Math.max(0, bounds.height - titleHeight - tabsHeight),
   }
-  const previewAsset = contentAsset(content) || assetImage(entry.poster) || assetImage(entry.thumbnail)
+  const previewAsset = locked
+    ? undefined
+    : (contentAsset(content) || assetImage(entry.poster) || assetImage(entry.thumbnail))
   return node('gallery-preview', 'Panel', bounds, {
     provenance,
-    style: { backgroundColor: '#171d25', borderRadius: 4 },
+    style: {
+      backgroundColor: 'rgba(18,22,31,0.74)',
+      backgroundGradient: {
+        kind: 'linear',
+        angleDegrees: 180,
+        stops: [
+          { color: 'rgba(18,22,31,0.74)', position: 0 },
+          { color: 'rgba(6,7,11,0.80)', position: 1 },
+        ],
+      },
+      borderColor: 'rgba(245,226,190,0.16)',
+      borderRadius: 2,
+      borderWidth: 1,
+    },
     children: [
       node('gallery-preview-title', 'Text', {
         x: bounds.x + 18,
         y: bounds.y + 14,
         width: bounds.width - 36,
-        height: 34,
+        height: 30,
       }, {
-        text: entry.title,
-        style: { color: '#f2f4f7', fontSize: 27, fontWeight: 700 },
+        text: locked ? 'Locked' : entry.title,
+        style: { color: '#fff8ea', fontSize: 20, fontWeight: 700 },
         provenance,
       }),
       node('gallery-preview-summary', 'Text', {
         x: bounds.x + 18,
-        y: bounds.y + 52,
+        y: bounds.y + 48,
         width: bounds.width - 36,
-        height: 32,
+        height: 28,
       }, {
-        text: entry.summary || (entry.unlocked ? '' : 'Locked'),
-        style: { color: '#aab4c0', fontSize: 17, textOverflow: 'ellipsis' },
+        text: locked ? 'Unlock to view this entry.' : (entry.summary || ''),
+        style: { color: 'rgba(247,242,234,0.56)', fontSize: 14, textOverflow: 'ellipsis' },
         provenance,
       }),
       ...contentButtons.map((item, index) => node(`gallery-content-${index}`, 'Button', {
@@ -288,15 +345,15 @@ function createPreview(
       }, {
         text: item.title || item.kind,
         intent: uiIntent(ACTIONS.selectContent, { contentId: item.id }),
-        style: buttonStyle(item.id === content?.id ? '#5b4a31' : '#242d37'),
+        style: contentTabStyle(item.id === content?.id),
         provenance: mergeProvenance(provenance, itemProvenance(item)),
       })),
       node('gallery-preview-media', previewAsset ? 'Image' : 'Text', mediaBounds, {
         image: previewAsset,
         text: previewAsset ? undefined : previewText(content, entry),
         style: previewAsset
-          ? { objectFit: 'contain', backgroundColor: '#090c10' }
-          : { color: '#d8dde4', fontSize: 22, textAlign: 'center', whiteSpace: 'pre-wrap' },
+          ? { objectFit: 'contain', backgroundColor: 'rgba(0,0,0,0.48)' }
+          : { color: 'rgba(255,250,242,0.88)', fontSize: 16, textAlign: 'center', whiteSpace: 'pre-wrap' },
         provenance,
       }),
     ],
@@ -331,12 +388,6 @@ function assetImage(asset: { name: string, type: string } | undefined) {
     : undefined
 }
 
-function centeredWindow(entries: readonly GalleryEntryProjectionItem[], selectedId: string | undefined, size: number) {
-  const selectedIndex = Math.max(0, entries.findIndex(entry => entry.id === selectedId))
-  const start = Math.max(0, Math.min(selectedIndex - Math.floor(size / 2), entries.length - size))
-  return entries.slice(start, start + size)
-}
-
 function itemProvenance(item: { contentPackageId?: string, requiredRuntimePackages?: readonly string[] } | undefined) {
   return normalizeProvenance(item?.contentPackageId, item?.requiredRuntimePackages || [])
 }
@@ -354,14 +405,84 @@ function uiIntent(action: string, metadata?: Record<string, boolean | string>) {
   return { action, event: 'ui/intent' as const, metadata }
 }
 
-function buttonStyle(backgroundColor: string) {
+function entryButtonStyle(selected: boolean) {
   return {
-    backgroundColor,
-    borderColor: '#657180',
-    borderRadius: 4,
+    backgroundColor: selected ? 'rgba(40,28,14,0.90)' : 'rgba(20,24,33,0.90)',
+    backgroundGradient: {
+      kind: 'linear' as const,
+      angleDegrees: 180,
+      stops: selected
+        ? [{ color: 'rgba(40,28,14,0.90)', position: 0 }, { color: 'rgba(14,10,5,0.94)', position: 1 }]
+        : [{ color: 'rgba(20,24,33,0.90)', position: 0 }, { color: 'rgba(7,8,12,0.94)', position: 1 }],
+    },
+    borderColor: selected ? 'rgba(129,229,255,0.62)' : 'rgba(245,226,190,0.20)',
+    borderRadius: 2,
     borderWidth: 1,
-    color: '#f1f4f7',
-    fontSize: 17,
+    color: '#fff8ea',
+    fontSize: 14,
+    textAlign: 'left' as const,
+  }
+}
+
+function catalogButtonStyle(selected: boolean) {
+  return {
+    backgroundColor: selected ? 'rgba(17,48,62,0.76)' : 'rgba(9,12,18,0.90)',
+    backgroundGradient: {
+      kind: 'linear' as const,
+      angleDegrees: 90,
+      stops: selected
+        ? [{ color: 'rgba(17,48,62,0.76)', position: 0 }, { color: 'rgba(10,12,18,0.84)', position: 1 }]
+        : [{ color: 'rgba(9,12,18,0.90)', position: 0 }, { color: 'rgba(23,27,37,0.62)', position: 1 }],
+    },
+    borderColor: selected ? 'rgba(129,229,255,0.50)' : 'rgba(245,226,190,0.20)',
+    borderRadius: 0,
+    borderWidth: 1,
+    color: selected ? '#d8f8ff' : 'rgba(255,250,242,0.84)',
+    fontSize: 12,
+    letterSpacing: 1,
+    textAlign: 'center' as const,
+  }
+}
+
+function glassButtonStyle(active: boolean) {
+  return {
+    backgroundColor: active ? 'rgba(20,54,66,0.82)' : 'rgba(9,12,18,0.82)',
+    backgroundGradient: {
+      kind: 'linear' as const,
+      angleDegrees: 90,
+      stops: active
+        ? [{ color: 'rgba(20,54,66,0.82)', position: 0 }, { color: 'rgba(13,16,24,0.84)', position: 1 }]
+        : [{ color: 'rgba(9,12,18,0.90)', position: 0 }, { color: 'rgba(23,27,37,0.66)', position: 1 }],
+    },
+    borderColor: active ? 'rgba(129,229,255,0.72)' : 'rgba(245,226,190,0.24)',
+    borderRadius: 2,
+    borderWidth: 1,
+    color: active ? '#d8f8ff' : 'rgba(255,250,242,0.90)',
+    fontSize: 13,
+    textAlign: 'center' as const,
+  }
+}
+
+function closeButtonStyle() {
+  return {
+    backgroundColor: 'rgba(255,248,234,0.92)',
+    borderColor: 'rgba(245,226,190,0.28)',
+    borderRadius: 2,
+    borderWidth: 1,
+    color: '#0d0d12',
+    fontSize: 28,
+    textAlign: 'center' as const,
+  }
+}
+
+function contentTabStyle(selected: boolean) {
+  return {
+    backgroundColor: selected ? 'rgba(129,229,255,0.08)' : 'rgba(255,255,255,0.04)',
+    borderColor: selected ? 'rgba(129,229,255,0.52)' : 'rgba(245,226,190,0.18)',
+    borderRadius: 2,
+    borderWidth: 1,
+    color: selected ? '#d8f8ff' : 'rgba(247,242,234,0.68)',
+    fontSize: 13,
     textAlign: 'center' as const,
   }
 }
@@ -369,10 +490,10 @@ function buttonStyle(backgroundColor: string) {
 function panelShadow() {
   return {
     offsetX: 0,
-    offsetY: 18,
-    blurRadius: 48,
+    offsetY: 32,
+    blurRadius: 120,
     spreadRadius: 0,
-    color: 'rgba(0,0,0,0.42)',
+    color: 'rgba(0,0,0,0.72)',
     inset: false,
   }
 }

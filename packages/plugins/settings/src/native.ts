@@ -111,15 +111,25 @@ function createSettingsRoot(
     width: panel.width - contentPadding * 2,
     height: panel.height - headerHeight - contentPadding * 2,
   }
-  const visibleEntries = fitSettingsEntries(entries, content.height)
   let entryY = content.y
-  const entryNodes = visibleEntries.map((entry) => {
-    const height = settingsEntryHeight(entry)
-    const bounds = { x: content.x, y: entryY, width: content.width, height }
-    entryY += height
-    return entry.kind === 'group'
-      ? createGroupNode(entry, bounds, provenance)
-      : createFieldNode(entry.scope, entry.field, bounds, provenance)
+  const entryNodes: NativeUiSurfaceNodeProjection[] = entries.length === 0
+    ? [node('settings-empty', 'Text', content, {
+        text: 'No player settings',
+        provenance,
+        style: { color: '#a5afba', fontSize: 24, textAlign: 'center' },
+      })]
+    : entries.map((entry) => {
+        const height = settingsEntryHeight(entry)
+        const bounds = { x: content.x, y: entryY, width: content.width, height }
+        entryY += height
+        return entry.kind === 'group'
+          ? createGroupNode(entry, bounds, provenance)
+          : createFieldNode(entry.scope, entry.field, bounds, provenance)
+      })
+  const settingsScrollNode = node('settings-scroll', 'Scroll', content, {
+    clipChildren: true,
+    provenance,
+    children: entryNodes,
   })
 
   return node('settings-root', 'Fragment', stage(context), {
@@ -142,15 +152,15 @@ function createSettingsRoot(
         children: [
           node('settings-title', 'Text', {
             x: panel.x + contentPadding,
-            y: panel.y + 18,
+            y: panel.y + 22,
             width: panel.width - contentPadding * 2 - 116,
-            height: 54,
+            height: 40,
           }, {
             text: 'Config',
             provenance,
             style: {
               color: '#fff8ea',
-              fontSize: 56,
+              fontSize: 32,
               fontWeight: 700,
               textShadow: titleShadow(),
             },
@@ -186,14 +196,7 @@ function createSettingsRoot(
             provenance,
             style: { backgroundColor: 'rgba(245,226,190,0.18)' },
           }),
-          ...entryNodes,
-          ...(visibleEntries.length === 0
-            ? [node('settings-empty', 'Text', content, {
-                text: 'No player settings',
-                provenance,
-                style: { color: '#a5afba', fontSize: 24, textAlign: 'center' },
-              })]
-            : []),
+          settingsScrollNode,
         ],
       }),
     ],
@@ -220,20 +223,6 @@ function settingsEntryHeight(entry: NativeSettingsEntry): number {
   return entry.kind === 'group' ? 22 : 68
 }
 
-function fitSettingsEntries(entries: readonly NativeSettingsEntry[], maxHeight: number): NativeSettingsEntry[] {
-  const visible: NativeSettingsEntry[] = []
-  let height = 0
-  for (const entry of entries) {
-    const nextHeight = settingsEntryHeight(entry)
-    if (height + nextHeight > maxHeight) {
-      break
-    }
-    visible.push(entry)
-    height += nextHeight
-  }
-  return visible
-}
-
 function createGroupNode(
   entry: Extract<NativeSettingsEntry, { kind: 'group' }>,
   bounds: NativeUiSurfaceRect,
@@ -254,7 +243,7 @@ function createGroupNode(
         provenance,
         style: {
           color: 'rgba(255,226,166,0.90)',
-          fontSize: 15,
+          fontSize: 11,
           fontWeight: 700,
           letterSpacing: 2,
         },
@@ -313,7 +302,7 @@ function createFieldNode(
         provenance,
         style: {
           color: field.readonly ? 'rgba(247,242,234,0.52)' : 'rgba(255,248,234,0.90)',
-          fontSize: 20,
+          fontSize: 16,
           fontWeight: 700,
         },
       }),
@@ -328,7 +317,7 @@ function createFieldNode(
             provenance,
             style: {
               color: error ? '#ef9aa4' : 'rgba(247,242,234,0.52)',
-              fontSize: 16,
+              fontSize: 13,
               textOverflow: 'ellipsis',
             },
           })]
@@ -583,7 +572,7 @@ function valueNode(
     provenance,
     style: {
       color: readonly ? 'rgba(247,242,234,0.52)' : 'rgba(247,242,234,0.68)',
-      fontSize: 15,
+      fontSize: 13,
       textAlign: 'right',
     },
   })

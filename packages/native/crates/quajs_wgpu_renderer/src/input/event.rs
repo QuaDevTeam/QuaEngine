@@ -124,11 +124,31 @@ impl NativePointerInteractionState {
         let previous = self.visual_snapshot();
         let press_changed = self.active_presses.remove(&pointer_id).is_some();
         let hover_changed = self.hovered_command_id.take().is_some();
-        let changed = press_changed || hover_changed;
+        let focus_changed = self.focused_command_id.take().is_some();
+        let changed = press_changed || hover_changed || focus_changed;
         if changed {
             self.visual_transition = Some(previous);
         }
         changed
+    }
+
+    /// Reconcile interaction state against the current render graph.
+    /// Prunes `focused_command_id` when the command no longer exists in the
+    /// graph (e.g. after a scene transition), and delegates control-state
+    /// reconciliation to [`NativeUiControlInteractionState::reconcile`].
+    pub fn reconcile(&mut self, graph: &crate::render_graph::RenderGraph) {
+        if let Some(focused_id) = &self.focused_command_id {
+            let still_exists = graph
+                .commands()
+                .iter()
+                .any(|cmd| cmd.id == *focused_id);
+            if !still_exists {
+                let previous = self.visual_snapshot();
+                self.focused_command_id = None;
+                self.visual_transition = Some(previous);
+            }
+        }
+        self.controls.reconcile(graph);
     }
 
     pub fn clear(&mut self) {

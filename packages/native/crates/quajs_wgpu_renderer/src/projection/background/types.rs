@@ -10,6 +10,10 @@ pub enum BackgroundMode {
     Image,
     Video,
     Layered,
+    /// Catch-all for future or unknown modes; serde deserialises any
+    /// unrecognised string here instead of returning an error.
+    #[serde(other)]
+    Unknown,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]

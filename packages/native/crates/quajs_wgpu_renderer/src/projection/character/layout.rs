@@ -41,7 +41,7 @@ pub fn resolve_character_bounds(
 ) -> LogicalRect {
     let scale = position
         .scale
-        .filter(|value| value.is_finite() && *value > 0.0)
+        .filter(|value| value.is_finite() && value.abs() > 0.0)
         .unwrap_or(1.0);
     let width = position
         .width
@@ -64,7 +64,7 @@ pub fn resolve_character_bounds(
         position.y,
         position.y_percent,
         layout.logical_height,
-        layout.safe_area.y + layout.safe_area.height / 2.0,
+        layout.logical_height, // web CSS `bottom: 0` — character bottom edge flush with stage bottom
     );
     let left = match anchor {
         CharacterAnchor::Left => x,

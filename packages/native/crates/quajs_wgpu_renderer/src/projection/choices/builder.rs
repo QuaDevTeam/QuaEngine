@@ -120,7 +120,7 @@ fn choice_command(
         role: "choice".to_string(),
         background_color: "rgba(8,10,15,0.88)".to_string(),
         text_color: "#fff8ea".to_string(),
-        corner_radius: 2.0,
+        corner_radius: 6.0,
         border: BorderDrawParams {
             color: Some("rgba(245,226,190,0.28)".to_string()),
             width: 1.0,

@@ -213,6 +213,10 @@ fn effect_params_from_primitive(primitive: &WgpuNativeRenderPrimitive) -> ([f32;
                 ],
             )
         }
+        WgpuNativeRenderPrimitiveKind::BackdropBlur { blur_radius } => {
+            // effect0.x = physical-pixel blur radius, read by BACKDROP_BLUR_WGSL.
+            ([*blur_radius as f32, 0.0, 0.0, 0.0], [0.0; 4])
+        }
         _ => ([0.0; 4], [0.0; 4]),
     }
 }

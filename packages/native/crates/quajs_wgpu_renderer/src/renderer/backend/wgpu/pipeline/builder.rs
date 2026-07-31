@@ -233,6 +233,7 @@ fn shader_for_pipeline_and_paint(
         WgpuNativeRenderPaint::Solid { .. } => WgpuNativeRenderShader::SolidColor,
         WgpuNativeRenderPaint::Texture { .. } => WgpuNativeRenderShader::TexturedQuad,
         WgpuNativeRenderPaint::TextPlaceholder { .. } => WgpuNativeRenderShader::TextPlaceholder,
+        WgpuNativeRenderPaint::BackdropCapture { .. } => WgpuNativeRenderShader::BackdropBlur,
         WgpuNativeRenderPaint::Skipped { .. }
         | WgpuNativeRenderPaint::InvalidColor { .. }
         | WgpuNativeRenderPaint::None => match pipeline {
@@ -243,6 +244,7 @@ fn shader_for_pipeline_and_paint(
             DrawBatchPipeline::Text => WgpuNativeRenderShader::TextPlaceholder,
             DrawBatchPipeline::Shape | DrawBatchPipeline::Ui => WgpuNativeRenderShader::SolidColor,
             DrawBatchPipeline::Clip => WgpuNativeRenderShader::ClipMask,
+            DrawBatchPipeline::BackdropBlur => WgpuNativeRenderShader::BackdropBlur,
             DrawBatchPipeline::Custom => WgpuNativeRenderShader::CustomFallback,
         },
     }
@@ -250,7 +252,8 @@ fn shader_for_pipeline_and_paint(
 
 fn bind_group_layout_for_shader(shader: WgpuNativeRenderShader) -> WgpuNativeRenderBindGroupLayout {
     match shader {
-        WgpuNativeRenderShader::TexturedQuad => WgpuNativeRenderBindGroupLayout::TextureSampler,
+        WgpuNativeRenderShader::TexturedQuad
+        | WgpuNativeRenderShader::BackdropBlur => WgpuNativeRenderBindGroupLayout::TextureSampler,
         WgpuNativeRenderShader::TextPlaceholder => WgpuNativeRenderBindGroupLayout::TextAtlas,
         WgpuNativeRenderShader::Clear
         | WgpuNativeRenderShader::SolidColor
@@ -269,6 +272,7 @@ fn blend_for_pipeline(pipeline: DrawBatchPipeline) -> WgpuNativeRenderBlendMode 
         | DrawBatchPipeline::Shape
         | DrawBatchPipeline::Ui
         | DrawBatchPipeline::Clip
+        | DrawBatchPipeline::BackdropBlur
         | DrawBatchPipeline::Custom => WgpuNativeRenderBlendMode::Alpha,
     }
 }

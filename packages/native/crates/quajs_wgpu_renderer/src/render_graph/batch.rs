@@ -14,6 +14,7 @@ pub enum DrawBatchPipeline {
     Shape,
     Ui,
     Clip,
+    BackdropBlur,
     Custom,
 }
 
@@ -78,6 +79,7 @@ fn batch_pipeline(command: &DrawCommand) -> DrawBatchPipeline {
         | DrawCommandParams::Gradient(_) => DrawBatchPipeline::Shape,
         DrawCommandParams::UiButton(_) => DrawBatchPipeline::Ui,
         DrawCommandParams::UiSurface(_) => DrawBatchPipeline::Ui,
+        DrawCommandParams::BackdropBlur(_) => DrawBatchPipeline::BackdropBlur,
         DrawCommandParams::None => match command.kind {
             DrawCommandKind::Clear => DrawBatchPipeline::Clear,
             DrawCommandKind::Image | DrawCommandKind::NineSlice => DrawBatchPipeline::Image,
@@ -86,6 +88,7 @@ fn batch_pipeline(command: &DrawCommand) -> DrawBatchPipeline {
             DrawCommandKind::ClipStart | DrawCommandKind::ClipEnd => DrawBatchPipeline::Clip,
             DrawCommandKind::VideoFrame => DrawBatchPipeline::Video,
             DrawCommandKind::UiSurface => DrawBatchPipeline::Ui,
+            DrawCommandKind::BackdropBlur => DrawBatchPipeline::BackdropBlur,
             DrawCommandKind::Custom => DrawBatchPipeline::Custom,
         },
     }

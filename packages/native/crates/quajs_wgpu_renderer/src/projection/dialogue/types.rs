@@ -77,6 +77,37 @@ pub struct RichTextSpanProjection {
     pub style: RichTextStyle,
 }
 
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DialogueTypewriterSoundProjection {
+    pub asset_key: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub every_characters: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub interval_ms: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub gain_db: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub playback_rate: Option<f64>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DialogueTypewriterProjection {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub characters_per_second: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub duration_ms: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sync_with_voice: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reveal_on_advance: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sound: Option<DialogueTypewriterSoundProjection>,
+}
+
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DialogueAvatarProjection {
@@ -110,6 +141,13 @@ pub struct DialogueProjection {
     /// from engine-authored projections so the default of 1.0 is correct.
     #[serde(default = "default_one_f32", skip_serializing_if = "is_one_f32")]
     pub presence_opacity: f32,
+    /// Monotonically-increasing revision counter from the engine.  Used by the
+    /// typewriter runtime to detect when dialogue text has changed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub revision: Option<u64>,
+    /// Typewriter reveal configuration emitted by the engine.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub typewriter: Option<DialogueTypewriterProjection>,
     #[serde(default, skip_serializing_if = "PackageProvenance::is_empty")]
     pub provenance: PackageProvenance,
 }
@@ -126,6 +164,8 @@ impl DialogueProjection {
             text: text.into(),
             mode: DialogueMode::Say,
             presence_opacity: 1.0,
+            revision: None,
+            typewriter: None,
             provenance: PackageProvenance::default(),
         }
     }

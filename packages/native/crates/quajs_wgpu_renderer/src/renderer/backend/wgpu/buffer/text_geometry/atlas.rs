@@ -185,13 +185,47 @@ fn select_layout<'a>(
     {
         return None;
     }
+    // The app rasterizes one atlas per (family, physical-size bucket). Use the
+    // physical font_size from the draw style to select the nearest bucket:
+    // prefer the smallest bucket whose raster_size is >= the requested size
+    // (yields scale <= 1 → slight minification → stays sharp), falling back to
+    // the largest available bucket when all are smaller.
+    let requested = (style.font_size as f32).max(1.0);
     for family in &style.font_family {
-        let resource_id = ResourceId::from(format!("fonts:{family}"));
-        if let Some(layout) = atlases.get(&resource_id) {
+        let candidates = atlases
+            .values()
+            .filter(|layout| layout.family == *family);
+        if let Some(layout) = select_nearest_bucket(candidates, requested) {
             return Some(layout);
         }
     }
-    atlases.values().find(|layout| layout.is_default)
+    // No explicit family match – try the default family at nearest bucket.
+    let defaults = atlases.values().filter(|layout| layout.is_default);
+    select_nearest_bucket(defaults, requested).or_else(|| atlases.values().find(|l| l.is_default))
+}
+
+/// Among `candidates`, return the one whose `raster_size` best matches
+/// `requested`:
+/// 1. The smallest raster_size that is >= requested (slight scale-down, stays
+///    sharp under bilinear sampling).
+/// 2. If all are smaller, the largest available (least magnification).
+fn select_nearest_bucket<'a>(
+    candidates: impl Iterator<Item = &'a FontBackendAtlasLayout>,
+    requested: f32,
+) -> Option<&'a FontBackendAtlasLayout> {
+    let mut best_above: Option<&FontBackendAtlasLayout> = None;
+    let mut best_below: Option<&FontBackendAtlasLayout> = None;
+    for layout in candidates {
+        let size = layout.raster_size;
+        if size >= requested {
+            if best_above.is_none_or(|b| size < b.raster_size) {
+                best_above = Some(layout);
+            }
+        } else if best_below.is_none_or(|b| size > b.raster_size) {
+            best_below = Some(layout);
+        }
+    }
+    best_above.or(best_below)
 }
 
 fn transform_text(text: &str, transform: TextTransformDrawParam) -> String {
@@ -596,7 +630,7 @@ mod tests {
 
     #[test]
     fn emboldens_uploaded_atlas_glyphs_without_changing_the_font_resource() {
-        let resource_id = ResourceId::from("fonts:Noto Sans");
+        let resource_id = ResourceId::from("fonts:Noto Sans@20");
         let layout = FontBackendAtlasLayout {
             resource_id: resource_id.clone(),
             family: "Noto Sans".to_string(),
@@ -665,7 +699,7 @@ mod tests {
         let shaping_face = crate::fonts::FontBackendShapingFace::new(bytes, 0).unwrap();
         let run = shaping_face.shape("ffi", 20.0).unwrap();
         assert!(run.glyphs.len() < 3);
-        let resource_id = ResourceId::from("fonts:Noto Sans");
+        let resource_id = ResourceId::from("fonts:Noto Sans@20");
         let glyphs_by_id = run
             .glyphs
             .iter()
@@ -757,7 +791,7 @@ mod tests {
 
     #[test]
     fn unicode_line_breaking_keeps_cjk_closing_punctuation_off_line_start() {
-        let resource_id = ResourceId::from("fonts:Noto Sans");
+        let resource_id = ResourceId::from("fonts:Noto Sans@10");
         let glyph = FontBackendAtlasGlyph {
             uv_top_left: [0.0, 0.0],
             uv_bottom_right: [0.5, 0.5],
@@ -867,7 +901,7 @@ mod tests {
             })
             .collect();
         FontBackendAtlasLayout {
-            resource_id: ResourceId::from("fonts:Noto Sans"),
+            resource_id: ResourceId::from("fonts:Noto Sans@20"),
             family: "Noto Sans".to_string(),
             raster_size: 20.0,
             ascent: 16.0,

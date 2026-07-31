@@ -73,11 +73,12 @@ function createBacklogRoot(
   const footerGap = Math.max(18, panelBounds.height * 0.025)
   const contentTop = panelBounds.y + headerHeight + footerGap
   const contentBottom = panelBounds.y + panelBounds.height - edge
-  const recentEntries = entries.slice(-MAX_VISIBLE_ENTRIES).reverse()
+  const recentEntries = [...entries].reverse()
+  const visibleForSizing = Math.min(recentEntries.length, MAX_VISIBLE_ENTRIES)
   const entryGap = Math.max(12, panelBounds.height * 0.014)
   const availableHeight = Math.max(0, contentBottom - contentTop)
-  const entryHeight = recentEntries.length > 0
-    ? Math.min(140, Math.max(72, (availableHeight - entryGap * (recentEntries.length - 1)) / recentEntries.length))
+  const entryHeight = visibleForSizing > 0
+    ? Math.min(140, Math.max(72, (availableHeight - entryGap * (visibleForSizing - 1)) / visibleForSizing))
     : 0
 
   const children: NativeUiSurfaceNodeProjection[] = [
@@ -122,29 +123,37 @@ function createBacklogRoot(
           style: buttonStyle('#2b313a'),
           provenance,
         }),
-        ...recentEntries.map((entry, index) => createBacklogEntryNode(
-          entry,
-          index,
-          {
-            x: panelBounds.x + edge,
-            y: contentTop + index * (entryHeight + entryGap),
-            width: panelBounds.width - edge * 2,
-            height: entryHeight,
-          },
+        node('backlog-scroll', 'Scroll', {
+          x: panelBounds.x + edge,
+          y: contentTop,
+          width: panelBounds.width - edge * 2,
+          height: Math.max(0, contentBottom - contentTop),
+        }, {
+          clipChildren: true,
           provenance,
-        )),
-        ...(recentEntries.length === 0
-          ? [node('backlog-empty', 'Text', {
-              x: panelBounds.x + edge,
-              y: contentTop,
-              width: panelBounds.width - edge * 2,
-              height: Math.max(80, availableHeight),
-            }, {
-              text: 'No backlog entries',
-              style: { color: '#aeb4bd', fontSize: 24, textAlign: 'center' },
-              provenance,
-            })]
-          : []),
+          children: recentEntries.length > 0
+            ? recentEntries.map((entry, index) => createBacklogEntryNode(
+                entry,
+                index,
+                {
+                  x: panelBounds.x + edge,
+                  y: contentTop + index * (entryHeight + entryGap),
+                  width: panelBounds.width - edge * 2,
+                  height: entryHeight,
+                },
+                provenance,
+              ))
+            : [node('backlog-empty', 'Text', {
+                x: panelBounds.x + edge,
+                y: contentTop,
+                width: panelBounds.width - edge * 2,
+                height: Math.max(80, availableHeight),
+              }, {
+                text: 'No backlog entries',
+                style: { color: '#aeb4bd', fontSize: 24, textAlign: 'center' },
+                provenance,
+              })],
+        }),
       ],
     }),
   ]

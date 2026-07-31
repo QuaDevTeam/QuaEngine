@@ -13,13 +13,13 @@ fn summarizes_combined_projection_resources_and_packages() {
     let graph = build_view_render_graph(test_layout(), &full_view());
     let summary = graph.summary();
 
-    assert_eq!(summary.command_count, 13);
+    assert_eq!(summary.command_count, 17);
     assert_eq!(summary.interactive_count, 1);
     assert_eq!(summary.by_plane[&RenderPlane::Scene].command_count, 1);
     assert_eq!(summary.by_plane[&RenderPlane::Subject].command_count, 1);
-    assert_eq!(summary.by_plane[&RenderPlane::Safe].command_count, 11);
+    assert_eq!(summary.by_plane[&RenderPlane::Safe].command_count, 15);
     assert_eq!(summary.by_package["base"].resource_ref_count, 2);
-    assert_eq!(summary.by_package["runtime.dialogue"].command_count, 8);
+    assert_eq!(summary.by_package["runtime.dialogue"].command_count, 12);
     assert_eq!(summary.by_package["runtime.choices"].command_count, 3);
     assert!(summary
         .resources

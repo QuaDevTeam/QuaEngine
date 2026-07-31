@@ -160,12 +160,45 @@ fn is_safe_effect_color(color: &str) -> bool {
         return matches!(hex.len(), 3 | 4 | 6 | 8)
             && hex.chars().all(|character| character.is_ascii_hexdigit());
     }
-    matches!(color, "black" | "white" | "transparent")
-        || ((color.starts_with("rgb(") || color.starts_with("rgba("))
-            && color.ends_with(')')
-            && color
-                .chars()
-                .all(|character| character.is_ascii_alphanumeric() || "(),. %".contains(character)))
+    let lower = color.to_ascii_lowercase();
+    // Named colors recognised by the wgpu backend parser
+    if matches!(
+        lower.as_str(),
+        "transparent"
+            | "black"
+            | "white"
+            | "silver"
+            | "gray"
+            | "maroon"
+            | "red"
+            | "purple"
+            | "fuchsia"
+            | "green"
+            | "lime"
+            | "olive"
+            | "yellow"
+            | "navy"
+            | "blue"
+            | "teal"
+            | "aqua"
+            | "orange"
+    ) {
+        return true;
+    }
+    if (lower.starts_with("rgb(") || lower.starts_with("rgba("))
+        && lower.ends_with(')')
+        && color
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || "(),. %".contains(ch))
+    {
+        return true;
+    }
+    // hsl/hsla: allow digits, decimal points, deg suffix, commas, spaces, slashes, percent
+    (lower.starts_with("hsl(") || lower.starts_with("hsla("))
+        && lower.ends_with(')')
+        && color
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || "(),. %+/-".contains(ch))
 }
 
 fn apply_provenance(mut command: DrawCommand, provenance: &PackageProvenance) -> DrawCommand {

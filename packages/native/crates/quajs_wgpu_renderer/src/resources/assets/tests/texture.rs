@@ -143,6 +143,37 @@ fn keeps_resident_non_texture_gpu_resources_referenced_by_frame() {
 }
 
 #[test]
+fn keeps_renderer_managed_font_and_video_textures_when_frame_does_not_reference_them() {
+    let texture_uploads = NativeTextureUploadRequestPlan {
+        requests: vec![NativeTextureUploadRequest {
+            resource_id: ResourceId::from("images:bg/school.png"),
+            asset_type: "images".to_string(),
+            asset_name: "bg/school.png".to_string(),
+            command_ids: set(["background:main"]),
+            owner_package_ids: set(["base"]),
+            required_package_ids: BTreeSet::new(),
+            package_candidates: set(["base"]),
+        }],
+        ..Default::default()
+    };
+
+    let sync = plan_texture_upload_sync(
+        &texture_uploads,
+        [
+            "images:bg/school.png",
+            "fonts:Noto Sans",
+            "video:texture-ring:video:video/opening.webm",
+            "images:stale.png",
+        ],
+    );
+
+    assert_eq!(
+        sync.orphaned_resident_resource_ids,
+        vec![ResourceId::from("images:stale.png")]
+    );
+}
+
+#[test]
 fn excludes_non_texture_assets_from_texture_upload_requests() {
     let mut graph = RenderGraph::new(test_layout());
     graph.extend([

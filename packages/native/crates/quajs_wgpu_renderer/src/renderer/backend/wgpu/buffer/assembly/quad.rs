@@ -148,6 +148,9 @@ fn vertex_color_from_quad(quad: &WgpuNativeRenderQuad) -> [f32; 4] {
         WgpuNativeRenderPaint::Solid { color, .. }
         | WgpuNativeRenderPaint::TextPlaceholder { color, .. } => color_to_rgba(*color),
         WgpuNativeRenderPaint::Texture { tint, .. } => color_struct_to_rgba(*tint),
+        // Backdrop blur: vertex color is white; the opacity channel carries the
+        // presence-transition alpha so the shader can modulate blurred output.
+        WgpuNativeRenderPaint::BackdropCapture { .. } => color_struct_to_rgba(WgpuNativeRenderColor::WHITE),
         WgpuNativeRenderPaint::Skipped { .. }
         | WgpuNativeRenderPaint::InvalidColor { .. }
         | WgpuNativeRenderPaint::None => color_struct_to_rgba(WgpuNativeRenderColor::WHITE),

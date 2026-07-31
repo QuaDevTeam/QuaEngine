@@ -23,6 +23,11 @@ pub enum WgpuNativeRenderPaint {
         literal: String,
         style: WgpuNativeRenderTextStyle,
     },
+    /// Backdrop-blur pass: samples the pre-Safe-plane capture texture.
+    /// Carries the physical-pixel blur radius for the shader.
+    BackdropCapture {
+        blur_radius: f32,
+    },
     Skipped {
         reason: NativeBackendEncoderSkipReason,
         missing_resource_ids: Vec<ResourceId>,
@@ -37,7 +42,10 @@ impl WgpuNativeRenderPaint {
     pub(super) fn is_drawable(&self) -> bool {
         matches!(
             self,
-            Self::Solid { .. } | Self::Texture { .. } | Self::TextPlaceholder { .. }
+            Self::Solid { .. }
+                | Self::Texture { .. }
+                | Self::TextPlaceholder { .. }
+                | Self::BackdropCapture { .. }
         )
     }
 
@@ -125,9 +133,18 @@ pub(super) fn paint_from_primitive(
             quad_border(border),
             text_overlay(label, text_color, text_style),
         ),
-        WgpuNativeRenderPrimitiveKind::UiSurface { .. } | WgpuNativeRenderPrimitiveKind::Empty => {
+        WgpuNativeRenderPrimitiveKind::UiSurface { .. }
+        | WgpuNativeRenderPrimitiveKind::Empty => {
             (WgpuNativeRenderPaint::None, 0.0, None, None)
         }
+        WgpuNativeRenderPrimitiveKind::BackdropBlur { blur_radius } => (
+            WgpuNativeRenderPaint::BackdropCapture {
+                blur_radius: *blur_radius as f32,
+            },
+            0.0,
+            None,
+            None,
+        ),
         WgpuNativeRenderPrimitiveKind::Skipped {
             reason,
             missing_resource_ids,

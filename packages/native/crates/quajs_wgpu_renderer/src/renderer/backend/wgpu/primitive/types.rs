@@ -226,6 +226,11 @@ pub enum WgpuNativeRenderPrimitiveKind {
         surface_key: Option<String>,
         interactive: bool,
     },
+    BackdropBlur {
+        /// Gaussian blur radius in physical pixels.  Passed as `effect0.x` to
+        /// the fragment shader, which samples the backdrop-capture texture.
+        blur_radius: f64,
+    },
     Empty,
     Skipped {
         reason: NativeBackendEncoderSkipReason,

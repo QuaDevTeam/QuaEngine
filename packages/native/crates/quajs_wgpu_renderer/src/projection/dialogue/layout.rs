@@ -34,7 +34,7 @@ pub fn dialogue_accent_bounds(panel: LogicalRect) -> LogicalRect {
 pub fn speaker_bounds(panel: LogicalRect) -> LogicalRect {
     LogicalRect {
         x: panel.x + 28.0,
-        y: panel.y + 18.0,
+        y: panel.y + 22.0,
         width: panel.width.min(320.0),
         height: 30.0,
     }
@@ -43,14 +43,14 @@ pub fn speaker_bounds(panel: LogicalRect) -> LogicalRect {
 pub fn speaker_accent_bounds(panel: LogicalRect) -> LogicalRect {
     LogicalRect {
         x: panel.x + 28.0,
-        y: panel.y + 48.0,
+        y: panel.y + 44.0,
         width: 116.0,
         height: 1.0,
     }
 }
 
 pub fn text_bounds(panel: LogicalRect, has_speaker: bool) -> LogicalRect {
-    let top = if has_speaker { 58.0 } else { 24.0 };
+    let top = if has_speaker { 50.0 } else { 22.0 };
     LogicalRect {
         x: panel.x + 28.0,
         y: panel.y + top,

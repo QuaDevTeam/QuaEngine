@@ -15,6 +15,7 @@ real-wgpu-native = ["real-wgpu", "wgpu/dx12", "wgpu/metal", "wgpu/vulkan"]
 image-decode = ["real-wgpu", "dep:image"]
 
 [dependencies]
+log.workspace = true
 quajs_native_runtime = { path = "../quajs_native_runtime" }
 rustybuzz.workspace = true
 unicode-bidi.workspace = true
