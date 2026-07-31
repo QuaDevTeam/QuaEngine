@@ -20,9 +20,9 @@ export function getInteractionDiagnostics() {
   }
 }
 
-export async function bootstrap(fixture?: string) {
+export async function bootstrap() {
   await destroy()
-  session = await createDemoNativeSession(fixture)
+  session = await createDemoNativeSession()
   const bridge = requireRendererBridge()
   disposeRendererBridge = bridge.subscribe(intent => session?.dispatchIntent(intent))
   disposePipelineBridge = session.connectPipelineBridge(requirePipelineBridge())

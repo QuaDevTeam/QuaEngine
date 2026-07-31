@@ -1,8 +1,13 @@
-import { clearCharacterRuntime, configureCharacterRuntime } from '@quajs/character'
 import { createMemoryAssetsAdapter } from '@quajs/assets-memory'
-import { LogicToRenderEvents, QuaEngine, RenderToLogicEvents } from '@quajs/engine'
+import { clearCharacterRuntime, configureCharacterRuntime } from '@quajs/character'
 import {
-  createNativeRendererJsonFrameInput,
+  LogicToRenderEvents,
+  onLogicToRender,
+  QuaEngine,
+  RenderToLogicEvents,
+  type GameOverPayload,
+} from '@quajs/engine'
+import {
   createNativeRendererViewProjection,
   emitNativeRendererIntentToPipeline,
   installNativeQuickJsPipelineBridge,
@@ -10,29 +15,27 @@ import {
   type NativeRendererEngineViewProjection,
 } from '@quajs/engine-native'
 import { parseNativeRendererIntentPayload, type NativeRendererIntent } from '@quajs/native-contracts'
-import { BGM, DEFAULT_BGM_OPTIONS } from '../../game/config'
+import type { AudioPlayBgmOptions } from '@quajs/plugin-audio'
+import { BGM, DEFAULT_BGM_OPTIONS, GAME_ENGLISH_TITLE, GAME_TITLE, SAVE_LOAD_SLOT_COUNT } from '../../game/config'
+import { DEMO_GALLERY_CATALOG_ID, type DemoGalleryEntryId } from '../../game/content/gallery'
+import { INITIAL_STORY_TREE_NODE_ID, STORY_TREE_NODES } from '../../game/content/story-tree'
 import { createDemoEngineRuntime } from '../../game/runtime-shared'
 import { MainScene } from '../../game/story/main-scene'
+import type { HudPatch } from '../../game/types'
+import { createUiScene, DEMO_OVERLAY_PLACEMENTS, parseChapterIndex } from '../../game/ui/scene'
 import { DEMO_NATIVE_FEATURE_SURFACES } from './features'
-import { isNativeDemoPanel, openNativeDemoPanel, type NativeDemoPanel } from './panels'
 import {
-  createNativeDemoMenuSurface,
-  createNativeMainMenuSurface,
-  createNativeSaveLoadSurface,
-  createNativeShellVignetteOverlay,
-  createNativeStoryTreeSurface,
-  stageNativeCoverageScene,
-  stageWebParityScene,
-} from './scenes'
-
-export type NativeDemoFixture = NativeDemoPanel | 'effects' | 'interactive' | 'menu' | 'parity' | 'transition' | 'typewriter'
+  createNativeDemoAppSurface,
+  NATIVE_DEMO_APP_ELEMENT_ID,
+  type NativeDemoAppScreen,
+  type NativeDemoAppSurfaceState,
+} from './ui'
 
 export interface DemoNativeSession {
   connectPipelineBridge: (bridge: NativeQuickJsPipelineBridge) => () => void
   destroy: () => Promise<void>
   dispatchIntent: (intent: NativeRendererIntent) => Promise<void>
   getInteractionDiagnostics: () => Record<string, unknown>
-  renderOfflineFrame: () => ReturnType<typeof createNativeRendererJsonFrameInput>
 }
 
 interface InteractionDiagnostics {
@@ -43,7 +46,10 @@ interface InteractionDiagnostics {
   error: string | null
 }
 
-export async function createDemoNativeSession(fixture?: string): Promise<DemoNativeSession> {
+type FeaturePanel = 'backlog' | 'gallery' | 'settings'
+type SaveLoadMode = 'load' | 'save'
+
+export async function createDemoNativeSession(): Promise<DemoNativeSession> {
   QuaEngine.resetInstance()
   const runtime = await createDemoEngineRuntime({
     engine: {
@@ -61,39 +67,8 @@ export async function createDemoNativeSession(fixture?: string): Promise<DemoNat
     },
     systemLocale: 'zh-cn',
   })
-  const interactiveStory = fixture === undefined || fixture === 'interactive' || fixture === 'menu'
-  configureCharacterRuntime({ engine: runtime.engine, waitForAdvance: interactiveStory ? true : false })
+  configureCharacterRuntime({ engine: runtime.engine, waitForAdvance: true })
 
-  if (fixture === 'parity') {
-    await stageWebParityScene(runtime)
-  }
-  else if (interactiveStory) {
-    await runtime.background.setBackground('ui/menu-route.jpg', { fit: 'cover' })
-    await runtime.engine.showUI('native-main-menu', createNativeMainMenuSurface())
-  }
-  else {
-    await stageNativeCoverageScene(runtime)
-    await runtime.engine.showUI('native-dev-status', createNativeDemoMenuSurface())
-  }
-  // Always-on game-shell vignette (z-index 2, HUD stack).
-  await runtime.engine.showUI('native-shell-vignette', createNativeShellVignetteOverlay())
-  await runtime.audio.playBGM(interactiveStory ? BGM.title : BGM.blackout, {
-    ...DEFAULT_BGM_OPTIONS,
-    id: 'demo-native-bgm',
-  })
-  if (isNativeDemoPanel(fixture)) {
-    await openNativeDemoPanel(runtime, fixture)
-  }
-  if (fixture === 'effects') {
-    await runtime.engine.applyEffect({
-      id: 'demo.native.flash',
-      type: 'flash',
-      intensity: 0.24,
-      options: { color: '#71d7f3', opacity: 0.24 },
-    })
-  }
-
-  let storyLoadPromise: Promise<void> | undefined
   const diagnostics: InteractionDiagnostics = {
     intentCount: 0,
     lastIntentType: null,
@@ -103,62 +78,387 @@ export async function createDemoNativeSession(fixture?: string): Promise<DemoNat
   }
   const phase = (value: string) => {
     diagnostics.phases.push(value)
-    if (diagnostics.phases.length > 24) {
+    if (diagnostics.phases.length > 64) {
       diagnostics.phases.shift()
     }
   }
-  const startStory = async () => {
-    if (!interactiveStory || storyLoadPromise) {
-      phase(!interactiveStory ? 'start:ignored-noninteractive' : 'start:ignored-inflight')
+  const recordError = (error: unknown, context: string) => {
+    diagnostics.error = error instanceof Error ? error.message : String(error)
+    phase(`${context}:error`)
+  }
+
+  let destroyed = false
+  let currentChapterIndex = -1
+  let activeBgmAssetKey: string | undefined
+  let storyLoadPromise: Promise<void> | undefined
+  let systemReturnScreen: NativeDemoAppScreen = 'title'
+  let systemReturnTitleSurface = true
+  let saveLoadMode: SaveLoadMode = 'load'
+  let saveLoadReturnScreen: NativeDemoAppScreen = 'title'
+  let saveLoadReturnTitleSurface = true
+
+  let appState: NativeDemoAppSurfaceState = {
+    autoLabel: 'AUTO',
+    englishTitle: GAME_ENGLISH_TITLE,
+    gameOverDescription: '故事已经结束。你可以回到标题菜单，或关闭面板停留在当前画面。',
+    gameOverSubtitle: 'ENDING',
+    gameOverTitle: 'GAME OVER',
+    gameMenuSubtitle: `${GAME_TITLE} / CH BOOT / UNDECIDED`,
+    hudChapter: 'CH BOOT',
+    hudRoute: 'UNDECIDED',
+    hudSignal: 'SIG 0',
+    saveLoadMode,
+    saveLoadTitle: 'LOAD',
+    saveSlotItems: createEmptySaveSlotItems(),
+    screen: 'title',
+    skipLabel: 'SKIP',
+    storyTreeItems: createStoryTreeItems(),
+    title: GAME_TITLE,
+    titleSurface: true,
+  }
+
+  const refreshAppSurface = async (patch: Partial<NativeDemoAppSurfaceState> = {}) => {
+    if (destroyed) {
       return
     }
-    phase('start:begin')
-    const pipeline = runtime.engine.getPipeline()
-    let resolveFirstDialogue: (() => void) | undefined
-    const firstDialogue = new Promise<void>(resolve => {
-      resolveFirstDialogue = resolve
-    })
-    const onFirstDialogue = () => {
-      pipeline.off(LogicToRenderEvents.DIALOGUE_SHOW, onFirstDialogue)
-      resolveFirstDialogue?.()
+    const flowMode = runtime.engine.getFlowControlState().mode
+    appState = {
+      ...appState,
+      ...patch,
+      autoLabel: flowMode === 'auto' ? 'AUTO ON' : 'AUTO',
+      skipLabel: flowMode === 'skip' ? 'SKIP ON' : 'SKIP',
     }
-    pipeline.on(LogicToRenderEvents.DIALOGUE_SHOW, onFirstDialogue)
-    const scenePromise = (async () => {
-      phase('start:hide-menu')
-      await runtime.engine.hideUI('native-main-menu')
-      phase('start:play-bgm')
-      await runtime.audio.playBGM(BGM.blackout, { ...DEFAULT_BGM_OPTIONS, id: 'demo-native-bgm' })
-      phase('start:load-scene')
-      await runtime.engine.loadScene(new MainScene(
-        runtime.engine,
-        () => {},
-        async (assetKey, options = {}) => {
-          await runtime.audio.playBGM(assetKey, { ...DEFAULT_BGM_OPTIONS, ...options, id: 'demo-native-bgm' })
-        },
-        async entryIds => {
-          const ids = Array.isArray(entryIds) ? entryIds : [entryIds]
-          await runtime.gallery.unlockEntries(ids, { source: 'story' })
-        },
-        () => {},
-      ))
-      phase('start:scene-loaded')
-    })()
-    storyLoadPromise = scenePromise.catch(error => {
-      storyLoadPromise = undefined
-      diagnostics.error = error instanceof Error ? error.message : String(error)
-      phase('start:error')
-    })
-    phase('start:show-hud')
-    await runtime.engine.showUI('native-dev-status', createNativeDemoMenuSurface())
-    try {
-      await Promise.race([firstDialogue, scenePromise])
-      phase('start:first-dialogue-or-scene')
+    await runtime.engine.showUI(NATIVE_DEMO_APP_ELEMENT_ID, createNativeDemoAppSurface(appState))
+  }
+
+  const playDemoBgm = async (assetKey: string, options: AudioPlayBgmOptions = {}) => {
+    if (activeBgmAssetKey === assetKey) {
+      return
     }
-    finally {
-      pipeline.off(LogicToRenderEvents.DIALOGUE_SHOW, onFirstDialogue)
-      phase('start:return')
+    activeBgmAssetKey = assetKey
+    await runtime.audio.playBGM(assetKey, {
+      ...DEFAULT_BGM_OPTIONS,
+      ...options,
+      id: 'demo-native-bgm',
+    })
+  }
+
+  const playCurrentStoryBgm = async () => {
+    if (currentChapterIndex >= 5) {
+      await playDemoBgm(BGM.breach)
+    }
+    else if (currentChapterIndex === 4) {
+      await playDemoBgm(BGM.oracle, { gainDb: -9 })
+    }
+    else if (currentChapterIndex >= 2) {
+      await playDemoBgm(BGM.archive, { gainDb: -9 })
+    }
+    else if (currentChapterIndex === 1) {
+      await playDemoBgm(BGM.trace)
+    }
+    else {
+      await playDemoBgm(BGM.blackout)
     }
   }
+
+  const refreshStoryTree = async () => {
+    appState.storyTreeItems = runtime.storyGraph.getChapterSelectProjection().nodes.map((node, index) => {
+      const chapter = typeof node.point.chapterId === 'string'
+        ? node.point.chapterId
+        : String(index).padStart(2, '0')
+      const state = node.entryLocked
+        ? 'LOCKED'
+        : node.current || parseChapterIndex(chapter) === currentChapterIndex
+          ? 'CURRENT'
+          : 'AVAILABLE'
+      return {
+        id: node.nodeId,
+        label: `CH ${chapter}  ${node.title || 'Locked'} / ${node.summary || ''}  [${state}]`,
+      }
+    })
+  }
+
+  const updateHud = (patch: HudPatch) => {
+    const chapter = patch.chapter || appState.hudChapter.replace(/^CH\s+/, '')
+    const route = patch.route || appState.hudRoute
+    const signal = patch.signal || appState.hudSignal.replace(/^SIG\s+/, '')
+    const nextChapterIndex = parseChapterIndex(chapter)
+    if (nextChapterIndex >= 0) {
+      currentChapterIndex = nextChapterIndex
+      const node = STORY_TREE_NODES[nextChapterIndex]
+      if (node) {
+        void runtime.storyGraph.unlockNode(node.id)
+          .then(refreshStoryTree)
+          .catch(error => recordError(error, 'story-tree:unlock'))
+      }
+    }
+    void refreshAppSurface({
+      gameMenuSubtitle: `${GAME_TITLE} / CH ${chapter} / ${route}`,
+      hudChapter: `CH ${chapter}`,
+      hudRoute: route,
+      hudSignal: `SIG ${signal}`,
+    }).catch(error => recordError(error, 'hud:update'))
+  }
+
+  const closeFeaturePanels = async () => {
+    await Promise.all([
+      runtime.engine.hideUI('settings'),
+      runtime.backlog.setVisible(false),
+      runtime.gallery.closeScene(),
+      runtime.achievement.closeBoard(),
+    ])
+  }
+
+  const restoreSystemScreen = async () => {
+    await refreshAppSurface({
+      screen: systemReturnScreen,
+      titleSurface: systemReturnTitleSurface,
+    })
+  }
+
+  const openFeaturePanel = async (panel: FeaturePanel) => {
+    phase(`panel:${panel}:open`)
+    systemReturnScreen = appState.screen
+    systemReturnTitleSurface = appState.titleSurface
+    await closeFeaturePanels()
+    await refreshAppSurface({ screen: 'system' })
+    const openedFromTitle = systemReturnTitleSurface
+    if (panel === 'settings') {
+      await runtime.engine.showUI('settings', {
+        ...DEMO_OVERLAY_PLACEMENTS.settings,
+        title: 'Config',
+        source: openedFromTitle ? 'main-menu' : 'game-menu',
+        scene: createUiScene(
+          openedFromTitle ? 'system:settings' : 'game:settings',
+          openedFromTitle ? 'scene' : 'overlay',
+          openedFromTitle ? 'main-menu' : 'game-modal',
+          DEMO_OVERLAY_PLACEMENTS.settings,
+        ),
+      })
+      return
+    }
+    if (panel === 'gallery') {
+      await runtime.gallery.openScene({
+        ...DEMO_OVERLAY_PLACEMENTS.gallery,
+        catalogId: DEMO_GALLERY_CATALOG_ID,
+        entryId: 'cg.title',
+        reason: openedFromTitle ? 'main-menu' : 'game-menu',
+        filter: { unlockedOnly: false },
+      })
+      return
+    }
+    await runtime.backlog.setVisible(true, {
+      ...DEMO_OVERLAY_PLACEMENTS.backlog,
+      source: 'quick-menu',
+      scene: createUiScene('game:backlog', 'overlay', 'game-modal', DEMO_OVERLAY_PLACEMENTS.backlog),
+    })
+  }
+
+  const startStory = async () => {
+    phase('story:start')
+    await closeFeaturePanels()
+    await refreshAppSurface({ screen: 'game', titleSurface: false })
+    try {
+      await playCurrentStoryBgm()
+    }
+    catch (error) {
+      recordError(error, 'story:bgm')
+    }
+    if (storyLoadPromise) {
+      phase('story:resume')
+      return
+    }
+    const scene = new MainScene(
+      runtime.engine,
+      updateHud,
+      playDemoBgm,
+      async (entryIdOrIds: DemoGalleryEntryId | readonly DemoGalleryEntryId[]) => {
+        const entryIds = Array.isArray(entryIdOrIds) ? entryIdOrIds : [entryIdOrIds]
+        await runtime.gallery.unlockEntries(entryIds, { source: 'story' })
+      },
+      () => phase('story:running'),
+    )
+    storyLoadPromise = runtime.engine.loadScene(scene).catch((error) => {
+      storyLoadPromise = undefined
+      recordError(error, 'story')
+    })
+  }
+
+  const returnToTitle = async () => {
+    phase('title:return')
+    await closeFeaturePanels()
+    await runtime.engine.stopAuto()
+    await runtime.engine.stopSkip()
+    await refreshAppSurface({ screen: 'title', titleSurface: true })
+    await playDemoBgm(BGM.title, { gainDb: -10 })
+  }
+
+  const openStoryTree = async () => {
+    await refreshStoryTree()
+    await refreshAppSurface({
+      screen: 'story-tree',
+      storyTreeItems: appState.storyTreeItems,
+      titleSurface: true,
+    })
+  }
+
+  const openSaveLoad = async (mode: SaveLoadMode) => {
+    saveLoadMode = mode
+    saveLoadReturnScreen = appState.screen
+    saveLoadReturnTitleSurface = appState.titleSurface
+    const slots = new Map((await runtime.engine.listSaveSlots()).map(slot => [slot.slotId, slot]))
+    const saveSlotItems = Array.from({ length: SAVE_LOAD_SLOT_COUNT }, (_, index) => {
+      const id = `slot-${index + 1}`
+      const slot = slots.get(id)
+      const stamp = slot?.timestamp instanceof Date
+        ? slot.timestamp.toISOString().slice(0, 16).replace('T', ' ')
+        : ''
+      return {
+        id,
+        label: slot
+          ? `SLOT ${String(index + 1).padStart(2, '0')}\n${slot.name || 'Saved Game'}  ${stamp}`
+          : `SLOT ${String(index + 1).padStart(2, '0')}\nEMPTY`,
+      }
+    })
+    await refreshAppSurface({
+      saveLoadMode: mode,
+      saveLoadTitle: mode === 'save' ? 'SAVE' : 'LOAD',
+      saveSlotItems,
+      screen: 'save-load',
+      titleSurface: saveLoadReturnTitleSurface,
+    })
+  }
+
+  const closeSaveLoad = async () => {
+    await refreshAppSurface({
+      screen: saveLoadReturnScreen,
+      titleSurface: saveLoadReturnTitleSurface,
+    })
+  }
+
+  const selectSaveSlot = async (slotId: string) => {
+    phase(`save:${saveLoadMode}:${slotId}`)
+    if (saveLoadMode === 'save') {
+      await runtime.engine.saveToSlot(slotId)
+      await openSaveLoad('save')
+      return
+    }
+    const slotExists = (await runtime.engine.listSaveSlots()).some(slot => slot.slotId === slotId)
+    if (!slotExists) {
+      phase('save:load:empty')
+      return
+    }
+    await runtime.engine.loadFromSlot(slotId, { force: true, reason: 'renderer-load' })
+    await closeFeaturePanels()
+    await refreshAppSurface({ screen: 'game', titleSurface: false })
+    await playCurrentStoryBgm()
+  }
+
+  const showGameOver = async (payload: GameOverPayload) => {
+    await runtime.engine.stopAuto()
+    await runtime.engine.stopSkip()
+    await closeFeaturePanels()
+    await refreshAppSurface({
+      gameOverDescription: payload.message || appState.gameOverDescription,
+      gameOverSubtitle: payload.ending ? `ENDING / ${payload.ending.toUpperCase()}` : 'ENDING',
+      gameOverTitle: payload.title || 'GAME OVER',
+      screen: 'game-over',
+      titleSurface: false,
+    })
+  }
+
+  const handleUiIntent = async (record: Record<string, unknown>): Promise<boolean> => {
+    const action = typeof record.action === 'string' ? record.action : undefined
+    const target = typeof record.arg0 === 'string' ? record.arg0 : undefined
+    if (action === 'block') {
+      return true
+    }
+    if (action === 'open' && target) {
+      switch (target) {
+        case 'story':
+          await startStory()
+          return true
+        case 'story-tree':
+          await openStoryTree()
+          return true
+        case 'save':
+        case 'load':
+          await openSaveLoad(target)
+          return true
+        case 'settings':
+        case 'gallery':
+        case 'backlog':
+          await openFeaturePanel(target)
+          return true
+        case 'game-menu':
+          await runtime.engine.stopAuto()
+          await refreshAppSurface({ screen: 'game-menu', titleSurface: false })
+          return true
+        case 'title-confirm':
+          await refreshAppSurface({ screen: 'title-confirm', titleSurface: false })
+          return true
+        case 'title':
+          await returnToTitle()
+          return true
+      }
+    }
+    if (action === 'close' && target) {
+      switch (target) {
+        case 'game-menu':
+          await refreshAppSurface({ screen: 'game', titleSurface: false })
+          return true
+        case 'title-confirm':
+          await refreshAppSurface({ screen: 'game-menu', titleSurface: false })
+          return true
+        case 'story-tree':
+          await refreshAppSurface({ screen: 'title', titleSurface: true })
+          return true
+        case 'save-load':
+          await closeSaveLoad()
+          return true
+        case 'game-over':
+          await refreshAppSurface({ screen: 'game', titleSurface: false })
+          return true
+      }
+    }
+    if (action === 'toggle' && target === 'auto') {
+      if (runtime.engine.getFlowControlState().mode === 'auto') {
+        await runtime.engine.stopAuto()
+      }
+      else {
+        await runtime.engine.startAuto()
+      }
+      await refreshAppSurface()
+      return true
+    }
+    if (action === 'toggle' && target === 'skip') {
+      await runtime.engine.stopAuto()
+      if (runtime.engine.getFlowControlState().mode === 'skip') {
+        await runtime.engine.stopSkip()
+      }
+      else {
+        await runtime.engine.startSkip()
+      }
+      await refreshAppSurface()
+      return true
+    }
+    if (action === 'save.select' && target) {
+      await selectSaveSlot(target)
+      return true
+    }
+    return false
+  }
+
+  const pipeline = runtime.engine.getPipeline()
+  const disposeGameOverListener = onLogicToRender(pipeline, LogicToRenderEvents.GAME_OVER, (payload) => {
+    void showGameOver(payload).catch(error => recordError(error, 'game-over'))
+  })
+
+  await runtime.storyGraph.unlockNode(INITIAL_STORY_TREE_NODE_ID)
+  await refreshStoryTree()
+  await runtime.background.setBackground('ui/menu-route.jpg', { fit: 'cover' })
+  await refreshAppSurface({ storyTreeItems: appState.storyTreeItems })
+  await playDemoBgm(BGM.title, { gainDb: -10 })
 
   return {
     connectPipelineBridge(bridge) {
@@ -183,81 +483,51 @@ export async function createDemoNativeSession(fixture?: string): Promise<DemoNat
           bridge.emit(event, payload)
         },
       }
-      const dispose = installNativeQuickJsPipelineBridge(nativeProjectionBridge, runtime.engine.getPipeline(), {
+      return installNativeQuickJsPipelineBridge(nativeProjectionBridge, pipeline, {
         initialView: runtime.engine.getViewState(),
       })
-      if (fixture === 'transition') {
-        void runtime.engine.getPipeline().emit(LogicToRenderEvents.SCENE_CHANGE, {
-          fromScene: 'native-demo-loading',
-          toScene: 'native-demo',
-          transition: {
-            type: 'wipe',
-            duration: 800,
-          },
-        })
-      }
-      return dispose
     },
     async dispatchIntent(intent) {
       diagnostics.intentCount += 1
       diagnostics.lastIntentType = intent.type
       const payload = parseNativeRendererIntentPayload(intent)
-      const action = payload && typeof payload === 'object' && !Array.isArray(payload)
-        ? (payload as Record<string, unknown>).action
+      const record = payload && typeof payload === 'object' && !Array.isArray(payload)
+        ? payload as Record<string, unknown>
         : undefined
-      diagnostics.lastAction = typeof action === 'string' ? action : null
+      diagnostics.lastAction = typeof record?.action === 'string' ? record.action : null
       phase(`intent:${intent.type}:${diagnostics.lastAction || 'none'}`)
-      if (interactiveStory && intent.type === 'ui/intent' && payload && typeof payload === 'object' && !Array.isArray(payload)) {
-        const record = payload as Record<string, unknown>
-        if (record.action === 'demo-start-story') {
-          phase('intent:start-story')
-          await startStory()
-          phase('intent:start-story-return')
-          return
+
+      if (intent.type === 'ui/intent' && record) {
+        let handled = false
+        try {
+          handled = await handleUiIntent(record)
         }
-        if (record.action === 'demo-open-story-tree') {
-          await runtime.engine.hideUI('native-main-menu')
-          await runtime.engine.showUI('native-story-tree', createNativeStoryTreeSurface())
-          return
+        catch (error) {
+          recordError(error, `intent:${intent.type}`)
         }
-        if (record.action === 'demo-open-save-load') {
-          await runtime.engine.hideUI('native-main-menu')
-          const slots = (await runtime.engine.listSaveSlots()).map(slot => ({
-            id: slot.slotId,
-            name: slot.name,
-            updatedAt: slot.timestamp.getTime(),
-          }))
-          await runtime.engine.showUI('native-save-load', createNativeSaveLoadSurface(slots))
-          return
-        }
-        if (record.action === 'demo-close-main-overlay') {
-          await runtime.engine.hideUI('native-story-tree')
-          await runtime.engine.hideUI('native-save-load')
-          await runtime.engine.showUI('native-main-menu', createNativeMainMenuSurface())
+        if (handled) {
           return
         }
       }
-      if (intent.type === 'ui/intent'
-        && payload
-        && typeof payload === 'object'
-        && !Array.isArray(payload)
-        && (payload as Record<string, unknown>).action === 'demo-open-panel'
-        && isNativeDemoPanel((payload as Record<string, unknown>).panel)) {
-        await openNativeDemoPanel(runtime, (payload as Record<string, unknown>).panel as NativeDemoPanel)
+      if (intent.type === RenderToLogicEvents.USER_INPUT_COMMAND
+        && record?.command === 'advance'
+        && record.pressed !== false) {
+        await pipeline.emit(RenderToLogicEvents.USER_ADVANCE, {
+          source: typeof record.source === 'string' ? record.source : 'native',
+        })
         return
       }
-      if (interactiveStory && intent.type === RenderToLogicEvents.USER_INPUT_COMMAND) {
-        const record = payload as Record<string, unknown> | undefined
-        if (record?.command === 'advance' && record.pressed !== false) {
-          await runtime.engine.getPipeline().emit(RenderToLogicEvents.USER_ADVANCE, {
-            source: record.source || 'native',
-          })
-          return
-        }
-      }
-      await emitNativeRendererIntentToPipeline(runtime.engine.getPipeline(), intent, {
+
+      await emitNativeRendererIntentToPipeline(pipeline, intent, {
         featureSurfaces: DEMO_NATIVE_FEATURE_SURFACES,
       })
+      if (intent.type === 'ui/intent'
+        && (record?.action === 'settings-close'
+          || record?.action === 'gallery-close'
+          || record?.action === 'backlog-close')) {
+        phase(`panel:${String(record.action)}:restore`)
+        await restoreSystemScreen()
+      }
     },
     getInteractionDiagnostics() {
       return {
@@ -266,33 +536,29 @@ export async function createDemoNativeSession(fixture?: string): Promise<DemoNat
         lastAction: diagnostics.lastAction,
         phases: [...diagnostics.phases],
         error: diagnostics.error,
+        screen: appState.screen,
       }
     },
-    renderOfflineFrame() {
-      const view = runtime.engine.getViewState()
-      const projectedView = fixture === 'transition'
-        ? {
-            ...view,
-            sceneTransition: {
-              active: true,
-              type: 'wipe',
-              fromScene: 'native-demo-loading',
-              toScene: 'native-demo',
-              duration: 800,
-              startedAt: Date.now() - 400,
-              progress: 0.5,
-              easedProgress: 0.5,
-            },
-          }
-        : view
-      return createNativeRendererJsonFrameInput(projectedView as unknown as NativeRendererEngineViewProjection, {
-        featureSurfaces: DEMO_NATIVE_FEATURE_SURFACES,
-      })
-    },
     async destroy() {
+      destroyed = true
+      disposeGameOverListener()
       clearCharacterRuntime()
       await runtime.engine.destroy()
       QuaEngine.resetInstance()
     },
   }
+}
+
+function createEmptySaveSlotItems() {
+  return Array.from({ length: SAVE_LOAD_SLOT_COUNT }, (_, index) => ({
+    id: `slot-${index + 1}`,
+    label: `SLOT ${String(index + 1).padStart(2, '0')}  EMPTY`,
+  }))
+}
+
+function createStoryTreeItems() {
+  return STORY_TREE_NODES.map(node => ({
+    id: node.id,
+    label: `CH ${node.chapter}  ${node.title} / ${node.description}`,
+  }))
 }

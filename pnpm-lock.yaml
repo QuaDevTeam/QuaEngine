@@ -334,6 +334,9 @@ importers:
       '@quajs/native-contracts':
         specifier: workspace:*
         version: link:../packages/native/contracts
+      '@quajs/native-ui-compiler':
+        specifier: workspace:*
+        version: link:../packages/native/ui-compiler
       '@quajs/pipeline':
         specifier: workspace:*
         version: link:../packages/core/pipeline

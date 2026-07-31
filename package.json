@@ -25,6 +25,8 @@
     "build:affected": "turbo build --filter='...[HEAD^1]'",
     "build:core": "turbo build --filter='@quajs/engine' --filter='@quajs/assets' --filter='@quajs/store'",
     "dev": "turbo dev",
+    "dev:native": "pnpm --filter demo dev:native",
+    "native:e2e": "pnpm --filter demo native:e2e",
     "dev:novel-writer": "pnpm --filter novel-writer dev",
     "lint": "turbo lint",
     "lint:affected": "turbo lint --filter='...[HEAD^1]'",
