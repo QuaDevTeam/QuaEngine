@@ -127,6 +127,7 @@ fn fallback_reason(params: &DrawCommandParams) -> Option<&str> {
 fn fallback_pipeline(params: &DrawCommandParams, kind: DrawCommandKind) -> DrawBatchPipeline {
     match params {
         DrawCommandParams::Video(_) => DrawBatchPipeline::Video,
+        DrawCommandParams::BackdropBlur(_) => DrawBatchPipeline::BackdropBlur,
         _ => match kind {
             DrawCommandKind::Clear => DrawBatchPipeline::Clear,
             DrawCommandKind::Image | DrawCommandKind::NineSlice => DrawBatchPipeline::Image,
@@ -135,6 +136,7 @@ fn fallback_pipeline(params: &DrawCommandParams, kind: DrawCommandKind) -> DrawB
             DrawCommandKind::ClipStart | DrawCommandKind::ClipEnd => DrawBatchPipeline::Clip,
             DrawCommandKind::VideoFrame => DrawBatchPipeline::Video,
             DrawCommandKind::UiSurface => DrawBatchPipeline::Ui,
+            DrawCommandKind::BackdropBlur => DrawBatchPipeline::BackdropBlur,
             DrawCommandKind::Custom => DrawBatchPipeline::Custom,
         },
     }

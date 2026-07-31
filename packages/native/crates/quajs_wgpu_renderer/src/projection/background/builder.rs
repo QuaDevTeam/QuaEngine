@@ -91,6 +91,8 @@ pub fn build_background_commands_with_video_frame_resources(
             .and_then(|video| background_video_command(layout, video, video_frame_resources))
             .into_iter()
             .collect(),
+        // Unknown / future modes produce no draw commands rather than failing.
+        BackgroundMode::Unknown => Vec::new(),
     }
 }
 

@@ -39,6 +39,7 @@ pub enum WgpuNativeRenderShader {
     TexturedQuad,
     TextPlaceholder,
     ClipMask,
+    BackdropBlur,
     CustomFallback,
 }
 

@@ -136,10 +136,10 @@ struct SceneTransition {
 pub struct NativeRendererProjectionFrame {
     pub json: String,
     pub local_work_active: bool,
-    /// Renderer-local transitions still running in this frame: timeline
-    /// animations, presence fades, the typewriter reveal, and the scene
-    /// transition. Surfaced by the dev performance HUD.
     pub active_transition_count: usize,
+    /// Target frame rate extracted from `view.renderer.targetFrameRate`, or
+    /// `None` when absent/invalid. The native app threads this into the pacer.
+    pub target_frame_rate: Option<u32>,
 }
 
 #[derive(Debug)]
@@ -211,6 +211,13 @@ impl NativeRendererProjectionRuntime {
                 Ok(true)
             }
             "scene/change" => {
+                // Discard per-overlay scroll positions from the previous scene; they
+                // are renderer-local state keyed by elementId/nodeId, which may not
+                // exist in the incoming scene's overlay tree.
+                if !self.scroll_offsets.is_empty() {
+                    self.scroll_offsets.clear();
+                    self.cached_static_projection_json = None;
+                }
                 self.start_scene_transition(&payload, current_epoch_ms());
                 Ok(true)
             }
@@ -271,16 +278,19 @@ impl NativeRendererProjectionRuntime {
             && !has_presence_work
             && self.scene_transition.is_none()
         {
+            let target_frame_rate = self.read_target_frame_rate();
             if let Some(json) = self.cached_static_projection_json.clone() {
                 return Ok(NativeRendererProjectionFrame {
                     json,
                     local_work_active: false,
                     active_transition_count: 0,
+                    target_frame_rate,
                 });
             }
             let mut frame = self.base_frame.clone();
             if let Some(view) = frame.get_mut("view").and_then(Value::as_object_mut) {
                 view.remove("animations");
+                apply_scroll_offsets(view, &self.scroll_offsets);
             }
             let json = serde_json::to_string(&frame)?;
             self.cached_static_projection_json = Some(json.clone());
@@ -288,6 +298,7 @@ impl NativeRendererProjectionRuntime {
                 json,
                 local_work_active: false,
                 active_transition_count: 0,
+                target_frame_rate,
             });
         }
         let presence_transitions = self.presence.active_transition_count(now_ms);
@@ -303,6 +314,7 @@ impl NativeRendererProjectionRuntime {
             local_work_active |= self.apply_dialogue(view, now_ms);
             local_work_active |= self.apply_presence(view, now_ms);
             local_work_active |= self.apply_scene_transition(view, now_ms);
+            apply_scroll_offsets(view, &self.scroll_offsets);
             view.remove("animations");
         }
         Ok(NativeRendererProjectionFrame {
@@ -312,7 +324,21 @@ impl NativeRendererProjectionRuntime {
                 + presence_transitions
                 + dialogue_transitions
                 + scene_transitions,
+            target_frame_rate: self.read_target_frame_rate(),
         })
+    }
+
+    /// Reads `view.renderer.targetFrameRate` from the base frame. Returns
+    /// `None` for absent, non-numeric, non-finite, or out-of-range values.
+    pub fn read_target_frame_rate(&self) -> Option<u32> {
+        let fps = self
+            .base_frame
+            .pointer("/view/renderer/targetFrameRate")
+            .and_then(Value::as_f64)?;
+        if !fps.is_finite() || fps < 1.0 || fps > 240.0 {
+            return None;
+        }
+        Some(fps.round() as u32)
     }
 
     fn sync_dialogue(&mut self, now_ms: f64) {
@@ -997,23 +1023,100 @@ fn slice_text(value: &mut Value, visible: usize) {
                         continue;
                     };
                     for span in spans.iter_mut() {
+                        // Once the budget is exhausted every subsequent span must be
+                        // cleared, not left with its original text.
+                        if remaining == 0 {
+                            span["text"] = Value::String(String::new());
+                            continue;
+                        }
                         let Some(text) =
                             span.get("text").and_then(Value::as_str).map(str::to_string)
                         else {
                             continue;
                         };
-                        let count = text.graphemes(true).count();
-                        let next: String = text.graphemes(true).take(remaining).collect();
+                        // Single-pass: collect graphemes once, then both count and
+                        // slice from the same Vec — avoids a second O(n) scan.
+                        let graphemes: Vec<&str> = text.graphemes(true).collect();
+                        let count = graphemes.len();
+                        let next: String = graphemes.into_iter().take(remaining).collect();
                         span["text"] = Value::String(next);
                         remaining = remaining.saturating_sub(count);
-                        if remaining == 0 {
-                            break;
-                        }
                     }
                 }
             }
         }
         _ => {}
+    }
+}
+
+/// Writes the renderer-local scroll offsets stored in `scroll_offsets` into
+/// the matching `Scroll` nodes in the projected view JSON so the renderer
+/// deserialises the correct `scroll_offset_x`/`scroll_offset_y` values.
+///
+/// The `scroll_offsets` map uses the key `"{element_id}/{node_id}"`.  We walk
+/// every UI overlay's surface tree and patch any node whose composite key
+/// appears in the map.
+fn apply_scroll_offsets(view: &mut Map<String, Value>, scroll_offsets: &BTreeMap<String, (f64, f64)>) {
+    if scroll_offsets.is_empty() {
+        return;
+    }
+    let Some(overlays) = view
+        .get_mut("ui")
+        .and_then(|ui| ui.get_mut("overlays"))
+        .and_then(Value::as_array_mut)
+    else {
+        return;
+    };
+    for overlay in overlays.iter_mut() {
+        let Some(element_id) = overlay
+            .get("elementId")
+            .and_then(Value::as_str)
+            .map(str::to_string)
+        else {
+            continue;
+        };
+        let Some(root) = overlay
+            .get_mut("surface")
+            .and_then(|s| s.get_mut("root"))
+        else {
+            continue;
+        };
+        inject_scroll_offsets_into_node(root, &element_id, scroll_offsets);
+    }
+}
+
+/// Recursively walks a surface node tree and injects scroll offsets for any
+/// node whose `"{element_id}/{node.id}"` key is present in `scroll_offsets`.
+fn inject_scroll_offsets_into_node(
+    node: &mut Value,
+    element_id: &str,
+    scroll_offsets: &BTreeMap<String, (f64, f64)>,
+) {
+    let node_id = match node.get("id").and_then(Value::as_str) {
+        Some(id) => id.to_string(),
+        None => return,
+    };
+    let key = format!("{element_id}/{node_id}");
+    if let Some(&(offset_x, offset_y)) = scroll_offsets.get(&key) {
+        if let Some(obj) = node.as_object_mut() {
+            // Only write non-zero offsets — zero is the serde default and writing
+            // it wastes JSON bytes without changing behaviour.
+            if offset_x != 0.0 {
+                obj.insert("scrollOffsetX".to_string(), json!(offset_x));
+            } else {
+                obj.remove("scrollOffsetX");
+            }
+            if offset_y != 0.0 {
+                obj.insert("scrollOffsetY".to_string(), json!(offset_y));
+            } else {
+                obj.remove("scrollOffsetY");
+            }
+        }
+    }
+    if let Some(children) = node.get_mut("children").and_then(Value::as_array_mut) {
+        for child in children.iter_mut() {
+            inject_scroll_offsets_into_node(child, element_id, scroll_offsets);
+        }
     }
 }
 

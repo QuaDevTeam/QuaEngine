@@ -3,6 +3,7 @@ use super::super::device_plan::{
     WgpuNativeRenderDeviceRenderPass,
 };
 use super::WgpuNativeRenderRuntimeOperation;
+use crate::render_graph::RenderPlane;
 
 pub(super) fn push_queue_writes(
     device_plan: &WgpuNativeRenderDevicePlan,
@@ -40,6 +41,11 @@ fn push_command_encoder(
         command_count: encoder.command_count,
     });
     for pass in &encoder.render_passes {
+        // Snapshot the current frame content into the backdrop-capture slot
+        // before the Safe plane renders so backdrop-blur commands can sample it.
+        if pass.plane == Some(RenderPlane::Safe) {
+            operations.push(WgpuNativeRenderRuntimeOperation::CopyFramebufferToBackdrop);
+        }
         push_render_pass(&encoder.label, pass, operations);
     }
     operations.push(WgpuNativeRenderRuntimeOperation::SubmitCommandBuffer {

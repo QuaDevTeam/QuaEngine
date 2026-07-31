@@ -56,6 +56,9 @@ pub(super) fn parse_color_literal(literal: &str) -> Option<WgpuNativeRenderPaint
     if let Some(color) = parse_named_color(literal) {
         return Some(WgpuNativeRenderPaintColor::Rgba(color));
     }
+    if let Some(color) = parse_hsl_color(literal) {
+        return Some(WgpuNativeRenderPaintColor::Rgba(color));
+    }
     parse_rgb_color(literal).map(WgpuNativeRenderPaintColor::Rgba)
 }
 
@@ -115,6 +118,62 @@ fn parse_named_color(literal: &str) -> Option<WgpuNativeRenderColor> {
         b: blue as f32 / 255.0,
         a: alpha as f32 / 255.0,
     })
+}
+
+fn parse_hsl_color(literal: &str) -> Option<WgpuNativeRenderColor> {
+    let lower = literal.to_ascii_lowercase();
+    let (function_name, has_alpha) = if lower.starts_with("hsla(") {
+        ("hsla", true)
+    } else if lower.starts_with("hsl(") {
+        ("hsl", false)
+    } else {
+        return None;
+    };
+    if !literal.ends_with(')') {
+        return None;
+    }
+    let prefix_len = function_name.len() + 1;
+    let inner = &lower[prefix_len..lower.len() - 1];
+    let parts: Vec<&str> = inner.split(',').map(str::trim).collect();
+    let expected_parts = if has_alpha { 4 } else { 3 };
+    if parts.len() != expected_parts {
+        return None;
+    }
+    // Hue accepts a bare number or a number with "deg" suffix (e.g. "240deg")
+    let hue_str = parts[0].strip_suffix("deg").unwrap_or(parts[0]).trim();
+    let hue: f32 = hue_str.parse().ok()?;
+    // Saturation and lightness must carry a "%" suffix
+    let saturation: f32 = parts[1].strip_suffix('%')?.trim().parse().ok()?;
+    let lightness: f32 = parts[2].strip_suffix('%')?.trim().parse().ok()?;
+    if !hue.is_finite() || !saturation.is_finite() || !lightness.is_finite() {
+        return None;
+    }
+    if !(0.0..=100.0).contains(&saturation) || !(0.0..=100.0).contains(&lightness) {
+        return None;
+    }
+    let alpha = if has_alpha {
+        parse_alpha_channel(parts[3])?
+    } else {
+        1.0
+    };
+    let (r, g, b) = hsl_to_rgb(hue.rem_euclid(360.0), saturation / 100.0, lightness / 100.0);
+    Some(WgpuNativeRenderColor { r, g, b, a: alpha })
+}
+
+fn hsl_to_rgb(h: f32, s: f32, l: f32) -> (f32, f32, f32) {
+    // CSS Color Level 4 HSL → sRGB conversion (IEC 61966-2-1)
+    let c = (1.0 - (2.0 * l - 1.0).abs()) * s;
+    let x = c * (1.0 - ((h / 60.0).rem_euclid(2.0) - 1.0).abs());
+    let m = l - c / 2.0;
+    let (r1, g1, b1): (f32, f32, f32) = match (h / 60.0) as u32 {
+        0 => (c, x, 0.0),
+        1 => (x, c, 0.0),
+        2 => (0.0, c, x),
+        3 => (0.0, x, c),
+        4 => (x, 0.0, c),
+        _ => (c, 0.0, x),
+    };
+    (r1 + m, g1 + m, b1 + m)
 }
 
 fn parse_rgb_color(literal: &str) -> Option<WgpuNativeRenderColor> {

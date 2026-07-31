@@ -185,10 +185,20 @@ where
 
     sync.orphaned_resident_resource_ids = resident_ids
         .difference(&requested_ids)
+        .filter(|resource_id| !is_renderer_managed_texture_resource(resource_id.as_str()))
         .map(|id| ResourceId::from(id.clone()))
         .collect();
 
     sync
+}
+
+/// Font atlases and video frame textures share the decoded-texture cache with
+/// ordinary image uploads, but their feature backends own their lifetimes.
+/// They can be absent from a transient frame while still being required by
+/// the backend's active projection, so generic orphan pruning must leave them
+/// alone until the backend emits an explicit release.
+fn is_renderer_managed_texture_resource(resource_id: &str) -> bool {
+    resource_id.as_bytes().starts_with(b"fonts:") || resource_id.as_bytes().starts_with(b"video:")
 }
 
 fn asset_request_from_resource(

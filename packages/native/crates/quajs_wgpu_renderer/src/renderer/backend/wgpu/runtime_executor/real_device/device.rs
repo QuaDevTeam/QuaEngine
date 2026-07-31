@@ -23,6 +23,10 @@ pub struct RealWgpuNativeRenderRuntimeDevice {
     pub(super) bind_groups: BTreeMap<String, RealRuntimeBindGroup>,
     pub(super) decoded_textures: BTreeMap<String, RealRuntimeDecodedTexture>,
     pub(super) frame_target: RealRuntimeFrameTarget,
+    /// Persistent texture used as the source for `BackdropBlur` draws.  Created
+    /// on first `CopyFramebufferToBackdrop` and recreated whenever the frame
+    /// dimensions change.
+    pub(super) backdrop_texture: Option<wgpu::Texture>,
     pub(super) active_encoder: Option<RealRuntimeEncoder>,
     pub(super) submitted_command_buffer_count: usize,
 }
@@ -43,6 +47,7 @@ impl Clone for RealWgpuNativeRenderRuntimeDevice {
             bind_groups: self.bind_groups.clone(),
             decoded_textures: self.decoded_textures.clone(),
             frame_target: self.frame_target.clone(),
+            backdrop_texture: self.backdrop_texture.clone(),
             active_encoder: None,
             submitted_command_buffer_count: self.submitted_command_buffer_count,
         }
@@ -66,6 +71,7 @@ impl RealWgpuNativeRenderRuntimeDevice {
             bind_groups: BTreeMap::new(),
             decoded_textures: BTreeMap::new(),
             frame_target,
+            backdrop_texture: None,
             active_encoder: None,
             submitted_command_buffer_count: 0,
         }

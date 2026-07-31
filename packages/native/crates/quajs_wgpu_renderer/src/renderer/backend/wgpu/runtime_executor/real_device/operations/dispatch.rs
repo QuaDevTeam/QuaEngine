@@ -184,5 +184,8 @@ pub(super) fn apply_real_runtime_operation(
         WgpuNativeRenderRuntimeOperation::SubmitCommandBuffer { encoder_label, .. } => {
             device.submit_encoder(encoder_label)
         }
+        WgpuNativeRenderRuntimeOperation::CopyFramebufferToBackdrop => {
+            device.copy_framebuffer_to_backdrop()
+        }
     }
 }

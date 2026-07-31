@@ -1,3 +1,101 @@
+/// Backdrop-blur pass.  Samples the captured pre-Safe-plane framebuffer with a
+/// separable 5-tap Gaussian and blends the result over the quad.
+///
+/// Vertex layout is identical to every other pass (position + uv + color +
+/// effect0..2).  `effect0.x` carries the blur radius in **physical pixels**.
+/// The backdrop texture UVs are derived from `@builtin(position)` so the
+/// sample always reads the matching screen pixel regardless of the quad's own
+/// vertex UVs.
+pub(super) const BACKDROP_BLUR_WGSL: &str = r#"
+struct VertexInput {
+    @location(0) position: vec2<f32>,
+    @location(1) uv:       vec2<f32>,
+    @location(2) color:    vec4<f32>,
+    @location(3) effect0:  vec4<f32>,
+    @location(4) effect1:  vec4<f32>,
+    @location(5) effect2:  vec4<f32>,
+};
+
+struct VertexOutput {
+    @builtin(position) position: vec4<f32>,
+    @location(0) uv:      vec2<f32>,
+    @location(1) color:   vec4<f32>,
+    @location(2) effect0: vec4<f32>,
+};
+
+struct FrameUniforms {
+    target_size: vec2<f32>,
+    _padding:    vec2<f32>,
+};
+
+@group(0) @binding(0)
+var<uniform> frame: FrameUniforms;
+
+@group(1) @binding(0)
+var backdrop_sampler: sampler;
+
+@group(1) @binding(1)
+var backdrop_texture: texture_2d<f32>;
+
+@vertex
+fn vs_main(input: VertexInput) -> VertexOutput {
+    var output: VertexOutput;
+    let clip = vec2<f32>(
+        (input.position.x / max(frame.target_size.x, 1.0)) * 2.0 - 1.0,
+        1.0 - (input.position.y / max(frame.target_size.y, 1.0)) * 2.0,
+    );
+    output.position = vec4<f32>(clip, 0.0, 1.0);
+    output.uv      = input.uv;
+    output.color   = input.color;
+    output.effect0 = input.effect0;
+    return output;
+}
+
+// Bilinear-safe single-axis Gaussian: 5-tap kernel with weights
+//   [0.0625, 0.25, 0.375, 0.25, 0.0625]  (σ ≈ 0.85 · radius)
+// Two passes (horizontal + vertical) give a full 2-D Gaussian approximation.
+fn gaussian5(
+    tex: texture_2d<f32>,
+    smp: sampler,
+    uv: vec2<f32>,
+    step: vec2<f32>,
+) -> vec4<f32> {
+    var c = vec4<f32>(0.0);
+    c += textureSample(tex, smp, uv - step * 2.0) * 0.0625;
+    c += textureSample(tex, smp, uv - step)       * 0.25;
+    c += textureSample(tex, smp, uv)               * 0.375;
+    c += textureSample(tex, smp, uv + step)       * 0.25;
+    c += textureSample(tex, smp, uv + step * 2.0) * 0.0625;
+    return c;
+}
+
+@fragment
+fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
+    // Derive backdrop UVs from screen-space fragment position so this command
+    // always reads the pixel directly behind it regardless of the vertex UVs.
+    let screen_uv = input.position.xy / max(frame.target_size, vec2<f32>(1.0));
+
+    let radius = max(input.effect0.x, 0.0);
+    let tex_size = vec2<f32>(textureDimensions(backdrop_texture));
+    // Divide by 2 so the 5 taps land at {0, ±r/2, ±r} pixels, matching the
+    // CSS blur(r) envelope where σ ≈ r/2 and ±2σ ≈ ±r.
+    let step_x = vec2<f32>(radius / (2.0 * max(tex_size.x, 1.0)), 0.0);
+    let step_y = vec2<f32>(0.0, radius / (2.0 * max(tex_size.y, 1.0)));
+
+    // Two-pass separable Gaussian via manual horizontal then vertical taps.
+    var blurred = vec4<f32>(0.0);
+    blurred += gaussian5(backdrop_texture, backdrop_sampler, screen_uv - step_y * 2.0, step_x) * 0.0625;
+    blurred += gaussian5(backdrop_texture, backdrop_sampler, screen_uv - step_y,       step_x) * 0.25;
+    blurred += gaussian5(backdrop_texture, backdrop_sampler, screen_uv,                step_x) * 0.375;
+    blurred += gaussian5(backdrop_texture, backdrop_sampler, screen_uv + step_y,       step_x) * 0.25;
+    blurred += gaussian5(backdrop_texture, backdrop_sampler, screen_uv + step_y * 2.0, step_x) * 0.0625;
+
+    // Modulate by the command opacity (stored in vertex color.a) so presence
+    // transitions work the same way they do for other Safe-plane draws.
+    return vec4<f32>(blurred.rgb, blurred.a * input.color.a);
+}
+"#;
+
 pub(super) const SOLID_COLOR_WGSL: &str = r#"
 struct VertexInput {
     @location(0) position: vec2<f32>,

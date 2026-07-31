@@ -75,7 +75,7 @@ impl NativeRendererState {
         self.audio_backend_tracks = audio_backend_commands.next_tracks.clone();
         self.font_backend_faces = font_backend_commands.next_faces.clone();
         self.video_backend_streams = video_backend_commands.next_streams.clone();
-        self.pointer_interaction.controls.reconcile(&frame.graph);
+        self.pointer_interaction.reconcile(&frame.graph);
         self.frame = Some(frame);
 
         NativeRendererFrameUpdate {

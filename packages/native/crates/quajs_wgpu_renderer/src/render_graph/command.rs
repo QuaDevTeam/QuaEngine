@@ -50,6 +50,7 @@ pub enum DrawCommandKind {
     ClipEnd,
     VideoFrame,
     UiSurface,
+    BackdropBlur,
     Custom,
 }
 

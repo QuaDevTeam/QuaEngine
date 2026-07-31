@@ -159,6 +159,10 @@ pub enum WgpuNativeRenderRuntimeOperation {
         pass_count: usize,
         command_count: usize,
     },
+    /// Copy the current frame-target texture into the backdrop-capture slot so
+    /// that backdrop-blur draw commands in the following Safe-plane pass can
+    /// sample it.  Injected automatically before every Safe-plane render pass.
+    CopyFramebufferToBackdrop,
 }
 
 #[cfg(test)]

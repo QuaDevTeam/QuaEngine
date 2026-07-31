@@ -267,3 +267,45 @@ fn render_only_ui_scene_uses_scene_surface_shell_placement_and_interactivity() {
         _ => panic!("expected ui button params"),
     }
 }
+
+#[test]
+fn paints_overlay_stack_panels_above_hud_stack_app_shell() {
+    // A product app shell is the base plate: it declares the `hud` stack so
+    // plugin panels (`overlay` stack) always paint, and therefore hit-test,
+    // above it. Regression guard for the shell's opaque title background
+    // covering the settings/gallery panel.
+    let layout = test_layout();
+    let ui = UiProjection {
+        overlays: vec![
+            UiOverlayProjection {
+                surface: Some(UiOverlaySurfaceProjection::new("demo/native-app.qui")),
+                overlay_stack: Some("hud".to_string()),
+                z_index: Some(10),
+                ..UiOverlayProjection::new("native-app-shell")
+            },
+            UiOverlayProjection {
+                surface: Some(UiOverlaySurfaceProjection::new("plugin-settings/native")),
+                overlay_stack: Some("overlay".to_string()),
+                z_index: Some(60),
+                ..UiOverlayProjection::new("settings")
+            },
+        ],
+        ..Default::default()
+    };
+
+    let commands = build_ui_commands(&layout, &ui);
+
+    let shell = commands
+        .iter()
+        .position(|command| command.id == "ui:native-app-shell")
+        .expect("app shell command");
+    let settings = commands
+        .iter()
+        .position(|command| command.id == "ui:settings")
+        .expect("settings command");
+
+    assert!(shell < settings, "app shell must paint before the panel");
+    assert_eq!(commands[shell].z_index, 10);
+    assert_eq!(commands[settings].z_index, 100_000_060);
+    assert!(commands[settings].z_index > commands[shell].z_index);
+}

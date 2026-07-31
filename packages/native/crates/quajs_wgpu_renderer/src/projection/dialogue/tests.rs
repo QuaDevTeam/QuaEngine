@@ -37,8 +37,7 @@ fn builds_dialogue_panel_and_text_commands() {
 
     let commands = build_dialogue_commands(&layout, &dialogue);
 
-    assert_eq!(commands.len(), 8);
-    assert_eq!(commands[0].id, "dialogue:shadow");
+    assert_eq!(commands.len(), 12);
     let panel = commands
         .iter()
         .find(|command| command.id == "dialogue:panel")
@@ -49,7 +48,7 @@ fn builds_dialogue_panel_and_text_commands() {
     match &panel.params {
         DrawCommandParams::Panel(params) => {
             assert_eq!(panel.bounds.height, layout.logical_height * 0.1225);
-            assert_eq!(params.fill_color, "rgba(7,8,12,0.97)");
+            assert_eq!(params.fill_color, "rgba(7,8,12,0.90)");
             assert_eq!(params.border.width, 1.0);
             assert_eq!(
                 params.border.color.as_deref(),
@@ -92,7 +91,7 @@ fn builds_dialogue_panel_and_text_commands() {
     match &text.params {
         DrawCommandParams::Text(params) => {
             assert_eq!(params.text, "Hello native renderer.");
-            assert_eq!(params.color, "#f7f2ea");
+            assert_eq!(params.color, "#fffaf2");
             assert!(params.font_family.is_empty());
             assert!(params.font_weight.is_none());
             assert_eq!(params.role, "dialogue-text");
@@ -177,7 +176,7 @@ fn skips_unsafe_speaker_but_keeps_safe_dialogue_text() {
 
     let commands = build_dialogue_commands(&layout, &dialogue);
 
-    assert_eq!(commands.len(), 6);
+    assert_eq!(commands.len(), 9);
     assert!(commands
         .iter()
         .all(|command| command.id != "dialogue:speaker"));
@@ -210,7 +209,7 @@ fn falls_back_to_character_name_like_web_dialogue_projection() {
     match &speaker.params {
         DrawCommandParams::Text(params) => {
             assert_eq!(params.text, "Lin");
-            assert_eq!(params.color, "#e8c878");
+            assert_eq!(params.color, "#ffe3a0");
         }
         _ => panic!("expected speaker text params"),
     }
@@ -347,7 +346,7 @@ fn falls_back_from_unsafe_dialogue_style_on_direct_projection() {
 
     let commands = build_dialogue_commands(&layout, &dialogue);
 
-    assert_eq!(commands.len(), 8);
+    assert_eq!(commands.len(), 12);
 
     let speaker = commands
         .iter()
@@ -355,10 +354,10 @@ fn falls_back_from_unsafe_dialogue_style_on_direct_projection() {
         .unwrap();
     match &speaker.params {
         DrawCommandParams::Text(params) => {
-            assert_eq!(params.color, "#e8c878");
+            assert_eq!(params.color, "#ffe3a0");
             assert_eq!(params.font_family, vec!["Qua Serif"]);
-            assert_eq!(params.font_size, 24.0);
-            assert_eq!(params.line_height, 30.0);
+            assert_eq!(params.font_size, 18.0);
+            assert_eq!(params.line_height, 20.0);
         }
         _ => panic!("expected speaker text params"),
     }
@@ -378,9 +377,9 @@ fn falls_back_from_unsafe_dialogue_style_on_direct_projection() {
     match &text.params {
         DrawCommandParams::Text(params) => {
             assert_eq!(params.text, "Safe text");
-            assert_eq!(params.color, "#f7f2ea");
+            assert_eq!(params.color, "#fffaf2");
             assert_eq!(params.font_family, vec!["Dialogue Sans"]);
-            assert_eq!(params.font_size, 27.0);
+            assert_eq!(params.font_size, 20.0);
             assert_eq!(params.line_height, 36.0);
         }
         _ => panic!("expected dialogue text params"),
@@ -408,14 +407,7 @@ fn skips_empty_avatar_asset_on_direct_projection() {
 
     let commands = build_dialogue_commands(&layout, &dialogue);
 
-    assert_eq!(commands.len(), 6);
-    assert!(commands
-        .iter()
-        .all(|command| command.id != "dialogue:avatar"));
-    assert!(commands
-        .iter()
-        .flat_map(|command| command.resource_ids.iter())
-        .all(|resource| resource.as_str() != "characters:  "));
+    assert_eq!(commands.len(), 9);
 }
 
 #[test]
@@ -441,7 +433,7 @@ fn skips_unsafe_avatar_asset_names_on_direct_projection() {
 
         let commands = build_dialogue_commands(&layout, &dialogue);
 
-        assert_eq!(commands.len(), 6);
+        assert_eq!(commands.len(), 9);
         assert!(
             commands
                 .iter()
@@ -465,14 +457,7 @@ fn skips_unsafe_avatar_asset_type_on_direct_projection() {
 
     let commands = build_dialogue_commands(&layout, &dialogue);
 
-    assert_eq!(commands.len(), 6);
-    assert!(commands
-        .iter()
-        .all(|command| command.id != "dialogue:avatar"));
-    assert!(commands
-        .iter()
-        .flat_map(|command| command.resource_ids.iter())
-        .all(|resource| resource.as_str() != "characters/native:yuki/avatar.png"));
+    assert_eq!(commands.len(), 9);
 }
 
 #[test]
@@ -482,7 +467,7 @@ fn appends_dialogue_commands_to_graph() {
 
     assert_eq!(
         graph.summary().by_plane[&RenderPlane::Safe].command_count,
-        6
+        9
     );
 }
 

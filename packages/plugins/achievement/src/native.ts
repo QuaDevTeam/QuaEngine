@@ -128,11 +128,10 @@ function createBoardRoot(
     .map(id => projection.achievements.find(item => item.id === id))
     .filter((item): item is AchievementProjectionItem => Boolean(item))
   const selected = projection.achievements.find(item => item.id === projection.selectedAchievementId) || filtered[0]
-  const visible = centeredWindow(filtered, selected?.id, MAX_ACHIEVEMENTS)
   const rowGap = 10
   const rowHeight = Math.min(
     116,
-    Math.max(62, (bodyHeight - rowGap * Math.max(0, visible.length - 1)) / Math.max(1, visible.length)),
+    Math.max(62, (bodyHeight - rowGap * Math.max(0, Math.min(filtered.length, MAX_ACHIEVEMENTS) - 1)) / Math.max(1, Math.min(filtered.length, MAX_ACHIEVEMENTS))),
   )
   const groupWidth = Math.min(190, (listWidth - edge) / Math.max(1, Math.min(MAX_GROUPS, projection.groups.length)))
   const unlockedCount = projection.achievements.filter(item => item.unlocked).length
@@ -203,28 +202,57 @@ function createBoardRoot(
             style: buttonStyle('#303842'),
             provenance,
           }),
-          ...projection.groups.slice(0, MAX_GROUPS).map((group, index) => node(
-            `achievement-group-${index}`,
-            'Button',
-            {
-              x: panel.x + edge + index * groupWidth,
-              y: panel.y + 72,
-              width: groupWidth - 8,
-              height: 42,
-            },
-            {
-              text: `${group.title} ${group.unlockedAchievements}/${group.totalAchievements}`,
-              intent: uiIntent(ACTIONS.selectGroup, { groupId: group.id }),
-              style: buttonStyle(group.id === projection.selectedGroupId ? '#6d5936' : '#222b35'),
-              provenance: mergeProvenance(provenance, itemProvenance(group)),
-            },
-          )),
-          ...visible.map((achievement, index) => createAchievementRow(achievement, index, {
+          node('achievement-groups-scroll', 'Scroll', {
             x: panel.x + edge,
-            y: bodyTop + index * (rowHeight + rowGap),
+            y: panel.y + 72,
+            width: listWidth - edge,
+            height: 50,
+          }, {
+            clipChildren: true,
+            provenance,
+            children: projection.groups.map((group, index) => node(
+              `achievement-group-${index}`,
+              'Button',
+              {
+                x: panel.x + edge + index * groupWidth,
+                y: panel.y + 72,
+                width: groupWidth - 8,
+                height: 42,
+              },
+              {
+                text: `${group.title} ${group.unlockedAchievements}/${group.totalAchievements}`,
+                intent: uiIntent(ACTIONS.selectGroup, { groupId: group.id }),
+                style: buttonStyle(group.id === projection.selectedGroupId ? '#6d5936' : '#222b35'),
+                provenance: mergeProvenance(provenance, itemProvenance(group)),
+              },
+            )),
+          }),
+          node('achievement-list-scroll', 'Scroll', {
+            x: panel.x + edge,
+            y: bodyTop,
             width: listWidth - edge * 1.5,
-            height: rowHeight,
-          }, achievement.id === selected?.id, provenance)),
+            height: bodyHeight,
+          }, {
+            clipChildren: true,
+            provenance,
+            children: filtered.length > 0
+              ? filtered.map((achievement, index) => createAchievementRow(achievement, index, {
+                  x: panel.x + edge,
+                  y: bodyTop + index * (rowHeight + rowGap),
+                  width: listWidth - edge * 1.5,
+                  height: rowHeight,
+                }, achievement.id === selected?.id, provenance))
+              : [node('achievement-empty', 'Text', {
+                  x: panel.x + edge,
+                  y: bodyTop,
+                  width: listWidth - edge * 1.5,
+                  height: bodyHeight,
+                }, {
+                  text: 'No achievements',
+                  style: { color: '#a5aeb9', fontSize: 22, textAlign: 'center' },
+                  provenance,
+                })],
+          }),
           createAchievementDetail(selected, {
             x: detailX,
             y: bodyTop,
@@ -388,12 +416,6 @@ function assetImage(asset: { name: string, type: string } | undefined) {
   return asset?.type === 'images' && asset.name
     ? { assetName: asset.name, assetType: asset.type }
     : undefined
-}
-
-function centeredWindow(entries: readonly AchievementProjectionItem[], selectedId: string | undefined, size: number) {
-  const selectedIndex = Math.max(0, entries.findIndex(item => item.id === selectedId))
-  const start = Math.max(0, Math.min(selectedIndex - Math.floor(size / 2), entries.length - size))
-  return entries.slice(start, start + size)
 }
 
 function itemProvenance(item: { contentPackageId?: string, requiredRuntimePackages?: readonly string[] } | undefined) {

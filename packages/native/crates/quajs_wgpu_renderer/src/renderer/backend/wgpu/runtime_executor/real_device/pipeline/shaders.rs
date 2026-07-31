@@ -5,7 +5,7 @@ use crate::renderer::backend::wgpu::{
     WgpuNativeRenderBindGroupLayout, WgpuNativeRenderPipelineKey, WgpuNativeRenderShader,
 };
 
-use super::wgsl::{SOLID_COLOR_WGSL, TEXTURED_QUAD_WGSL, TEXT_ATLAS_WGSL};
+use super::wgsl::{BACKDROP_BLUR_WGSL, SOLID_COLOR_WGSL, TEXTURED_QUAD_WGSL, TEXT_ATLAS_WGSL};
 
 pub(super) struct RealPipelineShader<'a> {
     pub label: &'static str,
@@ -39,6 +39,13 @@ pub(super) fn resolve_pipeline_shader<'a>(
                 bind_group_layouts: vec![Some(frame_uniform_layout), Some(texture_sampler_layout)],
             })
         }
+        (WgpuNativeRenderShader::BackdropBlur, WgpuNativeRenderBindGroupLayout::TextureSampler) => {
+            Ok(RealPipelineShader {
+                label: "qua-native::backdrop-blur-shader",
+                source: BACKDROP_BLUR_WGSL,
+                bind_group_layouts: vec![Some(frame_uniform_layout), Some(texture_sampler_layout)],
+            })
+        }
         (WgpuNativeRenderShader::TextPlaceholder, WgpuNativeRenderBindGroupLayout::TextAtlas) => {
             Ok(RealPipelineShader {
                 label: "qua-native::text-atlas-shader",
@@ -54,7 +61,7 @@ pub(super) fn resolve_pipeline_shader<'a>(
         _ => unsupported_pipeline(
             cache_label,
             key,
-            "the real-wgpu runtime currently materializes no-bind-group color fallback pipelines, TexturedQuad/TextureSampler, and TextPlaceholder/TextAtlas bitmap atlas pipelines only",
+            "the real-wgpu runtime currently materializes no-bind-group color fallback pipelines, TexturedQuad/TextureSampler, BackdropBlur/TextureSampler, and TextPlaceholder/TextAtlas bitmap atlas pipelines only",
         ),
     }
 }

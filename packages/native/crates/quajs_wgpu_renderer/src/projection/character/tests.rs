@@ -257,7 +257,7 @@ fn skips_characters_with_unsafe_resolved_numbers_on_direct_projection() {
 }
 
 #[test]
-fn resolves_anchor_and_default_safe_area_position() {
+fn resolves_anchor_and_default_bottom_position() {
     let layout = test_layout();
     let left = CharacterPosition {
         x_percent: Some(5.0),
@@ -279,9 +279,11 @@ fn resolves_anchor_and_default_safe_area_position() {
         center_bounds.x + center_bounds.width / 2.0,
         layout.safe_area.x + layout.safe_area.width / 2.0
     );
+    // Default y places the character bottom flush with the stage bottom,
+    // matching the web renderer's `bottom: 0` convention.
     assert_eq!(
         center_bounds.y + center_bounds.height / 2.0,
-        layout.safe_area.y + layout.safe_area.height / 2.0
+        layout.logical_height
     );
     assert_eq!(center_bounds.width, 500.0);
     assert_eq!(center_bounds.height, 750.0);

@@ -359,6 +359,13 @@ pub struct UiSurfaceDrawParams {
     pub intent: Option<RendererIntent>,
 }
 
+/// Parameters for a CSS `backdrop-filter: blur(r)` pass.  The draw command
+/// covers the region to blur; `blur_radius` is in logical pixels.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct BackdropBlurDrawParams {
+    pub blur_radius: f64,
+}
+
 #[derive(Clone, Debug, Default, PartialEq)]
 pub enum DrawCommandParams {
     Image(ImageDrawParams),
@@ -370,6 +377,7 @@ pub enum DrawCommandParams {
     Gradient(GradientDrawParams),
     UiButton(UiButtonDrawParams),
     UiSurface(UiSurfaceDrawParams),
+    BackdropBlur(BackdropBlurDrawParams),
     #[default]
     None,
 }
