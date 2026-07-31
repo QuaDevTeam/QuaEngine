@@ -3,7 +3,9 @@ use std::collections::BTreeSet;
 use super::super::bind_group::{create_real_bind_group, RealRuntimeBindGroup};
 use super::super::texture::decoded::RealRuntimeDecodedTexture;
 use super::super::texture::sampler::create_texture_sampler;
-use super::super::{invalid_order, RealWgpuNativeRenderRuntimeDevice, WgpuNativeRenderRuntimeError};
+use super::super::{
+    invalid_order, RealWgpuNativeRenderRuntimeDevice, WgpuNativeRenderRuntimeError,
+};
 use crate::renderer::backend::wgpu::WgpuNativeRenderBindGroupLayout;
 
 /// Fixed resource-ID key used to register the backdrop-capture texture in the
@@ -42,21 +44,18 @@ impl RealWgpuNativeRenderRuntimeDevice {
             .unwrap_or(true);
 
         if needs_new {
-            self.backdrop_texture = Some(
-                self.target
-                    .device()
-                    .create_texture(&wgpu::TextureDescriptor {
-                        label: Some("qua-native::backdrop-capture"),
-                        size: extent,
-                        mip_level_count: 1,
-                        sample_count: 1,
-                        dimension: wgpu::TextureDimension::D2,
-                        format,
-                        usage: wgpu::TextureUsages::COPY_DST
-                            | wgpu::TextureUsages::TEXTURE_BINDING,
-                        view_formats: &[],
-                    }),
-            );
+            self.backdrop_texture = Some(self.target.device().create_texture(
+                &wgpu::TextureDescriptor {
+                    label: Some("qua-native::backdrop-capture"),
+                    size: extent,
+                    mip_level_count: 1,
+                    sample_count: 1,
+                    dimension: wgpu::TextureDimension::D2,
+                    format,
+                    usage: wgpu::TextureUsages::COPY_DST | wgpu::TextureUsages::TEXTURE_BINDING,
+                    view_formats: &[],
+                },
+            ));
         }
 
         let backdrop = self.backdrop_texture.as_ref().expect("just created above");
@@ -69,10 +68,7 @@ impl RealWgpuNativeRenderRuntimeDevice {
         // Register (or refresh) the backdrop as a decoded texture so the
         // standard TextureSampler bind-group creation code can find it.
         let view = backdrop.create_view(&wgpu::TextureViewDescriptor::default());
-        let sampler = create_texture_sampler(
-            &self.target,
-            "qua-native::backdrop-capture-sampler",
-        );
+        let sampler = create_texture_sampler(&self.target, "qua-native::backdrop-capture-sampler");
         let byte_len = (extent.width as usize)
             .saturating_mul(extent.height as usize)
             .saturating_mul(4);

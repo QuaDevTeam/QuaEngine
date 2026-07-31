@@ -108,7 +108,11 @@ impl PresenceState {
                 .values()
                 .filter(|r| !r.is_done(now_ms))
                 .count()
-            + self.overlays.values().filter(|r| !r.is_done(now_ms)).count()
+            + self
+                .overlays
+                .values()
+                .filter(|r| !r.is_done(now_ms))
+                .count()
     }
 }
 
@@ -527,7 +531,10 @@ impl NativeRendererProjectionRuntime {
         //                          current_offset_x, current_offset_y, depth)
         let mut best: Option<(String, f64, f64, f64, f64)> = None;
         for overlay in overlays {
-            let element_id = overlay.get("elementId").and_then(Value::as_str).unwrap_or("");
+            let element_id = overlay
+                .get("elementId")
+                .and_then(Value::as_str)
+                .unwrap_or("");
             if let Some(surface) = overlay.get("surface") {
                 if let Some(root) = surface.get("root") {
                     find_scroll_node(root, client_x, client_y, element_id, 0.0, 0.0, &mut best);
@@ -906,10 +913,18 @@ fn find_scroll_node(
     best: &mut Option<(String, f64, f64, f64, f64)>,
 ) {
     let bounds = match (
-        node.get("bounds").and_then(|b| b.get("x")).and_then(Value::as_f64),
-        node.get("bounds").and_then(|b| b.get("y")).and_then(Value::as_f64),
-        node.get("bounds").and_then(|b| b.get("width")).and_then(Value::as_f64),
-        node.get("bounds").and_then(|b| b.get("height")).and_then(Value::as_f64),
+        node.get("bounds")
+            .and_then(|b| b.get("x"))
+            .and_then(Value::as_f64),
+        node.get("bounds")
+            .and_then(|b| b.get("y"))
+            .and_then(Value::as_f64),
+        node.get("bounds")
+            .and_then(|b| b.get("width"))
+            .and_then(Value::as_f64),
+        node.get("bounds")
+            .and_then(|b| b.get("height"))
+            .and_then(Value::as_f64),
     ) {
         (Some(x), Some(y), Some(w), Some(h)) => (x, y, w, h),
         _ => return,
@@ -948,7 +963,9 @@ fn find_scroll_node(
     };
     if let Some(children) = node.get("children").and_then(Value::as_array) {
         for child in children {
-            find_scroll_node(child, hit_x, hit_y, element_id, next_acc_x, next_acc_y, best);
+            find_scroll_node(
+                child, hit_x, hit_y, element_id, next_acc_x, next_acc_y, best,
+            );
         }
     }
 }
@@ -960,8 +977,14 @@ fn children_max_right(node: &Value, acc_x: f64) -> f64 {
             children
                 .iter()
                 .filter_map(|child| {
-                    let x = child.get("bounds").and_then(|b| b.get("x")).and_then(Value::as_f64)?;
-                    let w = child.get("bounds").and_then(|b| b.get("width")).and_then(Value::as_f64)?;
+                    let x = child
+                        .get("bounds")
+                        .and_then(|b| b.get("x"))
+                        .and_then(Value::as_f64)?;
+                    let w = child
+                        .get("bounds")
+                        .and_then(|b| b.get("width"))
+                        .and_then(Value::as_f64)?;
                     Some(x + w - acc_x)
                 })
                 .fold(0.0_f64, f64::max)
@@ -976,8 +999,14 @@ fn children_max_bottom(node: &Value, acc_y: f64) -> f64 {
             children
                 .iter()
                 .filter_map(|child| {
-                    let y = child.get("bounds").and_then(|b| b.get("y")).and_then(Value::as_f64)?;
-                    let h = child.get("bounds").and_then(|b| b.get("height")).and_then(Value::as_f64)?;
+                    let y = child
+                        .get("bounds")
+                        .and_then(|b| b.get("y"))
+                        .and_then(Value::as_f64)?;
+                    let h = child
+                        .get("bounds")
+                        .and_then(|b| b.get("height"))
+                        .and_then(Value::as_f64)?;
                     Some(y + h - acc_y)
                 })
                 .fold(0.0_f64, f64::max)
@@ -1056,7 +1085,10 @@ fn slice_text(value: &mut Value, visible: usize) {
 /// The `scroll_offsets` map uses the key `"{element_id}/{node_id}"`.  We walk
 /// every UI overlay's surface tree and patch any node whose composite key
 /// appears in the map.
-fn apply_scroll_offsets(view: &mut Map<String, Value>, scroll_offsets: &BTreeMap<String, (f64, f64)>) {
+fn apply_scroll_offsets(
+    view: &mut Map<String, Value>,
+    scroll_offsets: &BTreeMap<String, (f64, f64)>,
+) {
     if scroll_offsets.is_empty() {
         return;
     }
@@ -1075,10 +1107,7 @@ fn apply_scroll_offsets(view: &mut Map<String, Value>, scroll_offsets: &BTreeMap
         else {
             continue;
         };
-        let Some(root) = overlay
-            .get_mut("surface")
-            .and_then(|s| s.get_mut("root"))
-        else {
+        let Some(root) = overlay.get_mut("surface").and_then(|s| s.get_mut("root")) else {
             continue;
         };
         inject_scroll_offsets_into_node(root, &element_id, scroll_offsets);

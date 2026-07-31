@@ -47,10 +47,20 @@ fn keeps_batches_grouped_under_their_render_plane() {
 
     let safe = plan.pass(RenderPlane::Safe).unwrap();
     assert_eq!(safe.command_count, 15);
-    assert_eq!(safe.batches[0].key.pipeline, DrawBatchPipeline::BackdropBlur);
+    assert_eq!(
+        safe.batches[0].key.pipeline,
+        DrawBatchPipeline::BackdropBlur
+    );
     assert_eq!(safe.batches[1].key.pipeline, DrawBatchPipeline::Shape);
     assert_eq!(safe.batches[2].key.pipeline, DrawBatchPipeline::Text);
-    assert_eq!(safe.batches[2].command_ids, vec!["dialogue:speaker:shadow", "dialogue:text:shadow", "dialogue:speaker"]);
+    assert_eq!(
+        safe.batches[2].command_ids,
+        vec![
+            "dialogue:speaker:shadow",
+            "dialogue:text:shadow",
+            "dialogue:speaker"
+        ]
+    );
     assert_eq!(safe.batches[4].command_ids, vec!["dialogue:text"]);
     assert_eq!(safe.batches[6].key.pipeline, DrawBatchPipeline::Ui);
     assert_eq!(

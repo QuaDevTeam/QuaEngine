@@ -165,12 +165,16 @@ pub fn build_dialogue_commands(
         let accent = dialogue_accent_bounds(panel);
         let half_w = accent.width / 2.0;
         let left_half = LogicalRect {
-            x: accent.x, y: accent.y,
-            width: half_w, height: accent.height,
+            x: accent.x,
+            y: accent.y,
+            width: half_w,
+            height: accent.height,
         };
         let right_half = LogicalRect {
-            x: accent.x + half_w, y: accent.y,
-            width: accent.width - half_w, height: accent.height,
+            x: accent.x + half_w,
+            y: accent.y,
+            width: accent.width - half_w,
+            height: accent.height,
         };
         let make_gradient = |id: &str, start: &str, end: &str, bounds: LogicalRect| {
             DrawCommand::new(id, RenderPlane::Safe, DrawCommandKind::RoundedRect, bounds)
@@ -193,11 +197,21 @@ pub fn build_dialogue_commands(
                 }))
         };
         commands.push(apply_provenance(
-            make_gradient("dialogue:accent-left",  "rgba(255,226,166,0)", "rgba(255,226,166,0.88)", left_half),
+            make_gradient(
+                "dialogue:accent-left",
+                "rgba(255,226,166,0)",
+                "rgba(255,226,166,0.88)",
+                left_half,
+            ),
             &dialogue.provenance,
         ));
         commands.push(apply_provenance(
-            make_gradient("dialogue:accent-right", "rgba(255,226,166,0.88)", "rgba(255,226,166,0)", right_half),
+            make_gradient(
+                "dialogue:accent-right",
+                "rgba(255,226,166,0.88)",
+                "rgba(255,226,166,0)",
+                right_half,
+            ),
             &dialogue.provenance,
         ));
     }

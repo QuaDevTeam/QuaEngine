@@ -13,11 +13,11 @@ use super::config::{
 use super::demo_e2e::NativeDemoE2eState;
 use super::error::NativeWindowSmokeError;
 use super::frame::{normalized_physical_size, window_frame_dimensions};
+use super::frame_composer::NativeWindowFrameComposer;
 use super::input::NativeWindowSmokeInputState;
 use super::metrics::{
     NativeWindowSmokeAudioMetrics, NativeWindowSmokeTextureMetrics, NativeWindowSmokeVideoMetrics,
 };
-use super::frame_composer::NativeWindowFrameComposer;
 use super::performance_hud::NativeWindowPerformanceHud;
 #[cfg(feature = "quickjs-rquickjs")]
 use super::projection_worker::NativeProjectionWorker;
@@ -309,7 +309,9 @@ impl NativeWindowSmokeApp {
         } else {
             None
         };
-        let composed = self.frame_composer.compose(&frame_source, dimensions, hud)?;
+        let composed = self
+            .frame_composer
+            .compose(&frame_source, dimensions, hud)?;
         let frame_json: Arc<str> = composed.json.clone();
         let compose_ms = composed.compose_duration.as_secs_f64() * 1000.0;
         let compose_cache_hit = composed.cache_hit;
@@ -503,7 +505,7 @@ impl NativeWindowSmokeApp {
             let input_latency_ms = self
                 .last_input_at
                 .map(|t| t.elapsed().as_secs_f64() * 1000.0);
-                self.performance_hud.record_frame(
+            self.performance_hud.record_frame(
                 frame_started_at.elapsed(),
                 frame_result.submission.command_count,
                 frame_result.submission.pass_count,

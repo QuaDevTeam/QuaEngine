@@ -184,6 +184,7 @@ fn command_kind_name(kind: DrawCommandKind) -> &'static str {
         DrawCommandKind::ClipEnd => "clipEnd",
         DrawCommandKind::VideoFrame => "videoFrame",
         DrawCommandKind::UiSurface => "uiSurface",
+        DrawCommandKind::BackdropBlur => "backdropBlur",
         DrawCommandKind::Custom => "custom",
     }
 }

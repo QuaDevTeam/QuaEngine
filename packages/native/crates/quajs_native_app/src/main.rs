@@ -108,7 +108,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let target_bundle_manifest = manifest_path
         .map(load_native_target_bundle_manifest)
         .transpose()
-        .inspect_err(|error| log::error!("native target bundle manifest failed to load: {error}"))?;
+        .inspect_err(|error| {
+            log::error!("native target bundle manifest failed to load: {error}")
+        })?;
     let host_info = create_native_startup_host_info(
         compile_time_native_app_config(),
         target_bundle_manifest.as_ref(),

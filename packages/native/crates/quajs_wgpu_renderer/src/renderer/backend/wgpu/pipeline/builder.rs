@@ -252,8 +252,9 @@ fn shader_for_pipeline_and_paint(
 
 fn bind_group_layout_for_shader(shader: WgpuNativeRenderShader) -> WgpuNativeRenderBindGroupLayout {
     match shader {
-        WgpuNativeRenderShader::TexturedQuad
-        | WgpuNativeRenderShader::BackdropBlur => WgpuNativeRenderBindGroupLayout::TextureSampler,
+        WgpuNativeRenderShader::TexturedQuad | WgpuNativeRenderShader::BackdropBlur => {
+            WgpuNativeRenderBindGroupLayout::TextureSampler
+        }
         WgpuNativeRenderShader::TextPlaceholder => WgpuNativeRenderBindGroupLayout::TextAtlas,
         WgpuNativeRenderShader::Clear
         | WgpuNativeRenderShader::SolidColor

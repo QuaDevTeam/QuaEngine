@@ -138,10 +138,7 @@ impl NativePointerInteractionState {
     /// reconciliation to [`NativeUiControlInteractionState::reconcile`].
     pub fn reconcile(&mut self, graph: &crate::render_graph::RenderGraph) {
         if let Some(focused_id) = &self.focused_command_id {
-            let still_exists = graph
-                .commands()
-                .iter()
-                .any(|cmd| cmd.id == *focused_id);
+            let still_exists = graph.commands().iter().any(|cmd| cmd.id == *focused_id);
             if !still_exists {
                 let previous = self.visual_snapshot();
                 self.focused_command_id = None;

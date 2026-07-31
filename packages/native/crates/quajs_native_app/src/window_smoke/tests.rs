@@ -305,7 +305,10 @@ fn window_smoke_report_serializes_texture_lifecycle_metrics() {
     assert_eq!(value["fontAtlasTextDrawCount"], 3);
     assert_eq!(value["shapedTextDrawCount"], 2);
     assert_eq!(value["bitmapTextDrawCount"], 0);
-    assert!(value["fontAtlasResourceIds"][0].as_str().unwrap_or("").starts_with("fonts:Noto Sans@"));
+    assert!(value["fontAtlasResourceIds"][0]
+        .as_str()
+        .unwrap_or("")
+        .starts_with("fonts:Noto Sans@"));
     assert_eq!(value["linearSampledTextureBindGroupCount"], 4);
     assert_eq!(value["nearestSampledTextureBindGroupCount"], 0);
     assert_eq!(value["audioBackendAppliedPlanCount"], 1);

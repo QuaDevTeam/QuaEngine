@@ -91,13 +91,8 @@ pub(super) fn paint_from_primitive(
             None,
         ),
         WgpuNativeRenderPrimitiveKind::Text {
-            text,
-            color,
-            style,
-            ..
-        } => {
-            (text_paint(text, color, style), 0.0, None, None)
-        }
+            text, color, style, ..
+        } => (text_paint(text, color, style), 0.0, None, None),
         WgpuNativeRenderPrimitiveKind::Panel {
             fill_color,
             corner_radius,
@@ -133,8 +128,7 @@ pub(super) fn paint_from_primitive(
             quad_border(border),
             text_overlay(label, text_color, text_style),
         ),
-        WgpuNativeRenderPrimitiveKind::UiSurface { .. }
-        | WgpuNativeRenderPrimitiveKind::Empty => {
+        WgpuNativeRenderPrimitiveKind::UiSurface { .. } | WgpuNativeRenderPrimitiveKind::Empty => {
             (WgpuNativeRenderPaint::None, 0.0, None, None)
         }
         WgpuNativeRenderPrimitiveKind::BackdropBlur { blur_radius } => (

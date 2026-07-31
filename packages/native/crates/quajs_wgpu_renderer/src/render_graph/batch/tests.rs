@@ -96,7 +96,14 @@ fn batches_full_view_without_changing_draw_order() {
     assert_eq!(batches[2].key.pipeline, DrawBatchPipeline::BackdropBlur);
     assert_eq!(batches[3].key.pipeline, DrawBatchPipeline::Shape);
     assert_eq!(batches[4].key.pipeline, DrawBatchPipeline::Text);
-    assert_eq!(batches[4].command_ids, vec!["dialogue:speaker:shadow", "dialogue:text:shadow", "dialogue:speaker"]);
+    assert_eq!(
+        batches[4].command_ids,
+        vec![
+            "dialogue:speaker:shadow",
+            "dialogue:text:shadow",
+            "dialogue:speaker"
+        ]
+    );
     assert_eq!(batches[5].key.pipeline, DrawBatchPipeline::Shape);
     assert_eq!(batches[6].key.pipeline, DrawBatchPipeline::Text);
     assert_eq!(batches[6].command_ids, vec!["dialogue:text"]);

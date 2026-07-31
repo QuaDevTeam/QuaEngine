@@ -22,10 +22,7 @@ pub fn client_point_to_stage_logical(
             && viewport_y >= 0.0
             && viewport_x < layout.viewport_width
             && viewport_y < layout.viewport_height,
-        inside_stage: x >= 0.0
-            && y >= 0.0
-            && x < layout.logical_width
-            && y < layout.logical_height,
+        inside_stage: x >= 0.0 && y >= 0.0 && x < layout.logical_width && y < layout.logical_height,
     }
 }
 
