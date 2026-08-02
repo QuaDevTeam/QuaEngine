@@ -1,5 +1,6 @@
 import type {
   NativeQssAlignItemsValue,
+  NativeQssBackdropFilterValue,
   NativeQssBackgroundImageValue,
   NativeQssBackgroundPositionValue,
   NativeQssBorderStyleValue,
@@ -20,6 +21,7 @@ import type {
   NativeQssTextTransformValue,
   NativeQssTransformValue,
   NativeQssTransitionEasing,
+  NativeQssEdgeInsetsValue,
   NativeQssTransitionProperty,
   NativeQssTransitionValue,
   NativeQssWhiteSpaceValue,
@@ -171,6 +173,121 @@ export function parseNativeQssFilter(value: string): NativeQssFilterValue | unde
   if (seen.size === 0 || source.slice(cursor).trim())
     return undefined
   return result
+}
+
+// ─── Flex child properties ────────────────────────────────────────────────────
+
+/** Parse `flex-grow: <number>` — non-negative finite number. */
+export function parseNativeQssFlexGrow(value: string): number | undefined {
+  const n = parseNativeQssLogicalNumber(value.trim())
+  return n !== undefined ? n : undefined
+}
+
+/** Parse `flex-shrink: <number>` — non-negative finite number. */
+export function parseNativeQssFlexShrink(value: string): number | undefined {
+  return parseNativeQssLogicalNumber(value.trim())
+}
+
+/**
+ * Parse `flex-basis: auto | <length>`.
+ * Returns `'auto'` for the keyword or a non-negative number for a px/unitless value.
+ */
+export function parseNativeQssFlexBasis(value: string): number | 'auto' | undefined {
+  const trimmed = value.trim().toLowerCase()
+  if (trimmed === 'auto') return 'auto'
+  const n = parseNativeQssLogicalNumber(trimmed)
+  return n !== undefined ? n : undefined
+}
+
+/** Parse `align-self: auto | flex-start | center | flex-end`. */
+export function parseNativeQssAlignSelf(value: string): NativeQssAlignItemsValue | 'auto' | undefined {
+  const v = value.trim().toLowerCase()
+  if (v === 'auto') return 'auto'
+  return parseNativeQssAlignItems(v)
+}
+
+/**
+ * Parse `backdrop-filter: blur(Npx)`.
+ * Only the blur() function is supported; other filter functions are ignored
+ * since backdrop-filter has a separate Rust pipeline from `filter`.
+ */
+export function parseNativeQssBackdropFilter(value: string): NativeQssBackdropFilterValue | undefined {
+  const source = value.trim()
+  if (source.toLowerCase() === 'none')
+    return { blurRadius: 0 }
+  const match = /^blur\(\s*(\d+(?:\.\d+)?)px\s*\)$/i.exec(source)
+  if (!match)
+    return undefined
+  const blurRadius = Number(match[1])
+  if (!Number.isFinite(blurRadius) || blurRadius < 0)
+    return undefined
+  return { blurRadius }
+}
+
+/**
+ * Parse the four `border-image-*` shorthand properties into a combined value.
+ * Call once per declaration; merge results when multiple properties are present.
+ *
+ * Supported syntax (mirrors web renderer `skin.ts`):
+ *   border-image-source: asset("path")
+ *   border-image-slice: <top> <right> <bottom> <left> [fill]
+ *   border-image-width: <top> <right> <bottom> <left>
+ *   border-image-repeat: stretch | repeat
+ */
+export function parseNativeQssBorderImageSource(
+  value: string,
+): NativeQssBackgroundImageValue | undefined {
+  return parseNativeQssBackgroundImage(value)
+}
+
+export function parseNativeQssBorderImageSlice(
+  value: string,
+): { slice: NativeQssEdgeInsetsValue; fill: boolean } | undefined {
+  const parts = value.trim().split(/\s+/)
+  const fillIdx = parts.findIndex(p => p.toLowerCase() === 'fill')
+  const fill = fillIdx >= 0
+  const nums = fill ? parts.filter((_, i) => i !== fillIdx) : parts
+
+  if (nums.length < 1 || nums.length > 4)
+    return undefined
+  const values = nums.map(p => parseNativeQssLogicalNumber(p))
+  if (values.some(v => v === undefined))
+    return undefined
+  const [t, r, b, l] = expandEdgeValues(values as number[])
+  return { slice: { top: t, right: r, bottom: b, left: l }, fill }
+}
+
+export function parseNativeQssBorderImageWidth(
+  value: string,
+): NativeQssEdgeInsetsValue | undefined {
+  const parts = value.trim().split(/\s+/)
+  if (parts.length < 1 || parts.length > 4)
+    return undefined
+  const values = parts.map(p => parseNativeQssLogicalNumber(p))
+  if (values.some(v => v === undefined))
+    return undefined
+  const [t, r, b, l] = expandEdgeValues(values as number[])
+  return { top: t, right: r, bottom: b, left: l }
+}
+
+export function parseNativeQssBorderImageRepeat(
+  value: string,
+): 'repeat' | 'stretch' | undefined {
+  const v = value.trim().toLowerCase()
+  if (v === 'repeat' || v === 'round' || v === 'space')
+    return 'repeat'
+  if (v === 'stretch')
+    return 'stretch'
+  return undefined
+}
+
+function expandEdgeValues(values: readonly number[]): [number, number, number, number] {
+  switch (values.length) {
+    case 1: return [values[0], values[0], values[0], values[0]]
+    case 2: return [values[0], values[1], values[0], values[1]]
+    case 3: return [values[0], values[1], values[2], values[1]]
+    default: return [values[0], values[1], values[2], values[3]]
+  }
 }
 
 export function parseNativeQssTransition(value: string): NativeQssTransitionValue[] | undefined {
