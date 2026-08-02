@@ -1,0 +1,43 @@
+{
+  "name": "@quajs/vite-plugin-native-ui",
+  "type": "module",
+  "version": "0.1.0",
+  "description": "Vite plugin for QuaEngine native UI — compiles .qss.scss to QSS for the wgpu renderer pipeline",
+  "author": "QuaDevTeam",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/QuaDevTeam/QuaEngine.git",
+    "directory": "packages/native/vite-plugin"
+  },
+  "keywords": ["quaengine", "native", "vite", "scss", "qss"],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist"],
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "vite": "catalog:",
+    "sass-embedded": ">=1.70.0"
+  },
+  "dependencies": {
+    "@quajs/native-ui-compiler": "workspace:*"
+  },
+  "devDependencies": {
+    "sass-embedded": "catalog:",
+    "typescript": "catalog:"
+  }
+}

@@ -148,8 +148,11 @@ export interface NativeUiComponentDefinition {
 export type {
   NativeQssAlignItemsValue,
   NativeQssAtRule,
+  NativeQssBackdropFilterValue,
   NativeQssBackgroundImageValue,
   NativeQssBackgroundPositionValue,
+  NativeQssBorderImageValue,
+  NativeQssBorderImageRepeatValue,
   NativeQssBorderStyleValue,
   NativeQssBoxSizingValue,
   NativeQssDeclaration,
@@ -199,4 +202,5 @@ export type {
   NativeUiSurfaceRect,
   NativeUiSurfaceSelectControlProjection,
   NativeUiSurfaceSwitchControlProjection,
+  NativeUiSurfaceVideoProjection,
 } from './surface-types'

@@ -4,7 +4,7 @@
   "displayName": "Qua Native Authoring",
   "type": "module",
   "version": "0.1.0",
-  "description": "Language support for QuaEngine native QUI and QSS authoring.",
+  "description": "Language support for QuaEngine native UI — QSS authoring and SCSS-to-QSS compilation.",
   "author": "QuaDevTeam",
   "license": "Apache-2.0",
   "homepage": "https://github.com/QuaDevTeam/QuaEngine#readme",
@@ -44,7 +44,6 @@
     }
   },
   "activationEvents": [
-    "onLanguage:qua-ui",
     "onLanguage:qua-style",
     "onCommand:quaNative.formatDocument",
     "onCommand:quaNative.validateOpenDocuments",
@@ -54,36 +53,17 @@
   "contributes": {
     "languages": [
       {
-        "id": "qua-ui",
-        "aliases": [
-          "Qua UI",
-          "QUI",
-          "qui"
-        ],
-        "extensions": [
-          ".qui"
-        ],
+        "id": "qua-style",
+        "aliases": ["Qua Style", "QSS", "qss"],
+        "extensions": [".qss"],
         "configuration": "./language-configuration.json"
       },
       {
-        "id": "qua-style",
-        "aliases": [
-          "Qua Style",
-          "QSS",
-          "qss"
-        ],
-        "extensions": [
-          ".qss"
-        ],
-        "configuration": "./language-configuration.json"
+        "id": "scss",
+        "extensions": [".qss.scss"]
       }
     ],
     "grammars": [
-      {
-        "language": "qua-ui",
-        "scopeName": "source.qui",
-        "path": "./syntaxes/qui.tmLanguage.json"
-      },
       {
         "language": "qua-style",
         "scopeName": "source.qss",
@@ -91,10 +71,6 @@
       }
     ],
     "snippets": [
-      {
-        "language": "qua-ui",
-        "path": "./snippets/qui.json"
-      },
       {
         "language": "qua-style",
         "path": "./snippets/qss.json"
@@ -108,7 +84,7 @@
       },
       {
         "command": "quaNative.validateOpenDocuments",
-        "title": "Qua Native: Validate Open QUI/QSS Documents",
+        "title": "Qua Native: Validate Open QSS Documents",
         "icon": "$(check)"
       },
       {
@@ -128,7 +104,7 @@
         "quaNative.lint.strictComponents": {
           "type": "boolean",
           "default": true,
-          "description": "Warn when QUI or QSS references components that are not native built-ins or imported package-local components."
+          "description": "Warn when QSS references components that are not native built-ins."
         },
         "quaNative.lint.allowPreviewFeatures": {
           "type": "boolean",
@@ -147,12 +123,12 @@
           "default": 2,
           "minimum": 2,
           "maximum": 8,
-          "description": "Number of spaces used by the QUI/QSS formatter."
+          "description": "Number of spaces used by the QSS formatter."
         },
         "quaNative.format.insertFinalNewline": {
           "type": "boolean",
           "default": true,
-          "description": "Insert a final newline when formatting QUI and QSS files."
+          "description": "Insert a final newline when formatting QSS files."
         }
       }
     }

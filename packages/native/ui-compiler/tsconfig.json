@@ -2,12 +2,13 @@
   "extends": "../../../tsconfig.base.json",
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2022"],
+    "lib": ["ES2022", "DOM"],
     "rootDir": "..",
     "moduleResolution": "bundler",
     "paths": {
       "@/*": ["./src/*"],
-      "@quajs/native-contracts": ["../contracts/src/index.ts"]
+      "@quajs/native-contracts": ["../contracts/src/index.ts"],
+      "@quajs/native-ui": ["../ui-jsx/src/index.ts"]
     },
     "outDir": "./dist"
   },

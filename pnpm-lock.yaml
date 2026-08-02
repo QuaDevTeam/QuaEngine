@@ -111,6 +111,9 @@ catalogs:
     react-dom:
       specifier: ^19.2.6
       version: 19.2.6
+    sass-embedded:
+      specifier: ^1.70.0
+      version: 1.100.0
     shadcn-svelte:
       specifier: ^1.3.0
       version: 1.3.0
@@ -334,6 +337,9 @@ importers:
       '@quajs/native-contracts':
         specifier: workspace:*
         version: link:../packages/native/contracts
+      '@quajs/native-ui':
+        specifier: workspace:*
+        version: link:../packages/native/ui-jsx
       '@quajs/native-ui-compiler':
         specifier: workspace:*
         version: link:../packages/native/ui-compiler
@@ -398,6 +404,9 @@ importers:
       '@quajs/vite-plugin':
         specifier: workspace:*
         version: link:../packages/build/vite-plugin
+      '@quajs/vite-plugin-native-ui':
+        specifier: workspace:*
+        version: link:../packages/native/vite-plugin
       '@types/node':
         specifier: 'catalog:'
         version: 25.6.2
@@ -768,6 +777,34 @@ importers:
       '@quajs/native-contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@quajs/native-ui':
+        specifier: workspace:*
+        version: link:../ui-jsx
+      sass-embedded:
+        specifier: '>=1.70.0'
+        version: 1.100.0
+
+  packages/native/ui-jsx:
+    devDependencies:
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+
+  packages/native/vite-plugin:
+    dependencies:
+      '@quajs/native-ui-compiler':
+        specifier: workspace:*
+        version: link:../ui-compiler
+      vite:
+        specifier: 'catalog:'
+        version: 8.0.12(@types/node@25.6.2)(jiti@2.7.0)(sass-embedded@1.100.0)(sass@1.100.0)(yaml@2.8.4)
+    devDependencies:
+      sass-embedded:
+        specifier: 'catalog:'
+        version: 1.100.0
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
 
   packages/native/vscode:
     devDependencies:

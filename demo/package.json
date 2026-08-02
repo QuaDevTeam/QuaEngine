@@ -54,7 +54,8 @@
     "@quajs/security-web": "workspace:*",
     "@quajs/story-graph": "workspace:*",
     "@quajs/store-web": "workspace:*",
-    "vue": "^3.5.34"
+    "vue": "^3.5.34",
+    "@quajs/native-ui": "workspace:*"
   },
   "devDependencies": {
     "@quajs/quack": "workspace:*",
@@ -64,6 +65,7 @@
     "@vitejs/plugin-vue": "^6.0.7",
     "sass-embedded": "^1.70.0",
     "typescript": "^6.0.3",
-    "vite": "^8.0.12"
+    "vite": "^8.0.12",
+    "@quajs/vite-plugin-native-ui": "workspace:*"
   }
 }

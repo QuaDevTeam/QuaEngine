@@ -20,7 +20,14 @@
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+    "jsx": "react-jsx",
+    "jsxImportSource": "@quajs/native-ui",
+    "paths": {
+      "@quajs/native-ui": ["../packages/native/ui-jsx/src/index.ts"],
+      "@quajs/native-ui/jsx-runtime": ["../packages/native/ui-jsx/src/jsx-runtime.ts"],
+      "@quajs/native-ui/jsx-dev-runtime": ["../packages/native/ui-jsx/src/jsx-dev-runtime.ts"]
+    }
   },
   "include": [
     "src/**/*.ts",

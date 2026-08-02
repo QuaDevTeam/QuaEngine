@@ -2,6 +2,8 @@ import { resolve } from 'node:path'
 import { defineConfig } from 'vite'
 import dts from 'vite-plugin-dts'
 
+const UI_JSX_SRC = resolve(import.meta.dirname, '../ui-jsx/src/index.ts')
+
 export default defineConfig({
   plugins: [
     dts({
@@ -23,15 +25,20 @@ export default defineConfig({
     minify: false,
     sourcemap: true,
     rollupOptions: {
-      external: ['@quajs/native-contracts'],
-      output: {
-        globals: {},
-      },
+      external: ['@quajs/native-contracts', '@quajs/native-ui', 'sass-embedded'],
+      output: { globals: {} },
     },
   },
   resolve: {
     alias: {
       '@': resolve(import.meta.dirname, 'src'),
+    },
+  },
+  // vitest-specific: resolve @quajs/native-ui from source so tests don't
+  // require a pre-built dist.
+  test: {
+    alias: {
+      '@quajs/native-ui': UI_JSX_SRC,
     },
   },
 })
