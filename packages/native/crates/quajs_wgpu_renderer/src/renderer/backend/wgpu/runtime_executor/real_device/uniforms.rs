@@ -63,7 +63,10 @@ fn create_real_frame_uniform_bind_group_layout(
 ) -> wgpu::BindGroupLayout {
     let entries = [wgpu::BindGroupLayoutEntry {
         binding: 0,
-        visibility: wgpu::ShaderStages::VERTEX,
+        // BackdropBlur's fragment stage reads `frame.target_size` to derive
+        // screen-space backdrop UVs, so the shared frame uniform must be
+        // visible to both stages (a superset stays valid for vertex-only users).
+        visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
         ty: wgpu::BindingType::Buffer {
             ty: wgpu::BufferBindingType::Uniform,
             has_dynamic_offset: false,

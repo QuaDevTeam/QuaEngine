@@ -26,11 +26,16 @@ impl RealWgpuNativeRenderRuntimeDevice {
     pub(in super::super) fn copy_framebuffer_to_backdrop(
         &mut self,
     ) -> Result<(), WgpuNativeRenderRuntimeError> {
-        let encoder = self.active_encoder_any_mut()?;
-        if encoder.active_pass.is_some() {
-            return invalid_order(
-                "CopyFramebufferToBackdrop must be issued between render passes, not inside one",
-            );
+        // Check that we are not inside an active render pass.  The encoder
+        // borrow is scoped so it is released before we access frame_target /
+        // backdrop_texture below.
+        {
+            let encoder = self.active_encoder_any_mut()?;
+            if encoder.active_pass.is_some() {
+                return invalid_order(
+                    "CopyFramebufferToBackdrop must be issued between render passes, not inside one",
+                );
+            }
         }
 
         let extent = self.frame_target.extent();
@@ -58,16 +63,29 @@ impl RealWgpuNativeRenderRuntimeDevice {
             ));
         }
 
-        let backdrop = self.backdrop_texture.as_ref().expect("just created above");
-        encoder.encoder.copy_texture_to_texture(
-            self.frame_target.texture().as_image_copy(),
-            backdrop.as_image_copy(),
-            extent,
-        );
+        // Clone the Arc-backed wgpu::Texture handles so we can release the
+        // shared borrows on self before re-acquiring the mutable encoder borrow.
+        let frame_tex = self.frame_target.texture().clone();
+        let backdrop_tex = self
+            .backdrop_texture
+            .as_ref()
+            .expect("backdrop texture was just created above")
+            .clone();
+
+        // Issue the GPU texture copy (re-acquire encoder; owned handles avoid
+        // the simultaneous mutable + immutable borrow conflict).
+        {
+            let encoder = self.active_encoder_any_mut()?;
+            encoder.encoder.copy_texture_to_texture(
+                frame_tex.as_image_copy(),
+                backdrop_tex.as_image_copy(),
+                extent,
+            );
+        }
 
         // Register (or refresh) the backdrop as a decoded texture so the
         // standard TextureSampler bind-group creation code can find it.
-        let view = backdrop.create_view(&wgpu::TextureViewDescriptor::default());
+        let view = backdrop_tex.create_view(&wgpu::TextureViewDescriptor::default());
         let sampler = create_texture_sampler(&self.target, "qua-native::backdrop-capture-sampler");
         let byte_len = (extent.width as usize)
             .saturating_mul(extent.height as usize)
@@ -75,7 +93,7 @@ impl RealWgpuNativeRenderRuntimeDevice {
         self.decoded_textures.insert(
             BACKDROP_CAPTURE_RESOURCE_ID.to_string(),
             RealRuntimeDecodedTexture {
-                texture: backdrop.clone(),
+                texture: backdrop_tex,
                 view,
                 sampler,
                 width: extent.width,

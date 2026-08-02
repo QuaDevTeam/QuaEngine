@@ -5,7 +5,7 @@ use crate::input::{NativePointerInteractionState, NativePointerVisualTransition}
 use crate::render_graph::{
     plan_render_passes, BorderDrawParams, DrawCommand, DrawCommandParams, DrawCommandVariant,
     DrawInteractionState, DrawTransition, DrawTransitionEasing, DrawTransitionProperty,
-    PanelDrawParams, ShadowDrawParams,
+    ShadowDrawParams,
 };
 use crate::renderer::control_feedback::apply_control_feedback;
 
@@ -25,26 +25,21 @@ fn frame_with_interaction_feedback_at(
     interaction: &NativePointerInteractionState,
     now: Instant,
 ) -> Option<PreparedNativeFrame> {
-    let feedback_commands = frame
-        .graph
-        .commands()
-        .iter()
-        .filter_map(|command| {
-            interaction_feedback_command(
-                command,
-                interaction,
-                frame.graph.layout.logical_width,
-                frame.graph.layout.logical_height,
-            )
-        })
-        .collect::<Vec<_>>();
     let mut feedback_frame = frame.clone();
     let variant_changed = apply_interaction_variants(&mut feedback_frame, interaction, now);
+    let mut generic_changed = false;
+    for command in feedback_frame.graph.commands_mut() {
+        generic_changed |= apply_generic_interaction_feedback(
+            command,
+            interaction,
+            frame.graph.layout.logical_width,
+            frame.graph.layout.logical_height,
+        );
+    }
     let control_changed = apply_control_feedback(&mut feedback_frame, &interaction.controls);
-    if feedback_commands.is_empty() && !control_changed && !variant_changed {
+    if !generic_changed && !control_changed && !variant_changed {
         return None;
     }
-    feedback_frame.graph.extend(feedback_commands);
     feedback_frame.summary = feedback_frame.graph.summary();
     feedback_frame.passes = plan_render_passes(&feedback_frame.graph);
     Some(feedback_frame)
@@ -91,9 +86,6 @@ fn apply_interaction_variants(
         let target = current_state
             .and_then(|state| command.interaction_variants.get(&state))
             .unwrap_or(&base);
-        let source = previous_state
-            .and_then(|state| command.interaction_variants.get(&state))
-            .unwrap_or(&base);
         let elapsed = interaction
             .visual_transition()
             .map(|transition| {
@@ -106,7 +98,11 @@ fn apply_interaction_variants(
         let variant = if !has_transition || previous_state == current_state {
             target.clone()
         } else {
-            interpolate_variant(source, target, &command.interaction_transitions, elapsed)
+            let source = interaction
+                .visual_transition()
+                .map(|transition| transition_source_variant(command, &base, transition))
+                .unwrap_or_else(|| base.clone());
+            interpolate_variant(&source, target, &command.interaction_transitions, elapsed)
         };
         let transition_in_progress = previous_state != current_state
             && command
@@ -122,6 +118,33 @@ fn apply_interaction_variants(
         frame.graph.extend(std::iter::empty());
     }
     changed
+}
+
+/// Blink/WebKit reversing-transition source: when a state change interrupts
+/// an in-flight transition, the new interpolation starts from the value that
+/// was actually displayed at the interruption point — evaluated through the
+/// superseded transition chain — instead of jumping to the previous state's
+/// finished variant. A fully elapsed superseded transition evaluates to
+/// exactly its target variant, preserving the previous behavior.
+fn transition_source_variant(
+    command: &DrawCommand,
+    base: &DrawCommandVariant,
+    transition: &NativePointerVisualTransition,
+) -> DrawCommandVariant {
+    let target = selected_interaction_state_for_transition(command, transition)
+        .and_then(|state| command.interaction_variants.get(&state))
+        .unwrap_or(base);
+    let Some(superseded) = transition.superseded.as_deref() else {
+        return target.clone();
+    };
+    let source = transition_source_variant(command, base, superseded);
+    let elapsed_ms = transition
+        .started_at
+        .checked_duration_since(superseded.started_at)
+        .unwrap_or_default()
+        .as_secs_f64()
+        * 1000.0;
+    interpolate_variant(&source, target, &command.interaction_transitions, elapsed_ms)
 }
 
 fn selected_interaction_state(
@@ -623,78 +646,80 @@ fn apply_command_variant(command: &mut DrawCommand, variant: &DrawCommandVariant
     command.z_index = variant.z_index;
 }
 
-fn interaction_feedback_command(
-    command: &DrawCommand,
+/// Generic hover/press/focus feedback for interactive commands that declare
+/// no state-style variants. The highlight is composited into the command's
+/// own paint (background wash, focus border) instead of being appended as a
+/// separate overlay command: compositing in place keeps the label/border
+/// paint order of the source command, so the highlight can never cover text,
+/// and every z-stacked layer still renders exactly once per frame.
+fn apply_generic_interaction_feedback(
+    command: &mut DrawCommand,
     interaction: &NativePointerInteractionState,
     logical_width: f64,
     logical_height: f64,
-) -> Option<DrawCommand> {
+) -> bool {
     if !command.interactive
         || !command.interaction_variants.is_empty()
         || covers_stage_background(command, logical_width, logical_height)
     {
-        return None;
+        return false;
     }
 
     let hovered = interaction.hovered_command_id() == Some(command.id.as_str());
     let focused = interaction.focused_command_id() == Some(command.id.as_str());
     let pressed = hovered && interaction.is_pressed(&command.id);
     if !hovered && !focused && !pressed {
-        return None;
+        return false;
     }
 
-    // The feedback overlay shares the source node's geometry, so it has to pick up
-    // the node's rotation as well or the highlight would sit axis-aligned over a
-    // rotated node. `UiButton` has no rotation of its own today.
-    let (corner_radius, rotation_degrees) = match &command.params {
-        DrawCommandParams::UiButton(params) => (params.corner_radius, 0.0),
-        DrawCommandParams::Panel(params) => (params.corner_radius, params.rotation_degrees),
-        _ => return None,
-    };
-    let fill_color = if pressed {
+    let wash = if pressed {
         "rgba(255,255,255,0.14)"
     } else if hovered {
         "rgba(255,255,255,0.07)"
     } else {
         "transparent"
     };
-    let border = if focused {
-        BorderDrawParams {
-            color: Some("rgba(245,226,190,0.78)".to_string()),
-            width: 2.0,
+    let apply_border = |border: &mut BorderDrawParams| {
+        if focused {
+            border.color = Some("rgba(245,226,190,0.78)".to_string());
+            border.width = border.width.max(2.0);
         }
-    } else {
-        BorderDrawParams::default()
     };
+    match &mut command.params {
+        DrawCommandParams::UiButton(params) => {
+            params.background_color = composite_color_over(&params.background_color, wash);
+            apply_border(&mut params.border);
+        }
+        DrawCommandParams::Panel(params) => {
+            params.fill_color = composite_color_over(&params.fill_color, wash);
+            apply_border(&mut params.border);
+        }
+        _ => return false,
+    }
+    true
+}
 
-    Some(
-        DrawCommand::new(
-            format!("{}::interaction", command.id),
-            command.plane,
-            command.kind,
-            command.bounds,
-        )
-        .z_index(command.z_index)
-        .opacity(command.opacity)
-        .clip_bounds(command.clip_bounds.iter().copied())
-        .params(DrawCommandParams::Panel(PanelDrawParams {
-            role: if pressed {
-                "interaction-pressed"
-            } else if hovered && focused {
-                "interaction-hover-focus"
-            } else if hovered {
-                "interaction-hover"
-            } else {
-                "interaction-focus"
-            }
-            .to_string(),
-            corner_radius,
-            fill_color: fill_color.to_string(),
-            border,
-            padding: Default::default(),
-            intent: None,
-            rotation_degrees,
-        })),
+/// CSS source-over compositing of `wash` on top of `backdrop`. When either
+/// color literal fails to parse the backdrop is kept unchanged, so a
+/// pathological style never turns the highlight into a paint reset.
+fn composite_color_over(backdrop: &str, wash: &str) -> String {
+    let (Some(backdrop), Some(wash)) = (parse_color(backdrop), parse_color(wash)) else {
+        return backdrop.to_string();
+    };
+    let alpha = wash.a + backdrop.a * (1.0 - wash.a);
+    let channel = |wash_channel, backdrop_channel| {
+        if alpha > 0.00001 {
+            (wash_channel * wash.a + backdrop_channel * backdrop.a * (1.0 - wash.a)) / alpha
+        } else {
+            0.0
+        }
+    };
+    format!(
+        "rgba({},{},{},{:.4})",
+        (channel(wash.r, backdrop.r).clamp(0.0, 1.0) * 255.0).round(),
+        (channel(wash.g, backdrop.g).clamp(0.0, 1.0) * 255.0).round(),
+        (channel(wash.b, backdrop.b).clamp(0.0, 1.0) * 255.0).round(),
+        alpha.clamp(0.0, 1.0)
     )
 }
 
@@ -710,9 +735,9 @@ mod tests {
         PointerIntentResolution, RendererIntentHit,
     };
     use crate::render_graph::{
-        DrawCommandKind, FontStyleDrawParam, LogicalRect, RenderGraph, RenderPlane, RendererIntent,
-        TextAlign, TextDecorationDrawParam, TextOverflowDrawParam, TextTransformDrawParam,
-        UiButtonDrawParams, WhiteSpaceDrawParam,
+        DrawCommandKind, FontStyleDrawParam, LogicalRect, PanelDrawParams, RenderGraph, RenderPlane,
+        RendererIntent, TextAlign, TextDecorationDrawParam, TextOverflowDrawParam,
+        TextTransformDrawParam, UiButtonDrawParams, WhiteSpaceDrawParam,
     };
     use crate::stage_layout::{
         resolve_stage_layout, StageClientPoint, StageClientRectOrigin, StageContainerInput,
@@ -759,7 +784,7 @@ mod tests {
     }
 
     #[test]
-    fn appends_hover_and_focus_paint_without_mutating_the_projected_frame() {
+    fn composites_hover_and_focus_paint_into_the_command_without_mutating_the_projected_frame() {
         let frame = fixture_frame();
         let mut interaction = NativePointerInteractionState::new();
         resolve_pointer_event_with_interaction(
@@ -775,21 +800,39 @@ mod tests {
         let feedback = frame_with_interaction_feedback(&frame, &interaction).unwrap();
 
         assert_eq!(frame.graph.commands().len(), 1);
-        assert_eq!(feedback.graph.commands().len(), 2);
-        let command = feedback
-            .graph
-            .commands()
-            .iter()
-            .find(|command| command.id == "button::interaction")
-            .unwrap();
+        // The highlight is composited into the button's own paint — no overlay
+        // command is appended, so the label always stays on top.
+        assert_eq!(feedback.graph.commands().len(), 1);
+        let command = &feedback.graph.commands()[0];
         match &command.params {
-            DrawCommandParams::Panel(params) => {
-                assert_eq!(params.role, "interaction-pressed");
-                assert_eq!(params.fill_color, "rgba(255,255,255,0.14)");
+            DrawCommandParams::UiButton(params) => {
+                assert_eq!(params.background_color, "rgba(63,63,63,1.0000)");
+                assert_eq!(params.text_color, "#ffffff");
+                assert_eq!(
+                    params.border.color.as_deref(),
+                    Some("rgba(245,226,190,0.78)")
+                );
                 assert_eq!(params.border.width, 2.0);
             }
             params => panic!("unexpected feedback params: {params:?}"),
         }
+    }
+
+    #[test]
+    fn composites_wash_colors_with_css_source_over() {
+        assert_eq!(
+            composite_color_over("#202020", "rgba(255,255,255,0.14)"),
+            "rgba(63,63,63,1.0000)"
+        );
+        assert_eq!(
+            composite_color_over("rgba(8,10,15,0.88)", "rgba(255,255,255,0.07)"),
+            "rgba(27,29,34,0.8884)"
+        );
+        assert_eq!(
+            composite_color_over("#202020", "transparent"),
+            "rgba(32,32,32,1.0000)"
+        );
+        assert_eq!(composite_color_over("not-a-color", "transparent"), "not-a-color");
     }
 
     #[test]
@@ -941,6 +984,127 @@ mod tests {
         )
         .unwrap();
         assert_eq!(completed.graph.commands()[0].bounds.x, 40.0);
+    }
+
+    #[test]
+    fn interrupted_transition_starts_from_the_displayed_value_instead_of_jumping() {
+        // Blink/WebKit reversing-transition semantics: leaving hover halfway
+        // through the fade-in must fade out from the displayed intermediate
+        // value, not jump to the finished hover variant first.
+        let mut frame = fixture_frame();
+        let base = frame.graph.commands()[0].clone();
+        let mut target = base.clone();
+        target.bounds.x = 40.0;
+        let command = &mut frame.graph.commands_mut()[0];
+        command.interaction_group_id = Some("button".to_string());
+        command.interaction_variants.insert(
+            DrawInteractionState::Hover,
+            DrawCommandVariant::from_command(&target),
+        );
+        command.interaction_transitions = vec![DrawTransition {
+            property: DrawTransitionProperty::Transform,
+            duration_ms: 1_000.0,
+            delay_ms: 0.0,
+            easing: DrawTransitionEasing::Linear,
+        }];
+
+        let mut interaction = NativePointerInteractionState::new();
+        resolve_pointer_event_with_interaction(
+            &mut interaction,
+            NativePointerEvent::new(
+                NativePointerEventPhase::Move,
+                StageClientPoint::default(),
+                StageClientRectOrigin::default(),
+            ),
+            fixture_pointer(),
+        );
+        // Pretend the fade-in started 500ms ago, so the displayed value is
+        // halfway between base (x=20) and hover (x=40).
+        interaction
+            .visual_transition
+            .as_mut()
+            .unwrap()
+            .started_at -= Duration::from_millis(500);
+
+        // Moving off the button supersedes the in-flight fade-in.
+        resolve_pointer_event_with_interaction(
+            &mut interaction,
+            NativePointerEvent::new(
+                NativePointerEventPhase::Move,
+                StageClientPoint::default(),
+                StageClientRectOrigin::default(),
+            ),
+            PointerIntentResolution {
+                point: StageHitTestPoint {
+                    x: 300.0,
+                    y: 300.0,
+                    inside_viewport: true,
+                    inside_stage: true,
+                },
+                intent: None,
+            },
+        );
+        let reversal_started_at = interaction.visual_transition().unwrap().started_at;
+        assert!(interaction.visual_transition().unwrap().superseded.is_some());
+
+        let feedback = frame_with_interaction_feedback_at(
+            &frame,
+            &interaction,
+            reversal_started_at,
+        )
+        .unwrap();
+        // The fade-out starts at the displayed 30.0, not the finished 40.0
+        // (allow a few milliseconds of real time between the two resolves).
+        let x = feedback.graph.commands()[0].bounds.x;
+        assert!(
+            (x - 30.0).abs() < 0.2,
+            "fade-out should start near the displayed 30.0, got {x}"
+        );
+
+        let settled = frame_with_interaction_feedback_at(
+            &frame,
+            &interaction,
+            reversal_started_at + Duration::from_millis(1_000),
+        );
+        // After the fade-out completes the command renders exactly as the base.
+        assert!(settled.is_none() || {
+            settled
+                .as_ref()
+                .map(|frame| frame.graph.commands()[0].clone())
+                == Some(frame.graph.commands()[0].clone())
+        });
+    }
+
+    #[test]
+    fn superseded_chain_stays_capped_under_rapid_state_changes() {
+        // Each state change nests the outgoing transition one level deeper;
+        // the chain must be truncated so per-frame source evaluation stays
+        // bounded during long hover/focus sweep sessions.
+        let mut interaction = NativePointerInteractionState::new();
+        resolve_pointer_event_with_interaction(
+            &mut interaction,
+            NativePointerEvent::new(
+                NativePointerEventPhase::Move,
+                StageClientPoint::default(),
+                StageClientRectOrigin::default(),
+            ),
+            fixture_pointer(),
+        );
+        let snapshot = interaction.visual_transition().unwrap().clone();
+        for _ in 0..32 {
+            interaction.start_visual_transition(snapshot.clone());
+        }
+
+        let mut depth = 0usize;
+        let mut link = interaction.visual_transition().unwrap();
+        while let Some(next) = link.superseded.as_deref() {
+            depth += 1;
+            link = next;
+        }
+        assert!(
+            depth <= 9,
+            "superseded chain depth {depth} must stay capped after 32 interruptions"
+        );
     }
 
     fn fixture_frame() -> PreparedNativeFrame {

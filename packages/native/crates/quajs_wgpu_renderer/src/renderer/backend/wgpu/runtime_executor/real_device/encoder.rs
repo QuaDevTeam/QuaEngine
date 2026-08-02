@@ -212,7 +212,7 @@ impl RealWgpuNativeRenderRuntimeDevice {
         Ok(encoder)
     }
 
-    fn active_encoder_any_mut(
+    pub(in super::super) fn active_encoder_any_mut(
         &mut self,
     ) -> Result<&mut RealRuntimeEncoder, WgpuNativeRenderRuntimeError> {
         self.active_encoder.as_mut().ok_or_else(|| {
