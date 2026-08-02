@@ -50,6 +50,13 @@ const alignItemsValues = [
   value('flex-end', 'Align structural children to the cross-axis end edge.'),
 ] as const
 
+const alignSelfValues = [
+  value('auto', 'Inherit the parent container align-items value.'),
+  value('flex-start', 'Align this child to the cross-axis start edge.'),
+  value('center', 'Center this child on the cross axis.'),
+  value('flex-end', 'Align this child to the cross-axis end edge.'),
+] as const
+
 const justifyContentValues = [
   value('flex-start', 'Pack structural children from the main-axis start edge.'),
   value('center', 'Center structural children on the main axis.'),
@@ -71,10 +78,19 @@ const pointerEventsValues = [
 
 export const nativeQssProperties: readonly NativeQssPropertyDefinition[] = [
   property('align-items', 'p1', true, 'Static Row / Column cross-axis child alignment consumed by native UI projection compilation.', alignItemsValues),
+  property('align-self', 'p1', true, 'Per-child cross-axis alignment override for Row / Column layout (child property).', alignSelfValues),
   property('background-color', 'p0', true, 'Fill color for panels, buttons, and box surfaces.'),
   property('border-color', 'p0', true, 'Border color for rectangular surfaces.'),
+  property('border-top-color', 'p0', true, 'Top edge border color; overrides border-color for that side.'),
+  property('border-right-color', 'p0', true, 'Right edge border color; overrides border-color for that side.'),
+  property('border-bottom-color', 'p0', true, 'Bottom edge border color; overrides border-color for that side.'),
+  property('border-left-color', 'p0', true, 'Left edge border color; overrides border-color for that side.'),
   property('border-radius', 'p0', true, 'Corner radius in logical stage pixels.'),
   property('border-width', 'p0', true, 'Border width in logical stage pixels.'),
+  property('border-top-width', 'p0', true, 'Top edge border width in logical stage pixels; overrides border-width for that side.'),
+  property('border-right-width', 'p0', true, 'Right edge border width in logical stage pixels; overrides border-width for that side.'),
+  property('border-bottom-width', 'p0', true, 'Bottom edge border width in logical stage pixels; overrides border-width for that side.'),
+  property('border-left-width', 'p0', true, 'Left edge border width in logical stage pixels; overrides border-width for that side.'),
   property('color', 'p0', true, 'Text foreground color.'),
   property('font-family', 'p0', true, 'Font family name resolved by native font assets.'),
   property('font-size', 'p0', true, 'Font size in logical stage pixels.'),
@@ -126,6 +142,19 @@ export const nativeQssProperties: readonly NativeQssPropertyDefinition[] = [
   property('margin-bottom', 'p1', true, 'Static bottom outer spacing consumed by native UI projection compilation.', spacingValues),
   property('gap', 'p1', true, 'Static Row / Column / Grid child spacing consumed by native UI projection compilation.', spacingValues),
   property('row-gap', 'p1', true, 'Static vertical child spacing consumed by native UI projection compilation.', spacingValues),
+  property('flex-grow', 'p1', true, 'Proportion of remaining main-axis free space this child claims in a Row or Column.', [
+    value('0', 'Do not grow (default).'),
+    value('1', 'Claim an equal share of free space.'),
+  ]),
+  property('flex-shrink', 'p1', true, 'Proportion of main-axis overflow this child absorbs in a Row or Column.', [
+    value('1', 'Shrink proportionally (default).'),
+    value('0', 'Do not shrink.'),
+  ]),
+  property('flex-basis', 'p1', true, 'Initial main-axis size used for flex grow/shrink calculations in a Row or Column.', [
+    value('auto', 'Use the resolved QSS bounds width or height (default).'),
+    value('0', 'Treat the initial main size as zero before distribution.'),
+    value('120px', 'Set an explicit logical initial main size.', '$1px'),
+  ]),
   property('column-gap', 'p1', true, 'Static horizontal child spacing consumed by native UI projection compilation.', spacingValues),
   property('overflow', 'p1', true, 'Child clipping mode emitted as resolved native UI projection metadata.', [
     value('visible', 'Allow child nodes to paint outside this node bounds.'),
@@ -161,6 +190,25 @@ export const nativeQssProperties: readonly NativeQssPropertyDefinition[] = [
     value('none', 'Disable the shadow.'),
   ]),
   property('clip-path', 'p2', false, 'Qua subset clipping planned for native style IR.'),
+  property('backdrop-filter', 'p1', true, 'Gaussian blur applied to the content behind this element (requires Backdrop node and wgpu BackdropBlur pipeline).', [
+    value('blur(32px)', 'Blur the backdrop by 32 logical pixels.'),
+    value('blur(16px)', 'Blur the backdrop by 16 logical pixels.'),
+    value('none', 'Disable backdrop blurring.'),
+  ]),
+  property('border-image-source', 'p1', true, 'Nine-slice source image for this surface via asset("...").', [
+    value('asset("...")', 'Reference a package-relative native asset for nine-slice rendering.', 'asset("$1")'),
+  ]),
+  property('border-image-slice', 'p1', true, 'Per-edge slice insets (top right bottom left) for nine-slice rendering; append fill to paint the centre.', [
+    value('4 4 4 4', 'Four logical-pixel uniform slices.'),
+    value('4 4 4 4 fill', 'Uniform slices with centre fill.'),
+  ]),
+  property('border-image-width', 'p1', true, 'Per-edge draw widths for nine-slice rendering (defaults to slice when absent).', [
+    value('4 4 4 4', 'Four logical-pixel uniform draw widths.'),
+  ]),
+  property('border-image-repeat', 'p1', true, 'Tiling mode for the side and centre regions of nine-slice rendering.', [
+    value('stretch', 'Scale the nine-slice regions to fill (default).'),
+    value('repeat', 'Tile the nine-slice regions.'),
+  ]),
   property('filter', 'p1', true, 'Linear-space image brightness and saturation adjustment.', [
     value('none', 'Disable image color filtering.'),
     value('brightness(0.5)', 'Scale image brightness.'),

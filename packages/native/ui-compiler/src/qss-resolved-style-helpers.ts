@@ -186,9 +186,15 @@ function applyNativeQssBoxSizing(
     return bounds
 
   const padding = style.padding
-  const borderWidth = style.borderStyle === 'none' ? 0 : style.borderWidth ?? 0
-  const horizontalInset = (padding?.left ?? 0) + (padding?.right ?? 0) + borderWidth * 2
-  const verticalInset = (padding?.top ?? 0) + (padding?.bottom ?? 0) + borderWidth * 2
+  const baseBorderWidth = style.borderStyle === 'none' ? 0 : style.borderWidth ?? 0
+  const sideBorderWidth = (side: number | undefined) =>
+    style.borderStyle === 'none' ? 0 : side ?? baseBorderWidth
+  const horizontalInset =
+    (padding?.left ?? 0) + (padding?.right ?? 0)
+    + sideBorderWidth(style.borderLeftWidth) + sideBorderWidth(style.borderRightWidth)
+  const verticalInset =
+    (padding?.top ?? 0) + (padding?.bottom ?? 0)
+    + sideBorderWidth(style.borderTopWidth) + sideBorderWidth(style.borderBottomWidth)
 
   return {
     ...bounds,

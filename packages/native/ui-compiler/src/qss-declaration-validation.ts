@@ -6,9 +6,15 @@ import type {
 import { findNativeQssProperty } from './registry'
 import {
   parseNativeQssAlignItems,
+  parseNativeQssAlignSelf,
+  parseNativeQssBackdropFilter,
   parseNativeQssBackgroundGradient,
   parseNativeQssBackgroundImage,
   parseNativeQssBackgroundPosition,
+  parseNativeQssBorderImageRepeat,
+  parseNativeQssBorderImageSlice,
+  parseNativeQssBorderImageSource,
+  parseNativeQssBorderImageWidth,
   parseNativeQssBorderStyle,
   parseNativeQssBoxSizing,
   parseNativeQssColor,
@@ -16,6 +22,9 @@ import {
   parseNativeQssDisplay,
   parseNativeQssEdgeInsets,
   parseNativeQssFilter,
+  parseNativeQssFlexBasis,
+  parseNativeQssFlexGrow,
+  parseNativeQssFlexShrink,
   parseNativeQssFontFamilyList,
   parseNativeQssFontStyle,
   parseNativeQssFontWeight,
@@ -117,8 +126,28 @@ function validateNativeWgpuDeclarationValue(declaration: NativeQssDeclaration): 
       return parseNativeQssAlignItems(value)
         ? undefined
         : 'align-items supports flex-start, center, or flex-end.'
+    case 'align-self':
+      return parseNativeQssAlignSelf(value)
+        ? undefined
+        : 'align-self supports auto, flex-start, center, or flex-end.'
+    case 'flex-grow':
+      return parseNativeQssFlexGrow(value) !== undefined
+        ? undefined
+        : 'flex-grow must be a non-negative number.'
+    case 'flex-shrink':
+      return parseNativeQssFlexShrink(value) !== undefined
+        ? undefined
+        : 'flex-shrink must be a non-negative number.'
+    case 'flex-basis':
+      return parseNativeQssFlexBasis(value) !== undefined
+        ? undefined
+        : 'flex-basis supports auto or a non-negative logical px or unitless number.'
     case 'background-color':
     case 'border-color':
+    case 'border-top-color':
+    case 'border-right-color':
+    case 'border-bottom-color':
+    case 'border-left-color':
     case 'color':
       return parseNativeQssColor(value)
         ? undefined
@@ -159,6 +188,10 @@ function validateNativeWgpuDeclarationValue(declaration: NativeQssDeclaration): 
         : 'gap supports one or two non-negative logical px or unitless numbers.'
     case 'border-radius':
     case 'border-width':
+    case 'border-top-width':
+    case 'border-right-width':
+    case 'border-bottom-width':
+    case 'border-left-width':
     case 'font-size':
     case 'height':
     case 'line-height':
@@ -297,6 +330,26 @@ function validateNativeWgpuDeclarationValue(declaration: NativeQssDeclaration): 
       return parseNativeQssInteger(value) !== undefined
         ? undefined
         : 'z-index must be a safe integer.'
+    case 'backdrop-filter':
+      return parseNativeQssBackdropFilter(value)
+        ? undefined
+        : 'backdrop-filter supports none or blur(Npx) with a non-negative radius.'
+    case 'border-image-source':
+      return parseNativeQssBorderImageSource(value)
+        ? undefined
+        : 'border-image-source must use package-relative asset("path").'
+    case 'border-image-slice':
+      return parseNativeQssBorderImageSlice(value)
+        ? undefined
+        : 'border-image-slice supports one to four non-negative logical px or unitless numbers, optionally followed by fill.'
+    case 'border-image-width':
+      return parseNativeQssBorderImageWidth(value)
+        ? undefined
+        : 'border-image-width supports one to four non-negative logical px or unitless numbers.'
+    case 'border-image-repeat':
+      return parseNativeQssBorderImageRepeat(value)
+        ? undefined
+        : 'border-image-repeat supports stretch or repeat.'
     default:
       return undefined
   }

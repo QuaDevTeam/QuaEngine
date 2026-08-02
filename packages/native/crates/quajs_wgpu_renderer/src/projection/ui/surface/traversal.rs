@@ -17,8 +17,8 @@ use super::super::types::{
 };
 use super::command::{
     scroll_clip_command, surface_background_gradient_command, surface_background_image_command,
-    surface_box_shadow_commands, surface_node_command, surface_scroll_panel_command,
-    surface_text_shadow_commands,
+    surface_border_edge_commands, surface_box_shadow_commands, surface_node_command,
+    surface_scroll_panel_command, surface_text_shadow_commands,
 };
 use super::helpers::{node_rect, SurfaceNodeOffset};
 use super::{SCROLL_CHILD_Z_OFFSET, SCROLL_CLIP_END_Z_OFFSET};
@@ -199,6 +199,15 @@ fn append_scroll_node_commands(
         bounds,
         effective_opacity,
     ));
+    commands.extend(surface_border_edge_commands(
+        overlay,
+        node,
+        z_base,
+        clip_bounds,
+        &command_id,
+        bounds,
+        effective_opacity,
+    ));
     commands.extend(surface_box_shadow_commands(
         overlay,
         node,
@@ -334,6 +343,15 @@ fn painted_surface_node_commands(
     ) {
         commands.push(command);
     }
+    commands.extend(surface_border_edge_commands(
+        overlay,
+        node,
+        z_base,
+        clip_bounds,
+        &command_id,
+        bounds,
+        effective_opacity,
+    ));
     commands.extend(surface_box_shadow_commands(
         overlay,
         node,

@@ -313,9 +313,25 @@ pub struct UiSurfaceResolvedStyle {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub border_color: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub border_top_color: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub border_right_color: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub border_bottom_color: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub border_left_color: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub border_style: Option<UiSurfaceBorderStyleProjection>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub border_width: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub border_top_width: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub border_right_width: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub border_bottom_width: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub border_left_width: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub box_shadow: Option<UiSurfaceShadowProjection>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

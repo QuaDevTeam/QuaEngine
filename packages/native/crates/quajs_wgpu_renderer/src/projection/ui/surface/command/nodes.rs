@@ -9,11 +9,12 @@ use crate::render_graph::{
 use crate::resources::ResourceId;
 
 use super::super::super::style::{
-    resolve_background_color, resolve_border_color, resolve_border_radius, resolve_border_width,
-    resolve_font_family, resolve_font_size, resolve_font_style, resolve_font_weight,
-    resolve_letter_spacing, resolve_line_height, resolve_object_fit, resolve_object_position,
-    resolve_padding, resolve_rotate_deg, resolve_text_align, resolve_text_color,
-    resolve_text_decoration, resolve_text_overflow, resolve_text_transform, resolve_white_space,
+    resolve_background_color, resolve_border_color, resolve_border_edges, resolve_border_radius,
+    resolve_border_width, resolve_font_family, resolve_font_size, resolve_font_style,
+    resolve_font_weight, resolve_letter_spacing, resolve_line_height, resolve_object_fit,
+    resolve_object_position, resolve_padding, resolve_rotate_deg, resolve_text_align,
+    resolve_text_color, resolve_text_decoration, resolve_text_overflow, resolve_text_transform,
+    resolve_white_space,
 };
 use super::super::super::types::{
     UiOverlayProjection, UiSurfaceNodeProjection, UiSurfaceResolvedStyle,
@@ -189,6 +190,11 @@ pub(super) fn surface_panel_node_command(
 }
 
 fn surface_border_params(style: &UiSurfaceResolvedStyle) -> BorderDrawParams {
+    // Per-side borders are drawn as separate edge commands; suppress the
+    // shader's uniform border so the two paths never double-paint.
+    if resolve_border_edges(style).is_some() {
+        return BorderDrawParams::default();
+    }
     BorderDrawParams {
         color: resolve_border_color(style),
         width: resolve_border_width(style, 0.0),

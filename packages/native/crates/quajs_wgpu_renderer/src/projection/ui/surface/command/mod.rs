@@ -1,4 +1,5 @@
 mod background;
+mod border;
 mod clip;
 mod nodes;
 
@@ -18,6 +19,7 @@ use nodes::{
 pub(super) use background::{
     surface_background_gradient_command, surface_background_image_command,
 };
+pub(super) use border::surface_border_edge_commands;
 pub(super) use clip::scroll_clip_command;
 
 const MAX_NATIVE_SHADOW_BLUR_RADIUS: f64 = 256.0;

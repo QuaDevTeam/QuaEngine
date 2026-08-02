@@ -58,6 +58,15 @@ fn skips_surface_nodes_with_unsafe_resolved_numbers() {
             ..Default::default()
         }),
         UiSurfaceNodeProjection::new(
+            "bad-border-edge-width",
+            UiSurfaceNodeKind::Panel,
+            rect(20.0, 168.0, 160.0, 40.0),
+        )
+        .with_style(UiSurfaceResolvedStyle {
+            border_bottom_width: Some(-1.0),
+            ..Default::default()
+        }),
+        UiSurfaceNodeProjection::new(
             "bad-background-position",
             UiSurfaceNodeKind::Panel,
             rect(20.0, 216.0, 160.0, 40.0),
