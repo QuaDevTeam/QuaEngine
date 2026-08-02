@@ -8,8 +8,10 @@ use winit::window::Window;
 
 use super::config::{
     load_window_smoke_target_frame_count, load_window_target_fps_override,
-    native_window_demo_e2e_enabled, native_window_dev_enabled, native_window_title,
+    native_window_demo_e2e_enabled, native_window_dev_enabled, native_window_perf_hud_enabled,
+    native_window_title,
 };
+use super::control::{native_window_control_addr, NativeWindowControl};
 use super::demo_e2e::NativeDemoE2eState;
 use super::error::NativeWindowSmokeError;
 use super::frame::{normalized_physical_size, window_frame_dimensions};
@@ -80,6 +82,7 @@ pub(super) struct NativeWindowSmokeApp {
     #[cfg(feature = "quickjs-rquickjs")]
     last_projection_font_prewarm_texts: Vec<String>,
     demo_e2e: NativeDemoE2eState,
+    control: Option<NativeWindowControl>,
     event_loop_proxy: EventLoopProxy<()>,
     pub(super) report: Option<NativeWindowSmokeReport>,
     pub(super) error: Option<NativeWindowSmokeError>,
@@ -120,6 +123,15 @@ impl NativeWindowSmokeApp {
             #[cfg(feature = "quickjs-rquickjs")]
             last_projection_font_prewarm_texts: Vec::new(),
             demo_e2e: NativeDemoE2eState::new(native_window_demo_e2e_enabled()),
+            control: native_window_control_addr().and_then(|addr| {
+                match NativeWindowControl::start(&addr, event_loop_proxy.clone()) {
+                    Ok(control) => Some(control),
+                    Err(error) => {
+                        log::error!("Native window control channel failed to start: {error}");
+                        None
+                    }
+                }
+            }),
             event_loop_proxy,
             report: None,
             error: None,
@@ -304,7 +316,7 @@ impl NativeWindowSmokeApp {
         self.apply_projection_target_fps(projection_target_fps);
         #[cfg(not(feature = "quickjs-rquickjs"))]
         let frame_source: Arc<str> = Arc::from(self.frame_source.as_str());
-        let hud = if native_window_dev_enabled() {
+        let hud = if native_window_perf_hud_enabled() {
             Some(&self.performance_hud)
         } else {
             None
@@ -352,11 +364,23 @@ impl NativeWindowSmokeApp {
                 .request_shutdown_after_next_frame();
         }
         let mut frame_capture = None;
+        // Take the control channel out of self so both frame closures can use
+        // it without overlapping borrows (the first drains input requests, the
+        // second fulfils captures). The event loop is single-threaded, so an
+        // Rc<RefCell> handoff is sufficient.
+        let control = self
+            .control
+            .take()
+            .map(|control| std::rc::Rc::new(std::cell::RefCell::new(control)));
+        let control_for_input = control.clone();
         let product_frame_result = product_shell
             .window_loop_mut()
             .render_projection_json_frame(
                 &frame_json,
                 |renderer, host| {
+                    if let Some(control) = &control_for_input {
+                        control.borrow_mut().drain(renderer, host, &mut self.input)?;
+                    }
                     if self.demo_e2e.is_running() {
                         self.demo_e2e
                             .tick(renderer, host, &mut self.input, &frame_json)
@@ -368,6 +392,21 @@ impl NativeWindowSmokeApp {
                     }
                 },
                 |runtime| {
+                    let has_pending_captures = control
+                        .as_ref()
+                        .is_some_and(|control| control.borrow().has_pending_captures());
+                    if has_pending_captures {
+                        let capture = runtime.capture_frame_png().map_err(|error| {
+                            NativeWindowSmokeError::new(format!(
+                                "Failed to capture native window control frame: {error}."
+                            ))
+                        })?;
+                        control
+                            .as_ref()
+                            .expect("pending captures imply control channel")
+                            .borrow_mut()
+                            .drain_captures(&capture)?;
+                    }
                     if runtime.rendered_frame_count() >= target_frame_count
                         || should_shutdown_after_next_frame
                     {
@@ -383,6 +422,12 @@ impl NativeWindowSmokeApp {
                 },
             );
         self.product_shell = Some(product_shell);
+        // The input closure holds its own Rc clone; drop it before the unwrap.
+        drop(control_for_input);
+        self.control = control.map(|control| match std::rc::Rc::try_unwrap(control) {
+            Ok(control) => control.into_inner(),
+            Err(_) => unreachable!("control channel handoff must be unique after the frame call"),
+        });
         self.flush_dev_renderer_intents()?;
 
         let loop_frame =

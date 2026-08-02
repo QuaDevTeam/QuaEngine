@@ -7,6 +7,7 @@ pub const WINDOW_SMOKE_FRAME_ENV: &str = "QUA_NATIVE_RENDERER_WINDOW_SMOKE_FRAME
 pub const WINDOW_SMOKE_FRAMES_ENV: &str = "QUA_NATIVE_RENDERER_WINDOW_SMOKE_FRAMES";
 pub const WINDOW_DEV_ENV: &str = "QUA_NATIVE_RENDERER_WINDOW_DEV";
 pub const WINDOW_DEV_QPK_ENV: &str = "QUA_NATIVE_RENDERER_WINDOW_DEV_QPK";
+pub const WINDOW_PERF_HUD_ENV: &str = "QUA_NATIVE_RENDERER_PERF_HUD";
 pub const WINDOW_TITLE_ENV: &str = "QUA_NATIVE_RENDERER_WINDOW_TITLE";
 pub const WINDOW_DEMO_E2E_ENV: &str = "QUA_NATIVE_RENDERER_WINDOW_DEMO_E2E";
 pub const WINDOW_TARGET_FPS_ENV: &str = "QUA_NATIVE_RENDERER_TARGET_FPS";
@@ -28,6 +29,12 @@ pub(super) fn native_window_smoke_enabled() -> bool {
 
 pub(super) fn native_window_dev_enabled() -> bool {
     env_flag_enabled(WINDOW_DEV_ENV)
+}
+
+/// The performance HUD overlay is developer-only diagnostics. It is off by
+/// default (including dev windows) and must be requested explicitly.
+pub(super) fn native_window_perf_hud_enabled() -> bool {
+    env_flag_enabled(WINDOW_PERF_HUD_ENV)
 }
 
 pub(super) fn native_window_title() -> String {

@@ -85,6 +85,8 @@ pub(super) struct NativeDemoE2eState {
     gallery_visited: bool,
     settings_topmost: bool,
     gallery_topmost: bool,
+    stop_requested: bool,
+    stop_requested_at: Option<Instant>,
     report_emitted: bool,
     final_frame_presented: bool,
 }
@@ -132,6 +134,20 @@ impl NativeDemoE2eState {
         if !self.enabled || self.is_complete() {
             return Ok(());
         }
+        if self.stop_requested {
+            // Optional diagnostic delay: QUA_NATIVE_RENDERER_WINDOW_DEMO_E2E_STOP_DELAY_MS=<ms>
+            // keeps the run alive after the stop step so transient states
+            // (font atlas rebuilds, presence fades) settle before the capture.
+            let delay_ms = std::env::var("QUA_NATIVE_RENDERER_WINDOW_DEMO_E2E_STOP_DELAY_MS")
+                .ok()
+                .and_then(|value| value.trim().parse::<u64>().ok())
+                .unwrap_or(0);
+            let stop_at = *self.stop_requested_at.get_or_insert_with(Instant::now);
+            if stop_at.elapsed() >= Duration::from_millis(delay_ms) {
+                self.step = NativeDemoE2eStep::Complete;
+            }
+            return Ok(());
+        }
         let now = Instant::now();
         let started_at = *self.started_at.get_or_insert(now);
         let last_progress_at = *self.last_progress_at.get_or_insert(now);
@@ -154,7 +170,7 @@ impl NativeDemoE2eState {
 
         match self.step {
             NativeDemoE2eStep::AwaitTitle => {
-                if click(renderer, host, input, TITLE_START)? {
+                if self.click(renderer, host, input, TITLE_START)? {
                     self.record_step("title-menu");
                     self.step = NativeDemoE2eStep::AwaitFirstDialogue;
                 }
@@ -172,7 +188,7 @@ impl NativeDemoE2eState {
                 self.observe_dialogue_frame(frame_json);
                 if command_visible(renderer, FIRST_STORY_CHOICE) {
                     if self.skip_started && flow_control_is_skip(frame_json) {
-                        if !self.skip_stop_requested && click(renderer, host, input, GAME_HUD_SKIP)?
+                        if !self.skip_stop_requested && self.click(renderer, host, input, GAME_HUD_SKIP)?
                         {
                             self.skip_stop_requested = true;
                             self.last_progress_at = Some(Instant::now());
@@ -180,7 +196,7 @@ impl NativeDemoE2eState {
                     } else {
                         self.record_step("story-choice");
                         self.choice_dialogue_signature = self.dialogue_signature.clone();
-                        if click(renderer, host, input, FIRST_STORY_CHOICE)? {
+                        if self.click(renderer, host, input, FIRST_STORY_CHOICE)? {
                             self.selected_choice_id = Some("stealth".to_string());
                             self.step = NativeDemoE2eStep::AwaitChoiceBranch;
                         }
@@ -189,7 +205,7 @@ impl NativeDemoE2eState {
                     && self.dialogue_line_count >= 2
                     && self.dialogue_advance_count >= 1
                 {
-                    if click(renderer, host, input, GAME_HUD_SKIP)? {
+                    if self.click(renderer, host, input, GAME_HUD_SKIP)? {
                         self.skip_started = true;
                         self.last_progress_at = Some(Instant::now());
                     }
@@ -211,14 +227,14 @@ impl NativeDemoE2eState {
                 }
             }
             NativeDemoE2eStep::OpenGameMenu => {
-                if click(renderer, host, input, GAME_HUD_MENU)? {
+                if self.click(renderer, host, input, GAME_HUD_MENU)? {
                     self.step = NativeDemoE2eStep::AwaitGameMenu;
                 }
             }
             NativeDemoE2eStep::AwaitGameMenu => {
                 if command_visible(renderer, GAME_MENU_TITLE) {
                     self.record_step("game-menu");
-                    if click(renderer, host, input, GAME_MENU_TITLE)? {
+                    if self.click(renderer, host, input, GAME_MENU_TITLE)? {
                         self.step = NativeDemoE2eStep::AwaitTitleConfirmation;
                     }
                 }
@@ -226,7 +242,7 @@ impl NativeDemoE2eState {
             NativeDemoE2eStep::AwaitTitleConfirmation => {
                 if command_visible(renderer, TITLE_CONFIRM) {
                     self.record_step("title-confirmation");
-                    if click(renderer, host, input, TITLE_CONFIRM)? {
+                    if self.click(renderer, host, input, TITLE_CONFIRM)? {
                         self.step = NativeDemoE2eStep::AwaitReturnedTitle;
                     }
                 }
@@ -235,7 +251,7 @@ impl NativeDemoE2eState {
                 if command_visible(renderer, TITLE_START) && command_visible(renderer, TITLE_CONFIG)
                 {
                     self.record_step("title-return");
-                    if click(renderer, host, input, TITLE_CONFIG)? {
+                    if self.click(renderer, host, input, TITLE_CONFIG)? {
                         self.step = NativeDemoE2eStep::AwaitSettings;
                     }
                 }
@@ -246,7 +262,7 @@ impl NativeDemoE2eState {
                     self.settings_topmost = topmost_ui_overlay_element_id(renderer).as_deref()
                         == Some(SETTINGS_ELEMENT_ID);
                     self.record_step("settings");
-                    if click(renderer, host, input, SETTINGS_CLOSE)? {
+                    if self.click(renderer, host, input, SETTINGS_CLOSE)? {
                         self.step = NativeDemoE2eStep::AwaitTitleAfterSettings;
                     }
                 }
@@ -256,7 +272,7 @@ impl NativeDemoE2eState {
                     && command_visible(renderer, TITLE_GALLERY)
                 {
                     self.record_step("settings-return");
-                    if click(renderer, host, input, TITLE_GALLERY)? {
+                    if self.click(renderer, host, input, TITLE_GALLERY)? {
                         self.step = NativeDemoE2eStep::AwaitGallery;
                     }
                 }
@@ -267,7 +283,7 @@ impl NativeDemoE2eState {
                     self.gallery_topmost = topmost_ui_overlay_element_id(renderer).as_deref()
                         == Some(GALLERY_ELEMENT_ID);
                     self.record_step("gallery");
-                    if click(renderer, host, input, GALLERY_CLOSE)? {
+                    if self.click(renderer, host, input, GALLERY_CLOSE)? {
                         self.step = NativeDemoE2eStep::AwaitFinalTitle;
                     }
                 }
@@ -294,12 +310,12 @@ impl NativeDemoE2eState {
     {
         match self.dialogue_click_phase {
             DialogueClickPhase::Reveal => {
-                if click_dialogue_area(renderer, host, input)? {
+                if self.click_dialogue_area(renderer, host, input)? {
                     self.dialogue_click_phase = DialogueClickPhase::Advance;
                 }
             }
             DialogueClickPhase::Advance => {
-                if click_dialogue_area(renderer, host, input)? {
+                if self.click_dialogue_area(renderer, host, input)? {
                     self.dialogue_advance_count = self.dialogue_advance_count.saturating_add(1);
                     self.dialogue_click_phase = DialogueClickPhase::AwaitProjectionChange;
                 }
@@ -335,6 +351,14 @@ impl NativeDemoE2eState {
         self.steps.push(step.to_string());
         self.last_progress_at = Some(Instant::now());
         println!("Native demo E2E completed step: {step}.");
+        // Diagnostic: QUA_NATIVE_RENDERER_WINDOW_DEMO_E2E_STOP_AT=<step> stops
+        // the run right after the named step so the capture artifact shows
+        // that exact screen (e.g. "game-menu" to inspect the menu panel).
+        if std::env::var("QUA_NATIVE_RENDERER_WINDOW_DEMO_E2E_STOP_AT").ok().as_deref()
+            == Some(step)
+        {
+            self.stop_requested = true;
+        }
     }
 
     fn finish(&mut self) -> Result<(), NativeWindowSmokeError> {
@@ -362,6 +386,44 @@ impl NativeDemoE2eState {
         println!("Qua native demo e2e json: {json}");
         self.report_emitted = true;
         Ok(())
+    }
+    fn click<B, A, V, F>(
+        &self,
+        renderer: &mut NativeRenderer<B, A, V, F>,
+        host: &mut InMemoryNativeHostApi,
+        input: &mut NativeWindowSmokeInputState,
+        command_id: &str,
+    ) -> Result<bool, NativeWindowSmokeError>
+    where
+        B: NativeRenderBackend,
+    {
+        if self.stop_requested {
+            return Ok(false);
+        }
+        let clicked = input.click_render_command(renderer, host, command_id)?;
+        if clicked {
+            println!("Native demo E2E clicked render command: {command_id}.");
+        }
+        Ok(clicked)
+    }
+
+    fn click_dialogue_area<B, A, V, F>(
+        &self,
+        renderer: &mut NativeRenderer<B, A, V, F>,
+        host: &mut InMemoryNativeHostApi,
+        input: &mut NativeWindowSmokeInputState,
+    ) -> Result<bool, NativeWindowSmokeError>
+    where
+        B: NativeRenderBackend,
+    {
+        if self.stop_requested {
+            return Ok(false);
+        }
+        let clicked = input.click_unhandled_render_command_area(renderer, host, DIALOGUE_PANEL)?;
+        if clicked {
+            println!("Native demo E2E clicked unhandled render command area: {DIALOGUE_PANEL}.");
+        }
+        Ok(clicked)
     }
 }
 
@@ -402,37 +464,6 @@ where
             .max_by_key(|(z_index, _)| *z_index)
             .map(|(_, element_id)| element_id)
     })
-}
-
-fn click<B, A, V, F>(
-    renderer: &mut NativeRenderer<B, A, V, F>,
-    host: &mut InMemoryNativeHostApi,
-    input: &mut NativeWindowSmokeInputState,
-    command_id: &str,
-) -> Result<bool, NativeWindowSmokeError>
-where
-    B: NativeRenderBackend,
-{
-    let clicked = input.click_render_command(renderer, host, command_id)?;
-    if clicked {
-        println!("Native demo E2E clicked render command: {command_id}.");
-    }
-    Ok(clicked)
-}
-
-fn click_dialogue_area<B, A, V, F>(
-    renderer: &mut NativeRenderer<B, A, V, F>,
-    host: &mut InMemoryNativeHostApi,
-    input: &mut NativeWindowSmokeInputState,
-) -> Result<bool, NativeWindowSmokeError>
-where
-    B: NativeRenderBackend,
-{
-    let clicked = input.click_unhandled_render_command_area(renderer, host, DIALOGUE_PANEL)?;
-    if clicked {
-        println!("Native demo E2E clicked unhandled render command area: {DIALOGUE_PANEL}.");
-    }
-    Ok(clicked)
 }
 
 fn dialogue_signature(frame_json: &str) -> Option<String> {

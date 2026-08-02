@@ -149,7 +149,12 @@ async function rebuildAndLaunch() {
               QUA_NATIVE_RENDERER_WINDOW_CAPTURE_PATH: CAPTURE_PATH,
               QUA_NATIVE_RENDERER_WINDOW_DEMO_E2E: '1',
             }
-          : { QUA_NATIVE_RENDERER_WINDOW_DEV: '1' }),
+          : {
+              QUA_NATIVE_RENDERER_WINDOW_DEV: '1',
+              // CDP debug endpoint for external tooling (see scripts/native-control.mjs).
+              QUA_NATIVE_RENDERER_CONTROL:
+                process.env.QUA_NATIVE_RENDERER_CONTROL ?? '127.0.0.1:4789',
+            }),
       },
       stdio: e2e ? ['ignore', 'pipe', 'pipe'] : 'inherit',
     })
@@ -164,6 +169,7 @@ async function rebuildAndLaunch() {
     }
     nativeWindow.on('error', error => console.error(`Native demo failed to start: ${error.message}`))
     if (!e2e) {
+      console.log(`Native CDP endpoint: http://${process.env.QUA_NATIVE_RENDERER_CONTROL ?? '127.0.0.1:4789'}/json/version`)
       nativeWindow.on('exit', (code, signal) => {
         if (!stopped && !rebuilding) {
           console.log(`Native demo window closed (code=${code ?? 'none'}, signal=${signal ?? 'none'}). Waiting for a source change.`)
@@ -305,6 +311,7 @@ function resolveBin(name) {
 
 async function buildNativeTypeScriptPackages() {
   for (const packageName of [
+    '@quajs/native-ui',
     '@quajs/native-ui-compiler',
     '@quajs/plugin-achievement',
     '@quajs/plugin-backlog',
@@ -438,7 +445,7 @@ async function validateNativeE2eOutput(output) {
   if (report.shapedTextDrawCount < 1 || report.bitmapTextDrawCount !== 0) {
     failures.push('the final title frame did not use native OpenType shaping exclusively')
   }
-  if (!report.fontAtlasResourceIds?.includes('fonts:Noto Sans')) {
+  if (!report.fontAtlasResourceIds?.some(id => id === 'fonts:Noto Sans' || id.startsWith('fonts:Noto Sans@'))) {
     failures.push('the final title frame did not bind fonts:Noto Sans')
   }
   if (report.linearSampledTextureBindGroupCount < 1 || report.nearestSampledTextureBindGroupCount !== 0) {

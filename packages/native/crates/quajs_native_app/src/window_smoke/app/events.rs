@@ -18,6 +18,15 @@ use crate::window_smoke::input::{pointer_button_from_winit, pointer_phase_from_e
 
 impl ApplicationHandler for NativeWindowSmokeApp {
     fn user_event(&mut self, _event_loop: &ActiveEventLoop, _event: ()) {
+        // Control-channel clients wake the loop after queueing a request;
+        // process it on a fresh frame instead of waiting for user input.
+        if self
+            .control
+            .as_ref()
+            .is_some_and(|control| control.take_wake_pending())
+        {
+            self.request_redraw();
+        }
         #[cfg(feature = "quickjs-rquickjs")]
         {
             self.ingest_quickjs_pipeline_updates();
