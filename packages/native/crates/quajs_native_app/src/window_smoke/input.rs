@@ -377,11 +377,16 @@ impl NativeWindowSmokeInputState {
             x: command.bounds.x + command.bounds.width / 2.0,
             y: command.bounds.y + command.bounds.height / 2.0,
         };
-        if frame
-            .graph
-            .hit_test(logical.x, logical.y)
-            .is_none_or(|hit| hit.id != command_id)
-        {
+        let hit = frame.graph.hit_test(logical.x, logical.y);
+        if hit.is_none_or(|hit| hit.id != command_id) {
+            log::debug!(
+                target: "quajs_native_app::intent",
+                "click_render_command pre-check missed {}: center=({:.1},{:.1}) hit={}",
+                command_id,
+                logical.x,
+                logical.y,
+                hit.map(|command| command.id.as_str()).unwrap_or("<none>"),
+            );
             return Ok(false);
         }
         let layout = frame.graph.layout;

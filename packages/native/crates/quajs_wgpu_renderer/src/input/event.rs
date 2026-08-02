@@ -71,7 +71,7 @@ pub struct NativePointerInteractionState {
     hovered_command_id: Option<String>,
     focused_command_id: Option<String>,
     pub(crate) controls: NativeUiControlInteractionState,
-    visual_transition: Option<NativePointerVisualTransition>,
+    pub(crate) visual_transition: Option<NativePointerVisualTransition>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -80,6 +80,12 @@ pub(crate) struct NativePointerVisualTransition {
     pub(crate) hovered_command_id: Option<String>,
     pub(crate) focused_command_id: Option<String>,
     pub(crate) pressed_command_ids: BTreeSet<String>,
+    /// The transition this one interrupted, if any. Blink/WebKit reversing-
+    /// transition semantics: when a state change lands mid-transition, the new
+    /// interpolation must start from the value displayed at the interruption
+    /// point (evaluated through this chain) instead of jumping to the previous
+    /// state's finished variant.
+    pub(crate) superseded: Option<Box<NativePointerVisualTransition>>,
 }
 
 impl NativePointerInteractionState {
@@ -127,7 +133,7 @@ impl NativePointerInteractionState {
         let focus_changed = self.focused_command_id.take().is_some();
         let changed = press_changed || hover_changed || focus_changed;
         if changed {
-            self.visual_transition = Some(previous);
+            self.start_visual_transition(previous);
         }
         changed
     }
@@ -142,7 +148,7 @@ impl NativePointerInteractionState {
             if !still_exists {
                 let previous = self.visual_snapshot();
                 self.focused_command_id = None;
-                self.visual_transition = Some(previous);
+                self.start_visual_transition(previous);
             }
         }
         self.controls.reconcile(graph);
@@ -166,7 +172,44 @@ impl NativePointerInteractionState {
                 .values()
                 .map(|press| press.command_id.clone())
                 .collect(),
+            superseded: None,
         }
+    }
+
+    /// Starts a new visual transition from `snapshot`, preserving the outgoing
+    /// transition as the superseded link so interpolation sources can be
+    /// evaluated from the displayed value at the interruption point. The chain
+    /// is capped: rapid hover/focus sweeps would otherwise grow it without
+    /// bound, and links deeper than the cap are long past their transition
+    /// duration in practice, so dropping them does not change the evaluated
+    /// interruption source.
+    pub(crate) fn start_visual_transition(&mut self, snapshot: NativePointerVisualTransition) {
+        let mut superseded = self.visual_transition.take().map(Box::new);
+        if let Some(chain) = superseded.as_mut() {
+            truncate_superseded_chain(chain, MAX_SUPERSEDED_CHAIN_DEPTH);
+        }
+        self.visual_transition = Some(NativePointerVisualTransition {
+            superseded,
+            ..snapshot
+        });
+    }
+}
+
+/// Deepest reversing-transition history kept per command. Each state change
+/// nests one more link, and `transition_source_variant` recurses the whole
+/// chain every frame, so the depth must stay bounded.
+const MAX_SUPERSEDED_CHAIN_DEPTH: usize = 8;
+
+fn truncate_superseded_chain(
+    chain: &mut NativePointerVisualTransition,
+    remaining_depth: usize,
+) {
+    if remaining_depth == 0 {
+        chain.superseded = None;
+        return;
+    }
+    if let Some(next) = chain.superseded.as_mut() {
+        truncate_superseded_chain(next, remaining_depth - 1);
     }
 }
 
@@ -232,7 +275,7 @@ pub fn resolve_pointer_event_with_interaction(
         || previous_focus != interaction.focused_command_id
         || previous_pressed != interaction.active_presses;
     if visual_state_changed {
-        interaction.visual_transition = Some(NativePointerVisualTransition {
+        interaction.start_visual_transition(NativePointerVisualTransition {
             started_at: Instant::now(),
             hovered_command_id: previous_hover,
             focused_command_id: previous_focus,
@@ -240,6 +283,7 @@ pub fn resolve_pointer_event_with_interaction(
                 .values()
                 .map(|press| press.command_id.clone())
                 .collect(),
+            superseded: None,
         });
     }
 

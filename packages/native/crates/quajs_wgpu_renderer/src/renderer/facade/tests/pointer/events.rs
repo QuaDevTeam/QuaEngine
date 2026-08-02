@@ -235,16 +235,22 @@ fn pointer_move_submits_transient_hover_feedback_only_while_targeted() {
     );
 
     let hovered_submission = renderer.render_frame().unwrap();
-    assert_eq!(
-        hovered_submission.command_count,
-        projected_command_count + 1
-    );
-    assert!(hovered_submission
+    // Generic hover feedback is composited into the choice button's own paint
+    // instead of appending an overlay command, so the command stream keeps its
+    // shape and the label can never be covered by the highlight.
+    assert_eq!(hovered_submission.command_count, projected_command_count);
+    assert!(!hovered_submission
         .passes
         .iter()
         .flat_map(|pass| pass.batches.iter())
         .flat_map(|batch| batch.command_ids.iter())
         .any(|command_id| command_id == "choice:stay::interaction"));
+    assert!(hovered_submission
+        .passes
+        .iter()
+        .flat_map(|pass| pass.batches.iter())
+        .flat_map(|batch| batch.command_ids.iter())
+        .any(|command_id| command_id == "choice:stay"));
     assert_eq!(
         renderer.state().frame().unwrap().summary.command_count,
         projected_command_count

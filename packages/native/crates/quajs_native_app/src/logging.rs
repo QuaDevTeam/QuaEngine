@@ -13,13 +13,18 @@
 //! Defaults to `info`, with `wgpu`/`winit`/`naga` pinned to `warn` so their
 //! internal chatter does not drown the app's own lines. In release builds the
 //! `native-log-strip-release` feature compiles `debug!`/`trace!` out entirely.
+//!
+//! Levels are ANSI-colored when stderr is a terminal. Colors are disabled by
+//! `NO_COLOR` or a `dumb` terminal, and can be forced with
+//! `QUA_NATIVE_LOG_COLOR=always|never|auto` (default `auto`).
 
-use std::io::Write;
+use std::io::{IsTerminal, Write};
 use std::time::Instant;
 
-use log::{LevelFilter, Log, Metadata, Record, SetLoggerError};
+use log::{Level, LevelFilter, Log, Metadata, Record, SetLoggerError};
 
 const LOG_ENV: &str = "QUA_NATIVE_LOG";
+const LOG_COLOR_ENV: &str = "QUA_NATIVE_LOG_COLOR";
 const DEFAULT_LEVEL: LevelFilter = LevelFilter::Info;
 
 /// Third-party targets that are noisy at `debug`/`trace` and rarely what we
@@ -36,6 +41,7 @@ struct NativeLogger {
     global: LevelFilter,
     targets: Vec<(String, LevelFilter)>,
     started_at: Instant,
+    color: bool,
 }
 
 impl NativeLogger {
@@ -59,6 +65,42 @@ fn target_matches(target: &str, prefix: &str) -> bool {
             .is_some_and(|rest| rest.starts_with("::"))
 }
 
+/// ANSI color per level: errors red, warnings yellow, info green, debug blue,
+/// trace magenta. The level tag is the loudest element on the line so the eye
+/// can scan for severity; timestamp and target stay dim/cyan secondary.
+fn level_color(level: Level) -> &'static str {
+    match level {
+        Level::Error => "\x1b[1;31m",
+        Level::Warn => "\x1b[1;33m",
+        Level::Info => "\x1b[32m",
+        Level::Debug => "\x1b[34m",
+        Level::Trace => "\x1b[35m",
+    }
+}
+
+/// Color is on when stderr is a terminal, unless `NO_COLOR` is set or the
+/// terminal is `dumb`. `QUA_NATIVE_LOG_COLOR=always|never|auto` overrides
+/// detection so colors can be forced through pipes or stripped on terminals.
+fn colors_enabled() -> bool {
+    match std::env::var(LOG_COLOR_ENV)
+        .unwrap_or_default()
+        .trim()
+        .to_ascii_lowercase()
+        .as_str()
+    {
+        "always" | "on" | "1" | "true" => return true,
+        "never" | "off" | "0" | "false" => return false,
+        _ => {}
+    }
+    if std::env::var_os("NO_COLOR").is_some() {
+        return false;
+    }
+    if std::env::var("TERM").is_ok_and(|term| term == "dumb") {
+        return false;
+    }
+    std::io::stderr().is_terminal()
+}
+
 impl Log for NativeLogger {
     fn enabled(&self, metadata: &Metadata<'_>) -> bool {
         metadata.level() <= self.level_for(metadata.target())
@@ -70,14 +112,26 @@ impl Log for NativeLogger {
         }
         let elapsed = self.started_at.elapsed();
         let mut stderr = std::io::stderr().lock();
-        let _ = writeln!(
-            stderr,
-            "[{:>7.3}s {:<5} {}] {}",
-            elapsed.as_secs_f64(),
-            record.level(),
-            record.target(),
-            record.args()
-        );
+        if self.color {
+            let _ = writeln!(
+                stderr,
+                "\x1b[2m[{:>7.3}s\x1b[0m {}{:<5}\x1b[0m \x1b[36m{}\x1b[0m\x1b[2m]\x1b[0m {}",
+                elapsed.as_secs_f64(),
+                level_color(record.level()),
+                record.level(),
+                record.target(),
+                record.args()
+            );
+        } else {
+            let _ = writeln!(
+                stderr,
+                "[{:>7.3}s {:<5} {}] {}",
+                elapsed.as_secs_f64(),
+                record.level(),
+                record.target(),
+                record.args()
+            );
+        }
     }
 
     fn flush(&self) {
@@ -106,6 +160,7 @@ pub(crate) fn init_native_logging() -> Result<(), SetLoggerError> {
         global,
         targets,
         started_at: Instant::now(),
+        color: colors_enabled(),
     }));
     log::set_logger(logger)?;
     log::set_max_level(max_level);
@@ -207,6 +262,7 @@ mod tests {
                 ),
             ],
             started_at: Instant::now(),
+            color: false,
         };
 
         assert_eq!(

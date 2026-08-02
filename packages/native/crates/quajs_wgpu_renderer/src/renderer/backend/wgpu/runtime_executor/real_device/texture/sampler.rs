@@ -26,7 +26,7 @@ pub(super) fn create_sampler_bind_group(
         })
 }
 
-pub(super) fn create_texture_sampler(
+pub(in super::super) fn create_texture_sampler(
     target: &RealWgpuNativeRenderRuntimeTarget,
     label: &str,
 ) -> wgpu::Sampler {
