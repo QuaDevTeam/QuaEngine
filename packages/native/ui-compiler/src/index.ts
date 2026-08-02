@@ -8,7 +8,6 @@ import type {
   NativeUiLanguageOptions,
 } from './types'
 import { analyzeQssSource, formatQssSource, getQssCompletions, getQssHover } from './qss'
-import { analyzeQuiSource, formatQuiSource, getQuiCompletions, getQuiHover } from './qui'
 
 export {
   isSafeNativeAssetType,
@@ -39,37 +38,37 @@ export type {
   CompileNativeUiSurfaceProjectionOptions,
 } from './projection'
 export {
+  compileQuiTsxProjection,
+} from './tsx-projection-compiler'
+export type {
+  CompileQuiTsxProjectionOptions,
+} from './tsx-projection-compiler'
+export {
+  compileQssScss,
+} from './qss-scss'
+export type {
+  CompileQssScssOptions,
+  QssScssCompileResult,
+} from './qss-scss'
+export {
   collectNativeUiSurfaceProjectionRequirements,
 } from './projection-requirements'
 export type {
   NativeUiSurfaceProjectionRequirements,
 } from './projection-requirements'
-export {
-  analyzeQuiSource,
-  formatQuiSource,
-  getQuiCompletions,
-  getQuiHover,
-} from './qui'
-export {
-  collectQuiActionDescriptors,
-  parseQuiActionDescriptor,
-} from './qui-actions'
-export {
-  parseQuiStructureTree,
-} from './qui-structure'
 export * from './registry'
 export * from './types'
 
+// ─── Document-kind detection ──────────────────────────────────────────────────
+// .qui support has been removed; files should be TSX + .scss.
+// The 'qui' kind is kept in the type union for backward compat only.
+
 export function detectNativeUiDocumentKind(options: NativeUiLanguageOptions): NativeUiDocumentKind | undefined {
-  if (options.languageId === 'qua-ui' || options.languageId === 'qui')
-    return 'qui'
   if (options.languageId === 'qua-style' || options.languageId === 'qss')
     return 'qss'
 
   const extension = options.filePath ? fileExtension(options.filePath) : ''
-  if (extension === '.qui')
-    return 'qui'
-  if (extension === '.qss')
+  if (extension === '.qss' || extension === '.scss')
     return 'qss'
 
   return undefined
@@ -79,42 +78,30 @@ export function analyzeNativeUiDocument(
   source: string,
   options: NativeUiLanguageOptions = {},
 ): NativeUiDocument {
-  const kind = detectNativeUiDocumentKind(options) || 'qui'
-  return kind === 'qss'
-    ? analyzeQssSource(source, options)
-    : analyzeQuiSource(source, options)
+  return analyzeQssSource(source, options)
 }
 
 export function formatNativeUiDocument(
   source: string,
   options: NativeUiLanguageOptions = {},
 ): string {
-  const kind = detectNativeUiDocumentKind(options) || 'qui'
-  return kind === 'qss'
-    ? formatQssSource(source, options)
-    : formatQuiSource(source, options)
+  return formatQssSource(source, options)
 }
 
 export function getNativeUiCompletions(
   source: string,
   offset: number,
-  options: NativeUiLanguageOptions = {},
+  _options: NativeUiLanguageOptions = {},
 ): NativeUiCompletionItem[] {
-  const kind = detectNativeUiDocumentKind(options) || 'qui'
-  return kind === 'qss'
-    ? getQssCompletions(source, offset)
-    : getQuiCompletions(source, offset)
+  return getQssCompletions(source, offset)
 }
 
 export function getNativeUiHover(
   source: string,
   offset: number,
-  options: NativeUiLanguageOptions = {},
+  _options: NativeUiLanguageOptions = {},
 ): NativeUiHover | undefined {
-  const kind = detectNativeUiDocumentKind(options) || 'qui'
-  return kind === 'qss'
-    ? getQssHover(source, offset)
-    : getQuiHover(source, offset)
+  return getQssHover(source, offset)
 }
 
 export function isNativeQuiDocument(document: NativeUiDocument): document is NativeQuiDocument {

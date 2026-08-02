@@ -36,7 +36,11 @@ export function applyNativeQssStructuralLayout(
 
   const hasChildLayout = children.some(child =>
     child.compilerLayout?.margin
-    || child.compilerLayout?.position === 'absolute')
+    || child.compilerLayout?.position === 'absolute'
+    || child.compilerLayout?.flexGrow !== undefined
+    || child.compilerLayout?.flexShrink !== undefined
+    || child.compilerLayout?.flexBasis !== undefined
+    || child.compilerLayout?.alignSelf !== undefined)
   if (!layout && !hasChildLayout)
     return [...children]
 
@@ -74,28 +78,64 @@ function layoutRowChildren(
   bounds: NativeUiSurfaceRect,
   layout: NativeQssResolvedLayout | undefined,
 ): NativeUiCompilerSurfaceNodeProjection[] {
-  const distribution = distributeMainAxis(
+  const gap = layout?.columnGap ?? 0
+  const parentAlign = layout?.alignItems
+
+  // Split absolute vs. flow children
+  const flowChildren = children.filter(child => !isAbsolute(child))
+
+  // Resolve flex-basis natural main-axis sizes
+  const naturalWidths = flowChildren.map(child =>
+    flexBasisMainSize(child, child.bounds.width))
+  const naturalOuterWidths = flowChildren.map((child, i) => {
+    const margin = marginFor(child)
+    return margin.left + child.bounds.x + naturalWidths[i] + margin.right
+  })
+
+  const flowCount = flowChildren.length
+  const usedWidth = naturalOuterWidths.reduce((s, w) => s + w, 0)
+    + gap * Math.max(0, flowCount - 1)
+  const freeSpace = bounds.width - usedWidth
+
+  // Distribute free space via flex-grow / flex-shrink
+  const adjustedWidths = distributeFlex(
+    naturalWidths,
+    flowChildren,
+    freeSpace,
+  )
+
+  // justifyContent: recompute startOffset with adjusted sizes
+  const adjustedOuterWidths = flowChildren.map((child, i) => {
+    const margin = marginFor(child)
+    return margin.left + child.bounds.x + adjustedWidths[i] + margin.right
+  })
+  const { gap: effectiveGap, startOffset } = distributeMainAxis(
     bounds.width,
-    children.filter(child => !isAbsolute(child)).map(rowOuterWidth),
-    layout?.columnGap ?? 0,
+    adjustedOuterWidths,
+    gap,
     layout?.justifyContent,
   )
-  let cursorX = distribution.startOffset
+
+  let cursorX = startOffset
+  let flowIndex = 0
   return children.map((child) => {
     if (isAbsolute(child))
       return withBounds(child, absoluteBounds(child, bounds))
 
     const margin = marginFor(child)
+    const childWidth = adjustedWidths[flowIndex]
+    const effectiveAlign = resolveEffectiveAlign(child.compilerLayout?.alignSelf, parentAlign)
     const crossOffset = alignCrossAxis(
       bounds.height,
-      rowOuterHeight(child),
-      layout?.alignItems,
+      margin.top + child.bounds.y + child.bounds.height + margin.bottom,
+      effectiveAlign,
     )
     const localX = cursorX + margin.left + child.bounds.x
     const x = bounds.x + localX
     const y = bounds.y + crossOffset + margin.top + child.bounds.y
-    cursorX += rowOuterWidth(child) + distribution.gap
-    return withBounds(child, { ...child.bounds, x, y })
+    cursorX += adjustedOuterWidths[flowIndex] + effectiveGap
+    flowIndex++
+    return withBounds(child, { ...child.bounds, width: childWidth, x, y })
   })
 }
 
@@ -104,28 +144,60 @@ function layoutColumnChildren(
   bounds: NativeUiSurfaceRect,
   layout: NativeQssResolvedLayout | undefined,
 ): NativeUiCompilerSurfaceNodeProjection[] {
-  const distribution = distributeMainAxis(
+  const gap = layout?.rowGap ?? 0
+  const parentAlign = layout?.alignItems
+
+  const flowChildren = children.filter(child => !isAbsolute(child))
+
+  const naturalHeights = flowChildren.map(child =>
+    flexBasisMainSize(child, child.bounds.height))
+  const naturalOuterHeights = flowChildren.map((child, i) => {
+    const margin = marginFor(child)
+    return margin.top + child.bounds.y + naturalHeights[i] + margin.bottom
+  })
+
+  const flowCount = flowChildren.length
+  const usedHeight = naturalOuterHeights.reduce((s, h) => s + h, 0)
+    + gap * Math.max(0, flowCount - 1)
+  const freeSpace = bounds.height - usedHeight
+
+  const adjustedHeights = distributeFlex(
+    naturalHeights,
+    flowChildren,
+    freeSpace,
+  )
+
+  const adjustedOuterHeights = flowChildren.map((child, i) => {
+    const margin = marginFor(child)
+    return margin.top + child.bounds.y + adjustedHeights[i] + margin.bottom
+  })
+  const { gap: effectiveGap, startOffset } = distributeMainAxis(
     bounds.height,
-    children.filter(child => !isAbsolute(child)).map(columnOuterHeight),
-    layout?.rowGap ?? 0,
+    adjustedOuterHeights,
+    gap,
     layout?.justifyContent,
   )
-  let cursorY = distribution.startOffset
+
+  let cursorY = startOffset
+  let flowIndex = 0
   return children.map((child) => {
     if (isAbsolute(child))
       return withBounds(child, absoluteBounds(child, bounds))
 
     const margin = marginFor(child)
+    const childHeight = adjustedHeights[flowIndex]
+    const effectiveAlign = resolveEffectiveAlign(child.compilerLayout?.alignSelf, parentAlign)
     const crossOffset = alignCrossAxis(
       bounds.width,
-      columnOuterWidth(child),
-      layout?.alignItems,
+      margin.left + child.bounds.x + child.bounds.width + margin.right,
+      effectiveAlign,
     )
     const x = bounds.x + crossOffset + margin.left + child.bounds.x
     const localY = cursorY + margin.top + child.bounds.y
     const y = bounds.y + localY
-    cursorY += columnOuterHeight(child) + distribution.gap
-    return withBounds(child, { ...child.bounds, x, y })
+    cursorY += adjustedOuterHeights[flowIndex] + effectiveGap
+    flowIndex++
+    return withBounds(child, { ...child.bounds, height: childHeight, x, y })
   })
 }
 
@@ -244,32 +316,74 @@ function alignCrossAxis(
   }
 }
 
-function rowOuterWidth(child: NativeUiCompilerSurfaceNodeProjection): number {
-  const margin = marginFor(child)
-  return margin.left + child.bounds.x + child.bounds.width + margin.right
-}
-
-function rowOuterHeight(child: NativeUiCompilerSurfaceNodeProjection): number {
-  const margin = marginFor(child)
-  return margin.top + child.bounds.y + child.bounds.height + margin.bottom
-}
-
-function columnOuterWidth(child: NativeUiCompilerSurfaceNodeProjection): number {
-  const margin = marginFor(child)
-  return margin.left + child.bounds.x + child.bounds.width + margin.right
-}
-
-function columnOuterHeight(child: NativeUiCompilerSurfaceNodeProjection): number {
-  const margin = marginFor(child)
-  return margin.top + child.bounds.y + child.bounds.height + margin.bottom
-}
-
 function marginFor(child: NativeUiCompilerSurfaceNodeProjection): NativeQssEdgeInsetsValue {
   return child.compilerLayout?.margin ?? ZERO_INSETS
 }
 
 function isAbsolute(child: NativeUiCompilerSurfaceNodeProjection): boolean {
   return child.compilerLayout?.position === 'absolute'
+}
+
+/** Return the flex-basis as a main-axis size; falls back to the resolved QSS dimension. */
+function flexBasisMainSize(
+  child: NativeUiCompilerSurfaceNodeProjection,
+  naturalSize: number,
+): number {
+  const basis = child.compilerLayout?.flexBasis
+  if (basis === undefined || basis === 'auto') return naturalSize
+  return Math.max(0, basis)
+}
+
+/** Resolve the effective cross-axis alignment for a single child. */
+function resolveEffectiveAlign(
+  alignSelf: NativeQssResolvedLayout['alignSelf'],
+  parentAlignItems: NativeQssAlignItemsValue | undefined,
+): NativeQssAlignItemsValue | undefined {
+  if (!alignSelf || alignSelf === 'auto') return parentAlignItems
+  return alignSelf
+}
+
+/**
+ * Apply flex-grow / flex-shrink distribution.
+ *
+ * @param naturalSizes   Main-axis content sizes (from flex-basis or resolved bounds).
+ * @param children       Flow children in order.
+ * @param freeSpace      Remaining space: positive → grow pass, negative → shrink pass.
+ * @returns Adjusted content sizes (same order as naturalSizes).
+ */
+function distributeFlex(
+  naturalSizes: readonly number[],
+  children: readonly NativeUiCompilerSurfaceNodeProjection[],
+  freeSpace: number,
+): number[] {
+  const result = [...naturalSizes]
+  if (freeSpace === 0) return result
+
+  if (freeSpace > 0) {
+    // Grow pass
+    const growFactors = children.map(c => Math.max(0, c.compilerLayout?.flexGrow ?? 0))
+    const totalGrow = growFactors.reduce((s, g) => s + g, 0)
+    if (totalGrow <= 0) return result
+    for (let i = 0; i < result.length; i++) {
+      if (growFactors[i] > 0)
+        result[i] = Math.max(0, result[i] + freeSpace * (growFactors[i] / totalGrow))
+    }
+  }
+  else {
+    // Shrink pass
+    const shrinkFactors = children.map(c => Math.max(0, c.compilerLayout?.flexShrink ?? 1))
+    // Weighted shrink: weight = factor * naturalSize (standard CSS flex-shrink)
+    const shrinkWeights = shrinkFactors.map((f, i) => f * Math.max(0, naturalSizes[i]))
+    const totalWeight = shrinkWeights.reduce((s, w) => s + w, 0)
+    if (totalWeight <= 0) return result
+    const overflow = -freeSpace
+    for (let i = 0; i < result.length; i++) {
+      if (shrinkWeights[i] > 0)
+        result[i] = Math.max(0, result[i] - overflow * (shrinkWeights[i] / totalWeight))
+    }
+  }
+
+  return result
 }
 
 function absoluteBounds(

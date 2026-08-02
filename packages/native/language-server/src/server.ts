@@ -48,15 +48,13 @@ connection.onInitialize((params: InitializeParams) => {
     capabilities: {
       textDocumentSync: TextDocumentSyncKind.Incremental,
       completionProvider: {
-        triggerCharacters: ['.', '#', ':', '-', '(', '{', ';', '"', '\''],
+        // QSS trigger characters
+        triggerCharacters: ['.', '#', ':', '-', '{', ';', '"', '\''],
       },
       hoverProvider: true,
       documentLinkProvider: {
         resolveProvider: false,
       },
-      definitionProvider: true,
-      referencesProvider: true,
-      renameProvider: true,
       documentFormattingProvider: true,
       codeActionProvider: {
         codeActionKinds: [

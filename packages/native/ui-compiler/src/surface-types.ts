@@ -33,9 +33,13 @@ export type NativeUiSurfaceNodeKind
     | 'Row'
     | 'SafeArea'
     | 'Scroll'
+    | 'Select'
+    | 'Slider'
     | 'Spacer'
     | 'Stack'
+    | 'Switch'
     | 'Text'
+    | 'Video'
 
 export interface NativeUiSurfaceRect {
   height: number
@@ -94,6 +98,17 @@ export type NativeUiSurfaceControlProjection
     | NativeUiSurfaceSelectControlProjection
     | NativeUiSurfaceSwitchControlProjection
 
+/** Video asset reference with playback parameters. */
+export interface NativeUiSurfaceVideoProjection {
+  assetName: string
+  assetType: string
+  looped?: boolean
+  muted?: boolean
+  /** Playback rate multiplier (1 = normal speed). Omitted when 1. */
+  playbackRate?: number
+  objectFit?: import('./qss-types').NativeQssObjectFitValue
+}
+
 export interface NativeUiSurfaceNodeProjection {
   bounds: NativeUiSurfaceRect
   children?: NativeUiSurfaceNodeProjection[]
@@ -112,6 +127,7 @@ export interface NativeUiSurfaceNodeProjection {
   stateStyles?: Partial<Record<NativeQssInteractivePseudoState, NativeUiSurfaceNodeStateProjection>>
   text?: string
   transitions?: NativeQssTransitionValue[]
+  video?: NativeUiSurfaceVideoProjection
   visible: boolean
   zIndex?: number
 }
