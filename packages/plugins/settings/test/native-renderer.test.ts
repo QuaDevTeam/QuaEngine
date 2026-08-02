@@ -115,7 +115,13 @@ describe('settings native renderer feature', () => {
     expect(confirmValue?.text).toBe('ON')
     expect(confirmTrack?.style?.borderRadius).toBe(12)
     expect(speedValue?.text).toBe('36 cps')
-    expect(speedTrack?.style?.backgroundColor).toBe('rgba(233,192,111,0.78)')
+    expect(speedTrack?.style?.backgroundGradient).toEqual(expect.objectContaining({
+      kind: 'linear',
+      stops: [
+        { color: 'rgba(129,229,255,0.46)', position: 0 },
+        { color: 'rgba(233,192,111,0.76)', position: 1 },
+      ],
+    }))
     expect(skipValue?.text).toBe('All Text')
     expect(skip?.control).toEqual(expect.objectContaining({ kind: 'select', selectedIndex: 1 }))
     expect(skipChevron).toEqual(expect.objectContaining({
@@ -124,7 +130,7 @@ describe('settings native renderer feature', () => {
     }))
     expect(close?.text).toBe('×')
     expect(groupLabel?.text).toBe('FLOW CONTROL')
-    expect(groupLabel?.style?.fontSize).toBe(15)
+    expect(groupLabel?.style?.fontSize).toBe(10)
     expect(panel?.bounds.height).toBe(552)
     expect(panel?.style?.boxShadow).toEqual(expect.objectContaining({ blurRadius: 48, offsetY: 18 }))
     expect(title?.style?.textShadow).toEqual(expect.objectContaining({ blurRadius: 10, offsetY: 2 }))

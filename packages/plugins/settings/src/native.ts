@@ -93,6 +93,8 @@ function createSettingsRoot(
   const form = createSettingsFormProjection(projection)
   const edge = Math.max(24, Math.min(context.safeArea.width, context.logicalHeight) * 0.03)
   const entries = flattenSettingsEntries(form.scopes)
+  // Matches the Web panel: 90px header, 30px padding, 24px group headers,
+  // 70px field rows — the panel hugs its content like `max-height: min(720px, 84cqh)`.
   const headerHeight = 90
   const contentPadding = 30
   const desiredContentHeight = entries.reduce((height, entry) => height + settingsEntryHeight(entry), 0)
@@ -152,9 +154,12 @@ function createSettingsRoot(
         children: [
           node('settings-title', 'Text', {
             x: panel.x + contentPadding,
-            y: panel.y + 22,
+            y: panel.y + 11,
             width: panel.width - contentPadding * 2 - 116,
-            height: 40,
+            // 32px Noto metrics need ascent 34.2 + descender 9.4 ≈ 44px of
+            // vertical room; a 52px Middle-aligned box keeps the glyph span
+            // centred at panel.y + 31 (Web offset) without clipping 'g'.
+            height: 52,
           }, {
             text: 'Config',
             provenance,
@@ -167,25 +172,25 @@ function createSettingsRoot(
           }),
           node('settings-reset-all', 'Button', {
             x: panel.x + panel.width - contentPadding - 104,
-            y: panel.y + 30,
+            y: panel.y + 31,
             width: 54,
-            height: 43,
+            height: 42,
           }, {
             text: 'RESET',
             intent: uiIntent(ACTIONS.resetAll),
             provenance,
-            style: headerButtonStyle(14),
+            style: headerButtonStyle(11),
           }),
           node('settings-close', 'Button', {
-            x: panel.x + panel.width - contentPadding - 44,
-            y: panel.y + 30,
-            width: 44,
-            height: 43,
+            x: panel.x + panel.width - contentPadding - 42,
+            y: panel.y + 31,
+            width: 42,
+            height: 42,
           }, {
             text: '×',
             intent: uiIntent(ACTIONS.close, { targetId: SETTINGS_ELEMENT_ID }),
             provenance,
-            style: headerButtonStyle(28),
+            style: headerButtonStyle(16),
           }),
           node('settings-header-divider', 'Divider', {
             x: panel.x + contentPadding,
@@ -220,7 +225,7 @@ function flattenSettingsEntries(scopes: readonly SettingsScopeFormProjection[]):
 }
 
 function settingsEntryHeight(entry: NativeSettingsEntry): number {
-  return entry.kind === 'group' ? 22 : 68
+  return entry.kind === 'group' ? 24 : 70
 }
 
 function createGroupNode(
@@ -237,15 +242,14 @@ function createGroupNode(
         x: bounds.x + 2,
         y: bounds.y + 3,
         width: Math.min(320, bounds.width * 0.44),
-        height: 18,
+        height: 16,
       }, {
         text: entry.label.toUpperCase(),
         provenance,
         style: {
           color: 'rgba(255,226,166,0.90)',
-          fontSize: 11,
-          fontWeight: 700,
-          letterSpacing: 2,
+          fontSize: 10,
+          letterSpacing: 1.6,
         },
       }),
       node(`${id}-divider`, 'Divider', {
@@ -296,13 +300,13 @@ function createFieldNode(
         x: bounds.x + 2,
         y: bounds.y + (description ? 13 : 23),
         width: bounds.width * 0.42,
-        height: 24,
+        height: 22,
       }, {
         text: label,
         provenance,
         style: {
           color: field.readonly ? 'rgba(247,242,234,0.52)' : 'rgba(255,248,234,0.90)',
-          fontSize: 16,
+          fontSize: 14,
           fontWeight: 700,
         },
       }),
@@ -311,13 +315,13 @@ function createFieldNode(
             x: bounds.x + 2,
             y: bounds.y + 39,
             width: bounds.width * 0.42,
-            height: 18,
+            height: 16,
           }, {
             text: description,
             provenance,
             style: {
               color: error ? '#ef9aa4' : 'rgba(247,242,234,0.52)',
-              fontSize: 13,
+              fontSize: 12,
               textOverflow: 'ellipsis',
             },
           })]
@@ -360,7 +364,7 @@ function createSliderControlNodes(
   const max = finiteNumber(field.control.max) ?? finiteNumber(field.schema.maximum) ?? Math.max(min + 1, Number(field.value) || 0)
   const current = finiteNumber(field.value) ?? min
   const progress = max > min ? Math.max(0, Math.min(1, (current - min) / (max - min))) : 0
-  const outputWidth = 82
+  const outputWidth = 72
   const trackX = bounds.x
   const trackWidth = Math.max(40, bounds.width - outputWidth - 16)
   const trackY = bounds.y + bounds.height / 2 - 2
@@ -388,6 +392,8 @@ function createSliderControlNodes(
       provenance,
       style: { backgroundColor: 'transparent' },
       children: [
+        // Web track: one static cyan→gold gradient; the progress part stays
+        // transparent so control feedback can resize it without painting.
         node(`${id}-slider-track`, 'Box', {
           x: trackX,
           y: trackY,
@@ -395,7 +401,17 @@ function createSliderControlNodes(
           height: 4,
         }, {
           provenance,
-          style: { backgroundColor: 'rgba(233,192,111,0.78)', borderRadius: 2 },
+          style: {
+            backgroundGradient: {
+              kind: 'linear',
+              angleDegrees: 90,
+              stops: [
+                { color: 'rgba(129,229,255,0.46)', position: 0 },
+                { color: 'rgba(233,192,111,0.76)', position: 1 },
+              ],
+            },
+            borderRadius: 2,
+          },
         }),
         node(`${id}-slider-progress`, 'Box', {
           x: trackX,
@@ -404,28 +420,28 @@ function createSliderControlNodes(
           height: 4,
         }, {
           provenance,
-          style: { backgroundColor: 'rgba(129,229,255,0.46)', borderRadius: 2 },
+          style: { backgroundColor: 'transparent', borderRadius: 2 },
         }),
         node(`${id}-slider-thumb-halo`, 'Box', {
-          x: thumbX - 10,
-          y: trackY - 8,
-          width: 20,
-          height: 20,
+          x: thumbX - 12,
+          y: trackY - 10,
+          width: 24,
+          height: 24,
         }, {
           provenance,
-          style: { backgroundColor: 'rgba(242,206,119,0.16)', borderRadius: 10 },
+          style: { backgroundColor: 'rgba(242,206,119,0.16)', borderRadius: 12 },
         }),
         node(`${id}-slider-thumb`, 'Box', {
-          x: thumbX - 6,
-          y: trackY - 4,
-          width: 12,
-          height: 12,
+          x: thumbX - 8,
+          y: trackY - 6,
+          width: 16,
+          height: 16,
         }, {
           provenance,
           style: {
             backgroundColor: '#f2ce77',
             borderColor: 'rgba(3,4,7,0.82)',
-            borderRadius: 6,
+            borderRadius: 8,
             borderWidth: 1,
           },
         }),
@@ -454,9 +470,9 @@ function createSelectControlNodes(
   const selectedIndex = Math.max(0, options.findIndex(option => settingsValuesEqual(option.value, field.value)))
   return [node(`${id}-select`, 'Panel', {
     x: bounds.x,
-    y: bounds.y + 1,
+    y: bounds.y + 2,
     width: bounds.width,
-    height: bounds.height - 2,
+    height: 40,
   }, {
     control: options.length > 0 ? {
       kind: 'select',
@@ -466,7 +482,7 @@ function createSelectControlNodes(
     } : undefined,
     provenance,
     style: {
-      backgroundColor: 'rgba(5,7,11,0.72)',
+      backgroundColor: 'rgba(5,7,11,0.62)',
       borderColor: 'rgba(245,226,190,0.22)',
       borderRadius: 4,
       borderWidth: 1,
@@ -476,17 +492,17 @@ function createSelectControlNodes(
         x: bounds.x + 12,
         y: bounds.y + 11,
         width: bounds.width - 52,
-        height: 24,
+        height: 22,
       }, {
         text: valueText,
         provenance,
-        style: { color: '#fff8ea', fontSize: 17 },
+        style: { color: '#fff8ea', fontSize: 13 },
       }),
       node(`${id}-select-chevron`, 'Box', {
-        x: bounds.x + bounds.width - 28,
-        y: bounds.y + 19,
-        width: 12,
-        height: 8,
+        x: bounds.x + bounds.width - 24,
+        y: bounds.y + 18,
+        width: 10,
+        height: 7,
       }, {
         provenance,
         role: 'ui-select-chevron-down',
@@ -549,13 +565,13 @@ function createSwitchControlNodes(
     }),
     node(`${id}-value`, 'Text', {
       x: track.x + track.width + 10,
-      y: bounds.y + 11,
+      y: bounds.y + 13,
       width: 54,
-      height: 22,
+      height: 16,
     }, {
       text: checked ? 'ON' : 'OFF',
       provenance,
-      style: { color: 'rgba(247,242,234,0.70)', fontSize: 14, letterSpacing: 1 },
+      style: { color: 'rgba(247,242,234,0.70)', fontSize: 10, letterSpacing: 1.2 },
     }),
   ]
 }
@@ -572,7 +588,7 @@ function valueNode(
     provenance,
     style: {
       color: readonly ? 'rgba(247,242,234,0.52)' : 'rgba(247,242,234,0.68)',
-      fontSize: 13,
+      fontSize: 11,
       textAlign: 'right',
     },
   })
@@ -686,7 +702,8 @@ function headerButtonStyle(fontSize: number) {
     borderWidth: 1,
     color: '#0d0d12',
     fontSize,
-    fontWeight: 700,
+    letterSpacing: 0.9,
+    padding: { top: 5, right: 7, bottom: 4, left: 7 },
     textAlign: 'center' as const,
   }
 }
