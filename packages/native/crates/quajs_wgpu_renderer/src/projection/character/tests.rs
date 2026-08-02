@@ -148,15 +148,29 @@ fn skips_characters_with_unsafe_projection_ids_on_direct_projection() {
             sprite: Some("sprites/yuki.png".to_string()),
             ..CharacterProjection::new("yuki:smile", "Yuki")
         },
+        // CJK display identities are engine-owned and must render like ASCII
+        // ids; they never cross the intent dispatch channel.
+        CharacterProjection {
+            sprite: Some("sprites/lin.png".to_string()),
+            ..CharacterProjection::new("神代澪", "神代澪")
+        },
     ];
 
     let commands = build_character_commands(&layout, &characters);
 
-    assert_eq!(commands.len(), 1);
+    assert_eq!(commands.len(), 2);
     assert_eq!(commands[0].id, "character:yuki:smile");
     match &commands[0].params {
         DrawCommandParams::Character(params) => {
             assert_eq!(params.character_id, "yuki:smile");
+        }
+        _ => panic!("expected character draw params"),
+    }
+    assert_eq!(commands[1].id, "character:神代澪");
+    match &commands[1].params {
+        DrawCommandParams::Character(params) => {
+            assert_eq!(params.character_id, "神代澪");
+            assert_eq!(params.sprite_asset_name, "sprites/lin.png");
         }
         _ => panic!("expected character draw params"),
     }
