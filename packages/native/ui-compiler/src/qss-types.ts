@@ -224,7 +224,15 @@ export interface NativeQssEdgeInsetsValue {
 
 export interface NativeQssResolvedLayout {
   alignItems?: NativeQssAlignItemsValue
+  /** Per-child cross-axis alignment override (child property). */
+  alignSelf?: NativeQssAlignItemsValue | 'auto'
   columnGap?: number
+  /** Proportion of remaining main-axis space this child claims (child property). */
+  flexGrow?: number
+  /** Proportion of overflow this child absorbs on the main axis (child property). */
+  flexShrink?: number
+  /** Initial main-axis size before grow/shrink distribution (child property). */
+  flexBasis?: number | 'auto'
   justifyContent?: NativeQssJustifyContentValue
   margin?: NativeQssEdgeInsetsValue
   position?: NativeQssPositionValue
@@ -254,13 +262,44 @@ export interface NativeQssShadowValue {
   spreadRadius: number
 }
 
+/** Resolved value for CSS `backdrop-filter: blur(Npx)`. */
+export interface NativeQssBackdropFilterValue {
+  /** Gaussian blur radius in logical pixels. */
+  blurRadius: number
+}
+
+export type NativeQssBorderImageRepeatValue = 'repeat' | 'stretch'
+
+/** Resolved value for CSS `border-image-*` (nine-slice / skin). */
+export interface NativeQssBorderImageValue {
+  /**
+   * Asset reference: `asset("path")` → `{ assetType, assetName }`.
+   * Gradient sources are not supported for nine-slice.
+   */
+  source: NativeQssBackgroundImageValue
+  /** Per-edge slice widths in logical pixels (top right bottom left). */
+  slice: NativeQssEdgeInsetsValue
+  /** Per-edge draw widths in logical pixels; defaults to slice when absent. */
+  width?: NativeQssEdgeInsetsValue
+  /** Whether the middle regions tile or stretch. Defaults to 'stretch'. */
+  repeat?: NativeQssBorderImageRepeatValue
+  /** When true the centre of the image fills the content box. */
+  fill?: boolean
+}
+
 export interface NativeQssResolvedStyle {
+  backdropFilter?: NativeQssBackdropFilterValue
   backgroundColor?: string
   backgroundGradient?: NativeQssGradientValue
   backgroundImage?: NativeQssBackgroundImageValue
   backgroundPosition?: NativeQssBackgroundPositionValue
   backgroundSize?: NativeQssObjectFitValue
   borderColor?: string
+  borderBottomColor?: string
+  borderLeftColor?: string
+  borderRightColor?: string
+  borderTopColor?: string
+  borderImage?: NativeQssBorderImageValue
   borderRadius?: number
   borderTopLeftRadius?: number
   borderTopRightRadius?: number
@@ -268,6 +307,10 @@ export interface NativeQssResolvedStyle {
   borderBottomLeftRadius?: number
   borderStyle?: NativeQssBorderStyleValue
   borderWidth?: number
+  borderBottomWidth?: number
+  borderLeftWidth?: number
+  borderRightWidth?: number
+  borderTopWidth?: number
   boxShadow?: NativeQssShadowValue
   color?: string
   filter?: NativeQssFilterValue

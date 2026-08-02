@@ -141,6 +141,64 @@ pub fn resolve_border_width(style: &UiSurfaceResolvedStyle, fallback: f64) -> f6
     resolve_positive_number(style.border_width, fallback)
 }
 
+/// CSS border edges in side order (top, right, bottom, left). Per-side values
+/// override the shorthand for their side; unspecified sides fall back to
+/// `border-width` / `border-color`.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct ResolvedBorderEdges {
+    pub widths: [f64; 4],
+    pub colors: [Option<String>; 4],
+}
+
+/// Returns `Some` when any per-side border width or color is specified, which
+/// switches the node from the single shader border to per-edge draw commands.
+/// `border-style: none` suppresses every edge.
+pub fn resolve_border_edges(style: &UiSurfaceResolvedStyle) -> Option<ResolvedBorderEdges> {
+    let has_per_side = style.border_top_width.is_some()
+        || style.border_right_width.is_some()
+        || style.border_bottom_width.is_some()
+        || style.border_left_width.is_some()
+        || style.border_top_color.is_some()
+        || style.border_right_color.is_some()
+        || style.border_bottom_color.is_some()
+        || style.border_left_color.is_some();
+    if !has_per_side {
+        return None;
+    }
+    if matches!(
+        style.border_style,
+        Some(UiSurfaceBorderStyleProjection::None)
+    ) {
+        return Some(ResolvedBorderEdges::default());
+    }
+
+    let base_width = resolve_positive_number(style.border_width, 0.0);
+    let base_color = style
+        .border_color
+        .as_deref()
+        .filter(|value| is_safe_native_color_literal(value));
+    let side_color = |color: Option<&str>| {
+        color
+            .filter(|value| is_safe_native_color_literal(value))
+            .or(base_color)
+            .map(str::to_string)
+    };
+    Some(ResolvedBorderEdges {
+        widths: [
+            resolve_positive_number(style.border_top_width, base_width),
+            resolve_positive_number(style.border_right_width, base_width),
+            resolve_positive_number(style.border_bottom_width, base_width),
+            resolve_positive_number(style.border_left_width, base_width),
+        ],
+        colors: [
+            side_color(style.border_top_color.as_deref()),
+            side_color(style.border_right_color.as_deref()),
+            side_color(style.border_bottom_color.as_deref()),
+            side_color(style.border_left_color.as_deref()),
+        ],
+    })
+}
+
 pub fn resolve_font_size(style: &UiSurfaceResolvedStyle, fallback: f64) -> f64 {
     resolve_positive_number(style.font_size, fallback)
 }

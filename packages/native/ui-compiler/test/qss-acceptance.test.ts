@@ -18,6 +18,26 @@ const qssAcceptanceCases: Record<string, QssAcceptanceCase> = {
     invalidDeclaration: 'align-items: baseline',
     expected: { layout: { alignItems: 'flex-end' }, style: {} },
   },
+  'align-self': {
+    validDeclarations: ['align-self: center'],
+    invalidDeclaration: 'align-self: baseline',
+    expected: { layout: { alignSelf: 'center' }, style: {} },
+  },
+  'flex-grow': {
+    validDeclarations: ['flex-grow: 1'],
+    invalidDeclaration: 'flex-grow: -1',
+    expected: { layout: { flexGrow: 1 }, style: {} },
+  },
+  'flex-shrink': {
+    validDeclarations: ['flex-shrink: 0'],
+    invalidDeclaration: 'flex-shrink: -1',
+    expected: { layout: { flexShrink: 0 }, style: {} },
+  },
+  'flex-basis': {
+    validDeclarations: ['flex-basis: 80px'],
+    invalidDeclaration: 'flex-basis: -4px',
+    expected: { layout: { flexBasis: 80 }, style: {} },
+  },
   'background-color': {
     validDeclarations: ['background-color: #abcdef'],
     invalidDeclaration: 'background-color: rgb(256, 0, 0)',
@@ -43,6 +63,85 @@ const qssAcceptanceCases: Record<string, QssAcceptanceCase> = {
     invalidDeclaration: 'border-color: rgb(300, 0, 0)',
     expected: { style: { borderColor: 'rgba(1, 2, 3, 0.4)' } },
   },
+  'border-top-color': {
+    validDeclarations: ['border-top-color: #5ac8fa'],
+    invalidDeclaration: 'border-top-color: rgb(300, 0, 0)',
+    expected: { style: { borderTopColor: '#5ac8fa' } },
+  },
+  'border-right-color': {
+    validDeclarations: ['border-right-color: #5ac8fa'],
+    invalidDeclaration: 'border-right-color: rgb(300, 0, 0)',
+    expected: { style: { borderRightColor: '#5ac8fa' } },
+  },
+  'border-bottom-color': {
+    validDeclarations: ['border-bottom-color: rgba(235, 204, 144, 0.42)'],
+    invalidDeclaration: 'border-bottom-color: hsl(0, 0, 0)',
+    expected: { style: { borderBottomColor: 'rgba(235, 204, 144, 0.42)' } },
+  },
+  'border-left-color': {
+    validDeclarations: ['border-left-color: #5ac8fa'],
+    invalidDeclaration: 'border-left-color: rgb(300, 0, 0)',
+    expected: { style: { borderLeftColor: '#5ac8fa' } },
+  },
+  'backdrop-filter': {
+    validDeclarations: ['backdrop-filter: blur(32px)'],
+    invalidDeclaration: 'backdrop-filter: blur(-4px)',
+    expected: { style: { backdropFilter: { blurRadius: 32 } } },
+  },
+  'border-image-source': {
+    validDeclarations: ['border-image-source: asset("ui/panel.png")'],
+    invalidDeclaration: 'border-image-source: panel.png',  // missing asset() wrapper
+    expected: { style: {} },  // source alone doesn't populate borderImage (slice required)
+  },
+  'border-image-slice': {
+    validDeclarations: [
+      'border-image-source: asset("ui/panel.png")',
+      'border-image-slice: 8 8 8 8',
+    ],
+    invalidDeclaration: 'border-image-slice: -1 0 0 0',
+    expected: {
+      style: {
+        borderImage: {
+          source: { assetType: 'images', assetName: 'ui/panel.png' },
+          slice: { top: 8, right: 8, bottom: 8, left: 8 },
+        },
+      },
+    },
+  },
+  'border-image-width': {
+    validDeclarations: [
+      'border-image-source: asset("ui/panel.png")',
+      'border-image-slice: 8 8 8 8',
+      'border-image-width: 12px',
+    ],
+    invalidDeclaration: 'border-image-width: -1px',
+    expected: {
+      style: {
+        borderImage: {
+          source: { assetType: 'images', assetName: 'ui/panel.png' },
+          slice: { top: 8, right: 8, bottom: 8, left: 8 },
+          width: { top: 12, right: 12, bottom: 12, left: 12 },
+        },
+      },
+    },
+  },
+  'border-image-repeat': {
+    validDeclarations: [
+      'border-image-source: asset("ui/panel.png")',
+      'border-image-slice: 8 8 8 8',
+      'border-image-repeat: stretch',
+    ],
+    invalidDeclaration: 'border-image-repeat: none',
+    expected: {
+      style: {
+        borderImage: {
+          source: { assetType: 'images', assetName: 'ui/panel.png' },
+          slice: { top: 8, right: 8, bottom: 8, left: 8 },
+          repeat: 'stretch',
+        },
+      },
+    },
+  },
   'border-radius': {
     validDeclarations: ['border-radius: 8px'],
     invalidDeclaration: 'border-radius: -1px',
@@ -57,6 +156,26 @@ const qssAcceptanceCases: Record<string, QssAcceptanceCase> = {
     validDeclarations: ['border-width: 2px'],
     invalidDeclaration: 'border-width: -1px',
     expected: { style: { borderWidth: 2 } },
+  },
+  'border-top-width': {
+    validDeclarations: ['border-top-width: 1px'],
+    invalidDeclaration: 'border-top-width: -1px',
+    expected: { style: { borderTopWidth: 1 } },
+  },
+  'border-right-width': {
+    validDeclarations: ['border-right-width: 1px'],
+    invalidDeclaration: 'border-right-width: -1px',
+    expected: { style: { borderRightWidth: 1 } },
+  },
+  'border-bottom-width': {
+    validDeclarations: ['border-bottom-width: 1px'],
+    invalidDeclaration: 'border-bottom-width: -1px',
+    expected: { style: { borderBottomWidth: 1 } },
+  },
+  'border-left-width': {
+    validDeclarations: ['border-left-width: 1px'],
+    invalidDeclaration: 'border-left-width: -1px',
+    expected: { style: { borderLeftWidth: 1 } },
   },
   'bottom': {
     validDeclarations: ['bottom: 12px'],

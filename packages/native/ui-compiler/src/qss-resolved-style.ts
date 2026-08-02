@@ -14,9 +14,15 @@ import {
 } from './qss-resolved-style-helpers'
 import {
   parseNativeQssAlignItems,
+  parseNativeQssAlignSelf,
   parseNativeQssBackgroundGradient,
   parseNativeQssBackgroundImage,
+  parseNativeQssBackdropFilter,
   parseNativeQssBackgroundPosition,
+  parseNativeQssBorderImageRepeat,
+  parseNativeQssBorderImageSlice,
+  parseNativeQssBorderImageSource,
+  parseNativeQssBorderImageWidth,
   parseNativeQssBorderStyle,
   parseNativeQssBoxSizing,
   parseNativeQssColor,
@@ -24,6 +30,9 @@ import {
   parseNativeQssDisplay,
   parseNativeQssEdgeInsets,
   parseNativeQssFilter,
+  parseNativeQssFlexBasis,
+  parseNativeQssFlexGrow,
+  parseNativeQssFlexShrink,
   parseNativeQssFontFamilyList,
   parseNativeQssFontStyle,
   parseNativeQssFontWeight,
@@ -53,9 +62,15 @@ import {
 
 export {
   parseNativeQssAlignItems,
+  parseNativeQssAlignSelf,
+  parseNativeQssBackdropFilter,
   parseNativeQssBackgroundGradient,
   parseNativeQssBackgroundImage,
   parseNativeQssBackgroundPosition,
+  parseNativeQssBorderImageRepeat,
+  parseNativeQssBorderImageSlice,
+  parseNativeQssBorderImageSource,
+  parseNativeQssBorderImageWidth,
   parseNativeQssBorderStyle,
   parseNativeQssBoxSizing,
   parseNativeQssColor,
@@ -63,6 +78,9 @@ export {
   parseNativeQssDisplay,
   parseNativeQssEdgeInsets,
   parseNativeQssFilter,
+  parseNativeQssFlexBasis,
+  parseNativeQssFlexGrow,
+  parseNativeQssFlexShrink,
   parseNativeQssFontFamilyList,
   parseNativeQssFontStyle,
   parseNativeQssFontWeight,
@@ -100,15 +118,48 @@ export function resolveNativeQssDeclarations(
   let boxSizing: ReturnType<typeof parseNativeQssBoxSizing> | undefined
   let displayNone = false
 
+  // Accumulate border-image sub-properties across multiple declarations.
+  let borderImageSource: ReturnType<typeof parseNativeQssBorderImageSource> | undefined
+  let borderImageSliceResult: ReturnType<typeof parseNativeQssBorderImageSlice> | undefined
+  let borderImageWidth: ReturnType<typeof parseNativeQssBorderImageWidth> | undefined
+  let borderImageRepeat: ReturnType<typeof parseNativeQssBorderImageRepeat> | undefined
+
   for (const declaration of declarations) {
     const value = declaration.value.trim()
     switch (declaration.name) {
+      case 'backdrop-filter':
+        resolved.style.backdropFilter = parseNativeQssBackdropFilter(value)
+        break
       case 'align-items':
         resolved.layout = {
           ...resolved.layout,
           alignItems: parseNativeQssAlignItems(value),
         }
         break
+      case 'align-self':
+        resolved.layout = {
+          ...resolved.layout,
+          alignSelf: parseNativeQssAlignSelf(value),
+        }
+        break
+      case 'flex-grow': {
+        const grow = parseNativeQssFlexGrow(value)
+        if (grow !== undefined)
+          resolved.layout = { ...resolved.layout, flexGrow: grow }
+        break
+      }
+      case 'flex-shrink': {
+        const shrink = parseNativeQssFlexShrink(value)
+        if (shrink !== undefined)
+          resolved.layout = { ...resolved.layout, flexShrink: shrink }
+        break
+      }
+      case 'flex-basis': {
+        const basis = parseNativeQssFlexBasis(value)
+        if (basis !== undefined)
+          resolved.layout = { ...resolved.layout, flexBasis: basis }
+        break
+      }
       case 'background-color':
         resolved.style.backgroundColor = parseNativeQssColor(value)
         break
@@ -126,6 +177,30 @@ export function resolveNativeQssDeclarations(
         break
       case 'border-color':
         resolved.style.borderColor = parseNativeQssColor(value)
+        break
+      case 'border-top-color':
+        resolved.style.borderTopColor = parseNativeQssColor(value)
+        break
+      case 'border-right-color':
+        resolved.style.borderRightColor = parseNativeQssColor(value)
+        break
+      case 'border-bottom-color':
+        resolved.style.borderBottomColor = parseNativeQssColor(value)
+        break
+      case 'border-left-color':
+        resolved.style.borderLeftColor = parseNativeQssColor(value)
+        break
+      case 'border-image-source':
+        borderImageSource = parseNativeQssBorderImageSource(value)
+        break
+      case 'border-image-slice':
+        borderImageSliceResult = parseNativeQssBorderImageSlice(value)
+        break
+      case 'border-image-width':
+        borderImageWidth = parseNativeQssBorderImageWidth(value)
+        break
+      case 'border-image-repeat':
+        borderImageRepeat = parseNativeQssBorderImageRepeat(value)
         break
       case 'border-radius':
         resolved.style.borderRadius = parseNativeQssLogicalNumber(value)
@@ -147,6 +222,18 @@ export function resolveNativeQssDeclarations(
         break
       case 'border-width':
         resolved.style.borderWidth = parseNativeQssLogicalNumber(value)
+        break
+      case 'border-top-width':
+        resolved.style.borderTopWidth = parseNativeQssLogicalNumber(value)
+        break
+      case 'border-right-width':
+        resolved.style.borderRightWidth = parseNativeQssLogicalNumber(value)
+        break
+      case 'border-bottom-width':
+        resolved.style.borderBottomWidth = parseNativeQssLogicalNumber(value)
+        break
+      case 'border-left-width':
+        resolved.style.borderLeftWidth = parseNativeQssLogicalNumber(value)
         break
       case 'box-sizing':
         boxSizing = parseNativeQssBoxSizing(value)
@@ -381,6 +468,17 @@ export function resolveNativeQssDeclarations(
 
   if (displayNone)
     resolved.visible = false
+
+  // Merge border-image sub-properties into a single resolved value.
+  if (borderImageSource && borderImageSliceResult) {
+    resolved.style.borderImage = {
+      source: borderImageSource,
+      slice: borderImageSliceResult.slice,
+      ...(borderImageSliceResult.fill ? { fill: true } : {}),
+      ...(borderImageWidth ? { width: borderImageWidth } : {}),
+      ...(borderImageRepeat ? { repeat: borderImageRepeat } : {}),
+    }
+  }
 
   return pruneUndefinedResolvedNodeStyle(resolved, boxSizing)
 }

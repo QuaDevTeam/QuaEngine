@@ -384,3 +384,154 @@ fn projects_foundational_ui_components_without_structural_commands() {
         _ => panic!("expected ui button params"),
     }
 }
+
+#[test]
+fn draws_per_side_border_edges_and_suppresses_shader_border() {
+    let layout = test_layout();
+    let ui = UiProjection::new(vec![UiOverlayProjection {
+        surface: Some(
+            UiOverlaySurfaceProjection::new("ui/menu.qui").with_root(
+                UiSurfaceNodeProjection::new(
+                    "box",
+                    UiSurfaceNodeKind::Box,
+                    rect(100.0, 100.0, 200.0, 40.0),
+                )
+                .with_style(UiSurfaceResolvedStyle {
+                    border_color: Some("#ffffff".to_string()),
+                    border_width: Some(2.0),
+                    border_bottom_color: Some("#ff0000".to_string()),
+                    border_bottom_width: Some(1.0),
+                    ..Default::default()
+                }),
+            ),
+        ),
+        ..UiOverlayProjection::new("menu")
+    }]);
+
+    let commands = build_ui_commands(&layout, &ui);
+    let find = |id: &str| {
+        commands
+            .iter()
+            .find(|command| command.id == id)
+            .unwrap_or_else(|| panic!("missing command {id}"))
+    };
+
+    // The uniform shader border is suppressed while per-side edges are drawn.
+    match &find("ui:menu:box").params {
+        DrawCommandParams::Panel(params) => {
+            assert_eq!(params.border.width, 0.0);
+            assert_eq!(params.border.color, None);
+        }
+        _ => panic!("expected panel params"),
+    }
+
+    let edge = |id: &str| {
+        let command = find(id);
+        assert_eq!(command.kind, DrawCommandKind::RoundedRect);
+        match &command.params {
+            DrawCommandParams::Panel(params) => {
+                assert_eq!(params.role, "ui-border-edge");
+                (command.bounds, params.fill_color.clone())
+            }
+            _ => panic!("expected panel params for {id}"),
+        }
+    };
+
+    assert_eq!(
+        edge("ui:menu:box:border-top"),
+        (
+            LogicalRect {
+                x: 100.0,
+                y: 100.0,
+                width: 200.0,
+                height: 2.0,
+            },
+            "#ffffff".to_string()
+        )
+    );
+    assert_eq!(
+        edge("ui:menu:box:border-right"),
+        (
+            LogicalRect {
+                x: 298.0,
+                y: 100.0,
+                width: 2.0,
+                height: 40.0,
+            },
+            "#ffffff".to_string()
+        )
+    );
+    assert_eq!(
+        edge("ui:menu:box:border-bottom"),
+        (
+            LogicalRect {
+                x: 100.0,
+                y: 139.0,
+                width: 200.0,
+                height: 1.0,
+            },
+            "#ff0000".to_string()
+        )
+    );
+    assert_eq!(
+        edge("ui:menu:box:border-left"),
+        (
+            LogicalRect {
+                x: 100.0,
+                y: 100.0,
+                width: 2.0,
+                height: 40.0,
+            },
+            "#ffffff".to_string()
+        )
+    );
+}
+
+#[test]
+fn skips_border_edges_without_color_or_with_border_style_none() {
+    let layout = test_layout();
+    let ui = UiProjection::new(vec![UiOverlayProjection {
+        surface: Some(
+            UiOverlaySurfaceProjection::new("ui/menu.qui").with_root(
+                UiSurfaceNodeProjection::new(
+                    "root",
+                    UiSurfaceNodeKind::Fragment,
+                    rect(0.0, 0.0, 0.0, 0.0),
+                )
+                .with_children(vec![
+                    // Width without any color paints nothing.
+                    UiSurfaceNodeProjection::new(
+                        "no-color",
+                        UiSurfaceNodeKind::Box,
+                        rect(0.0, 0.0, 100.0, 40.0),
+                    )
+                    .with_style(UiSurfaceResolvedStyle {
+                        border_bottom_width: Some(1.0),
+                        ..Default::default()
+                    }),
+                    // border-style: none suppresses every edge.
+                    UiSurfaceNodeProjection::new(
+                        "style-none",
+                        UiSurfaceNodeKind::Box,
+                        rect(0.0, 48.0, 100.0, 40.0),
+                    )
+                    .with_style(UiSurfaceResolvedStyle {
+                        border_color: Some("#ffffff".to_string()),
+                        border_style: Some(UiSurfaceBorderStyleProjection::None),
+                        border_bottom_color: Some("#ff0000".to_string()),
+                        border_bottom_width: Some(1.0),
+                        ..Default::default()
+                    }),
+                ]),
+            ),
+        ),
+        ..UiOverlayProjection::new("menu")
+    }]);
+
+    let commands = build_ui_commands(&layout, &ui);
+    let edge_commands = commands
+        .iter()
+        .filter(|command| command.id.contains(":border-"))
+        .count();
+    assert_eq!(edge_commands, 0);
+}

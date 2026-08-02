@@ -280,6 +280,16 @@ impl JsonProjectionValidator {
         if let Some(border_color) = &style.border_color {
             self.validate_color_literal(&format!("{path}.borderColor"), border_color);
         }
+        for (field, side_color) in [
+            ("borderTopColor", &style.border_top_color),
+            ("borderRightColor", &style.border_right_color),
+            ("borderBottomColor", &style.border_bottom_color),
+            ("borderLeftColor", &style.border_left_color),
+        ] {
+            if let Some(side_color) = side_color {
+                self.validate_color_literal(&format!("{path}.{field}"), side_color);
+            }
+        }
         if let Some(color) = &style.color {
             self.validate_color_literal(&format!("{path}.color"), color);
         }

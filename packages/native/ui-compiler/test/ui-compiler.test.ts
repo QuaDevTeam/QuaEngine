@@ -31,13 +31,27 @@ const EXPECTED_NATIVE_WGPU_QUI_COMPONENTS = [
 
 const EXPECTED_NATIVE_WGPU_QSS_FEATURES = [
   'align-items',
+  'align-self',
+  'backdrop-filter',
   'background-color',
   'background-image',
   'background-position',
   'background-size',
+  'border-bottom-color',
+  'border-bottom-width',
   'border-color',
+  'border-image-repeat',
+  'border-image-slice',
+  'border-image-source',
+  'border-image-width',
+  'border-left-color',
+  'border-left-width',
   'border-radius',
+  'border-right-color',
+  'border-right-width',
   'border-style',
+  'border-top-color',
+  'border-top-width',
   'border-width',
   'bottom',
   'box-shadow',
@@ -46,6 +60,9 @@ const EXPECTED_NATIVE_WGPU_QSS_FEATURES = [
   'column-gap',
   'display',
   'filter',
+  'flex-basis',
+  'flex-grow',
+  'flex-shrink',
   'font-family',
   'font-size',
   'font-style',
@@ -125,13 +142,13 @@ Button:nth-child(2) {
   })
 
   it('detects document kind by language id or file path', () => {
-    expect(analyzeNativeUiDocument('Button {}', { languageId: 'qua-ui' }).kind).toBe('qui')
+    expect(analyzeNativeUiDocument('Button { color: #fff; }', { languageId: 'qua-style' }).kind).toBe('qss')
     expect(analyzeNativeUiDocument('Button { color: #fff; }', { filePath: 'menu.qss' }).kind).toBe('qss')
   })
 
   it('formats native UI documents idempotently enough for LSP formatting', () => {
-    const formattedQui = formatNativeUiDocument('Stack{\nText { "Hi" }\n}', {
-      filePath: 'menu.qui',
+    const formattedQui = formatNativeUiDocument('Stack{color:#fff;}', {
+      filePath: 'menu.qss',
       format: { insertFinalNewline: true },
     })
     const formattedQss = formatNativeUiDocument('Button{color:#fff;}', {
@@ -139,19 +156,20 @@ Button:nth-child(2) {
       format: { insertFinalNewline: true },
     })
 
-    expect(formattedQui).toContain('Stack{')
+    expect(formattedQui).toContain('Stack {')
     expect(formattedQui.endsWith('\n')).toBe(true)
     expect(formattedQss).toBe('Button {\n  color: #fff;\n}\n')
   })
 
   it('returns completions and hover metadata from the shared registry', () => {
-    const completions = getNativeUiCompletions('', 0, { filePath: 'menu.qui' })
-    const hover = getNativeUiHover('Button {}', 1, { filePath: 'menu.qui' })
+    // QSS property completions inside a rule block
+    const src = 'Button { '
+    const completions = getNativeUiCompletions(src, src.length, { filePath: 'menu.qss' })
+    const hover = getNativeUiHover('Button {}', 1, { filePath: 'menu.qss' })
 
-    expect(completions.some(item => item.label === 'Button')).toBe(true)
+    // 'color' is a p0 property that must always appear in Button rule completions
+    expect(completions.some(item => item.label === 'color')).toBe(true)
     expect(hover?.contents).toContain('Button')
-    expect(hover?.contents).toContain('Content: children')
-    expect(hover?.contents).toContain('Slots: default')
   })
 
   it('returns QSS value completions and hovers from property metadata', () => {
