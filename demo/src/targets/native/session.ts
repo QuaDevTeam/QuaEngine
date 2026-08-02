@@ -85,10 +85,15 @@ export async function createDemoNativeSession(): Promise<DemoNativeSession> {
   const recordError = (error: unknown, context: string) => {
     diagnostics.error = error instanceof Error ? error.message : String(error)
     phase(`${context}:error`)
+    // Forward to the native log facade so intent-handler failures are visible
+    // on stderr instead of only in the E2E diagnostics snapshot.
+    console.error(`[native-demo] ${context} failed: ${diagnostics.error}`)
   }
 
   let destroyed = false
   let currentChapterIndex = -1
+  let currentChapter = 'BOOT'
+  let currentRoute = 'UNDECIDED'
   let activeBgmAssetKey: string | undefined
   let storyLoadPromise: Promise<void> | undefined
   let systemReturnScreen: NativeDemoAppScreen = 'title'
@@ -98,23 +103,24 @@ export async function createDemoNativeSession(): Promise<DemoNativeSession> {
   let saveLoadReturnTitleSurface = true
 
   let appState: NativeDemoAppSurfaceState = {
-    autoLabel: 'AUTO',
+    t: nativeDemoUiString,
+    autoActive: false,
     englishTitle: GAME_ENGLISH_TITLE,
     gameOverDescription: '故事已经结束。你可以回到标题菜单，或关闭面板停留在当前画面。',
     gameOverSubtitle: 'ENDING',
     gameOverTitle: 'GAME OVER',
     gameMenuSubtitle: `${GAME_TITLE} / CH BOOT / UNDECIDED`,
-    hudChapter: 'CH BOOT',
-    hudRoute: 'UNDECIDED',
-    hudSignal: 'SIG 0',
     saveLoadMode,
     saveLoadTitle: 'LOAD',
     saveSlotItems: createEmptySaveSlotItems(),
     screen: 'title',
-    skipLabel: 'SKIP',
+    skipActive: false,
     storyTreeItems: createStoryTreeItems(),
     title: GAME_TITLE,
     titleSurface: true,
+    galleryItems: [],
+    backlogItems: [],
+    settingItems: createDefaultSettingItems(),
   }
 
   const refreshAppSurface = async (patch: Partial<NativeDemoAppSurfaceState> = {}) => {
@@ -125,8 +131,8 @@ export async function createDemoNativeSession(): Promise<DemoNativeSession> {
     appState = {
       ...appState,
       ...patch,
-      autoLabel: flowMode === 'auto' ? 'AUTO ON' : 'AUTO',
-      skipLabel: flowMode === 'skip' ? 'SKIP ON' : 'SKIP',
+      autoActive: flowMode === 'auto',
+      skipActive: flowMode === 'skip',
     }
     await runtime.engine.showUI(NATIVE_DEMO_APP_ELEMENT_ID, createNativeDemoAppSurface(appState))
   }
@@ -179,10 +185,9 @@ export async function createDemoNativeSession(): Promise<DemoNativeSession> {
   }
 
   const updateHud = (patch: HudPatch) => {
-    const chapter = patch.chapter || appState.hudChapter.replace(/^CH\s+/, '')
-    const route = patch.route || appState.hudRoute
-    const signal = patch.signal || appState.hudSignal.replace(/^SIG\s+/, '')
-    const nextChapterIndex = parseChapterIndex(chapter)
+    currentChapter = patch.chapter || currentChapter
+    currentRoute = patch.route || currentRoute
+    const nextChapterIndex = parseChapterIndex(currentChapter)
     if (nextChapterIndex >= 0) {
       currentChapterIndex = nextChapterIndex
       const node = STORY_TREE_NODES[nextChapterIndex]
@@ -193,10 +198,7 @@ export async function createDemoNativeSession(): Promise<DemoNativeSession> {
       }
     }
     void refreshAppSurface({
-      gameMenuSubtitle: `${GAME_TITLE} / CH ${chapter} / ${route}`,
-      hudChapter: `CH ${chapter}`,
-      hudRoute: route,
-      hudSignal: `SIG ${signal}`,
+      gameMenuSubtitle: `${GAME_TITLE} / CH ${currentChapter} / ${currentRoute}`,
     }).catch(error => recordError(error, 'hud:update'))
   }
 
@@ -561,4 +563,72 @@ function createStoryTreeItems() {
     id: node.id,
     label: `CH ${node.chapter}  ${node.title} / ${node.description}`,
   }))
+}
+
+/** Default settings items shown in the settings panel. */
+function createDefaultSettingItems() {
+  return [
+    { id: 'text-speed', label: 'TEXT SPEED', type: 'slider' as const,
+      selectedIndex: 2,
+      options: [
+        { label: 'SLOW' }, { label: 'NORMAL' }, { label: 'FAST' }, { label: 'INSTANT' },
+      ] },
+    { id: 'auto-speed', label: 'AUTO SPEED', type: 'slider' as const,
+      selectedIndex: 1,
+      options: [{ label: 'SLOW' }, { label: 'NORMAL' }, { label: 'FAST' }] },
+    { id: 'bgm-volume', label: 'BGM VOLUME', type: 'slider' as const,
+      selectedIndex: 7,
+      options: Array.from({ length: 11 }, (_, i) => ({ label: `${i * 10}%` })) },
+    { id: 'sfx-volume', label: 'SFX VOLUME', type: 'slider' as const,
+      selectedIndex: 7,
+      options: Array.from({ length: 11 }, (_, i) => ({ label: `${i * 10}%` })) },
+    { id: 'voice-volume', label: 'VOICE VOLUME', type: 'slider' as const,
+      selectedIndex: 7,
+      options: Array.from({ length: 11 }, (_, i) => ({ label: `${i * 10}%` })) },
+    { id: 'skip-unread', label: 'SKIP UNREAD', type: 'switch' as const,
+      selectedIndex: 0,
+      options: [{ label: 'OFF' }, { label: 'ON' }] },
+    { id: 'fullscreen', label: 'FULLSCREEN', type: 'switch' as const,
+      selectedIndex: 0,
+      options: [{ label: 'OFF' }, { label: 'ON' }] },
+  ]
+}
+
+/**
+ * Minimal English translation lookup for the native demo UI.
+ * In a real product this would delegate to an i18n library.
+ */
+function nativeDemoUiString(key: string): string {
+  const strings: Record<string, string> = {
+    'ui.title.start':      'START',
+    'ui.title.load':       'LOAD',
+    'ui.title.storyTree':  'STORY TREE',
+    'ui.title.gallery':    'GALLERY',
+    'ui.title.config':     'CONFIG',
+    'ui.hud.subtitle':     'TOKYO 2048',
+    'ui.hud.log':          'LOG',
+    'ui.hud.menu':         'MENU',
+    'ui.gameMenu.menu':    'MENU',
+    'ui.storyTree.eyebrow':'ROUTE MAP',
+    'ui.storyTree.title':  'STORY TREE',
+    'ui.saveLoad.eyebrow': 'ARCHIVE',
+    'ui.backlog.eyebrow':  'DIALOGUE LOG',
+    'ui.backlog.title':    'BACKLOG',
+    'ui.gallery.eyebrow':  'CG COLLECTION',
+    'ui.gallery.title':    'GALLERY',
+    'ui.settings.title':   'CONFIG',
+    'ui.settings.off':     'OFF',
+    'ui.settings.on':      'ON',
+    'ui.titleConfirm.title':      '回到标题菜单？',
+    'ui.titleConfirm.subtitle':   '当前进度不会自动保存',
+    'ui.titleConfirm.description':'故事运行状态会保留在后台，START 会回到当前进度。',
+    'ui.common.close':     'CLOSE',
+    'ui.common.cancel':    'CANCEL',
+    'ui.common.title':     'TITLE',
+    'ui.common.save':      'SAVE',
+    'ui.common.load':      'LOAD',
+    'ui.common.config':    'CONFIG',
+    'ui.common.backlog':   'BACKLOG',
+  }
+  return strings[key] ?? key
 }
