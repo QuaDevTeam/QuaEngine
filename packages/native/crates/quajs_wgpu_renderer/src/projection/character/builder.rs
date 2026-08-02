@@ -1,6 +1,5 @@
 use crate::projection::common::{
-    insert_unique_safe_native_dispatch_identifier, is_safe_native_asset_name,
-    is_safe_native_dispatch_identifier,
+    is_safe_native_asset_name, is_safe_native_character_identity,
 };
 use crate::projection::safety::{
     is_safe_native_character_position, is_safe_native_opacity, is_safe_native_z_index,
@@ -28,12 +27,13 @@ pub fn build_character_commands(
         .filter_map({
             let mut seen_character_ids = std::collections::BTreeSet::new();
             move |character| {
+                if !is_safe_native_character_identity(&character.id) {
+                    return None;
+                }
                 let command = character_command(layout, character)?;
-                insert_unique_safe_native_dispatch_identifier(
-                    &mut seen_character_ids,
-                    &character.id,
-                )
-                .then_some(command)
+                seen_character_ids
+                    .insert(character.id.clone())
+                    .then_some(command)
             }
         })
         .collect()
@@ -43,7 +43,7 @@ fn character_command(
     layout: &ResolvedStageLayout,
     character: &CharacterProjection,
 ) -> Option<DrawCommand> {
-    if !is_safe_native_dispatch_identifier(&character.id) {
+    if !is_safe_native_character_identity(&character.id) {
         return None;
     }
 

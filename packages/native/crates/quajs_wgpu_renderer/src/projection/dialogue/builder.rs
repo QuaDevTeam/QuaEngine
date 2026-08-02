@@ -12,8 +12,8 @@ use crate::resources::ResourceId;
 use crate::stage_layout::ResolvedStageLayout;
 
 use super::layout::{
-    avatar_bounds, dialogue_accent_bounds, dialogue_panel_bounds, speaker_accent_bounds,
-    speaker_bounds, text_bounds,
+    avatar_bounds, dialogue_accent_bounds, dialogue_panel_bounds_for_lines,
+    speaker_accent_bounds, speaker_bounds, text_bounds,
 };
 use super::rich_text::{
     is_safe_rich_text_payload, resolve_font_family, resolve_font_size, resolve_font_weight,
@@ -34,7 +34,34 @@ pub fn build_dialogue_commands(
         return Vec::new();
     }
 
-    let panel = dialogue_panel_bounds(layout);
+    let fallback_speaker = dialogue
+        .character_name
+        .as_ref()
+        .filter(|name| crate::projection::safety::is_safe_native_text_payload(name))
+        .map(|name| super::types::RichTextContent::Plain(name.clone()));
+    let render_speaker = dialogue
+        .speaker
+        .as_ref()
+        .filter(|speaker| is_safe_rich_text_payload(speaker))
+        .or(fallback_speaker.as_ref());
+
+    let default_text_style = RichTextStyle::default();
+    let dialogue_text_style = rich_text_style(&dialogue.text).unwrap_or(&default_text_style);
+    let dialogue_text = rich_text_to_plain_text(&dialogue.text);
+    let text_font_size = resolve_font_size(dialogue_text_style, 20.0);
+    let text_line_height = resolve_line_height(dialogue_text_style, 36.0);
+
+    // Grow the panel like the Web `min-height` dialogue box so longer lines
+    // are not clipped; the bottom edge stays anchored to the stage inset.
+    let base_panel = super::layout::dialogue_panel_bounds(layout);
+    let text_width = base_panel.width - 56.0;
+    let estimated_lines = estimate_wrapped_lines(&dialogue_text, text_font_size, text_width);
+    let panel = dialogue_panel_bounds_for_lines(
+        layout,
+        estimated_lines,
+        render_speaker.is_some(),
+        text_line_height,
+    );
 
     // Outer drop shadow: box-shadow 0 22px 80px rgba(0,0,0,0.62)
     let shadow_blur = 80.0_f64;
@@ -49,7 +76,7 @@ pub fn build_dialogue_commands(
 
     let mut commands = vec![
         // Backdrop blur: sample the pre-Safe-plane framebuffer behind the
-        // dialogue box to approximate `backdrop-filter: blur(32px)`.
+        // dialogue box to approximate `backdrop-filter: blur(8px)`.
         apply_provenance(
             DrawCommand::new(
                 "dialogue:backdrop-blur",
@@ -59,7 +86,7 @@ pub fn build_dialogue_commands(
             )
             .z_index(-3)
             .params(DrawCommandParams::BackdropBlur(BackdropBlurDrawParams {
-                blur_radius: 32.0,
+                blur_radius: 8.0,
             })),
             &dialogue.provenance,
         ),
@@ -216,17 +243,6 @@ pub fn build_dialogue_commands(
         ));
     }
 
-    let fallback_speaker = dialogue
-        .character_name
-        .as_ref()
-        .filter(|name| crate::projection::safety::is_safe_native_text_payload(name))
-        .map(|name| super::types::RichTextContent::Plain(name.clone()));
-    let render_speaker = dialogue
-        .speaker
-        .as_ref()
-        .filter(|speaker| is_safe_rich_text_payload(speaker))
-        .or(fallback_speaker.as_ref());
-
     if let Some(speaker) = render_speaker {
         let speaker_text = rich_text_to_plain_text(speaker);
         // CSS `text-shadow: 0 0 16px rgba(255,194,86,0.36)` — golden glow on speaker name.
@@ -278,9 +294,6 @@ pub fn build_dialogue_commands(
         ));
     }
 
-    let default_text_style = RichTextStyle::default();
-    let dialogue_text_style = rich_text_style(&dialogue.text).unwrap_or(&default_text_style);
-    let dialogue_text = rich_text_to_plain_text(&dialogue.text);
     let text_rect = text_bounds(panel, render_speaker.is_some());
     // CSS `text-shadow: 0 2px 10px rgba(0,0,0,0.72)` — subtle drop shadow on body text.
     commands.push(apply_provenance(
@@ -331,6 +344,25 @@ pub fn build_dialogue_commands(
     }
 
     commands
+}
+
+/// Estimates the wrapped line count without a text measurer: CJK/wide glyphs
+/// count as one em, ASCII glyphs as roughly half an em. Good enough for the
+/// `min-height` growth decision; real wrapping still happens at draw time.
+fn estimate_wrapped_lines(text: &str, font_size: f64, width: f64) -> usize {
+    if width <= 0.0 || font_size <= 0.0 {
+        return 1;
+    }
+    let ems_per_line = width / font_size;
+    let mut lines = 0usize;
+    for segment in text.split('\n') {
+        let ems: f64 = segment
+            .chars()
+            .map(|ch| if ch.is_ascii() { 0.55 } else { 1.0 })
+            .sum();
+        lines += ((ems / ems_per_line).ceil() as usize).max(1);
+    }
+    lines.max(1)
 }
 
 fn panel_command(

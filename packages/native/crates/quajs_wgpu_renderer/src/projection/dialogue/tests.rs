@@ -471,6 +471,32 @@ fn appends_dialogue_commands_to_graph() {
     );
 }
 
+#[test]
+fn grows_dialogue_panel_for_long_text_like_web_min_height() {
+    let layout = test_layout();
+    let base = super::layout::dialogue_panel_bounds(&layout);
+    let short = build_dialogue_commands(&layout, &DialogueProjection::say("短句。"));
+    let short_panel = short
+        .iter()
+        .find(|command| command.id == "dialogue:panel")
+        .unwrap();
+    assert_eq!(short_panel.bounds.height, base.height);
+    assert_eq!(short_panel.bounds.y, base.y);
+
+    // Long CJK text must wrap several lines; the panel grows upward with the
+    // bottom edge anchored instead of clipping the overflow text.
+    let long_text = "这是一段用来验证对话框最小高度行为的长文本。".repeat(12);
+    let long = build_dialogue_commands(&layout, &DialogueProjection::say(long_text));
+    let long_panel = long
+        .iter()
+        .find(|command| command.id == "dialogue:panel")
+        .unwrap();
+    assert!(long_panel.bounds.height > base.height);
+    let base_bottom = base.y + base.height;
+    let long_bottom = long_panel.bounds.y + long_panel.bounds.height;
+    assert!((long_bottom - base_bottom).abs() < f64::EPSILON);
+}
+
 fn test_layout() -> ResolvedStageLayout {
     resolve_stage_layout(
         Some(ViewLayoutInput {

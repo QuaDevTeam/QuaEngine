@@ -13,6 +13,26 @@ pub fn dialogue_panel_bounds(layout: &ResolvedStageLayout) -> LogicalRect {
     }
 }
 
+/// Matches the Web dialogue box `min-height` behaviour: the panel keeps the
+/// base height for short lines but grows upward (bottom edge stays anchored)
+/// when the wrapped text needs more room, instead of clipping the overflow.
+pub fn dialogue_panel_bounds_for_lines(
+    layout: &ResolvedStageLayout,
+    text_lines: usize,
+    has_speaker: bool,
+    line_height: f64,
+) -> LogicalRect {
+    let base = dialogue_panel_bounds(layout);
+    let top = if has_speaker { 50.0 } else { 22.0 };
+    let needed = top + text_lines.max(1) as f64 * line_height + 18.0;
+    let height = base.height.max(needed);
+    LogicalRect {
+        y: base.y + base.height - height,
+        height,
+        ..base
+    }
+}
+
 pub fn dialogue_shadow_bounds(panel: LogicalRect) -> LogicalRect {
     LogicalRect {
         x: panel.x - 8.0,
@@ -36,7 +56,11 @@ pub fn speaker_bounds(panel: LogicalRect) -> LogicalRect {
         x: panel.x + 28.0,
         y: panel.y + 22.0,
         width: panel.width.min(320.0),
-        height: 30.0,
+        // Match the Web speaker element, which hugs one 19.8px line instead of
+        // a taller box: native text is Middle-aligned, so the box height sets
+        // the glyph center. 22 + 20/2 puts the centre at panel.y + 32, the
+        // same spot as the Web speaker's 18px/700 line.
+        height: 20.0,
     }
 }
 

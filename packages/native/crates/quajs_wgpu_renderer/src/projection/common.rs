@@ -181,6 +181,37 @@ pub(crate) fn insert_unique_safe_native_dispatch_identifier(
     is_safe_native_dispatch_identifier(value) && seen.insert(value.to_string())
 }
 
+/// Character ids are engine-owned display identities that may be non-ASCII
+/// (for example a CJK character name). They never cross the intent dispatch
+/// channel, but they still become draw-command ids, so the scheme / path /
+/// payload hygiene matches dispatch identifiers while any Unicode letter or
+/// number is accepted.
+pub(crate) fn is_safe_native_character_identity(value: &str) -> bool {
+    if value.trim().is_empty()
+        || value.trim() != value
+        || value.chars().any(char::is_control)
+        || has_forbidden_native_dispatch_uri_scheme(value)
+        || value.contains(['?', '#'])
+        || value.starts_with('/')
+    {
+        return false;
+    }
+
+    let normalized = value.replace('\\', "/");
+    if normalized.split('/').any(|segment| segment == "..")
+        || value.contains("..")
+        || value.contains(['/', '\\'])
+        || is_forbidden_native_payload_reference(value)
+        || !value.chars().any(char::is_alphanumeric)
+    {
+        return false;
+    }
+
+    value
+        .chars()
+        .all(|char| char.is_alphanumeric() || matches!(char, '.' | '-' | '_' | ':'))
+}
+
 fn is_forbidden_native_payload_reference(asset_name: &str) -> bool {
     let normalized = strip_asset_reference_suffix(asset_name).to_ascii_lowercase();
     FORBIDDEN_NATIVE_PAYLOAD_EXTENSIONS.iter().any(|extension| {
