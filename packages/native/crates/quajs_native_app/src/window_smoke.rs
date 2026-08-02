@@ -1,5 +1,6 @@
 mod app;
 mod config;
+mod control;
 mod demo_e2e;
 mod dev_qpk;
 mod error;
@@ -25,6 +26,8 @@ pub use config::{
     WINDOW_DEMO_E2E_ENV, WINDOW_DEV_ENV, WINDOW_DEV_QPK_ENV, WINDOW_SMOKE_ENV,
     WINDOW_SMOKE_FRAMES_ENV, WINDOW_SMOKE_FRAME_ENV,
 };
+#[allow(unused_imports)]
+pub use control::WINDOW_CONTROL_ENV;
 pub use error::NativeWindowSmokeError;
 pub use report::NativeWindowSmokeReport;
 
