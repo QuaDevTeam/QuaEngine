@@ -244,9 +244,9 @@ export function createBaseSettingsScope(options: BaseSettingsScopeOptions = {}):
           ),
         },
       })
-      const frameRateLimit = player.frameRateLimit === 30 || player.frameRateLimit === 120
+      const frameRateLimit = player.frameRateLimit === 30 || player.frameRateLimit === 60 || player.frameRateLimit === 120
         ? player.frameRateLimit
-        : 60
+        : basePlayerSettingsDefaults.frameRateLimit
       await engine.setRendererOptions({ targetFrameRate: frameRateLimit })
     },
   }
@@ -286,6 +286,9 @@ function createBasePlayerSettings(
     textSpeedCps: input.textSpeedCps ?? basePlayerSettingsDefaults.textSpeedCps,
     autoAdvanceDelayMs: input.autoAdvanceDelayMs ?? basePlayerSettingsDefaults.autoAdvanceDelayMs,
     skipMode: input.skipMode === 'all' ? 'all' : input.skipMode === 'read' ? 'read' : basePlayerSettingsDefaults.skipMode,
+    frameRateLimit: input.frameRateLimit === 30 || input.frameRateLimit === 60 || input.frameRateLimit === 120
+      ? input.frameRateLimit
+      : basePlayerSettingsDefaults.frameRateLimit,
     confirmBeforeQuit: input.confirmBeforeQuit ?? basePlayerSettingsDefaults.confirmBeforeQuit,
   }
 }
