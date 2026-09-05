@@ -164,7 +164,7 @@ export interface ViewLayoutProjection {
   orientation: ViewLayoutOrientation
   width: number
   height: number
-  /** Preferred/reference aspect ratio. Renderers resolve the active ratio from the container and clamp it into the min/max interval. */
+  /** Fixed logical scene aspect ratio. Renderers fit and center this ratio inside their container. */
   aspectRatio: number
   minAspectRatio: number
   maxAspectRatio: number

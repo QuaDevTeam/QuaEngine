@@ -32,7 +32,7 @@ fn builds_main_image_background_command() {
     assert_eq!(command.id, "background:main");
     assert_eq!(command.plane, RenderPlane::Scene);
     assert_eq!(command.kind, DrawCommandKind::Image);
-    assert_eq!(command.bounds.width, 1728.0);
+    assert_eq!(command.bounds.width, 1920.0);
     assert_eq!(command.bounds.height, 1080.0);
     assert_eq!(
         command.resource_ids,

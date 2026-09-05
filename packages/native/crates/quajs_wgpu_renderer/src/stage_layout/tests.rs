@@ -16,12 +16,15 @@ fn resolves_landscape_tablet_layout_like_web_renderer() {
         },
     );
 
-    assert_close(layout.aspect_ratio, 1.6);
+    assert_close(layout.aspect_ratio, 16.0 / 9.0);
     assert_close(layout.viewport_width, 1600.0);
-    assert_close(layout.viewport_height, 1000.0);
-    assert_close(layout.logical_width, 1728.0);
+    assert_close(layout.viewport_height, 900.0);
+    assert_close(layout.viewport_y, 50.0);
+    assert_close(layout.safe_area.x, 96.0);
+    assert_close(layout.safe_area.width, 1728.0);
+    assert_close(layout.logical_width, 1920.0);
     assert_close(layout.logical_height, 1080.0);
-    assert_close(layout.scale, 1000.0 / 1080.0);
+    assert_close(layout.scale, 900.0 / 1080.0);
 
     let center = client_point_to_stage_logical(
         &layout,
@@ -31,14 +34,14 @@ fn resolves_landscape_tablet_layout_like_web_renderer() {
         },
         StageClientRectOrigin::default(),
     );
-    assert_close(center.x, 864.0);
+    assert_close(center.x, 960.0);
     assert_close(center.y, 540.0);
     assert!(center.inside_viewport);
     assert!(center.inside_stage);
 
     let client = stage_logical_to_client_point(
         &layout,
-        StageLogicalPoint { x: 864.0, y: 540.0 },
+        StageLogicalPoint { x: 960.0, y: 540.0 },
         StageClientRectOrigin::default(),
     );
     assert_close(client.client_x, 800.0);
@@ -161,12 +164,12 @@ fn honors_client_rect_origin_for_coordinate_conversion() {
     };
 
     let client =
-        stage_logical_to_client_point(&layout, StageLogicalPoint { x: 864.0, y: 540.0 }, origin);
+        stage_logical_to_client_point(&layout, StageLogicalPoint { x: 960.0, y: 540.0 }, origin);
     assert_close(client.client_x, 900.0);
     assert_close(client.client_y, 550.0);
 
     let logical = client_point_to_stage_logical(&layout, client, origin);
-    assert_close(logical.x, 864.0);
+    assert_close(logical.x, 960.0);
     assert_close(logical.y, 540.0);
 }
 
@@ -221,4 +224,55 @@ fn assert_close(actual: f64, expected: f64) {
         (actual - expected).abs() < EPSILON,
         "expected {actual} to be close to {expected}",
     );
+}
+
+#[test]
+fn preserves_authored_stage_and_safe_area_across_window_ratios_and_dpr() {
+    for preset in [
+        ViewLayoutOrientation::Landscape,
+        ViewLayoutOrientation::Portrait,
+    ] {
+        let input = ViewLayoutInput {
+            preset: Some(preset),
+            ..Default::default()
+        };
+        let authored = create_view_layout_projection(Some(input));
+        for (width, height, dpr) in [
+            (960.0, 600.0, 1.0),
+            (1440.0, 720.0, 2.0),
+            (390.0, 844.0, 3.0),
+        ] {
+            let layout = resolve_stage_layout(
+                Some(input),
+                StageContainerInput {
+                    width: Some(width),
+                    height: Some(height),
+                    device_pixel_ratio: Some(dpr),
+                    ..Default::default()
+                },
+            );
+            assert_close(
+                layout.logical_width,
+                authored.height * authored.aspect_ratio,
+            );
+            assert_close(layout.logical_height, authored.height);
+            assert_close(
+                layout.safe_area.width,
+                authored.height * authored.min_aspect_ratio,
+            );
+            assert_close(layout.viewport_x * 2.0 + layout.viewport_width, width);
+            assert_close(layout.viewport_y * 2.0 + layout.viewport_height, height);
+            let point = StageLogicalPoint {
+                x: layout.safe_area.x + layout.safe_area.width * 0.95,
+                y: layout.logical_height * (1.0 - 0.05 - 0.1225),
+            };
+            let client =
+                stage_logical_to_client_point(&layout, point, StageClientRectOrigin::default());
+            let roundtrip =
+                client_point_to_stage_logical(&layout, client, StageClientRectOrigin::default());
+            assert_close(roundtrip.x, point.x);
+            assert_close(roundtrip.y, point.y);
+            assert!(roundtrip.inside_stage);
+        }
+    }
 }

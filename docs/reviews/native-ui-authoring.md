@@ -60,3 +60,9 @@
 ## Hover and memory regression
 
 Native pointer dispatch resolves against the submitted projection frame, while interaction feedback is a transient visual copy. This prevents a hover translation from changing hit geometry and causing a stationary pointer to oscillate between hover and base states. WGPU backend diagnostics retain only the latest two detailed frame plans; missing-resource and submitted-frame metrics are cumulative counters, avoiding unbounded diagnostic memory growth.
+
+## HUD toolbar alignment
+
+The demo toolbar previously used the full 1920px stage for its 5% right inset while the dialogue panel used the landscape aspect safe area. At the default 16:10 safe area this put the toolbar's right edge 86.4 logical pixels too far right. The native surface now receives the readonly engine layout and derives the toolbar rectangle from the same safe area and 5% inset as the dialogue. The Web stage-plane toolbar applies the equivalent safe-area conversion through layout CSS variables. Native QSS no longer repeats toolbar geometry in base or hover rules.
+
+Native stage fitting now keeps the authored landscape or portrait aspect ratio while the window contributes only letterboxing and scale. This keeps logical toolbar and dialogue coordinates stable across window ratios and DPR. `hud-parity.mjs --toolbar-only` was run against the real Web and native demo: native right-edge error was below `0.01`, Web right-edge error was `0`, and the largest cross-target logical rectangle difference was `0.009375` pixels, with all hover controls contained by the toolbar.

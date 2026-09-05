@@ -359,7 +359,9 @@
 
 .vn-quick-menu {
   position: absolute;
-  right: var(--vn-dialogue-inset-x);
+  // This HUD lives on the stage plane; dialogue lives on the safe plane.
+  // Convert its 5% safe-area inset into a stage-relative right offset.
+  right: calc(100% - var(--qua-layout-safe-x-px, 0px) - var(--qua-layout-safe-width-px, 100%) * 0.95);
   bottom: calc(var(--vn-dialogue-bottom) + var(--vn-dialogue-toolbar-offset));
   z-index: 36;
   display: flex;

@@ -1,3 +1,5 @@
+import type { ViewLayoutProjection } from '@quajs/render-core'
+
 /** Demo-owned presentation contract shared by Web and native shells. */
 export const DEMO_HUD_ACTIONS = [
   { id: 'auto', label: 'AUTO', title: 'Auto mode', width: 47, action: 'toggle', target: 'auto' },
@@ -20,6 +22,19 @@ export const DEMO_UI_METRICS = {
   confirmWidth: 520, confirmHeight: 260,
   backdropTop: 42,
 } as const
+
+/** The HUD uses the same aspect safe area and 5% inset as the dialogue panel. */
+export function demoHudRect(layout: Readonly<ViewLayoutProjection>) {
+  const stageWidth = layout.height * layout.aspectRatio
+  const safeWidth = Math.min(stageWidth, layout.height * layout.minAspectRatio)
+  const safeX = (stageWidth - safeWidth) / 2
+  return {
+    x: safeX + safeWidth * 0.95 - DEMO_UI_METRICS.toolbarWidth,
+    y: layout.height * (1 - 0.05 - 0.1225) - 8 - DEMO_UI_METRICS.toolbarHeight,
+    width: DEMO_UI_METRICS.toolbarWidth,
+    height: DEMO_UI_METRICS.toolbarHeight,
+  }
+}
 
 export function demoPanelRect(width: number, height: number, inGame: boolean, stageWidth = 1920, stageHeight = 1080) {
   const top = DEMO_UI_METRICS.backdropTop

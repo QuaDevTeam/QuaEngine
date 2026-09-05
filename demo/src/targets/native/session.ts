@@ -136,7 +136,7 @@ export async function createDemoNativeSession(): Promise<DemoNativeSession> {
       autoActive: flowMode === 'auto',
       skipActive: flowMode === 'skip',
     }
-    await runtime.engine.showUI(NATIVE_DEMO_APP_ELEMENT_ID, createNativeDemoAppSurface(appState))
+    await runtime.engine.showUI(NATIVE_DEMO_APP_ELEMENT_ID, createNativeDemoAppSurface(appState, runtime.engine.getViewState().layout))
   }
 
   const playDemoBgm = async (assetKey: string, options: AudioPlayBgmOptions = {}) => {
