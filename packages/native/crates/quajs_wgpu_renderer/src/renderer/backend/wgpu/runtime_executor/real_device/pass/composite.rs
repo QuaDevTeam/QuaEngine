@@ -1,3 +1,5 @@
+use super::super::resources::backdrop::capture_backdrop_view;
+use crate::render_graph::{CompositeBlendMode, DrawCompositeGroup};
 use std::collections::BTreeMap;
 use wgpu::util::DeviceExt;
 
@@ -26,6 +28,16 @@ impl Compositor {
             entries: &[
                 wgpu::BindGroupLayoutEntry {
                     binding: 0,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        sample_type: wgpu::TextureSampleType::Float { filterable: false },
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 2,
                     visibility: wgpu::ShaderStages::FRAGMENT,
                     ty: wgpu::BindingType::Texture {
                         sample_type: wgpu::TextureSampleType::Float { filterable: false },
@@ -156,14 +168,7 @@ impl Compositor {
                     backdrop,
                     Some((&group.id, destination)),
                 )?;
-                self.composite(
-                    target,
-                    destination,
-                    &intermediate,
-                    encoder,
-                    group.opacity,
-                    group.blur_radius as f32,
-                );
+                self.composite(target, destination, &intermediate, encoder, group, backdrop);
                 self.targets.push(intermediate);
             } else {
                 materialize_pass(
@@ -198,14 +203,37 @@ impl Compositor {
         destination: &mut RealRuntimeFrameTarget,
         source: &RealRuntimeFrameTarget,
         encoder: &mut wgpu::CommandEncoder,
-        opacity: f32,
-        blur_radius: f32,
+        group: &DrawCompositeGroup,
+        scratch: &mut Option<wgpu::Texture>,
     ) {
+        let captured;
+        let backdrop_view = if group.blend_mode != CompositeBlendMode::Normal {
+            captured = capture_backdrop_view(target, destination, scratch, encoder);
+            &captured
+        } else {
+            // The binding is unused for normal source-over; never sample the
+            // active destination attachment, even in an untaken shader branch.
+            source.view()
+        };
+        let f = &group.color_filter;
+        let values = [
+            group.opacity,
+            group.blur_radius as f32,
+            group.blend_mode as u32 as f32,
+            f.brightness,
+            f.contrast,
+            f.saturation,
+            f.hue_rotate_radians,
+            f.grayscale,
+            f.sepia,
+            f.invert,
+        ];
+        let bytes: Vec<u8> = values.into_iter().flat_map(f32::to_le_bytes).collect();
         let uniform = target
             .device()
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("qua-native::composite-opacity"),
-                contents: &[opacity.to_le_bytes(), blur_radius.to_le_bytes()].concat(),
+                contents: &bytes,
                 usage: wgpu::BufferUsages::UNIFORM,
             });
         let bind_group = target
@@ -214,6 +242,10 @@ impl Compositor {
                 label: Some("qua-native::composite-source"),
                 layout: &self.layout,
                 entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 2,
+                        resource: wgpu::BindingResource::TextureView(backdrop_view),
+                    },
                     wgpu::BindGroupEntry {
                         binding: 0,
                         resource: wgpu::BindingResource::TextureView(source.view()),
@@ -249,30 +281,4 @@ impl Compositor {
     }
 }
 
-const SHADER: &str = r#"
-@group(0) @binding(0) var source: texture_2d<f32>;
-struct CompositeStyle { opacity: f32, blur_radius: f32 }
-@group(0) @binding(1) var<uniform> style: CompositeStyle;
-@vertex fn vs_main(@builtin(vertex_index) index: u32) -> @builtin(position) vec4<f32> {
-    let positions = array<vec2<f32>, 3>(vec2(-1.0, -1.0), vec2(3.0, -1.0), vec2(-1.0, 3.0));
-    return vec4(positions[index], 0.0, 1.0);
-}
-@fragment fn fs_main(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
-    if (style.blur_radius < 0.001) {
-        return textureLoad(source, vec2<i32>(position.xy), 0) * style.opacity;
-    }
-    var sum = vec4<f32>(0.0);
-    var weight = 0.0;
-    // Bounded two-dimensional Gaussian on premultiplied subtree pixels.
-    // CSS filter blur's parameter is sigma (box-shadow's blur is 2*sigma).
-    for (var y = -4; y <= 4; y++) {
-        for (var x = -4; x <= 4; x++) {
-            let offset = vec2<f32>(f32(x), f32(y)) * 0.8;
-            let w = exp(-0.5 * dot(offset, offset));
-            sum += textureLoad(source, vec2<i32>(position.xy + offset * style.blur_radius), 0) * w;
-            weight += w;
-        }
-    }
-    return sum / weight * style.opacity;
-}
-"#;
+const SHADER: &str = include_str!("composite.wgsl");

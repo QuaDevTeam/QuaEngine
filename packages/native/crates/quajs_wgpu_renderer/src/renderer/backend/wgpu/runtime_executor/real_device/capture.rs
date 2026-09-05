@@ -7,6 +7,7 @@ use super::RealWgpuNativeRenderRuntimeDevice;
 pub struct RealWgpuFrameCapture {
     pub width: u32,
     pub height: u32,
+    /// Raw premultiplied sRGB target pixels. PNG export converts to straight alpha.
     pub rgba8: Vec<u8>,
 }
 
@@ -149,7 +150,7 @@ impl RealWgpuNativeRenderRuntimeDevice {
     ) -> Result<RealWgpuEncodedFrameCapture, RealWgpuFrameCaptureError> {
         use image::ImageEncoder;
 
-        let capture = self.capture_frame_rgba8()?;
+        let mut capture = self.capture_frame_rgba8()?;
         let visible_pixel_count = capture
             .rgba8
             .chunks_exact(4)
@@ -160,6 +161,10 @@ impl RealWgpuNativeRenderRuntimeDevice {
             .chunks_exact(4)
             .filter(|pixel| pixel[3] > 0 && pixel[..3].iter().any(|channel| *channel > 0))
             .count();
+        // GPU source-over targets contain premultiplied sRGB. PNG stores
+        // straight alpha; exporting raw target bytes darkens translucent
+        // screenshots a second time when a browser/save preview composites them.
+        unpremultiply_rgba8(&mut capture.rgba8);
         let mut bytes = Vec::new();
         image::codecs::png::PngEncoder::new(&mut bytes)
             .write_image(
@@ -181,5 +186,34 @@ impl RealWgpuNativeRenderRuntimeDevice {
             visible_pixel_count,
             colored_pixel_count,
         })
+    }
+}
+
+#[cfg(feature = "image-decode")]
+fn unpremultiply_rgba8(pixels: &mut [u8]) {
+    for pixel in pixels.chunks_exact_mut(4) {
+        let alpha = u32::from(pixel[3]);
+        for channel in &mut pixel[..3] {
+            *channel = if alpha == 0 {
+                0
+            } else {
+                ((u32::from(*channel) * 255 + alpha / 2) / alpha).min(255) as u8
+            };
+        }
+    }
+}
+
+#[cfg(all(test, feature = "image-decode"))]
+mod tests {
+    use super::unpremultiply_rgba8;
+
+    #[test]
+    fn png_pixels_use_straight_alpha_without_changing_opaque_colors() {
+        let mut pixels = [127, 64, 0, 128, 23, 54, 87, 255, 0, 0, 0, 0, 1, 0, 1, 1];
+        unpremultiply_rgba8(&mut pixels);
+        assert_eq!(
+            pixels,
+            [253, 128, 0, 128, 23, 54, 87, 255, 0, 0, 0, 0, 255, 0, 255, 1]
+        );
     }
 }

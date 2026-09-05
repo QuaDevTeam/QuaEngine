@@ -1,5 +1,6 @@
 pub mod batch;
 pub mod command;
+pub mod composite;
 pub mod graph;
 pub mod pass;
 pub mod style;
@@ -7,9 +8,10 @@ pub mod summary;
 
 pub use batch::{plan_draw_batches, DrawBatch, DrawBatchKey, DrawBatchPipeline};
 pub use command::{
-    DrawCommand, DrawCommandKind, DrawCommandVariant, DrawCompositeGroup, DrawInteractionState,
-    LogicalRect, RenderPlane, RoundedClip,
+    DrawCommand, DrawCommandKind, DrawCommandVariant, DrawInteractionState, LogicalRect,
+    RenderPlane, RoundedClip,
 };
+pub use composite::{CompositeBlendMode, CompositeColorFilter, DrawCompositeGroup};
 pub use graph::RenderGraph;
 pub use pass::{plan_render_passes, RenderPass, RenderPassPlan, RenderViewport};
 pub use style::{

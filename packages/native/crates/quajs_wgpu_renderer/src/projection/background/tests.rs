@@ -52,7 +52,7 @@ fn builds_main_image_background_command() {
 }
 
 #[test]
-fn forwards_background_composition_filter_to_image_draw_params() {
+fn applies_background_filters_after_subtree_rendering() {
     let layout = test_layout();
     let background = BackgroundProjection {
         asset_name: Some("bg/filtered.png".to_string()),
@@ -78,10 +78,19 @@ fn forwards_background_composition_filter_to_image_draw_params() {
     let DrawCommandParams::Image(params) = &commands[0].params else {
         panic!("expected image draw params")
     };
-    assert_eq!(params.brightness, 1.2);
-    assert_eq!(params.saturation, 0.8);
-    assert_eq!(params.contrast, 1.1);
-    assert!((params.hue_rotate_radians - std::f64::consts::FRAC_PI_2).abs() < 1e-9);
+    assert_eq!(params.brightness, 1.0);
+    assert_eq!(params.saturation, 1.0);
+    assert_eq!(params.contrast, 1.0);
+    assert_eq!(params.hue_rotate_radians, 0.0);
+    let group = &commands[0].composite_groups[0];
+    assert_eq!(
+        group.blend_mode,
+        crate::render_graph::CompositeBlendMode::Screen
+    );
+    assert_eq!(group.color_filter.brightness, 1.2);
+    assert_eq!(group.color_filter.saturation, 0.8);
+    assert_eq!(group.color_filter.contrast, 1.1);
+    assert!((group.color_filter.hue_rotate_radians - std::f32::consts::FRAC_PI_2).abs() < 1e-6);
 }
 
 #[test]
@@ -696,4 +705,116 @@ fn provenance<const N: usize>(owner: &str, required: [&str; N]) -> PackageProven
             .map(ToString::to_string)
             .collect::<BTreeSet<_>>(),
     }
+}
+
+#[test]
+fn blurred_background_opacity_is_applied_only_once() {
+    let background = BackgroundProjection {
+        asset_name: Some("bg/school.png".into()),
+        opacity: 0.5,
+        composition: Some(BackgroundCompositionProjection {
+            filter: Some(BackgroundFilterProjection {
+                blur: 8.0,
+                ..Default::default()
+            }),
+            ..Default::default()
+        }),
+        ..Default::default()
+    };
+    let commands = build_background_commands(&test_layout(), &background);
+    assert_eq!(commands[0].opacity, 1.0);
+    assert_eq!(commands[0].composite_groups.len(), 1);
+    assert_eq!(commands[0].composite_groups[0].opacity, 0.5);
+    assert_eq!(commands[0].composite_groups[0].blur_radius, 8.0);
+}
+
+#[test]
+fn layered_background_is_an_atomic_filtered_group_with_layer_blending() {
+    let background = BackgroundProjection {
+        mode: BackgroundMode::Layered,
+        opacity: 0.5,
+        provenance: provenance("runtime.root", ["base"]),
+        composition: Some(BackgroundCompositionProjection {
+            isolation: true,
+            filter: Some(BackgroundFilterProjection {
+                grayscale: 0.8,
+                ..Default::default()
+            }),
+            ..Default::default()
+        }),
+        layers: vec![
+            BackgroundLayerProjection {
+                opacity: 0.6,
+                z_index: 20,
+                provenance: provenance("runtime.layer", ["runtime.dependency"]),
+                composition: Some(BackgroundCompositionProjection {
+                    blend_mode: Some("multiply".into()),
+                    ..Default::default()
+                }),
+                ..BackgroundLayerProjection::new("front", "front.png")
+            },
+            BackgroundLayerProjection::new("back", "back.png"),
+        ],
+        ..Default::default()
+    };
+    let mut graph = RenderGraph::new(test_layout());
+    append_background_commands(&mut graph, &background);
+    let back = &graph.commands()[0];
+    let front = &graph.commands()[1];
+    assert_eq!(front.owner_package_id.as_deref(), Some("runtime.layer"));
+    assert_eq!(
+        front.required_package_ids,
+        BTreeSet::from([
+            "runtime.root".into(),
+            "base".into(),
+            "runtime.dependency".into()
+        ])
+    );
+    assert_eq!(back.composite_groups[0], front.composite_groups[0]);
+    assert_eq!(front.composite_groups[0].opacity, 0.5);
+    assert_eq!(front.composite_groups[0].color_filter.grayscale, 0.8);
+    assert_eq!(front.composite_groups[1].opacity, 0.6);
+    assert_eq!(
+        front.composite_groups[1].blend_mode,
+        crate::render_graph::CompositeBlendMode::Multiply
+    );
+    assert_eq!(front.opacity, 1.0);
+}
+
+#[test]
+fn video_uses_outer_background_appearance_for_frames_and_posters() {
+    let background = BackgroundProjection {
+        mode: BackgroundMode::Video,
+        opacity: 0.4,
+        fit: BackgroundFit::Contain,
+        origin: Some("left top".into()),
+        composition: Some(BackgroundCompositionProjection {
+            filter: Some(BackgroundFilterProjection {
+                contrast: 1.3,
+                ..Default::default()
+            }),
+            ..Default::default()
+        }),
+        video: Some(BackgroundVideoProjection {
+            opacity: 0.7,
+            fit: BackgroundFit::Fill,
+            poster: Some("poster.png".into()),
+            ..BackgroundVideoProjection::new("movie.mp4")
+        }),
+        ..Default::default()
+    };
+    let commands = build_background_commands(&test_layout(), &background);
+    let command = &commands[0];
+    assert_eq!(command.opacity, 1.0);
+    assert_eq!(command.composite_groups[0].opacity, 0.4);
+    assert_eq!(command.composite_groups[0].color_filter.contrast, 1.3);
+    let DrawCommandParams::Video(params) = &command.params else {
+        panic!("video")
+    };
+    assert_eq!(params.fit, MediaFit::Contain);
+    assert_eq!(params.origin, MediaOrigin { x: 0.0, y: 0.0 });
+    assert_eq!(
+        command.resource_ids,
+        vec![ResourceId::from("images:poster.png")]
+    );
 }

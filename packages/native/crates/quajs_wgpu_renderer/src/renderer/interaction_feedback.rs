@@ -1064,6 +1064,7 @@ mod tests {
             opacity: 0.0,
             z_index: 0,
             blur_radius: 0.0,
+            ..Default::default()
         };
         let command = &mut frame.graph.commands_mut()[0];
         command.composite_groups.push(group.clone());

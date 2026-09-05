@@ -10,6 +10,38 @@ pub(in super::super) fn capture_backdrop(
     encoder: &mut wgpu::CommandEncoder,
     layout: &wgpu::BindGroupLayout,
 ) -> wgpu::BindGroup {
+    let view = capture_backdrop_view(target, source, scratch, encoder);
+    let sampler = target.device().create_sampler(&wgpu::SamplerDescriptor {
+        mag_filter: wgpu::FilterMode::Linear,
+        min_filter: wgpu::FilterMode::Linear,
+        ..Default::default()
+    });
+    target
+        .device()
+        .create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("qua-native::backdrop-capture-binding"),
+            layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::Sampler(&sampler),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::TextureView(&view),
+                },
+            ],
+        })
+}
+
+/// Shared scratch capture for backdrop blur and CSS blend compositing. Encoded
+/// consumers finish sampling before the next copy, so only one scratch is held.
+pub(in super::super) fn capture_backdrop_view(
+    target: &RealWgpuNativeRenderRuntimeTarget,
+    source: &RealRuntimeFrameTarget,
+    scratch: &mut Option<wgpu::Texture>,
+    encoder: &mut wgpu::CommandEncoder,
+) -> wgpu::TextureView {
     let extent = source.extent();
     let format = source.color_format();
     if scratch
@@ -34,25 +66,5 @@ pub(in super::super) fn capture_backdrop(
         extent,
     );
     let view = texture.create_view(&Default::default());
-    let sampler = target.device().create_sampler(&wgpu::SamplerDescriptor {
-        mag_filter: wgpu::FilterMode::Linear,
-        min_filter: wgpu::FilterMode::Linear,
-        ..Default::default()
-    });
-    target
-        .device()
-        .create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("qua-native::backdrop-capture-binding"),
-            layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::Sampler(&sampler),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::TextureView(&view),
-                },
-            ],
-        })
+    view
 }

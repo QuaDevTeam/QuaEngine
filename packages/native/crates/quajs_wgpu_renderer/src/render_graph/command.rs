@@ -4,6 +4,7 @@ use crate::resources::ResourceId;
 use crate::stage_layout::StageSafeArea;
 
 use super::style::{DrawCommandParams, DrawTransition, UiControlDrawParam};
+use super::DrawCompositeGroup;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum RenderPlane {
@@ -159,16 +160,6 @@ mod corner_tests {
         assert!(clip.contains(1.0, 99.0));
         assert!(clip.contains(99.0, 99.0));
     }
-}
-
-/// Transient CSS stacking context. Opacity is applied once to the complete
-/// projected subtree; commands retain their effective alpha for hit/diagnostics.
-#[derive(Clone, Debug, PartialEq)]
-pub struct DrawCompositeGroup {
-    pub blur_radius: f64,
-    pub id: String,
-    pub opacity: f32,
-    pub z_index: i32,
 }
 
 #[derive(Clone, Debug, PartialEq)]
