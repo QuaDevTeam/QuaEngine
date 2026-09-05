@@ -1,13 +1,13 @@
 use crate::projection::audio::{AudioTrackMemoryEstimate, AudioTrackProjection};
 use crate::projection::safety::{
-    is_safe_native_audio_memory, is_safe_native_opacity, is_safe_optional_audio_duration_ms,
+    is_safe_native_audio_memory, is_safe_optional_audio_duration_ms,
     is_safe_optional_audio_timestamp_ms, MAX_NATIVE_AUDIO_DURATION_MS,
-    MAX_NATIVE_AUDIO_TIMESTAMP_MS, MAX_NATIVE_AUDIO_TRACK_CPU_BYTES,
+    MAX_NATIVE_AUDIO_TIMESTAMP_MS, MAX_NATIVE_AUDIO_TRACK_CPU_BYTES, MAX_NATIVE_AUDIO_VOLUME,
 };
 
 pub(super) fn invalid_native_json_audio_volume_reason(value: f32) -> Option<String> {
-    if !is_safe_native_opacity(value) {
-        return Some("audio track volume must be finite and between 0 and 1".to_string());
+    if !value.is_finite() || !(0.0..=MAX_NATIVE_AUDIO_VOLUME).contains(&value) {
+        return Some("audio track volume must be finite and between 0 and 16".to_string());
     }
     None
 }
@@ -95,7 +95,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn volume_accepts_only_finite_normalized_values() {
+    fn volume_accepts_native_linear_gain_values() {
         assert_eq!(invalid_native_json_audio_volume_reason(0.0), None);
         assert_eq!(invalid_native_json_audio_volume_reason(1.0), None);
 
@@ -104,10 +104,11 @@ mod tests {
             .contains("finite"));
         assert!(invalid_native_json_audio_volume_reason(-0.01)
             .unwrap()
-            .contains("between 0 and 1"));
-        assert!(invalid_native_json_audio_volume_reason(1.01)
+            .contains("between 0 and 16"));
+        assert_eq!(invalid_native_json_audio_volume_reason(8.0), None);
+        assert!(invalid_native_json_audio_volume_reason(16.01)
             .unwrap()
-            .contains("between 0 and 1"));
+            .contains("between 0 and 16"));
     }
 
     #[test]

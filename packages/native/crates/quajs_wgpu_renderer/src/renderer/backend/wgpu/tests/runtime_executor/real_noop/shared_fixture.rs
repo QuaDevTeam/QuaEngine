@@ -8,6 +8,94 @@ const BOX_SHADOW_LAB_FRAME: &str =
     include_str!("../../../../../../../../../test-fixtures/renderer/box-shadow-feather-frame.json");
 
 #[test]
+fn real_noop_composites_nested_opacity_and_reuses_bounded_targets() {
+    let mut renderer = create_noop_renderer(320, 180);
+    let frame = serde_json::json!({ "container": { "width": 320, "height": 180 },
+        "view": { "ui": { "visible": true, "overlays": [{ "elementId": "composite", "visible": true,
+            "renderMode": "render-only", "interactive": false, "surface": { "key": "test/composite", "root": {
+                "id": "parent", "kind": "Box", "visible": true,
+                "bounds": { "x": 0, "y": 0, "width": 1920, "height": 1080 },
+                "style": { "opacity": 0.5, "backgroundColor": "red" }, "children": [{
+                    "id": "child", "kind": "Box", "visible": true,
+                    "bounds": { "x": 100, "y": 100, "width": 400, "height": 300 },
+                    "style": { "opacity": 0.5, "backgroundColor": "lime" }
+                }]
+            } }
+        }] } } }).to_string();
+    renderer.prepare_and_render_json_str(&frame).unwrap();
+    let buffers = renderer.backend().last_buffer_plan().unwrap();
+    assert!(buffers
+        .passes
+        .iter()
+        .flat_map(|p| &p.vertices)
+        .all(|v| v.color[3] == 1.0));
+    let snapshot = renderer.backend().runtime_snapshot();
+    assert_eq!(
+        snapshot.resident_compositor_texture_byte_len,
+        2 * 320 * 180 * 4
+    );
+    assert_eq!(
+        renderer
+            .backend()
+            .last_runtime_plan()
+            .unwrap()
+            .composite_groups["ui:composite:child"]
+            .len(),
+        2
+    );
+    renderer.prepare_and_render_json_str(&frame).unwrap();
+    assert_eq!(
+        renderer
+            .backend()
+            .runtime_snapshot()
+            .resident_compositor_texture_byte_len,
+        snapshot.resident_compositor_texture_byte_len
+    );
+    assert_eq!(
+        renderer
+            .backend()
+            .last_runtime_plan()
+            .unwrap()
+            .queue_write_count,
+        0
+    );
+    let mut glass: serde_json::Value = serde_json::from_str(&frame).unwrap();
+    glass["view"]["ui"]["overlays"][0]["surface"]["root"]["children"][0]["style"]
+        ["backdropFilter"] = serde_json::json!({"blurRadius": 8});
+    renderer
+        .prepare_and_render_json_str(&glass.to_string())
+        .unwrap();
+    assert_eq!(
+        renderer
+            .backend()
+            .runtime_snapshot()
+            .resident_compositor_texture_byte_len,
+        3 * 320 * 180 * 4
+    );
+    renderer
+        .prepare_and_render_json_str(&glass.to_string())
+        .unwrap();
+    assert_eq!(
+        renderer
+            .backend()
+            .last_runtime_plan()
+            .unwrap()
+            .queue_write_count,
+        0
+    );
+    renderer
+        .prepare_and_render_json_str(r#"{"container":{"width":320,"height":180},"view":{}}"#)
+        .unwrap();
+    assert_eq!(
+        renderer
+            .backend()
+            .runtime_snapshot()
+            .resident_compositor_texture_byte_len,
+        0
+    );
+}
+
+#[test]
 fn real_noop_runtime_executor_renders_shared_compiled_qui_qss_fixture() {
     let mut renderer = create_noop_renderer(3200, 2000);
 

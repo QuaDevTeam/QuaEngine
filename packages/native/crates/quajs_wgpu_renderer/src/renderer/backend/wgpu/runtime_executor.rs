@@ -124,12 +124,15 @@ where
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct WgpuNativeRenderRuntimeSnapshot {
+    /// Decoded texel dimensions; renderer-local metadata for intrinsic media fit.
+    pub resident_texture_dimensions: BTreeMap<String, (u32, u32)>,
     pub resident_buffer_count: usize,
     pub resident_buffer_byte_len: usize,
     pub resident_pipeline_count: usize,
     pub resident_bind_group_count: usize,
     pub resident_texture_count: usize,
     pub resident_texture_byte_len: usize,
+    pub resident_compositor_texture_byte_len: usize,
     pub resident_texture_resource_ids: Vec<String>,
     pub resident_texture_byte_len_by_package:
         BTreeMap<String, WgpuNativeRenderRuntimeTexturePackageMemory>,
@@ -207,6 +210,7 @@ pub struct WgpuNativeRenderRuntimeExecutionReport {
     pub resident_bind_group_count: usize,
     pub resident_texture_count: usize,
     pub resident_texture_byte_len: usize,
+    pub resident_compositor_texture_byte_len: usize,
     pub resident_texture_resource_ids: Vec<String>,
     pub resident_texture_byte_len_by_package:
         BTreeMap<String, WgpuNativeRenderRuntimeTexturePackageMemory>,

@@ -1,7 +1,7 @@
 use super::*;
 
 #[test]
-fn multiplies_surface_group_opacity_into_child_commands() {
+fn composites_surface_group_opacity_without_changing_child_alpha() {
     let layout = test_layout();
     let ui = UiProjection::new(vec![UiOverlayProjection {
         surface: Some(
@@ -43,11 +43,23 @@ fn multiplies_surface_group_opacity_into_child_commands() {
         .unwrap();
 
     assert_eq!(title.kind, DrawCommandKind::Text);
-    assert!((title.opacity - 0.2).abs() < 0.0001);
+    assert_eq!(title.opacity, 1.0);
+    assert_eq!(
+        title
+            .composite_groups
+            .iter()
+            .map(|g| (g.id.as_str(), g.opacity))
+            .collect::<Vec<_>>(),
+        vec![
+            ("ui:menu:group", 0.5),
+            ("ui:menu:foreground", 0.5),
+            ("ui:menu:title", 0.8)
+        ]
+    );
 }
 
 #[test]
-fn multiplies_surface_style_opacity_into_child_commands() {
+fn composites_surface_style_opacity_without_changing_child_alpha() {
     let layout = test_layout();
     let ui = UiProjection::new(vec![UiOverlayProjection {
         surface: Some(
@@ -83,5 +95,13 @@ fn multiplies_surface_style_opacity_into_child_commands() {
         .unwrap();
 
     assert_eq!(title.kind, DrawCommandKind::Text);
-    assert!((title.opacity - 0.4).abs() < 0.0001);
+    assert_eq!(title.opacity, 1.0);
+    assert_eq!(
+        title
+            .composite_groups
+            .iter()
+            .map(|g| g.opacity)
+            .collect::<Vec<_>>(),
+        vec![0.5, 0.8]
+    );
 }

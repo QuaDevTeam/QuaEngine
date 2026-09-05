@@ -61,6 +61,8 @@ pub(in crate::renderer::backend::wgpu::runtime_executor) struct RuntimeBindGroup
 impl WgpuNativeRenderRuntimeState {
     pub(super) fn snapshot(&self) -> WgpuNativeRenderRuntimeSnapshot {
         WgpuNativeRenderRuntimeSnapshot {
+            resident_texture_dimensions: BTreeMap::new(),
+            resident_compositor_texture_byte_len: 0,
             resident_buffer_count: self.buffers.len(),
             resident_buffer_byte_len: self.buffers.values().map(|buffer| buffer.byte_len).sum(),
             resident_pipeline_count: self.pipelines.len(),

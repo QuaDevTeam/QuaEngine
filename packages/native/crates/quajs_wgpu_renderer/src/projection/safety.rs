@@ -24,6 +24,7 @@ pub(crate) const MAX_NATIVE_STACK_PRIORITY: i32 = 1_000;
 pub(crate) const MAX_NATIVE_AUDIO_TRACK_CPU_BYTES: u64 = 2 * 1024 * 1024 * 1024;
 pub(crate) const MAX_NATIVE_AUDIO_DURATION_MS: f64 = 24.0 * 60.0 * 60.0 * 1000.0;
 pub(crate) const MAX_NATIVE_AUDIO_TIMESTAMP_MS: f64 = 8_640_000_000_000.0;
+pub(crate) const MAX_NATIVE_AUDIO_VOLUME: f32 = 16.0;
 
 pub(crate) const MAX_NATIVE_UI_LOGICAL_COORDINATE: f64 = 1_000_000.0;
 pub(crate) const MAX_NATIVE_UI_LOGICAL_DIMENSION: f64 = 1_000_000.0;
@@ -167,9 +168,18 @@ pub(crate) fn is_safe_native_ui_style_numbers(style: &UiSurfaceResolvedStyle) ->
         && is_safe_optional_logical_value(style.border_radius, MAX_NATIVE_UI_STYLE_LOGICAL_VALUE)
         && is_safe_optional_logical_value(style.border_width, MAX_NATIVE_UI_STYLE_LOGICAL_VALUE)
         && is_safe_optional_logical_value(style.border_top_width, MAX_NATIVE_UI_STYLE_LOGICAL_VALUE)
-        && is_safe_optional_logical_value(style.border_right_width, MAX_NATIVE_UI_STYLE_LOGICAL_VALUE)
-        && is_safe_optional_logical_value(style.border_bottom_width, MAX_NATIVE_UI_STYLE_LOGICAL_VALUE)
-        && is_safe_optional_logical_value(style.border_left_width, MAX_NATIVE_UI_STYLE_LOGICAL_VALUE)
+        && is_safe_optional_logical_value(
+            style.border_right_width,
+            MAX_NATIVE_UI_STYLE_LOGICAL_VALUE,
+        )
+        && is_safe_optional_logical_value(
+            style.border_bottom_width,
+            MAX_NATIVE_UI_STYLE_LOGICAL_VALUE,
+        )
+        && is_safe_optional_logical_value(
+            style.border_left_width,
+            MAX_NATIVE_UI_STYLE_LOGICAL_VALUE,
+        )
         && is_safe_optional_logical_value(style.font_size, MAX_NATIVE_UI_STYLE_LOGICAL_VALUE)
         && is_safe_optional_logical_value(style.letter_spacing, MAX_NATIVE_UI_STYLE_LOGICAL_VALUE)
         && is_safe_optional_logical_value(style.line_height, MAX_NATIVE_UI_STYLE_LOGICAL_VALUE)
@@ -210,7 +220,8 @@ fn is_safe_native_ui_gradient(
 }
 
 pub(crate) fn is_safe_native_audio_track_numbers(track: &AudioTrackProjection) -> bool {
-    is_safe_native_opacity(track.volume)
+    track.volume.is_finite()
+        && (0.0..=MAX_NATIVE_AUDIO_VOLUME).contains(&track.volume)
         && is_safe_optional_audio_duration_ms(track.duration_ms)
         && is_safe_optional_audio_duration_ms(track.fade_in_ms)
         && is_safe_optional_audio_duration_ms(track.fade_out_ms)

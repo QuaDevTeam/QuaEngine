@@ -11,6 +11,19 @@ use crate::renderer::backend::wgpu::runtime_executor::{
 impl RealWgpuNativeRenderRuntimeDevice {
     pub fn snapshot(&self) -> WgpuNativeRenderRuntimeSnapshot {
         WgpuNativeRenderRuntimeSnapshot {
+            resident_texture_dimensions: self
+                .decoded_textures
+                .iter()
+                .map(|(id, texture)| (id.clone(), (texture.width, texture.height)))
+                .collect(),
+            resident_compositor_texture_byte_len: self
+                .compositor
+                .as_ref()
+                .map_or(0, |c| c.texture_byte_len())
+                + self
+                    .backdrop_texture
+                    .as_ref()
+                    .map_or(0, |t| t.width() as usize * t.height() as usize * 4),
             resident_buffer_count: self.buffers.len(),
             resident_buffer_byte_len: self.buffers.values().map(|buffer| buffer.byte_len).sum(),
             resident_pipeline_count: self.pipelines.len(),

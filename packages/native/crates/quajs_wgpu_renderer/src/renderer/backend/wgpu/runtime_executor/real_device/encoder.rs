@@ -97,6 +97,9 @@ impl RealWgpuNativeRenderRuntimeDevice {
             &self.bind_groups,
             &mut encoder.encoder,
             pass,
+            self.compositor.as_mut(),
+            &mut self.backdrop_texture,
+            None,
         );
         self.active_encoder = Some(encoder);
         materialized?;
@@ -212,7 +215,7 @@ impl RealWgpuNativeRenderRuntimeDevice {
         Ok(encoder)
     }
 
-    pub(in super::super) fn active_encoder_any_mut(
+    pub(super) fn active_encoder_any_mut(
         &mut self,
     ) -> Result<&mut RealRuntimeEncoder, WgpuNativeRenderRuntimeError> {
         self.active_encoder.as_mut().ok_or_else(|| {

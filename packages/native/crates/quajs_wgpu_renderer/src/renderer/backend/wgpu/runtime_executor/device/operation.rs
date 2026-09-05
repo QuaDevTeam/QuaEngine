@@ -181,16 +181,5 @@ pub(super) fn apply_operation(
         WgpuNativeRenderRuntimeOperation::SubmitCommandBuffer { encoder_label, .. } => {
             submit_encoder(state, encoder_label)
         }
-        // The in-memory device has no GPU texture, so this is a no-op that
-        // simply verifies an encoder is active (same guard as SkipDraw).
-        WgpuNativeRenderRuntimeOperation::CopyFramebufferToBackdrop => {
-            if state.active_encoder.is_none() {
-                return Err(crate::renderer::backend::wgpu::runtime_executor::WgpuNativeRenderRuntimeError::new(
-                    crate::renderer::backend::wgpu::runtime_executor::WgpuNativeRenderRuntimeErrorKind::InvalidOperationOrder,
-                    "CopyFramebufferToBackdrop requires an active encoder",
-                ));
-            }
-            Ok(())
-        }
     }
 }

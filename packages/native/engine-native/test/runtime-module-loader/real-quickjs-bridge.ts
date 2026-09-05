@@ -275,7 +275,10 @@ function spawnNativeApp(
   cargoArgs: string[] = NATIVE_QUICKJS_CARGO_ARGS,
 ): ChildProcessWithoutNullStreams {
   const env = nativeAppEnv(extraEnv)
-  return spawn('cargo', cargoArgs, {
+  // Allow a fixed, already-built test app so parallel feature builds cannot
+  // replace the executable between Cargo finishing and the bridge starting.
+  const testApp = process.env.QUA_NATIVE_TEST_APP
+  return spawn(testApp || 'cargo', testApp ? [] : cargoArgs, {
     cwd: REPO_ROOT,
     env,
     stdio: ['pipe', 'pipe', 'pipe'],

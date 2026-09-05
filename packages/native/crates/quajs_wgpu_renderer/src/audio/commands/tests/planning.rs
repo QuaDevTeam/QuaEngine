@@ -139,7 +139,7 @@ fn skips_duplicate_track_ids_in_backend_plans() {
 #[test]
 fn skips_tracks_with_unsafe_resolved_numbers() {
     let mut bad_volume = track("bgm-bad-volume", "music/bad-volume.ogg");
-    bad_volume.volume = 1.01;
+    bad_volume.volume = 16.01;
     let bad_memory =
         track("bgm-bad-memory", "music/bad-memory.ogg").memory(AudioTrackMemoryEstimate {
             buffer_cpu_bytes: 2 * 1024 * 1024 * 1024 + 1,
@@ -159,6 +159,20 @@ fn skips_tracks_with_unsafe_resolved_numbers() {
     assert!(plan.next_tracks.contains_key("bgm-valid"));
     assert!(!plan.next_tracks.contains_key("bgm-bad-volume"));
     assert!(!plan.next_tracks.contains_key("bgm-bad-memory"));
+}
+
+#[test]
+fn preserves_amplified_linear_gain_in_backend_plan() {
+    for gain in [0.0, 1.995_262_3, 16.0] {
+        let mut boosted = track("bgm-boost", "music/boost.ogg");
+        boosted.volume = gain;
+        let plan = plan_audio_backend_commands(
+            &AudioBackendTrackStateMap::new(),
+            Some(&AudioProjection::new(vec![boosted])),
+            &assets([]),
+        );
+        assert_eq!(plan.next_tracks["bgm-boost"].volume, gain);
+    }
 }
 
 #[test]

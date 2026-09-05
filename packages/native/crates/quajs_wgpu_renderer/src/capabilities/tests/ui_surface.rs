@@ -28,6 +28,7 @@ fn ui_surface_capability_matches_foundational_qui_qss_subset() {
             "background-image",
             "background-position",
             "background-size",
+            "backdrop-filter",
             "border-color",
             "border-radius",
             "border-style",

@@ -84,6 +84,7 @@ impl WgpuNativeRenderRuntimeExecutionReport {
         self.resident_bind_group_count = snapshot.resident_bind_group_count;
         self.resident_texture_count = snapshot.resident_texture_count;
         self.resident_texture_byte_len = snapshot.resident_texture_byte_len;
+        self.resident_compositor_texture_byte_len = snapshot.resident_compositor_texture_byte_len;
         self.resident_texture_resource_ids = snapshot.resident_texture_resource_ids;
         self.resident_texture_byte_len_by_package = snapshot.resident_texture_byte_len_by_package;
         self.texture_sampler_diagnostics = snapshot.texture_sampler_diagnostics;

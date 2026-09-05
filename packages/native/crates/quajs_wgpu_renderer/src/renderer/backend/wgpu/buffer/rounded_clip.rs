@@ -105,7 +105,8 @@ impl WgpuNativeRenderBufferPlan {
 
 fn polygon(clip: RoundedClip, viewport: RenderViewport) -> Vec<[f32; 2]> {
     let b = clip.bounds;
-    let r = clip.radius.max(0.0).min(b.width * 0.5).min(b.height * 0.5);
+    let radii = clip.resolved_radii();
+    let r = radii.into_iter().fold(0.0, f64::max);
     // At most 64 segments per quarter, with <= 0.25 physical px chord error
     // for normal UI radii. This matches the bounded native rounded geometry.
     let physical_radius = r * viewport.physical_scale;
@@ -117,11 +118,31 @@ fn polygon(clip: RoundedClip, viewport: RenderViewport) -> Vec<[f32; 2]> {
             .clamp(1.0, 64.0) as usize
     };
     let mut points = Vec::new();
-    for (cx, cy, start) in [
-        (b.x + b.width - r, b.y + r, -std::f64::consts::FRAC_PI_2),
-        (b.x + b.width - r, b.y + b.height - r, 0.0),
-        (b.x + r, b.y + b.height - r, std::f64::consts::FRAC_PI_2),
-        (b.x + r, b.y + r, std::f64::consts::PI),
+    for (cx, cy, start, r) in [
+        (
+            b.x + b.width - radii[1],
+            b.y + radii[1],
+            -std::f64::consts::FRAC_PI_2,
+            radii[1],
+        ),
+        (
+            b.x + b.width - radii[2],
+            b.y + b.height - radii[2],
+            0.0,
+            radii[2],
+        ),
+        (
+            b.x + radii[3],
+            b.y + b.height - radii[3],
+            std::f64::consts::FRAC_PI_2,
+            radii[3],
+        ),
+        (
+            b.x + radii[0],
+            b.y + radii[0],
+            std::f64::consts::PI,
+            radii[0],
+        ),
     ] {
         for step in 0..=steps {
             let a = start + std::f64::consts::FRAC_PI_2 * step as f64 / steps as f64;
@@ -144,7 +165,7 @@ fn contains(boundary: &[[f32; 2]], p: [f32; 2]) -> bool {
     })
 }
 
-fn intersect(mut points: Vec<Vertex>, boundary: &[[f32; 2]]) -> Vec<Vertex> {
+pub(super) fn intersect(mut points: Vec<Vertex>, boundary: &[[f32; 2]]) -> Vec<Vertex> {
     for i in 0..boundary.len() {
         if points.is_empty() {
             break;

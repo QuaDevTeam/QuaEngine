@@ -385,7 +385,7 @@ function normalizedLinearGain(gainDbValues: Array<number | undefined>): number {
   if (!Number.isFinite(totalGainDb)) {
     return 1
   }
-  return Math.min(1, Math.max(0, 10 ** (totalGainDb / 20)))
+  return Math.min(16, Math.max(0, 10 ** (totalGainDb / 20)))
 }
 
 function createNativeFontsProjection(fonts: unknown): JsonRecord | undefined {
@@ -639,6 +639,7 @@ function createNativeBackgroundProjection(background: unknown): JsonRecord | und
     scale: finiteNumber(record.scale),
     rotation: finiteNumber(record.rotation),
     opacity: finiteNumber(record.opacity),
+    composition: createNativeBackgroundCompositionProjection(record.composition),
     layers: Array.isArray(record.layers)
       ? record.layers.map(createNativeBackgroundLayerProjection).filter(isJsonRecord)
       : [],
@@ -671,8 +672,31 @@ function createNativeBackgroundLayerProjection(layer: unknown): JsonRecord | und
     scale: finiteNumber(record.scale),
     rotation: finiteNumber(record.rotation),
     opacity: finiteNumber(record.opacity),
+    composition: createNativeBackgroundCompositionProjection(record.composition),
     zIndex: integerValue(record.zIndex),
     provenance: createPackageProvenance(record),
+  })
+}
+
+function createNativeBackgroundCompositionProjection(composition: unknown): JsonRecord | undefined {
+  const record = asRecord(composition)
+  if (!record) return undefined
+  const filter = asRecord(record.filter)
+  const mask = asRecord(record.mask)
+  return omitUndefined({
+    blendMode: stringValue(record.blendMode),
+    isolation: booleanValue(record.isolation),
+    filter: filter ? omitUndefined({
+      blur: finiteNumber(filter.blur), brightness: finiteNumber(filter.brightness),
+      contrast: finiteNumber(filter.contrast), saturate: finiteNumber(filter.saturate),
+      hueRotate: finiteNumber(filter.hueRotate), grayscale: finiteNumber(filter.grayscale),
+      sepia: finiteNumber(filter.sepia), invert: finiteNumber(filter.invert),
+      dropShadow: stringValue(filter.dropShadow),
+    }) : undefined,
+    mask: mask ? omitUndefined({
+      assetName: stringValue(mask.assetName), assetType: stringValue(mask.assetType), mode: stringValue(mask.mode),
+      position: stringValue(mask.position), size: stringValue(mask.size), repeat: stringValue(mask.repeat),
+    }) : undefined,
   })
 }
 

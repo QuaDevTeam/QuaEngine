@@ -81,7 +81,11 @@ impl WgpuNativeRenderTextStyle {
             align: params.align,
             vertical_align: if matches!(
                 params.role.as_str(),
-                "dialogue-text" | "dialogue-text-shadow"
+                "dialogue-text"
+                    | "dialogue-text-shadow"
+                    | "ui-text"
+                    | "ui-rich-text"
+                    | "ui-text-shadow"
             ) {
                 WgpuNativeRenderVerticalAlign::Top
             } else {

@@ -501,9 +501,11 @@ fn hover_only_outer_shadow_stays_behind_the_surface_and_opacity_replaces_base_st
         .position(|c| c.id == "ui:test:hover")
         .unwrap();
     assert!(shadow < surface);
-    assert_eq!(commands[surface].opacity, 0.0);
+    assert_eq!(commands[surface].opacity, 1.0);
+    assert_eq!(commands[surface].composite_groups[0].opacity, 0.0);
     assert_eq!(
-        commands[surface].interaction_variants[&DrawInteractionState::Hover].opacity,
+        commands[surface].interaction_variants[&DrawInteractionState::Hover].composite_groups[0]
+            .opacity,
         0.4
     );
 }

@@ -329,7 +329,7 @@ describe('@quajs/engine-native runtime product smoke', () => {
       expect(rendererSummary).toEqual(expect.objectContaining({
         revision: 1,
         missingResourceCount: 0,
-        commandGraphSignature: 'fnv1a64:0233790531573f5d',
+        commandGraphSignature: 'fnv1a64:b7865ef4c9229a17',
       }))
       expect(rendererSummary.commandIds).toEqual(['character:mira'])
       expect(rendererSummary.commandKindCounts).toEqual({ image: 1 })

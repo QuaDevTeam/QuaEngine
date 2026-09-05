@@ -124,6 +124,12 @@ fn background_image_command(
         background.scale,
     );
     let asset_type = resolve_background_asset_type(background.asset_type.as_deref())?;
+    let filter = background
+        .composition
+        .as_ref()
+        .and_then(|value| value.filter.as_ref())
+        .cloned()
+        .unwrap_or_default();
     let command = DrawCommand::new(id, RenderPlane::Scene, DrawCommandKind::Image, bounds)
         .opacity(background.opacity)
         .resource(background_resource_id(&asset_type, asset_name))
@@ -134,16 +140,27 @@ fn background_image_command(
             origin: media_origin(background.origin.as_deref()),
             source: full_stage_rect(layout),
             rotation_degrees: background.rotation,
-            brightness: 1.0,
-            saturation: 1.0,
-            contrast: 1.0,
-            grayscale: 0.0,
-            sepia: 0.0,
-            hue_rotate_radians: 0.0,
-            invert: 0.0,
+            brightness: filter.brightness,
+            saturation: filter.saturate,
+            contrast: filter.contrast,
+            grayscale: filter.grayscale,
+            sepia: filter.sepia,
+            hue_rotate_radians: filter.hue_rotate.to_radians(),
+            invert: filter.invert,
         }));
 
-    Some(apply_provenance(command, &background.provenance))
+    let mut command = apply_provenance(command, &background.provenance);
+    if filter.blur > 0.0 {
+        command
+            .composite_groups
+            .push(crate::render_graph::DrawCompositeGroup {
+                id: id.to_string(),
+                opacity: background.opacity,
+                z_index: command.z_index,
+                blur_radius: filter.blur,
+            });
+    }
+    Some(command)
 }
 
 fn background_layer_command(
@@ -168,6 +185,12 @@ fn background_layer_command(
         layer.scale,
     );
     let asset_type = resolve_background_asset_type(layer.asset_type.as_deref())?;
+    let filter = layer
+        .composition
+        .as_ref()
+        .and_then(|value| value.filter.as_ref())
+        .cloned()
+        .unwrap_or_default();
     let command = DrawCommand::new(
         format!("background:layer:{}", layer.id),
         RenderPlane::Scene,
@@ -184,16 +207,27 @@ fn background_layer_command(
         origin: media_origin(layer.origin.as_deref()),
         source: full_stage_rect(layout),
         rotation_degrees: layer.rotation,
-        brightness: 1.0,
-        saturation: 1.0,
-        contrast: 1.0,
-        grayscale: 0.0,
-        sepia: 0.0,
-        hue_rotate_radians: 0.0,
-        invert: 0.0,
+        brightness: filter.brightness,
+        saturation: filter.saturate,
+        contrast: filter.contrast,
+        grayscale: filter.grayscale,
+        sepia: filter.sepia,
+        hue_rotate_radians: filter.hue_rotate.to_radians(),
+        invert: filter.invert,
     }));
 
-    Some(apply_provenance(command, &layer.provenance))
+    let mut command = apply_provenance(command, &layer.provenance);
+    if filter.blur > 0.0 {
+        command
+            .composite_groups
+            .push(crate::render_graph::DrawCompositeGroup {
+                id: command.id.clone(),
+                opacity: layer.opacity,
+                z_index: command.z_index,
+                blur_radius: filter.blur,
+            });
+    }
+    Some(command)
 }
 
 fn background_video_command(

@@ -36,7 +36,11 @@ fn frame_with_interaction_feedback_at(
             frame.graph.layout.logical_height,
         );
     }
-    let control_changed = apply_control_feedback(&mut feedback_frame, &interaction.controls, interaction.hovered_command_id());
+    let control_changed = apply_control_feedback(
+        &mut feedback_frame,
+        &interaction.controls,
+        interaction.hovered_command_id(),
+    );
     if !generic_changed && !control_changed && !variant_changed {
         return None;
     }
@@ -85,6 +89,7 @@ fn apply_interaction_variants(
     now: Instant,
 ) -> bool {
     let mut changed = false;
+    let mut composite_updates = std::collections::BTreeMap::new();
     for command in frame.graph.commands_mut() {
         let Some(group_id) = command.interaction_group_id.as_deref() else {
             continue;
@@ -122,10 +127,24 @@ fn apply_interaction_variants(
             });
         if variant != base || current_state.is_some() || transition_in_progress {
             apply_command_variant(command, &variant);
+            for group in &command.composite_groups {
+                if command.interaction_group_id.as_deref() == Some(group.id.as_str()) {
+                    composite_updates.insert(group.id.clone(), group.clone());
+                }
+            }
             changed = true;
         }
     }
     if changed {
+        // One owner controls the stacking context, including descendants with
+        // their own independent hover/focus styles.
+        for command in frame.graph.commands_mut() {
+            for group in &mut command.composite_groups {
+                if let Some(updated) = composite_updates.get(&group.id) {
+                    *group = updated.clone();
+                }
+            }
+        }
         frame.graph.extend(std::iter::empty());
     }
     changed
@@ -288,8 +307,23 @@ fn interpolate_variant(
             .map(|(a, b)| crate::render_graph::RoundedClip {
                 bounds: lerp_rect(a.bounds, b.bounds, transform_progress),
                 radius: a.radius + (b.radius - a.radius) * transform_progress,
+                corner_radii: Some(std::array::from_fn(|i| {
+                    let a = a.resolved_radii()[i];
+                    let b = b.resolved_radii()[i];
+                    a + (b - a) * transform_progress
+                })),
             })
             .collect();
+    }
+    for group in &mut result.composite_groups {
+        if let Some(previous) = source.composite_groups.iter().find(|g| g.id == group.id) {
+            group.opacity = lerp_f32(previous.opacity, group.opacity, opacity_progress);
+            group.blur_radius = lerp_f64(
+                previous.blur_radius,
+                group.blur_radius,
+                transition_progress(transitions, DrawTransitionProperty::Filter, elapsed_ms),
+            );
+        }
     }
     result.opacity = lerp_f32(source.opacity, target.opacity, opacity_progress);
     result.params = interpolate_params(&source.params, &target.params, transitions, elapsed_ms);
@@ -673,6 +707,7 @@ fn apply_command_variant(command: &mut DrawCommand, variant: &DrawCommandVariant
     command.rounded_clips = variant.rounded_clips.clone();
     command.kind = variant.kind;
     command.opacity = variant.opacity;
+    command.composite_groups = variant.composite_groups.clone();
     command.params = variant.params.clone();
     command.resource_ids = variant.resource_ids.clone();
     command.z_index = variant.z_index;
@@ -1019,6 +1054,63 @@ mod tests {
         )
         .unwrap();
         assert_eq!(completed.graph.commands()[0].bounds.x, 40.0);
+    }
+
+    #[test]
+    fn zero_opacity_parent_hover_updates_the_entire_subtree() {
+        let mut frame = fixture_frame();
+        let group = crate::render_graph::DrawCompositeGroup {
+            id: "button".into(),
+            opacity: 0.0,
+            z_index: 0,
+            blur_radius: 0.0,
+        };
+        let command = &mut frame.graph.commands_mut()[0];
+        command.composite_groups.push(group.clone());
+        command.interaction_group_id = Some("button".into());
+        let mut target = DrawCommandVariant::from_command(command);
+        target.composite_groups[0].opacity = 0.8;
+        command
+            .interaction_variants
+            .insert(DrawInteractionState::Hover, target);
+        command.interaction_transitions = vec![DrawTransition {
+            property: DrawTransitionProperty::Opacity,
+            duration_ms: 1000.0,
+            delay_ms: 0.0,
+            easing: DrawTransitionEasing::Linear,
+        }];
+        let mut child = command.clone();
+        child.id = "child".into();
+        child.interaction_group_id = None;
+        child.interaction_variants.clear();
+        child.interaction_transitions.clear();
+        frame.graph.push(child);
+        let mut interaction = NativePointerInteractionState::new();
+        resolve_pointer_event_with_interaction(
+            &mut interaction,
+            NativePointerEvent::new(
+                NativePointerEventPhase::Move,
+                StageClientPoint::default(),
+                StageClientRectOrigin::default(),
+            ),
+            fixture_pointer(),
+        );
+        let start = interaction.visual_transition().unwrap().started_at;
+        let feedback = frame_with_interaction_feedback_at(
+            &frame,
+            &interaction,
+            start + Duration::from_millis(500),
+        )
+        .unwrap();
+        for command in feedback.graph.commands() {
+            assert_eq!(command.opacity, 1.0);
+            assert_eq!(command.composite_groups[0].opacity, 0.4);
+        }
+        assert!(frame
+            .graph
+            .commands()
+            .iter()
+            .all(|c| c.composite_groups[0].opacity == 0.0));
     }
 
     #[test]

@@ -1,10 +1,12 @@
+use unicode_segmentation::UnicodeSegmentation;
+
 use crate::fonts::{
     FontBackendAtlasFaceLayout, FontBackendAtlasGlyph, FontBackendAtlasLayout,
     FontBackendAtlasLayoutMap, FontBackendShapedRun, FontBackendShapingFace,
 };
 use crate::render_graph::{
-    FontStyleDrawParam, TextAlign, TextDecorationDrawParam, TextTransformDrawParam,
-    WhiteSpaceDrawParam,
+    FontStyleDrawParam, TextAlign, TextDecorationDrawParam, TextOverflowDrawParam,
+    TextTransformDrawParam, WhiteSpaceDrawParam,
 };
 use crate::renderer::backend::wgpu::WgpuPhysicalRect;
 use crate::resources::ResourceId;
@@ -24,17 +26,11 @@ pub(super) fn atlas_text_geometry(
     opacity: f32,
     atlases: &FontBackendAtlasLayoutMap,
 ) -> Option<(WgpuNativeRenderBufferGeometry, ResourceId)> {
-    if !matches!(style.text_decoration, TextDecorationDrawParam::None) {
-        return None;
-    }
     let layout = select_layout(style, atlases)?;
-    if matches!(style.font_style, FontStyleDrawParam::Italic)
+    let synthetic_italic = matches!(style.font_style, FontStyleDrawParam::Italic)
         && !atlas_faces(layout)
             .iter()
-            .any(|face| face_style_matches(face, style))
-    {
-        return None;
-    }
+            .any(|face| face_style_matches(face, style));
     let bounds_rect = FloatRect::from_physical(bounds)?;
     let content_rect = bounds_rect.inset_edges(style.padding)?;
     let font_size = (style.font_size as f32)
@@ -82,12 +78,32 @@ pub(super) fn atlas_text_geometry(
     let mut indices = Vec::new();
     let mut physical_bounds = None;
     for (line_index, line) in lines.into_iter().take(max_lines).enumerate() {
+        let soft_wrapped = line.soft_wrapped;
+        let line = ellipsize(
+            &line.text,
+            layout,
+            scale,
+            letter_spacing,
+            content_rect.width,
+            style,
+        );
         let line_width = measure_text(&line, layout, scale, letter_spacing, style);
+        let gaps = if style.align == TextAlign::Justify && soft_wrapped {
+            justification_gaps(&line)
+        } else {
+            std::collections::BTreeSet::new()
+        };
+        let extra_gap = if gaps.is_empty() {
+            0.0
+        } else {
+            (content_rect.width - line_width).max(0.0) / gaps.len() as f32
+        };
         let mut cursor_x = match style.align {
             TextAlign::Center => content_rect.x + (content_rect.width - line_width).max(0.0) * 0.5,
             TextAlign::Right => content_rect.right() - line_width.min(content_rect.width),
             TextAlign::Left | TextAlign::Justify => content_rect.x,
         };
+        let line_start_x = cursor_x;
         let baseline =
             start_y + line_index as f32 * line_height + half_leading + layout.ascent * scale;
         if let Some(shaped_text) = shape_text(&line, layout, style) {
@@ -104,6 +120,7 @@ pub(super) fn atlas_text_geometry(
                     baseline - shaped.y_offset * scale,
                     scale,
                     embolden_offset,
+                    synthetic_italic,
                     content_rect,
                     color,
                     &mut vertices,
@@ -116,14 +133,23 @@ pub(super) fn atlas_text_geometry(
                     .get(index + 1)
                     .map(|next| next.cluster != shaped.cluster)
                     .unwrap_or(true);
-                cursor_x +=
-                    shaped.x_advance * scale + if cluster_ends { letter_spacing } else { 0.0 };
+                cursor_x += shaped.x_advance * scale
+                    + if cluster_ends {
+                        letter_spacing
+                            + if gaps.contains(&(shaped.cluster as usize)) {
+                                extra_gap
+                            } else {
+                                0.0
+                            }
+                    } else {
+                        0.0
+                    };
                 if cursor_x >= content_rect.right() {
                     break;
                 }
             }
         } else {
-            for character in line.chars() {
+            for (byte_index, character) in line.char_indices() {
                 let Some(glyph) = layout.glyphs.get(&character) else {
                     continue;
                 };
@@ -134,6 +160,7 @@ pub(super) fn atlas_text_geometry(
                         baseline,
                         scale,
                         requested_embolden_offset,
+                        synthetic_italic,
                         content_rect,
                         color,
                         &mut vertices,
@@ -141,10 +168,42 @@ pub(super) fn atlas_text_geometry(
                         physical_bounds,
                     );
                 }
-                cursor_x += glyph.advance * scale + letter_spacing;
+                cursor_x += glyph.advance * scale
+                    + letter_spacing
+                    + if gaps.contains(&byte_index) {
+                        extra_gap
+                    } else {
+                        0.0
+                    };
                 if cursor_x >= content_rect.right() {
                     break;
                 }
+            }
+        }
+        if style.text_decoration != TextDecorationDrawParam::None {
+            let y = match style.text_decoration {
+                TextDecorationDrawParam::Underline => baseline + font_size * 0.08,
+                TextDecorationDrawParam::LineThrough => baseline - font_size * 0.3,
+                _ => baseline,
+            };
+            let rect = FloatRect {
+                x: line_start_x,
+                y,
+                width: (line_width + extra_gap * gaps.len() as f32)
+                    .min(content_rect.right() - line_start_x),
+                height: (font_size * 0.05).max(1.0),
+            };
+            if let Some((rect, _, _)) = clip_glyph(rect, content_rect, [0.0; 2], [1.0; 2]) {
+                let base = vertices.len() as u32;
+                let mut decoration = glyph_vertices(rect, [0.0; 2], [1.0; 2], color);
+                for vertex in &mut decoration {
+                    vertex.effect0[0] = -1.0;
+                }
+                vertices.extend(decoration);
+                indices.extend([base, base + 1, base + 2, base, base + 2, base + 3]);
+                let bounds = physical_rect_from_float(rect);
+                physical_bounds =
+                    Some(physical_bounds.map_or(bounds, |b| union_physical_rect(b, bounds)));
             }
         }
     }
@@ -164,19 +223,9 @@ pub(in crate::renderer::backend::wgpu::buffer) fn atlas_text_is_shaped(
     style: &WgpuNativeRenderTextStyle,
     atlases: &FontBackendAtlasLayoutMap,
 ) -> bool {
-    if !matches!(style.text_decoration, TextDecorationDrawParam::None) {
-        return false;
-    }
     let Some(layout) = select_layout(style, atlases) else {
         return false;
     };
-    if matches!(style.font_style, FontStyleDrawParam::Italic)
-        && !atlas_faces(layout)
-            .iter()
-            .any(|face| face_style_matches(face, style))
-    {
-        return false;
-    }
     shape_text(&transform_text(text, style.text_transform), layout, style).is_some()
 }
 
@@ -251,6 +300,54 @@ fn transform_text(text: &str, transform: TextTransformDrawParam) -> String {
     }
 }
 
+struct AtlasTextLine {
+    text: String,
+    soft_wrapped: bool,
+}
+
+fn justification_gaps(text: &str) -> std::collections::BTreeSet<usize> {
+    let characters = text.char_indices().collect::<Vec<_>>();
+    let cjk = |c: char| matches!(c as u32, 0x3400..=0x9fff | 0xf900..=0xfaff | 0x20000..=0x3134f);
+    characters
+        .windows(2)
+        .filter_map(|pair| {
+            (pair[0].1 == ' ' || (cjk(pair[0].1) && cjk(pair[1].1))).then_some(pair[0].0)
+        })
+        .collect()
+}
+
+fn ellipsize(
+    text: &str,
+    layout: &FontBackendAtlasLayout,
+    scale: f32,
+    letter_spacing: f32,
+    width: f32,
+    style: &WgpuNativeRenderTextStyle,
+) -> String {
+    if style.text_overflow != TextOverflowDrawParam::Ellipsis
+        || measure_text(text, layout, scale, letter_spacing, style) <= width
+    {
+        return text.to_string();
+    }
+    let mut boundaries = text
+        .grapheme_indices(true)
+        .map(|(index, _)| index)
+        .collect::<Vec<_>>();
+    boundaries.push(text.len());
+    // Bound shaping work to O(log grapheme_count) probes for long UI labels.
+    let (mut low, mut high) = (0, boundaries.len() - 1);
+    while low < high {
+        let middle = (low + high).div_ceil(2);
+        let candidate = format!("{}…", &text[..boundaries[middle]]);
+        if measure_text(&candidate, layout, scale, letter_spacing, style) <= width {
+            low = middle;
+        } else {
+            high = middle - 1;
+        }
+    }
+    format!("{}…", &text[..boundaries[low]])
+}
+
 fn layout_lines(
     text: &str,
     layout: &FontBackendAtlasLayout,
@@ -259,7 +356,7 @@ fn layout_lines(
     max_width: f32,
     white_space: WhiteSpaceDrawParam,
     style: &WgpuNativeRenderTextStyle,
-) -> Vec<String> {
+) -> Vec<AtlasTextLine> {
     let preserve_newlines = matches!(
         white_space,
         WhiteSpaceDrawParam::Pre | WhiteSpaceDrawParam::PreLine | WhiteSpaceDrawParam::PreWrap
@@ -284,17 +381,24 @@ fn layout_lines(
     let mut lines = Vec::new();
     for paragraph in paragraphs {
         if !wrap {
-            lines.push(paragraph.to_string());
+            lines.push(AtlasTextLine {
+                text: paragraph.to_string(),
+                soft_wrapped: false,
+            });
             continue;
         }
-        lines.extend(wrap_paragraph(
-            paragraph,
-            layout,
-            scale,
-            letter_spacing,
-            max_width,
-            style,
-        ));
+        let paragraph_lines =
+            wrap_paragraph(paragraph, layout, scale, letter_spacing, max_width, style);
+        let count = paragraph_lines.len();
+        lines.extend(
+            paragraph_lines
+                .into_iter()
+                .enumerate()
+                .map(|(i, text)| AtlasTextLine {
+                    text,
+                    soft_wrapped: i + 1 < count,
+                }),
+        );
     }
     lines
 }
@@ -360,18 +464,18 @@ fn append_oversized_segment(
     max_width: f32,
     style: &WgpuNativeRenderTextStyle,
 ) {
-    for character in segment.chars() {
+    for grapheme in segment.graphemes(true) {
         let mut candidate = line.clone();
-        candidate.push(character);
+        candidate.push_str(grapheme);
         if !line.is_empty()
             && measure_text(&candidate, layout, scale, letter_spacing, style) > max_width
         {
             lines.push(std::mem::take(line));
-            if character.is_whitespace() {
+            if grapheme.chars().all(char::is_whitespace) {
                 continue;
             }
         }
-        line.push(character);
+        line.push_str(grapheme);
     }
 }
 
@@ -502,6 +606,7 @@ fn append_atlas_glyph(
     baseline: f32,
     scale: f32,
     embolden_offset: f32,
+    synthetic_italic: bool,
     content_rect: FloatRect,
     color: [f32; 4],
     vertices: &mut Vec<WgpuNativeRenderBufferVertex>,
@@ -520,27 +625,53 @@ fn append_atlas_glyph(
             width: glyph.width * scale,
             height: glyph.height * scale,
         };
-        if let Some((clipped, uv_top_left, uv_bottom_right)) = clip_glyph(
-            source,
-            content_rect,
-            glyph.uv_top_left,
-            glyph.uv_bottom_right,
-        ) {
-            let first_vertex = vertices.len() as u32;
-            vertices.extend(glyph_vertices(clipped, uv_top_left, uv_bottom_right, color));
-            indices.extend_from_slice(&[
-                first_vertex,
-                first_vertex + 1,
-                first_vertex + 2,
-                first_vertex,
-                first_vertex + 2,
-                first_vertex + 3,
-            ]);
-            let rect = physical_rect_from_float(clipped);
-            physical_bounds = Some(match physical_bounds {
-                Some(current) => union_physical_rect(current, rect),
-                None => rect,
+        let mut points =
+            glyph_vertices(source, glyph.uv_top_left, glyph.uv_bottom_right, color).to_vec();
+        if synthetic_italic {
+            for vertex in &mut points {
+                vertex.position[0] += (baseline - vertex.position[1]) * 14.0_f32.to_radians().tan();
+            }
+        }
+        let c = content_rect;
+        let points = super::super::rounded_clip::intersect(
+            points,
+            &[
+                [c.x, c.y],
+                [c.right(), c.y],
+                [c.right(), c.y + c.height],
+                [c.x, c.y + c.height],
+            ],
+        );
+        if points.len() >= 3 {
+            let first = vertices.len() as u32;
+            for i in 1..points.len() - 1 {
+                indices.extend([first, first + i as u32, first + i as u32 + 1]);
+            }
+            let left = points
+                .iter()
+                .map(|v| v.position[0])
+                .fold(f32::INFINITY, f32::min);
+            let top = points
+                .iter()
+                .map(|v| v.position[1])
+                .fold(f32::INFINITY, f32::min);
+            let right = points
+                .iter()
+                .map(|v| v.position[0])
+                .fold(f32::NEG_INFINITY, f32::max);
+            let bottom = points
+                .iter()
+                .map(|v| v.position[1])
+                .fold(f32::NEG_INFINITY, f32::max);
+            vertices.extend(points);
+            let rect = physical_rect_from_float(FloatRect {
+                x: left,
+                y: top,
+                width: right - left,
+                height: bottom - top,
             });
+            physical_bounds =
+                Some(physical_bounds.map_or(rect, |current| union_physical_rect(current, rect)));
         }
     }
     physical_bounds
@@ -876,7 +1007,32 @@ mod tests {
         );
 
         assert!(lines.len() > 1);
-        assert!(lines.iter().all(|line| !line.starts_with('，')));
+        assert!(lines.iter().all(|line| !line.text.starts_with('，')));
+    }
+
+    #[test]
+    fn ellipsis_and_wrapping_preserve_graphemes_and_paragraph_ends() {
+        let glyph = FontBackendAtlasGlyph {
+            uv_top_left: [0.0; 2], uv_bottom_right: [0.5; 2], advance: 10.0,
+            bearing_x: 0.0, bearing_y: -8.0, width: 8.0, height: 10.0,
+        };
+        let mut layout = FontBackendAtlasLayout {
+            resource_id: ResourceId::from("fonts:test"), family: "test".into(),
+            raster_size: 10.0, ascent: 8.0, descent: -2.0, line_height: 12.0,
+            is_default: true, glyphs: "e\u{301}… AB".chars().map(|c| (c, glyph.clone())).collect(),
+            glyphs_by_id: BTreeMap::new(), shaping_face: None,
+        };
+        layout.glyphs.get_mut(&'\u{301}').unwrap().advance = 0.0;
+        layout.glyphs.get_mut(&'…').unwrap().advance = 5.0;
+        let mut style = style(None);
+        style.text_overflow = TextOverflowDrawParam::Ellipsis;
+        assert_eq!(ellipsize("e\u{301}e\u{301}e\u{301}", &layout, 1.0, 0.0, 15.0, &style), "e\u{301}…");
+        let lines = layout_lines("e\u{301}e\u{301}e\u{301}\nB", &layout, 1.0, 0.0, 20.0,
+            WhiteSpaceDrawParam::PreWrap, &style);
+        assert_eq!(lines.iter().map(|l| (l.text.as_str(), l.soft_wrapped)).collect::<Vec<_>>(),
+            vec![("e\u{301}e\u{301}", true), ("e\u{301}", false), ("B", false)]);
+        assert_eq!(justification_gaps("A B C"), [1, 3].into_iter().collect());
+        assert_eq!(justification_gaps("你好世界"), [0, 3, 6].into_iter().collect());
     }
 
     fn demo_font_path() -> PathBuf {

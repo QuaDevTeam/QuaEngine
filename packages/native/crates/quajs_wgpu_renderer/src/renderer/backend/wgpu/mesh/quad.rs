@@ -37,9 +37,12 @@ pub struct WgpuNativeRenderQuad {
 }
 
 impl WgpuNativeRenderQuad {
-    pub(super) fn from_primitive(primitive: &WgpuNativeRenderPrimitive) -> Self {
+    pub(super) fn from_primitive_with_texture_size(
+        primitive: &WgpuNativeRenderPrimitive,
+        texture_size: Option<(u32, u32)>,
+    ) -> Self {
         let (paint, corner_radius, border, text_overlay) = paint_from_primitive(primitive);
-        let mut geometry = primitive_geometry(primitive);
+        let mut geometry = primitive_geometry(primitive, texture_size);
         if let WgpuNativeRenderPrimitiveKind::Panel { role, .. } = &primitive.kind {
             match role.as_str() {
                 "ui-select-chevron-down" => apply_triangle_vertices(&mut geometry.vertices, false),
@@ -147,9 +150,10 @@ fn effect_params_from_primitive(primitive: &WgpuNativeRenderPrimitive) -> ([f32;
             radius,
             ..
         } => {
-            let end_color = parse_color_literal(end_color)
+            let mut end_color = parse_color_literal(end_color)
                 .map(|color| color.to_gpu_rgba())
                 .unwrap_or([0.0; 4]);
+            end_color[3] *= primitive.opacity;
             // UVs were pre-warped by `apply_gradient_aspect_uv`, so one uv unit
             // is one quad-width unit on both axes. That makes CSS gradient math
             // work in pixel space: radial extents stay circular and linear

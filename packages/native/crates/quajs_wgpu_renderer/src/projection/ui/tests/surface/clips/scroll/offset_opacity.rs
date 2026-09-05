@@ -64,8 +64,17 @@ fn scroll_surface_opacity_applies_to_panel_and_children() {
         .find(|command| command.id == "ui:menu:scroll:clip-end")
         .unwrap();
 
-    assert!((scroll.opacity - 0.5).abs() < 0.0001);
-    assert!((inside.opacity - 0.3).abs() < 0.0001);
+    assert_eq!(scroll.opacity, 1.0);
+    assert_eq!(scroll.composite_groups[0].opacity, 0.5);
+    assert_eq!(inside.opacity, 1.0);
+    assert_eq!(
+        inside
+            .composite_groups
+            .iter()
+            .map(|g| g.opacity)
+            .collect::<Vec<_>>(),
+        vec![0.5, 0.6]
+    );
     assert_eq!(clip_start.opacity, 1.0);
     assert_eq!(clip_end.opacity, 1.0);
 }

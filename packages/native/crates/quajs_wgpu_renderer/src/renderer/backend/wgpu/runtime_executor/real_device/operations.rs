@@ -15,7 +15,38 @@ impl WgpuNativeRenderRuntimeDevice for RealWgpuNativeRenderRuntimeDevice {
         &mut self,
         plan: &WgpuNativeRenderRuntimePlan,
     ) -> Result<(), WgpuNativeRenderRuntimeError> {
+        self.composite_groups = plan.composite_groups.clone();
+        let has_backdrop = plan.operations.iter().any(|op| {
+            matches!(op,
+            WgpuNativeRenderRuntimeOperation::SetBindGroup { resource_ids, .. }
+            if resource_ids.iter().any(|id| id == "system:backdrop-capture"))
+        });
+        if !has_backdrop {
+            self.backdrop_texture = None;
+        }
+        let depth = self
+            .composite_groups
+            .values()
+            .map(Vec::len)
+            .max()
+            .unwrap_or(0);
+        let extent = self.target.extent();
+        let bytes = (depth as u64 + u64::from(has_backdrop))
+            * u64::from(extent.width)
+            * u64::from(extent.height)
+            * 4;
+        if depth > 16 || bytes > 256 * 1024 * 1024 {
+            return invalid_order(
+                "native compositing exceeds its 16-level / 256 MiB transient target budget",
+            );
+        }
+        if self.composite_groups.is_empty() {
+            self.compositor = None;
+        }
         if plan.render_pass_count > 0 {
+            if !self.composite_groups.is_empty() && self.compositor.is_none() {
+                self.compositor = Some(super::pass::composite::Compositor::new(&self.target));
+            }
             self.frame_target.begin_frame(&self.target);
         }
         Ok(())

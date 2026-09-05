@@ -14,10 +14,17 @@ pub struct WgpuNativeRenderMeshPlan {
 
 impl WgpuNativeRenderMeshPlan {
     pub fn from_primitive_plan(primitive_plan: &WgpuNativeRenderPrimitivePlan) -> Self {
+        Self::from_primitive_plan_with_texture_dimensions(primitive_plan, &Default::default())
+    }
+
+    pub fn from_primitive_plan_with_texture_dimensions(
+        primitive_plan: &WgpuNativeRenderPrimitivePlan,
+        dimensions: &std::collections::BTreeMap<String, (u32, u32)>,
+    ) -> Self {
         let passes = primitive_plan
             .passes
             .iter()
-            .map(WgpuNativeRenderMeshPass::from_primitive_pass)
+            .map(|pass| WgpuNativeRenderMeshPass::from_primitive_pass(pass, dimensions))
             .collect::<Vec<_>>();
         let quad_count = passes.iter().map(|pass| pass.quad_count).sum();
         let visible_quad_count = passes.iter().map(|pass| pass.visible_quad_count).sum();

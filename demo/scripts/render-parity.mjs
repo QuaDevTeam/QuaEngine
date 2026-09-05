@@ -13,7 +13,9 @@ const output = resolve(root, 'dist/native/parity')
 const exec = promisify(execFile)
 const native = async (...args) => (await exec(process.execPath,
   [resolve(root, 'scripts/native-control.mjs'), ...args], { maxBuffer: 16 * 1024 * 1024 })).stdout
-const browser = await chromium.launch({ headless: true, channel: process.env.QUA_PARITY_BROWSER || 'chrome' })
+const browser = await chromium.launch({ headless: true, ...(process.env.QUA_PARITY_CHROMIUM
+  ? { executablePath: process.env.QUA_PARITY_CHROMIUM }
+  : { channel: process.env.QUA_PARITY_BROWSER || 'chrome' }) })
 const page = await browser.newPage({ viewport: { width: 960, height: 540 }, deviceScaleFactor: 2 })
 const report = { viewport: { width: 960, height: 540, deviceScaleFactor: 2 }, screens: {} }
 await mkdir(output, { recursive: true })
@@ -53,7 +55,8 @@ try {
   await native('ping')
   await page.goto(process.env.QUA_PARITY_WEB_URL || 'http://127.0.0.1:5173')
   await page.getByRole('button', { name: 'CONFIG', exact: true }).waitFor()
-  await capture('title', ['.main-menu-title', '.main-menu-action'])
+  await page.locator('.vn-main-menu__title').waitFor()
+  await capture('title', ['.vn-main-menu__title', '.vn-main-menu__actions button'])
   await page.getByRole('button', { name: 'CONFIG', exact: true }).click()
   await native('clickCommand', 'ui:native-app-shell:native-main-menu-config')
   await native('wait', 'ui:settings:settings-close')

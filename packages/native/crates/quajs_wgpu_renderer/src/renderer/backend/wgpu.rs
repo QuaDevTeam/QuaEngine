@@ -1,5 +1,6 @@
 mod accessors;
 mod buffer;
+mod compositing;
 mod config;
 mod device_plan;
 mod diagnostics;

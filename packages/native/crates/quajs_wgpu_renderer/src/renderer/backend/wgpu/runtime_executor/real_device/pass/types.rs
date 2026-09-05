@@ -14,6 +14,7 @@ pub(in crate::renderer::backend::wgpu::runtime_executor::real_device) struct Rea
 #[derive(Clone, Debug)]
 pub(in crate::renderer::backend::wgpu::runtime_executor::real_device) struct RealRuntimeDrawIndexed
 {
+    pub composite_groups: Vec<crate::render_graph::DrawCompositeGroup>,
     pub command_id: String,
     pub vertex_buffer_label: String,
     pub index_buffer_label: String,

@@ -35,6 +35,7 @@ impl WgpuNativeRenderRuntimePlan {
         let operation_count = operations.len();
 
         Self {
+            composite_groups: Default::default(),
             revision: device_plan.revision,
             previous_revision: cache_plan.previous_revision,
             operation_count,

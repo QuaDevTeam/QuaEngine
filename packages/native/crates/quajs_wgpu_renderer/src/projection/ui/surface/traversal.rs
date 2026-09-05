@@ -5,8 +5,9 @@ use crate::projection::safety::{
     is_safe_native_ui_surface_node_numbers, is_safe_native_ui_surface_offset,
 };
 use crate::render_graph::{
-    DrawCommand, DrawCommandKind, DrawCommandParams, DrawCommandVariant, DrawInteractionState,
-    DrawTransition, DrawTransitionEasing, DrawTransitionProperty, LogicalRect, ShadowDrawStyle,
+    BackdropBlurDrawParams, DrawCommand, DrawCommandKind, DrawCommandParams, DrawCommandVariant,
+    DrawInteractionState, DrawTransition, DrawTransitionEasing, DrawTransitionProperty,
+    LogicalRect, ShadowDrawStyle,
 };
 
 use super::super::style::resolve_opacity;
@@ -44,6 +45,38 @@ pub(super) fn append_surface_node_commands(
         offset,
         inherited_opacity,
     );
+    let opacity = node.opacity * resolve_opacity(&node.style, 1.0);
+    let blur_radius = node.style.filter.map_or(0.0, |f| f.blur);
+    if opacity < 1.0
+        || blur_radius > 0.0
+        || node.state_styles.values().any(|s| {
+            resolve_opacity(&s.style, 1.0) < 1.0 || s.style.filter.is_some_and(|f| f.blur > 0.0)
+        })
+    {
+        let group = crate::render_graph::DrawCompositeGroup {
+            id: format!("ui:{}:{}", overlay.element_id, node.id),
+            opacity,
+            blur_radius,
+            z_index: z_base.saturating_add(node.z_index),
+        };
+        for command in &mut commands[start..] {
+            command.composite_groups.insert(0, group.clone());
+            for (state, variant) in &mut command.interaction_variants {
+                let mut group = group.clone();
+                if command.interaction_group_id.as_deref() == Some(group.id.as_str()) {
+                    if let Some((_, style)) = node
+                        .state_styles
+                        .iter()
+                        .find(|(key, _)| interaction_state(**key) == *state)
+                    {
+                        group.opacity = node.opacity * resolve_opacity(&style.style, 1.0);
+                        group.blur_radius = style.style.filter.map_or(0.0, |f| f.blur);
+                    }
+                }
+                variant.composite_groups.insert(0, group);
+            }
+        }
+    }
     let radius = super::super::style::resolve_border_radius(&node.style, 0.0);
     if radius <= 0.0
         && node
@@ -56,6 +89,7 @@ pub(super) fn append_surface_node_commands(
     let clip = crate::render_graph::RoundedClip {
         bounds: node_rect(node.bounds, offset),
         radius,
+        corner_radii: Some(super::super::style::resolve_corner_radii(&node.style)),
     };
     let id = format!("ui:{}:{}", overlay.element_id, node.id);
     fn descendant_ids(node: &UiSurfaceNodeProjection, overlay: &str, ids: &mut Vec<String>) {
@@ -72,13 +106,54 @@ pub(super) fn append_surface_node_commands(
                 command.id == *child_id || command.id.starts_with(&format!("{child_id}:"))
             });
         let own_media = own
-            && (matches!(command.params, DrawCommandParams::Image(_))
-                || command.id.contains(":border-"));
-        if own_media || (!own && (node.clip_children || node.kind == UiSurfaceNodeKind::Scroll)) {
+            && (matches!(
+                command.params,
+                DrawCommandParams::Image(_) | DrawCommandParams::BackdropBlur(_)
+            ) || command.id.contains(":border-"));
+        let asymmetric = |r: [f64; 4]| r.iter().any(|value| *value != r[0]);
+        let own_asymmetric = own
+            && (asymmetric(clip.resolved_radii())
+                || node
+                    .state_styles
+                    .values()
+                    .any(|s| asymmetric(super::super::style::resolve_corner_radii(&s.style))))
+            && matches!(
+                command.params,
+                DrawCommandParams::Panel(_)
+                    | DrawCommandParams::UiButton(_)
+                    | DrawCommandParams::Gradient(_)
+            );
+        if own_asymmetric {
+            fn square(params: &mut DrawCommandParams) {
+                match params {
+                    DrawCommandParams::Panel(p) => p.corner_radius = 0.0,
+                    DrawCommandParams::UiButton(p) => p.corner_radius = 0.0,
+                    DrawCommandParams::Gradient(p) => p.corner_radius = 0.0,
+                    _ => {}
+                }
+            }
+            square(&mut command.params);
+            for variant in command.interaction_variants.values_mut() {
+                square(&mut variant.params);
+            }
+        }
+        if own_media
+            || own_asymmetric
+            || (!own && (node.clip_children || node.kind == UiSurfaceNodeKind::Scroll))
+        {
             command.rounded_clips.push(clip);
             for (state, variant) in &mut command.interaction_variants {
-                variant.rounded_clips.push(if own_media {
+                variant.rounded_clips.push(if own_media || own_asymmetric {
                     crate::render_graph::RoundedClip {
+                        corner_radii: Some(
+                            node.state_styles
+                                .iter()
+                                .find(|(key, _)| interaction_state(**key) == *state)
+                                .map(|(_, state)| {
+                                    super::super::style::resolve_corner_radii(&state.style)
+                                })
+                                .unwrap_or(clip.resolved_radii()),
+                        ),
                         bounds: node
                             .state_styles
                             .iter()
@@ -121,7 +196,10 @@ fn append_surface_node_commands_inner(
         return;
     }
 
-    let effective_opacity = inherited_opacity * node.opacity * resolve_opacity(&node.style, 1.0);
+    // Node opacity belongs to its subtree composite, never to each child draw.
+    // Keeping primitive alpha independent also allows a zero-opacity group to
+    // become visible through a pseudo-state without losing its child colors.
+    let effective_opacity = inherited_opacity;
     if is_surface_group_node(node.kind) {
         let child_clip_bounds = node_child_clip_bounds(node, clip_bounds, offset);
         let child_clip_bounds = child_clip_bounds.as_deref().unwrap_or(clip_bounds);
@@ -202,7 +280,7 @@ fn append_surface_node_commands_inner(
         z_base,
         clip_bounds,
         offset,
-        inherited_opacity * node.opacity,
+        inherited_opacity,
     );
     let child_clip_bounds = node_child_clip_bounds(node, clip_bounds, offset);
     let child_clip_bounds = child_clip_bounds.as_deref().unwrap_or(clip_bounds);
@@ -220,6 +298,41 @@ fn append_surface_node_commands_inner(
     }
 }
 
+fn append_backdrop_blur(
+    commands: &mut Vec<DrawCommand>,
+    overlay: &UiOverlayProjection,
+    node: &UiSurfaceNodeProjection,
+    z_base: i32,
+    clip_bounds: &[LogicalRect],
+    offset: SurfaceNodeOffset,
+    effective_opacity: f32,
+) {
+    let bounds = node_rect(node.bounds, offset);
+    let command_id = format!("ui:{}:{}", overlay.element_id, node.id);
+    if let Some(blur_radius) = node
+        .style
+        .backdrop_filter
+        .as_ref()
+        .map(|filter| filter.blur_radius)
+        .filter(|value| value.is_finite() && *value > 0.0)
+    {
+        commands.push(
+            DrawCommand::new(
+                format!("{command_id}:backdrop-blur"),
+                crate::render_graph::RenderPlane::Screen,
+                DrawCommandKind::BackdropBlur,
+                bounds,
+            )
+            .z_index(z_base.saturating_add(node.z_index))
+            .opacity(effective_opacity)
+            .clip_bounds(clip_bounds.iter().copied())
+            .params(DrawCommandParams::BackdropBlur(BackdropBlurDrawParams {
+                blur_radius,
+            })),
+        );
+    }
+}
+
 fn append_scroll_node_commands(
     commands: &mut Vec<DrawCommand>,
     seen_node_ids: &mut BTreeSet<String>,
@@ -233,6 +346,15 @@ fn append_scroll_node_commands(
     let paint_start = commands.len();
     let bounds = node_rect(node.bounds, offset);
     let command_id = format!("ui:{}:{}", overlay.element_id, node.id);
+    append_backdrop_blur(
+        commands,
+        overlay,
+        node,
+        z_base,
+        clip_bounds,
+        offset,
+        effective_opacity,
+    );
     commands.extend(surface_box_shadow_commands(
         overlay,
         node,
@@ -353,7 +475,7 @@ fn append_painted_surface_node_commands(
         z_base,
         clip_bounds,
         offset,
-        effective_opacity * resolve_opacity(&node.style, 1.0),
+        effective_opacity,
     );
     attach_interaction_variants(
         &mut node_commands,
@@ -378,6 +500,15 @@ fn painted_surface_node_commands(
     let mut commands = Vec::new();
     let bounds = node_rect(node.bounds, offset);
     let command_id = format!("ui:{}:{}", overlay.element_id, node.id);
+    append_backdrop_blur(
+        &mut commands,
+        overlay,
+        node,
+        z_base,
+        clip_bounds,
+        offset,
+        effective_opacity,
+    );
     commands.extend(surface_box_shadow_commands(
         overlay,
         node,
@@ -497,6 +628,7 @@ fn normalize_surface_paint(
 
 fn surface_paint_rank(command: &DrawCommand) -> u8 {
     match &command.params {
+        DrawCommandParams::BackdropBlur(_) => 0,
         DrawCommandParams::Shadow(shadow) if shadow.style == ShadowDrawStyle::Outer => 0,
         _ if command.id.ends_with(":background-fill") => 1,
         _ if command.id.contains(":background-") => 2,
@@ -576,7 +708,7 @@ fn attach_interaction_variants(
                     z_base,
                     clip_bounds,
                     offset,
-                    effective_opacity * resolve_opacity(&state_node.style, 1.0),
+                    effective_opacity,
                 ),
             )
         })

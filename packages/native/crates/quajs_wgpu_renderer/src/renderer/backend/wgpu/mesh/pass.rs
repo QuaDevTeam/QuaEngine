@@ -18,11 +18,20 @@ pub struct WgpuNativeRenderMeshPass {
 }
 
 impl WgpuNativeRenderMeshPass {
-    pub(super) fn from_primitive_pass(pass: &WgpuNativeRenderPrimitivePass) -> Self {
+    pub(super) fn from_primitive_pass(
+        pass: &WgpuNativeRenderPrimitivePass,
+        dimensions: &std::collections::BTreeMap<String, (u32, u32)>,
+    ) -> Self {
         let quads = pass
             .primitives
             .iter()
-            .map(WgpuNativeRenderQuad::from_primitive)
+            .map(|primitive| {
+                let size = primitive
+                    .resource_ids
+                    .iter()
+                    .find_map(|id| dimensions.get(id.as_str()).copied());
+                WgpuNativeRenderQuad::from_primitive_with_texture_size(primitive, size)
+            })
             .collect::<Vec<_>>();
         let quad_count = quads.len();
         let visible_quad_count = quads.iter().filter(|quad| quad.is_visible()).count();

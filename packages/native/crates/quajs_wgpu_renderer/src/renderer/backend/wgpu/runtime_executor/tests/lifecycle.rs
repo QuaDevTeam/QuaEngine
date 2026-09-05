@@ -25,6 +25,8 @@ fn applies_runtime_plan_and_tracks_resident_resources() {
     assert_eq!(
         executor.snapshot(),
         WgpuNativeRenderRuntimeSnapshot {
+            resident_texture_dimensions: Default::default(),
+            resident_compositor_texture_byte_len: 0,
             resident_buffer_count: 2,
             resident_buffer_byte_len: QUAD_VERTEX_BYTE_LEN + 24,
             resident_pipeline_count: 1,

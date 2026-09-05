@@ -304,7 +304,7 @@ impl RodioAudioTrackSchedule {
                 volume *= 1.0 - fade_progress(now_ms, started_at_ms, fade_out_ms);
             }
         }
-        volume.clamp(0.0, 1.0)
+        volume.clamp(0.0, 16.0)
     }
 
     fn fade_in_duration_ms(&self) -> f32 {

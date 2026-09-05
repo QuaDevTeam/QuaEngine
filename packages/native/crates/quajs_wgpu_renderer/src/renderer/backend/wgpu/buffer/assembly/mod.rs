@@ -64,7 +64,19 @@ fn prepare_text_blur_geometry(
     }
 
     let blur_extent = blur_radius * 1.5;
-    for quad in geometry.vertices.chunks_exact_mut(4) {
+    // Atlas clipping can turn an italic glyph quad into a 3..8 vertex fan.
+    // Follow each fan's indices instead of assuming every four vertices are a
+    // glyph, which otherwise deforms the next glyph at a clipped edge.
+    let mut polygons = std::collections::BTreeMap::<usize, usize>::new();
+    for triangle in geometry.indices.chunks_exact(3) {
+        let end = *triangle.iter().max().unwrap() as usize + 1;
+        polygons
+            .entry(triangle[0] as usize)
+            .and_modify(|n| *n = (*n).max(end))
+            .or_insert(end);
+    }
+    for (start, end) in polygons {
+        let quad = &mut geometry.vertices[start..end];
         let uv_min = quad.iter().fold([f32::INFINITY; 2], |mut value, vertex| {
             value[0] = value[0].min(vertex.uv[0]);
             value[1] = value[1].min(vertex.uv[1]);
@@ -106,9 +118,9 @@ fn prepare_text_blur_geometry(
             blur_extent * uv_span[0] / position_span[0],
             blur_extent * uv_span[1] / position_span[1],
         ];
-        for (index, vertex) in quad.iter_mut().enumerate() {
-            let x_direction = if index == 0 || index == 3 { -1.0 } else { 1.0 };
-            let y_direction = if index < 2 { -1.0 } else { 1.0 };
+        for vertex in quad.iter_mut() {
+            let x_direction = 2.0 * (vertex.uv[0] - uv_min[0]) / uv_span[0] - 1.0;
+            let y_direction = 2.0 * (vertex.uv[1] - uv_min[1]) / uv_span[1] - 1.0;
             vertex.position[0] += blur_extent * x_direction;
             vertex.position[1] += blur_extent * y_direction;
             vertex.uv[0] += uv_expansion[0] * x_direction;

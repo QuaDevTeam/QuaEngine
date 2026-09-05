@@ -1,0 +1,278 @@
+use std::collections::BTreeMap;
+use wgpu::util::DeviceExt;
+
+use super::super::bind_group::RealRuntimeBindGroup;
+use super::super::frame_target::RealRuntimeFrameTarget;
+use super::super::pipeline::RealRuntimePipeline;
+use super::super::uniforms::RealRuntimeFrameUniforms;
+use super::super::{RealRuntimeBuffer, RealWgpuNativeRenderRuntimeTarget};
+use super::{materialize_pass, RealRuntimePass};
+use crate::renderer::backend::wgpu::runtime_executor::WgpuNativeRenderRuntimeError;
+
+/// One pipeline and at most one reusable target per nested stacking context.
+/// Sibling groups reuse the same target after their composite draw is encoded.
+#[derive(Clone, Debug)]
+pub(in super::super) struct Compositor {
+    layout: wgpu::BindGroupLayout,
+    pipeline: wgpu::RenderPipeline,
+    targets: Vec<RealRuntimeFrameTarget>,
+}
+
+impl Compositor {
+    pub(in super::super) fn new(target: &RealWgpuNativeRenderRuntimeTarget) -> Self {
+        let device = target.device();
+        let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("qua-native::composite-layout"),
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        sample_type: wgpu::TextureSampleType::Float { filterable: false },
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                },
+            ],
+        });
+        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("qua-native::composite-shader"),
+            source: wgpu::ShaderSource::Wgsl(SHADER.into()),
+        });
+        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("qua-native::composite-pipeline-layout"),
+            bind_group_layouts: &[Some(&layout)],
+            immediate_size: 0,
+        });
+        let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("qua-native::composite-pipeline"),
+            layout: Some(&pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: Some("vs_main"),
+                compilation_options: Default::default(),
+                buffers: &[],
+            },
+            primitive: Default::default(),
+            depth_stencil: None,
+            multisample: Default::default(),
+            fragment: Some(wgpu::FragmentState {
+                module: &shader,
+                entry_point: Some("fs_main"),
+                compilation_options: Default::default(),
+                targets: &[Some(wgpu::ColorTargetState {
+                    format: target.frame_color_format(),
+                    blend: Some(wgpu::BlendState::PREMULTIPLIED_ALPHA_BLENDING),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+            }),
+            multiview_mask: None,
+            cache: None,
+        });
+        Self {
+            layout,
+            pipeline,
+            targets: Vec::new(),
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn materialize(
+        &mut self,
+        target: &RealWgpuNativeRenderRuntimeTarget,
+        destination: &mut RealRuntimeFrameTarget,
+        uniforms: &RealRuntimeFrameUniforms,
+        buffers: &BTreeMap<String, RealRuntimeBuffer>,
+        pipelines: &BTreeMap<String, RealRuntimePipeline>,
+        bind_groups: &BTreeMap<String, RealRuntimeBindGroup>,
+        encoder: &mut wgpu::CommandEncoder,
+        mut pass: RealRuntimePass,
+        depth: usize,
+        backdrop: &mut Option<wgpu::Texture>,
+        backdrop_root: Option<(&str, &RealRuntimeFrameTarget)>,
+    ) -> Result<(), WgpuNativeRenderRuntimeError> {
+        let draws = std::mem::take(&mut pass.draws);
+        let mut start = 0;
+        while start < draws.len() {
+            let group = draws[start].composite_groups.get(depth);
+            let mut end = start + 1;
+            while end < draws.len()
+                && draws[end].composite_groups.get(depth).map(|g| &g.id) == group.map(|g| &g.id)
+            {
+                end += 1;
+            }
+            let mut part = pass.clone();
+            part.draws = draws[start..end].to_vec();
+            if let Some(group) = group {
+                let extent = target.extent();
+                let required_bytes =
+                    (depth as u64 + 1) * u64::from(extent.width) * u64::from(extent.height) * 4;
+                if depth >= 16 || required_bytes > 256 * 1024 * 1024 {
+                    return super::super::invalid_order("native subtree compositing exceeds its 16-level / 256 MiB transient target budget");
+                }
+                if destination.completed_pass_count() == 0 {
+                    let mut clear = pass.clone();
+                    clear.draws.clear();
+                    materialize_pass(
+                        target,
+                        destination,
+                        uniforms,
+                        buffers,
+                        pipelines,
+                        bind_groups,
+                        encoder,
+                        clear,
+                        None,
+                        backdrop,
+                        None,
+                    )?;
+                }
+                let mut intermediate = self
+                    .targets
+                    .pop()
+                    .unwrap_or_else(|| RealRuntimeFrameTarget::new(target));
+                intermediate.begin_frame(target);
+                self.materialize(
+                    target,
+                    &mut intermediate,
+                    uniforms,
+                    buffers,
+                    pipelines,
+                    bind_groups,
+                    encoder,
+                    part,
+                    depth + 1,
+                    backdrop,
+                    Some((&group.id, destination)),
+                )?;
+                self.composite(
+                    target,
+                    destination,
+                    &intermediate,
+                    encoder,
+                    group.opacity,
+                    group.blur_radius as f32,
+                );
+                self.targets.push(intermediate);
+            } else {
+                materialize_pass(
+                    target,
+                    destination,
+                    uniforms,
+                    buffers,
+                    pipelines,
+                    bind_groups,
+                    encoder,
+                    part,
+                    None,
+                    backdrop,
+                    backdrop_root,
+                )?;
+            }
+            start = end;
+        }
+        Ok(())
+    }
+
+    pub(in super::super) fn texture_byte_len(&self) -> usize {
+        self.targets
+            .iter()
+            .map(|t| t.extent().width as usize * t.extent().height as usize * 4)
+            .sum()
+    }
+
+    fn composite(
+        &self,
+        target: &RealWgpuNativeRenderRuntimeTarget,
+        destination: &mut RealRuntimeFrameTarget,
+        source: &RealRuntimeFrameTarget,
+        encoder: &mut wgpu::CommandEncoder,
+        opacity: f32,
+        blur_radius: f32,
+    ) {
+        let uniform = target
+            .device()
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("qua-native::composite-opacity"),
+                contents: &[opacity.to_le_bytes(), blur_radius.to_le_bytes()].concat(),
+                usage: wgpu::BufferUsages::UNIFORM,
+            });
+        let bind_group = target
+            .device()
+            .create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("qua-native::composite-source"),
+                layout: &self.layout,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: wgpu::BindingResource::TextureView(source.view()),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: uniform.as_entire_binding(),
+                    },
+                ],
+            });
+        {
+            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("qua-native::composite-subtree"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: destination.view(),
+                    depth_slice: None,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: destination.load_op(),
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
+                multiview_mask: None,
+            });
+            pass.set_pipeline(&self.pipeline);
+            pass.set_bind_group(0, &bind_group, &[]);
+            pass.draw(0..3, 0..1);
+        }
+        destination.finish_pass();
+    }
+}
+
+const SHADER: &str = r#"
+@group(0) @binding(0) var source: texture_2d<f32>;
+struct CompositeStyle { opacity: f32, blur_radius: f32 }
+@group(0) @binding(1) var<uniform> style: CompositeStyle;
+@vertex fn vs_main(@builtin(vertex_index) index: u32) -> @builtin(position) vec4<f32> {
+    let positions = array<vec2<f32>, 3>(vec2(-1.0, -1.0), vec2(3.0, -1.0), vec2(-1.0, 3.0));
+    return vec4(positions[index], 0.0, 1.0);
+}
+@fragment fn fs_main(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
+    if (style.blur_radius < 0.001) {
+        return textureLoad(source, vec2<i32>(position.xy), 0) * style.opacity;
+    }
+    var sum = vec4<f32>(0.0);
+    var weight = 0.0;
+    // Bounded two-dimensional Gaussian on premultiplied subtree pixels.
+    // CSS filter blur's parameter is sigma (box-shadow's blur is 2*sigma).
+    for (var y = -4; y <= 4; y++) {
+        for (var x = -4; x <= 4; x++) {
+            let offset = vec2<f32>(f32(x), f32(y)) * 0.8;
+            let w = exp(-0.5 * dot(offset, offset));
+            sum += textureLoad(source, vec2<i32>(position.xy + offset * style.blur_radius), 0) * w;
+            weight += w;
+        }
+    }
+    return sum / weight * style.opacity;
+}
+"#;

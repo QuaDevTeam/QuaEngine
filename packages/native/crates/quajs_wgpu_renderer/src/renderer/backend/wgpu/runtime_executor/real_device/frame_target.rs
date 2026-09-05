@@ -90,7 +90,9 @@ fn create_frame_texture(target: &RealWgpuNativeRenderRuntimeTarget) -> wgpu::Tex
         sample_count: 1,
         dimension: wgpu::TextureDimension::D2,
         format: target.frame_color_format(),
-        usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
+        usage: wgpu::TextureUsages::RENDER_ATTACHMENT
+            | wgpu::TextureUsages::COPY_SRC
+            | wgpu::TextureUsages::TEXTURE_BINDING,
         view_formats: &[],
     })
 }

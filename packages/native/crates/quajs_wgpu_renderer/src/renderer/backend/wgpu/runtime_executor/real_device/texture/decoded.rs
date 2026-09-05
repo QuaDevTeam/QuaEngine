@@ -107,10 +107,17 @@ pub(in crate::renderer::backend::wgpu::runtime_executor::real_device) fn create_
         height: decoded.height,
         depth_or_array_layers: 1,
     };
+    // Atlas cells have their own padding and must not bleed into neighbours.
+    // Other sampled images need a full chain for browser-style minification.
+    let mip_count = if resource_id.starts_with("fonts:") {
+        1
+    } else {
+        decoded.width.max(decoded.height).ilog2() + 1
+    };
     let texture = target.device().create_texture(&wgpu::TextureDescriptor {
         label: Some(&texture_label),
         size: extent,
-        mip_level_count: 1,
+        mip_level_count: mip_count,
         sample_count: 1,
         dimension: wgpu::TextureDimension::D2,
         // Non-sRGB so sampling returns the stored sRGB-encoded values. The
@@ -135,15 +142,42 @@ pub(in crate::renderer::backend::wgpu::runtime_executor::real_device) fn create_
         },
         extent,
     );
+    let mut byte_len = decoded.rgba.len();
+    let width = decoded.width;
+    let height = decoded.height;
+    let mut level = decoded;
+    for mip_level in 1..mip_count {
+        level = super::mipmap::downsample(&level);
+        byte_len += level.rgba.len();
+        target.queue().write_texture(
+            wgpu::TexelCopyTextureInfo {
+                texture: &texture,
+                mip_level,
+                origin: wgpu::Origin3d::ZERO,
+                aspect: wgpu::TextureAspect::All,
+            },
+            &level.rgba,
+            wgpu::TexelCopyBufferLayout {
+                offset: 0,
+                bytes_per_row: Some(level.width * 4),
+                rows_per_image: Some(level.height),
+            },
+            wgpu::Extent3d {
+                width: level.width,
+                height: level.height,
+                depth_or_array_layers: 1,
+            },
+        );
+    }
     let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
     let sampler = create_texture_sampler(target, &format!("decoded-sampler::{resource_id}"));
     Ok(RealRuntimeDecodedTexture {
         texture,
         view,
         sampler,
-        width: decoded.width,
-        height: decoded.height,
-        byte_len: decoded.rgba.len(),
+        width,
+        height,
+        byte_len,
         owner_package_id: metadata.owner_package_id,
         required_package_ids: metadata.required_package_ids,
     })
