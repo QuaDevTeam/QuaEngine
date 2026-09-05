@@ -351,7 +351,11 @@ fn projects_inset_shadow_after_the_surface_fill() {
         .position(|command| command.id == "ui:inset:panel:box-shadow")
         .unwrap();
 
-    assert!(panel_index < shadow_index);
+    let fill_index = commands
+        .iter()
+        .position(|command| command.id == "ui:inset:panel:background-fill")
+        .unwrap();
+    assert!(fill_index < shadow_index && shadow_index < panel_index);
     assert!(matches!(
         commands[shadow_index].params,
         DrawCommandParams::Shadow(crate::render_graph::ShadowDrawParams {
@@ -427,7 +431,7 @@ fn carries_pseudo_state_commands_and_transitions_into_the_render_graph() {
     assert!(matches!(
         &hover.params,
         DrawCommandParams::UiButton(params)
-            if params.background_color == "#342819" && params.text_color == "#ffe8b3"
+            if params.background_color == "transparent" && params.text_color == "#ffe8b3"
     ));
     assert!(button.interaction_transitions.iter().any(|transition| {
         transition.property == DrawTransitionProperty::Transform
@@ -447,5 +451,59 @@ fn carries_pseudo_state_commands_and_transitions_into_the_render_graph() {
             .unwrap()
             .opacity,
         1.0
+    );
+}
+
+#[test]
+fn hover_only_outer_shadow_stays_behind_the_surface_and_opacity_replaces_base_style() {
+    let mut button = UiSurfaceNodeProjection::new(
+        "hover",
+        UiSurfaceNodeKind::Button,
+        rect(20.0, 20.0, 100.0, 40.0),
+    )
+    .with_intent(UiIntentProjection::new("activate"))
+    .with_style(UiSurfaceResolvedStyle {
+        opacity: Some(0.0),
+        ..Default::default()
+    });
+    button.opacity = 0.5;
+    button.state_styles.insert(
+        UiSurfacePseudoStateProjection::Hover,
+        UiSurfaceNodeStateProjection {
+            bounds: button.bounds,
+            style: UiSurfaceResolvedStyle {
+                opacity: Some(0.8),
+                box_shadow: Some(UiSurfaceShadowProjection {
+                    offset_x: 0.0,
+                    offset_y: 4.0,
+                    blur_radius: 8.0,
+                    spread_radius: 0.0,
+                    color: "#000000".into(),
+                    inset: false,
+                }),
+                ..Default::default()
+            },
+        },
+    );
+    let commands = build_ui_commands(
+        &test_layout(),
+        &UiProjection::new(vec![UiOverlayProjection {
+            surface: Some(UiOverlaySurfaceProjection::new("ui/test").with_root(button)),
+            ..UiOverlayProjection::new("test")
+        }]),
+    );
+    let shadow = commands
+        .iter()
+        .position(|c| c.id == "ui:test:hover:box-shadow")
+        .unwrap();
+    let surface = commands
+        .iter()
+        .position(|c| c.id == "ui:test:hover")
+        .unwrap();
+    assert!(shadow < surface);
+    assert_eq!(commands[surface].opacity, 0.0);
+    assert_eq!(
+        commands[surface].interaction_variants[&DrawInteractionState::Hover].opacity,
+        0.4
     );
 }

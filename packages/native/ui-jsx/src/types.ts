@@ -62,6 +62,11 @@ export interface QuiNode {
 // ─── Shared base props ─────────────────────────────────────────────────────
 
 export interface QuiBaseProps {
+  /** Resolved logical-stage geometry. Explicit values override QSS bounds. */
+  x?: number
+  y?: number
+  width?: number
+  height?: number
   id?: string
   class?: string
   show?: boolean
@@ -79,11 +84,15 @@ export interface ContainerProps extends QuiBaseProps {
 }
 
 export type StackProps = ContainerProps
-export type BoxProps = ContainerProps
+export interface BoxProps extends ContainerProps {
+  onClick?: QuiIntent
+}
 export type RowProps = ContainerProps
 export type ColumnProps = ContainerProps
 export type LayerProps = ContainerProps
-export type PanelProps = ContainerProps
+export interface PanelProps extends ContainerProps {
+  onClick?: QuiIntent
+}
 
 export interface GridProps extends QuiBaseProps {
   columns?: number

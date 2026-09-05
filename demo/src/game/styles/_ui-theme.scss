@@ -1,0 +1,88 @@
+// Explicit opt-in theme fragments, valid as both browser CSS and native QSS.
+@mixin toolbar {
+  background-color: transparent;
+  background-image: linear-gradient(180deg, rgba(12, 15, 22, 0.58) 0%, rgba(5, 6, 10, 0.42) 100%);
+  border-color: rgba(245, 226, 190, 0.22);
+  border-width: 1px;
+  border-style: solid;
+  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.42);
+}
+@mixin toolbar-action {
+  background-color: transparent;
+  color: rgba(247, 242, 234, 0.82);
+  border-bottom-color: rgba(235, 204, 144, 0.42);
+  border-bottom-width: 1px;
+  font-family: "Noto Sans";
+  font-size: 11px;
+  line-height: 18px;
+  letter-spacing: 0.9px;
+  padding: 5px 7px 4px;
+  text-align: left;
+  text-transform: uppercase;
+}
+@mixin panel {
+  background-color: rgba(6, 7, 11, 0.96);
+  background-image: linear-gradient(180deg, rgba(20, 22, 30, 0.96) 0%, rgba(6, 7, 11, 0.97) 100%);
+  border-color: rgba(245, 226, 190, 0.34);
+  border-width: 1px;
+  border-style: solid;
+  border-radius: 2px;
+  box-shadow: 0 32px 120px rgba(0, 0, 0, 0.72);
+}
+@mixin action {
+  background-color: rgba(9, 12, 18, 0.82);
+  background-image: linear-gradient(90deg, rgba(9, 12, 18, 0.90) 0%, rgba(23, 27, 37, 0.66) 100%);
+  border-color: rgba(245, 226, 190, 0.24);
+  border-width: 1px;
+  border-style: solid;
+  color: rgba(255, 250, 242, 0.90);
+  font-family: "Noto Sans";
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 16px;
+  letter-spacing: 1.2px;
+  padding: 0 16px 0 18px;
+  text-align: left;
+  text-transform: uppercase;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.48);
+}
+@mixin slot {
+  border-color: rgba(245, 226, 190, 0.2);
+  border-width: 1px;
+  border-style: solid;
+  background-color: transparent;
+  background-image: linear-gradient(180deg, rgba(20, 24, 33, 0.9) 0%, rgba(7, 8, 12, 0.92) 100%);
+  color: #fff8ea;
+}
+@mixin action-hover {
+  background-color: rgba(13, 16, 24, 0.9);
+  background-image: linear-gradient(90deg, rgba(20, 54, 66, 0.82) 0%, rgba(13, 16, 24, 0.84) 100%);
+  border-color: rgba(129, 229, 255, 0.72);
+  color: #fff8ea;
+}
+@mixin slot-hover {
+  border-color: rgba(255, 226, 166, 0.62);
+  background-image: linear-gradient(180deg, rgba(36, 34, 30, 0.92) 0%, rgba(10, 11, 15, 0.94) 100%);
+}
+@mixin tab {
+  background-color: #ece8df;
+  background-image: linear-gradient(0deg, transparent 0%, transparent 100%);
+  border-width: 0;
+  color: #15151a;
+  font-family: "Noto Sans";
+  font-size: 16px;
+  line-height: 24px;
+  text-transform: uppercase;
+  text-align: center;
+  padding: 5px 16px;
+}
+@mixin tab-active { background-color: rgba(245,226,190,0.12); color: #d9f8ff; }
+@mixin close { background-color: #ece5d9; color: #0d0d12; font-family: "Noto Sans"; font-size: 28px; font-weight: 700; line-height: 34px; text-align: center; border-radius: 2px; padding: 0; }
+@mixin menu-hover {
+  background-color: rgba(255,238,198,0.9);
+  background-image: linear-gradient(90deg, rgba(255,238,198,0.95) 0%, rgba(236,198,116,0.8) 100%);
+  border-color: rgba(255,226,166,0.88);
+  color: #080a0f;
+  text-shadow: 0 0 0 transparent;
+  box-shadow: 0 14px 36px rgba(0,0,0,0.26);
+}

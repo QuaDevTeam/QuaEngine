@@ -434,6 +434,9 @@ impl NativeRendererProjectionRuntime {
             reveal.revealed_all = true;
             return false;
         }
+        if let Some(text) = dialogue.get("text").cloned() {
+            dialogue.insert("layoutText".to_string(), text);
+        }
         if let Some(text) = dialogue.get_mut("text") {
             slice_text(text, reveal.visible);
         }

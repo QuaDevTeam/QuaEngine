@@ -29,10 +29,15 @@ const ACTIONS = {
   update: 'settings-update',
 } as const
 
-export function createSettingsNativeRendererFeature(): NativeRendererFeatureSurfaceEntry {
+export interface SettingsNativeRendererOptions {
+  /** Product-owned layout policy; receives logical bounds only. */
+  resolvePanelBounds?: (context: NativeRendererFeatureSurfaceContext, preferred: NativeUiSurfaceRect) => NativeUiSurfaceRect
+}
+
+export function createSettingsNativeRendererFeature(options: SettingsNativeRendererOptions = {}): NativeRendererFeatureSurfaceEntry {
   return {
     pluginId: SETTINGS_PLUGIN_ID,
-    createOverlays: createSettingsNativeOverlay,
+    createOverlays: context => createSettingsNativeOverlay(context, options),
     intentActions: [
       {
         action: ACTIONS.close,
@@ -61,7 +66,7 @@ export function createSettingsNativeRendererFeature(): NativeRendererFeatureSurf
   }
 }
 
-function createSettingsNativeOverlay(context: NativeRendererFeatureSurfaceContext) {
+function createSettingsNativeOverlay(context: NativeRendererFeatureSurfaceContext, options: SettingsNativeRendererOptions) {
   const projection = context.projection as unknown as SettingsProjection & Record<string, unknown>
   const overlay = settingsOverlay(context.view)
   if (!overlay || overlay.open === false || overlay.visible === false) {
@@ -79,7 +84,7 @@ function createSettingsNativeOverlay(context: NativeRendererFeatureSurfaceContex
     zIndex: finiteInteger(overlay.zIndex) ?? finiteInteger(sceneOverlay?.zIndex) ?? 60,
     surface: {
       key: SETTINGS_NATIVE_SURFACE_KEY,
-      root: createSettingsRoot(context, projection, provenance),
+      root: createSettingsRoot(context, projection, provenance, options),
     },
     ...provenance,
   }
@@ -89,6 +94,7 @@ function createSettingsRoot(
   context: NativeRendererFeatureSurfaceContext,
   projection: SettingsProjection,
   provenance: NativePackageProvenance,
+  options: SettingsNativeRendererOptions,
 ): NativeUiSurfaceNodeProjection {
   const form = createSettingsFormProjection(projection)
   const edge = Math.max(24, Math.min(context.safeArea.width, context.logicalHeight) * 0.03)
@@ -100,13 +106,14 @@ function createSettingsRoot(
   const desiredContentHeight = entries.reduce((height, entry) => height + settingsEntryHeight(entry), 0)
   const desiredPanelHeight = headerHeight + contentPadding * 2 + desiredContentHeight
   const panelWidth = Math.min(context.safeArea.width - edge * 2, 1040)
-  const panelHeight = Math.min(context.safeArea.height - edge * 2, Math.max(552, desiredPanelHeight))
-  const panel = {
+  const panelHeight = Math.min(720, context.safeArea.height * 0.84, context.safeArea.height - edge * 2, Math.max(552, desiredPanelHeight))
+  const preferred = {
     x: context.safeArea.x + (context.safeArea.width - panelWidth) / 2,
     y: context.safeArea.y + (context.safeArea.height - panelHeight) / 2,
     width: panelWidth,
     height: panelHeight,
   }
+  const panel = options.resolvePanelBounds?.(context, preferred) ?? preferred
   const content = {
     x: panel.x + contentPadding,
     y: panel.y + headerHeight + contentPadding,
@@ -140,12 +147,15 @@ function createSettingsRoot(
       node('settings-backdrop', 'Backdrop', stage(context), {
         intent: uiIntent(ACTIONS.close, { targetId: SETTINGS_ELEMENT_ID }),
         provenance,
-        style: { backgroundColor: '#020306', opacity: 1 },
+        style: { backgroundColor: '#020306', opacity: 0.78 },
       }),
       node('settings-panel', 'Panel', panel, {
         provenance,
         style: {
           backgroundColor: '#0b0d12',
+          backgroundGradient: { kind: 'linear', angleDegrees: 180,
+            stops: [{ color: 'rgba(18,20,27,0.96)', position: 0 },
+              { color: 'rgba(6,7,11,0.96)', position: 1 }] },
           borderColor: 'rgba(245,226,190,0.34)',
           borderRadius: 2,
           borderWidth: 1,
@@ -154,11 +164,11 @@ function createSettingsRoot(
         children: [
           node('settings-title', 'Text', {
             x: panel.x + contentPadding,
-            y: panel.y + 11,
+            y: panel.y + 19,
             width: panel.width - contentPadding * 2 - 116,
             // 32px Noto metrics need ascent 34.2 + descender 9.4 ≈ 44px of
             // vertical room; a 52px Middle-aligned box keeps the glyph span
-            // centred at panel.y + 31 (Web offset) without clipping 'g'.
+            // centred at the Web heading baseline without clipping 'g'.
             height: 52,
           }, {
             text: 'Config',
@@ -190,7 +200,7 @@ function createSettingsRoot(
             text: '×',
             intent: uiIntent(ACTIONS.close, { targetId: SETTINGS_ELEMENT_ID }),
             provenance,
-            style: headerButtonStyle(16),
+            style: headerButtonStyle(30),
           }),
           node('settings-header-divider', 'Divider', {
             x: panel.x + contentPadding,
@@ -487,6 +497,10 @@ function createSelectControlNodes(
       borderRadius: 4,
       borderWidth: 1,
     },
+    stateStyles: field.readonly ? undefined : {
+      hover: { bounds: { x: bounds.x, y: bounds.y + 2, width: bounds.width, height: 40 }, style: { borderColor: 'rgba(255,226,166,0.62)', backgroundGradient: { kind: 'linear', angleDegrees: 180, stops: [{ color: 'rgba(36,34,30,0.92)', position: 0 }, { color: 'rgba(10,11,15,0.94)', position: 1 }] } } },
+      'focus-visible': { bounds: { x: bounds.x, y: bounds.y + 2, width: bounds.width, height: 40 }, style: { borderColor: 'rgba(129,229,255,0.72)' } },
+    },
     children: [
       node(`${id}-select-value`, 'Text', {
         x: bounds.x + 12,
@@ -496,7 +510,7 @@ function createSelectControlNodes(
       }, {
         text: valueText,
         provenance,
-        style: { color: '#fff8ea', fontSize: 13 },
+        style: { color: field.readonly ? 'rgba(255,248,234,0.58)' : '#fff8ea', fontFamily: ['Noto Sans'], fontSize: 13, whiteSpace: 'nowrap', textOverflow: 'ellipsis' },
       }),
       node(`${id}-select-chevron`, 'Box', {
         x: bounds.x + bounds.width - 24,
@@ -643,9 +657,13 @@ function createRangeControlOptions(
   max: number,
 ): NativeSettingsControlOption[] {
   const step = Math.max(Number.EPSILON, finiteNumber(field.control.step) ?? finiteNumber(field.schema.multipleOf) ?? 1)
-  const count = Math.min(512, Math.max(1, Math.floor((max - min) / step) + 1))
+  // Bound the wire payload while sampling the entire valid step lattice.
+  // Appending max after the first 511 steps made most of a large range unreachable.
+  const steps = Math.max(0, Math.floor((max - min) / step + 1e-9))
+  const count = Math.min(512, steps + 1)
   return Array.from({ length: count }, (_, index) => {
-    const value = index === count - 1 ? max : Math.min(max, min + step * index)
+    const stepIndex = count > 1 ? Math.round(index * steps / (count - 1)) : 0
+    const value = Number((min + step * stepIndex).toPrecision(15))
     return controlOption(scope, field, value, formatNativeSettingsValue(field, String(value)))
   })
 }

@@ -61,7 +61,12 @@ pub(super) fn atlas_text_geometry(
     let max_lines = ((content_rect.height / line_height).floor() as usize)
         .max(1)
         .min(lines.len());
-    let total_height = font_size + line_height * max_lines.saturating_sub(1) as f32;
+    // CSS line boxes center the font's ascent/descent inside line-height.
+    // Using font_size as the ascender box placed CJK/serif baselines too low
+    // and clipped descenders even when the glyphs fit the authored line box.
+    let total_height = line_height * max_lines as f32;
+    let font_height = (layout.ascent - layout.descent) * scale;
+    let half_leading = (line_height - font_height) * 0.5;
     let requested_embolden_offset =
         ((font_weight_scale(style.font_weight.as_ref()) - 1.0) * font_size * 0.16).max(0.0);
     let available_y = (content_rect.height - total_height).max(0.0);
@@ -83,7 +88,8 @@ pub(super) fn atlas_text_geometry(
             TextAlign::Right => content_rect.right() - line_width.min(content_rect.width),
             TextAlign::Left | TextAlign::Justify => content_rect.x,
         };
-        let baseline = start_y + line_index as f32 * line_height + layout.ascent * scale;
+        let baseline =
+            start_y + line_index as f32 * line_height + half_leading + layout.ascent * scale;
         if let Some(shaped_text) = shape_text(&line, layout, style) {
             let embolden_offset = if shaped_text.needs_synthetic_bold {
                 requested_embolden_offset
@@ -625,6 +631,50 @@ mod tests {
         TextDecorationDrawParam, TextOverflowDrawParam, TextTransformDrawParam,
         WhiteSpaceDrawParam,
     };
+
+    #[test]
+    fn centers_font_metrics_in_line_box_without_clipping_descenders() {
+        let resource_id = ResourceId::from("fonts:Noto Sans@20");
+        let layout = FontBackendAtlasLayout {
+            resource_id: resource_id.clone(),
+            family: "Noto Sans".into(),
+            raster_size: 20.0,
+            ascent: 24.0,
+            descent: -6.0,
+            line_height: 30.0,
+            is_default: true,
+            glyphs: BTreeMap::from([(
+                'g',
+                FontBackendAtlasGlyph {
+                    uv_top_left: [0.0, 0.0],
+                    uv_bottom_right: [1.0, 1.0],
+                    advance: 12.0,
+                    bearing_x: 0.0,
+                    bearing_y: -20.0,
+                    width: 11.0,
+                    height: 22.0,
+                },
+            )]),
+            glyphs_by_id: BTreeMap::new(),
+            shaping_face: None,
+        };
+        let (geometry, _) = atlas_text_geometry(
+            WgpuPhysicalRect {
+                x: 0,
+                y: 0,
+                width: 100,
+                height: 24,
+            },
+            "g",
+            &style(None),
+            [1.0; 4],
+            1.0,
+            &BTreeMap::from([(resource_id, layout)]),
+        )
+        .unwrap();
+        assert_eq!(geometry.physical_bounds.y, 1);
+        assert_eq!(geometry.physical_bounds.height, 22);
+    }
 
     #[test]
     fn emboldens_uploaded_atlas_glyphs_without_changing_the_font_resource() {

@@ -36,7 +36,7 @@ fn frame_with_interaction_feedback_at(
             frame.graph.layout.logical_height,
         );
     }
-    let control_changed = apply_control_feedback(&mut feedback_frame, &interaction.controls);
+    let control_changed = apply_control_feedback(&mut feedback_frame, &interaction.controls, interaction.hovered_command_id());
     if !generic_changed && !control_changed && !variant_changed {
         return None;
     }
@@ -49,10 +49,20 @@ pub(super) fn interaction_transition_active(
     frame: &PreparedNativeFrame,
     interaction: &NativePointerInteractionState,
 ) -> bool {
+    interaction_transition_active_at(frame, interaction, Instant::now())
+}
+
+fn interaction_transition_active_at(
+    frame: &PreparedNativeFrame,
+    interaction: &NativePointerInteractionState,
+    now: Instant,
+) -> bool {
     let Some(transition) = interaction.visual_transition() else {
         return false;
     };
-    let elapsed = transition.started_at.elapsed();
+    let elapsed = now
+        .checked_duration_since(transition.started_at)
+        .unwrap_or_default();
     frame.graph.commands().iter().any(|command| {
         !command.interaction_variants.is_empty()
             && selected_interaction_state_for_snapshot(
@@ -60,10 +70,12 @@ pub(super) fn interaction_transition_active(
                 command.interaction_group_id.as_deref().unwrap_or_default(),
                 interaction,
             ) != selected_interaction_state_for_transition(command, transition)
-            && command
-                .interaction_transitions
-                .iter()
-                .any(|item| elapsed < Duration::from_secs_f64(item.duration_ms.max(0.0) / 1000.0))
+            && command.interaction_transitions.iter().any(|item| {
+                elapsed
+                    < Duration::from_secs_f64(
+                        (item.delay_ms.max(0.0) + item.duration_ms.max(0.0)) / 1000.0,
+                    )
+            })
     })
 }
 
@@ -105,10 +117,9 @@ fn apply_interaction_variants(
             interpolate_variant(&source, target, &command.interaction_transitions, elapsed)
         };
         let transition_in_progress = previous_state != current_state
-            && command
-                .interaction_transitions
-                .iter()
-                .any(|transition| elapsed < transition.duration_ms.max(0.0));
+            && command.interaction_transitions.iter().any(|transition| {
+                elapsed < transition.delay_ms.max(0.0) + transition.duration_ms.max(0.0)
+            });
         if variant != base || current_state.is_some() || transition_in_progress {
             apply_command_variant(command, &variant);
             changed = true;
@@ -144,7 +155,12 @@ fn transition_source_variant(
         .unwrap_or_default()
         .as_secs_f64()
         * 1000.0;
-    interpolate_variant(&source, target, &command.interaction_transitions, elapsed_ms)
+    interpolate_variant(
+        &source,
+        target,
+        &command.interaction_transitions,
+        elapsed_ms,
+    )
 }
 
 fn selected_interaction_state(
@@ -264,6 +280,17 @@ fn interpolate_variant(
     let mut result = target.clone();
     result.bounds = lerp_rect(source.bounds, target.bounds, transform_progress);
     result.clip_bounds = lerp_rects(&source.clip_bounds, &target.clip_bounds, transform_progress);
+    if source.rounded_clips.len() == target.rounded_clips.len() {
+        result.rounded_clips = source
+            .rounded_clips
+            .iter()
+            .zip(&target.rounded_clips)
+            .map(|(a, b)| crate::render_graph::RoundedClip {
+                bounds: lerp_rect(a.bounds, b.bounds, transform_progress),
+                radius: a.radius + (b.radius - a.radius) * transform_progress,
+            })
+            .collect();
+    }
     result.opacity = lerp_f32(source.opacity, target.opacity, opacity_progress);
     result.params = interpolate_params(&source.params, &target.params, transitions, elapsed_ms);
     result
@@ -380,13 +407,17 @@ fn interpolate_params(
         }
         (DrawCommandParams::Image(source), DrawCommandParams::Image(target)) => {
             let mut result = target.clone();
-            result.brightness         = lerp_f64(source.brightness, target.brightness, filter_progress);
-            result.saturation         = lerp_f64(source.saturation, target.saturation, filter_progress);
-            result.contrast           = lerp_f64(source.contrast, target.contrast, filter_progress);
-            result.grayscale          = lerp_f64(source.grayscale, target.grayscale, filter_progress);
-            result.sepia              = lerp_f64(source.sepia, target.sepia, filter_progress);
-            result.hue_rotate_radians = lerp_f64(source.hue_rotate_radians, target.hue_rotate_radians, filter_progress);
-            result.invert             = lerp_f64(source.invert, target.invert, filter_progress);
+            result.brightness = lerp_f64(source.brightness, target.brightness, filter_progress);
+            result.saturation = lerp_f64(source.saturation, target.saturation, filter_progress);
+            result.contrast = lerp_f64(source.contrast, target.contrast, filter_progress);
+            result.grayscale = lerp_f64(source.grayscale, target.grayscale, filter_progress);
+            result.sepia = lerp_f64(source.sepia, target.sepia, filter_progress);
+            result.hue_rotate_radians = lerp_f64(
+                source.hue_rotate_radians,
+                target.hue_rotate_radians,
+                filter_progress,
+            );
+            result.invert = lerp_f64(source.invert, target.invert, filter_progress);
             result.rotation_degrees = lerp_f64(
                 source.rotation_degrees,
                 target.rotation_degrees,
@@ -639,6 +670,7 @@ fn parse_color(value: &str) -> Option<RgbaColor> {
 fn apply_command_variant(command: &mut DrawCommand, variant: &DrawCommandVariant) {
     command.bounds = variant.bounds;
     command.clip_bounds = variant.clip_bounds.clone();
+    command.rounded_clips = variant.rounded_clips.clone();
     command.kind = variant.kind;
     command.opacity = variant.opacity;
     command.params = variant.params.clone();
@@ -735,8 +767,8 @@ mod tests {
         PointerIntentResolution, RendererIntentHit,
     };
     use crate::render_graph::{
-        DrawCommandKind, FontStyleDrawParam, LogicalRect, PanelDrawParams, RenderGraph, RenderPlane,
-        RendererIntent, TextAlign, TextDecorationDrawParam, TextOverflowDrawParam,
+        DrawCommandKind, FontStyleDrawParam, LogicalRect, PanelDrawParams, RenderGraph,
+        RenderPlane, RendererIntent, TextAlign, TextDecorationDrawParam, TextOverflowDrawParam,
         TextTransformDrawParam, UiButtonDrawParams, WhiteSpaceDrawParam,
     };
     use crate::stage_layout::{
@@ -832,7 +864,10 @@ mod tests {
             composite_color_over("#202020", "transparent"),
             "rgba(32,32,32,1.0000)"
         );
-        assert_eq!(composite_color_over("not-a-color", "transparent"), "not-a-color");
+        assert_eq!(
+            composite_color_over("not-a-color", "transparent"),
+            "not-a-color"
+        );
     }
 
     #[test]
@@ -987,6 +1022,52 @@ mod tests {
     }
 
     #[test]
+    fn delayed_hover_keeps_redrawing_until_delay_and_duration_finish() {
+        let mut frame = fixture_frame();
+        let mut target = frame.graph.commands()[0].clone();
+        target.bounds.x = 40.0;
+        let command = &mut frame.graph.commands_mut()[0];
+        command.interaction_group_id = Some("button".into());
+        command.interaction_variants.insert(
+            DrawInteractionState::Hover,
+            DrawCommandVariant::from_command(&target),
+        );
+        command.interaction_transitions = vec![DrawTransition {
+            property: DrawTransitionProperty::Transform,
+            duration_ms: 100.0,
+            delay_ms: 200.0,
+            easing: DrawTransitionEasing::Linear,
+        }];
+        let mut interaction = NativePointerInteractionState::new();
+        resolve_pointer_event_with_interaction(
+            &mut interaction,
+            NativePointerEvent::new(
+                NativePointerEventPhase::Move,
+                StageClientPoint::default(),
+                StageClientRectOrigin::default(),
+            ),
+            fixture_pointer(),
+        );
+        let start = interaction.visual_transition().unwrap().started_at;
+        for (ms, x) in [(150, 20.0), (250, 30.0), (300, 40.0)] {
+            let now = start + Duration::from_millis(ms);
+            assert_eq!(
+                interaction_transition_active_at(&frame, &interaction, now),
+                ms < 300
+            );
+            assert_eq!(
+                frame_with_interaction_feedback_at(&frame, &interaction, now)
+                    .unwrap()
+                    .graph
+                    .commands()[0]
+                    .bounds
+                    .x,
+                x
+            );
+        }
+    }
+
+    #[test]
     fn interrupted_transition_starts_from_the_displayed_value_instead_of_jumping() {
         // Blink/WebKit reversing-transition semantics: leaving hover halfway
         // through the fade-in must fade out from the displayed intermediate
@@ -1020,11 +1101,7 @@ mod tests {
         );
         // Pretend the fade-in started 500ms ago, so the displayed value is
         // halfway between base (x=20) and hover (x=40).
-        interaction
-            .visual_transition
-            .as_mut()
-            .unwrap()
-            .started_at -= Duration::from_millis(500);
+        interaction.visual_transition.as_mut().unwrap().started_at -= Duration::from_millis(500);
 
         // Moving off the button supersedes the in-flight fade-in.
         resolve_pointer_event_with_interaction(
@@ -1045,14 +1122,14 @@ mod tests {
             },
         );
         let reversal_started_at = interaction.visual_transition().unwrap().started_at;
-        assert!(interaction.visual_transition().unwrap().superseded.is_some());
+        assert!(interaction
+            .visual_transition()
+            .unwrap()
+            .superseded
+            .is_some());
 
-        let feedback = frame_with_interaction_feedback_at(
-            &frame,
-            &interaction,
-            reversal_started_at,
-        )
-        .unwrap();
+        let feedback =
+            frame_with_interaction_feedback_at(&frame, &interaction, reversal_started_at).unwrap();
         // The fade-out starts at the displayed 30.0, not the finished 40.0
         // (allow a few milliseconds of real time between the two resolves).
         let x = feedback.graph.commands()[0].bounds.x;
@@ -1067,12 +1144,14 @@ mod tests {
             reversal_started_at + Duration::from_millis(1_000),
         );
         // After the fade-out completes the command renders exactly as the base.
-        assert!(settled.is_none() || {
-            settled
-                .as_ref()
-                .map(|frame| frame.graph.commands()[0].clone())
-                == Some(frame.graph.commands()[0].clone())
-        });
+        assert!(
+            settled.is_none() || {
+                settled
+                    .as_ref()
+                    .map(|frame| frame.graph.commands()[0].clone())
+                    == Some(frame.graph.commands()[0].clone())
+            }
+        );
     }
 
     #[test]

@@ -7,6 +7,7 @@ use crate::render_graph::{
 pub(super) fn apply_control_feedback(
     frame: &mut PreparedNativeFrame,
     controls: &NativeUiControlInteractionState,
+    hovered_command_id: Option<&str>,
 ) -> bool {
     let control_commands = frame
         .graph
@@ -61,7 +62,7 @@ pub(super) fn apply_control_feedback(
                 let is_open = controls.open_select_command_id() == Some(command.id.as_str());
                 changed |= replace_select_chevron(frame, chevron_command_id, is_open);
                 if is_open {
-                    append_select_menu(frame, &command, &control, selected_index, &mut appended);
+                    append_select_menu(frame, &command, &control, selected_index, hovered_command_id, &mut appended);
                     changed = true;
                 }
             }
@@ -122,6 +123,7 @@ fn append_select_menu(
     command: &DrawCommand,
     control: &crate::render_graph::UiControlDrawParam,
     selected_index: usize,
+    hovered_command_id: Option<&str>,
     output: &mut Vec<DrawCommand>,
 ) {
     let Some(value_command_id) = (match &control.parts {
@@ -145,21 +147,28 @@ fn append_select_menu(
         let mut panel = command.clone();
         panel.id = format!("{}::option:{}::panel", command.id, index);
         panel.bounds = bounds;
+        // Popup is a transient top-level surface, outside the owner Scroll clip.
+        panel.clip_bounds.clear();
+        panel.rounded_clips.clear();
+        panel.interaction_variants.clear();
+        panel.interaction_group_id = None;
         panel.z_index = command.z_index.saturating_add(100 + index as i32 * 2);
         panel.interactive = false;
         panel.control = None;
         panel.params = DrawCommandParams::Panel(PanelDrawParams {
             role: "ui-select-option".to_string(),
             corner_radius: 0.0,
-            fill_color: if index == selected_index {
-                "rgba(129,229,255,0.18)"
+            fill_color: if hovered_command_id == Some(format!("{}::option:{}", command.id, index).as_str()) {
+                "#24404a"
+            } else if index == selected_index {
+                "#1a2932"
             } else {
-                "rgba(5,7,11,0.96)"
+                "#090c12"
             }
             .to_string(),
             border: crate::render_graph::BorderDrawParams {
                 color: Some("rgba(245,226,190,0.22)".to_string()),
-                width: 1.0,
+                width: 0.0,
             },
             padding: Default::default(),
             rotation_degrees: 0.0,
@@ -171,6 +180,12 @@ fn append_select_menu(
             let mut text = template.clone();
             text.id = format!("{}::option:{}::text", command.id, index);
             text.bounds = bounds;
+            text.bounds.x += 12.0;
+            text.bounds.width = (text.bounds.width - 24.0).max(0.0);
+            text.clip_bounds.clear();
+            text.rounded_clips.clear();
+            text.interaction_variants.clear();
+            text.interaction_group_id = None;
             text.z_index = command.z_index.saturating_add(101 + index as i32 * 2);
             text.interactive = false;
             text.control = None;
@@ -200,6 +215,9 @@ fn replace_text(frame: &mut PreparedNativeFrame, command_id: &str, text: &str) -
     let DrawCommandParams::Text(params) = &mut command.params else {
         return false;
     };
+    if params.text == text {
+        return false;
+    }
     params.text = text.to_string();
     true
 }
@@ -210,16 +228,23 @@ fn replace_select_chevron(frame: &mut PreparedNativeFrame, command_id: &str, ope
     };
     match &mut command.params {
         DrawCommandParams::Panel(params) => {
-            params.role = if open {
+            let role = if open {
                 "ui-select-chevron-up"
             } else {
                 "ui-select-chevron-down"
+            };
+            if params.role == role {
+                return false;
             }
-            .to_string();
+            params.role = role.to_string();
             true
         }
         DrawCommandParams::Text(params) => {
-            params.text = if open { "^" } else { "v" }.to_string();
+            let text = if open { "^" } else { "v" };
+            if params.text == text {
+                return false;
+            }
+            params.text = text.to_string();
             true
         }
         _ => false,

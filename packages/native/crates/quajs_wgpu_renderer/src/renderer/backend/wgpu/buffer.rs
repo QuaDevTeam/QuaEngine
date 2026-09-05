@@ -3,6 +3,7 @@ mod border;
 mod color;
 mod geometry;
 mod plan;
+mod rounded_clip;
 pub(crate) mod text_geometry;
 mod types;
 

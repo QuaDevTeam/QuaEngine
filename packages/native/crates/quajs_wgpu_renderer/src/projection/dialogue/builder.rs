@@ -12,8 +12,8 @@ use crate::resources::ResourceId;
 use crate::stage_layout::ResolvedStageLayout;
 
 use super::layout::{
-    avatar_bounds, dialogue_accent_bounds, dialogue_panel_bounds_for_lines,
-    speaker_accent_bounds, speaker_bounds, text_bounds,
+    dialogue_accent_bounds, dialogue_panel_bounds_for_lines, speaker_accent_bounds, speaker_bounds,
+    text_bounds,
 };
 use super::rich_text::{
     is_safe_rich_text_payload, resolve_font_family, resolve_font_size, resolve_font_weight,
@@ -54,8 +54,22 @@ pub fn build_dialogue_commands(
     // Grow the panel like the Web `min-height` dialogue box so longer lines
     // are not clipped; the bottom edge stays anchored to the stage inset.
     let base_panel = super::layout::dialogue_panel_bounds(layout);
-    let text_width = base_panel.width - 56.0;
-    let estimated_lines = estimate_wrapped_lines(&dialogue_text, text_font_size, text_width);
+    // Reserve a stable avatar column before measuring text. Growing the panel
+    // must not grow the avatar into the text column again.
+    let avatar_size = base_panel.height * 0.72;
+    let avatar_space = if dialogue.avatar.is_some() {
+        avatar_size + 28.0
+    } else {
+        0.0
+    };
+    let text_width = base_panel.width - 56.0 - avatar_space;
+    let layout_text = dialogue
+        .layout_text
+        .as_ref()
+        .filter(|text| is_safe_rich_text_payload(text))
+        .map(rich_text_to_plain_text)
+        .unwrap_or_else(|| dialogue_text.clone());
+    let estimated_lines = estimate_wrapped_lines(&layout_text, text_font_size, text_width);
     let panel = dialogue_panel_bounds_for_lines(
         layout,
         estimated_lines,
@@ -294,7 +308,8 @@ pub fn build_dialogue_commands(
         ));
     }
 
-    let text_rect = text_bounds(panel, render_speaker.is_some());
+    let mut text_rect = text_bounds(panel, render_speaker.is_some());
+    text_rect.width = text_width.max(0.0);
     // CSS `text-shadow: 0 2px 10px rgba(0,0,0,0.72)` — subtle drop shadow on body text.
     commands.push(apply_provenance(
         text_shadow_command(
@@ -331,7 +346,7 @@ pub fn build_dialogue_commands(
     ));
 
     if let Some(avatar) = &dialogue.avatar {
-        if let Some(command) = avatar_command(panel, avatar) {
+        if let Some(command) = avatar_command(panel, avatar_size, avatar) {
             commands.push(command);
         }
     }
@@ -415,7 +430,7 @@ fn text_command(
             text_decoration: TextDecorationDrawParam::None,
             text_overflow: TextOverflowDrawParam::Clip,
             text_transform: TextTransformDrawParam::None,
-            white_space: WhiteSpaceDrawParam::Normal,
+            white_space: WhiteSpaceDrawParam::PreWrap,
             color: resolve_text_color(
                 style,
                 if role == "speaker" {
@@ -476,17 +491,24 @@ fn text_shadow_command(
 
 fn avatar_command(
     panel: crate::render_graph::LogicalRect,
+    size: f64,
     avatar: &DialogueAvatarProjection,
 ) -> Option<DrawCommand> {
     if !is_safe_native_asset_ref(&avatar.asset_type, &avatar.asset_name) {
         return None;
     }
 
+    let bounds = LogicalRect {
+        x: panel.x + panel.width - size - 28.0,
+        y: panel.y + 22.0,
+        width: size,
+        height: size,
+    };
     let command = DrawCommand::new(
         "dialogue:avatar",
         RenderPlane::Safe,
         DrawCommandKind::Image,
-        avatar_bounds(panel),
+        bounds,
     )
     .z_index(2)
     .resource(ResourceId::new(format!(
@@ -498,7 +520,7 @@ fn avatar_command(
         asset_name: avatar.asset_name.clone(),
         fit: MediaFit::Cover,
         origin: MediaOrigin::default(),
-        source: avatar_bounds(panel),
+        source: bounds,
         rotation_degrees: 0.0,
         brightness: 1.0,
         saturation: 1.0,

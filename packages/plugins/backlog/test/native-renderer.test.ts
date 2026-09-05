@@ -24,6 +24,44 @@ describe('backlog native renderer feature', () => {
     expect(result).toBeUndefined()
   })
 
+  it('grows long history rows without truncating text or overlapping the next entry', () => {
+    const result = createBacklogNativeRendererFeature().createOverlays({
+      logicalWidth: 1920, logicalHeight: 1080, view: {},
+      safeArea: { x: 96, y: 0, width: 1728, height: 1080 },
+      projection: { visible: true, entries: [
+        { id: 'short', text: 'Short', gameTimeMs: 0 },
+        { id: 'long', text: '长对话内容'.repeat(150), gameTimeMs: 0 },
+      ] },
+    }) as { surface: { root: NativeUiSurfaceNodeProjection } }
+    const first = findNode(result.surface.root, 'backlog-entry-0')!
+    const next = findNode(result.surface.root, 'backlog-entry-1')!
+    expect(first.bounds.height).toBeGreaterThan(140)
+    expect(first.bounds.y + first.bounds.height).toBeLessThan(next.bounds.y)
+    expect(findNode(result.surface.root, 'backlog-entry-0-body')?.style?.whiteSpace).toBe('pre-wrap')
+  })
+
+  it('supports product placement and compact rows while preserving intents and long text', () => {
+    const bounds = { x: 470, y: 107, width: 980, height: 660 }
+    const result = createBacklogNativeRendererFeature({ density: 'compact', resolvePanelBounds: () => bounds }).createOverlays({
+      logicalWidth: 1920, logicalHeight: 1080, view: {},
+      safeArea: { x: 96, y: 0, width: 1728, height: 1080 },
+      projection: { visible: true, entries: [
+        { id: 'short', text: 'Short', speaker: 'Mira', gameTimeMs: 0, rewindable: true },
+        { id: 'long', text: '长对话内容'.repeat(150), gameTimeMs: 0 },
+      ] },
+    }) as { surface: { root: NativeUiSurfaceNodeProjection } }
+    const root = result.surface.root
+    expect(findNode(root, 'backlog-panel')?.bounds).toEqual(bounds)
+    expect(findNode(root, 'backlog-close')?.text).toBe('×')
+    const first = findNode(root, 'backlog-entry-0')!
+    const next = findNode(root, 'backlog-entry-1')!
+    expect(first.bounds.height).toBeGreaterThan(56)
+    expect(first.bounds.y + first.bounds.height).toBeLessThan(next.bounds.y)
+    expect(next.bounds.height).toBe(56)
+    expect(findNode(root, 'backlog-entry-1-jump')?.intent?.metadata).toEqual({ entryId: 'short' })
+    expect(findNode(root, 'backlog-entry-1-speaker')?.text).toBe('Mira')
+  })
+
   it('serializes recent entries in logical safe-area coordinates with package provenance', () => {
     const feature = createBacklogNativeRendererFeature()
     const frame = createNativeRendererJsonFrameInput({

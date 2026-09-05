@@ -159,6 +159,7 @@ function surfaceNodeFromQuiNode(
     rect,
     surfaceNodesFromQuiChildren(source, node.children, childContext, qssDocuments, provenance),
     resolvedStyle.layout,
+    resolvedStyle.style,
   )
   const text = textFromNode(source, node, context.scope)
   const image = imageFromProps(node.props)

@@ -149,3 +149,12 @@ Run affected feature plugin tests when their settings scopes change.
 - Does renderer only emit intents and read projection?
 - Are runtime package scopes unloaded cleanly?
 - If settings schema, scope, projection, or renderer intent behavior changed, was this skill updated?
+
+## Native panel sizing and ranges
+
+Native settings content scrolls within a centered logical-stage panel capped at 720 logical pixels and 84% of safe-area height. Demo Web settings use the logical overlay plane as well, so device/container scaling is consistent across targets. The backdrop remains translucent. Range option payloads stay bounded to 512 samples, distributed over the entire valid step lattice; never emit the first 511 values followed by a jump to max, and never force a max that violates step alignment. Readonly controls have no mutation intents. Generic text/color/object editing is not provided by the current native option-control projection.
+
+`createSettingsNativeRendererFeature({ resolvePanelBounds })` accepts a pure `(context, preferred) => NativeUiSurfaceRect` callback for product-level placement, including reserving dialogue/toolbar space in game. Child controls and scrolling are laid out after resolving the panel bounds. Values are logical-stage units, not device pixels; the callback must not mutate settings or engine projections. Test placement with engine-owned settings visibility and preserve existing control payload validation.
+
+
+Native select controls use the Web closed-field fill, 4px radius, hover border/gradient, padded ellipsized value text and a dedicated up/down chevron. Opening the control appends a transient option list above/below the field; options are package-aware intents and must not become authoritative state. Keep Web select styling and native control geometry aligned, while documenting that browser OS-native popup chrome cannot be pixel-matched by CSS.

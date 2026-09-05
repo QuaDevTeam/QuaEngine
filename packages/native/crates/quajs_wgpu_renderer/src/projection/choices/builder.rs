@@ -21,10 +21,21 @@ pub fn append_choice_commands_with_dialogue(
     choices: &ChoiceSetProjection,
     dialogue_visible: bool,
 ) {
-    graph.extend(build_choice_commands_with_dialogue(
+    // Dialogue commands already contain the resolved, possibly grown panel.
+    let panel_top = if dialogue_visible {
+        graph
+            .commands()
+            .iter()
+            .find(|command| command.id == "dialogue:panel")
+            .map(|command| command.bounds.y)
+            .or_else(|| Some(dialogue_panel_bounds(&graph.layout).y))
+    } else {
+        None
+    };
+    graph.extend(build_choice_commands_with_top(
         &graph.layout,
         choices,
-        dialogue_visible,
+        panel_top,
     ));
 }
 
@@ -39,6 +50,18 @@ pub fn build_choice_commands_with_dialogue(
     layout: &ResolvedStageLayout,
     choices: &ChoiceSetProjection,
     dialogue_visible: bool,
+) -> Vec<DrawCommand> {
+    build_choice_commands_with_top(
+        layout,
+        choices,
+        dialogue_visible.then(|| dialogue_panel_bounds(layout).y),
+    )
+}
+
+fn build_choice_commands_with_top(
+    layout: &ResolvedStageLayout,
+    choices: &ChoiceSetProjection,
+    dialogue_top: Option<f64>,
 ) -> Vec<DrawCommand> {
     if !choices.visible || choices.choices.is_empty() {
         return Vec::new();
@@ -57,9 +80,8 @@ pub fn build_choice_commands_with_dialogue(
         return Vec::new();
     }
 
-    let panel = if dialogue_visible {
-        let dialogue = dialogue_panel_bounds(layout);
-        choices_panel_bounds_with_bottom(layout, safe_choices.len(), dialogue.y - 74.0)
+    let panel = if let Some(top) = dialogue_top {
+        choices_panel_bounds_with_bottom(layout, safe_choices.len(), top - 74.0)
     } else {
         choices_panel_bounds(layout, safe_choices.len())
     };

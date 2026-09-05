@@ -5,8 +5,8 @@ use crate::projection::safety::{
     is_safe_native_ui_surface_node_numbers, is_safe_native_ui_surface_offset,
 };
 use crate::render_graph::{
-    DrawCommand, DrawCommandKind, DrawCommandVariant, DrawInteractionState, DrawTransition,
-    DrawTransitionEasing, DrawTransitionProperty, LogicalRect, ShadowDrawStyle,
+    DrawCommand, DrawCommandKind, DrawCommandParams, DrawCommandVariant, DrawInteractionState,
+    DrawTransition, DrawTransitionEasing, DrawTransitionProperty, LogicalRect, ShadowDrawStyle,
 };
 
 use super::super::style::resolve_opacity;
@@ -24,6 +24,85 @@ use super::helpers::{node_rect, SurfaceNodeOffset};
 use super::{SCROLL_CHILD_Z_OFFSET, SCROLL_CLIP_END_Z_OFFSET};
 
 pub(super) fn append_surface_node_commands(
+    commands: &mut Vec<DrawCommand>,
+    seen_node_ids: &mut BTreeSet<String>,
+    overlay: &UiOverlayProjection,
+    node: &UiSurfaceNodeProjection,
+    z_base: i32,
+    clip_bounds: &[LogicalRect],
+    offset: SurfaceNodeOffset,
+    inherited_opacity: f32,
+) {
+    let start = commands.len();
+    append_surface_node_commands_inner(
+        commands,
+        seen_node_ids,
+        overlay,
+        node,
+        z_base,
+        clip_bounds,
+        offset,
+        inherited_opacity,
+    );
+    let radius = super::super::style::resolve_border_radius(&node.style, 0.0);
+    if radius <= 0.0
+        && node
+            .state_styles
+            .values()
+            .all(|state| super::super::style::resolve_border_radius(&state.style, 0.0) <= 0.0)
+    {
+        return;
+    }
+    let clip = crate::render_graph::RoundedClip {
+        bounds: node_rect(node.bounds, offset),
+        radius,
+    };
+    let id = format!("ui:{}:{}", overlay.element_id, node.id);
+    fn descendant_ids(node: &UiSurfaceNodeProjection, overlay: &str, ids: &mut Vec<String>) {
+        for child in &node.children {
+            ids.push(format!("ui:{overlay}:{}", child.id));
+            descendant_ids(child, overlay, ids);
+        }
+    }
+    let mut descendants = Vec::new();
+    descendant_ids(node, &overlay.element_id, &mut descendants);
+    for command in &mut commands[start..] {
+        let own = (command.id == id || command.id.starts_with(&format!("{id}:")))
+            && !descendants.iter().any(|child_id| {
+                command.id == *child_id || command.id.starts_with(&format!("{child_id}:"))
+            });
+        let own_media = own
+            && (matches!(command.params, DrawCommandParams::Image(_))
+                || command.id.contains(":border-"));
+        if own_media || (!own && (node.clip_children || node.kind == UiSurfaceNodeKind::Scroll)) {
+            command.rounded_clips.push(clip);
+            for (state, variant) in &mut command.interaction_variants {
+                variant.rounded_clips.push(if own_media {
+                    crate::render_graph::RoundedClip {
+                        bounds: node
+                            .state_styles
+                            .iter()
+                            .find(|(key, _)| interaction_state(**key) == *state)
+                            .map(|(_, state)| node_rect(state.bounds, offset))
+                            .unwrap_or(clip.bounds),
+                        radius: node
+                            .state_styles
+                            .iter()
+                            .find(|(key, _)| interaction_state(**key) == *state)
+                            .map(|(_, state)| {
+                                super::super::style::resolve_border_radius(&state.style, 0.0)
+                            })
+                            .unwrap_or(radius),
+                    }
+                } else {
+                    clip
+                });
+            }
+        }
+    }
+}
+
+fn append_surface_node_commands_inner(
     commands: &mut Vec<DrawCommand>,
     seen_node_ids: &mut BTreeSet<String>,
     overlay: &UiOverlayProjection,
@@ -123,7 +202,7 @@ pub(super) fn append_surface_node_commands(
         z_base,
         clip_bounds,
         offset,
-        effective_opacity,
+        inherited_opacity * node.opacity,
     );
     let child_clip_bounds = node_child_clip_bounds(node, clip_bounds, offset);
     let child_clip_bounds = child_clip_bounds.as_deref().unwrap_or(clip_bounds);
@@ -151,6 +230,7 @@ fn append_scroll_node_commands(
     offset: SurfaceNodeOffset,
     effective_opacity: f32,
 ) {
+    let paint_start = commands.len();
     let bounds = node_rect(node.bounds, offset);
     let command_id = format!("ui:{}:{}", overlay.element_id, node.id);
     commands.extend(surface_box_shadow_commands(
@@ -217,6 +297,9 @@ fn append_scroll_node_commands(
         effective_opacity,
         ShadowDrawStyle::Inset,
     ));
+    let mut own_paint = commands.drain(paint_start..).collect();
+    normalize_surface_paint(&mut own_paint, node, &command_id);
+    commands.extend(own_paint);
     commands.push(scroll_clip_command(
         overlay,
         node,
@@ -270,7 +353,7 @@ fn append_painted_surface_node_commands(
         z_base,
         clip_bounds,
         offset,
-        effective_opacity,
+        effective_opacity * resolve_opacity(&node.style, 1.0),
     );
     attach_interaction_variants(
         &mut node_commands,
@@ -361,7 +444,67 @@ fn painted_surface_node_commands(
         effective_opacity,
         ShadowDrawStyle::Inset,
     ));
+    normalize_surface_paint(&mut commands, node, &command_id);
     commands
+}
+
+// Background color is below background images/gradients; inset and text shadows
+// are below foreground glyphs. A button's combined fill/label command must be
+// separated when intermediate paint layers exist, or the fill hides its shadow.
+fn normalize_surface_paint(
+    commands: &mut Vec<DrawCommand>,
+    _node: &UiSurfaceNodeProjection,
+    id: &str,
+) {
+    let layered = commands.iter().any(|command| command.id.contains(":background-")
+        || command.id.contains(":text-shadow")
+        || matches!(&command.params, DrawCommandParams::Shadow(s) if s.style == ShadowDrawStyle::Inset));
+    if !layered {
+        return;
+    }
+    if let Some(main) = commands.iter_mut().find(|c| c.id == id) {
+        let mut fill = main.clone();
+        let paint = match &mut main.params {
+            DrawCommandParams::Panel(p) => {
+                let color = std::mem::replace(&mut p.fill_color, "transparent".into());
+                Some((color, p.corner_radius, p.rotation_degrees))
+            }
+            DrawCommandParams::UiButton(p) => {
+                let color = std::mem::replace(&mut p.background_color, "transparent".into());
+                Some((color, p.corner_radius, 0.0))
+            }
+            _ => None,
+        };
+        if let Some((color, radius, rotation)) = paint {
+            fill.id = format!("{id}:background-fill");
+            fill.interactive = false;
+            fill.control = None;
+            fill.resource_ids.clear();
+            fill.params = DrawCommandParams::Panel(crate::render_graph::PanelDrawParams {
+                role: "ui-background-fill".into(),
+                fill_color: color,
+                corner_radius: radius,
+                border: Default::default(),
+                padding: Default::default(),
+                intent: None,
+                rotation_degrees: rotation,
+            });
+            commands.push(fill);
+        }
+    }
+    commands.sort_by_key(surface_paint_rank);
+}
+
+fn surface_paint_rank(command: &DrawCommand) -> u8 {
+    match &command.params {
+        DrawCommandParams::Shadow(shadow) if shadow.style == ShadowDrawStyle::Outer => 0,
+        _ if command.id.ends_with(":background-fill") => 1,
+        _ if command.id.contains(":background-") => 2,
+        DrawCommandParams::Shadow(_) => 3,
+        _ if command.id.contains(":text-shadow") => 4,
+        _ if command.id.contains(":border-") => 6,
+        _ => 5,
+    }
 }
 
 fn attach_interaction_variants(
@@ -433,7 +576,7 @@ fn attach_interaction_variants(
                     z_base,
                     clip_bounds,
                     offset,
-                    effective_opacity,
+                    effective_opacity * resolve_opacity(&state_node.style, 1.0),
                 ),
             )
         })
@@ -485,6 +628,7 @@ fn attach_interaction_variants(
         }
         base_commands.push(command);
     }
+    base_commands.sort_by_key(surface_paint_rank);
 }
 
 fn interaction_state(state: UiSurfacePseudoStateProjection) -> DrawInteractionState {

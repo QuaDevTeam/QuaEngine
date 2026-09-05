@@ -122,6 +122,8 @@ where
 {
     config: WgpuNativeRenderBackendConfig,
     submissions: Vec<NativeRenderSubmission>,
+    submitted_frames: usize,
+    resource_diagnostics: super::NativeRenderBackendResourceDiagnostics,
     draw_plans: Vec<NativeBackendDrawPlan>,
     encoder_plans: Vec<NativeBackendEncoderPlan>,
     command_stream_plans: Vec<NativeBackendCommandStreamPlan>,
@@ -164,6 +166,8 @@ where
         Self {
             config,
             submissions: Vec::new(),
+            submitted_frames: 0,
+            resource_diagnostics: Default::default(),
             draw_plans: Vec::new(),
             encoder_plans: Vec::new(),
             command_stream_plans: Vec::new(),

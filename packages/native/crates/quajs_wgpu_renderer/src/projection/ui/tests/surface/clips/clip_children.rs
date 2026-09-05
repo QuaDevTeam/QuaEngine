@@ -268,3 +268,35 @@ fn structural_surface_clip_children_filters_button_intents() {
     assert_eq!(hit.intent.action.as_deref(), Some("inside"));
     assert!(resolve_renderer_intent_at(&graph, 80.0, 160.0).is_none());
 }
+
+#[test]
+fn rounded_overflow_clips_child_paint_and_pointer_corners() {
+    let mut parent = UiSurfaceNodeProjection::new(
+        "panel",
+        UiSurfaceNodeKind::Panel,
+        rect(100.0, 100.0, 200.0, 100.0),
+    );
+    parent.clip_children = true;
+    parent.style.border_radius = Some(40.0);
+    parent.children.push(
+        UiSurfaceNodeProjection::new("child", UiSurfaceNodeKind::Button, parent.bounds)
+            .with_intent(UiIntentProjection::new("activate")),
+    );
+    let mut graph = RenderGraph::new(test_layout());
+    append_ui_commands(
+        &mut graph,
+        &UiProjection::new(vec![UiOverlayProjection {
+            interactive: Some(false),
+            surface: Some(UiOverlaySurfaceProjection::new("ui/test").with_root(parent)),
+            ..UiOverlayProjection::new("test")
+        }]),
+    );
+    let child = graph
+        .commands()
+        .iter()
+        .find(|c| c.id == "ui:test:child")
+        .unwrap();
+    assert_eq!(child.rounded_clips.len(), 1);
+    assert!(graph.hit_test(101.0, 101.0).is_none());
+    assert_eq!(graph.hit_test(150.0, 150.0).unwrap().id, "ui:test:child");
+}

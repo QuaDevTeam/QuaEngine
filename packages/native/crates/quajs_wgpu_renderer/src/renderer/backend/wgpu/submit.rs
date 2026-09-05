@@ -29,10 +29,11 @@ where
         );
         let primitive_plan = WgpuNativeRenderPrimitivePlan::from_execution_plan(&execution_plan);
         let mesh_plan = WgpuNativeRenderMeshPlan::from_primitive_plan(&primitive_plan);
-        let buffer_plan = WgpuNativeRenderBufferPlan::from_mesh_plan_with_font_atlases(
+        let mut buffer_plan = WgpuNativeRenderBufferPlan::from_mesh_plan_with_font_atlases(
             &mesh_plan,
             &self.font_atlas_layouts,
         );
+        buffer_plan.apply_rounded_clips(&frame_plan.submission);
         let render_pass_plan = WgpuNativeRenderPassPlan::from_buffer_plan(&buffer_plan);
         let pipeline_plan = WgpuNativeRenderPipelinePlan::from_render_pass_plan(&render_pass_plan);
         let gpu_frame_plan = WgpuNativeRenderGpuFramePlan::from_buffer_and_pipeline_plans(
@@ -57,6 +58,7 @@ where
         self.invalidated_bind_group_cache_labels.clear();
         self.fallback_warnings
             .record_submission(&frame_plan.submission.fallback_diagnostics);
+        self.resource_diagnostics.record_submission(&frame_plan.submission);
         self.submissions.push(frame_plan.submission.clone());
         self.draw_plans.push(frame_plan.draw_plan);
         self.encoder_plans.push(frame_plan.encoder_plan);
@@ -75,6 +77,8 @@ where
         self.resource_cache_plans.push(resource_cache_plan);
         self.runtime_plans.push(runtime_plan);
         self.runtime_reports.push(runtime_report);
+        self.submitted_frames = self.submitted_frames.saturating_add(1);
+        self.trim_submission_history();
         self.planned_font_atlas_upload_count = self.font_atlas_upload_count;
         Ok(frame_plan.submission)
     }
@@ -127,12 +131,48 @@ where
             .map_err(|error| NativeRenderBackendError::backend_rejected(error.to_string()))?;
         self.fallback_warnings
             .record_submission(&submission.fallback_diagnostics);
+        self.resource_diagnostics.record_submission(&submission);
         self.submissions.push(submission.clone());
         replace_last_or_push(&mut self.resource_cache_plans, resource_cache_plan);
         replace_last_or_push(&mut self.runtime_plans, runtime_plan);
         replace_last_or_push(&mut self.runtime_reports, runtime_report);
+        self.submitted_frames = self.submitted_frames.saturating_add(1);
+        self.trim_submission_history();
         self.stable_plan_reuse_count = self.stable_plan_reuse_count.saturating_add(1);
         Ok(submission)
+    }
+
+    fn trim_submission_history(&mut self) {
+        const RETAINED_FRAMES: usize = 2;
+        trim_vec(&mut self.submissions, RETAINED_FRAMES);
+        trim_vec(&mut self.draw_plans, RETAINED_FRAMES);
+        trim_vec(&mut self.encoder_plans, RETAINED_FRAMES);
+        trim_vec(&mut self.command_stream_plans, RETAINED_FRAMES);
+        trim_vec(&mut self.execution_reports, RETAINED_FRAMES);
+        trim_vec(&mut self.execution_plans, RETAINED_FRAMES);
+        trim_vec(&mut self.primitive_plans, RETAINED_FRAMES);
+        trim_vec(&mut self.mesh_plans, RETAINED_FRAMES);
+        trim_vec(&mut self.buffer_plans, RETAINED_FRAMES);
+        trim_vec(&mut self.render_pass_plans, RETAINED_FRAMES);
+        trim_vec(&mut self.pipeline_plans, RETAINED_FRAMES);
+        trim_vec(&mut self.gpu_frame_plans, RETAINED_FRAMES);
+        trim_vec(&mut self.submission_plans, RETAINED_FRAMES);
+        trim_vec(&mut self.device_plans, RETAINED_FRAMES);
+        trim_vec(&mut self.resource_cache_plans, RETAINED_FRAMES);
+        trim_vec(&mut self.runtime_plans, RETAINED_FRAMES);
+        trim_vec(&mut self.runtime_reports, RETAINED_FRAMES);
+    }
+}
+
+fn trim_vec<T>(values: &mut Vec<T>, retained: usize) {
+    if values.len() > retained {
+        values.drain(..values.len() - retained);
+        // `drain` drops elements but keeps the old allocation. Release a
+        // previously grown frame-history buffer so diagnostics cannot pin a
+        // multi-gigabyte peak for the lifetime of the renderer.
+        if values.capacity() > retained.saturating_mul(4) {
+            values.shrink_to_fit();
+        }
     }
 }
 

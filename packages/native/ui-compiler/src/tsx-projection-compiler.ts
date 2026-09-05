@@ -360,6 +360,7 @@ function surfaceNodeFromQuiNode(
     bounds,
     rawChildren,
     resolvedStyle.layout,
+    resolvedStyle.style,
   )
 
   const props = node.props

@@ -1,23 +1,39 @@
 /** @jsxImportSource @quajs/native-ui */
-import { Backdrop, Button, Column, Panel, Stack, Text } from '@quajs/native-ui'
+import { Backdrop, Button, Panel, Stack, Text } from '@quajs/native-ui'
 import { save, ui } from '@quajs/native-ui'
+import { isFilledSaveSlot, saveSlotDisplayName, saveSlotMeta } from '@quajs/render-core'
+import { DEMO_UI_METRICS, demoPanelRect } from '../../../game/ui-presentation'
 import type { NativeAppView } from '../native-app'
 
 export function SaveLoadOverlay({ view }: { view: NativeAppView }) {
-  return (
-    <Stack class="system-overlay">
-      <Backdrop id="native-save-load-backdrop" class="system-backdrop" onDismiss={ui.close('save-load')} />
-      <Panel id="native-save-load-panel" class="list-panel">
-        <Text id="native-save-load-eyebrow" class="panel-eyebrow">{view.t('ui.saveLoad.eyebrow')}</Text>
-        <Text id="native-save-load-title" class="panel-title">{view.saveLoadTitle}</Text>
-        <Column id="native-save-load-list" class="list-content">
-          {view.saveSlotItems.map(item => (
-            <Button key={item.id} id={item.id} class="list-line"
-              onClick={save.select(item.id)}>{item.label}</Button>
-          ))}
-        </Column>
-        <Button id="native-save-load-close" class="panel-close" onClick={ui.close('save-load')}>{view.t('ui.common.close')}</Button>
-      </Panel>
-    </Stack>
-  )
+  const panel = demoPanelRect(DEMO_UI_METRICS.saveWidth, DEMO_UI_METRICS.saveHeight, !view.titleSurface)
+  const left = panel.x + 31
+  const contentWidth = panel.width - 62
+  const cardWidth = (contentWidth - 20) / 3
+  const gridTop = panel.y + 31 + 73 + 18 + 36 + 18
+  return <Stack class="system-overlay">
+    <Backdrop id="native-save-load-backdrop" class="system-backdrop" onDismiss={ui.close('save-load')} />
+    <Panel id="native-save-load-panel" class="save-panel" {...panel}>
+      <Text id="native-save-load-title" class="panel-title" x={left} y={panel.y + 31} width={600} height={38}>{view.saveLoadMode === 'save' ? 'Save' : 'Load'}</Text>
+      <Text id="native-save-load-subtitle" class="panel-subtitle" x={left} y={panel.y + 83} width={600} height={14}>Select a slot</Text>
+      <Button id="native-save-load-close" class="parity-close" x={panel.x + panel.width - 73} y={panel.y + 31} width={42} height={42} onClick={ui.close('save-load')}>×</Button>
+      <Panel id="native-save-load-divider" class="parity-divider" x={left} y={panel.y + 103} width={contentWidth} height={1} />
+      <Panel id="native-save-tabs" class="save-tabs" x={left} y={panel.y + 122} width={contentWidth} height={36} />
+      {(['save', 'load'] as const).map((mode, index) => <Button id={`native-save-mode-${mode}`} key={mode}
+        class={view.saveLoadMode === mode ? 'save-tab is-active' : 'save-tab'}
+        x={left + 1 + index * 96} y={panel.y + 123} width={96} height={34} onClick={ui.open(mode)}>{mode === 'save' ? 'Save' : 'Load'}</Button>)}
+      {view.saveSlotItems.map((slot, index) => {
+        const x = left + (index % 3) * (cardWidth + 10)
+        const y = gridTop + Math.floor(index / 3) * 92
+        const disabled = view.saveLoadMode === 'load' && !isFilledSaveSlot(slot)
+        return <Panel key={slot.slotId} id={slot.slotId} class={disabled ? 'save-card is-disabled' : 'save-card'}
+          x={x} y={y} width={cardWidth} height={82} onClick={disabled ? undefined : save.select(slot.slotId)}>
+          <Panel id={`${slot.slotId}-index-box`} class="save-index-box" x={x + 13} y={y + 13} width={32} height={32} />
+          <Text id={`${slot.slotId}-index`} class="save-index" x={x + 13} y={y + 13} width={32} height={32}>{String(index + 1).padStart(2, '0')}</Text>
+          <Text id={`${slot.slotId}-name`} class="save-name" x={x + 59} y={y + 13} width={cardWidth - 72} height={20}>{saveSlotDisplayName(slot, index)}</Text>
+          <Text id={`${slot.slotId}-meta`} class="save-meta" x={x + 59} y={y + 39} width={cardWidth - 72} height={14}>{saveSlotMeta(slot)}</Text>
+        </Panel>
+      })}
+    </Panel>
+  </Stack>
 }

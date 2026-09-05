@@ -50,7 +50,16 @@ impl RenderGraph {
 
         for command in &self.commands {
             if command.interactive
-                && rect_contains(command.bounds, x, y)
+                && (super::command::RoundedClip {
+                    bounds: command.bounds,
+                    radius: match &command.params {
+                        super::style::DrawCommandParams::Panel(p) => p.corner_radius,
+                        super::style::DrawCommandParams::UiButton(p) => p.corner_radius,
+                        _ => 0.0,
+                    },
+                })
+                .contains(x, y)
+                && command.rounded_clips.iter().all(|clip| clip.contains(x, y))
                 && command
                     .clip_bounds
                     .iter()

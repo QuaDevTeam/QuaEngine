@@ -28,6 +28,9 @@ where
         report.applied_operation_count = plan.operations.len();
         report.capture_snapshot(device.runtime_snapshot());
         self.device = device;
+        if self.applied_reports.len() == 2 {
+            self.applied_reports.remove(0);
+        }
         self.applied_reports.push(report.clone());
         Ok(report)
     }

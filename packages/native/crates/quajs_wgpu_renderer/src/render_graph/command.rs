@@ -70,10 +70,31 @@ pub struct LogicalRect {
     pub height: f64,
 }
 
+/// Renderer-local rounded clipping shared by painting and pointer hit testing.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RoundedClip {
+    pub bounds: LogicalRect,
+    pub radius: f64,
+}
+
+impl RoundedClip {
+    pub fn contains(self, x: f64, y: f64) -> bool {
+        let b = self.bounds;
+        if b.is_empty() || x < b.x || y < b.y || x > b.x + b.width || y > b.y + b.height {
+            return false;
+        }
+        let r = self.radius.max(0.0).min(b.width * 0.5).min(b.height * 0.5);
+        let dx = x - x.clamp(b.x + r, b.x + b.width - r);
+        let dy = y - y.clamp(b.y + r, b.y + b.height - r);
+        dx * dx + dy * dy <= r * r
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct DrawCommandVariant {
     pub bounds: LogicalRect,
     pub clip_bounds: Vec<LogicalRect>,
+    pub rounded_clips: Vec<RoundedClip>,
     pub kind: DrawCommandKind,
     pub opacity: f32,
     pub params: DrawCommandParams,
@@ -86,6 +107,7 @@ impl DrawCommandVariant {
         Self {
             bounds: command.bounds,
             clip_bounds: command.clip_bounds.clone(),
+            rounded_clips: command.rounded_clips.clone(),
             kind: command.kind,
             opacity: command.opacity,
             params: command.params.clone(),
@@ -126,6 +148,7 @@ pub struct DrawCommand {
     pub opacity: f32,
     pub resource_ids: Vec<ResourceId>,
     pub clip_bounds: Vec<LogicalRect>,
+    pub rounded_clips: Vec<RoundedClip>,
     pub params: DrawCommandParams,
     pub owner_package_id: Option<String>,
     pub required_package_ids: BTreeSet<String>,
@@ -153,6 +176,7 @@ impl DrawCommand {
             opacity: 1.0,
             resource_ids: Vec::new(),
             clip_bounds: Vec::new(),
+            rounded_clips: Vec::new(),
             params: DrawCommandParams::None,
             owner_package_id: None,
             required_package_ids: BTreeSet::new(),

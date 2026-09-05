@@ -163,3 +163,11 @@ description: QuaEngine architecture guardrails for renderer statelessness, dynam
 - Reject Runtime Package implementations that require a renderer cache or transient Web resource for save/load, replay, branching, or progression correctness.
 - Reject Web/Cocos/Native target core adapters in ordinary plugins, shared presets, Runtime QPK executable dependencies, inactive target entries, or post-bundle artifacts.
 - Reject any commit message that does not match `<type>(<component>): <description>`.
+
+## Cross-target UI presentation
+
+`@quajs/render-core` may expose stateless platform-neutral menu action and save-slot presentation helpers. These format existing readonly projections; they must not access resources, route events, own browsing/game state or import target runtimes. Product-specific UI geometry/theme/action labels belong in the app's shared presentation module. Web/native adapters consume that module and retain platform-local rendering and pipeline intent bindings. Test slot identity/provenance preservation and deterministic formatting when modifying shared helpers.
+
+## Native renderer resource bounds
+
+Renderer diagnostics must not retain unbounded per-frame command, mesh, buffer, or runtime plans. Keep only a small recent window needed for inspection and maintain cumulative counters separately. Resource and texture caches remain renderer-local and must release package-owned entries on unload/teardown. Pointer hit testing must use stable projected geometry even while hover paint transitions change visual bounds.
