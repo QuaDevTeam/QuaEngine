@@ -1,4 +1,5 @@
 import type { QuiNode } from '@quajs/native-ui'
+import type { ViewLayoutProjection } from '@quajs/render-core'
 import type { NativeDemoAppScreen, NativeDemoAppSurfaceState } from './ui'
 /** @jsxImportSource @quajs/native-ui */
 import { Stack } from '@quajs/native-ui'
@@ -17,7 +18,7 @@ import { TitleConfirmDialog } from './screens/title-confirm'
 // ─── Public view type ─────────────────────────────────────────────────────────
 
 export type { NativeDemoAppScreen }
-export type NativeAppView = NativeDemoAppSurfaceState
+export type NativeAppView = NativeDemoAppSurfaceState & { layout: Readonly<ViewLayoutProjection> }
 
 // ─── Screen registry ──────────────────────────────────────────────────────────
 //

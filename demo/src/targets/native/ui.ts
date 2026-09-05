@@ -1,4 +1,4 @@
-import type { SaveSlotProjection } from '@quajs/render-core'
+import type { SaveSlotProjection, ViewLayoutProjection } from '@quajs/render-core'
 import {
   analyzeQssSource,
   compileQuiTsxProjection,
@@ -64,10 +64,10 @@ export const NATIVE_DEMO_APP_SURFACE_KEY = 'demo/native-app'
 const nativeAppQss = analyzeQssSource(nativeAppQssSource)
 assertValidNativeUiDocument('native-app.qss', nativeAppQss.diagnostics)
 
-export function createNativeDemoAppSurface(state: NativeDemoAppSurfaceState): Record<string, unknown> {
+export function createNativeDemoAppSurface(state: NativeDemoAppSurfaceState, layout: Readonly<ViewLayoutProjection>): Record<string, unknown> {
   // NativeApp is called with the current view state — all conditionals and
   // loops are evaluated here (TSX semantics), producing a resolved QuiNode tree.
-  const root = NativeApp({ view: state })
+  const root = NativeApp({ view: { ...state, layout } })
 
   const projection = compileQuiTsxProjection(root, {
     qss: nativeAppQss,

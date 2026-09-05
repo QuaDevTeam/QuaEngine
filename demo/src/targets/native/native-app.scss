@@ -191,25 +191,15 @@ Text.title-plate-subtitle { width: 210px; height: 24px;
   text-shadow: $shadow-text;
 }
 
-// Matches the Web demo toolbar: content-sized bar with its right edge at the
-// 5% stage inset (x=1824), bottom edge 8px above the dialogue box. Group
-// kinds (Row/Column/Stack) never paint, so the strip is a Panel and the
-// buttons are positioned with stage-absolute coordinates.
+// GameHud resolves the strip and button bounds from the engine layout's safe
+// area. Keep geometry in that projection so base and hover use the same anchor.
 Panel.quick-menu {
-  left: 1612px; top: 846px; width: 212px; height: 40px;
   padding: 5px 9px;
   border-color: rgba(245, 226, 190, 0.22);
   border-width: 1px;
   background-image: linear-gradient(180deg, rgba(12, 15, 22, 0.58) 0%, rgba(5, 6, 10, 0.42) 100%);
   box-shadow: 0 16px 42px rgba(0, 0, 0, 0.42);
 }
-
-// Web button geometry (44/44/37/44 @ 11px SFMono) widened for Noto Sans cap
-// metrics so 4-letter labels never clip: 47/47/40/48, 28 high, 4px gaps.
-#native-game-hud-auto { left: 1621px; top: 852px; width: 47px; }
-#native-game-hud-skip { left: 1672px; top: 852px; width: 47px; }
-#native-game-hud-log  { left: 1723px; top: 852px; width: 40px; }
-#native-game-hud-menu { left: 1767px; top: 852px; width: 48px; }
 
 // Text-style toolbar buttons like the Web demo: transparent fill, hairline
 // underline, small uppercase labels — no boxed button chrome.

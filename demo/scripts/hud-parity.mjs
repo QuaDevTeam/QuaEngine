@@ -51,7 +51,36 @@ async function nativeReturnToGame() {
   if (commands.some(c => c.id === 'ui:native-app-shell:native-game-menu-close')) await click('native-game-menu-close')
   await page.waitForTimeout(350)
 }
-try {
+async function verifyToolbar() {
+  const frame = screens.toolbar
+  const bar = frame.native.find(item => item.id === 'ui:native-app-shell:native-quick-menu')?.bounds
+  const dialogue = frame.native.find(item => item.id === 'dialogue:panel')?.bounds
+  const webBar = frame.web['.vn-quick-menu'][0]
+  const webDialogue = frame.web['.qua-dialogue-box'][0]
+  assert(bar && dialogue && webBar && webDialogue, 'Missing toolbar/dialogue geometry')
+  const right = rect => rect.x + rect.width
+  const alignment = {
+    nativeRightEdgeError: Math.abs(right(bar) - right(dialogue)),
+    webRightEdgeError: Math.abs(right(webBar) - right(webDialogue)) * 2,
+    targetBoundsError: Math.max(...['x', 'y', 'width', 'height'].map(key => Math.abs(bar[key] - webBar[key] * 2))),
+    nativeToolbar: bar, nativeDialogue: dialogue,
+  }
+  await writeFile(resolve(output, 'toolbar-checks.json'), JSON.stringify(alignment, null, 2))
+  assert(alignment.nativeRightEdgeError < 0.01 && alignment.webRightEdgeError < 1,
+    `Toolbar must align with dialogue, not the stage edge: ${JSON.stringify(alignment)}`)
+  assert(alignment.targetBoundsError <= 3, `Toolbar differs between targets: ${JSON.stringify(alignment)}`)
+  for (const state of ['toolbar', 'toolbar-hover']) {
+    const stateBar = screens[state].native.find(item => item.id === 'ui:native-app-shell:native-quick-menu')?.bounds
+    assert.deepEqual(stateBar, bar, `Toolbar anchor must remain stable during ${state}`)
+    const controls = screens[state].native.filter(item => /^ui:native-app-shell:native-game-hud-(auto|skip|log|menu)$/.test(item.id))
+    assert.equal(controls.length, 4)
+    assert(controls.every(({ bounds }) => bounds.x >= bar.x && right(bounds) <= right(bar)
+      && bounds.y >= bar.y && bounds.y + bounds.height <= bar.y + bar.height),
+      `Toolbar controls must stay inside the aligned panel during ${state}`)
+  }
+  console.log(`PASS: toolbar right-edge alignment and control containment: ${JSON.stringify(alignment)}`)
+}
+async function run() {
   await page.goto(process.env.QUA_PARITY_WEB_URL || 'http://127.0.0.1:5173')
   await page.getByRole('button', { name: 'START', exact: true }).click()
   await click('native-main-menu-start')
@@ -60,6 +89,8 @@ try {
   await page.waitForTimeout(2000)
   await capture('toolbar', ['.vn-quick-menu', '.vn-quick-menu button', '.qua-dialogue-box'])
   await capture('toolbar-hover', ['.vn-quick-menu'], { web: '.vn-quick-menu button', native: 'ui:native-app-shell:native-game-hud-auto' })
+  await verifyToolbar()
+  if (process.argv.includes('--toolbar-only')) return
   await page.locator('.vn-quick-menu button').filter({ hasText: /^LOG$/ }).click()
   await click('native-game-hud-log')
   await native('wait', 'ui:backlog:backlog-close')
@@ -132,4 +163,5 @@ try {
 <h1>HUD 与工具栏面板：Native 左 / Web 右</h1>${Object.keys(screens).map(name => `<section><h2>${name}</h2><div class="compare"><img src="web-${name}.png"><img class="native" src="native-${name}.png"></div><input type="range" value="50" oninput="this.previousElementSibling.lastElementChild.style.clipPath='inset(0 '+(100-this.value)+'% 0 0)'"></section>`).join('')}`)
   assert(checks.every(check => check.passed), `HUD geometry mismatch: ${JSON.stringify(checks)}`)
   console.log('PASS: seven panel bounds, menu order and nine-slot grids; hover captures saved')
-} finally { await browser.close() }
+}
+try { await run() } finally { await browser.close() }

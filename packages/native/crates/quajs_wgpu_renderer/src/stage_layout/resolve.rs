@@ -12,15 +12,12 @@ pub fn resolve_stage_layout(
     let container_height = positive_number(container.height, layout.height);
     let device_pixel_ratio = positive_number(container.device_pixel_ratio, 1.0);
     let css_safe_area_insets = normalize_safe_area_insets(container.safe_area_insets);
-    let container_aspect_ratio = container_width / container_height;
-    let aspect_ratio = clamp(
-        container_aspect_ratio,
-        layout.min_aspect_ratio,
-        layout.max_aspect_ratio,
-    );
+    // Match renderer-web: window resizing changes viewport fit, never authored
+    // logical coordinates. The min/max interval defines the content safe area.
+    let aspect_ratio = layout.aspect_ratio;
     let viewport = fit_aspect_ratio(container_width, container_height, aspect_ratio);
     let scale = viewport.height / layout.height;
-    let logical_width = viewport.width / scale;
+    let logical_width = layout.height * aspect_ratio;
     let logical_height = layout.height;
     let safe_width = logical_width.min(layout.height * layout.min_aspect_ratio);
     let aspect_safe_area = StageSafeArea {

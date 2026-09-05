@@ -200,10 +200,10 @@ fn submits_frames_through_feature_gated_wgpu_skeleton() {
     assert_eq!(
         *inside_button_draw.1,
         WgpuPhysicalRect {
-            x: 22,
-            y: 40,
-            width: 204,
-            height: 53,
+            x: 20,
+            y: 86,
+            width: 184,
+            height: 48,
         }
     );
     assert_eq!(
