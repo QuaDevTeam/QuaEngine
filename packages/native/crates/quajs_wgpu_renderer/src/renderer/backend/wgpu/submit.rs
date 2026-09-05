@@ -28,7 +28,10 @@ where
             &frame_plan.command_stream_plan,
         );
         let primitive_plan = WgpuNativeRenderPrimitivePlan::from_execution_plan(&execution_plan);
-        let mesh_plan = WgpuNativeRenderMeshPlan::from_primitive_plan(&primitive_plan);
+        let mesh_plan = WgpuNativeRenderMeshPlan::from_primitive_plan_with_texture_dimensions(
+            &primitive_plan,
+            &self.runtime_snapshot().resident_texture_dimensions,
+        );
         let mut buffer_plan = WgpuNativeRenderBufferPlan::from_mesh_plan_with_font_atlases(
             &mesh_plan,
             &self.font_atlas_layouts,
@@ -47,10 +50,11 @@ where
             previous_resource_cache_plan.as_ref(),
             &device_plan,
         );
-        let runtime_plan = WgpuNativeRenderRuntimePlan::from_device_and_cache_plans(
+        let mut runtime_plan = WgpuNativeRenderRuntimePlan::from_device_and_cache_plans(
             &device_plan,
             &resource_cache_plan,
         );
+        runtime_plan.attach_composite_groups(&frame_plan.submission);
         let runtime_report = self
             .runtime_executor
             .apply_runtime_plan(&runtime_plan)
@@ -58,7 +62,8 @@ where
         self.invalidated_bind_group_cache_labels.clear();
         self.fallback_warnings
             .record_submission(&frame_plan.submission.fallback_diagnostics);
-        self.resource_diagnostics.record_submission(&frame_plan.submission);
+        self.resource_diagnostics
+            .record_submission(&frame_plan.submission);
         self.submissions.push(frame_plan.submission.clone());
         self.draw_plans.push(frame_plan.draw_plan);
         self.encoder_plans.push(frame_plan.encoder_plan);
@@ -121,10 +126,11 @@ where
             previous_resource_cache_plan.as_ref(),
             &device_plan,
         );
-        let runtime_plan = WgpuNativeRenderRuntimePlan::from_reused_device_and_cache_plans(
+        let mut runtime_plan = WgpuNativeRenderRuntimePlan::from_reused_device_and_cache_plans(
             &device_plan,
             &resource_cache_plan,
         );
+        runtime_plan.attach_composite_groups(&submission);
         let runtime_report = self
             .runtime_executor
             .apply_runtime_plan(&runtime_plan)

@@ -94,6 +94,7 @@ export const CAPABILITIES: QuaNativeHostInfo['renderer']['capabilities'] = [
       'background-image',
       'background-position',
       'background-size',
+      'backdrop-filter',
       'border-color',
       'border-radius',
       'border-style',

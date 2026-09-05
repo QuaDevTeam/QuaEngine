@@ -75,6 +75,7 @@ pub struct LogicalRect {
 pub struct RoundedClip {
     pub bounds: LogicalRect,
     pub radius: f64,
+    pub corner_radii: Option<[f64; 4]>,
 }
 
 impl RoundedClip {
@@ -83,15 +84,96 @@ impl RoundedClip {
         if b.is_empty() || x < b.x || y < b.y || x > b.x + b.width || y > b.y + b.height {
             return false;
         }
-        let r = self.radius.max(0.0).min(b.width * 0.5).min(b.height * 0.5);
-        let dx = x - x.clamp(b.x + r, b.x + b.width - r);
-        let dy = y - y.clamp(b.y + r, b.y + b.height - r);
-        dx * dx + dy * dy <= r * r
+        let radii = self.resolved_radii();
+        for (cx, cy, radius, in_corner) in [
+            (
+                b.x + radii[0],
+                b.y + radii[0],
+                radii[0],
+                x < b.x + radii[0] && y < b.y + radii[0],
+            ),
+            (
+                b.x + b.width - radii[1],
+                b.y + radii[1],
+                radii[1],
+                x > b.x + b.width - radii[1] && y < b.y + radii[1],
+            ),
+            (
+                b.x + b.width - radii[2],
+                b.y + b.height - radii[2],
+                radii[2],
+                x > b.x + b.width - radii[2] && y > b.y + b.height - radii[2],
+            ),
+            (
+                b.x + radii[3],
+                b.y + b.height - radii[3],
+                radii[3],
+                x < b.x + radii[3] && y > b.y + b.height - radii[3],
+            ),
+        ] {
+            if in_corner {
+                return (x - cx).powi(2) + (y - cy).powi(2) <= radius.powi(2);
+            }
+        }
+        true
     }
+    pub fn resolved_radii(self) -> [f64; 4] {
+        let r = self
+            .corner_radii
+            .unwrap_or([self.radius; 4])
+            .map(|r| r.max(0.0));
+        let b = self.bounds;
+        let factor = [
+            (b.width, r[0] + r[1]),
+            (b.width, r[2] + r[3]),
+            (b.height, r[0] + r[3]),
+            (b.height, r[1] + r[2]),
+        ]
+        .into_iter()
+        .filter(|(_, sum)| *sum > 0.0)
+        .map(|(extent, sum)| extent / sum)
+        .fold(1.0, f64::min);
+        r.map(|r| r * factor.max(0.0))
+    }
+}
+
+#[cfg(test)]
+mod corner_tests {
+    use super::*;
+
+    #[test]
+    fn corner_hit_testing_uses_independent_radii_and_css_overlap_reduction() {
+        let clip = RoundedClip {
+            bounds: LogicalRect {
+                x: 0.0,
+                y: 0.0,
+                width: 100.0,
+                height: 100.0,
+            },
+            radius: 0.0,
+            corner_radii: Some([80.0, 80.0, 0.0, 0.0]),
+        };
+        assert_eq!(clip.resolved_radii(), [50.0, 50.0, 0.0, 0.0]);
+        assert!(!clip.contains(1.0, 1.0));
+        assert!(!clip.contains(99.0, 1.0));
+        assert!(clip.contains(1.0, 99.0));
+        assert!(clip.contains(99.0, 99.0));
+    }
+}
+
+/// Transient CSS stacking context. Opacity is applied once to the complete
+/// projected subtree; commands retain their effective alpha for hit/diagnostics.
+#[derive(Clone, Debug, PartialEq)]
+pub struct DrawCompositeGroup {
+    pub blur_radius: f64,
+    pub id: String,
+    pub opacity: f32,
+    pub z_index: i32,
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct DrawCommandVariant {
+    pub composite_groups: Vec<DrawCompositeGroup>,
     pub bounds: LogicalRect,
     pub clip_bounds: Vec<LogicalRect>,
     pub rounded_clips: Vec<RoundedClip>,
@@ -105,6 +187,7 @@ pub struct DrawCommandVariant {
 impl DrawCommandVariant {
     pub fn from_command(command: &DrawCommand) -> Self {
         Self {
+            composite_groups: command.composite_groups.clone(),
             bounds: command.bounds,
             clip_bounds: command.clip_bounds.clone(),
             rounded_clips: command.rounded_clips.clone(),
@@ -140,6 +223,7 @@ impl LogicalRect {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct DrawCommand {
+    pub composite_groups: Vec<DrawCompositeGroup>,
     pub id: String,
     pub plane: RenderPlane,
     pub z_index: i32,
@@ -168,6 +252,7 @@ impl DrawCommand {
         bounds: LogicalRect,
     ) -> Self {
         Self {
+            composite_groups: Vec::new(),
             id: id.into(),
             plane,
             z_index: 0,

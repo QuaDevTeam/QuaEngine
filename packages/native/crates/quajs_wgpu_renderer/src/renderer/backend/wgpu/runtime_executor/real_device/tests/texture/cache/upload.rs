@@ -35,7 +35,7 @@ fn noop_device_uses_uploaded_decoded_texture_for_matching_resource_id() {
     assert_eq!(report.bind_group_create_count, 1);
     assert_eq!(report.resident_bind_group_count, 1);
     assert_eq!(report.resident_texture_count, 1);
-    assert_eq!(report.resident_texture_byte_len, 16);
+    assert_eq!(report.resident_texture_byte_len, 20);
     assert_eq!(
         report.resident_texture_resource_ids,
         vec!["images:bg.png".to_string()]
@@ -68,7 +68,7 @@ fn noop_device_uses_uploaded_decoded_texture_for_matching_resource_id() {
         Some("images:bg.png")
     );
     assert_eq!(texture_sampler.decoded_size, Some((2, 2)));
-    assert_eq!(texture_sampler.decoded_byte_len, Some(16));
+    assert_eq!(texture_sampler.decoded_byte_len, Some(20));
 }
 
 #[test]

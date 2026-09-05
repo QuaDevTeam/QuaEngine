@@ -149,6 +149,12 @@ pub struct UiSurfaceGradientStopProjection {
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct UiSurfaceBackdropFilterProjection {
+    pub blur_radius: f64,
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UiSurfaceFilterProjection {
     #[serde(default)]
     pub brightness: f64,
@@ -300,6 +306,8 @@ pub struct UiSurfaceResolvedStyle {
     pub color: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub filter: Option<UiSurfaceFilterProjection>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub backdrop_filter: Option<UiSurfaceBackdropFilterProjection>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub border_radius: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

@@ -51,7 +51,8 @@ fn projects_surface_background_image_as_package_image_command() {
     assert_eq!(image.plane, RenderPlane::Screen);
     assert_eq!(image.z_index, panel.z_index);
     assert_eq!(image.bounds, panel.bounds);
-    assert!((image.opacity - 0.5).abs() < 0.0001);
+    assert_eq!(image.opacity, 1.0);
+    assert_eq!(image.composite_groups[0].opacity, 0.5);
     assert_eq!(
         image.resource_ids,
         vec![ResourceId::from("images:ui/panel.png")]

@@ -1,4 +1,4 @@
-mod backdrop;
+pub(super) mod backdrop;
 mod bind_groups;
 mod buffers;
 mod guards;

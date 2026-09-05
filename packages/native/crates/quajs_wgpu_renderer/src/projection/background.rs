@@ -7,7 +7,8 @@ pub use builder::{
     build_background_commands, build_background_commands_with_video_frame_resources,
 };
 pub use types::{
-    BackgroundFit, BackgroundLayerProjection, BackgroundMode, BackgroundProjection,
+    BackgroundCompositionProjection, BackgroundFilterProjection, BackgroundFit,
+    BackgroundLayerProjection, BackgroundMaskProjection, BackgroundMode, BackgroundProjection,
     BackgroundVideoProjection,
 };
 

@@ -52,6 +52,7 @@ impl RenderGraph {
             if command.interactive
                 && (super::command::RoundedClip {
                     bounds: command.bounds,
+                    corner_radii: None,
                     radius: match &command.params {
                         super::style::DrawCommandParams::Panel(p) => p.corner_radius,
                         super::style::DrawCommandParams::UiButton(p) => p.corner_radius,
@@ -149,17 +150,27 @@ impl RenderGraph {
     }
 
     fn sort_commands(&mut self) {
-        self.commands.sort_by(|left, right| {
+        // A stacking context paints atomically at its parent's z position.
+        // Within it, preserve ordinary z ordering and insertion order.
+        let mut order = std::collections::BTreeMap::new();
+        for (index, command) in self.commands.iter().enumerate() {
+            for group in &command.composite_groups {
+                order.entry(group.id.clone()).or_insert(index);
+            }
+            order.entry(command.id.clone()).or_insert(index);
+        }
+        self.commands.sort_by_cached_key(|command| {
+            let mut path = command
+                .composite_groups
+                .iter()
+                .map(|g| (g.z_index, order[&g.id]))
+                .collect::<Vec<_>>();
+            path.push((command.z_index, order[&command.id]));
             (
-                left.plane.z_base().saturating_add(left.z_index),
-                left.plane,
-                left.z_index,
+                command.plane.z_base().saturating_add(path[0].0),
+                command.plane,
+                path,
             )
-                .cmp(&(
-                    right.plane.z_base().saturating_add(right.z_index),
-                    right.plane,
-                    right.z_index,
-                ))
         });
     }
 }

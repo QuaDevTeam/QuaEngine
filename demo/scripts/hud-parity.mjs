@@ -8,7 +8,9 @@ import { resolve } from 'node:path'
 const output = resolve('demo/dist/native/hud-parity')
 const exec = promisify(execFile)
 const native = async (...args) => (await exec(process.execPath, ['demo/scripts/native-control.mjs', ...args], { maxBuffer: 16 * 1024 * 1024 })).stdout
-const browser = await chromium.launch({ channel: process.env.QUA_PARITY_BROWSER || 'chrome' })
+const browser = await chromium.launch({ ...(process.env.QUA_PARITY_CHROMIUM
+  ? { executablePath: process.env.QUA_PARITY_CHROMIUM }
+  : { channel: process.env.QUA_PARITY_BROWSER || 'chrome' }) })
 const page = await browser.newPage({ viewport: { width: 960, height: 540 }, deviceScaleFactor: 2 })
 const screens = {}
 await mkdir(output, { recursive: true })

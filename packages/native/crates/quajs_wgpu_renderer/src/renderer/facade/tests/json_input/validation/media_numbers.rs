@@ -12,8 +12,8 @@ fn json_frame_audio_number_validation_rejects_unsafe_resolved_values() {
     match volume {
         NativeRendererJsonFrameError::Validation(validation) => {
             assert_eq!(validation.path, "view.audio.tracks[0].volume");
-            assert_eq!(validation.asset_name, "1.5");
-            assert!(validation.reason.contains("between 0 and 1"));
+            assert_eq!(validation.asset_name, "16.5");
+            assert!(validation.reason.contains("between 0 and 16"));
         }
         other => panic!("expected unsafe audio volume validation error, got {other:?}"),
     }

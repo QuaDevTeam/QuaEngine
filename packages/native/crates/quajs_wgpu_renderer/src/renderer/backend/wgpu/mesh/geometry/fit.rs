@@ -4,7 +4,10 @@ use super::super::super::primitive::{WgpuNativeRenderPrimitive, WgpuNativeRender
 use super::types::WgpuFloatRect;
 use super::uv::normalized_source_uv_rect;
 
-pub(super) fn media_vertex_rect(primitive: &WgpuNativeRenderPrimitive) -> WgpuFloatRect {
+pub(super) fn media_vertex_rect(
+    primitive: &WgpuNativeRenderPrimitive,
+    texture_size: Option<(u32, u32)>,
+) -> WgpuFloatRect {
     let base = WgpuFloatRect::from(primitive.physical_bounds);
     match &primitive.kind {
         WgpuNativeRenderPrimitiveKind::Image {
@@ -24,7 +27,15 @@ pub(super) fn media_vertex_rect(primitive: &WgpuNativeRenderPrimitive) -> WgpuFl
             origin,
             source,
             ..
-        } => fit_media_rect(base, primitive.logical_bounds, *source, *fit, *origin).unwrap_or(base),
+        } => fit_media_rect(
+            base,
+            primitive.logical_bounds,
+            *source,
+            *fit,
+            *origin,
+            texture_size,
+        )
+        .unwrap_or(base),
         _ => base,
     }
 }
@@ -35,6 +46,7 @@ fn fit_media_rect(
     source: LogicalRect,
     fit: MediaFit,
     origin: MediaOrigin,
+    texture_size: Option<(u32, u32)>,
 ) -> Option<WgpuFloatRect> {
     if fit == MediaFit::Fill {
         return Some(base);
@@ -49,7 +61,19 @@ fn fit_media_rect(
         return None;
     }
 
-    let (source_width, source_height) = media_source_dimensions(target, source)?;
+    let (source_width, source_height) = match texture_size.filter(|(w, h)| *w > 0 && *h > 0) {
+        Some((width, height)) => {
+            // A normalized source rectangle selects texels; it is never an
+            // intrinsic logical size. Decoded pixels map to authored units,
+            // then the viewport scale maps the fitted result to device pixels.
+            let uv = normalized_source_uv_rect(source).unwrap_or_default();
+            (
+                f64::from(width) * f64::from(uv.max_u - uv.min_u),
+                f64::from(height) * f64::from(uv.max_v - uv.min_v),
+            )
+        }
+        None => media_source_dimensions(target, source)?,
+    };
     let contain_scale = (target.width / source_width).min(target.height / source_height);
     let cover_scale = (target.width / source_width).max(target.height / source_height);
     let scale = match fit {
@@ -104,5 +128,60 @@ fn media_origin_component(value: f64) -> f64 {
         value.clamp(0.0, 1.0)
     } else {
         0.5
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn decoded_dimensions_drive_all_fits_in_logical_units_before_dpr_scaling() {
+        let target = LogicalRect {
+            x: 10.0,
+            y: 20.0,
+            width: 200.0,
+            height: 100.0,
+        };
+        let physical = WgpuFloatRect {
+            x: 20.0,
+            y: 40.0,
+            width: 400.0,
+            height: 200.0,
+        };
+        for (fit, expected) in [
+            (MediaFit::Fill, [20.0, 40.0, 400.0, 200.0]),
+            (MediaFit::Cover, [20.0, -60.0, 400.0, 400.0]),
+            (MediaFit::Contain, [120.0, 40.0, 200.0, 200.0]),
+            (MediaFit::None, [-280.0, -360.0, 1000.0, 1000.0]),
+            (MediaFit::ScaleDown, [120.0, 40.0, 200.0, 200.0]),
+        ] {
+            let r = fit_media_rect(
+                physical,
+                target,
+                target,
+                fit,
+                MediaOrigin::default(),
+                Some((500, 500)),
+            )
+            .unwrap();
+            assert_eq!([r.x, r.y, r.width, r.height], expected, "{fit:?}");
+        }
+        let crop = LogicalRect {
+            x: 0.25,
+            y: 0.0,
+            width: 0.5,
+            height: 1.0,
+        };
+        let r = fit_media_rect(
+            physical,
+            target,
+            crop,
+            MediaFit::None,
+            MediaOrigin { x: 1.0, y: 0.0 },
+            Some((100, 50)),
+        )
+        .unwrap();
+        assert_eq!([r.x, r.y, r.width, r.height], [320.0, 40.0, 100.0, 100.0]);
     }
 }

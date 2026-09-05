@@ -1,6 +1,8 @@
 use std::collections::BTreeSet;
 
-use crate::projection::background::{BackgroundProjection, BackgroundVideoProjection};
+use crate::projection::background::{
+    BackgroundCompositionProjection, BackgroundProjection, BackgroundVideoProjection,
+};
 use crate::renderer::json_input::NativeRendererJsonValidationError;
 
 use super::background_numbers::{
@@ -33,6 +35,10 @@ impl JsonProjectionValidator {
         );
         self.validate_background_rotation("view.background", background.rotation);
         self.validate_background_opacity("view.background.opacity", background.opacity);
+        self.validate_background_composition(
+            "view.background.composition",
+            background.composition.as_ref(),
+        );
         let mut layer_ids = BTreeSet::new();
         for (index, layer) in background.layers.iter().enumerate() {
             let layer_path = format!("view.background.layers[{index}]");
@@ -61,6 +67,10 @@ impl JsonProjectionValidator {
             );
             self.validate_background_rotation(&layer_path, layer.rotation);
             self.validate_background_opacity(&format!("{layer_path}.opacity"), layer.opacity);
+            self.validate_background_composition(
+                &format!("{layer_path}.composition"),
+                layer.composition.as_ref(),
+            );
             self.validate_z_index(
                 &format!("{layer_path}.zIndex"),
                 layer.z_index,
@@ -94,6 +104,57 @@ impl JsonProjectionValidator {
             video.offset_ms,
         );
         self.validate_provenance("view.background.video.provenance", &video.provenance);
+    }
+
+    fn validate_background_composition(
+        &mut self,
+        path: &str,
+        composition: Option<&BackgroundCompositionProjection>,
+    ) {
+        let Some(composition) = composition else {
+            return;
+        };
+        if let Some(filter) = &composition.filter {
+            for (field, value, range) in [
+                ("brightness", filter.brightness, 0.0..=8.0),
+                ("saturate", filter.saturate, 0.0..=8.0),
+                ("contrast", filter.contrast, 0.0..=8.0),
+                ("grayscale", filter.grayscale, 0.0..=1.0),
+                ("sepia", filter.sepia, 0.0..=1.0),
+                ("invert", filter.invert, 0.0..=1.0),
+            ] {
+                if !value.is_finite() || !range.contains(&value) {
+                    self.errors.push(NativeRendererJsonValidationError {
+                        path: format!("{path}.filter.{field}"),
+                        asset_name: value.to_string(),
+                        reason: "background filter value is outside native renderer limits"
+                            .to_string(),
+                    });
+                }
+            }
+            if !filter.blur.is_finite() || !(0.0..=4096.0).contains(&filter.blur) {
+                self.errors.push(NativeRendererJsonValidationError {
+                    path: format!("{path}.filter.blur"),
+                    asset_name: filter.blur.to_string(),
+                    reason: "background blur must be finite and between 0 and 4096".to_string(),
+                });
+            }
+            if !filter.hue_rotate.is_finite() || filter.hue_rotate.abs() > 360_000.0 {
+                self.errors.push(NativeRendererJsonValidationError {
+                    path: format!("{path}.filter.hueRotate"),
+                    asset_name: filter.hue_rotate.to_string(),
+                    reason: "background hue rotation must be finite and bounded".to_string(),
+                });
+            }
+        }
+        if let Some(mask) = &composition.mask {
+            if let Some(asset_name) = &mask.asset_name {
+                self.validate_asset_reference(&format!("{path}.mask.assetName"), asset_name);
+            }
+            if let Some(asset_type) = &mask.asset_type {
+                self.validate_asset_type(&format!("{path}.mask.assetType"), asset_type);
+            }
+        }
     }
 
     fn validate_background_geometry(

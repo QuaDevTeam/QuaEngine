@@ -19,6 +19,12 @@ pub(super) fn invalid_native_json_ui_style_number_reason(
         .or_else(|| validate_object_position(style.object_position))
         .or_else(|| validate_gradient(style.background_gradient.as_ref()))
         .or_else(|| validate_filter(style.filter))
+        .or_else(|| {
+            validate_optional_logical_value(
+                "backdropFilter.blurRadius",
+                style.backdrop_filter.map(|f| f.blur_radius),
+            )
+        })
         .or_else(|| validate_optional_logical_value("borderRadius", style.border_radius))
         .or_else(|| validate_optional_logical_value("borderWidth", style.border_width))
         .or_else(|| validate_optional_logical_value("borderTopWidth", style.border_top_width))
@@ -112,17 +118,29 @@ fn validate_filter(
     filter: Option<crate::projection::ui::UiSurfaceFilterProjection>,
 ) -> Option<(&'static str, String, String)> {
     let filter = filter?;
-    for (field, value) in [
-        ("filter.brightness", filter.brightness),
-        ("filter.saturate", filter.saturate),
+    for (field, value, range) in [
+        ("filter.brightness", filter.brightness, 0.0..=8.0),
+        ("filter.saturate", filter.saturate, 0.0..=8.0),
+        ("filter.blur", filter.blur, 0.0..=4096.0),
+        ("filter.contrast", filter.contrast, 0.0..=8.0),
+        ("filter.grayscale", filter.grayscale, 0.0..=1.0),
+        ("filter.sepia", filter.sepia, 0.0..=1.0),
+        ("filter.invert", filter.invert, 0.0..=1.0),
     ] {
-        if !value.is_finite() || !(0.0..=8.0).contains(&value) {
+        if !value.is_finite() || !range.contains(&value) {
             return Some((
                 field,
                 value.to_string(),
                 "UI image filter values must be finite and between 0 and 8".to_string(),
             ));
         }
+    }
+    if !filter.hue_rotate.is_finite() || filter.hue_rotate.abs() > 360_000.0 {
+        return Some((
+            "filter.hueRotate",
+            filter.hue_rotate.to_string(),
+            "UI image hue rotation must be finite and bounded".to_string(),
+        ));
     }
     None
 }

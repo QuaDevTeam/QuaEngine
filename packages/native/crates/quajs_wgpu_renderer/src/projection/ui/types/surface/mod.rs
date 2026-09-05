@@ -12,11 +12,12 @@ pub use node::{
     UiSurfaceNodeStateProjection, UiSurfacePseudoStateProjection,
 };
 pub use style::{
-    UiSurfaceBackgroundPositionProjection, UiSurfaceBorderStyleProjection,
-    UiSurfaceEdgeInsetsProjection, UiSurfaceFilterProjection, UiSurfaceFontStyleProjection,
-    UiSurfaceGradientKindProjection, UiSurfaceGradientProjection, UiSurfaceGradientStopProjection,
-    UiSurfaceObjectFitProjection, UiSurfaceRadialGradientShapeProjection, UiSurfaceResolvedStyle,
-    UiSurfaceShadowProjection, UiSurfaceTextAlignProjection, UiSurfaceTextDecorationProjection,
+    UiSurfaceBackdropFilterProjection, UiSurfaceBackgroundPositionProjection,
+    UiSurfaceBorderStyleProjection, UiSurfaceEdgeInsetsProjection, UiSurfaceFilterProjection,
+    UiSurfaceFontStyleProjection, UiSurfaceGradientKindProjection, UiSurfaceGradientProjection,
+    UiSurfaceGradientStopProjection, UiSurfaceObjectFitProjection,
+    UiSurfaceRadialGradientShapeProjection, UiSurfaceResolvedStyle, UiSurfaceShadowProjection,
+    UiSurfaceTextAlignProjection, UiSurfaceTextDecorationProjection,
     UiSurfaceTextOverflowProjection, UiSurfaceTextTransformProjection,
     UiSurfaceTransitionEasingProjection, UiSurfaceTransitionProjection,
     UiSurfaceTransitionPropertyProjection, UiSurfaceWhiteSpaceProjection,

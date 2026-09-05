@@ -1,5 +1,5 @@
-/// Backdrop-blur pass.  Samples the captured pre-Safe-plane framebuffer with a
-/// separable 5-tap Gaussian and blends the result over the quad.
+/// Backdrop blur samples the preceding paint in its backdrop root with a
+/// two-dimensional Gaussian, then blends the result over the quad.
 ///
 /// Vertex layout is identical to every other pass (position + uv + color +
 /// effect0..2).  `effect0.x` carries the blur radius in **physical pixels**.
@@ -77,10 +77,10 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
 
     let radius = max(input.effect0.x, 0.0);
     let tex_size = vec2<f32>(textureDimensions(backdrop_texture));
-    // Divide by 2 so the 5 taps land at {0, ±r/2, ±r} pixels, matching the
-    // CSS blur(r) envelope where σ ≈ r/2 and ±2σ ≈ ±r.
-    let step_x = vec2<f32>(radius / (2.0 * max(tex_size.x, 1.0)), 0.0);
-    let step_y = vec2<f32>(0.0, radius / (2.0 * max(tex_size.y, 1.0)));
+    // CSS filter blur uses sigma = radius. This binomial kernel has unit
+    // variance, so adjacent taps are one sigma apart.
+    let step_x = vec2<f32>(radius / max(tex_size.x, 1.0), 0.0);
+    let step_y = vec2<f32>(0.0, radius / max(tex_size.y, 1.0));
 
     // Two-pass separable Gaussian via manual horizontal then vertical taps.
     var blurred = vec4<f32>(0.0);
@@ -92,7 +92,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
 
     // Modulate by the command opacity (stored in vertex color.a) so presence
     // transitions work the same way they do for other Safe-plane draws.
-    return vec4<f32>(blurred.rgb, blurred.a * input.color.a);
+    return vec4<f32>(blurred.rgb / max(blurred.a, 0.00001), blurred.a * input.color.a);
 }
 "#;
 
@@ -167,6 +167,14 @@ fn gaussian_cdf(distance: f32, sigma: f32) -> f32 {
     return 0.5 * (1.0 + erf_approx(distance / (1.41421356237 * sigma)));
 }
 
+// CSS interpolates gradient stops in premultiplied sRGB. The pipeline uses
+// straight-alpha source-over, so unpremultiply only after interpolation.
+fn gradient_mix(start: vec4<f32>, end: vec4<f32>, progress: f32) -> vec4<f32> {
+    let alpha = mix(start.a, end.a, progress);
+    let rgb = mix(start.rgb * start.a, end.rgb * end.a, progress);
+    return vec4<f32>(rgb / max(alpha, 0.000001), alpha);
+}
+
 @fragment
 fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     // Gradient UVs are pre-warped on the CPU for linear/circle geometry.
@@ -187,7 +195,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
             0.0,
             1.0,
         );
-        return mix(input.color, input.effect0, progress);
+        return gradient_mix(input.color, input.effect0, progress);
     }
     if (gradient_mode > 4.5) {
         let global_progress = distance(input.uv, input.effect1.xy) * input.effect1.z;
@@ -202,7 +210,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
             0.0,
             1.0,
         );
-        return mix(input.color, input.effect0, progress);
+        return gradient_mix(input.color, input.effect0, progress);
     }
 
     let mode = input.effect0.x;
@@ -414,6 +422,9 @@ fn bounded_text_mask(uv: vec2<f32>, uv_min: vec2<f32>, uv_max: vec2<f32>) -> f32
 
 @fragment
 fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
+    if (input.effect0.x < -0.5) {
+        return input.color;
+    }
     if (input.effect0.x < 0.5) {
         let mask = textureSample(text_atlas, text_atlas_sampler, input.uv).a;
         return vec4<f32>(input.color.rgb, input.color.a * mask);

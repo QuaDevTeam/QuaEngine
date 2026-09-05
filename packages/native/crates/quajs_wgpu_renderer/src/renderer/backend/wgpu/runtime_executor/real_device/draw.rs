@@ -56,6 +56,11 @@ impl RealWgpuNativeRenderRuntimeDevice {
         };
 
         let draw = RealRuntimeDrawIndexed {
+            composite_groups: self
+                .composite_groups
+                .get(command_id)
+                .cloned()
+                .unwrap_or_default(),
             command_id: command_id.to_string(),
             vertex_buffer_label,
             index_buffer_label,

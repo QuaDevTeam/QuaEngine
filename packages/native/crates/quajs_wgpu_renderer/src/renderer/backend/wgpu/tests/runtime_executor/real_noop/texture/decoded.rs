@@ -62,7 +62,7 @@ fn real_noop_backend_uses_uploaded_decoded_texture_in_generated_frame_plan() {
     assert_eq!(runtime_report.draw_indexed_count, 1);
     assert_eq!(runtime_report.bind_group_create_count, 1);
     assert_eq!(runtime_report.resident_texture_count, 1);
-    assert_eq!(runtime_report.resident_texture_byte_len, 16);
+    assert_eq!(runtime_report.resident_texture_byte_len, 20);
     assert_eq!(
         runtime_report
             .texture_sampler_diagnostics
@@ -87,7 +87,7 @@ fn real_noop_backend_uses_uploaded_decoded_texture_in_generated_frame_plan() {
         Some(&WgpuNativeRenderRuntimeTexturePackageMemory {
             owned_count: 1,
             dependent_count: 0,
-            owned_byte_len: 16,
+            owned_byte_len: 20,
             dependent_byte_len: 0,
         })
     );
@@ -99,7 +99,7 @@ fn real_noop_backend_uses_uploaded_decoded_texture_in_generated_frame_plan() {
             owned_count: 0,
             dependent_count: 1,
             owned_byte_len: 0,
-            dependent_byte_len: 16,
+            dependent_byte_len: 20,
         })
     );
     assert_eq!(

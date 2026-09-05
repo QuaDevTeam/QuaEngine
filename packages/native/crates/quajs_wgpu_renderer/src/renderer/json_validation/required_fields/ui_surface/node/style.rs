@@ -50,6 +50,10 @@ pub(super) fn validate_ui_surface_node_style_shape_required_fields(
     if !errors.is_empty() {
         return;
     }
+    validate_backdrop_filter_object_field(style_object, path, errors);
+    if !errors.is_empty() {
+        return;
+    }
     validate_shadow_object_field(style_object, path, "boxShadow", errors);
     if !errors.is_empty() {
         return;
@@ -65,6 +69,29 @@ pub(super) fn validate_ui_surface_node_style_shape_required_fields(
         is_native_ui_surface_padding_field,
         errors,
     );
+}
+
+fn validate_backdrop_filter_object_field(
+    style_object: &serde_json::Map<String, Value>,
+    path: &str,
+    errors: &mut Vec<NativeRendererJsonValidationError>,
+) {
+    let Some(filter) = validate_object_field(
+        style_object,
+        path,
+        "backdropFilter",
+        |field| field == "blurRadius",
+        errors,
+    ) else {
+        return;
+    };
+    if filter.get("blurRadius").is_none_or(Value::is_null) {
+        errors.push(NativeRendererJsonValidationError {
+            path: format!("{path}.style.backdropFilter.blurRadius"),
+            asset_name: String::new(),
+            reason: "must be explicitly provided for native UI backdropFilter in resolved projection JSON".to_string(),
+        });
+    }
 }
 
 fn validate_gradient_object_field(
@@ -291,6 +318,7 @@ fn is_native_ui_surface_style_field(field: &str) -> bool {
             | "backgroundImage"
             | "backgroundGradient"
             | "filter"
+            | "backdropFilter"
             | "backgroundPosition"
             | "backgroundSize"
             | "borderColor"
@@ -299,6 +327,10 @@ fn is_native_ui_surface_style_field(field: &str) -> bool {
             | "borderBottomColor"
             | "borderLeftColor"
             | "borderRadius"
+            | "borderTopLeftRadius"
+            | "borderTopRightRadius"
+            | "borderBottomRightRadius"
+            | "borderBottomLeftRadius"
             | "borderStyle"
             | "borderWidth"
             | "borderTopWidth"
@@ -317,6 +349,7 @@ fn is_native_ui_surface_style_field(field: &str) -> bool {
             | "objectPosition"
             | "opacity"
             | "padding"
+            | "rotateDeg"
             | "textAlign"
             | "textDecoration"
             | "textOverflow"
@@ -341,7 +374,17 @@ fn is_native_ui_surface_gradient_field(field: &str) -> bool {
 }
 
 fn is_native_ui_surface_filter_field(field: &str) -> bool {
-    matches!(field, "brightness" | "saturate")
+    matches!(
+        field,
+        "brightness"
+            | "saturate"
+            | "blur"
+            | "contrast"
+            | "grayscale"
+            | "sepia"
+            | "hueRotate"
+            | "invert"
+    )
 }
 
 fn is_native_ui_surface_position_field(field: &str) -> bool {

@@ -14,6 +14,8 @@ use super::uniforms::RealRuntimeFrameUniforms;
 
 #[derive(Debug)]
 pub struct RealWgpuNativeRenderRuntimeDevice {
+    pub(super) composite_groups: BTreeMap<String, Vec<crate::render_graph::DrawCompositeGroup>>,
+    pub(super) compositor: Option<super::pass::composite::Compositor>,
     pub(super) target: RealWgpuNativeRenderRuntimeTarget,
     pub(super) uniforms: RealRuntimeFrameUniforms,
     pub(super) texture_sampler_bind_group_layout: wgpu::BindGroupLayout,
@@ -24,7 +26,7 @@ pub struct RealWgpuNativeRenderRuntimeDevice {
     pub(super) decoded_textures: BTreeMap<String, RealRuntimeDecodedTexture>,
     pub(super) frame_target: RealRuntimeFrameTarget,
     /// Persistent texture used as the source for `BackdropBlur` draws.  Created
-    /// on first `CopyFramebufferToBackdrop` and recreated whenever the frame
+    /// on the first backdrop draw and recreated whenever the frame
     /// dimensions change.
     pub(super) backdrop_texture: Option<wgpu::Texture>,
     pub(super) active_encoder: Option<RealRuntimeEncoder>,
@@ -38,6 +40,8 @@ impl Clone for RealWgpuNativeRenderRuntimeDevice {
             "committed real-wgpu runtime device should not retain an active encoder"
         );
         Self {
+            composite_groups: self.composite_groups.clone(),
+            compositor: self.compositor.clone(),
             target: self.target.clone(),
             uniforms: self.uniforms.clone(),
             texture_sampler_bind_group_layout: self.texture_sampler_bind_group_layout.clone(),
@@ -62,6 +66,8 @@ impl RealWgpuNativeRenderRuntimeDevice {
         let text_atlas_bind_group_layout = create_real_text_atlas_bind_group_layout(&target);
         let frame_target = RealRuntimeFrameTarget::new(&target);
         Self {
+            composite_groups: BTreeMap::new(),
+            compositor: None,
             target,
             uniforms,
             texture_sampler_bind_group_layout,

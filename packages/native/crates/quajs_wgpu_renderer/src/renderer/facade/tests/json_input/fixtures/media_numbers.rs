@@ -299,7 +299,7 @@ pub(in super::super) fn json_frame_with_oversized_audio_volume_input() -> &'stat
               "assetType": "bgm",
               "loadMode": "buffered",
               "playbackState": "playing",
-              "volume": 1.5
+              "volume": 16.5
             }
           ]
         }

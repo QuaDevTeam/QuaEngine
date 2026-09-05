@@ -13,3 +13,4 @@ pub(super) use decoded::{create_runtime_decoded_texture_rgba8, RealRuntimeDecode
 pub use decoded::{RealWgpuDecodedTextureMetadata, RealWgpuDecodedTextureRgba8};
 #[cfg(test)]
 pub(super) use placeholder::placeholder_texture_rgba8;
+mod mipmap;

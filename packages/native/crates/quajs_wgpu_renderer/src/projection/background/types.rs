@@ -4,6 +4,75 @@ use serde::{Deserialize, Serialize};
 
 use crate::projection::defaults::{default_one_f32, default_one_f64, default_true};
 
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BackgroundFilterProjection {
+    #[serde(default = "default_one_f64")]
+    pub brightness: f64,
+    #[serde(default = "default_one_f64")]
+    pub saturate: f64,
+    #[serde(default)]
+    pub blur: f64,
+    #[serde(default = "default_one_f64")]
+    pub contrast: f64,
+    #[serde(default)]
+    pub grayscale: f64,
+    #[serde(default)]
+    pub sepia: f64,
+    #[serde(default)]
+    pub hue_rotate: f64,
+    #[serde(default)]
+    pub invert: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub drop_shadow: Option<String>,
+}
+
+impl Default for BackgroundFilterProjection {
+    fn default() -> Self {
+        Self {
+            brightness: 1.0,
+            saturate: 1.0,
+            blur: 0.0,
+            contrast: 1.0,
+            grayscale: 0.0,
+            sepia: 0.0,
+            hue_rotate: 0.0,
+            invert: 0.0,
+            drop_shadow: None,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BackgroundMaskProjection {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub asset_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub asset_type: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mode: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub position: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub size: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub repeat: Option<String>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BackgroundCompositionProjection {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub blend_mode: Option<String>,
+    #[serde(default)]
+    pub isolation: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub filter: Option<BackgroundFilterProjection>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mask: Option<BackgroundMaskProjection>,
+}
+
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum BackgroundMode {
@@ -52,6 +121,8 @@ pub struct BackgroundProjection {
     pub rotation: f64,
     #[serde(default = "default_one_f32")]
     pub opacity: f32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub composition: Option<BackgroundCompositionProjection>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub layers: Vec<BackgroundLayerProjection>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -75,6 +146,7 @@ impl Default for BackgroundProjection {
             scale: 1.0,
             rotation: 0.0,
             opacity: 1.0,
+            composition: None,
             layers: Vec::new(),
             video: None,
             provenance: PackageProvenance::default(),
@@ -109,6 +181,8 @@ pub struct BackgroundLayerProjection {
     pub rotation: f64,
     #[serde(default = "default_one_f32")]
     pub opacity: f32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub composition: Option<BackgroundCompositionProjection>,
     #[serde(default)]
     pub z_index: i32,
     #[serde(default, skip_serializing_if = "PackageProvenance::is_empty")]
@@ -131,6 +205,7 @@ impl BackgroundLayerProjection {
             scale: 1.0,
             rotation: 0.0,
             opacity: 1.0,
+            composition: None,
             z_index: 0,
             provenance: PackageProvenance::default(),
         }

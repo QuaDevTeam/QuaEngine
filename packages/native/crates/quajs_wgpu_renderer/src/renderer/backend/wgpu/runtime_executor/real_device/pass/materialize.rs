@@ -22,31 +22,86 @@ pub(in crate::renderer::backend::wgpu::runtime_executor::real_device) fn materia
     bind_groups: &BTreeMap<String, RealRuntimeBindGroup>,
     encoder: &mut wgpu::CommandEncoder,
     pass: RealRuntimePass,
+    compositor: Option<&mut super::composite::Compositor>,
+    backdrop: &mut Option<wgpu::Texture>,
+    backdrop_root: Option<(&str, &RealRuntimeFrameTarget)>,
 ) -> Result<(), WgpuNativeRenderRuntimeError> {
+    if let Some(compositor) =
+        compositor.filter(|_| pass.draws.iter().any(|d| !d.composite_groups.is_empty()))
+    {
+        validate_materializable_pass(target, buffers, pipelines, bind_groups, &pass)?;
+        return compositor.materialize(
+            target,
+            frame_target,
+            uniforms,
+            buffers,
+            pipelines,
+            bind_groups,
+            encoder,
+            pass,
+            0,
+            backdrop,
+            None,
+        );
+    }
     if pass.draws.is_empty() {
         return materialize_empty_pass(target, frame_target, encoder, pass);
     }
 
     validate_materializable_pass(target, buffers, pipelines, bind_groups, &pass)?;
 
-    {
-        let color_attachments = frame_color_attachments(frame_target);
-        let mut render_pass = begin_real_render_pass(encoder, &pass.label, &color_attachments);
-        set_viewport(&mut render_pass, pass.viewport);
-        render_pass.set_bind_group(0, &uniforms.bind_group, &[]);
-        for draw in pass.draws {
-            materialize_draw(
+    let mut remaining = pass.draws.as_slice();
+    while !remaining.is_empty() {
+        let is_backdrop = |draw: &RealRuntimeDrawIndexed| {
+            pipelines[&draw.pipeline_cache_label].key.shader
+                == crate::renderer::backend::wgpu::WgpuNativeRenderShader::BackdropBlur
+        };
+        let mut override_binding = None;
+        let count = if is_backdrop(&remaining[0]) {
+            if frame_target.completed_pass_count() == 0 {
+                let mut clear = pass.clone();
+                clear.draws.clear();
+                materialize_empty_pass(target, frame_target, encoder, clear)?;
+            }
+            let source = backdrop_root
+                .filter(|(id, _)| remaining[0].command_id == format!("{id}:backdrop-blur"))
+                .map_or(&*frame_target, |(_, source)| source);
+            let pipeline = &pipelines[&remaining[0].pipeline_cache_label].pipeline;
+            override_binding = Some(super::super::resources::backdrop::capture_backdrop(
                 target,
-                &pass.label,
-                buffers,
-                pipelines,
-                bind_groups,
-                &mut render_pass,
-                draw,
-            )?;
+                source,
+                backdrop,
+                encoder,
+                &pipeline.get_bind_group_layout(1),
+            ));
+            1
+        } else {
+            remaining
+                .iter()
+                .position(is_backdrop)
+                .unwrap_or(remaining.len())
+        };
+        {
+            let color_attachments = frame_color_attachments(frame_target);
+            let mut render_pass = begin_real_render_pass(encoder, &pass.label, &color_attachments);
+            set_viewport(&mut render_pass, pass.viewport);
+            render_pass.set_bind_group(0, &uniforms.bind_group, &[]);
+            for draw in remaining[..count].iter().cloned() {
+                materialize_draw(
+                    target,
+                    &pass.label,
+                    buffers,
+                    pipelines,
+                    bind_groups,
+                    &mut render_pass,
+                    draw,
+                    override_binding.as_ref(),
+                )?;
+            }
         }
+        frame_target.finish_pass();
+        remaining = &remaining[count..];
     }
-    frame_target.finish_pass();
 
     Ok(())
 }
@@ -89,6 +144,7 @@ fn materialize_draw(
     bind_groups: &BTreeMap<String, RealRuntimeBindGroup>,
     render_pass: &mut wgpu::RenderPass<'_>,
     draw: RealRuntimeDrawIndexed,
+    override_binding: Option<&wgpu::BindGroup>,
 ) -> Result<(), WgpuNativeRenderRuntimeError> {
     let vertex_buffer = vertex_buffer_for_draw(pass_label, &draw, buffers)?;
     let index_buffer = index_buffer_for_draw(pass_label, &draw, buffers)?;
@@ -98,7 +154,9 @@ fn materialize_draw(
     render_pass.set_vertex_buffer(0, vertex_buffer.buffer.slice(..));
     render_pass.set_index_buffer(index_buffer.buffer.slice(..), wgpu::IndexFormat::Uint32);
     render_pass.set_pipeline(&pipeline.pipeline);
-    if let Some(bind_group) = bind_group {
+    if let Some(binding) = override_binding {
+        render_pass.set_bind_group(1, binding, &[]);
+    } else if let Some(bind_group) = bind_group {
         render_pass.set_bind_group(1, &bind_group.bind_group, &[]);
     }
     validate_draw(

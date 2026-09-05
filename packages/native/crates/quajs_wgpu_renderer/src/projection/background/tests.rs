@@ -52,6 +52,39 @@ fn builds_main_image_background_command() {
 }
 
 #[test]
+fn forwards_background_composition_filter_to_image_draw_params() {
+    let layout = test_layout();
+    let background = BackgroundProjection {
+        asset_name: Some("bg/filtered.png".to_string()),
+        composition: Some(BackgroundCompositionProjection {
+            blend_mode: Some("screen".to_string()),
+            isolation: true,
+            filter: Some(BackgroundFilterProjection {
+                brightness: 1.2,
+                saturate: 0.8,
+                contrast: 1.1,
+                hue_rotate: 90.0,
+                ..Default::default()
+            }),
+            mask: Some(BackgroundMaskProjection {
+                asset_name: Some("masks/vignette.png".to_string()),
+                ..Default::default()
+            }),
+        }),
+        ..Default::default()
+    };
+
+    let commands = build_background_commands(&layout, &background);
+    let DrawCommandParams::Image(params) = &commands[0].params else {
+        panic!("expected image draw params")
+    };
+    assert_eq!(params.brightness, 1.2);
+    assert_eq!(params.saturation, 0.8);
+    assert_eq!(params.contrast, 1.1);
+    assert!((params.hue_rotate_radians - std::f64::consts::FRAC_PI_2).abs() < 1e-9);
+}
+
+#[test]
 fn builds_visible_layered_background_commands_in_scene_plane() {
     let layout = test_layout();
     let background = BackgroundProjection {
@@ -563,6 +596,35 @@ fn deserializes_background_rotation_from_camel_case_json() {
 
     assert_eq!(background.rotation, 24.5);
     assert_eq!(background.layers[0].rotation, -16.25);
+}
+
+#[test]
+fn deserializes_background_composition_from_camel_case_json() {
+    let background: BackgroundProjection = serde_json::from_str(
+        r#"{
+          "mode":"image",
+          "assetName":"bg/filtered.png",
+          "composition":{
+            "blendMode":"screen",
+            "isolation":true,
+            "filter":{"brightness":1.2,"saturate":0.8,"hueRotate":90},
+            "mask":{"assetName":"masks/vignette.png","mode":"alpha"}
+          }
+        }"#,
+    )
+    .expect("background composition JSON should deserialize");
+    let composition = background.composition.expect("composition");
+    assert_eq!(composition.blend_mode.as_deref(), Some("screen"));
+    assert!(composition.isolation);
+    let filter = composition.filter.expect("filter");
+    assert_eq!(filter.brightness, 1.2);
+    assert_eq!(filter.saturate, 0.8);
+    assert_eq!(filter.contrast, 1.0);
+    assert_eq!(filter.hue_rotate, 90.0);
+    assert_eq!(
+        composition.mask.unwrap().asset_name.as_deref(),
+        Some("masks/vignette.png")
+    );
 }
 
 #[test]

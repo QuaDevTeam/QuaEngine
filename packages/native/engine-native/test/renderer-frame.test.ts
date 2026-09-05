@@ -2,6 +2,30 @@ import { describe, expect, it } from 'vitest'
 import { createNativeRendererJsonFrameInput } from '../src'
 
 describe('native renderer frame serialization', () => {
+  it('preserves background composition fields across the native frame boundary', () => {
+    const frame = createNativeRendererJsonFrameInput({
+      background: {
+        mode: 'image',
+        assetName: 'bg/filtered.png',
+        composition: {
+          blendMode: 'screen',
+          isolation: true,
+          filter: { brightness: 1.2, contrast: 1.1, hueRotate: 90, invert: 0.25 },
+          mask: { assetName: 'masks/vignette.png', assetType: 'images', mode: 'alpha' },
+        },
+      },
+    })
+
+    expect(frame.view.background).toEqual(expect.objectContaining({
+      composition: {
+        blendMode: 'screen',
+        isolation: true,
+        filter: { brightness: 1.2, contrast: 1.1, hueRotate: 90, invert: 0.25 },
+        mask: { assetName: 'masks/vignette.png', assetType: 'images', mode: 'alpha' },
+      },
+    }))
+  })
+
   it('serializes rich text font families as native string arrays', () => {
     const frame = createNativeRendererJsonFrameInput({
       dialogue: {

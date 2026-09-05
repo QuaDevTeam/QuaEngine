@@ -81,6 +81,7 @@ pub fn native_wgpu_capabilities() -> Vec<RendererCapability> {
                 "background-image",
                 "background-position",
                 "background-size",
+                "backdrop-filter",
                 "border-color",
                 "border-radius",
                 "border-style",

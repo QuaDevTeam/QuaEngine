@@ -26,7 +26,7 @@ fn noop_device_tracks_decoded_texture_package_memory_and_releases_owned_package_
     let snapshot = device.snapshot();
 
     assert_eq!(snapshot.resident_texture_count, 2);
-    assert_eq!(snapshot.resident_texture_byte_len, 20);
+    assert_eq!(snapshot.resident_texture_byte_len, 24);
     assert_eq!(
         snapshot.resident_texture_resource_ids,
         vec![
@@ -41,7 +41,7 @@ fn noop_device_tracks_decoded_texture_package_memory_and_releases_owned_package_
         Some(&WgpuNativeRenderRuntimeTexturePackageMemory {
             owned_count: 1,
             dependent_count: 0,
-            owned_byte_len: 16,
+            owned_byte_len: 20,
             dependent_byte_len: 0,
         })
     );
@@ -51,7 +51,7 @@ fn noop_device_tracks_decoded_texture_package_memory_and_releases_owned_package_
             owned_count: 0,
             dependent_count: 2,
             owned_byte_len: 0,
-            dependent_byte_len: 20,
+            dependent_byte_len: 24,
         })
     );
 
