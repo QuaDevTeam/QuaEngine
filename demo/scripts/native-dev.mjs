@@ -9,7 +9,7 @@ import {
   loadQuaProjectConfig,
 } from '@quajs/quack/project'
 import { spawn } from 'node:child_process'
-import { watch } from 'node:fs'
+import { readFileSync, watch } from 'node:fs'
 import { readFile, rm } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -211,7 +211,14 @@ function installWatchers() {
     }))
   }
   for (const file of ['qua.project.yaml', 'quack.workspace.ts']) {
+    let contents = readFileSync(resolve(DEMO_ROOT, file), 'utf8')
     watchers.push(watch(resolve(DEMO_ROOT, file), () => {
+      const next = readFileSync(resolve(DEMO_ROOT, file), 'utf8')
+      if (next === contents) return
+      contents = next
+      if (rebuilding || stopped) {
+        return
+      }
       clearTimeout(debounceTimer)
       debounceTimer = setTimeout(() => void rebuildAndLaunch().catch(error => console.error(error)), 180)
     }))

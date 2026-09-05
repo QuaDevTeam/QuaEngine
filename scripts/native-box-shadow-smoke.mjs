@@ -1,15 +1,16 @@
 import { spawnSync } from 'node:child_process'
-import { existsSync, readFileSync, rmSync } from 'node:fs'
+import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { inflateSync } from 'node:zlib'
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)))
+const uiPaint = process.argv.includes('--ui')
 const fixturePath = resolve(
   root,
-  'packages/native/test-fixtures/renderer/box-shadow-feather-frame.json',
+  `packages/native/test-fixtures/renderer/${uiPaint ? 'ui-paint' : 'box-shadow-feather'}-frame.json`,
 )
-const capturePath = resolve(root, 'packages/native/target/box-shadow-lab.png')
+const capturePath = resolve(root, `packages/native/target/${uiPaint ? 'ui-paint' : 'box-shadow'}-lab.png`)
 const dev = process.argv.includes('--dev')
 
 if (!existsSync(fixturePath)) {
@@ -119,8 +120,94 @@ else {
     throw new Error(`Soft inset shadow did not produce enough feather levels: ${insetDeltas}`)
   }
 
+  if (uiPaint) {
+    const checks = [
+      [400, 150, [0, 255, 0], 'gradient above opaque background color'],
+      [224, 804, background, 'rounded child corner'],
+      [400, 890, [0, 255, 0], 'rounded child center'],
+      [925, 805, background, 'nested clip corner'],
+      [1030, 890, [0, 170, 255], 'nested clip center'],
+      [1344, 804, [255, 0, 255], 'overflow visible remains square'],
+    ]
+    for (const [x, y, expected, label] of checks) {
+      const actual = sample(x, y)
+      if (colorDistance(actual, expected) > 12)
+        throw new Error(`${label}: expected ${expected}, got ${actual}`)
+    }
+  }
+
+  if (uiPaint && process.argv.includes('--web')) {
+    const { chromium } = await import('playwright')
+    const browser = await chromium.launch({ channel: process.env.QUA_PARITY_BROWSER || 'chrome' })
+    try {
+      const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } })
+      const fixture = JSON.parse(readFileSync(fixturePath, 'utf8'))
+      const rootNode = fixture.view.ui.overlays[0].surface.root
+      await page.setContent('<style>html,body{margin:0;background:#20252b}div{position:absolute;box-sizing:border-box}</style>')
+      await page.evaluate(root => {
+        function project(node, parent, origin = { x: 0, y: 0 }) {
+          const element = document.createElement('div')
+          const b = node.bounds
+          const s = node.style || {}
+          Object.assign(element.style, {
+            left: `${b.x - origin.x}px`, top: `${b.y - origin.y}px`,
+            width: `${b.width}px`, height: `${b.height}px`,
+            backgroundColor: s.backgroundColor || 'transparent',
+            borderRadius: `${s.borderRadius || 0}px`,
+            overflow: node.clipChildren ? 'hidden' : 'visible',
+          })
+          if (s.boxShadow) {
+            const v = s.boxShadow
+            element.style.boxShadow = `${v.inset ? 'inset ' : ''}${v.offsetX}px ${v.offsetY}px ${v.blurRadius}px ${v.spreadRadius}px ${v.color}`
+          }
+          if (s.backgroundGradient) {
+            const g = s.backgroundGradient
+            element.style.backgroundImage = `linear-gradient(${g.angleDegrees}deg, ${g.stops.map(stop => `${stop.color} ${stop.position * 100}%`).join(', ')})`
+          }
+          parent.append(element)
+          for (const child of node.children || []) project(child, element, b)
+        }
+        project(root, document.body)
+      }, rootNode)
+      const webPath = resolve(root, 'packages/native/target/ui-paint-web.png')
+      await page.screenshot({ path: webPath })
+      const webImage = decodeRgbaPng(readFileSync(webPath))
+      if (webImage.width !== image.width || webImage.height !== image.height)
+        throw new Error('Native/Web UI paint capture dimensions differ')
+      const comparisons = [
+        ['hard-shadow', [180, 300, 620, 710], 1.5],
+        ['outer-shadow', [620, 220, 1300, 800], 5],
+        ['inset-shadow', [1340, 360, 1700, 660], 5],
+        ['rounded-overflow', [200, 780, 600, 1000], 1.5],
+        ['nested-overflow', [760, 760, 1160, 1000], 1.5],
+        ['background-order', [200, 80, 600, 220], 1.5],
+      ].map(([name, [left, top, right, bottom], tolerance]) => {
+        let total = 0
+        for (let y = top; y < bottom; y++) {
+          for (let x = left; x < right; x++) {
+            const offset = (y * image.width + x) * 4
+            for (let channel = 0; channel < 3; channel++)
+              total += Math.abs(image.rgba[offset + channel] - webImage.rgba[offset + channel])
+          }
+        }
+        const meanChannelError = total / ((right - left) * (bottom - top) * 3)
+        return { name, meanChannelError, tolerance, passed: meanChannelError <= tolerance }
+      })
+      writeFileSync(resolve(root, 'packages/native/target/ui-paint-comparison.json'), JSON.stringify(comparisons, null, 2))
+      if (comparisons.some(check => !check.passed))
+        throw new Error(`Native/Web UI paint regression: ${JSON.stringify(comparisons)}`)
+      const reviewPath = resolve(root, 'packages/native/target/ui-paint-review.html')
+      writeFileSync(reviewPath, `<!doctype html><meta charset="utf-8"><title>Native / Web UI paint</title>
+<style>body{background:#20252b;color:white;font:16px sans-serif}section{position:relative;width:100%}img{width:100%;display:block}#native{position:absolute;inset:0;clip-path:inset(0 50% 0 0)}input{width:100%}</style>
+<p>Native 左 / Web 右。比较阴影、圆角、嵌套裁剪与背景绘制顺序；相同逻辑坐标，不代表完整 CSS 布局兼容。</p>
+<section><img src="ui-paint-web.png"><img id="native" src="ui-paint-lab.png"></section>
+<input type="range" value="50" oninput="document.getElementById('native').style.clipPath='inset(0 '+(100-this.value)+'% 0 0)'">`)
+      console.log(`Browser reference and comparison: ${reviewPath}`)
+    } finally { await browser.close() }
+  }
+
   console.log(JSON.stringify({
-    test: 'native.box-shadow.real-gpu.feather',
+    test: uiPaint ? 'native.ui.real-gpu.paint' : 'native.box-shadow.real-gpu.feather',
     capturePath,
     dimensions: `${image.width}x${image.height}`,
     outerDeltas,
@@ -191,14 +278,14 @@ function decodeRgbaPng(bytes) {
       break
     }
   }
-  if (!width || !height || bitDepth !== 8 || colorType !== 6 || interlace !== 0) {
+  if (!width || !height || bitDepth !== 8 || ![2, 6].includes(colorType) || interlace !== 0) {
     throw new Error(
-      `Expected a non-interlaced 8-bit RGBA PNG, got ${width}x${height} depth=${bitDepth} type=${colorType}`,
+      `Expected a non-interlaced 8-bit RGB/RGBA PNG, got ${width}x${height} depth=${bitDepth} type=${colorType}`,
     )
   }
 
   const packed = inflateSync(Buffer.concat(idat))
-  const bytesPerPixel = 4
+  const bytesPerPixel = colorType === 6 ? 4 : 3
   const stride = width * bytesPerPixel
   const rgba = Buffer.alloc(stride * height)
   let sourceOffset = 0
@@ -217,7 +304,10 @@ function decodeRgbaPng(bytes) {
       rgba[rowOffset + x] = (raw + filterPredictor(filter, left, up, upperLeft)) & 0xff
     }
   }
-  return { width, height, rgba }
+  if (bytesPerPixel === 4) return { width, height, rgba }
+  const expanded = Buffer.alloc(width * height * 4, 255)
+  for (let i = 0; i < width * height; i++) rgba.copy(expanded, i * 4, i * 3, i * 3 + 3)
+  return { width, height, rgba: expanded }
 }
 
 function filterPredictor(filter, left, up, upperLeft) {

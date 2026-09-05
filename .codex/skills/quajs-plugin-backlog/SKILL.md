@@ -134,3 +134,9 @@ Run engine rollback/save-load tests when checkpoint or runtime dependency behavi
 - Does runtime unload remove dependent entries safely?
 - Are player progress and save/load semantics preserved?
 - If backlog policy, decorator, projection, or renderer intent behavior changed, was this skill updated?
+
+## Native history layout
+
+The native panel is centered and bounded to 1040×660 logical pixels. History rows grow to accommodate newline-preserving wrapped text, keep metadata and replay/rewind controls separate, and overflow through the enclosing Scroll node. Do not use ellipsis as the only path to read long history entries. Row sizing is a projection estimate; test long CJK text and adjacent-row non-overlap without changing retention or rewind policy.
+
+`createBacklogNativeRendererFeature({ resolvePanelBounds, density })` permits pure product-owned logical bounds and optional `density: 'compact'`. Compact mode separates index/time from speaker/body and retains long-row growth, scrolling, rewind/voice allowlists and package provenance. The default comfortable layout remains available. Bounds callbacks only project UI and must not write engine state. Test both densities, long text, adjacent-row non-overlap and callback placement.

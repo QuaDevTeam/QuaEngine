@@ -37,11 +37,16 @@ fn projects_surface_background_image_as_package_image_command() {
 
     assert_eq!(
         ids,
-        vec!["ui:menu", "ui:menu:root:background-image", "ui:menu:root"]
+        vec![
+            "ui:menu",
+            "ui:menu:root:background-fill",
+            "ui:menu:root:background-image",
+            "ui:menu:root"
+        ]
     );
 
-    let image = &commands[1];
-    let panel = &commands[2];
+    let image = &commands[2];
+    let panel = &commands[3];
     assert_eq!(image.kind, DrawCommandKind::Image);
     assert_eq!(image.plane, RenderPlane::Screen);
     assert_eq!(image.z_index, panel.z_index);
@@ -73,9 +78,12 @@ fn projects_surface_background_image_as_package_image_command() {
         }
         _ => panic!("expected background image params"),
     }
+    assert!(
+        matches!(&commands[1].params, DrawCommandParams::Panel(p) if p.fill_color == "#101820")
+    );
     match &panel.params {
         DrawCommandParams::Panel(params) => {
-            assert_eq!(params.fill_color, "#101820");
+            assert_eq!(params.fill_color, "transparent");
             assert_eq!(params.role, "ui-box");
         }
         _ => panic!("expected panel params"),
@@ -131,14 +139,15 @@ fn projects_surface_gradient_in_the_same_stable_paint_layer_as_the_surface() {
             .collect::<Vec<_>>(),
         vec![
             "ui:gradient",
+            "ui:gradient:root:background-fill",
             "ui:gradient:root:background-gradient",
             "ui:gradient:root:background-gradient-1",
             "ui:gradient:root",
         ]
     );
-    let first_gradient = &commands[1];
-    let second_gradient = &commands[2];
-    let surface = &commands[3];
+    let first_gradient = &commands[2];
+    let second_gradient = &commands[3];
+    let surface = &commands[4];
     assert_eq!(first_gradient.z_index, surface.z_index);
     assert_eq!(second_gradient.z_index, surface.z_index);
     match &first_gradient.params {
@@ -198,9 +207,14 @@ fn projects_surface_background_image_custom_asset_type_and_node_provenance() {
             .iter()
             .map(|command| command.id.as_str())
             .collect::<Vec<_>>(),
-        vec!["ui:menu", "ui:menu:root:background-image", "ui:menu:root"]
+        vec![
+            "ui:menu",
+            "ui:menu:root:background-fill",
+            "ui:menu:root:background-image",
+            "ui:menu:root"
+        ]
     );
-    let image = &commands[1];
+    let image = &commands[2];
     assert_eq!(image.kind, DrawCommandKind::Image);
     assert_eq!(image.owner_package_id.as_deref(), Some("runtime.skin"));
     assert!(image.required_package_ids.contains("base.ui"));

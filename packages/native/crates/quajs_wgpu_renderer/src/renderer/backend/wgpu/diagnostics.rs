@@ -49,9 +49,9 @@ where
         WgpuNativeRenderBackendDiagnostics {
             feature_enabled: true,
             device_attached: self.runtime_executor.device_attached(),
-            submitted_frames: self.submissions.len(),
+            submitted_frames: self.submitted_frames,
             stable_plan_reuse_count: self.stable_plan_reuse_count,
-            resources: NativeRenderBackendResourceDiagnostics::from_submissions(&self.submissions),
+            resources: self.resource_diagnostics.clone(),
             fallback_warnings: self.fallback_warnings.diagnostics(),
             last_submission: self.submissions.last().cloned(),
             last_draw_plan: self.last_draw_plan().cloned(),

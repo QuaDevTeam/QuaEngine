@@ -79,7 +79,10 @@ impl WgpuNativeRenderTextStyle {
             letter_spacing: params.letter_spacing * physical_scale,
             line_height: params.line_height * physical_scale,
             align: params.align,
-            vertical_align: if params.role == "dialogue-text" {
+            vertical_align: if matches!(
+                params.role.as_str(),
+                "dialogue-text" | "dialogue-text-shadow"
+            ) {
                 WgpuNativeRenderVerticalAlign::Top
             } else {
                 WgpuNativeRenderVerticalAlign::Middle

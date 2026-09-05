@@ -105,6 +105,10 @@ async function main() {
         const filtered = commands.filter(command =>
           (!interactive || command.interactive)
           && (!grep || command.id.includes(grep) || (command.text ?? '').includes(grep)))
+        if (args.includes('--json')) {
+          console.log(JSON.stringify(filtered, null, 2))
+          break
+        }
         for (const command of filtered) {
           const text = command.text ? ` "${command.text.slice(0, 40)}"` : ''
           console.log(`${command.interactive ? '*' : ' '} ${command.id} [${command.kind}] (${command.bounds.x},${command.bounds.y} ${command.bounds.width}x${command.bounds.height})${text}`)

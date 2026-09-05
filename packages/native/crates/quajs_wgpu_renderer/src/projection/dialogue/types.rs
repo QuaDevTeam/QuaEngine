@@ -134,6 +134,9 @@ pub struct DialogueProjection {
     #[serde(default)]
     pub speaker_style: RichTextStyle,
     pub text: RichTextContent,
+    /// Full text retained only in renderer-local reveal frames for stable layout.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub layout_text: Option<RichTextContent>,
     #[serde(default)]
     pub mode: DialogueMode,
     /// Renderer-local enter/exit presence opacity (0.0 = transparent, 1.0 =
@@ -162,6 +165,7 @@ impl DialogueProjection {
             speaker: None,
             speaker_style: RichTextStyle::default(),
             text: text.into(),
+            layout_text: None,
             mode: DialogueMode::Say,
             presence_opacity: 1.0,
             revision: None,

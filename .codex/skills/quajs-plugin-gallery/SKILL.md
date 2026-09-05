@@ -146,3 +146,9 @@ Run achievement tests when gallery reward/condition integration changes.
 - Are gallery asset refs package-aware?
 - Does renderer emit intents rather than owning unlock/filter authority?
 - If gallery API, decorator, settings, or projection behavior changed, was this skill updated?
+
+## Native visual projection
+
+`createGalleryNativeRendererFeature({ maxWidth, maxHeight, layout })` accepts logical panel size limits (defaults 1180×760) and `split` (default) or `grid` presentation. Cards use separate thumbnail/title/summary nodes. Catalogs, entries, and all content tabs remain scrollable; do not truncate content tabs to a fixed count. Respect plugin-resolved locked placeholders and explicitly revealed content rather than reapplying unlock policy in the renderer.
+
+For grid products, an explicitly open engine UI overlay named `gallery-preview` enables the selected entry's large image preview. The product session opens it after the gallery selection event and closes it with other feature panels. `gallery-close-preview` maps only to `UI_REQUEST_CLOSE` for this fixed element id. Browsing must not unlock content. Asset-level `runtimePackageId` takes lookup precedence and all inherited/content dependencies remain required. Video/audio data must not be submitted to the image decoder; show projected image posters where available. This image preview does not claim native audio/video preview or browser lightbox chrome animation parity.

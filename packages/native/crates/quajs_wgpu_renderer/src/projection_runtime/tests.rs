@@ -15,6 +15,12 @@ fn typewriter_progresses_without_new_pipeline_messages() {
             .and_then(serde_json::Value::as_str),
         Some("ab")
     );
+    assert_eq!(
+        first_json
+            .pointer("/view/dialogue/layoutText")
+            .and_then(serde_json::Value::as_str),
+        Some("abcdef")
+    );
     assert!(runtime.reveal_dialogue_on_advance());
     let revealed = runtime
         .project_at_epoch_ms(runtime.received_epoch_ms + 250.0)
@@ -154,7 +160,11 @@ mod easing {
 mod scroll {
     use super::NativeRendererProjectionRuntime;
 
-    fn runtime_with_scroll_overlay(viewport_w: f64, viewport_h: f64, content_h: f64) -> NativeRendererProjectionRuntime {
+    fn runtime_with_scroll_overlay(
+        viewport_w: f64,
+        viewport_h: f64,
+        content_h: f64,
+    ) -> NativeRendererProjectionRuntime {
         let frame = format!(
             r#"{{
                 "view": {{
@@ -301,6 +311,9 @@ mod scroll {
         // We can't inspect scroll_offsets directly, but we can verify that
         // a second scroll with a hit outside the inner rect falls back to the outer.
         let moved_outer = rt.scroll_at_client(50.0, 50.0, 0.0, 50.0);
-        assert!(moved_outer, "hit outside inner but inside outer should scroll outer");
+        assert!(
+            moved_outer,
+            "hit outside inner but inside outer should scroll outer"
+        );
     }
 }

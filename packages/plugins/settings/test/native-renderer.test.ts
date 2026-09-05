@@ -23,6 +23,17 @@ describe('settings native renderer feature', () => {
     })).toBeUndefined()
   })
 
+  it('allows product bounds without modifying engine projections', () => {
+    const bounds = { x: 470, y: 115, width: 980, height: 642 }
+    const view = { ui: { overlays: { settings: { open: true } } } }
+    const result = createSettingsNativeRendererFeature({ resolvePanelBounds: () => bounds }).createOverlays({
+      logicalWidth: 1920, logicalHeight: 1080, view,
+      projection: { scopes: {} }, safeArea: { x: 96, y: 0, width: 1728, height: 1080 },
+    }) as { surface: { root: NativeUiSurfaceNodeProjection } }
+    expect(findNode(result.surface.root, 'settings-panel')?.bounds).toEqual(bounds)
+    expect(view).toEqual({ ui: { overlays: { settings: { open: true } } } })
+  })
+
   it('projects exposed controls with safe-area placement and precomputed validated patches', () => {
     const frame = createNativeRendererJsonFrameInput({
       layout: { width: 1920, height: 1080, aspectRatio: 16 / 9, minAspectRatio: 16 / 10 },
@@ -138,6 +149,31 @@ describe('settings native renderer feature', () => {
       contentPackageId: 'runtime.settings',
       requiredRuntimePackages: ['runtime.settings'],
     })
+  })
+
+  it('caps overflowing panels and samples large numeric ranges across their full extent', () => {
+    const properties = Object.fromEntries(Array.from({ length: 20 }, (_, i) => [
+      `value${i}`, { type: 'number', minimum: 0, maximum: 10000, multipleOf: 1 },
+    ]))
+    const frame = createNativeRendererJsonFrameInput({
+      layout: { height: 1080, aspectRatio: 16 / 9 },
+      ui: { overlays: { settings: { open: true } } },
+      plugins: { settings: { scopes: { test: {
+        schema: { type: 'object', properties }, defaults: {},
+        values: { value0: 5000 },
+      } }, revision: 1 } },
+    }, { featureSurfaces: [createSettingsNativeRendererFeature()] })
+    const overlays = (frame.view.ui as { overlays: Array<{ surface: { root: NativeUiSurfaceNodeProjection } }> }).overlays
+    const root = overlays[0].surface.root
+    expect(findNode(root, 'settings-panel')?.bounds.height).toBe(720)
+    expect(findNode(root, 'settings-scroll')?.clipChildren).toBe(true)
+    const control = findNode(root, 'settings-field-test-value0-slider-control')?.control
+    expect(control?.options).toHaveLength(512)
+    const values = control!.options.map(option => JSON.parse(String(option.intent.metadata?.patchJson)).value0)
+    expect(values[0]).toBe(0)
+    expect(values.at(-1)).toBe(10000)
+    expect(values[256]).toBeGreaterThan(4900)
+    expect(Math.max(...values.slice(1).map((v, i) => v - values[i]))).toBeLessThanOrEqual(20)
   })
 
   it('maps update, reset, and close actions without arbitrary event dispatch', () => {

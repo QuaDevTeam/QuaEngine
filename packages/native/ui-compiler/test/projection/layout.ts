@@ -4,6 +4,44 @@ import { analyzeQssSource, compileQuiTsxProjection } from '../../src'
 import { withDefaultVisible } from './helpers'
 
 describe('@quajs/native-ui-compiler projection structural layout', () => {
+  it('lays out padded border boxes and translates nested descendants with hover bounds', () => {
+    const root = Row({ id: 'row', x: 100, y: 50, width: 300, height: 100, children: [
+      Column({ id: 'column', width: 80, height: 50, children: [
+        Button({ id: 'nested', width: 40, height: 20, children: 'Nested' }),
+      ] }),
+      Button({ id: 'next', width: 80, height: 20 }),
+    ] })
+    const qss = analyzeQssSource(`
+      Row { padding: 10px 20px; border-width: 2px; gap: 10px; }
+      Column { gap: 0px; }
+      Button:hover { translate: 3px 0px; }
+    `)
+    const row = compileQuiTsxProjection(root, { qss }).root!
+    expect(row.bounds).toEqual({ x: 100, y: 50, width: 300, height: 100 })
+    expect(row.children![0].bounds).toEqual({ x: 122, y: 62, width: 80, height: 50 })
+    expect(row.children![0].children![0].bounds).toEqual({ x: 122, y: 62, width: 40, height: 20 })
+    expect(row.children![0].children![0].stateStyles!.hover!.bounds.x).toBe(125)
+    expect(row.children![1].bounds.x).toBe(212)
+  })
+
+  it('distributes flex space inside padding and keeps hover size aligned', () => {
+    const root = Row({ id: 'row', width: 200, height: 50, children: [
+      Button({ id: 'a', width: 40, height: 20 }),
+      Button({ id: 'b', width: 40, height: 20 }),
+    ] })
+    const qss = analyzeQssSource(`
+      Row { padding: 10px; gap: 20px; border-width: 8px; border-style: none; }
+      Button { flex-grow: 1; }
+      Button:hover { color: red; }
+    `)
+    const row = compileQuiTsxProjection(root, { qss }).root!
+    expect(row.children!.map(child => child.bounds)).toEqual([
+      { x: 10, y: 10, width: 80, height: 20 },
+      { x: 110, y: 10, width: 80, height: 20 },
+    ])
+    expect(row.children![0].stateStyles!.hover!.bounds.width).toBe(80)
+  })
+
   it('applies QSS alignment and distribution to structural Row and Column children', () => {
     const root = Panel({ id: 'root', x: 0, y: 0, width: 520, height: 320, children: [
       Row({ id: 'toolbar', class: 'toolbar', x: 20, y: 30, width: 300, height: 60, children: [

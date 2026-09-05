@@ -15,10 +15,17 @@ const BACKLOG_JUMP_ACTION = 'backlog-jump'
 const BACKLOG_REPLAY_VOICE_ACTION = 'backlog-replay-voice'
 const MAX_VISIBLE_ENTRIES = 6
 
-export function createBacklogNativeRendererFeature(): NativeRendererFeatureSurfaceEntry {
+export interface BacklogNativeRendererOptions {
+  /** Dense two-column history rows with metadata alongside dialogue. */
+  density?: 'comfortable' | 'compact'
+  /** Product-owned layout policy; receives logical bounds only. */
+  resolvePanelBounds?: (context: NativeRendererFeatureSurfaceContext, preferred: NativeUiSurfaceRect) => NativeUiSurfaceRect
+}
+
+export function createBacklogNativeRendererFeature(options: BacklogNativeRendererOptions = {}): NativeRendererFeatureSurfaceEntry {
   return {
     pluginId: BACKLOG_PLUGIN_ID,
-    createOverlays: createBacklogNativeOverlays,
+    createOverlays: context => createBacklogNativeOverlays(context, options),
     intentActions: [
       {
         action: BACKLOG_CLOSE_ACTION,
@@ -39,7 +46,7 @@ export function createBacklogNativeRendererFeature(): NativeRendererFeatureSurfa
   }
 }
 
-function createBacklogNativeOverlays(context: NativeRendererFeatureSurfaceContext) {
+function createBacklogNativeOverlays(context: NativeRendererFeatureSurfaceContext, options: BacklogNativeRendererOptions) {
   const projection = context.projection as unknown as BacklogProjection & Record<string, unknown>
   if (projection.visible !== true) {
     return undefined
@@ -56,7 +63,7 @@ function createBacklogNativeOverlays(context: NativeRendererFeatureSurfaceContex
     zIndex: finiteInteger(projection.ui?.zIndex) ?? 50,
     surface: {
       key: BACKLOG_NATIVE_SURFACE_KEY,
-      root: createBacklogRoot(context, projection.entries || [], overlayProvenance),
+      root: createBacklogRoot(context, projection.entries || [], overlayProvenance, options),
     },
     ...overlayProvenance,
   }
@@ -66,21 +73,43 @@ function createBacklogRoot(
   context: NativeRendererFeatureSurfaceContext,
   entries: readonly BacklogEntry[],
   provenance: NativePackageProvenance,
+  options: BacklogNativeRendererOptions,
 ): NativeUiSurfaceNodeProjection {
-  const edge = Math.max(28, Math.min(context.safeArea.width, context.logicalHeight) * 0.035)
-  const panelBounds = insetRect(context.safeArea, edge, edge)
-  const headerHeight = Math.max(64, Math.min(92, panelBounds.height * 0.1))
+  const compact = options.density === 'compact'
+  const edge = compact ? 31 : Math.max(28, Math.min(context.safeArea.width, context.logicalHeight) * 0.035)
+  const available = insetRect(context.safeArea, edge, edge)
+  const width = Math.min(1040, available.width)
+  const height = Math.min(660, available.height)
+  const preferred = { x: available.x + (available.width - width) / 2,
+    y: available.y + (available.height - height) / 2, width, height }
+  const panelBounds = options.resolvePanelBounds?.(context, preferred) ?? preferred
+  const headerHeight = compact ? 88 : Math.max(64, Math.min(92, panelBounds.height * 0.1))
   const footerGap = Math.max(18, panelBounds.height * 0.025)
   const contentTop = panelBounds.y + headerHeight + footerGap
   const contentBottom = panelBounds.y + panelBounds.height - edge
   const recentEntries = [...entries].reverse()
   const visibleForSizing = Math.min(recentEntries.length, MAX_VISIBLE_ENTRIES)
-  const entryGap = Math.max(12, panelBounds.height * 0.014)
+  const entryGap = compact ? 8 : Math.max(12, panelBounds.height * 0.014)
   const availableHeight = Math.max(0, contentBottom - contentTop)
   const entryHeight = visibleForSizing > 0
     ? Math.min(140, Math.max(72, (availableHeight - entryGap * (visibleForSizing - 1)) / visibleForSizing))
     : 0
 
+  let entryY = contentTop
+  const rows = recentEntries.map((entry, index) => {
+    const body = entry.text || entry.choices?.map(choice => choice.text).join(' / ') || ''
+    const controlsWidth = (entry.rewindable ? 118 : 0) + (entry.voiceReplay && entry.voice ? 118 : 0)
+    const bodyWidth = Math.max(1, panelBounds.width - edge * 2 - controlsWidth - (compact ? 120 : 60))
+    const lines = body.split('\n').reduce((count, line) => count + Math.max(1, Math.ceil(
+      Array.from(line).reduce((ems, char) => ems + (char.charCodeAt(0) < 128 ? 0.6 : 1), 0) * (compact ? 13 : 21) / bodyWidth,
+    )), 0)
+    const height = compact ? Math.max(56, 37 + lines * 19) : Math.max(entryHeight, 48 + lines * 32)
+    const row = createBacklogEntryNode(entry, index, {
+      x: panelBounds.x + edge, y: entryY, width: panelBounds.width - edge * 2, height,
+    }, provenance, compact)
+    entryY += height + entryGap
+    return row
+  })
   const children: NativeUiSurfaceNodeProjection[] = [
     node('backlog-backdrop', 'Backdrop', stageRect(context), {
       intent: uiIntent(BACKLOG_CLOSE_ACTION),
@@ -89,9 +118,11 @@ function createBacklogRoot(
     }),
     node('backlog-panel', 'Panel', panelBounds, {
       style: {
-        backgroundColor: '#12151a',
-        borderColor: '#5f6773',
-        borderRadius: 6,
+        backgroundColor: compact ? '#07080c' : '#12151a',
+        ...(compact ? { backgroundGradient: { kind: 'linear' as const, angleDegrees: 180,
+          stops: [{ color: 'rgba(20,22,30,0.96)', position: 0 }, { color: 'rgba(6,7,11,0.97)', position: 1 }] } } : {}),
+        borderColor: compact ? 'rgba(245,226,190,0.34)' : '#5f6773',
+        borderRadius: compact ? 2 : 6,
         borderWidth: 1,
         boxShadow: panelShadow(),
       },
@@ -99,30 +130,32 @@ function createBacklogRoot(
       children: [
         node('backlog-title', 'Text', {
           x: panelBounds.x + edge,
-          y: panelBounds.y + edge * 0.5,
+          y: panelBounds.y + (compact ? 31 : edge * 0.5),
           width: panelBounds.width - edge * 2 - 112,
-          height: headerHeight - edge * 0.5,
+          height: compact ? 42 : headerHeight - edge * 0.5,
         }, {
           text: 'Backlog',
           style: {
             color: '#f4f5f7',
-            fontSize: 34,
+            fontSize: compact ? 38 : 34,
+            fontFamily: ['Noto Sans'],
             fontWeight: 700,
             textShadow: titleShadow(),
           },
           provenance,
         }),
         node('backlog-close', 'Button', {
-          x: panelBounds.x + panelBounds.width - edge - 96,
-          y: panelBounds.y + edge * 0.5,
-          width: 96,
-          height: Math.max(48, headerHeight - edge),
+          x: panelBounds.x + panelBounds.width - edge - (compact ? 42 : 96),
+          y: panelBounds.y + (compact ? 31 : edge * 0.5),
+          width: compact ? 42 : 96,
+          height: compact ? 42 : Math.max(48, headerHeight - edge),
         }, {
-          text: 'Close',
+          text: compact ? '×' : 'Close',
           intent: uiIntent(BACKLOG_CLOSE_ACTION),
-          style: buttonStyle('#2b313a'),
+          style: compact ? { backgroundColor: '#ece5d9', color: '#0d0d12', fontSize: 28, textAlign: 'center' } : buttonStyle('#2b313a'),
           provenance,
         }),
+        ...(compact ? [node('backlog-divider', 'Panel', { x: panelBounds.x + edge, y: panelBounds.y + 87, width: panelBounds.width - edge * 2, height: 1 }, { style: { backgroundColor: 'rgba(245,226,190,0.18)' }, provenance })] : []),
         node('backlog-scroll', 'Scroll', {
           x: panelBounds.x + edge,
           y: contentTop,
@@ -132,17 +165,7 @@ function createBacklogRoot(
           clipChildren: true,
           provenance,
           children: recentEntries.length > 0
-            ? recentEntries.map((entry, index) => createBacklogEntryNode(
-                entry,
-                index,
-                {
-                  x: panelBounds.x + edge,
-                  y: contentTop + index * (entryHeight + entryGap),
-                  width: panelBounds.width - edge * 2,
-                  height: entryHeight,
-                },
-                provenance,
-              ))
+            ? rows
             : [node('backlog-empty', 'Text', {
                 x: panelBounds.x + edge,
                 y: contentTop,
@@ -166,6 +189,7 @@ function createBacklogEntryNode(
   index: number,
   bounds: NativeUiSurfaceRect,
   inheritedProvenance: NativePackageProvenance,
+  compact = false,
 ): NativeUiSurfaceNodeProjection {
   const provenance = mergeProvenance(inheritedProvenance, entryProvenance(entry))
   const controlsWidth = (entry.rewindable ? 106 : 0) + (entry.voiceReplay && entry.voice ? 106 : 0)
@@ -178,7 +202,7 @@ function createBacklogEntryNode(
       x: bounds.x + 18,
       y: bounds.y + 10,
       width: Math.max(0, textRight - bounds.x - 18),
-      height: Math.max(22, bounds.height * 0.28),
+      height: 22,
     }, {
       text: metadata,
       style: { color: '#8f98a5', fontSize: 16 },
@@ -186,15 +210,32 @@ function createBacklogEntryNode(
     }),
     node(`backlog-entry-${index}-body`, 'Text', {
       x: bounds.x + 18,
-      y: bounds.y + Math.max(36, bounds.height * 0.32),
+      y: bounds.y + 38,
       width: Math.max(0, textRight - bounds.x - 18),
-      height: Math.max(28, bounds.height * 0.55),
+      height: Math.max(28, bounds.height - 48),
     }, {
       text: body,
-      style: { color: '#eef0f3', fontSize: 21, textOverflow: 'ellipsis' },
+      style: { color: '#eef0f3', fontSize: 21, lineHeight: 32, whiteSpace: 'pre-wrap' },
       provenance,
     }),
   ]
+
+  if (compact) {
+    children.splice(0, children.length,
+      node(`backlog-entry-${index}-index`, 'Text', { x: bounds.x + 12, y: bounds.y + 10, width: 86, height: 15 }, {
+        text: String(index + 1).padStart(2, '0'), style: { color: '#81e5ff', fontSize: 10, fontFamily: ['Noto Sans'] }, provenance,
+      }),
+      node(`backlog-entry-${index}-metadata`, 'Text', { x: bounds.x + 12, y: bounds.y + 28, width: 86, height: 15 }, {
+        text: formatGameTime(entry.gameTimeMs), style: { color: 'rgba(247,242,234,0.48)', fontSize: 10, fontFamily: ['Noto Sans'] }, provenance,
+      }),
+      node(`backlog-entry-${index}-speaker`, 'Text', { x: bounds.x + 108, y: bounds.y + 10, width: Math.max(1, textRight - bounds.x - 108), height: 15 }, {
+        text: entry.speaker || '', style: { color: '#ffe3a0', fontSize: 13, fontFamily: ['Noto Sans'] }, provenance,
+      }),
+      node(`backlog-entry-${index}-body`, 'Text', { x: bounds.x + 108, y: bounds.y + 28, width: Math.max(1, textRight - bounds.x - 108), height: bounds.height - 37 }, {
+        text: body, style: { color: 'rgba(255,250,242,0.9)', fontSize: 13, fontFamily: ['Noto Sans'], lineHeight: 19, whiteSpace: 'pre-wrap' }, provenance,
+      }),
+    )
+  }
 
   let controlX = bounds.x + bounds.width - 18
   if (entry.voiceReplay && entry.voice) {
@@ -229,7 +270,10 @@ function createBacklogEntryNode(
   return node(`backlog-entry-${index}`, 'Panel', bounds, {
     children,
     provenance,
-    style: { backgroundColor: '#1a1e24', borderRadius: 4 },
+    style: compact
+      ? { backgroundColor: '#080a10', borderColor: 'rgba(245,226,190,0.18)', borderWidth: 1, borderRadius: 4,
+          backgroundGradient: { kind: 'linear', angleDegrees: 180, stops: [{ color: 'rgba(20,24,33,0.88)', position: 0 }, { color: 'rgba(7,8,12,0.92)', position: 1 }] } }
+      : { backgroundColor: '#1a1e24', borderRadius: 4 },
   })
 }
 

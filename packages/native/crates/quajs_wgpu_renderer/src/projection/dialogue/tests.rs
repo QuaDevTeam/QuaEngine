@@ -520,3 +520,46 @@ fn provenance<const N: usize>(owner: &str, required: [&str; N]) -> PackageProven
             .collect::<BTreeSet<_>>(),
     }
 }
+
+#[test]
+fn reveal_keeps_full_text_layout_and_avatar_clear_of_text() {
+    let layout = test_layout();
+    let full = "长文本对话需要稳定的排版空间。".repeat(70);
+    let mut dialogue = DialogueProjection::say(full.clone());
+    dialogue.avatar = Some(DialogueAvatarProjection {
+        asset_type: "images".into(),
+        asset_name: "avatar.png".into(),
+        provenance: PackageProvenance::default(),
+    });
+    let complete = build_dialogue_commands(&layout, &dialogue);
+    dialogue.layout_text = Some(full.into());
+    dialogue.text = "长".into();
+    let revealing = build_dialogue_commands(&layout, &dialogue);
+    let bounds = |commands: &[crate::render_graph::DrawCommand], id: &str| {
+        commands
+            .iter()
+            .find(|command| command.id == id)
+            .unwrap()
+            .bounds
+    };
+    assert_eq!(
+        bounds(&complete, "dialogue:panel"),
+        bounds(&revealing, "dialogue:panel")
+    );
+    let text = bounds(&complete, "dialogue:text");
+    let avatar = bounds(&complete, "dialogue:avatar");
+    assert!(text.x + text.width <= avatar.x);
+    let mut graph = RenderGraph::new(layout);
+    graph.extend(complete);
+    let choices = crate::projection::choices::ChoiceSetProjection {
+        visible: true,
+        choices: vec![crate::projection::choices::ChoiceProjection::new(
+            "next", "Continue",
+        )],
+        provenance: PackageProvenance::default(),
+    };
+    crate::projection::choices::append_choice_commands_with_dialogue(&mut graph, &choices, true);
+    let choice_panel = bounds(graph.commands(), "choices:panel");
+    let dialogue_panel = bounds(graph.commands(), "dialogue:panel");
+    assert!(choice_panel.y + choice_panel.height < dialogue_panel.y);
+}

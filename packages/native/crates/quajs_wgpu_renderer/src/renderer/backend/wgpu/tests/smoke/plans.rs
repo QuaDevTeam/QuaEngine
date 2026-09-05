@@ -50,7 +50,8 @@ fn submits_frames_through_feature_gated_wgpu_skeleton() {
         WgpuNativeRenderPrimitivePlan::from_execution_plan(&expected_execution_plan);
     let expected_mesh_plan =
         WgpuNativeRenderMeshPlan::from_primitive_plan(&expected_primitive_plan);
-    let expected_buffer_plan = WgpuNativeRenderBufferPlan::from_mesh_plan(&expected_mesh_plan);
+    let mut expected_buffer_plan = WgpuNativeRenderBufferPlan::from_mesh_plan(&expected_mesh_plan);
+    expected_buffer_plan.apply_rounded_clips(&result.submission);
     let expected_render_pass_plan =
         WgpuNativeRenderPassPlan::from_buffer_plan(&expected_buffer_plan);
     let expected_pipeline_plan =

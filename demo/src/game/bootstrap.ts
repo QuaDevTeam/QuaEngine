@@ -1,3 +1,4 @@
+import { DEMO_HUD_ACTIONS, DEMO_MENU_OPTIONS, DEMO_TITLE_CONFIRM, DEMO_UI_METRICS, toggleDemoFlowControl } from './ui-presentation'
 import { LogicToRenderEvents, onLogicToRender, type GameOverPayload } from '@quajs/engine'
 import type { AudioPlayBgmOptions } from '@quajs/plugin-audio'
 import { BACKLOG_PLUGIN_ID, BacklogRenderToLogicEvents, type BacklogProjection } from '@quajs/plugin-backlog'
@@ -253,7 +254,7 @@ export async function createQuaGameApp() {
         hideHud: true,
       }),
       replaceOnOpen: true,
-      showBacklog: false,
+      ...DEMO_MENU_OPTIONS,
       showFlowControls: false,
       saveLoadSlotCount: SAVE_LOAD_SLOT_COUNT,
       saveLoadShowQuickActions: false,
@@ -264,9 +265,9 @@ export async function createQuaGameApp() {
       settingsStackPriority: DEMO_OVERLAY_PLACEMENTS.settings.stackPriority,
       settingsZIndex: DEMO_OVERLAY_PLACEMENTS.settings.zIndex,
       titleActionLabel: 'TITLE',
-      titleConfirmTitle: '回到标题菜单？',
-      titleConfirmSubtitle: '当前进度不会自动保存',
-      titleConfirmDescription: '回到标题菜单前建议先保存。继续返回后，故事运行状态会保留在后台，START 会回到当前进度。',
+      titleConfirmTitle: DEMO_TITLE_CONFIRM.title,
+      titleConfirmSubtitle: DEMO_TITLE_CONFIRM.subtitle,
+      titleConfirmDescription: DEMO_TITLE_CONFIRM.description,
       titleConfirmEvent: DEMO_TITLE_REQUEST_EVENT,
     })
   }
@@ -434,43 +435,14 @@ export async function createQuaGameApp() {
           'data-dialogue-visible': dialogueChromePhase.value === 'enter' ? 'true' : 'false',
           'data-qua-input-ignore': '',
         }, [
-          h('button', {
-            type: 'button',
-            title: activeView.value.flowControl.mode === 'auto' ? 'Stop auto mode' : 'Auto mode',
-            class: activeView.value.flowControl.mode === 'auto' ? 'is-active' : undefined,
-            onClick: async () => {
-              if (activeView.value.flowControl.mode === 'auto') {
-                await engine.stopAuto()
-              }
-              else {
-                await engine.startAuto()
-              }
-            },
-          }, 'AUTO'),
-          h('button', {
-            type: 'button',
-            title: activeView.value.flowControl.mode === 'skip' ? 'Stop skip mode' : 'Skip read text',
-            class: activeView.value.flowControl.mode === 'skip' ? 'is-active' : undefined,
-            onClick: async () => {
-              await stopAutoForHudInteraction()
-              if (activeView.value.flowControl.mode === 'skip') {
-                await engine.stopSkip()
-              }
-              else {
-                await engine.startSkip()
-              }
-            },
-          }, 'SKIP'),
-          h('button', {
-            type: 'button',
-            title: 'Backlog',
-            onClick: openBacklog,
-          }, 'LOG'),
-          h('button', {
-            type: 'button',
-            title: 'Menu',
-            onClick: openGameMenu,
-          }, 'MENU'),
+          ...DEMO_HUD_ACTIONS.map(item => h('button', {
+            type: 'button', title: item.title, 'data-hud-action': item.id,
+            style: { width: `${item.width}px` },
+            class: activeView.value.flowControl.mode === item.id ? 'is-active' : undefined,
+            onClick: () => item.id === 'auto' || item.id === 'skip'
+              ? toggleDemoFlowControl(engine, item.id)
+              : item.id === 'log' ? openBacklog() : openGameMenu(),
+          }, item.label)),
         ]),
         showMainMenu.value
           ? h('section', { class: 'vn-main-menu', 'data-qua-input-ignore': '' }, [
@@ -551,7 +523,14 @@ export async function createQuaGameApp() {
   return defineComponent({
     name: 'QuaGameRoot',
     setup() {
-      const rendererPlugins = [...createVisualNovelRendererPlugins(), demoStageUiPlugin]
+      // System panels share the logical stage with dialogue and gallery on
+      // every target; screen-plane CSS pixels bypass stage scaling.
+      const rendererPlugins = [...createVisualNovelRendererPlugins().map(plugin => ({
+        ...plugin,
+        layers: plugin.layers?.map(layer => layer.plane === 'screen'
+          ? { ...layer, plane: 'overlay' as const }
+          : layer),
+      })), demoStageUiPlugin]
       onBeforeUnmount(() => {
         for (const dispose of uiDisposers) {
           dispose()
@@ -563,6 +542,7 @@ export async function createQuaGameApp() {
       return () => h('main', {
         class: 'game-root',
         style: {
+          ...Object.fromEntries(Object.entries(DEMO_UI_METRICS).map(([name, value]) => [`--demo-${name}`, `${value}px`])),
           '--vn-menu-background': `url("${menuRouteBackgroundUrl}")`,
         },
         'data-chapter': hud.value.chapter,

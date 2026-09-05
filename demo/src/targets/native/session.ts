@@ -1,3 +1,5 @@
+import { createSaveSlotGrid } from '@quajs/render-core'
+import { DEMO_TITLE_CONFIRM, toggleDemoFlowControl } from '../../game/ui-presentation'
 import { createMemoryAssetsAdapter } from '@quajs/assets-memory'
 import { clearCharacterRuntime, configureCharacterRuntime } from '@quajs/character'
 import {
@@ -205,6 +207,7 @@ export async function createDemoNativeSession(): Promise<DemoNativeSession> {
   const closeFeaturePanels = async () => {
     await Promise.all([
       runtime.engine.hideUI('settings'),
+      runtime.engine.hideUI('gallery-preview'),
       runtime.backlog.setVisible(false),
       runtime.gallery.closeScene(),
       runtime.achievement.closeBoard(),
@@ -220,7 +223,7 @@ export async function createDemoNativeSession(): Promise<DemoNativeSession> {
 
   const openFeaturePanel = async (panel: FeaturePanel) => {
     phase(`panel:${panel}:open`)
-    systemReturnScreen = appState.screen
+    systemReturnScreen = appState.screen === 'game-menu' ? 'game' : appState.screen
     systemReturnTitleSurface = appState.titleSurface
     await closeFeaturePanels()
     await refreshAppSurface({ screen: 'system' })
@@ -306,22 +309,11 @@ export async function createDemoNativeSession(): Promise<DemoNativeSession> {
 
   const openSaveLoad = async (mode: SaveLoadMode) => {
     saveLoadMode = mode
-    saveLoadReturnScreen = appState.screen
-    saveLoadReturnTitleSurface = appState.titleSurface
-    const slots = new Map((await runtime.engine.listSaveSlots()).map(slot => [slot.slotId, slot]))
-    const saveSlotItems = Array.from({ length: SAVE_LOAD_SLOT_COUNT }, (_, index) => {
-      const id = `slot-${index + 1}`
-      const slot = slots.get(id)
-      const stamp = slot?.timestamp instanceof Date
-        ? slot.timestamp.toISOString().slice(0, 16).replace('T', ' ')
-        : ''
-      return {
-        id,
-        label: slot
-          ? `SLOT ${String(index + 1).padStart(2, '0')}\n${slot.name || 'Saved Game'}  ${stamp}`
-          : `SLOT ${String(index + 1).padStart(2, '0')}\nEMPTY`,
-      }
-    })
+    if (appState.screen !== 'save-load') {
+      saveLoadReturnScreen = appState.screen === 'game-menu' ? 'game' : appState.screen
+      saveLoadReturnTitleSurface = appState.titleSurface
+    }
+    const saveSlotItems = createSaveSlotGrid({ slotCount: SAVE_LOAD_SLOT_COUNT }, await runtime.engine.listSaveSlots())
     await refreshAppSurface({
       saveLoadMode: mode,
       saveLoadTitle: mode === 'save' ? 'SAVE' : 'LOAD',
@@ -410,7 +402,7 @@ export async function createDemoNativeSession(): Promise<DemoNativeSession> {
           await refreshAppSurface({ screen: 'game', titleSurface: false })
           return true
         case 'title-confirm':
-          await refreshAppSurface({ screen: 'game-menu', titleSurface: false })
+          await refreshAppSurface({ screen: 'game', titleSurface: false })
           return true
         case 'story-tree':
           await refreshAppSurface({ screen: 'title', titleSurface: true })
@@ -423,24 +415,8 @@ export async function createDemoNativeSession(): Promise<DemoNativeSession> {
           return true
       }
     }
-    if (action === 'toggle' && target === 'auto') {
-      if (runtime.engine.getFlowControlState().mode === 'auto') {
-        await runtime.engine.stopAuto()
-      }
-      else {
-        await runtime.engine.startAuto()
-      }
-      await refreshAppSurface()
-      return true
-    }
-    if (action === 'toggle' && target === 'skip') {
-      await runtime.engine.stopAuto()
-      if (runtime.engine.getFlowControlState().mode === 'skip') {
-        await runtime.engine.stopSkip()
-      }
-      else {
-        await runtime.engine.startSkip()
-      }
+    if (action === 'toggle' && (target === 'auto' || target === 'skip')) {
+      await toggleDemoFlowControl(runtime.engine, target)
       await refreshAppSurface()
       return true
     }
@@ -523,6 +499,12 @@ export async function createDemoNativeSession(): Promise<DemoNativeSession> {
       await emitNativeRendererIntentToPipeline(pipeline, intent, {
         featureSurfaces: DEMO_NATIVE_FEATURE_SURFACES,
       })
+      if (intent.type === 'ui/intent' && record?.action === 'gallery-select-entry') {
+        const selected = runtime.gallery.getProjection().entries.find(entry => entry.id === record.entryId)
+        if (selected && (selected.contents.length || selected.thumbnail || selected.poster)) {
+          await runtime.engine.showUI('gallery-preview', { renderMode: 'render-only', surface: { key: 'gallery-preview' } })
+        }
+      }
       if (intent.type === 'ui/intent'
         && (record?.action === 'settings-close'
           || record?.action === 'gallery-close'
@@ -552,10 +534,7 @@ export async function createDemoNativeSession(): Promise<DemoNativeSession> {
 }
 
 function createEmptySaveSlotItems() {
-  return Array.from({ length: SAVE_LOAD_SLOT_COUNT }, (_, index) => ({
-    id: `slot-${index + 1}`,
-    label: `SLOT ${String(index + 1).padStart(2, '0')}  EMPTY`,
-  }))
+  return createSaveSlotGrid({ slotCount: SAVE_LOAD_SLOT_COUNT })
 }
 
 function createStoryTreeItems() {
@@ -619,9 +598,9 @@ function nativeDemoUiString(key: string): string {
     'ui.settings.title':   'CONFIG',
     'ui.settings.off':     'OFF',
     'ui.settings.on':      'ON',
-    'ui.titleConfirm.title':      '回到标题菜单？',
-    'ui.titleConfirm.subtitle':   '当前进度不会自动保存',
-    'ui.titleConfirm.description':'故事运行状态会保留在后台，START 会回到当前进度。',
+    'ui.titleConfirm.title': DEMO_TITLE_CONFIRM.title,
+    'ui.titleConfirm.subtitle': DEMO_TITLE_CONFIRM.subtitle,
+    'ui.titleConfirm.description': DEMO_TITLE_CONFIRM.description,
     'ui.common.close':     'CLOSE',
     'ui.common.cancel':    'CANCEL',
     'ui.common.title':     'TITLE',

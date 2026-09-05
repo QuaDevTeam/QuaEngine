@@ -1832,3 +1832,6 @@ function createFlowControlControls(policy: ResolvedFlowControlPolicy): FlowContr
     canAutoAdvance: policy.autoAdvanceable,
   }
 }
+
+export { createMenuActionPresentation, createSaveSlotGrid, saveSlotMeta, saveSlotDisplayName, isFilledSaveSlot, previewStatusLabel } from './ui-presentation'
+export type { MenuActionId, SaveSlotProjection, SaveSlotGridOptions } from './ui-presentation'

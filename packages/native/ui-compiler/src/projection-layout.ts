@@ -3,6 +3,7 @@ import type {
   NativeQssEdgeInsetsValue,
   NativeQssJustifyContentValue,
   NativeQssResolvedLayout,
+  NativeQssResolvedStyle,
   NativeUiSurfaceNodeKind,
   NativeUiSurfaceNodeProjection,
   NativeUiSurfaceRect,
@@ -30,6 +31,7 @@ export function applyNativeQssStructuralLayout(
   bounds: NativeUiSurfaceRect,
   children: readonly NativeUiCompilerSurfaceNodeProjection[],
   layout: NativeQssResolvedLayout | undefined,
+  style?: NativeQssResolvedStyle,
 ): NativeUiCompilerSurfaceNodeProjection[] {
   if (children.length === 0)
     return []
@@ -41,9 +43,11 @@ export function applyNativeQssStructuralLayout(
     || child.compilerLayout?.flexShrink !== undefined
     || child.compilerLayout?.flexBasis !== undefined
     || child.compilerLayout?.alignSelf !== undefined)
-  if (!layout && !hasChildLayout)
+  if (!layout && !hasChildLayout && !style?.padding && !style?.borderWidth
+    && !style?.borderTopWidth && !style?.borderRightWidth && !style?.borderBottomWidth && !style?.borderLeftWidth)
     return [...children]
 
+  bounds = nativeQssContentBounds(bounds, style)
   switch (kind) {
     case 'Row':
       return layoutRowChildren(children, bounds, layout)
@@ -54,6 +58,21 @@ export function applyNativeQssStructuralLayout(
     default:
       return [...children]
   }
+}
+
+/** Structural flow uses the content box; authored projection bounds remain border-box. */
+export function nativeQssContentBounds(
+  bounds: NativeUiSurfaceRect,
+  style?: NativeQssResolvedStyle,
+): NativeUiSurfaceRect {
+  const border = (side: number | undefined) => style?.borderStyle === 'none' ? 0 : side ?? style?.borderWidth ?? 0
+  const left = (style?.padding?.left ?? 0) + border(style?.borderLeftWidth)
+  const right = (style?.padding?.right ?? 0) + border(style?.borderRightWidth)
+  const top = (style?.padding?.top ?? 0) + border(style?.borderTopWidth)
+  const bottom = (style?.padding?.bottom ?? 0) + border(style?.borderBottomWidth)
+  return { x: bounds.x + left, y: bounds.y + top,
+    width: Math.max(0, bounds.width - left - right),
+    height: Math.max(0, bounds.height - top - bottom) }
 }
 
 export function stripNativeQssCompilerLayout(
@@ -407,6 +426,13 @@ function withBounds(
   return {
     ...child,
     bounds,
+    // Descendants already have resolved stage coordinates. Moving a flow item
+    // must move its entire subtree and interaction variants by the same delta.
+    children: child.children?.map(descendant => withBounds(descendant, {
+      ...descendant.bounds,
+      x: descendant.bounds.x + deltaX,
+      y: descendant.bounds.y + deltaY,
+    })),
     stateStyles: child.stateStyles
       ? Object.fromEntries(Object.entries(child.stateStyles).map(([state, style]) => [
           state,
@@ -417,6 +443,8 @@ function withBounds(
                   ...style.bounds,
                   x: style.bounds.x + deltaX,
                   y: style.bounds.y + deltaY,
+                  width: style.bounds.width + bounds.width - child.bounds.width,
+                  height: style.bounds.height + bounds.height - child.bounds.height,
                 },
               }
             : style,

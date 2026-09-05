@@ -1,3 +1,4 @@
+import type { SaveSlotProjection } from '@quajs/render-core'
 import {
   analyzeQssSource,
   compileQuiTsxProjection,
@@ -43,7 +44,7 @@ export interface NativeDemoAppSurfaceState {
   gameMenuSubtitle: string
   saveLoadTitle: string
   saveLoadMode: 'load' | 'save'
-  saveSlotItems: readonly NativeDemoAppListItem[]
+  saveSlotItems: readonly SaveSlotProjection[]
   screen: NativeDemoAppScreen
   skipActive: boolean
   storyTreeItems: readonly NativeDemoAppListItem[]

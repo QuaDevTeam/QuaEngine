@@ -1,3 +1,4 @@
+@use '../../game/styles/ui-theme' as shared;
 // ─── Design tokens ───────────────────────────────────────────────────────────
 
 $text-primary:   rgba(255, 250, 242, 0.92);
@@ -115,7 +116,7 @@ Box.title-radial-scrim {
 // ─── Main menu ────────────────────────────────────────────────────────────────
 
 Text.main-menu-title {
-  left: 130px; top: 268px; width: 660px; height: 160px;
+  left: 130px; top: 292px; width: 660px; height: 160px;
   color: #fffaf0;
   font-family: $font-serif;
   font-size: 104px;
@@ -463,3 +464,33 @@ Row.settings-actions {
   column-gap: 16px;
 }
 
+
+// Shared product skin. Geometry is supplied by the platform-neutral model.
+Panel.quick-menu { @include shared.toolbar; }
+Button.quick-menu-action { @include shared.toolbar-action; }
+Panel.game-menu-panel, Panel.confirm-panel, Panel.save-panel { @include shared.panel; }
+Button.panel-action { @include shared.action; }
+Text.panel-title { line-height: 38px; }
+Text.panel-subtitle { line-height: 16px; }
+Panel.parity-divider { background-color: rgba(245, 226, 190, 0.18); }
+Button.parity-close { background-color: rgba(255,248,234,0.9); color: #0d0d12; font-family: "Noto Sans"; font-size: 28px; line-height: 34px; text-align: center; }
+Button.save-tab { @include shared.action; text-align: center; padding: 0; border-radius: 0; }
+Button.save-tab.is-active { background-color: rgba(245,226,190,0.12); background-image: linear-gradient(0deg, transparent 0%, transparent 100%); }
+Panel.save-card { @include shared.slot; }
+Text.save-index { color: #ffe3a0; font-family: "Noto Sans"; font-size: 11px; line-height: 16px; text-align: center; }
+Panel.save-index-box { border-color: rgba(255,226,166,0.36); border-width: 1px; }
+Text.save-name { color: #fff8ea; font-family: "Noto Sans"; font-size: 14px; line-height: 20px; text-overflow: ellipsis; white-space: nowrap; }
+Text.save-meta { color: rgba(247,242,234,0.55); font-family: "Noto Sans"; font-size: 10px; line-height: 14px; text-overflow: ellipsis; white-space: nowrap; }
+Panel.save-card.is-disabled { opacity: 0.48; }
+Text.confirm-description { font-family: "Noto Sans"; font-size: 15px; line-height: 24px; white-space: pre-wrap; color: rgba(247,242,234,0.8); }
+Button.parity-close { @include shared.close; }
+Button.save-tab { @include shared.tab; }
+Button.save-tab.is-active { @include shared.tab-active; }
+Panel.save-tabs { background-color: rgba(255,255,255,0.03); border-color: rgba(245,226,190,0.22); border-width: 1px; }
+Button.panel-action:hover, Button.panel-action:focus-visible,
+Button.quick-menu-action:hover, Button.quick-menu-action:focus-visible { @include shared.action-hover; translate: 0 0; }
+Panel.save-card:hover, Panel.save-card:focus-visible { @include shared.slot-hover; }
+Panel.save-card.is-disabled:hover { @include shared.slot; }
+Row.confirm-actions { column-gap: 8px; }
+#native-game-menu-backdrop, #native-save-load-backdrop { background-color: rgba(3,4,7,0.62); }
+Button.panel-action:hover, Button.panel-action:focus-visible { @include shared.menu-hover; translate: 2px 0; }

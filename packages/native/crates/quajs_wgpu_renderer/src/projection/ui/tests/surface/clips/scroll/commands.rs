@@ -134,6 +134,7 @@ fn scroll_surface_background_image_stays_inside_viewport_clip_order() {
         ids,
         vec![
             "ui:menu",
+            "ui:menu:scroll:background-fill",
             "ui:menu:scroll:background-image",
             "ui:menu:scroll",
             "ui:menu:scroll:clip-start",
@@ -142,7 +143,7 @@ fn scroll_surface_background_image_stays_inside_viewport_clip_order() {
         ]
     );
 
-    let image = &commands[1];
+    let image = &commands[2];
     assert_eq!(image.kind, DrawCommandKind::Image);
     assert_eq!(image.bounds, scroll_bounds);
     assert_eq!(
@@ -159,8 +160,8 @@ fn scroll_surface_background_image_stays_inside_viewport_clip_order() {
         _ => panic!("expected scroll background image params"),
     }
 
-    assert_eq!(commands[2].kind, DrawCommandKind::RoundedRect);
-    assert_eq!(commands[3].kind, DrawCommandKind::ClipStart);
-    assert_eq!(commands[4].clip_bounds, vec![scroll_bounds]);
-    assert_eq!(commands[5].kind, DrawCommandKind::ClipEnd);
+    assert_eq!(commands[3].kind, DrawCommandKind::RoundedRect);
+    assert_eq!(commands[4].kind, DrawCommandKind::ClipStart);
+    assert_eq!(commands[5].clip_bounds, vec![scroll_bounds]);
+    assert_eq!(commands[6].kind, DrawCommandKind::ClipEnd);
 }

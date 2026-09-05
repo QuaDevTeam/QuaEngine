@@ -17,51 +17,30 @@ pub struct NativeRenderBackendResourceDiagnostics {
 
 impl NativeRenderBackendResourceDiagnostics {
     pub fn from_submissions(submissions: &[NativeRenderSubmission]) -> Self {
-        let frames_with_missing_resources = submissions
-            .iter()
-            .filter(|submission| submission.missing_resource_count > 0)
-            .count();
-        let missing_resource_count = submissions
-            .iter()
-            .map(|submission| submission.missing_resource_count)
-            .sum();
-        let last_missing_resources = submissions
-            .iter()
-            .rev()
-            .find(|submission| submission.missing_resource_count > 0)
-            .map(|submission| submission.missing_resources.clone())
-            .unwrap_or_default();
-        let mut missing_resources_by_kind = BTreeMap::new();
-        let mut missing_resources_by_owner_package = BTreeMap::new();
-        let mut missing_resources_by_required_package = BTreeMap::new();
+        let mut diagnostics = Self::default();
+        for submission in submissions {
+            diagnostics.record_submission(submission);
+        }
+        diagnostics
+    }
 
-        for missing in submissions
-            .iter()
-            .flat_map(|submission| submission.missing_resources.iter())
-        {
-            *missing_resources_by_kind
-                .entry(missing.resource_kind())
-                .or_default() += 1;
-
+    pub(crate) fn record_submission(&mut self, submission: &NativeRenderSubmission) {
+        if submission.missing_resource_count > 0 {
+            self.frames_with_missing_resources = self.frames_with_missing_resources.saturating_add(1);
+            self.last_missing_resources = submission.missing_resources.clone();
+        }
+        self.missing_resource_count = self.missing_resource_count.saturating_add(submission.missing_resource_count);
+        for missing in &submission.missing_resources {
+            let count = self.missing_resources_by_kind.entry(missing.resource_kind()).or_default();
+            *count = count.saturating_add(1);
             for package_id in &missing.owner_package_ids {
-                *missing_resources_by_owner_package
-                    .entry(package_id.clone())
-                    .or_default() += 1;
+                let count = self.missing_resources_by_owner_package.entry(package_id.clone()).or_default();
+                *count = count.saturating_add(1);
             }
             for package_id in &missing.required_package_ids {
-                *missing_resources_by_required_package
-                    .entry(package_id.clone())
-                    .or_default() += 1;
+                let count = self.missing_resources_by_required_package.entry(package_id.clone()).or_default();
+                *count = count.saturating_add(1);
             }
-        }
-
-        Self {
-            frames_with_missing_resources,
-            missing_resource_count,
-            last_missing_resources,
-            missing_resources_by_kind,
-            missing_resources_by_owner_package,
-            missing_resources_by_required_package,
         }
     }
 }
