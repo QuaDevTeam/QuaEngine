@@ -58,6 +58,7 @@ pub(super) fn append_surface_node_commands(
             opacity,
             blur_radius,
             z_index: z_base.saturating_add(node.z_index),
+            ..Default::default()
         };
         for command in &mut commands[start..] {
             command.composite_groups.insert(0, group.clone());

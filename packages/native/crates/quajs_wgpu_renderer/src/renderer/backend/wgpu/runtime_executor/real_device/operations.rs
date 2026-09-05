@@ -16,11 +16,17 @@ impl WgpuNativeRenderRuntimeDevice for RealWgpuNativeRenderRuntimeDevice {
         plan: &WgpuNativeRenderRuntimePlan,
     ) -> Result<(), WgpuNativeRenderRuntimeError> {
         self.composite_groups = plan.composite_groups.clone();
-        let has_backdrop = plan.operations.iter().any(|op| {
-            matches!(op,
+        let has_blend = self
+            .composite_groups
+            .values()
+            .flatten()
+            .any(|group| group.blend_mode != crate::render_graph::CompositeBlendMode::Normal);
+        let has_backdrop = has_blend
+            || plan.operations.iter().any(|op| {
+                matches!(op,
             WgpuNativeRenderRuntimeOperation::SetBindGroup { resource_ids, .. }
             if resource_ids.iter().any(|id| id == "system:backdrop-capture"))
-        });
+            });
         if !has_backdrop {
             self.backdrop_texture = None;
         }

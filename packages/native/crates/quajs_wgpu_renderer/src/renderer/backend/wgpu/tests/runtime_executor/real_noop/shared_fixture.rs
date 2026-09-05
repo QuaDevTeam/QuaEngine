@@ -237,3 +237,74 @@ fn real_noop_box_shadow_lab_keeps_analytic_shadows_on_single_quads() {
         |vertex| vertex.effect0 == soft_vertex.effect0 && vertex.effect1 == soft_vertex.effect1
     ));
 }
+
+#[test]
+fn real_noop_background_blends_share_scratch_and_release_it_with_the_frame() {
+    let mut renderer = create_noop_renderer(320, 180);
+    let mut frame = serde_json::json!({"layout":{"preset":"landscape"},
+    "container":{"width":320,"height":180}, "view":{"background":{
+        "mode":"layered", "opacity":0.5, "layers":[
+            {"id":"back", "assetName":"back.png", "opacity":0.4},
+            {"id":"front", "assetName":"front.png", "opacity":0.6,
+             "composition":{"blendMode":"multiply", "filter":{"blur":8,"contrast":1.2}}}
+        ]}}});
+    for mode in [
+        "multiply",
+        "screen",
+        "overlay",
+        "darken",
+        "lighten",
+        "color-dodge",
+        "color-burn",
+        "hard-light",
+        "soft-light",
+        "difference",
+        "exclusion",
+        "hue",
+        "saturation",
+        "color",
+        "luminosity",
+    ] {
+        frame["view"]["background"]["layers"][1]["composition"]["blendMode"] = mode.into();
+        renderer
+            .prepare_and_render_json_str(&frame.to_string())
+            .unwrap();
+        let plan = renderer.backend().last_runtime_plan().unwrap();
+        let groups = &plan.composite_groups["background:layer:front"];
+        assert_eq!(groups.len(), 2);
+        assert_eq!(
+            groups[1].blend_mode,
+            crate::render_graph::CompositeBlendMode::from_css(mode)
+        );
+        assert!((groups[1].blur_radius - 8.0 / 6.0).abs() < 1e-9);
+        assert_eq!(
+            renderer
+                .backend()
+                .runtime_snapshot()
+                .resident_compositor_texture_byte_len,
+            3 * 320 * 180 * 4
+        );
+    }
+    frame["view"]["background"]["layers"][1]["composition"]["blendMode"] = "normal".into();
+    renderer
+        .prepare_and_render_json_str(&frame.to_string())
+        .unwrap();
+    assert_eq!(
+        renderer
+            .backend()
+            .runtime_snapshot()
+            .resident_compositor_texture_byte_len,
+        2 * 320 * 180 * 4
+    );
+    frame["view"] = serde_json::json!({});
+    renderer
+        .prepare_and_render_json_str(&frame.to_string())
+        .unwrap();
+    assert_eq!(
+        renderer
+            .backend()
+            .runtime_snapshot()
+            .resident_compositor_texture_byte_len,
+        0
+    );
+}

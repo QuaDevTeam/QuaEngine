@@ -1,104 +1,110 @@
-# Native Renderer / Web 渲染审计（2026-09-05）
+# Native Renderer / Web 渲染审计（2026-09-06 更新）
 
-本审计针对 macOS Apple M4、Metal/WGPU、逻辑舞台 1920×1080、窗口 CSS 960×540、DPR 2。原生和 Chrome 使用同一组已解析逻辑坐标；图片、字体从 demo 的 native QPK 读取。像素误差是每个 RGB 通道的平均绝对误差（0..255），只表示该测试区域，不是完整渲染器评分。
+审计环境为 macOS Apple M4、Metal/WGPU、1920×1080 逻辑舞台、960×540 窗口、DPR 2。Native 和 Chrome 使用相同 QPK 图片/字体及逻辑坐标。MAE 是每个 RGB 通道的平均绝对误差（0..255），只说明对应夹具的结果，不能作为完整渲染器评分。
 
-## 结论
+现有渲染语义修复已在 `0b2b6aa9` 提交。本次继续补齐背景合成，并纠正旧审计中仍引用早期数字、装饰退 bitmap、增益 clamp 到 1 等过时结论。
 
-当前 native 的基础 Box 绘制、圆角、边框、阴影、裁剪、z 顺序和多停靠点不透明渐变已经接近 Web。高风险差异在桥接和组合语义，而不是 WGPU 是否能画出一个矩形：
+## 已实现的语义
 
-1. **背景 composition 的绘制语义仍不完整。** TS -> Rust DTO 现在保留 blend mode、isolation、filter、mask；native 已将 image filter 的 brightness、saturate、contrast、grayscale、sepia、hue-rotate 转入 WGPU image effect。blend/isolation/mask、blur、drop-shadow 和 video composition 仍没有对应 native pass，实测三组 probe 仍显示 Web 有 CSS 投影而 native 没有完整结果。
-2. **透明组合和父级 opacity 已修复。** stacking-context intermediate target 后，`group-opacity` MAE 为 0.437；透明渐变覆盖底色为 0.060，渐变叠底色为 0.095。嵌套 opacity 已加入 probe。
-3. **图片 fit/origin 已接入 intrinsic 尺寸和 mip 链。** `cover` 1.956、`contain` 2.570、`origin` 1.513、`image-none` 0.066；`scale-down` 2.570。
-4. **高级 UI 样式仍需真实截图复核。** JSON 入口现在接受独立圆角、旋转、image contrast/grayscale/sepia/hue/invert/blur，并为 `backdrop-filter: blur()` 生成 native backdrop-blur command；真实 Metal/Chrome MAE 仍需重新跑审计确认。
-5. **富文本 span 样式未保留。** Web 保留每个 span 的颜色、字号、italic、decoration；native DTO 仅保留 span text 和部分 color/fontSize，Rust dialogue 最终 flatten 成一个 TextDrawParams。混合 span 不能宣称对齐。
-6. **文字装饰会退回 bitmap placeholder。** 实测 underline/strike 与 Web 的 MAE 分别为 9.725/7.439；Rust atlas text geometry 对 decoration 直接返回 None，随后走 bitmap 路径。italic 若没有对应 atlas face 也会退回 bitmap。
-7. **字体图集的更新和 shaping 已收敛。** 图集仍按字号 bucket 限制数量；动态文本只保留最近请求，连字/上下文 glyph 按实际 glyph ID 检查并在缺失时重建。该路径有 Rust 回归覆盖，字体预热性能仍需在真实产品字体集上继续测量。
-8. **音频桥接只保留 renderer-local 播放控制子集。** Web 对 `+6dB` 的线性增益是 1.995，native 在 `normalizedLinearGain` 中 clamp 到 1；Web 的 EQ 和 automation 不进入 native track projection。native 已实测 rodio 的 seek、delay、fade、loop、自然结束和资源加载，差异是能力缺失，不是“没有音频”。
-9. **视频只实测到 GIF。** native app 的 video backend 使用 GIF 解码和帧纹理环；MP4/WebM 没有 native decoder 实测，demo E2E 的 video decoded/published 为 0。Web HTMLVideo 的行为不能视为 native 已对齐。
-10. **动画基础目标已对齐，但覆盖不完整。** background/character/dialogue/choice 数值动画在 TS projection probe 中与 Web 相同；Rust animation runtime 有 number、array/vector、color interpolation。stage/camera、复合 composition、所有 effect target 尚未有真实 GPU 动画序列对照。native effect 实现只有 shake、fade_in、fade_out、flash。
+- UI 父级和嵌套 opacity 对整棵子树只应用一次；stacking context 保持原子 z 顺序。透明渐变采用预乘 sRGB 插值，避免透明颜色污染。
+- 图片使用 intrinsic decoded 尺寸解析 cover/contain/fill/none/scale-down/origin；图像 mip 链使用预乘 sRGB 降采样。字体 atlas 保持单级，防止字形间采样污染。
+- 独立四角圆角共享 CSS 半径缩放约束，供 paint、hit test、variant clip 使用。Backdrop blur 从实际绘制位置捕获之前的 backdrop root，支持父组/自身 opacity。
+- 高分辨率字体支持 synthetic italic、underline、strike、裁剪后的文字阴影、按测量宽度 ellipsis、grapheme wrapping 和 soft-wrap justify。字体字号使用 em/UPEM 语义和物理字号 bucket；动态图集仅保留最近文本请求，并按 face/glyph ID 判断连字缺失。
+- Native 音频线性 gain 接受 0..16，保留 +dB boost；EQ 和 automation 仍未实现。
+- 背景新增 16 种标准 CSS blend mode，包含 hue/saturation/color/luminosity；使用非预乘 sRGB 颜色计算 blend，再按源与底层 alpha 做预乘 source-over。
+- 分层背景始终构成独立 stacking context，与 Web 的 transformed root 一致：子层先与之前的兄弟层混合，再统一应用背景 opacity/filter。单层 blur 的 primitive alpha 和 group opacity 不再重复相乘。
+- 背景滤镜在 blur 后依次应用 brightness → contrast → saturate → hue-rotate → grayscale → sepia；native invert 扩展最后应用。视频帧/海报使用外层 background 的 opacity、fit/origin 和 composition。
+- Blend 和 backdrop blur 共用一个捕获 scratch，纳入 16 层 / 256 MiB 临时纹理预算；不用时释放，空帧清理 compositor。PNG 导出将 GPU 预乘 RGBA 转为 straight alpha，修复透明截图再次合成变暗。
 
-## 特性实测矩阵
+## 真实截图结果
 
-| 特性 | Web 对照 / 原生实测 | 结果 |
-|---|---|---|
-| 固体颜色、RGBA source-over、单节点 opacity | 真实 Metal PNG vs Chrome | MAE 0 / 0.485 / 0.324，接近 |
-| 父级/组 opacity | 真实 PNG | **已修复**，group MAE 0.437；嵌套 opacity 0.485 |
-| linear gradient 90°/35°、radial gradient | 真实 PNG | 不透明渐变 MAE 0.081/0.081/0.121 |
-| transparent gradient、gradient over color | 真实 PNG | **已修复**，MAE 0.060/0.095 |
-| 圆角、四边统一 border、四边不同 border | 真实 PNG | MAE 0.071/0.116/0.330 |
-| 独立四角 radius | 真实 PNG | **已支持**，MAE 0.044 |
-| outer/inset/hard shadow | 真实 Metal + Chrome | MAE 1.343/0.506/0.241；独立 `native:ui:compare` 通过 |
-| rounded/nested clip、overflow visible、z order | 真实 PNG | MAE 0.109/0.062/0/0 |
-| 节点 rotation | 真实 PNG | **已支持**，MAE 0.254 |
-| image cover/contain/fill/origin/opacity/rounded/WebP/background image | 真实 PNG | **有明显差异**，MAE 5.397..16.078，WebP 12.606 |
-| image none/scale-down | 真实 PNG | MAE 47.818/17.722 |
-| brightness/saturate | 真实 PNG | MAE 6.771/13.211 |
-| contrast/grayscale/sepia/hue/invert/blur | 真实 PNG | image filter 参数已进入 WGPU，仍需逐项调参复核 |
-| backdrop-filter | 真实 PNG | 已加入 capture + blur pass，仍需透明组和多层场景复核 |
-| Latin/CJK、多行、换行、letter spacing、左右/居中 | 真实 PNG | MAE 4.288..17.996；linebox 单行较好，换行差异偏大 |
-| bold/italic/underline/strike | 真实 PNG | bold/italic 0.694；underline/strike 1.145/1.284，已使用 atlas 几何 |
-| uppercase/ellipsis/nowrap/justify | 真实 PNG | MAE 5.886/7.099/7.618/17.970 |
-| text shadow、ligature、combining marks、Arabic/bidi | 真实 PNG | MAE 4.944..7.111；未证明与浏览器 shaping 完全一致 |
-| dialogue/choices/background/character 数值动画 | Web/native projection probe | 基础数值结果一致 |
-| stage/camera、color/vector、scene transition、effects | Rust tests + projection probe | API/数学测试通过；无完整真实 GPU Web 序列证据 |
-| background filter/blend/mask | Web/native projection probe | composition 字段已保留；image filter 参数已进入 WGPU，blend/isolation/mask/blur/drop-shadow 仍缺完整 native pass |
-| rich text span color/font/decoration | Web/native projection probe + PNG | **native 只保留部分样式，最终 flatten** |
-| audio gain/seek/fade/delay/loop | Web/native projection + rodio tests | seek/fade/delay/loop 有 native；EQ/automation/+dB boost 不一致 |
-| video | GIF unit tests + native E2E | GIF 可解码/发布；MP4/WebM 未实现/未证明 |
-| sprite expression / atlas / UI skin | Web contract probe vs native bridge | **Web 多层 manifest，native 仅 sprite/expression 字符串；skin 不下发** |
-| font atlas / CJK / ligature | 真实 E2E、Rust font tests、性能探针 | 可用但有 atlas rebuild、缓存和 contextual glyph 风险 |
-| logical stage / safe area / hit-test | 816 real-wgpu-noop tests + native E2E pointer | 数学和 pointer intent 通过；需要多分辨率真实截图继续覆盖 |
-| pointer / keyboard / IME | native app tests + E2E metrics | pointer 32 events/13 intents；keyboard/IME 产品 E2E 为 0，只有 bridge/unit 覆盖 |
-| resource lifecycle / QPK provenance | native E2E + bridge tests | 上传错误 0、cleanup 错误 0；package-aware release 路径通过 |
+基础 UI 审计报告：`packages/native/target/render-audit/measurements.json` 与 `review.html`。背景合成专项报告：同目录下 `background/measurements.json` 与 `background/review.html`。
 
-本轮审计夹具扩展到 70 个 JSON 用例；已有 67 个用例完成真实 Metal/Chrome 光栅对照，新增组合用例正在重新生成最终 `measurements.json`。旧 baseline 保留在 `baseline-measurements.json`，不能与当前结果混读。
+基础 UI **70/70** 用例通过 JSON 入口并完成真实光栅对照；本次与背景改动前记录比较，没有 MAE 增加超过 0.01 的用例。
 
-## 性能实测
-
-串行 Rust debug 微基准（`bench-smoke,wgpu-backend`, `--test-threads=1`）：
-
-| 场景 | 实测 |
+| 特性 | MAE |
 |---|---:|
-| 344 commands 稳定提交，120 次 | 1.805 ms/frame，稳定 plan reuse 120 |
-| 344 commands render graph，64 次 | 239.957 ms，总计约 3.75 ms/次 |
-| 192 文本节点 WGPU buffer，24 次 | 108.123 ms，总计约 4.51 ms/次 |
-| 256 资源替换，64 次 | 741.406 ms，总计约 11.58 ms/次 |
-| 48 tracks 音频 metrics，96 次 | 477.640 ms，总计约 4.98 ms/次 |
-| 字体预热探针 | 9.08 ms，3 atlas，2.36 MB RGBA 上传 |
+| 父组 / 嵌套 opacity / stacking context | 0.437 / 0.485 / 0.281 |
+| 透明渐变 / 渐变叠底色 | 0.060 / 0.095 |
+| 独立圆角 / rotation | 0.044 / 0.254 |
+| 图片 cover / contain / fill | 1.956 / 2.570 / 1.340 |
+| origin / none / scale-down | 1.513 / 0.066 / 2.570 |
+| 图片 blur / background-image | 3.044 / 0.784 |
+| backdrop blur / 父组 opacity / 自身 opacity | 2.296 / 1.782 / 2.788 |
+| Latin / CJK / word wrap | 0.845 / 1.597 / 2.889 |
+| italic / underline / strike | 0.694 / 1.145 / 1.284 |
+| text shadow / clipped italic shadow | 0.741 / 3.315 |
+| ellipsis / justify / Arabic bidi | 1.071 / 2.819 / 5.769 |
 
-这些不是 release FPS，也不包含完整窗口合成；它们用于定位 CPU plan、资源替换和字体重建的成本。稳定帧已经有 2 帧历史上限和 device plan reuse，性能优化应优先针对“投影/文字/资源变化帧”。
+背景专项 **22/22** 用例完成截图，texture/font upload errors 均为 0：
+
+| 背景用例 | 重叠区域 MAE | 整帧 MAE |
+|---|---:|---:|
+| blend-normal | 1.535 | 1.820 |
+| blend-multiply | 1.436 | 1.761 |
+| blend-screen | 1.922 | 1.990 |
+| blend-overlay | 2.315 | 2.151 |
+| blend-darken | 1.471 | 1.784 |
+| blend-lighten | 2.012 | 2.023 |
+| blend-color-dodge | 2.184 | 2.099 |
+| blend-color-burn | 2.634 | 2.289 |
+| blend-hard-light | 2.139 | 2.072 |
+| blend-soft-light | 2.251 | 2.122 |
+| blend-difference | 2.037 | 2.040 |
+| blend-exclusion | 1.623 | 1.863 |
+| blend-hue | 2.193 | 2.099 |
+| blend-saturation | 2.101 | 2.054 |
+| blend-color | 2.065 | 2.039 |
+| blend-luminosity | 1.431 | 1.774 |
+| blur-opacity | 2.204 | 2.021 |
+| layered-opacity | 1.087 | 1.190 |
+| layered-filter | 1.896 | 2.170 |
+| layered-isolation | 1.320 | 1.294 |
+| layer-filter-blend | 1.845 | 2.004 |
+| translucent-backdrop | 1.542 | 1.340 |
+
+背景夹具使用真实 `backgroundProjectionVars` / `backgroundLayerProjectionVars` 生成 Chrome CSS，并经过 `createNativeRendererViewProjection` 和 Rust JSON 入口生成 Native 帧。双方从 demo native QPK 读取相同图片。背景报告同时记录重叠区域和整帧误差，透明截图统一叠到黑色底上。JSON 接受、GPU 提交与截图成功只证明该夹具可用；滤镜和混合后的画面仍需结合误差和图片检查。
 
 ## 验证记录
 
-- `quajs_wgpu_renderer --features real-wgpu-noop,image-decode`：824 passed。
-- `quajs_native_app --features native-window,native-audio-rodio`：267 passed，另有 renderer CLI 14 passed。
-- `bench-smoke,wgpu-backend` 串行：8 passed。
-- `pnpm native:ui:test` 与 `pnpm native:ui:compare`：真实 Metal UI fixture 通过，区域 MAE 为 hard 0.258、outer 1.270、inset 1.330、rounded 0.198、nested 0.136、background order 0.088。
-- `pnpm native:e2e`：真实 QuickJS + Rodio + Metal 通过；82 dialogue lines、147 batches/199 commands、texture upload errors 0、font atlas errors 0、cleanup errors 0；video 0 decoded/published、keyboard/IME 0。
-- Web renderer：85 passed；native contracts 140 passed；native UI compiler 225 passed；gallery/backlog/achievement/settings 插件套件通过。
-- native benchmarks 当前仍有旧 `.qui` fixture 迁移失败；language server 有 19 个旧 QUI/缺失 LSP 能力失败。这些是 tooling migration 问题，不能归因成 GPU 绘制失败。
-- 当前产品 Web/native live parity 未完成：本机 headless Chromium 在启动时遇到 macOS Mach port 错误，native CDP `Qua.listCommands` 也超时。因此产品面板截图结论沿用真实 `native:e2e` 和独立 UI fixture，不把这次失败伪装成通过。
+- `quajs_wgpu_renderer --features real-wgpu-noop,image-decode --lib`：**830 passed**，覆盖 blend/filter group、不同 blend mode 切换、scratch 复用/释放、PNG alpha 回归。日志：`background-tests.log`。
+- `quajs_native_app --features native-window,native-audio-rodio --bin quajs_native_app`：**268 passed**。日志：`background-app-tests.log`。
+- `native-window` app 构建通过；UI 70 项和背景 22 项真实 Metal/Chrome 截图完成，基础 UI 没有超过 0.01 MAE 的退化。背景门槛为重叠区域/整帧 MAE ≤ 4，最大通道差超过 16 的像素比例 ≤ 8%。
+- `pnpm native:e2e`：**通过**。68 条对白、stealth 选择、settings、gallery、返回 title；147 batches / 199 commands / 4 passes，1920×1080 PNG，texture/font/cleanup errors 全部 0，最终 67 个 shaped text draws、0 bitmap draws。Rodio active tracks 最终 0、peak 1。一次窗口 occluded 导致 present 重试，最终 Presented；无 surface/device recovery error。日志：`background-e2e.log`。
+- `node --check scripts/native-render-audit/background.mjs` 与 `git diff --check` 通过。
 
-## 优先级
+前一批已完成的检查（`0b2b6aa9`，不作为本次新增重跑）：engine-native 105 tests 与 typecheck、native UI compiler 225 tests。该批完整 demo E2E 走过 71 条对白、stealth 选择、settings、gallery、返回 title；147 batches / 199 commands / 4 passes，1920×1080 PNG，texture/font/cleanup errors 均为 0，Rodio active tracks 最终 0、peak 1。
 
-**P0：** 完成 background composition 的 blend/isolation/mask/drop-shadow 绘制 pass，并继续复核 backdrop blur 的透明组语义。
+历史 debug 微基准供定位使用：344 commands 稳定提交 120 次约 1.805 ms/frame，192 个文本节点 buffer 构建 24 次约 4.51 ms/次，256 资源替换 64 次约 11.58 ms/次。它们不是 release FPS，也不含完整窗口合成。本次未重测这些微基准。
 
-**P1：** 实现富文本 span 绘制；继续补齐 atlas shaping 的产品字体覆盖；决定 native 是否支持 EQ/automation 和非 GIF 视频，并同步 capability manifest。
+## 仍未对齐
 
-**P2：** 为 stage/camera/effects/scene transition、sprite manifest/UI skin、keyboard/IME、portrait/safe-area 和多 GPU 建立真实 Web/native 截图夹具；修复旧 QUI benchmark/LSP fixture 后再把它们纳入 native verify。
+1. **背景组合：** mask 资源采样/布局、drop-shadow、layered root 的完整变换、各视频子层解码仍待实现。大 blur 半径的固定采样近似、filter 与 scale/rotation 的组合还需要专门截图验证。
+2. **富文本：** native dialogue 仍 flatten span，部分 span 样式在 TS 桥接时丢失；需要真实 inline run layout、多字体资源和 typewriter grapheme 对齐，不能用多个估算宽度文字框替代。
+3. **字体：** Arabic/bidi 仍有可见误差；跨字体逐 cluster fallback、竖排和语言相关断字未完成。当前截图不证明浏览器级文字布局。
+4. **音视频：** EQ/automation 尚未接入；GIF 有解码与发布测试，MP4/WebM 尚无解码器或产品实测。demo E2E 的 video decoded/published 为 0。
+5. **Sprite/UI skin：** 多层 sprite manifest、expression diff 和 UI skin 的 native 投影仍缺。只有 sprite/expression 字符串不能视为 Web 多层效果。
+6. **动态场景：** stage/camera/effects/scene transition 需要真实 GPU 时间序列对照；基础数值动画测试不覆盖全部 composition/effect target。
+7. **产品覆盖：** keyboard/IME 产品 E2E 仍为 0；portrait、多分辨率、safe-area、多 GPU，以及圆角/border/shadow/rotation 复杂组合仍需补截图。此前 live CDP 超时不能算产品 Web/native parity 已通过。
+8. **工具链历史缺口：** 旧 QUI benchmark/LSP fixture 迁移失败仍需单独复核；本次没有把旧结果作为 GPU 绘制失败或已修复项。
 
 ## 重现
 
 ```bash
-QUA_PARITY_CHROMIUM=/Volumes/BRData/ms-playwright/chromium_headless_shell-1228/chrome-headless-shell-mac-arm64/chrome-headless-shell \
-  node scripts/native-render-audit.mjs
+cargo build --locked --manifest-path packages/native/Cargo.toml \
+  -p quajs_native_app --features native-window
 
+node scripts/native-render-audit.mjs --skip-build
+node scripts/native-render-audit/background.mjs --skip-build
 node scripts/native-render-audit/bridge.mjs
 
 cargo test --locked --manifest-path packages/native/Cargo.toml \
-  -p quajs_wgpu_renderer --features real-wgpu-noop,image-decode
+  -p quajs_wgpu_renderer --features real-wgpu-noop,image-decode --lib
 
 cargo test --locked --manifest-path packages/native/Cargo.toml \
-  -p quajs_wgpu_renderer --features bench-smoke,wgpu-backend bench_smoke \
-  -- --nocapture --test-threads=1
+  -p quajs_native_app --features native-window,native-audio-rodio --bin quajs_native_app
+
+pnpm native:e2e
 ```
+
+可用 `QUA_PARITY_CHROMIUM` 指定 Chromium executable，用 `QUA_NATIVE_AUDIT_APP` 固定审计 binary。外置卷上的新 Mach-O 偶尔停在 `_dyld_start`；本机复制到 `/tmp` 后可以正常运行，Cargo 测试可通过 `CARGO_TARGET_AARCH64_APPLE_DARWIN_RUNNER` 指向本机临时复制 runner。不能因此禁用系统签名检查，也不能将机器专属路径作为公共运行接口。

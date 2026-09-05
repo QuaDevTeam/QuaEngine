@@ -133,6 +133,9 @@ pub(in super::super) fn json_frame_with_video_background_input() -> &'static str
       "view": {
         "background": {
           "mode": "video",
+          "fit": "contain",
+          "origin": "right 75%",
+          "opacity": 0.85,
           "layers": [],
           "video": {
             "assetName": "video/opening.webm",
