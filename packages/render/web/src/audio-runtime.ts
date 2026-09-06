@@ -596,17 +596,7 @@ export class WebAudioAudioRuntime {
         continue
       }
 
-      const points = item.curve.points
-      if (points.length === 0) {
-        continue
-      }
-
-      param.cancelScheduledValues(now)
-      param.setValueAtTime(dbToGain(points[0].value), now + points[0].at / 1000)
-      for (let index = 1; index < points.length; index++) {
-        const point = points[index]
-        param.linearRampToValueAtTime(dbToGain(point.value), now + point.at / 1000)
-      }
+      this.scheduleParamCurve(param, item, now, true)
     }
   }
 
@@ -624,12 +614,21 @@ export class WebAudioAudioRuntime {
         continue
       }
 
-      const param = filter[property as keyof BiquadFilterNode]
-      if (!param || typeof param !== 'object' || !('setValueAtTime' in param)) {
-        continue
-      }
+      const param = property === 'gainDb' ? filter.gain : property === 'q' ? filter.Q
+        : property === 'frequency' ? filter.frequency : filter.detune
+      this.scheduleParamCurve(param, item, this.ensureContext().currentTime, false)
+    }
+  }
 
-      this.scheduleAutomation(param as AudioParam, [item])
+  private scheduleParamCurve(param: AudioParam, item: AudioAutomationProjection, now: number, gain: boolean): void {
+    const points = item.curve.points
+    if (!points.length) return
+    const value = (number: number) => gain ? dbToGain(number) : number
+    param.cancelScheduledValues(now)
+    param.setValueAtTime(value(points[0].value), now + points[0].at / 1000)
+    for (let index = 1; index < points.length; index++) {
+      const point = points[index]
+      param.linearRampToValueAtTime(value(point.value), now + point.at / 1000)
     }
   }
 

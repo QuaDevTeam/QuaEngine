@@ -1,4 +1,5 @@
 pub mod audio;
+pub mod audio_processing;
 pub mod background;
 pub mod character;
 pub mod choices;

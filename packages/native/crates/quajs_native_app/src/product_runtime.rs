@@ -600,6 +600,7 @@ mod tests {
             delay_ms: None,
             seek_ms: None,
             offset_ms: None,
+            processing: Vec::new(),
             package_candidates: ["runtime.audio"].into_iter().map(String::from).collect(),
             media_resource_id: ResourceId::from(format!(
                 "audio:buffer:{}:{}:{asset_name}",

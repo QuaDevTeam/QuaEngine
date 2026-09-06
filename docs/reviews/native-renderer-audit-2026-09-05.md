@@ -10,7 +10,7 @@
 - 图片使用 intrinsic decoded 尺寸解析 cover/contain/fill/none/scale-down/origin；图像 mip 链使用预乘 sRGB 降采样。字体 atlas 保持单级，防止字形间采样污染。
 - 独立四角圆角共享 CSS 半径缩放约束，供 paint、hit test、variant clip 使用。Backdrop blur 从实际绘制位置捕获之前的 backdrop root，支持父组/自身 opacity。
 - 高分辨率字体支持 synthetic italic、underline、strike、裁剪后的文字阴影、按测量宽度 ellipsis、grapheme wrapping 和 soft-wrap justify。字体字号使用 em/UPEM 语义和物理字号 bucket；动态图集仅保留最近文本请求，并按 face/glyph ID 判断连字缺失。
-- Native 音频线性 gain 接受 0..16，保留 +dB boost；EQ 和 automation 仍未实现。
+- Native 音频线性 gain 接受 0..16，保留 +dB boost；EQ 和 automation 已通过 track → bus → master processing projection 接入 Rodio，参数更新不会重启播放源。
 - 背景新增 16 种标准 CSS blend mode，包含 hue/saturation/color/luminosity；使用非预乘 sRGB 颜色计算 blend，再按源与底层 alpha 做预乘 source-over。
 - 分层背景始终构成独立 stacking context，与 Web 的 transformed root 一致：子层先与之前的兄弟层混合，再统一应用背景 opacity/filter。单层 blur 的 primitive alpha 和 group opacity 不再重复相乘。
 - 背景滤镜在 blur 后依次应用 brightness → contrast → saturate → hue-rotate → grayscale → sepia；native invert 扩展最后应用。视频帧/海报使用外层 background 的 opacity、fit/origin 和 composition。
@@ -82,7 +82,7 @@
 1. **背景组合：** mask 资源采样/布局、drop-shadow、layered root 的完整变换、各视频子层解码仍待实现。大 blur 半径的固定采样近似、filter 与 scale/rotation 的组合还需要专门截图验证。
 2. **富文本：** native dialogue 仍 flatten span，部分 span 样式在 TS 桥接时丢失；需要真实 inline run layout、多字体资源和 typewriter grapheme 对齐，不能用多个估算宽度文字框替代。
 3. **字体：** Arabic/bidi 仍有可见误差；跨字体逐 cluster fallback、竖排和语言相关断字未完成。当前截图不证明浏览器级文字布局。
-4. **音视频：** EQ/automation 尚未接入；GIF 有解码与发布测试，MP4/WebM 尚无解码器或产品实测。demo E2E 的 video decoded/published 为 0。
+4. **音视频：** EQ/automation 已接入并有 native focused backend tests；GIF 有解码与发布测试，MP4/WebM 尚无解码器或产品实测。demo E2E 的 video decoded/published 为 0。
 5. **Sprite/UI skin：** 多层 sprite manifest、expression diff 和 UI skin 的 native 投影仍缺。只有 sprite/expression 字符串不能视为 Web 多层效果。
 6. **动态场景：** stage/camera/effects/scene transition 需要真实 GPU 时间序列对照；基础数值动画测试不覆盖全部 composition/effect target。
 7. **产品覆盖：** keyboard/IME 产品 E2E 仍为 0；portrait、多分辨率、safe-area、多 GPU，以及圆角/border/shadow/rotation 复杂组合仍需补截图。此前 live CDP 超时不能算产品 Web/native parity 已通过。

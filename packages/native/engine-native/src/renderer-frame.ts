@@ -312,6 +312,11 @@ function createNativeAudioTrack(track: unknown, kind: string, audio: JsonRecord)
   }
   const state = nativeAudioPlaybackState(record.state)
   const volume = nativeAudioTrackVolume(record, audio, kind)
+  const stages = [
+    createNativeAudioProcessingStage(`track:${id}`, record),
+    createNativeAudioProcessingStage(`bus:${kind}`, asRecord(asRecord(audio.buses)?.[kind])),
+    createNativeAudioProcessingStage('bus:master', asRecord(asRecord(audio.buses)?.master)),
+  ]
   const provenance = createPackageProvenance(record)
 
   return omitUndefined({
@@ -331,8 +336,59 @@ function createNativeAudioTrack(track: unknown, kind: string, audio: JsonRecord)
     delayMs: finiteNumber(record.delayMs),
     seekMs: finiteNumber(record.seekMs),
     offsetMs: finiteNumber(record.offsetMs),
+    processing: stages,
     provenance,
   })
+}
+
+function createNativeAudioProcessingStage(id: string, record: JsonRecord | undefined): JsonRecord {
+  return {
+    id,
+    gainDb: finiteNumber(record?.gainDb) ?? 0,
+    eq: Array.isArray(record?.eq) ? record.eq.map(createNativeAudioEqBand).filter(isJsonRecord) : [],
+    automation: Array.isArray(record?.automation)
+      ? record.automation.map(createNativeAudioAutomation).filter(isJsonRecord) : [],
+  }
+}
+
+function createNativeAudioEqBand(band: unknown): JsonRecord | undefined {
+  const record = asRecord(band)
+  if (!record) return undefined
+  const frequency = finiteNumber(record.frequency)
+  if (frequency === undefined) return undefined
+  return omitUndefined({
+    type: stringValue(record.type) || 'peaking',
+    frequency,
+    gainDb: finiteNumber(record.gainDb),
+    q: finiteNumber(record.q),
+    detune: finiteNumber(record.detune),
+  })
+}
+
+function createNativeAudioAutomation(value: unknown): JsonRecord | undefined {
+  const record = asRecord(value)
+  const curve = asRecord(record?.curve)
+  if (!record || !curve || !Array.isArray(curve.points)) return undefined
+  const points = curve.points.map(point => {
+    const item = asRecord(point)
+    const at = finiteNumber(item?.at)
+    const pointValue = finiteNumber(item?.value)
+    return item && at !== undefined && pointValue !== undefined
+      ? omitUndefined({ at, value: pointValue, easing: stringValue(item.easing) })
+      : undefined
+  }).filter(isJsonRecord)
+  const target = stringValue(record.target)
+  const propertyPath = stringValue(record.propertyPath)
+  if (!target || !propertyPath || points.length === 0) return undefined
+  return {
+    target,
+    propertyPath,
+    curve: omitUndefined({
+      points,
+      duration: finiteNumber(curve.duration),
+      loop: booleanValue(curve.loop),
+    }),
+  }
 }
 
 function mergeAudioRequiredPackages(track: JsonRecord, requiredRuntimePackages: string[]): JsonRecord {
