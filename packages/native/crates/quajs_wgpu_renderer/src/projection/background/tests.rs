@@ -52,6 +52,42 @@ fn builds_main_image_background_command() {
 }
 
 #[test]
+fn projects_css_drop_shadow_as_package_aware_sibling_command() {
+    let layout = test_layout();
+    let background = BackgroundProjection {
+        asset_name: Some("bg/school.png".to_string()),
+        provenance: provenance("runtime.bg", ["base"]),
+        composition: Some(BackgroundCompositionProjection {
+            filter: Some(BackgroundFilterProjection {
+                drop_shadow: Some("drop-shadow(12px 18px 24px rgba(0,0,0,0.55))".to_string()),
+                ..Default::default()
+            }),
+            ..Default::default()
+        }),
+        ..Default::default()
+    };
+
+    let commands = build_background_commands(&layout, &background);
+    assert_eq!(commands.len(), 2);
+    assert_eq!(commands[0].id, "background:main:drop-shadow");
+    assert_eq!(commands[0].kind, DrawCommandKind::RoundedRect);
+    assert_eq!(commands[0].owner_package_id.as_deref(), Some("runtime.bg"));
+    assert!(commands[0]
+        .required_package_ids
+        .contains(&"base".to_string()));
+    match &commands[0].params {
+        DrawCommandParams::Shadow(params) => {
+            assert_eq!(params.offset_x, 12.0);
+            assert_eq!(params.offset_y, 18.0);
+            assert_eq!(params.blur_radius, 24.0);
+            assert_eq!(params.color, "rgba(0,0,0,0.55)");
+        }
+        _ => panic!("expected drop shadow params"),
+    }
+    assert_eq!(commands[1].id, "background:main");
+}
+
+#[test]
 fn applies_background_filters_after_subtree_rendering() {
     let layout = test_layout();
     let background = BackgroundProjection {
