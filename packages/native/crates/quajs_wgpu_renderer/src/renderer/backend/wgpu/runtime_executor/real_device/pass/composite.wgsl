@@ -4,6 +4,10 @@ struct CompositeStyle {
     brightness: f32, contrast: f32, saturation: f32,
     hue: f32, grayscale: f32, sepia: f32, invert: f32,
     mask_enabled: f32, mask_mode: f32,
+    mask_x: f32, mask_y: f32, mask_width: f32, mask_height: f32,
+    tile_x: f32, tile_y: f32, tile_width: f32, tile_height: f32,
+    period_x: f32, period_y: f32, repeat_x: f32, repeat_y: f32,
+    rotation_cos: f32, rotation_sin: f32,
 }
 @group(0) @binding(1) var<uniform> style: CompositeStyle;
 @group(0) @binding(2) var backdrop: texture_2d<f32>;
@@ -21,13 +25,39 @@ fn source_pixel(position: vec2<f32>) -> vec4<f32> {
     return textureLoad(source, vec2<i32>(position), 0);
 }
 
+// Convert each straight-alpha texel to mask coverage before interpolation.
+// Transparent RGB must contribute nothing, including in luminance mode.
+fn mask_texel(point: vec2<i32>, level: i32) -> f32 {
+    let texel = textureLoad(mask_texture, clamp(point, vec2(0), vec2<i32>(textureDimensions(mask_texture, level)) - 1), level);
+    if (style.mask_mode > 0.5) { return texel.a * dot(texel.rgb, vec3(0.2126, 0.7152, 0.0722)); }
+    return texel.a;
+}
+fn mask_sample(uv: vec2<f32>, level: i32) -> f32 {
+    let texel = uv * vec2<f32>(textureDimensions(mask_texture, level)) - 0.5;
+    let base = vec2<i32>(floor(texel));
+    let weight = fract(texel);
+    return mix(mix(mask_texel(base, level), mask_texel(base + vec2(1, 0), level), weight.x),
+               mix(mask_texel(base + vec2(0, 1), level), mask_texel(base + vec2(1, 1), level), weight.x), weight.y);
+}
 fn mask_alpha(position: vec2<f32>) -> f32 {
     if (style.mask_enabled < 0.5) { return 1.0; }
-    let dimensions = vec2<f32>(textureDimensions(mask_texture));
-    let uv = clamp(position / max(vec2<f32>(textureDimensions(source)), vec2(1.0)), vec2(0.0), vec2(0.999999));
-    let sample = textureLoad(mask_texture, vec2<i32>(uv * dimensions), 0);
-    if (style.mask_mode > 0.5) { return dot(sample.rgb, vec3(0.2126, 0.7152, 0.0722)); }
-    return sample.a;
+    let area = vec2(style.mask_width, style.mask_height);
+    let size = vec2(style.tile_width, style.tile_height);
+    if (any(area <= vec2(0.0)) || any(size <= vec2(0.0))) { return 0.0; }
+    let center = vec2(style.mask_x, style.mask_y) + area * 0.5;
+    let delta = position - center;
+    let point = center + vec2(delta.x * style.rotation_cos + delta.y * style.rotation_sin,
+                             delta.y * style.rotation_cos - delta.x * style.rotation_sin);
+    let local = point - vec2(style.mask_x, style.mask_y);
+    if (any(local < vec2(0.0)) || any(local >= area)) { return 0.0; }
+    var tile = point - vec2(style.tile_x, style.tile_y);
+    let period = max(vec2(style.period_x, style.period_y), vec2(0.000001));
+    if (style.repeat_x > 0.5) { tile.x -= floor(tile.x / period.x) * period.x; }
+    if (style.repeat_y > 0.5) { tile.y -= floor(tile.y / period.y) * period.y; }
+    // Space gaps and no-repeat regions are transparent, never edge-stretched.
+    if (any(tile < vec2(0.0)) || any(tile >= size)) { return 0.0; }
+    // Match Chrome raster masks' bilinear sampling of the original image.
+    return mask_sample(tile / size, 0);
 }
 
 fn filtered_pixel(position: vec2<f32>) -> vec4<f32> {
@@ -132,7 +162,7 @@ fn blend(b: vec3<f32>, s: vec3<f32>, mode: u32) -> vec3<f32> {
 
 @fragment fn fs_main(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
     let pixel = filtered_pixel(position.xy) * style.opacity;
-    let masked = vec4(pixel.rgb, pixel.a * mask_alpha(position.xy));
+    let masked = pixel * mask_alpha(position.xy);
     if (style.blend_mode == 0.0 || masked.a <= 0.0) { return masked; }
     let back = textureLoad(backdrop, vec2<i32>(position.xy), 0);
     let cb = back.rgb / max(back.a, 0.000001);

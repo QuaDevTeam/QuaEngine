@@ -79,11 +79,11 @@
 
 ## 仍未对齐
 
-1. **背景组合：** mask 已作为 package-aware decoded texture 接入 compositor，支持 alpha/luminance 和默认同尺寸 no-repeat 采样；mask position/size/repeat、layered root 的完整变换、各视频子层解码仍待实现。drop-shadow 已通过 analytic shadow sibling 投影接入。大 blur 半径的固定采样近似、filter 与 scale/rotation 的组合还需要专门截图验证。
-2. **富文本：** native dialogue 已保留 document blocks 和 inline span 样式，并按继承后的 run 样式投影颜色、字体、字号、字重、行高和对齐；当前 run 分区仍使用 renderer-local 的保守宽度估算，真实 bidi/cluster wrapping、多字体 fallback 和 typewriter grapheme 对齐仍待完成。
+1. **背景组合：** raster mask 的 alpha/luminance、cover/contain/auto/px/percent 尺寸、定位、重复规则及嵌套合成已完成真实像素验证，详见下方 2026-09-06 记录。SVG/多重 mask、完整 layered root 变换、各视频子层解码仍未实现。现有 drop-shadow 是矩形 analytic sibling，不是源图 alpha 轮廓，且输入解析与 Web 的 `filter.dropShadow` 内部值不一致，不能视为功能对齐。大 blur 半径及 filter/scale/rotation 组合仍需补齐。
+2. **富文本：** 桥接保留 inline span 字段，但当前渲染将 runs 按估算宽度分成独立文本框，缺少连续 inline flow、正确 block breaks、混合字号基线和跨 run wrapping；真实 bidi/cluster wrapping、多字体 fallback 和 typewriter grapheme 对齐也未完成。
 3. **字体：** Arabic/bidi 仍有可见误差；跨字体逐 cluster fallback、竖排和语言相关断字未完成。当前截图不证明浏览器级文字布局。
 4. **音视频：** EQ/automation 已接入并有 native focused backend tests；GIF 有解码与发布测试，MP4/WebM 尚无解码器或产品实测。demo E2E 的 video decoded/published 为 0。
-5. **Sprite/UI skin：** native 已支持通过 package-aware `metadata.spriteLayers` 投影基础多层 sprite（offset/z/opacity/scale/rotation）；manifest JSON 解析、atlas frame、per-layer mask/blend、expression diff 加载和 UI skin manifest 仍待接入，单纯 sprite/expression 字符串仍不等于完整 Web 多层效果。
+5. **Sprite/UI skin：** native 可读取 package-aware `metadata.spriteLayers` 并绘制基础分层图片，但完整字段校验、父级变换和组透明度还存在缺口；manifest JSON 解析、atlas frame、per-layer mask/blend、expression diff 加载和 UI skin manifest 仍待接入，单纯 sprite/expression 字符串仍不等于完整 Web 多层效果。
 6. **动态场景：** stage/camera/effects/scene transition 需要真实 GPU 时间序列对照；基础数值动画测试不覆盖全部 composition/effect target。
 7. **产品覆盖：** keyboard/IME 产品 E2E 仍为 0；portrait、多分辨率、safe-area、多 GPU，以及圆角/border/shadow/rotation 复杂组合仍需补截图。此前 live CDP 超时不能算产品 Web/native parity 已通过。
 8. **工具链历史缺口：** 旧 QUI benchmark/LSP fixture 迁移失败仍需单独复核；本次没有把旧结果作为 GPU 绘制失败或已修复项。
@@ -108,3 +108,16 @@ pnpm native:e2e
 ```
 
 可用 `QUA_PARITY_CHROMIUM` 指定 Chromium executable，用 `QUA_NATIVE_AUDIT_APP` 固定审计 binary。外置卷上的新 Mach-O 偶尔停在 `_dyld_start`；本机复制到 `/tmp` 后可以正常运行，Cargo 测试可通过 `CARGO_TARGET_AARCH64_APPLE_DARWIN_RUNNER` 指向本机临时复制 runner。不能因此禁用系统签名检查，也不能将机器专属路径作为公共运行接口。
+
+## 2026-09-06 mask 修正与尺寸/重复支持
+
+修复了 mask 只修改 alpha、保留 RGB 导致的彩色残影；luminance 改为纹理亮度乘透明度后再插值。mask 以独立纹理采样，主图缺失时不再误用 mask。分层根节点的遮罩进入 QPK 资源计划，保留依赖包并参与释放。默认值为 Web 的 cover / center / no-repeat；支持 contain、auto、px/percent 尺寸、关键词/px/percent 定位、四段像素边距，以及 repeat/repeat-x/repeat-y/round/space 和双轴组合。不支持的 CSS 表达式在 JSON 入口返回诊断。
+
+尺寸对照还发现并修复了公共 GPU viewport 重复缩放：顶点已含逻辑舞台缩放与黑边偏移，光栅 viewport 应覆盖整个 target，舞台范围用于 scissor。有限窗口审计可以指定物理截图尺寸，DPR 仍来自 winit 实测，不使用 fixture 伪造。
+
+- **54/54 Metal/Chrome 背景像素对照通过**（32 个 mask 用例和原有 22 个合成用例），重叠区最大 RGB MAE 2.498，门槛仍为 MAE ≤ 4、差异超过 16 的像素比例 ≤ 8%。纯白源图 alpha/luminance 的整帧 MAE 为 0.058/0.062。用例涵盖透明彩色 texel、零尺寸、根节点和子层遮罩、旋转、平铺缩小、滤镜/blend、两种方向的黑边及较小窗口。缺失 mask 用例明确要求 upload error 并验证与 Web 的 absent URL 回退一致；其余用例 texture/font errors 为 0。全部用例要求已上传纹理数等于退出释放数、cleanup errors 为 0。
+- 截图读取双方相同的 **Quack-built QPK**；测试 PNG 由确定性像素生成器构建，没有新增运行时散装资产入口。报告及日志在 `packages/native/target/render-audit/background/`，通过 `node scripts/native-render-audit/background.mjs` 重现；`--case='mask-*'` 可仅运行 mask 用例。
+- Renderer Rust：839 tests passed；native app：274 tests passed；engine-native：105 tests passed、typecheck 通过。
+- `pnpm native:e2e` 报告通过：64 条对白、stealth 选择、settings/gallery、返回 title；199 commands / 4 passes，1920×1080 PNG，纹理/字体/清理错误为 0，结束时音频轨道为 0。本次窗口报告 `OccludedAfterRetry`、`presented=false`：验证的是完整应用流程和真实 GPU 离屏截图，不能作为桌面窗口可见呈现的证据。
+
+这批验证没有覆盖真实源 alpha drop-shadow、inline text flow、sprite manifest/expression diff、MP4/WebM 或新音频处理效果，不将它们算作已完成。

@@ -356,3 +356,29 @@ fn json_frame_character_number_validation_rejects_unsafe_resolved_values() {
     assert_eq!(renderer.state().revision(), 0);
     assert!(renderer.state().frame().is_none());
 }
+
+#[test]
+fn mask_layout_validation_reports_unsupported_fields_before_frame_preparation() {
+    for (field, value) in [
+        ("size", "calc(50% - 1px)"),
+        ("position", "1e99px top"),
+        ("repeat", "bad"),
+        ("mode", "bad"),
+    ] {
+        let mut input: serde_json::Value = serde_json::from_str(json_frame_input()).unwrap();
+        input["view"]["background"]["composition"] =
+            serde_json::json!({"mask": {"assetName": "mask.png", field: value}});
+        let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
+        let error = renderer
+            .prepare_frame_json_str(&input.to_string())
+            .unwrap_err();
+        let NativeRendererJsonFrameError::Validation(error) = error else {
+            panic!("expected mask validation error")
+        };
+        assert_eq!(
+            error.path,
+            format!("view.background.composition.mask.{field}")
+        );
+        assert_eq!(renderer.state().revision(), 0);
+    }
+}

@@ -112,3 +112,38 @@ fn env_flag_enabled(name: &str) -> bool {
     let value = value.trim();
     !value.is_empty() && value != "0" && !value.eq_ignore_ascii_case("false")
 }
+
+/// Explicit physical capture size for finite GPU audits. Actual window DPR is
+/// still measured by winit and never replaced by a fixture's requested DPR.
+pub(super) fn load_window_capture_size() -> Option<winit::dpi::PhysicalSize<u32>> {
+    if !native_window_smoke_enabled()
+        || native_window_dev_enabled()
+        || native_window_demo_e2e_enabled()
+    {
+        return None;
+    }
+    parse_window_capture_size(&std::env::var("QUA_NATIVE_RENDERER_WINDOW_CAPTURE_SIZE").ok()?)
+}
+
+fn parse_window_capture_size(value: &str) -> Option<winit::dpi::PhysicalSize<u32>> {
+    let (width, height) = value.split_once('x')?;
+    let width = width.parse::<u32>().ok()?;
+    let height = height.parse::<u32>().ok()?;
+    ((64..=4096).contains(&width) && (64..=4096).contains(&height))
+        .then_some(winit::dpi::PhysicalSize::new(width, height))
+}
+
+#[cfg(test)]
+mod capture_size_tests {
+    use super::*;
+    #[test]
+    fn bounds_capture_extent_without_overriding_platform_dpr() {
+        assert_eq!(
+            parse_window_capture_size("1920x1200"),
+            Some(winit::dpi::PhysicalSize::new(1920, 1200))
+        );
+        for value in ["0x100", "1920x999999", "NaNx1", "-10x100", "100x100x100"] {
+            assert_eq!(parse_window_capture_size(value), None);
+        }
+    }
+}

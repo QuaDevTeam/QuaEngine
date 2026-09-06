@@ -148,6 +148,27 @@ impl JsonProjectionValidator {
             }
         }
         if let Some(mask) = &composition.mask {
+            if let Err(field) = crate::render_graph::mask::MaskLayout::parse(
+                mask.position.as_deref(),
+                mask.size.as_deref(),
+                mask.repeat.as_deref(),
+            ) {
+                self.errors.push(NativeRendererJsonValidationError {
+                    path: format!("{path}.mask.{field}"), asset_name: String::new(),
+                    reason: "unsupported native mask layout; use bounded px/percent sizes and positions with cover/contain/auto and no-repeat/repeat/round/space".to_string(),
+                });
+            }
+            if mask
+                .mode
+                .as_deref()
+                .is_some_and(|mode| !matches!(mode, "alpha" | "luminance" | "match-source"))
+            {
+                self.errors.push(NativeRendererJsonValidationError {
+                    path: format!("{path}.mask.mode"),
+                    asset_name: mask.mode.clone().unwrap_or_default(),
+                    reason: "mask mode must be alpha, luminance or match-source".to_string(),
+                });
+            }
             if let Some(asset_name) = &mask.asset_name {
                 self.validate_asset_reference(&format!("{path}.mask.assetName"), asset_name);
             }

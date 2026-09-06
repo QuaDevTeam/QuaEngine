@@ -81,8 +81,16 @@ impl WgpuNativeRenderPrimitive {
             opacity: metadata.opacity,
             owner_package_id: metadata.owner_package_id.clone(),
             required_package_ids: metadata.required_package_ids.iter().cloned().collect(),
-            resource_ids: bound_resource_ids
-                .unwrap_or_else(|| resource_ids_from_params(&metadata.params)),
+            // Auxiliary textures (e.g. masks) belong to the resource ledger,
+            // never to the source sampler's fallback candidates.
+            resource_ids: match &metadata.params {
+                DrawCommandParams::Image(_) | DrawCommandParams::Video(_) => {
+                    resource_ids_from_params(&metadata.params)
+                }
+                _ => {
+                    bound_resource_ids.unwrap_or_else(|| resource_ids_from_params(&metadata.params))
+                }
+            },
         }
     }
 

@@ -33,6 +33,7 @@ fn lookup<'a>(
 impl WgpuNativeRenderRuntimePlan {
     pub(super) fn attach_composite_groups(&mut self, submission: &NativeRenderSubmission) {
         let groups = groups(submission);
+        let viewport = submission.passes.first().map(|p| p.viewport);
         let scale = submission
             .passes
             .first()
@@ -47,6 +48,17 @@ impl WgpuNativeRenderRuntimePlan {
                             .cloned()
                             .map(|mut g| {
                                 g.blur_radius *= scale;
+                                g.mask_scale *= scale;
+                                if let Some(bounds) = &mut g.mask_bounds {
+                                    bounds.x = bounds.x * scale
+                                        + viewport
+                                            .map_or(0.0, |v| v.viewport_x * v.device_pixel_ratio);
+                                    bounds.y = bounds.y * scale
+                                        + viewport
+                                            .map_or(0.0, |v| v.viewport_y * v.device_pixel_ratio);
+                                    bounds.width *= scale;
+                                    bounds.height *= scale;
+                                }
                                 g
                             })
                             .collect(),
