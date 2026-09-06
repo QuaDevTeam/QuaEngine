@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::projection::defaults::{default_one_f32, default_true, is_one_f32};
 
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CharacterProjection {
     pub id: String,
@@ -15,6 +15,8 @@ pub struct CharacterProjection {
     pub sprite: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub expression: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub sprite_layers: Vec<CharacterSpriteLayerProjection>,
     #[serde(default)]
     pub position: CharacterPosition,
     #[serde(default = "default_one_f32")]
@@ -38,6 +40,7 @@ impl CharacterProjection {
             visible: true,
             sprite: None,
             expression: None,
+            sprite_layers: Vec::new(),
             position: CharacterPosition::default(),
             opacity: 1.0,
             presence_opacity: 1.0,
@@ -45,6 +48,26 @@ impl CharacterProjection {
             provenance: PackageProvenance::default(),
         }
     }
+}
+
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CharacterSpriteLayerProjection {
+    pub asset: String,
+    #[serde(default)]
+    pub offset_x: f64,
+    #[serde(default)]
+    pub offset_y: f64,
+    #[serde(default)]
+    pub z_index: i32,
+    #[serde(default = "default_one_f32")]
+    pub opacity: f32,
+    #[serde(default = "default_one_f32")]
+    pub scale: f32,
+    #[serde(default)]
+    pub rotation: f64,
+    #[serde(default = "default_true")]
+    pub visible: bool,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]

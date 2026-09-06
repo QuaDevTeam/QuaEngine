@@ -55,6 +55,33 @@ fn builds_visible_character_commands_on_subject_plane() {
 }
 
 #[test]
+fn projects_package_aware_sprite_layers_after_base_character() {
+    let layout = test_layout();
+    let character = CharacterProjection {
+        sprite: Some("yuki/base.png".to_string()),
+        sprite_layers: vec![CharacterSpriteLayerProjection {
+            asset: "yuki/glow.png".to_string(),
+            z_index: 2,
+            opacity: 0.5,
+            scale: 1.1,
+            visible: true,
+            ..CharacterSpriteLayerProjection::default()
+        }],
+        provenance: provenance("runtime.sprite", ["base"]),
+        ..CharacterProjection::new("yuki", "Yuki")
+    };
+    let commands = build_character_commands(&layout, &[character]);
+    assert_eq!(commands.len(), 2);
+    assert_eq!(commands[1].id, "character:yuki:sprite-layer:0");
+    assert_eq!(commands[1].z_index, 2);
+    assert_eq!(
+        commands[1].owner_package_id.as_deref(),
+        Some("runtime.sprite")
+    );
+    assert!(commands[1].required_package_ids.contains("base"));
+}
+
+#[test]
 fn skips_hidden_or_missing_sprite_characters() {
     let layout = test_layout();
     let visible_without_sprite = CharacterProjection::new("empty", "Empty");
