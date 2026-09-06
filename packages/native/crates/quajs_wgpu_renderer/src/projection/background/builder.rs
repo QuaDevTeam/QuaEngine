@@ -8,9 +8,9 @@ use crate::projection::safety::{
     is_safe_native_video_volume, is_safe_native_z_index,
 };
 use crate::render_graph::{
-    CompositeBlendMode, CompositeColorFilter, DrawCommand, DrawCommandKind, DrawCommandParams,
-    DrawCompositeGroup, ImageDrawParams, LogicalRect, RenderGraph, RenderPlane, ShadowDrawParams,
-    ShadowDrawStyle, VideoDrawParams,
+    CompositeBlendMode, CompositeColorFilter, CompositeMaskMode, DrawCommand, DrawCommandKind,
+    DrawCommandParams, DrawCompositeGroup, ImageDrawParams, LogicalRect, RenderGraph, RenderPlane,
+    ShadowDrawParams, ShadowDrawStyle, VideoDrawParams,
 };
 use crate::resources::ResourceId;
 use crate::stage_layout::ResolvedStageLayout;
@@ -70,7 +70,13 @@ pub fn build_background_commands_with_video_frame_resources(
                 background_image_command(layout, "background:main", asset_name, background)
             })
             .into_iter()
-            .flat_map(|command| with_drop_shadow(command, background.composition.as_ref(), &background.provenance))
+            .flat_map(|command| {
+                with_drop_shadow(
+                    command,
+                    background.composition.as_ref(),
+                    &background.provenance,
+                )
+            })
             .collect(),
         BackgroundMode::Layered => background
             .layers
@@ -86,7 +92,11 @@ pub fn build_background_commands_with_video_frame_resources(
                     }
                     let command = background_layer_command(layout, layer)?;
                     insert_unique_safe_native_dispatch_identifier(&mut seen_layer_ids, &layer.id)
-                        .then_some(with_drop_shadow(command, layer.composition.as_ref(), &layer.provenance))
+                        .then_some(with_drop_shadow(
+                            command,
+                            layer.composition.as_ref(),
+                            &layer.provenance,
+                        ))
                 }
             })
             .flatten()
@@ -99,7 +109,13 @@ pub fn build_background_commands_with_video_frame_resources(
                 background_video_command(layout, background, video, video_frame_resources)
             })
             .into_iter()
-            .flat_map(|command| with_drop_shadow(command, background.composition.as_ref(), &background.provenance))
+            .flat_map(|command| {
+                with_drop_shadow(
+                    command,
+                    background.composition.as_ref(),
+                    &background.provenance,
+                )
+            })
             .collect(),
         // Unknown / future modes produce no draw commands rather than failing.
         BackgroundMode::Unknown => Vec::new(),
@@ -174,8 +190,11 @@ fn background_image_command(
             invert: 0.0,
         }));
 
-    Some(apply_composition(
-        apply_provenance(command, &background.provenance),
+    Some(apply_mask_resource(
+        apply_composition(
+            apply_provenance(command, &background.provenance),
+            background.composition.as_ref(),
+        ),
         background.composition.as_ref(),
     ))
 }
@@ -227,8 +246,11 @@ fn background_layer_command(
         invert: 0.0,
     }));
 
-    Some(apply_composition(
-        apply_provenance(command, &layer.provenance),
+    Some(apply_mask_resource(
+        apply_composition(
+            apply_provenance(command, &layer.provenance),
+            layer.composition.as_ref(),
+        ),
         layer.composition.as_ref(),
     ))
 }
@@ -289,7 +311,10 @@ fn background_video_command(
     }
 
     let command = apply_provenance(command, &video.provenance);
-    Some(apply_composition(command, background.composition.as_ref()))
+    Some(apply_mask_resource(
+        apply_composition(command, background.composition.as_ref()),
+        background.composition.as_ref(),
+    ))
 }
 
 fn apply_provenance(mut command: DrawCommand, provenance: &PackageProvenance) -> DrawCommand {
@@ -331,12 +356,37 @@ fn apply_composition(
             || group.blend_mode != CompositeBlendMode::Normal
             || group.blur_radius > 0.0
             || group.color_filter != CompositeColorFilter::default()
+            || group.mask_resource_id.is_some()
         {
             // Alpha belongs to the group, not to each pixel before the filter.
             command.opacity = 1.0;
             command.composite_groups.push(group);
         }
     }
+    command
+}
+
+fn apply_mask_resource(
+    mut command: DrawCommand,
+    composition: Option<&BackgroundCompositionProjection>,
+) -> DrawCommand {
+    let Some(mask) = composition.and_then(|value| value.mask.as_ref()) else {
+        return command;
+    };
+    let Some(asset_name) = mask
+        .asset_name
+        .as_deref()
+        .filter(|value| is_safe_native_asset_name(value))
+    else {
+        return command;
+    };
+    let Some(asset_type) = resolve_background_asset_type(mask.asset_type.as_deref()) else {
+        return command;
+    };
+    // Keep the mask package-aware in the asset/resource plan. Sampling is
+    // performed only when a compositor backend advertises mask support;
+    // unsupported backends retain the normal source draw and diagnostics.
+    command = command.resource(background_resource_id(&asset_type, asset_name));
     command
 }
 
@@ -386,7 +436,11 @@ fn with_drop_shadow(
 }
 
 fn parse_drop_shadow(value: &str) -> Option<(f64, f64, f64, String)> {
-    let raw = value.trim().strip_prefix("drop-shadow(")?.strip_suffix(')')?.trim();
+    let raw = value
+        .trim()
+        .strip_prefix("drop-shadow(")?
+        .strip_suffix(')')?
+        .trim();
     let mut tokens = raw.split_whitespace();
     let offset_x = parse_css_length(tokens.next()?)?;
     let offset_y = parse_css_length(tokens.next()?)?;
@@ -399,7 +453,12 @@ fn parse_drop_shadow(value: &str) -> Option<(f64, f64, f64, String)> {
     if !color.starts_with('#') && !color.starts_with("rgb") && !color.starts_with("hsl") {
         return None;
     }
-    Some((offset_x.clamp(-4096.0, 4096.0), offset_y.clamp(-4096.0, 4096.0), blur_radius.clamp(0.0, 4096.0), color.to_string()))
+    Some((
+        offset_x.clamp(-4096.0, 4096.0),
+        offset_y.clamp(-4096.0, 4096.0),
+        blur_radius.clamp(0.0, 4096.0),
+        color.to_string(),
+    ))
 }
 
 fn parse_css_length(value: &str) -> Option<f64> {
@@ -436,6 +495,28 @@ fn composition_group(
             grayscale: filter.grayscale as f32,
             sepia: filter.sepia as f32,
             invert: filter.invert as f32,
+        },
+        mask_resource_id: composition
+            .and_then(|c| c.mask.as_ref())
+            .and_then(|mask| mask.asset_name.as_deref())
+            .filter(|name| is_safe_native_asset_name(name))
+            .map(|name| {
+                let asset_type = composition
+                    .and_then(|c| c.mask.as_ref())
+                    .and_then(|mask| resolve_background_asset_type(mask.asset_type.as_deref()))
+                    .unwrap_or_else(|| "images".to_string());
+                background_resource_id(&asset_type, name)
+                    .as_str()
+                    .to_string()
+            }),
+        mask_mode: match composition
+            .and_then(|c| c.mask.as_ref())
+            .and_then(|mask| mask.mode.as_deref())
+            .map(str::to_ascii_lowercase)
+            .as_deref()
+        {
+            Some("luminance") => CompositeMaskMode::Luminance,
+            _ => CompositeMaskMode::Alpha,
         },
     }
 }

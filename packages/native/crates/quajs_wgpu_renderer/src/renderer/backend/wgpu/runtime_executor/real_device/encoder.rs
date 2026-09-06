@@ -95,6 +95,7 @@ impl RealWgpuNativeRenderRuntimeDevice {
             &self.buffers,
             &self.pipelines,
             &self.bind_groups,
+            &self.decoded_textures,
             &mut encoder.encoder,
             pass,
             self.compositor.as_mut(),

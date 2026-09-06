@@ -59,6 +59,14 @@ pub struct CompositeColorFilter {
     pub invert: f32,
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[repr(u32)]
+pub enum CompositeMaskMode {
+    #[default]
+    Alpha,
+    Luminance,
+}
+
 impl Default for CompositeColorFilter {
     fn default() -> Self {
         Self {
@@ -83,6 +91,8 @@ pub struct DrawCompositeGroup {
     pub z_index: i32,
     pub blend_mode: CompositeBlendMode,
     pub color_filter: CompositeColorFilter,
+    pub mask_resource_id: Option<String>,
+    pub mask_mode: CompositeMaskMode,
 }
 
 impl Default for DrawCompositeGroup {
@@ -94,6 +104,8 @@ impl Default for DrawCompositeGroup {
             z_index: 0,
             blend_mode: CompositeBlendMode::Normal,
             color_filter: CompositeColorFilter::default(),
+            mask_resource_id: None,
+            mask_mode: CompositeMaskMode::Alpha,
         }
     }
 }

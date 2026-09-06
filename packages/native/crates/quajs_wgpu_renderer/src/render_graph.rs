@@ -11,7 +11,9 @@ pub use command::{
     DrawCommand, DrawCommandKind, DrawCommandVariant, DrawInteractionState, LogicalRect,
     RenderPlane, RoundedClip,
 };
-pub use composite::{CompositeBlendMode, CompositeColorFilter, DrawCompositeGroup};
+pub use composite::{
+    CompositeBlendMode, CompositeColorFilter, CompositeMaskMode, DrawCompositeGroup,
+};
 pub use graph::RenderGraph;
 pub use pass::{plan_render_passes, RenderPass, RenderPassPlan, RenderViewport};
 pub use style::{

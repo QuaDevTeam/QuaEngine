@@ -10,6 +10,7 @@ use crate::renderer::backend::wgpu::WgpuPhysicalRect;
 use super::super::bind_group::RealRuntimeBindGroup;
 use super::super::frame_target::RealRuntimeFrameTarget;
 use super::super::pipeline::RealRuntimePipeline;
+use super::super::texture::RealRuntimeDecodedTexture;
 use super::super::uniforms::RealRuntimeFrameUniforms;
 use super::super::{RealRuntimeBuffer, RealWgpuNativeRenderRuntimeTarget};
 
@@ -20,6 +21,7 @@ pub(in crate::renderer::backend::wgpu::runtime_executor::real_device) fn materia
     buffers: &BTreeMap<String, RealRuntimeBuffer>,
     pipelines: &BTreeMap<String, RealRuntimePipeline>,
     bind_groups: &BTreeMap<String, RealRuntimeBindGroup>,
+    decoded_textures: &BTreeMap<String, RealRuntimeDecodedTexture>,
     encoder: &mut wgpu::CommandEncoder,
     pass: RealRuntimePass,
     compositor: Option<&mut super::composite::Compositor>,
@@ -37,6 +39,7 @@ pub(in crate::renderer::backend::wgpu::runtime_executor::real_device) fn materia
             buffers,
             pipelines,
             bind_groups,
+            decoded_textures,
             encoder,
             pass,
             0,
