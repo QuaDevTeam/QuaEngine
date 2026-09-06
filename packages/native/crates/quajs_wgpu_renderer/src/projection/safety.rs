@@ -220,7 +220,8 @@ fn is_safe_native_ui_gradient(
 }
 
 pub(crate) fn is_safe_native_audio_track_numbers(track: &AudioTrackProjection) -> bool {
-    track.volume.is_finite()
+    crate::projection::audio_processing::valid_audio_processing(&track.processing)
+        && track.volume.is_finite()
         && (0.0..=MAX_NATIVE_AUDIO_VOLUME).contains(&track.volume)
         && is_safe_optional_audio_duration_ms(track.duration_ms)
         && is_safe_optional_audio_duration_ms(track.fade_in_ms)

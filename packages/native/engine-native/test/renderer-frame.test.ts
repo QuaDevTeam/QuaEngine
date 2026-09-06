@@ -339,6 +339,11 @@ describe('native renderer frame serialization', () => {
       tracks: [
         {
           id: 'bgm-main',
+          processing: [
+            { id: 'track:bgm-main', gainDb: 6, eq: [], automation: [] },
+            { id: 'bus:bgm', gainDb: -6, eq: [], automation: [] },
+            { id: 'bus:master', gainDb: -6, eq: [], automation: [] },
+          ],
           kind: 'bgm',
           assetName: 'audio/bgm/opening.ogg',
           assetType: 'audio',
@@ -361,6 +366,11 @@ describe('native renderer frame serialization', () => {
         },
         {
           id: 'bgm-old',
+          processing: [
+            { id: 'track:bgm-old', gainDb: 0, eq: [], automation: [] },
+            { id: 'bus:bgm', gainDb: -6, eq: [], automation: [] },
+            { id: 'bus:master', gainDb: -6, eq: [], automation: [] },
+          ],
           kind: 'bgm',
           assetName: 'audio/bgm/old.ogg',
           assetType: 'audio',
@@ -376,6 +386,11 @@ describe('native renderer frame serialization', () => {
         },
         {
           id: 'voice-1',
+          processing: [
+            { id: 'track:voice-1', gainDb: 0, eq: [], automation: [] },
+            { id: 'bus:voice', gainDb: 0, eq: [], automation: [] },
+            { id: 'bus:master', gainDb: -6, eq: [], automation: [] },
+          ],
           kind: 'voice',
           assetName: 'voice/ch01/mira-001.ogg',
           assetType: 'audio',
@@ -388,6 +403,11 @@ describe('native renderer frame serialization', () => {
         },
         {
           id: 'rain',
+          processing: [
+            { id: 'track:rain', gainDb: 0, eq: [], automation: [] },
+            { id: 'bus:ambient', gainDb: -12, eq: [], automation: [] },
+            { id: 'bus:master', gainDb: -6, eq: [], automation: [] },
+          ],
           kind: 'ambient',
           assetName: 'audio/ambient/rain.ogg',
           assetType: 'ambient',

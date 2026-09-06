@@ -27,6 +27,13 @@ pub(super) fn invalid_native_json_audio_memory_reason(
 pub(super) fn invalid_native_json_audio_timing_reason(
     track: &AudioTrackProjection,
 ) -> Option<(&'static str, String, String)> {
+    if !crate::projection::audio_processing::valid_audio_processing(&track.processing) {
+        return Some((
+            "processing",
+            "invalid".into(),
+            "audio EQ/automation exceeds supported property or numeric limits".into(),
+        ));
+    }
     validate_duration_ms("durationMs", track.duration_ms)
         .or_else(|| validate_duration_ms("fadeInMs", track.fade_in_ms))
         .or_else(|| validate_duration_ms("fadeOutMs", track.fade_out_ms))

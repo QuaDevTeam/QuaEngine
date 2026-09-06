@@ -20,6 +20,7 @@ pub(super) fn audio_track_state(package_id: &str) -> AudioBackendTrackState {
         delay_ms: None,
         seek_ms: None,
         offset_ms: None,
+        processing: Vec::new(),
         package_candidates: [package_id.to_string()].into_iter().collect(),
         media_resource_id: ResourceId::from("audio:buffer:bgm:bgm:music/opening.ogg"),
         handle_resource_id: ResourceId::from("audio:handle:bgm:bgm:bgm-main"),

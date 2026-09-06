@@ -363,6 +363,7 @@ Run Cargo only when disk has enough headroom. Check `df -h . $HOME/.cargo` first
 - Are runtime package native-code payloads rejected at build time and runtime?
 - Are native renderer transient resources tracked in the package-aware resource ledger, including CPU/GPU bytes, dependencies, unload blockers, and cleanup paths?
 - If touching audio, is the change still renderer-local resource/projection tracking unless a real backend and capability contract are implemented?
+- Native Rodio audio may consume the engine-owned EQ/automation projection through bounded track → bus → master processing stages. Keep biquad state, automation clocks, decoded sources, and control handles renderer-local; update processing parameters without mutating engine audio intent or restarting a source. Do not advertise codec or DSP capabilities that are not compiled and tested in the selected native artifact.
 - Do native package unload/release paths use renderer-level unload plans so active frame references block release, and do hosts receive released resource records for native handle cleanup?
 - Does Rust QuickJS evaluation register successful module namespace handles in the package-aware namespace registry and release package-owned namespaces during runtime package unload/teardown?
 

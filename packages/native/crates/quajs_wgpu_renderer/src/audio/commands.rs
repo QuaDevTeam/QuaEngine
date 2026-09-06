@@ -1,8 +1,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::projection::audio::{
-    AudioProjection, AudioTrackKind, AudioTrackLoadMode, AudioTrackPlaybackState,
-    AudioTrackProjection,
+    AudioProcessingStageProjection, AudioProjection, AudioTrackKind, AudioTrackLoadMode,
+    AudioTrackPlaybackState, AudioTrackProjection,
 };
 use crate::projection::common::{
     insert_unique_safe_native_dispatch_identifier, is_safe_native_asset_ref,
@@ -60,6 +60,7 @@ pub struct AudioBackendTrackState {
     pub delay_ms: Option<f64>,
     pub seek_ms: Option<f64>,
     pub offset_ms: Option<f64>,
+    pub processing: Vec<AudioProcessingStageProjection>,
     pub package_candidates: BTreeSet<String>,
     pub media_resource_id: ResourceId,
     pub handle_resource_id: ResourceId,
@@ -191,6 +192,7 @@ fn audio_backend_track_state(
         delay_ms: track.delay_ms,
         seek_ms: track.seek_ms,
         offset_ms: track.offset_ms,
+        processing: track.processing.clone(),
         package_candidates,
         media_resource_id: media_resource_id(track),
         handle_resource_id: handle_resource_id(track),
@@ -262,6 +264,7 @@ fn track_playback_changed(
         || previous.delay_ms != next.delay_ms
         || previous.seek_ms != next.seek_ms
         || previous.offset_ms != next.offset_ms
+        || previous.processing != next.processing
         || previous.package_candidates != next.package_candidates
 }
 

@@ -4,6 +4,62 @@ use serde::{Deserialize, Serialize};
 
 use crate::projection::defaults::default_one_f32;
 
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AudioEqBandProjection {
+    #[serde(default)]
+    #[serde(rename = "type")]
+    pub band_type: Option<String>,
+    pub frequency: f64,
+    #[serde(default)]
+    pub gain_db: Option<f64>,
+    #[serde(default)]
+    pub q: Option<f64>,
+    #[serde(default)]
+    pub detune: Option<f64>,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AudioAutomationPointProjection {
+    pub at: f64,
+    pub value: f64,
+    #[serde(default)]
+    pub easing: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AudioAutomationCurveProjection {
+    pub points: Vec<AudioAutomationPointProjection>,
+    #[serde(default)]
+    pub duration: Option<f64>,
+    #[serde(default)]
+    #[serde(rename = "loop")]
+    pub looped: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AudioAutomationProjection {
+    pub target: String,
+    pub property_path: String,
+    pub curve: AudioAutomationCurveProjection,
+}
+
+/// Ordered, renderer-only linear processing stages: track, channel bus, master.
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AudioProcessingStageProjection {
+    pub id: String,
+    #[serde(default)]
+    pub gain_db: f64,
+    #[serde(default)]
+    pub eq: Vec<AudioEqBandProjection>,
+    #[serde(default)]
+    pub automation: Vec<AudioAutomationProjection>,
+}
+
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum AudioTrackKind {
@@ -95,6 +151,8 @@ pub struct AudioTrackProjection {
     pub seek_ms: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub offset_ms: Option<f64>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub processing: Vec<AudioProcessingStageProjection>,
     #[serde(default)]
     pub memory: AudioTrackMemoryEstimate,
     #[serde(default, skip_serializing_if = "PackageProvenance::is_empty")]
@@ -120,6 +178,7 @@ impl AudioTrackProjection {
             delay_ms: None,
             seek_ms: None,
             offset_ms: None,
+            processing: Vec::new(),
             memory: AudioTrackMemoryEstimate::default(),
             provenance: PackageProvenance::default(),
         }

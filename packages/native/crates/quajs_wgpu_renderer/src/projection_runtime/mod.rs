@@ -1,4 +1,5 @@
 mod animation;
+pub use animation::ease_progress;
 pub mod easing;
 
 use std::collections::BTreeMap;

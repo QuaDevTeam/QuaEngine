@@ -10,6 +10,7 @@ use quajs_wgpu_renderer::audio::{
 use quajs_wgpu_renderer::projection::audio::AudioTrackPlaybackState;
 use rodio::{Decoder, DeviceSinkBuilder, MixerDeviceSink, Player};
 
+use super::dsp::{ProcessedSource, ProcessingControls};
 use super::playback::{NativeAudioPlaybackBackend, NativeAudioPlaybackDriver};
 
 pub(crate) type RodioNativeAudioBackend = NativeAudioPlaybackBackend<RodioAudioPlaybackDriver>;
@@ -22,6 +23,7 @@ impl RodioNativeAudioBackend {
 
 pub(crate) struct RodioAudioPlaybackDriver {
     sink: MixerDeviceSink,
+    processing: ProcessingControls,
     players: BTreeMap<String, RodioAudioTrackRuntime>,
 }
 
@@ -44,6 +46,7 @@ impl RodioAudioPlaybackDriver {
         sink.log_on_drop(false);
         Ok(Self {
             sink,
+            processing: ProcessingControls::default(),
             players: BTreeMap::new(),
         })
     }
@@ -85,14 +88,24 @@ impl NativeAudioPlaybackDriver for RodioAudioPlaybackDriver {
     ) -> Result<(), String> {
         self.release_track(track)?;
         let player = Player::connect_new(self.sink.mixer());
+        self.processing.update(&track.processing);
+        player.pause();
         if track.looped {
             let source = Decoder::new_looped(Cursor::new(load.bytes.clone()))
                 .map_err(|error| format!("failed to decode looped native audio asset: {error}"))?;
-            player.append(source);
+            player.append(ProcessedSource::new(
+                source,
+                &track.processing,
+                self.processing.clone(),
+            ));
         } else {
             let source = Decoder::try_from(Cursor::new(load.bytes.clone()))
                 .map_err(|error| format!("failed to decode native audio asset: {error}"))?;
-            player.append(source);
+            player.append(ProcessedSource::new(
+                source,
+                &track.processing,
+                self.processing.clone(),
+            ));
         }
         Self::apply_track_seek(&player, track, true)?;
         let now_ms = current_native_audio_timestamp_ms();
@@ -109,7 +122,10 @@ impl NativeAudioPlaybackDriver for RodioAudioPlaybackDriver {
                 track.id
             ));
         };
-        Self::apply_track_seek(&runtime.player, track, false)?;
+        if runtime.schedule.track.seek_ms != track.seek_ms {
+            Self::apply_track_seek(&runtime.player, track, false)?;
+        }
+        self.processing.update(&track.processing);
         let now_ms = current_native_audio_timestamp_ms();
         runtime.update_track(track, now_ms);
         runtime.apply_player_controls(now_ms);
@@ -127,6 +143,12 @@ impl NativeAudioPlaybackDriver for RodioAudioPlaybackDriver {
         if let Some(runtime) = self.players.remove(&track.id) {
             runtime.player.stop();
         }
+        let ids: Vec<String> = self
+            .players
+            .values()
+            .flat_map(|r| r.schedule.track.processing.iter().map(|s| s.id.clone()))
+            .collect();
+        self.processing.retain(&ids);
         Ok(())
     }
 
@@ -290,6 +312,10 @@ impl RodioAudioTrackSchedule {
 
     fn effective_volume(&self, now_ms: f64) -> f32 {
         let mut volume = self.track.volume.max(0.0);
+        // Processing stages own the full gain chain when supplied by the TS bridge.
+        if !self.track.processing.is_empty() {
+            volume = 1.0;
+        }
         if matches!(self.track.playback_state, AudioTrackPlaybackState::Playing)
             && self.fade_in_duration_ms() > 0.0
         {
@@ -409,6 +435,7 @@ mod tests {
             delay_ms: None,
             seek_ms: None,
             offset_ms: None,
+            processing: Vec::new(),
             package_candidates: ["runtime.audio"].into_iter().map(String::from).collect(),
             media_resource_id: ResourceId::from("audio:buffer:bgm:bgm:music/opening.ogg"),
             handle_resource_id: ResourceId::from(format!("audio:handle:bgm:bgm:{id}")),
