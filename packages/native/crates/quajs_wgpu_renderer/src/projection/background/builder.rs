@@ -9,7 +9,8 @@ use crate::projection::safety::{
 };
 use crate::render_graph::{
     CompositeBlendMode, CompositeColorFilter, DrawCommand, DrawCommandKind, DrawCommandParams,
-    DrawCompositeGroup, ImageDrawParams, RenderGraph, RenderPlane, VideoDrawParams,
+    DrawCompositeGroup, ImageDrawParams, LogicalRect, RenderGraph, RenderPlane, ShadowDrawParams,
+    ShadowDrawStyle, VideoDrawParams,
 };
 use crate::resources::ResourceId;
 use crate::stage_layout::ResolvedStageLayout;
@@ -69,6 +70,7 @@ pub fn build_background_commands_with_video_frame_resources(
                 background_image_command(layout, "background:main", asset_name, background)
             })
             .into_iter()
+            .flat_map(|command| with_drop_shadow(command, background.composition.as_ref(), &background.provenance))
             .collect(),
         BackgroundMode::Layered => background
             .layers
@@ -84,9 +86,10 @@ pub fn build_background_commands_with_video_frame_resources(
                     }
                     let command = background_layer_command(layout, layer)?;
                     insert_unique_safe_native_dispatch_identifier(&mut seen_layer_ids, &layer.id)
-                        .then_some(command)
+                        .then_some(with_drop_shadow(command, layer.composition.as_ref(), &layer.provenance))
                 }
             })
+            .flatten()
             .collect(),
         BackgroundMode::Video => background
             .video
@@ -96,6 +99,7 @@ pub fn build_background_commands_with_video_frame_resources(
                 background_video_command(layout, background, video, video_frame_resources)
             })
             .into_iter()
+            .flat_map(|command| with_drop_shadow(command, background.composition.as_ref(), &background.provenance))
             .collect(),
         // Unknown / future modes produce no draw commands rather than failing.
         BackgroundMode::Unknown => Vec::new(),
@@ -334,6 +338,74 @@ fn apply_composition(
         }
     }
     command
+}
+
+/// Projects CSS `filter: drop-shadow(...)` through the same analytic shadow
+/// primitive used by UI and dialogue. The shadow is a sibling draw so the
+/// source image remains package-aware and can still use the normal compositor.
+fn with_drop_shadow(
+    command: DrawCommand,
+    composition: Option<&BackgroundCompositionProjection>,
+    provenance: &PackageProvenance,
+) -> Vec<DrawCommand> {
+    let Some(value) = composition
+        .and_then(|c| c.filter.as_ref())
+        .and_then(|f| f.drop_shadow.as_deref())
+    else {
+        return vec![command];
+    };
+    let Some((offset_x, offset_y, blur_radius, color)) = parse_drop_shadow(value) else {
+        return vec![command];
+    };
+    let extent = blur_radius * 1.5 + offset_x.abs().max(offset_y.abs());
+    let shadow_bounds = LogicalRect {
+        x: command.bounds.x - extent,
+        y: command.bounds.y - extent,
+        width: command.bounds.width + extent * 2.0,
+        height: command.bounds.height + extent * 2.0,
+    };
+    let shadow = DrawCommand::new(
+        format!("{}:drop-shadow", command.id),
+        command.plane,
+        DrawCommandKind::RoundedRect,
+        shadow_bounds,
+    )
+    .z_index(command.z_index.saturating_sub(1))
+    .params(DrawCommandParams::Shadow(ShadowDrawParams {
+        role: "background-drop-shadow".to_string(),
+        source_bounds: command.bounds,
+        offset_x,
+        offset_y,
+        blur_radius,
+        spread_radius: 0.0,
+        corner_radius: 0.0,
+        color,
+        style: ShadowDrawStyle::Outer,
+    }));
+    vec![apply_provenance(shadow, provenance), command]
+}
+
+fn parse_drop_shadow(value: &str) -> Option<(f64, f64, f64, String)> {
+    let raw = value.trim().strip_prefix("drop-shadow(")?.strip_suffix(')')?.trim();
+    let mut tokens = raw.split_whitespace();
+    let offset_x = parse_css_length(tokens.next()?)?;
+    let offset_y = parse_css_length(tokens.next()?)?;
+    let third = tokens.next()?;
+    let (blur_radius, color) = if let Some(blur) = parse_css_length(third) {
+        (blur, tokens.next().unwrap_or("rgba(0,0,0,0.5)"))
+    } else {
+        (0.0, third)
+    };
+    if !color.starts_with('#') && !color.starts_with("rgb") && !color.starts_with("hsl") {
+        return None;
+    }
+    Some((offset_x.clamp(-4096.0, 4096.0), offset_y.clamp(-4096.0, 4096.0), blur_radius.clamp(0.0, 4096.0), color.to_string()))
+}
+
+fn parse_css_length(value: &str) -> Option<f64> {
+    let value = value.strip_suffix("px").unwrap_or(value);
+    let number = value.parse::<f64>().ok()?;
+    number.is_finite().then_some(number)
 }
 
 fn composition_group(
