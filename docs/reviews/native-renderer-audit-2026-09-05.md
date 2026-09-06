@@ -79,7 +79,7 @@
 
 ## 仍未对齐
 
-1. **背景组合：** mask 资源采样/布局、drop-shadow、layered root 的完整变换、各视频子层解码仍待实现。大 blur 半径的固定采样近似、filter 与 scale/rotation 的组合还需要专门截图验证。
+1. **背景组合：** mask 资源采样/布局、layered root 的完整变换、各视频子层解码仍待实现；drop-shadow 已通过 analytic shadow sibling 投影接入。大 blur 半径的固定采样近似、filter 与 scale/rotation 的组合还需要专门截图验证。
 2. **富文本：** native dialogue 已保留 document blocks 和 inline span 样式，并按继承后的 run 样式投影颜色、字体、字号、字重、行高和对齐；当前 run 分区仍使用 renderer-local 的保守宽度估算，真实 bidi/cluster wrapping、多字体 fallback 和 typewriter grapheme 对齐仍待完成。
 3. **字体：** Arabic/bidi 仍有可见误差；跨字体逐 cluster fallback、竖排和语言相关断字未完成。当前截图不证明浏览器级文字布局。
 4. **音视频：** EQ/automation 已接入并有 native focused backend tests；GIF 有解码与发布测试，MP4/WebM 尚无解码器或产品实测。demo E2E 的 video decoded/published 为 0。
