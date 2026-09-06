@@ -1,4 +1,5 @@
 use super::super::resources::backdrop::capture_backdrop_view;
+use super::super::texture::RealRuntimeDecodedTexture;
 use crate::render_graph::{CompositeBlendMode, DrawCompositeGroup};
 use std::collections::BTreeMap;
 use wgpu::util::DeviceExt;
@@ -56,6 +57,16 @@ impl Compositor {
                     },
                     count: None,
                 },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 3,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        sample_type: wgpu::TextureSampleType::Float { filterable: false },
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
             ],
         });
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -108,6 +119,7 @@ impl Compositor {
         buffers: &BTreeMap<String, RealRuntimeBuffer>,
         pipelines: &BTreeMap<String, RealRuntimePipeline>,
         bind_groups: &BTreeMap<String, RealRuntimeBindGroup>,
+        decoded_textures: &BTreeMap<String, RealRuntimeDecodedTexture>,
         encoder: &mut wgpu::CommandEncoder,
         mut pass: RealRuntimePass,
         depth: usize,
@@ -143,6 +155,7 @@ impl Compositor {
                         buffers,
                         pipelines,
                         bind_groups,
+                        decoded_textures,
                         encoder,
                         clear,
                         None,
@@ -162,13 +175,22 @@ impl Compositor {
                     buffers,
                     pipelines,
                     bind_groups,
+                    decoded_textures,
                     encoder,
                     part,
                     depth + 1,
                     backdrop,
                     Some((&group.id, destination)),
                 )?;
-                self.composite(target, destination, &intermediate, encoder, group, backdrop);
+                self.composite(
+                    target,
+                    destination,
+                    &intermediate,
+                    encoder,
+                    group,
+                    backdrop,
+                    decoded_textures,
+                );
                 self.targets.push(intermediate);
             } else {
                 materialize_pass(
@@ -178,6 +200,7 @@ impl Compositor {
                     buffers,
                     pipelines,
                     bind_groups,
+                    decoded_textures,
                     encoder,
                     part,
                     None,
@@ -205,6 +228,7 @@ impl Compositor {
         encoder: &mut wgpu::CommandEncoder,
         group: &DrawCompositeGroup,
         scratch: &mut Option<wgpu::Texture>,
+        decoded_textures: &BTreeMap<String, RealRuntimeDecodedTexture>,
     ) {
         let captured;
         let backdrop_view = if group.blend_mode != CompositeBlendMode::Normal {
@@ -216,6 +240,12 @@ impl Compositor {
             source.view()
         };
         let f = &group.color_filter;
+        let mask_view = group
+            .mask_resource_id
+            .as_ref()
+            .and_then(|id| decoded_textures.get(id))
+            .map(|texture| &texture.view);
+        let mask_enabled = mask_view.is_some() as u32 as f32;
         let values = [
             group.opacity,
             group.blur_radius as f32,
@@ -227,6 +257,8 @@ impl Compositor {
             f.grayscale,
             f.sepia,
             f.invert,
+            mask_enabled,
+            group.mask_mode as u32 as f32,
         ];
         let bytes: Vec<u8> = values.into_iter().flat_map(f32::to_le_bytes).collect();
         let uniform = target
@@ -253,6 +285,12 @@ impl Compositor {
                     wgpu::BindGroupEntry {
                         binding: 1,
                         resource: uniform.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 3,
+                        resource: wgpu::BindingResource::TextureView(
+                            mask_view.unwrap_or_else(|| source.view()),
+                        ),
                     },
                 ],
             });

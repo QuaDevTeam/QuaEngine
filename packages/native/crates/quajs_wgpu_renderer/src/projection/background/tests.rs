@@ -118,6 +118,9 @@ fn applies_background_filters_after_subtree_rendering() {
     assert_eq!(params.saturation, 1.0);
     assert_eq!(params.contrast, 1.0);
     assert_eq!(params.hue_rotate_radians, 0.0);
+    assert!(commands[0]
+        .resource_ids
+        .contains(&ResourceId::from("images:masks/vignette.png")));
     let group = &commands[0].composite_groups[0];
     assert_eq!(
         group.blend_mode,
@@ -127,6 +130,10 @@ fn applies_background_filters_after_subtree_rendering() {
     assert_eq!(group.color_filter.saturation, 0.8);
     assert_eq!(group.color_filter.contrast, 1.1);
     assert!((group.color_filter.hue_rotate_radians - std::f32::consts::FRAC_PI_2).abs() < 1e-6);
+    assert_eq!(
+        group.mask_resource_id.as_deref(),
+        Some("images:masks/vignette.png")
+    );
 }
 
 #[test]

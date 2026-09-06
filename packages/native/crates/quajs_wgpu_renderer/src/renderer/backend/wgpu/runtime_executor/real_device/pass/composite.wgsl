@@ -3,9 +3,11 @@ struct CompositeStyle {
     opacity: f32, blur_radius: f32, blend_mode: f32,
     brightness: f32, contrast: f32, saturation: f32,
     hue: f32, grayscale: f32, sepia: f32, invert: f32,
+    mask_enabled: f32, mask_mode: f32,
 }
 @group(0) @binding(1) var<uniform> style: CompositeStyle;
 @group(0) @binding(2) var backdrop: texture_2d<f32>;
+@group(0) @binding(3) var mask_texture: texture_2d<f32>;
 
 @vertex fn vs_main(@builtin(vertex_index) index: u32) -> @builtin(position) vec4<f32> {
     let positions = array<vec2<f32>, 3>(vec2(-1.0, -1.0), vec2(3.0, -1.0), vec2(-1.0, 3.0));
@@ -17,6 +19,15 @@ fn source_pixel(position: vec2<f32>) -> vec4<f32> {
         return vec4(0.0);
     }
     return textureLoad(source, vec2<i32>(position), 0);
+}
+
+fn mask_alpha(position: vec2<f32>) -> f32 {
+    if (style.mask_enabled < 0.5) { return 1.0; }
+    let dimensions = vec2<f32>(textureDimensions(mask_texture));
+    let uv = clamp(position / max(vec2<f32>(textureDimensions(source)), vec2(1.0)), vec2(0.0), vec2(0.999999));
+    let sample = textureLoad(mask_texture, vec2<i32>(uv * dimensions), 0);
+    if (style.mask_mode > 0.5) { return dot(sample.rgb, vec3(0.2126, 0.7152, 0.0722)); }
+    return sample.a;
 }
 
 fn filtered_pixel(position: vec2<f32>) -> vec4<f32> {
@@ -121,10 +132,11 @@ fn blend(b: vec3<f32>, s: vec3<f32>, mode: u32) -> vec3<f32> {
 
 @fragment fn fs_main(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
     let pixel = filtered_pixel(position.xy) * style.opacity;
-    if (style.blend_mode == 0.0 || pixel.a <= 0.0) { return pixel; }
+    let masked = vec4(pixel.rgb, pixel.a * mask_alpha(position.xy));
+    if (style.blend_mode == 0.0 || masked.a <= 0.0) { return masked; }
     let back = textureLoad(backdrop, vec2<i32>(position.xy), 0);
     let cb = back.rgb / max(back.a, 0.000001);
-    let cs = pixel.rgb / pixel.a;
+    let cs = masked.rgb / max(masked.a, 0.000001);
     // Fixed-function premultiplied source-over adds backdrop*(1-source alpha).
-    return vec4(pixel.a * mix(cs, blend(cb, cs, u32(style.blend_mode)), back.a), pixel.a);
+    return vec4(masked.a * mix(cs, blend(cb, cs, u32(style.blend_mode)), back.a), masked.a);
 }
