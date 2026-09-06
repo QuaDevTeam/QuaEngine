@@ -238,7 +238,7 @@ fn keeps_allowed_multiline_dialogue_text() {
 }
 
 #[test]
-fn flattens_rich_text_and_builds_avatar_command() {
+fn preserves_rich_text_inline_runs_and_builds_avatar_command() {
     let layout = test_layout();
     let dialogue = DialogueProjection {
         avatar: Some(DialogueAvatarProjection {
@@ -296,13 +296,24 @@ fn flattens_rich_text_and_builds_avatar_command() {
 
     match &text.params {
         DrawCommandParams::Text(params) => {
-            assert_eq!(params.text, "Line one\nLine two");
+            assert_eq!(params.text, "Line ");
             assert_eq!(params.color, "#d8c6ff");
             assert_eq!(params.line_height, 48.0);
             assert_eq!(params.align, TextAlign::Right);
         }
         _ => panic!("expected text params"),
     }
+    let second_run = commands
+        .iter()
+        .find(|command| command.id == "dialogue:text:1")
+        .expect("second inline run");
+    match &second_run.params {
+        DrawCommandParams::Text(params) => assert_eq!(params.text, "one"),
+        _ => panic!("expected second text params"),
+    }
+    assert!(commands.iter().any(|command| {
+        matches!(&command.params, DrawCommandParams::Text(params) if params.text == "Line two")
+    }));
 }
 
 #[test]
