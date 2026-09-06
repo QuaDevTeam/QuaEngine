@@ -1,3 +1,5 @@
+use super::command::LogicalRect;
+
 /// CSS blend modes evaluated on straight sRGB colors, then source-over
 /// composited using the source and backdrop alpha.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -93,6 +95,10 @@ pub struct DrawCompositeGroup {
     pub color_filter: CompositeColorFilter,
     pub mask_resource_id: Option<String>,
     pub mask_mode: CompositeMaskMode,
+    pub mask_bounds: Option<LogicalRect>,
+    pub mask_layout: super::mask::MaskLayout,
+    pub mask_scale: f64,
+    pub mask_rotation: f64,
 }
 
 impl Default for DrawCompositeGroup {
@@ -106,6 +112,10 @@ impl Default for DrawCompositeGroup {
             color_filter: CompositeColorFilter::default(),
             mask_resource_id: None,
             mask_mode: CompositeMaskMode::Alpha,
+            mask_bounds: None,
+            mask_layout: Default::default(),
+            mask_scale: 1.0,
+            mask_rotation: 0.0,
         }
     }
 }

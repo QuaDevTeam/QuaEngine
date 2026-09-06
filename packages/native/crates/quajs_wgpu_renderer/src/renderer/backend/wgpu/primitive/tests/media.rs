@@ -391,3 +391,47 @@ fn prefers_bound_resources_over_params_when_lowering_primitives() {
         vec![ResourceId::from("characters:yuki/default.png")]
     );
 }
+
+#[test]
+fn image_sampler_never_substitutes_an_auxiliary_mask_for_a_missing_source() {
+    let operation = unbound_draw(
+        "background:main",
+        DrawBatchPipeline::Image,
+        DrawCommandKind::Image,
+        DrawCommandParams::Image(ImageDrawParams {
+            asset_type: "images".into(),
+            asset_name: "missing.png".into(),
+            fit: MediaFit::Cover,
+            origin: MediaOrigin::default(),
+            source: LogicalRect::default(),
+            rotation_degrees: 0.0,
+            brightness: 1.0,
+            saturation: 1.0,
+            contrast: 1.0,
+            grayscale: 0.0,
+            sepia: 0.0,
+            hue_rotate_radians: 0.0,
+            invert: 0.0,
+        }),
+    );
+    for resources in [
+        vec![bound_texture("images:mask.png")],
+        vec![
+            bound_texture("images:mask.png"),
+            bound_texture("images:missing.png"),
+        ],
+    ] {
+        let plan = WgpuNativeRenderPrimitivePlan::from_execution_plan(&execution_plan(vec![
+            WgpuNativeRenderExecutionOperation::BindResources {
+                command_id: "background:main".into(),
+                pipeline: DrawBatchPipeline::Image,
+                resources,
+            },
+            operation.clone(),
+        ]));
+        assert_eq!(
+            plan.passes[0].primitives[0].resource_ids,
+            vec![ResourceId::from("images:missing.png")]
+        );
+    }
+}

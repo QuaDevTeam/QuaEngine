@@ -861,3 +861,54 @@ fn video_uses_outer_background_appearance_for_frames_and_posters() {
         vec![ResourceId::from("images:poster.png")]
     );
 }
+
+#[test]
+fn layered_root_and_child_masks_enter_resource_plan_with_package_dependencies() {
+    let background = BackgroundProjection {
+        mode: BackgroundMode::Layered,
+        provenance: provenance("runtime.root", ["base"]),
+        composition: Some(BackgroundCompositionProjection {
+            mask: Some(BackgroundMaskProjection {
+                asset_name: Some("masks/root.png".into()),
+                ..Default::default()
+            }),
+            ..Default::default()
+        }),
+        layers: vec![BackgroundLayerProjection {
+            provenance: provenance("runtime.layer", ["runtime.mask"]),
+            composition: Some(BackgroundCompositionProjection {
+                mask: Some(BackgroundMaskProjection {
+                    asset_name: Some("masks/layer.png".into()),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            }),
+            ..BackgroundLayerProjection::new("front", "front.png")
+        }],
+        ..Default::default()
+    };
+    let mut graph = RenderGraph::new(test_layout());
+    append_background_commands(&mut graph, &background);
+    let plan = crate::resources::plan_render_graph_resources(&graph);
+    assert_eq!(plan.requests.len(), 3);
+    for name in ["images:masks/root.png", "images:masks/layer.png"] {
+        let request = plan
+            .request(name)
+            .expect("mask requested independently of main texture");
+        assert_eq!(
+            request.package_ids(),
+            BTreeSet::from([
+                "runtime.root".into(),
+                "runtime.layer".into(),
+                "runtime.mask".into(),
+                "base".into()
+            ])
+        );
+    }
+    let commands = build_background_commands(&test_layout(), &background);
+    assert_eq!(commands[0].composite_groups.len(), 2);
+    assert_eq!(
+        commands[0].composite_groups[0].mask_bounds.unwrap().width,
+        1920.0
+    );
+}

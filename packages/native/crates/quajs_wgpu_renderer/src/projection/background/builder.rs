@@ -123,14 +123,22 @@ pub fn build_background_commands_with_video_frame_resources(
     if background.mode == BackgroundMode::Layered {
         // Web's transformed layered root is a stacking context even at full
         // opacity: children blend with siblings, never with external content.
-        let group = composition_group(
+        let mut group = composition_group(
             "background:root",
             0,
             background.opacity,
             background.composition.as_ref(),
         );
+        if group.mask_resource_id.is_some() {
+            group.mask_bounds = Some(full_stage_rect(layout));
+        }
         for command in &mut commands {
             command.composite_groups.insert(0, group.clone());
+            if let Some(id) = &group.mask_resource_id {
+                if !command.resource_ids.iter().any(|r| r.as_str() == id) {
+                    command.resource_ids.push(ResourceId::new(id));
+                }
+            }
             // Preserve the layer owner while retaining parent dependencies.
             if let Some(id) = background.provenance.safe_content_package_id() {
                 command.required_package_ids.insert(id.to_string());
@@ -194,6 +202,7 @@ fn background_image_command(
         apply_composition(
             apply_provenance(command, &background.provenance),
             background.composition.as_ref(),
+            background.scale,
         ),
         background.composition.as_ref(),
     ))
@@ -250,6 +259,7 @@ fn background_layer_command(
         apply_composition(
             apply_provenance(command, &layer.provenance),
             layer.composition.as_ref(),
+            layer.scale,
         ),
         layer.composition.as_ref(),
     ))
@@ -312,7 +322,7 @@ fn background_video_command(
 
     let command = apply_provenance(command, &video.provenance);
     Some(apply_mask_resource(
-        apply_composition(command, background.composition.as_ref()),
+        apply_composition(command, background.composition.as_ref(), 1.0),
         background.composition.as_ref(),
     ))
 }
@@ -344,14 +354,22 @@ fn resolve_background_asset_type(asset_type: Option<&str>) -> Option<String> {
 fn apply_composition(
     mut command: DrawCommand,
     composition: Option<&BackgroundCompositionProjection>,
+    scale: f64,
 ) -> DrawCommand {
     if let Some(composition) = composition {
-        let group = composition_group(
+        let mut group = composition_group(
             &command.id,
             command.z_index,
             command.opacity,
             Some(composition),
         );
+        if group.mask_resource_id.is_some() {
+            group.mask_bounds = Some(command.bounds);
+            group.mask_scale = scale;
+            if let DrawCommandParams::Image(image) = &command.params {
+                group.mask_rotation = image.rotation_degrees;
+            }
+        }
         if composition.isolation
             || group.blend_mode != CompositeBlendMode::Normal
             || group.blur_radius > 0.0
@@ -383,9 +401,8 @@ fn apply_mask_resource(
     let Some(asset_type) = resolve_background_asset_type(mask.asset_type.as_deref()) else {
         return command;
     };
-    // Keep the mask package-aware in the asset/resource plan. Sampling is
-    // performed only when a compositor backend advertises mask support;
-    // unsupported backends retain the normal source draw and diagnostics.
+    // Include the mask in QPK lookup and package unload guards. The compositor
+    // samples it separately from the source image.
     command = command.resource(background_resource_id(&asset_type, asset_name));
     command
 }
@@ -496,19 +513,18 @@ fn composition_group(
             sepia: filter.sepia as f32,
             invert: filter.invert as f32,
         },
-        mask_resource_id: composition
-            .and_then(|c| c.mask.as_ref())
-            .and_then(|mask| mask.asset_name.as_deref())
-            .filter(|name| is_safe_native_asset_name(name))
-            .map(|name| {
-                let asset_type = composition
-                    .and_then(|c| c.mask.as_ref())
-                    .and_then(|mask| resolve_background_asset_type(mask.asset_type.as_deref()))
-                    .unwrap_or_else(|| "images".to_string());
+        mask_resource_id: composition.and_then(|c| c.mask.as_ref()).and_then(|mask| {
+            let name = mask
+                .asset_name
+                .as_deref()
+                .filter(|name| is_safe_native_asset_name(name))?;
+            let asset_type = resolve_background_asset_type(mask.asset_type.as_deref())?;
+            Some(
                 background_resource_id(&asset_type, name)
                     .as_str()
-                    .to_string()
-            }),
+                    .to_string(),
+            )
+        }),
         mask_mode: match composition
             .and_then(|c| c.mask.as_ref())
             .and_then(|mask| mask.mode.as_deref())
@@ -518,5 +534,19 @@ fn composition_group(
             Some("luminance") => CompositeMaskMode::Luminance,
             _ => CompositeMaskMode::Alpha,
         },
+        mask_bounds: None,
+        mask_layout: composition
+            .and_then(|c| c.mask.as_ref())
+            .and_then(|m| {
+                crate::render_graph::mask::MaskLayout::parse(
+                    m.position.as_deref(),
+                    m.size.as_deref(),
+                    m.repeat.as_deref(),
+                )
+                .ok()
+            })
+            .unwrap_or_default(),
+        mask_scale: 1.0,
+        mask_rotation: 0.0,
     }
 }

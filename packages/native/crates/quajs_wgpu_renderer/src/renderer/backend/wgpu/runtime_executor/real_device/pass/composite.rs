@@ -1,6 +1,6 @@
 use super::super::resources::backdrop::capture_backdrop_view;
 use super::super::texture::RealRuntimeDecodedTexture;
-use crate::render_graph::{CompositeBlendMode, DrawCompositeGroup};
+use crate::render_graph::{CompositeBlendMode, DrawCompositeGroup, LogicalRect};
 use std::collections::BTreeMap;
 use wgpu::util::DeviceExt;
 
@@ -240,12 +240,21 @@ impl Compositor {
             source.view()
         };
         let f = &group.color_filter;
-        let mask_view = group
+        let mask = group
             .mask_resource_id
             .as_ref()
-            .and_then(|id| decoded_textures.get(id))
-            .map(|texture| &texture.view);
-        let mask_enabled = mask_view.is_some() as u32 as f32;
+            .and_then(|id| decoded_textures.get(id));
+        // Like renderer-web's unresolved asset URL, an unavailable mask leaves
+        // the source visible. Upload diagnostics retain the missing asset.
+        let area = group.mask_bounds.unwrap_or(LogicalRect {
+            x: 0.0,
+            y: 0.0,
+            width: target.extent().width as f64,
+            height: target.extent().height as f64,
+        });
+        let intrinsic = mask.map_or([1.0; 2], |t| [t.width as f64, t.height as f64]);
+        let tile = group.mask_layout.resolve(area, intrinsic, group.mask_scale);
+        let rotation = group.mask_rotation.to_radians();
         let values = [
             group.opacity,
             group.blur_radius as f32,
@@ -257,8 +266,22 @@ impl Compositor {
             f.grayscale,
             f.sepia,
             f.invert,
-            mask_enabled,
+            mask.is_some() as u32 as f32,
             group.mask_mode as u32 as f32,
+            area.x as f32,
+            area.y as f32,
+            area.width as f32,
+            area.height as f32,
+            tile.bounds.x as f32,
+            tile.bounds.y as f32,
+            tile.bounds.width as f32,
+            tile.bounds.height as f32,
+            tile.period[0] as f32,
+            tile.period[1] as f32,
+            tile.repeat[0] as u32 as f32,
+            tile.repeat[1] as u32 as f32,
+            rotation.cos() as f32,
+            rotation.sin() as f32,
         ];
         let bytes: Vec<u8> = values.into_iter().flat_map(f32::to_le_bytes).collect();
         let uniform = target
@@ -289,7 +312,7 @@ impl Compositor {
                     wgpu::BindGroupEntry {
                         binding: 3,
                         resource: wgpu::BindingResource::TextureView(
-                            mask_view.unwrap_or_else(|| source.view()),
+                            mask.map_or_else(|| source.view(), |t| &t.view),
                         ),
                     },
                 ],

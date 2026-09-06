@@ -124,6 +124,10 @@ Background animation targets include `background:main` and `backgroundLayer:<lay
 
 Background projections must preserve package provenance for runtime package assets. Unloading a runtime package clears background content that depends on the package unless engine teardown intentionally forces unload.
 
+## Native projection support
+
+Raster masks use QPK assets and share Web's cover / center / no-repeat defaults. Native supports alpha, luminance (including texture alpha), and raster match-source; contain/auto/px/percent sizes; keyword/px/percent positions and four-part pixel edge offsets; no-repeat/repeat/repeat-x/repeat-y/round/space and two-axis repeat values. Layered root and child masks compose independently and release with renderer resources. Unsupported CSS layout expressions produce native JSON diagnostics. An unresolved mask asset keeps the source visible, matching the Web renderer's absent URL behavior, and retains upload diagnostics. SVG masks, multiple masks, full layered-root transforms, true source-alpha drop shadows and MP4/WebM decoding remain incomplete. Validate rendered output with `node scripts/native-render-audit/background.mjs`; command projection tests do not establish visual parity.
+
 ## Validation
 
 ```bash

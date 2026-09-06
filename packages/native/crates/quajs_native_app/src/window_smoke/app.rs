@@ -7,7 +7,7 @@ use winit::event_loop::{ActiveEventLoop, EventLoopProxy};
 use winit::window::Window;
 
 use super::config::{
-    load_window_smoke_target_frame_count, load_window_target_fps_override,
+    load_window_capture_size, load_window_smoke_target_frame_count, load_window_target_fps_override,
     native_window_demo_e2e_enabled, native_window_dev_enabled, native_window_perf_hud_enabled,
     native_window_title,
 };
@@ -143,13 +143,15 @@ impl NativeWindowSmokeApp {
             return Ok(());
         }
 
+        let mut attributes = Window::default_attributes()
+            .with_title(native_window_title())
+            .with_inner_size(LogicalSize::new(960.0, 540.0));
+        if let Some(size) = load_window_capture_size() {
+            attributes = attributes.with_inner_size(size);
+        }
         let window = Arc::new(
             event_loop
-                .create_window(
-                    Window::default_attributes()
-                        .with_title(native_window_title())
-                        .with_inner_size(LogicalSize::new(960.0, 540.0)),
-                )
+                .create_window(attributes)
                 .map_err(|error| {
                     NativeWindowSmokeError::new(format!(
                         "Failed to create native renderer smoke window: {error}."

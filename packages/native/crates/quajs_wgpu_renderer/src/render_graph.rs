@@ -2,6 +2,7 @@ pub mod batch;
 pub mod command;
 pub mod composite;
 pub mod graph;
+pub mod mask;
 pub mod pass;
 pub mod style;
 pub mod summary;

@@ -153,7 +153,10 @@ fn materialize_draw(
     let index_buffer = index_buffer_for_draw(pass_label, &draw, buffers)?;
     let pipeline = pipeline_for_draw(pass_label, &draw, pipelines)?;
     let bind_group = required_bind_group_for_draw(pass_label, &draw, pipeline, bind_groups)?;
-    set_viewport(render_pass, draw.viewport);
+    // Vertices already include stage scale and letterbox offset in physical
+    // target pixels; applying the stage viewport again shrinks/translates them.
+    let extent = target.extent();
+    set_viewport(render_pass, WgpuPhysicalRect { x: 0, y: 0, width: extent.width, height: extent.height });
     render_pass.set_vertex_buffer(0, vertex_buffer.buffer.slice(..));
     render_pass.set_index_buffer(index_buffer.buffer.slice(..), wgpu::IndexFormat::Uint32);
     render_pass.set_pipeline(&pipeline.pipeline);
