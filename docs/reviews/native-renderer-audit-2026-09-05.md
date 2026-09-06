@@ -83,7 +83,7 @@
 2. **富文本：** native dialogue 已保留 document blocks 和 inline span 样式，并按继承后的 run 样式投影颜色、字体、字号、字重、行高和对齐；当前 run 分区仍使用 renderer-local 的保守宽度估算，真实 bidi/cluster wrapping、多字体 fallback 和 typewriter grapheme 对齐仍待完成。
 3. **字体：** Arabic/bidi 仍有可见误差；跨字体逐 cluster fallback、竖排和语言相关断字未完成。当前截图不证明浏览器级文字布局。
 4. **音视频：** EQ/automation 已接入并有 native focused backend tests；GIF 有解码与发布测试，MP4/WebM 尚无解码器或产品实测。demo E2E 的 video decoded/published 为 0。
-5. **Sprite/UI skin：** 多层 sprite manifest、expression diff 和 UI skin 的 native 投影仍缺。只有 sprite/expression 字符串不能视为 Web 多层效果。
+5. **Sprite/UI skin：** native 已支持通过 package-aware `metadata.spriteLayers` 投影基础多层 sprite（offset/z/opacity/scale/rotation）；manifest JSON 解析、atlas frame、per-layer mask/blend、expression diff 加载和 UI skin manifest 仍待接入，单纯 sprite/expression 字符串仍不等于完整 Web 多层效果。
 6. **动态场景：** stage/camera/effects/scene transition 需要真实 GPU 时间序列对照；基础数值动画测试不覆盖全部 composition/effect target。
 7. **产品覆盖：** keyboard/IME 产品 E2E 仍为 0；portrait、多分辨率、safe-area、多 GPU，以及圆角/border/shadow/rotation 复杂组合仍需补截图。此前 live CDP 超时不能算产品 Web/native parity 已通过。
 8. **工具链历史缺口：** 旧 QUI benchmark/LSP fixture 迁移失败仍需单独复核；本次没有把旧结果作为 GPU 绘制失败或已修复项。

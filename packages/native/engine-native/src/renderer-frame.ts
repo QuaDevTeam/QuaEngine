@@ -797,11 +797,36 @@ function createNativeCharacterProjection(character: unknown): JsonRecord | undef
     visible: record.visible !== false,
     sprite: stringValue(record.sprite),
     expression: stringValue(record.expression),
+    spriteLayers: createNativeSpriteLayers(record.metadata),
     position: createNativeCharacterPosition(record.position),
     opacity: finiteNumber(record.opacity),
     layer: integerValue(record.layer),
     provenance: createPackageProvenance(record),
   })
+}
+
+function createNativeSpriteLayers(metadata: unknown): JsonRecord[] | undefined {
+  const record = asRecord(metadata)
+  const layers = record?.spriteLayers
+  if (!Array.isArray(layers)) return undefined
+  return layers
+    .map(layer => {
+      const item = asRecord(layer)
+      const asset = stringValue(item?.asset)
+      return asset
+        ? omitUndefined({
+            asset,
+            offsetX: finiteNumber(item?.offsetX),
+            offsetY: finiteNumber(item?.offsetY),
+            zIndex: integerValue(item?.zIndex),
+            opacity: finiteNumber(item?.opacity),
+            scale: finiteNumber(item?.scale),
+            rotation: finiteNumber(item?.rotation),
+            visible: item?.visible !== false,
+          })
+        : undefined
+    })
+    .filter(isJsonRecord)
 }
 
 function createNativeCharacterPosition(position: unknown): JsonRecord | undefined {
