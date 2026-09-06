@@ -20,7 +20,7 @@ use super::rich_text::{
     resolve_line_height, resolve_text_align, resolve_text_color, rich_text_style,
     rich_text_to_plain_text,
 };
-use super::types::{DialogueAvatarProjection, DialogueProjection, RichTextStyle};
+use super::types::{DialogueAvatarProjection, DialogueProjection, RichTextContent, RichTextStyle};
 
 pub fn append_dialogue_commands(graph: &mut RenderGraph, dialogue: &DialogueProjection) {
     graph.extend(build_dialogue_commands(&graph.layout, dialogue));
@@ -258,42 +258,11 @@ pub fn build_dialogue_commands(
     }
 
     if let Some(speaker) = render_speaker {
-        let speaker_text = rich_text_to_plain_text(speaker);
         // CSS `text-shadow: 0 0 16px rgba(255,194,86,0.36)` — golden glow on speaker name.
-        commands.push(apply_provenance(
-            text_shadow_command(
-                "dialogue:speaker",
-                speaker_bounds(panel),
-                speaker_text.clone(),
-                &dialogue.speaker_style,
-                "speaker",
-                18.0,
-                20.0,
-                Some(FontWeightDrawParam::Number(700)),
-                0.0,
-                0.0,
-                16.0,
-                "rgba(255,194,86,0.36)",
-                2,
-            ),
-            &dialogue.provenance,
-        ));
-        commands.push(apply_provenance(
-            text_command(
-                "dialogue:speaker",
-                speaker_bounds(panel),
-                speaker_text,
-                &dialogue.speaker_style,
-                "speaker",
-                18.0,
-                20.0,
-                // Match web: `font-weight: 700` when the projection doesn't specify one.
-                Some(FontWeightDrawParam::Number(700)),
-                0.0,
-            )
-            .z_index(2),
-            &dialogue.provenance,
-        ));
+        commands.extend(inline_text_commands("dialogue:speaker", speaker_bounds(panel), speaker,
+            &dialogue.speaker_style, "speaker", 18.0, 20.0,
+            Some(FontWeightDrawParam::Number(700)),
+            Some((0.0, 0.0, 16.0, "rgba(255,194,86,0.36)")), &dialogue.provenance));
         commands.push(apply_provenance(
             panel_command(
                 "dialogue:speaker-accent",
@@ -311,39 +280,9 @@ pub fn build_dialogue_commands(
     let mut text_rect = text_bounds(panel, render_speaker.is_some());
     text_rect.width = text_width.max(0.0);
     // CSS `text-shadow: 0 2px 10px rgba(0,0,0,0.72)` — subtle drop shadow on body text.
-    commands.push(apply_provenance(
-        text_shadow_command(
-            "dialogue:text",
-            text_rect,
-            dialogue_text.clone(),
-            dialogue_text_style,
-            "dialogue-text",
-            20.0,
-            36.0,
-            None,
-            0.0,
-            2.0,
-            10.0,
-            "rgba(0,0,0,0.72)",
-            2,
-        ),
-        &dialogue.provenance,
-    ));
-    commands.push(apply_provenance(
-        text_command(
-            "dialogue:text",
-            text_rect,
-            dialogue_text,
-            dialogue_text_style,
-            "dialogue-text",
-            20.0,
-            36.0,
-            None,
-            0.0,
-        )
-        .z_index(2),
-        &dialogue.provenance,
-    ));
+    commands.extend(inline_text_commands("dialogue:text", text_rect, &dialogue.text,
+        dialogue_text_style, "dialogue-text", 20.0, 36.0, None,
+        Some((0.0, 2.0, 10.0, "rgba(0,0,0,0.72)")), &dialogue.provenance));
 
     if let Some(avatar) = &dialogue.avatar {
         if let Some(command) = avatar_command(panel, avatar_size, avatar) {
@@ -444,6 +383,119 @@ fn text_command(
             role: role.to_string(),
             rotation_degrees: 0.0,
         }))
+}
+
+fn inline_text_commands(
+    id: &str,
+    bounds: LogicalRect,
+    content: &RichTextContent,
+    document_style: &RichTextStyle,
+    role: &str,
+    fallback_font_size: f64,
+    fallback_line_height: f64,
+    fallback_font_weight: Option<FontWeightDrawParam>,
+    shadow: Option<(f64, f64, f64, &str)>,
+    provenance: &PackageProvenance,
+) -> Vec<DrawCommand> {
+    let runs = rich_text_runs(content, document_style);
+    let total_width = bounds.width.max(1.0);
+    let total_ems = runs
+        .iter()
+        .map(|(text, style)| estimate_text_ems(text, resolve_font_size(style, fallback_font_size)))
+        .sum::<f64>()
+        .max(1.0);
+    let mut cursor = bounds.x;
+    let mut commands = Vec::new();
+    for (index, (text, style)) in runs.into_iter().enumerate() {
+        if text.is_empty() {
+            continue;
+        }
+        let width = (total_width
+            * estimate_text_ems(&text, resolve_font_size(&style, fallback_font_size))
+            / total_ems)
+            .max(1.0);
+        let run_bounds = LogicalRect {
+            x: cursor,
+            y: bounds.y,
+            width,
+            height: bounds.height,
+        };
+        let run_id = if index == 0 {
+            id.to_string()
+        } else {
+            format!("{id}:{index}")
+        };
+        if let Some((offset_x, offset_y, blur, color)) = shadow {
+            commands.push(apply_provenance(
+                text_shadow_command(
+                    &run_id,
+                    run_bounds,
+                    text.clone(),
+                    &style,
+                    role,
+                    fallback_font_size,
+                    fallback_line_height,
+                    fallback_font_weight.clone(),
+                    offset_x,
+                    offset_y,
+                    blur,
+                    color,
+                    2,
+                ),
+                provenance,
+            ));
+        }
+        commands.push(apply_provenance(
+            text_command(
+                &run_id,
+                run_bounds,
+                text,
+                &style,
+                role,
+                fallback_font_size,
+                fallback_line_height,
+                fallback_font_weight.clone(),
+                0.0,
+            )
+            .z_index(2),
+            provenance,
+        ));
+        cursor += width;
+    }
+    commands
+}
+
+fn rich_text_runs(
+    content: &RichTextContent,
+    document_style: &RichTextStyle,
+) -> Vec<(String, RichTextStyle)> {
+    match content {
+        RichTextContent::Plain(text) => vec![(text.clone(), document_style.clone())],
+        RichTextContent::Document(document) => document
+            .blocks
+            .iter()
+            .flat_map(|block| block.spans.iter())
+            .map(|span| (span.text.clone(), merge_rich_text_style(document_style, &span.style)))
+            .collect(),
+    }
+}
+
+fn merge_rich_text_style(base: &RichTextStyle, override_style: &RichTextStyle) -> RichTextStyle {
+    RichTextStyle {
+        color: override_style.color.clone().or_else(|| base.color.clone()),
+        font_family: override_style.font_family.clone().or_else(|| base.font_family.clone()),
+        font_size: override_style.font_size.or(base.font_size),
+        font_weight: override_style.font_weight.clone().or_else(|| base.font_weight.clone()),
+        line_height: override_style.line_height.or(base.line_height),
+        text_align: override_style.text_align.clone().or_else(|| base.text_align.clone()),
+    }
+}
+
+fn estimate_text_ems(text: &str, font_size: f64) -> f64 {
+    text.chars()
+        .map(|ch| if ch.is_ascii() { 0.55 } else { 1.0 })
+        .sum::<f64>()
+        * font_size.max(1.0)
 }
 
 /// Creates a CSS `text-shadow`-style pre-pass command: the text is rendered at
