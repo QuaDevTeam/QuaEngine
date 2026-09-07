@@ -48,6 +48,10 @@ impl WgpuNativeRenderRuntimePlan {
                             .cloned()
                             .map(|mut g| {
                                 g.blur_radius *= scale;
+                                if let Some(shadow) = &mut g.drop_shadow {
+                                    shadow.sigma *= scale;
+                                    shadow.offset = shadow.offset.map(|n| n * scale);
+                                }
                                 g.mask_scale *= scale;
                                 if let Some(bounds) = &mut g.mask_bounds {
                                     bounds.x = bounds.x * scale

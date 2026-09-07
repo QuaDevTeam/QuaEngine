@@ -19,6 +19,10 @@ export async function backgroundAuditAssets(demoQpk, output) {
     return [x < 43 ? 255 : 0, x >= 43 && x < 85 ? 255 : 0, x >= 85 ? 255 : 0, alpha]
   }))
   files.set('masks/stripes.png', png(96, 96, (x, y) => [255, 255, 255, (x % 32 < 16 && y % 32 < 16) ? 255 : 0]))
+  files.set('silhouette.png', png(128, 96, (x, y) => {
+    const r = Math.hypot((x - 63.5) / 55, (y - 47.5) / 40)
+    return [255, 175, 60, r < 1 && r > 0.4 ? (x < 64 ? 255 : 120) : 0]
+  }))
   files.set('white.png', png(8, 8, () => [255, 255, 255, 255]))
   files.set('masks/clear.png', png(8, 8, () => [255, 0, 255, 0]))
   const assets = [...files].map(([name, bytes]) => {

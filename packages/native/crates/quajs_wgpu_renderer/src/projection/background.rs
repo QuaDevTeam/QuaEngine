@@ -1,5 +1,6 @@
 pub mod builder;
 pub mod layout;
+pub(crate) mod shadow;
 pub mod types;
 
 pub use builder::{

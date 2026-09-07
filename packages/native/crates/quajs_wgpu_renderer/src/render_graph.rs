@@ -13,7 +13,8 @@ pub use command::{
     RenderPlane, RoundedClip,
 };
 pub use composite::{
-    CompositeBlendMode, CompositeColorFilter, CompositeMaskMode, DrawCompositeGroup,
+    CompositeBlendMode, CompositeColorFilter, CompositeDropShadow, CompositeMaskMode,
+    DrawCompositeGroup,
 };
 pub use graph::RenderGraph;
 pub use pass::{plan_render_passes, RenderPass, RenderPassPlan, RenderViewport};

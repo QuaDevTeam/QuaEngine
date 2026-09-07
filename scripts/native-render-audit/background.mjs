@@ -20,7 +20,20 @@ const modes = ['normal', 'multiply', 'screen', 'overlay', 'darken', 'lighten', '
   'color-burn', 'hard-light', 'soft-light', 'difference', 'exclusion', 'hue', 'saturation', 'color', 'luminosity']
 const filter = { blur: 4, brightness: 1.3, contrast: 0.8, saturate: 0.7, hueRotate: 45, grayscale: 0.2, sepia: 0.3 }
 const mask = (extra = {}) => ({ assetName: 'masks/coverage.png', assetType: 'images', ...extra })
+const subject = { assetName: 'silhouette.png', assetType: 'images', x: 520, y: 260, width: 640, height: 480 }
+const shadowImage = (dropShadow, extra = {}) => ({ mode: 'image', ...subject, ...extra,
+  composition: { ...extra.composition, filter: { ...extra.composition?.filter, dropShadow } } })
+// Transparent PNG controls have tight limits: the old sparse blur produced
+// visible bands despite passing the photo-based default MAE threshold.
 const cases = [
+  ...['70px 45px 0 red', '-60px 35px 8px rgba(30, 150, 255, 0.8)', '50px 70px 24px #55c0ff', '0 0 48px white'].map((value, i) => ({ id: `shadow-silhouette-${i}`, limits: { mae: [0.02, 0.05, 0.15, 0.3][i], fractionOver16: 0.001 }, background: shadowImage(value) })),
+  { id: 'shadow-clear', limits: { mae: 0, fractionOver16: 0 }, background: shadowImage('50px 60px 20px white', { assetName: 'masks/clear.png' }) },
+  { id: 'shadow-opacity', limits: { mae: 0.15, fractionOver16: 0.001 }, background: shadowImage('50px 60px 12px white', { opacity: 0.4 }) },
+  { id: 'shadow-filter', limits: { mae: 0.15, fractionOver16: 0.001 }, background: shadowImage('50px 60px 12px white', { composition: { filter: { blur: 5, brightness: 0.6, sepia: 0.5 } } }) },
+  { id: 'shadow-mask', limits: { mae: 0.15, fractionOver16: 0.001 }, background: shadowImage('50px 60px 12px white', { composition: { mask: mask() } }) },
+  { id: 'shadow-rotate', limits: { mae: 0.15, fractionOver16: 0.001 }, background: shadowImage('50px 60px 12px white', { rotation: 20 }) },
+  { id: 'shadow-root', limits: { mae: 0.15, fractionOver16: 0.001 }, background: { mode: 'layered', opacity: 0.6, composition: { filter: { dropShadow: '60px 80px 16px white' } }, layers: [{ id: 'one', ...subject }, { id: 'two', ...subject, x: 810, y: 290 }] } },
+  { id: 'shadow-layer-blend', background: layered({ blendMode: 'multiply', filter: { dropShadow: '50px 60px 12px #e86030' } }, subject) },
   ...['alpha', 'luminance'].map(mode => ({ id: `mask-flat-${mode}`, background: { mode: 'image', assetName: 'white.png', assetType: 'images', x: 220, y: 160, width: 1300, height: 700, opacity: 0.7, composition: { mask: mask({ mode }) } } })),
   { id: 'mask-unavailable', expectedTextureError: true, background: layered({ mask: mask({ assetName: 'masks/missing.png' }) }) },
   ...['alpha', 'luminance', 'match-source'].map(mode => ({ id: `mask-${mode}`, background: layered({ mask: mask({ mode }) }) })),
@@ -127,9 +140,10 @@ try {
       return { ...measure(...[340, 220, 1580, 900].map((n, i) => Math.round(n * viewport.scale + (i % 2 ? viewport.y : viewport.x)))), wholeFrame: measure(0, 0, width, height) }
     }, { width, height, viewport, nativeUrl: `data:image/png;base64,${readFileSync(nativePath).toString('base64')}`,
       webUrl: `data:image/png;base64,${readFileSync(webPath).toString('base64')}` })
+    const caseLimits = item.limits || limits
     const passed = [metrics, metrics.wholeFrame].every(region =>
-      region.mae <= limits.mae && region.fractionOver16 <= limits.fractionOver16)
-    report.cases.push({ id: item.id, ...metrics, passed, summary })
+      region.mae <= caseLimits.mae && region.fractionOver16 <= caseLimits.fractionOver16)
+    report.cases.push({ id: item.id, ...metrics, limits: caseLimits, passed, summary })
     writeFileSync(resolve(output, 'measurements.json'), JSON.stringify(report, null, 2))
     console.log(JSON.stringify({ id: item.id, ...metrics }))
   }

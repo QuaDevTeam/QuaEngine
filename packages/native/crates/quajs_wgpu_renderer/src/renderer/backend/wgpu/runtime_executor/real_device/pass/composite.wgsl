@@ -8,10 +8,13 @@ struct CompositeStyle {
     tile_x: f32, tile_y: f32, tile_width: f32, tile_height: f32,
     period_x: f32, period_y: f32, repeat_x: f32, repeat_y: f32,
     rotation_cos: f32, rotation_sin: f32,
+    shadow_enabled: f32, shadow_sigma: f32, shadow_x: f32, shadow_y: f32,
+    shadow_r: f32, shadow_g: f32, shadow_b: f32, shadow_a: f32,
 }
 @group(0) @binding(1) var<uniform> style: CompositeStyle;
 @group(0) @binding(2) var backdrop: texture_2d<f32>;
 @group(0) @binding(3) var mask_texture: texture_2d<f32>;
+@group(0) @binding(4) var shadow_texture: texture_2d<f32>;
 
 @vertex fn vs_main(@builtin(vertex_index) index: u32) -> @builtin(position) vec4<f32> {
     let positions = array<vec2<f32>, 3>(vec2(-1.0, -1.0), vec2(3.0, -1.0), vec2(-1.0, 3.0));
@@ -99,6 +102,19 @@ fn filtered_pixel(position: vec2<f32>) -> vec4<f32> {
     return vec4(rgb * pixel.a, pixel.a);
 }
 
+fn shadow_texel(point: vec2<i32>) -> f32 {
+    if (any(point < vec2(0)) || any(point >= vec2<i32>(textureDimensions(shadow_texture)))) { return 0.0; }
+    return textureLoad(shadow_texture, point, 0).a;
+}
+fn shadow_alpha(position: vec2<f32>) -> f32 {
+    let uv = (position - vec2(style.shadow_x, style.shadow_y)) / vec2<f32>(textureDimensions(source));
+    let texel = uv * vec2<f32>(textureDimensions(shadow_texture)) - 0.5;
+    let base = vec2<i32>(floor(texel));
+    let weight = fract(texel);
+    return mix(mix(shadow_texel(base), shadow_texel(base + vec2(1, 0)), weight.x),
+               mix(shadow_texel(base + vec2(0, 1)), shadow_texel(base + vec2(1, 1)), weight.x), weight.y);
+}
+
 // W3C Compositing and Blending Level 1 non-separable modes.
 fn lum(c: vec3<f32>) -> f32 { return dot(c, vec3(0.3, 0.59, 0.11)); }
 fn sat(c: vec3<f32>) -> f32 { return max(c.r, max(c.g, c.b)) - min(c.r, min(c.g, c.b)); }
@@ -161,8 +177,13 @@ fn blend(b: vec3<f32>, s: vec3<f32>, mode: u32) -> vec3<f32> {
 }
 
 @fragment fn fs_main(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
-    let pixel = filtered_pixel(position.xy) * style.opacity;
-    let masked = pixel * mask_alpha(position.xy);
+    var pixel = filtered_pixel(position.xy);
+    if (style.shadow_enabled > 0.5 && style.shadow_a > 0.0) {
+        let alpha = shadow_alpha(position.xy) * style.shadow_a;
+        let shadow = vec4(vec3(style.shadow_r, style.shadow_g, style.shadow_b) * alpha, alpha);
+        pixel += shadow * (1.0 - pixel.a);
+    }
+    let masked = pixel * (style.opacity * mask_alpha(position.xy));
     if (style.blend_mode == 0.0 || masked.a <= 0.0) { return masked; }
     let back = textureLoad(backdrop, vec2<i32>(position.xy), 0);
     let cb = back.rgb / max(back.a, 0.000001);

@@ -43,7 +43,7 @@ impl WgpuNativeRenderPaintColor {
     }
 }
 
-pub(super) fn parse_color_literal(literal: &str) -> Option<WgpuNativeRenderPaintColor> {
+pub(in crate::renderer::backend::wgpu) fn parse_color_literal(literal: &str) -> Option<WgpuNativeRenderPaintColor> {
     if literal.trim() != literal {
         return None;
     }

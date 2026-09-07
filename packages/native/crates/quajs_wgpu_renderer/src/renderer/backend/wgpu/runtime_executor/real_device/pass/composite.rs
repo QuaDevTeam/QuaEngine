@@ -19,6 +19,7 @@ pub(in super::super) struct Compositor {
     layout: wgpu::BindGroupLayout,
     pipeline: wgpu::RenderPipeline,
     targets: Vec<RealRuntimeFrameTarget>,
+    shadow_blur: super::shadow_blur::ShadowBlur,
 }
 
 impl Compositor {
@@ -67,6 +68,16 @@ impl Compositor {
                     },
                     count: None,
                 },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 4,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        sample_type: wgpu::TextureSampleType::Float { filterable: false },
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
             ],
         });
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -107,6 +118,7 @@ impl Compositor {
             layout,
             pipeline,
             targets: Vec::new(),
+            shadow_blur: super::shadow_blur::ShadowBlur::new(target),
         }
     }
 
@@ -140,8 +152,23 @@ impl Compositor {
             part.draws = draws[start..end].to_vec();
             if let Some(group) = group {
                 let extent = target.extent();
-                let required_bytes =
-                    (depth as u64 + 1) * u64::from(extent.width) * u64::from(extent.height) * 4;
+                let frame_bytes = u64::from(extent.width) * u64::from(extent.height) * 4;
+                let shadow_bytes = if group
+                    .drop_shadow
+                    .as_ref()
+                    .is_some_and(|s| group.blur_radius.hypot(s.sigma) >= 0.001)
+                {
+                    2 * frame_bytes
+                } else {
+                    self.shadow_blur.byte_len() as u64
+                };
+                let required_bytes = (depth as u64 + 1) * frame_bytes
+                    + shadow_bytes
+                    + if group.blend_mode != CompositeBlendMode::Normal {
+                        frame_bytes
+                    } else {
+                        0
+                    };
                 if depth >= 16 || required_bytes > 256 * 1024 * 1024 {
                     return super::super::invalid_order("native subtree compositing exceeds its 16-level / 256 MiB transient target budget");
                 }
@@ -213,15 +240,20 @@ impl Compositor {
         Ok(())
     }
 
+    pub(in super::super) fn clear_shadow_blur(&mut self) {
+        self.shadow_blur.clear();
+    }
+
     pub(in super::super) fn texture_byte_len(&self) -> usize {
         self.targets
             .iter()
             .map(|t| t.extent().width as usize * t.extent().height as usize * 4)
-            .sum()
+            .sum::<usize>()
+            + self.shadow_blur.byte_len()
     }
 
     fn composite(
-        &self,
+        &mut self,
         target: &RealWgpuNativeRenderRuntimeTarget,
         destination: &mut RealRuntimeFrameTarget,
         source: &RealRuntimeFrameTarget,
@@ -255,6 +287,19 @@ impl Compositor {
         let intrinsic = mask.map_or([1.0; 2], |t| [t.width as f64, t.height as f64]);
         let tile = group.mask_layout.resolve(area, intrinsic, group.mask_scale);
         let rotation = group.mask_rotation.to_radians();
+        let shadow = group.drop_shadow.as_ref();
+        let shadow_view = shadow.map(|s| {
+            self.shadow_blur.render(
+                target,
+                source.view(),
+                encoder,
+                group.blur_radius.hypot(s.sigma),
+            )
+        });
+
+        let shadow_color = shadow
+            .and_then(|s| crate::renderer::backend::wgpu::mesh::parse_color_literal(&s.color))
+            .map_or([0.0; 4], |c| c.to_gpu_rgba());
         let values = [
             group.opacity,
             group.blur_radius as f32,
@@ -282,6 +327,14 @@ impl Compositor {
             tile.repeat[1] as u32 as f32,
             rotation.cos() as f32,
             rotation.sin() as f32,
+            shadow.is_some() as u32 as f32,
+            shadow.map_or(0.0, |s| s.sigma) as f32,
+            shadow.map_or(0.0, |s| s.offset[0]) as f32,
+            shadow.map_or(0.0, |s| s.offset[1]) as f32,
+            shadow_color[0],
+            shadow_color[1],
+            shadow_color[2],
+            shadow_color[3],
         ];
         let bytes: Vec<u8> = values.into_iter().flat_map(f32::to_le_bytes).collect();
         let uniform = target
@@ -313,6 +366,12 @@ impl Compositor {
                         binding: 3,
                         resource: wgpu::BindingResource::TextureView(
                             mask.map_or_else(|| source.view(), |t| &t.view),
+                        ),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 4,
+                        resource: wgpu::BindingResource::TextureView(
+                            shadow_view.as_ref().unwrap_or_else(|| source.view()),
                         ),
                     },
                 ],

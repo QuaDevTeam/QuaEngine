@@ -83,6 +83,15 @@ impl Default for CompositeColorFilter {
     }
 }
 
+/// Source-alpha shadow applied after the subtree's color filters. The CSS
+/// drop-shadow blur length is a Gaussian standard deviation in logical units.
+#[derive(Clone, Debug, PartialEq)]
+pub struct CompositeDropShadow {
+    pub offset: [f64; 2],
+    pub sigma: f64,
+    pub color: String,
+}
+
 /// Transient isolated stacking context. Filters and opacity apply once to
 /// its complete subtree. Blend is evaluated against its parent's backdrop.
 #[derive(Clone, Debug, PartialEq)]
@@ -93,6 +102,7 @@ pub struct DrawCompositeGroup {
     pub z_index: i32,
     pub blend_mode: CompositeBlendMode,
     pub color_filter: CompositeColorFilter,
+    pub drop_shadow: Option<CompositeDropShadow>,
     pub mask_resource_id: Option<String>,
     pub mask_mode: CompositeMaskMode,
     pub mask_bounds: Option<LogicalRect>,
@@ -110,6 +120,7 @@ impl Default for DrawCompositeGroup {
             z_index: 0,
             blend_mode: CompositeBlendMode::Normal,
             color_filter: CompositeColorFilter::default(),
+            drop_shadow: None,
             mask_resource_id: None,
             mask_mode: CompositeMaskMode::Alpha,
             mask_bounds: None,

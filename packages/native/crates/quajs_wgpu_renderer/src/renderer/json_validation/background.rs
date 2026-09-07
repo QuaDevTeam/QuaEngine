@@ -115,6 +115,14 @@ impl JsonProjectionValidator {
             return;
         };
         if let Some(filter) = &composition.filter {
+            if let Some(value) = &filter.drop_shadow {
+                if crate::projection::background::shadow::parse_drop_shadow(value).is_none() {
+                    self.errors.push(NativeRendererJsonValidationError {
+                        path: format!("{path}.filter.dropShadow"), asset_name: value.clone(),
+                        reason: "dropShadow must contain two px offsets, optional nonnegative blur, and an optional native color; omit the drop-shadow() wrapper".into(),
+                    });
+                }
+            }
             for (field, value, range) in [
                 ("brightness", filter.brightness, 0.0..=8.0),
                 ("saturate", filter.saturate, 0.0..=8.0),
