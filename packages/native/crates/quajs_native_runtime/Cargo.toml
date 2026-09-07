@@ -17,3 +17,7 @@ serde_json.workspace = true
 sha2.workspace = true
 
 [dev-dependencies]
+
+[[example]]
+name = "quickjs_performance"
+required-features = ["quickjs-rquickjs"]

@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 use std::ffi::CStr;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
+use std::time::Duration;
 
 use rquickjs::{
     function::Func,
@@ -204,6 +205,15 @@ const NATIVE_QUICKJS_RENDERER_BRIDGE_SOURCE: &str = r#"
       configurable: false,
       writable: false
     });
+    Object.defineProperty(globalThis, '__quaNativeNextTimerDelay', {
+      value() {
+        let deadline = Infinity;
+        for (const timer of timers.values()) deadline = Math.min(deadline, timer.dueAt);
+        return deadline === Infinity ? -1 : Math.max(0, deadline - Date.now());
+      },
+      configurable: false,
+      writable: false
+    });
   }
   const state = { listener: undefined };
   const bridge = Object.freeze({
@@ -237,7 +247,7 @@ const NATIVE_QUICKJS_RENDERER_BRIDGE_SOURCE: &str = r#"
     configurable: false,
     writable: false
   });
-  const pipelineMessages = [];
+  let pipelineMessages = [];
   const pipelineBridge = Object.freeze({
     emit(event, payload) {
       if (typeof event !== 'string' || event.length === 0) {
@@ -250,10 +260,9 @@ const NATIVE_QUICKJS_RENDERER_BRIDGE_SOURCE: &str = r#"
       pipelineMessages.push({ event, payloadJson });
     },
     drain() {
-      if (pipelineMessages.length === 0) {
-        return '[]';
-      }
-      return JSON.stringify(pipelineMessages.splice(0, pipelineMessages.length));
+      const messages = pipelineMessages;
+      pipelineMessages = [];
+      return messages;
     }
   });
   Object.defineProperty(globalThis, '__quaNativePipelineBridge', {
@@ -967,6 +976,9 @@ pub fn quickjs_rquickjs_runtime_version() -> &'static str {
 }
 
 pub struct RquickJsModuleEvaluator {
+    // Compile the immutable bridge closures once per JS context. Per-step
+    // command/continuation objects remain fresh and package-owned.
+    bridge_functions: BTreeMap<&'static str, Persistent<Function<'static>>>,
     namespaces: BTreeMap<String, Persistent<Object<'static>>>,
     step_run_handles: BTreeMap<String, QuickJsStepRunHandle>,
     step_resume_handles: BTreeMap<String, QuickJsStepResumeHandle>,
@@ -1151,7 +1163,26 @@ impl RquickJsModuleEvaluator {
                 ctx.eval::<(), _>(NATIVE_QUICKJS_RENDERER_BRIDGE_SOURCE)
             })
             .map_err(backend_error)?;
+        let bridge_functions = context
+            .with(|ctx| {
+                [
+                    ("install", NATIVE_QUICKJS_STEP_CONTEXT_BRIDGE_SOURCE),
+                    ("wait", NATIVE_QUICKJS_STEP_WAIT_RESUME_SOURCE),
+                    ("translation", NATIVE_QUICKJS_STEP_TRANSLATION_RESUME_SOURCE),
+                    ("pipeline", NATIVE_QUICKJS_STEP_PIPELINE_RESUME_SOURCE),
+                    ("helper", NATIVE_QUICKJS_STEP_HELPER_RESUME_SOURCE),
+                    ("release", NATIVE_QUICKJS_PIPELINE_RELEASE_NAMESPACE_SOURCE),
+                ]
+                .into_iter()
+                .map(|(key, source)| {
+                    ctx.eval::<Function, _>(source)
+                        .map(|function| (key, Persistent::save(&ctx, function)))
+                })
+                .collect::<rquickjs::Result<BTreeMap<_, _>>>()
+            })
+            .map_err(backend_error)?;
         Ok(Self {
+            bridge_functions,
             namespaces: BTreeMap::new(),
             step_run_handles: BTreeMap::new(),
             step_resume_handles: BTreeMap::new(),
@@ -1188,25 +1219,49 @@ impl RquickJsModuleEvaluator {
     pub fn drain_native_pipeline_messages(
         &mut self,
     ) -> Result<Vec<QuickJsPipelineMessage>, QuickJsEvaluationError> {
-        let messages_json = self.context.with(|ctx| -> rquickjs::Result<String> {
-            let bridge: Object = ctx.globals().get("__quaNativePipelineBridge")?;
-            let drain: Function = bridge.get("drain")?;
-            drain.call(())
-        });
-        let messages_json = messages_json.map_err(|error| {
-            call_error(
-                QuickJsEvaluationErrorCode::EvaluationFailed,
-                "Native QuickJS pipeline bridge could not be drained.".to_string(),
-                Some(error.to_string()),
-            )
-        })?;
-        serde_json::from_str(&messages_json).map_err(|error| {
-            call_error(
-                QuickJsEvaluationErrorCode::UnsupportedReturnValue,
-                "Native QuickJS pipeline bridge returned invalid messages.".to_string(),
-                Some(error.to_string()),
-            )
-        })
+        self.context
+            .with(|ctx| -> rquickjs::Result<Vec<QuickJsPipelineMessage>> {
+                let bridge: Object = ctx.globals().get("__quaNativePipelineBridge")?;
+                let drain: Function = bridge.get("drain")?;
+                let messages: Array = drain.call(())?;
+                messages
+                    .iter::<Object>()
+                    .map(|message| {
+                        let message = message?;
+                        Ok(QuickJsPipelineMessage {
+                            event: message.get("event")?,
+                            payload_json: message.get("payloadJson")?,
+                        })
+                    })
+                    .collect()
+            })
+            .map_err(|error| {
+                call_error(
+                    QuickJsEvaluationErrorCode::EvaluationFailed,
+                    "Native QuickJS pipeline bridge could not be drained.".to_string(),
+                    Some(error.to_string()),
+                )
+            })
+    }
+
+    /// Next engine task deadline. None permits the resident thread to park
+    /// until a renderer intent arrives; queued promise jobs must run promptly.
+    pub fn native_job_delay(&self) -> Result<Option<Duration>, QuickJsEvaluationError> {
+        if self.runtime.is_job_pending() {
+            return Ok(Some(Duration::ZERO));
+        }
+        self.context
+            .with(|ctx| -> rquickjs::Result<Option<Duration>> {
+                let next: Function = ctx.globals().get("__quaNativeNextTimerDelay")?;
+                let millis: f64 = next.call(())?;
+                Ok(if millis < 0.0 {
+                    None
+                } else {
+                    // Bound Duration conversion for large JS delays.
+                    Some(Duration::from_secs_f64((millis / 1000.0).min(86400.0)))
+                })
+            })
+            .map_err(backend_error)
     }
 
     pub fn pump_native_jobs(&mut self) -> Result<(), QuickJsEvaluationError> {
@@ -1294,7 +1349,7 @@ impl RquickJsModuleEvaluator {
 
     fn release_pipeline_registry_namespace(&self, module_namespace_id: &str) {
         let _ = self.context.with(|ctx| -> rquickjs::Result<()> {
-            let release: Function = ctx.eval(NATIVE_QUICKJS_PIPELINE_RELEASE_NAMESPACE_SOURCE)?;
+            let release: Function = self.bridge_functions["release"].clone().restore(&ctx)?;
             release.call::<_, ()>((module_namespace_id,))
         });
     }
@@ -1714,6 +1769,7 @@ impl QuickJsModuleEvaluator for RquickJsModuleEvaluator {
                     )
                 })?;
                 install_step_context_bridge(
+                    self.bridge_functions["install"].clone().restore(&ctx).map_err(backend_error)?,
                     ctx.clone(),
                     &ctx_object,
                     &commands,
@@ -1978,8 +2034,8 @@ impl QuickJsModuleEvaluator for RquickJsModuleEvaluator {
                         })?;
                 let payload = resume_payload_value(ctx.clone(), request.payload_json.as_deref())?;
                 let accepted: bool = if wait_state_is_active(&wait_state)? {
-                    let resume_wait: Function = ctx
-                        .eval(NATIVE_QUICKJS_STEP_WAIT_RESUME_SOURCE)
+                    let resume_wait: Function = self.bridge_functions["wait"].clone()
+                        .restore(&ctx)
                         .map_err(|error| {
                             call_error(
                                 QuickJsEvaluationErrorCode::StepRunFailed,
@@ -2008,8 +2064,8 @@ impl QuickJsModuleEvaluator for RquickJsModuleEvaluator {
                         )
                     })?
                 } else if translation_state_is_active(&translation_state)? {
-                    let resume_translation: Function = ctx
-                        .eval(NATIVE_QUICKJS_STEP_TRANSLATION_RESUME_SOURCE)
+                    let resume_translation: Function = self.bridge_functions["translation"].clone()
+                        .restore(&ctx)
                         .map_err(|error| {
                             call_error(
                                 QuickJsEvaluationErrorCode::StepRunFailed,
@@ -2038,8 +2094,8 @@ impl QuickJsModuleEvaluator for RquickJsModuleEvaluator {
                         )
                     })?
                 } else if pipeline_state_is_active(&pipeline_state)? {
-                    let resume_pipeline: Function = ctx
-                        .eval(NATIVE_QUICKJS_STEP_PIPELINE_RESUME_SOURCE)
+                    let resume_pipeline: Function = self.bridge_functions["pipeline"].clone()
+                        .restore(&ctx)
                         .map_err(|error| {
                             call_error(
                                 QuickJsEvaluationErrorCode::StepRunFailed,
@@ -2069,8 +2125,8 @@ impl QuickJsModuleEvaluator for RquickJsModuleEvaluator {
                         )
                     })?
                 } else if helper_state_is_active(&helper_state)? {
-                    let resume_helper: Function = ctx
-                        .eval(NATIVE_QUICKJS_STEP_HELPER_RESUME_SOURCE)
+                    let resume_helper: Function = self.bridge_functions["helper"].clone()
+                        .restore(&ctx)
                         .map_err(|error| {
                             call_error(
                                 QuickJsEvaluationErrorCode::StepRunFailed,
@@ -2703,6 +2759,7 @@ fn step_context_object<'js>(
 }
 
 fn install_step_context_bridge<'js>(
+    install: Function<'js>,
     ctx: rquickjs::Ctx<'js>,
     ctx_object: &Object<'js>,
     commands: &Array<'js>,
@@ -2714,15 +2771,6 @@ fn install_step_context_bridge<'js>(
     subscription_state: &Object<'js>,
     module_namespace_id: &str,
 ) -> Result<(), QuickJsEvaluationError> {
-    let install: Function = ctx
-        .eval(NATIVE_QUICKJS_STEP_CONTEXT_BRIDGE_SOURCE)
-        .map_err(|error| {
-            call_error(
-                QuickJsEvaluationErrorCode::InvalidStepContext,
-                "QuickJS StepContext bridge script could not be compiled.".to_string(),
-                Some(error.to_string()),
-            )
-        })?;
     let methods = step_engine_command_methods_array(ctx.clone())?;
     let _: Value = install
         .call_arg(ten_args(
@@ -3971,6 +4019,59 @@ mod tests {
             messages[0].payload_json,
             r#"{"view":{"dialogue":{"visible":true,"text":"hello"}}}"#
         );
+        assert!(evaluator
+            .drain_native_pipeline_messages()
+            .unwrap()
+            .is_empty());
+    }
+
+    #[test]
+    fn job_deadlines_park_idle_and_preserve_timer_cancellation_and_microtasks() {
+        let mut evaluator = RquickJsModuleEvaluator::new().unwrap();
+        assert_eq!(evaluator.native_job_delay().unwrap(), None);
+        evaluator.context.with(|ctx| {
+            ctx.eval::<(), _>("globalThis.events = []; globalThis.pendingTimer = setTimeout(() => events.push('late'), 60000)").unwrap();
+        });
+        let delay = evaluator.native_job_delay().unwrap().unwrap();
+        assert!(delay.as_secs() >= 59 && delay.as_secs() <= 60);
+        evaluator.context.with(|ctx| {
+            ctx.eval::<(), _>("clearTimeout(pendingTimer); Promise.resolve().then(() => setTimeout(() => events.push('ready'), 0))").unwrap();
+        });
+        assert_eq!(evaluator.native_job_delay().unwrap(), Some(Duration::ZERO));
+        evaluator.pump_native_jobs().unwrap();
+        assert_eq!(evaluator.native_job_delay().unwrap(), Some(Duration::ZERO));
+        evaluator.pump_native_jobs().unwrap();
+        assert_eq!(evaluator.native_job_delay().unwrap(), None);
+        evaluator.context.with(|ctx| {
+            assert_eq!(
+                ctx.eval::<String, _>("JSON.stringify(events)").unwrap(),
+                r#"["ready"]"#
+            );
+        });
+    }
+
+    #[test]
+    fn pipeline_payload_is_snapshotted_once_and_drained_in_order() {
+        let mut evaluator = RquickJsModuleEvaluator::new().unwrap();
+        evaluator.context.with(|ctx| {
+            ctx.eval::<(), _>(
+                r#"
+                const payload = { text: 'quote"\n日本語' };
+                __quaNativePipelineBridge.emit('view/update', payload);
+                payload.text = 'changed';
+                __quaNativePipelineBridge.emit('scene/change', payload);
+            "#,
+            )
+            .unwrap();
+        });
+        let messages = evaluator.drain_native_pipeline_messages().unwrap();
+        assert_eq!(messages.len(), 2);
+        assert_eq!(messages[0].event, "view/update");
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&messages[0].payload_json).unwrap()["text"],
+            "quote\"\n日本語"
+        );
+        assert_eq!(messages[1].event, "scene/change");
         assert!(evaluator
             .drain_native_pipeline_messages()
             .unwrap()
