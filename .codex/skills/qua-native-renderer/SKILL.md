@@ -293,6 +293,14 @@ Drop-shadow blur scratch is renderer-local: budget its pyramid and two Gaussian 
 - Complex surface paint order is outer shadow, background color, background image/gradient, inset shadow, text shadow, foreground text/border, and then children. Split combined button fill/label commands when intermediate layers exist; an opaque background must not cover a background image or a text shadow. Preserve stable semantic paint order for layers that appear only in hover variants.
 - `pnpm native:ui:compare` runs the real GPU fixture and a Chrome reference using the same resolved logical bounds. It writes `packages/native/target/ui-paint-review.html` and regional pixel-error metrics; this certifies only the fixture regions and bounded tolerances, not arbitrary CSS or exact browser rasterization.
 
+## QuickJS execution costs
+
+Cache the immutable StepContext install/resume/release functions as persistent functions per evaluator context. Each GameStep still receives fresh command and continuation objects; namespace/package release owns their lifetime. Pipeline emission snapshots each JSON-safe payload once at emit time; draining transfers the array directly into Rust without serializing and parsing an enclosing JSON array.
+
+The resident engine worker parks until a committed renderer intent or the next QuickJS timer deadline. Queued Promise jobs request an immediate pump; an empty queue permits blocking `recv()`. Do not reinstate a fixed 16 ms engine polling loop, move JavaScript onto the window thread, or let rendering advance authoritative timelines. Cover idle, cancellation, microtask-to-timer ordering, payload snapshot semantics and package cleanup.
+
+Use `cargo run --manifest-path packages/native/Cargo.toml -p quajs_native_runtime --features quickjs-rquickjs --example quickjs_performance` for the in-process GameStep and 32 KiB projection bridge benchmark. Compare identical build profiles and fixtures; report medians separately from complete product E2E and FPS. See `docs/reviews/native-quickjs-performance-2026-09-07.md`. The complete `pnpm native:e2e` gate must still exercise the resident engine, compiled QS, choice/settings/gallery flows and shutdown.
+
 ## Validation
 
 Prefer light checks while disk is tight:

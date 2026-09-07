@@ -17,9 +17,6 @@ pub(super) const WINDOW_DEV_QUICKJS_APP_ASSET_ENV: &str =
     "QUA_NATIVE_RENDERER_WINDOW_DEV_QUICKJS_APP_ASSET";
 
 const QUICKJS_STARTUP_TIMEOUT: Duration = Duration::from_secs(15);
-// The logic worker pumps QuickJS timers/jobs independently from Rust rendering.
-// Only queued pipeline messages cross this boundary.
-const QUICKJS_ENGINE_PUMP_INTERVAL: Duration = Duration::from_millis(16);
 
 pub(super) struct NativeWindowQuickJsProduct {
     sender: mpsc::Sender<QuickJsProductCommand>,
@@ -225,7 +222,24 @@ fn run_quickjs_product_worker(
     }
 
     loop {
-        match receiver.recv_timeout(QUICKJS_ENGINE_PUMP_INTERVAL) {
+        // Engine timers, promise jobs and committed intents drive this worker.
+        // A static engine session owes no 60 Hz JavaScript polling work.
+        let command = match module.evaluator.native_job_delay() {
+            Ok(Some(delay)) => receiver.recv_timeout(delay),
+            Ok(None) => receiver
+                .recv()
+                .map_err(|_| mpsc::RecvTimeoutError::Disconnected),
+            Err(error) => {
+                publish_error(
+                    &latest,
+                    &pipeline_sequence,
+                    &event_loop_proxy,
+                    quickjs_error(error).to_string(),
+                );
+                break;
+            }
+        };
+        match command {
             Ok(QuickJsProductCommand::RendererIntent(intent)) => {
                 let result = module.dispatch_renderer_intent(&intent).and_then(|()| {
                     module.pump_jobs()?;
