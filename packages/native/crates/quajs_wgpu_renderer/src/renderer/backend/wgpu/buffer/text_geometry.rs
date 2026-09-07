@@ -15,6 +15,7 @@ mod placeholder;
 pub(in crate::renderer::backend::wgpu::buffer::text_geometry) mod width;
 
 use atlas::atlas_text_geometry;
+pub(in crate::renderer::backend::wgpu::buffer) use atlas::inline_text_geometry;
 pub(in crate::renderer::backend::wgpu::buffer) use atlas::atlas_text_is_shaped;
 use bitmap::bitmap_text_geometry;
 use placeholder::{

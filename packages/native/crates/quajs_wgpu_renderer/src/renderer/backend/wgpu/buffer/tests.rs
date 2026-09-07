@@ -104,6 +104,7 @@ fn text_style(
     padding: EdgeInsetsDrawParam,
 ) -> WgpuNativeRenderTextStyle {
     WgpuNativeRenderTextStyle {
+        inline: None,
         font_family: vec!["Inter".to_string()],
         font_size,
         font_style: FontStyleDrawParam::Normal,

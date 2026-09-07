@@ -80,7 +80,7 @@
 ## 仍未对齐
 
 1. **背景组合：** raster mask 的 alpha/luminance、cover/contain/auto/px/percent 尺寸、定位、重复规则及嵌套合成已完成真实像素验证，详见下方 2026-09-06 记录。SVG/多重 mask、完整 layered root 变换、各视频子层解码仍未实现。drop-shadow 后续已改成源图 alpha 子树合成，并修正 Web 参数解析，见下方补充记录。大 blur 半径及 filter/scale/rotation 组合仍需补齐。
-2. **富文本：** 桥接保留 inline span 字段，但当前渲染将 runs 按估算宽度分成独立文本框，缺少连续 inline flow、正确 block breaks、混合字号基线和跨 run wrapping；真实 bidi/cluster wrapping、多字体 fallback 和 typewriter grapheme 对齐也未完成。
+2. **富文本：** 已移除估算的 per-run 文本框，保留 block/span 到 QPK 字体测量阶段，按实际 Web `inline-block` 规则排列、换行和对齐基线，详见下方补充。全源排版与逐 cluster 显示有回归测试；panel 自适应高度仍是估算，ruby、block/span 动画变换、跨 span bidi、逐 cluster 多字体 fallback、完整 justify 和 Web CSS line-height 单位转换尚未补齐。
 3. **字体：** Arabic/bidi 仍有可见误差；跨字体逐 cluster fallback、竖排和语言相关断字未完成。当前截图不证明浏览器级文字布局。
 4. **音视频：** EQ/automation 已接入并有 native focused backend tests；GIF 有解码与发布测试，MP4/WebM 尚无解码器或产品实测。demo E2E 的 video decoded/published 为 0。
 5. **Sprite/UI skin：** native 可读取 package-aware `metadata.spriteLayers` 并绘制基础分层图片；支持字段的数值/资源校验、人物组透明度和局部层级隔离已补齐，见下方 2026-09-07 截图记录。父级变换、manifest JSON 解析、atlas frame、per-layer mask/blend、expression diff 加载和 UI skin manifest 仍待接入，单纯 sprite/expression 字符串仍不等于完整 Web 多层效果。
@@ -144,3 +144,20 @@ mask 批次未覆盖 source-alpha drop-shadow（后续见下方补充）、inlin
 - 最终 `native:e2e` 完整流程通过：128 条对白投影、stealth 分支、settings/gallery、返回 title，199 commands / 4 passes，1920×1080 GPU PNG；纹理/字体/清理错误为 0，退出时音频轨道为 0。日志 `packages/native/target/render-audit/sprite-final-e2e.log`。窗口仍为 `presented=false` / `OccludedAfterRetry`，不算可见窗口呈现的证明。
 
 重现：`node scripts/native-render-audit/sprite.mjs`；输出 `packages/native/target/render-audit/sprite/{review.html,measurements.json}`。本批次不新增 manifest/expression loader，未宣称 atlas、mask/blend、父级变换或 UI skin 已完成。
+
+
+## 2026-09-07 rich text 字体测量与 inline-block 排版
+
+替换了按文字估算比例均分宽度的独立 run 文本框。对话投影保留 block/span、继承样式、完整源文和可见 UTF-8 前缀；QPK 字体加载后，WGPU 使用真实字形 advance、shaping 和 ascent/descent 排版。对齐的是实际 Web 对话插件的 `display:block` / `display:inline-block`：短 span 紧接前文，容纳不下时整个 span 换行，超宽 span 内部按 UAX #14 / grapheme 换行，多行 span 与邻居按最后一行基线对齐。保留 span 开头的空格和预格式换行，避免强调片段与前文粘连。
+
+富文本逐字显示时按完整源文布局和 shaping，仅隐藏未完整显露的 grapheme/连字 cluster；每个片段的完整文字提前进入对应字体和物理字号的 atlas 请求。正文和阴影使用同一布局，绘制片段保留原始 command id、QPK provenance、clip 和 atlas 资源；每个 GPU draw 只携带自身片段，避免 span 数量增加时重复复制整份文档。没有可用注册字体时退回保留段落换行的普通文字，样式能力有限。
+
+- **14/14 Metal/Chrome 截图通过**。参考页面直接打包并调用仓库的 `createDialogueWebRendererPlugin`，双方字体字节取自同一 demo Quack QPK；没有将浏览器 span 改成 `display:inline`。覆盖真实窄/宽字宽、前导空格、混合字号/字体、block breaks、多行基线、居中/右对齐、整段换行、长 span 内部换行、中日韩标点、组合字符/连字和缩放留边。glyph 边界最大偏差 **2 个物理像素**；以颜色隔离文字后，双向 2px 邻域外的未匹配比例均为 0。门槛为边界差 ≤ 3px、邻域外比例 ≤ 3.5%，不表示抗锯齿或整个对话框逐像素相同。
+- 同一组用例用修复前 sprite 二进制运行，**12/14 失败**；修复后的 14 项通过。报告记录 binary SHA-256、QPK 路径和字体哈希，原始 JSON、Native/Web PNG 与资源摘要一起保留。全部用例 font upload/cleanup errors 为 0，退出释放数等于字体上传数。
+- Renderer **853** 项测试通过；Native app **267** 项单元测试与 **14** 项 CLI 集成测试通过。包含实际字体 `ffi` 连字的完整 cluster 显露、跨 run 字宽/基线、CJK/grapheme 换行、空格、全源字体预热、DPR 字号桶、provenance 和单片段绘制元数据回归。日志在 `packages/native/target/render-audit/rich-text-{renderer-tests,app-tests}.log`。
+
+- 最终 `pnpm native:e2e` 完整流程通过：**66** 条对白投影、stealth 分支、settings/gallery、返回 title，199 commands / 4 passes，1920×1080 GPU PNG；纹理/字体/清理错误为 0，退出时音频轨道为 0。日志 `packages/native/target/render-audit/rich-text-e2e.log`。窗口仍为 `presented=false` / `OccludedAfterRetry`，只证明完整应用流程和真实 GPU 离屏渲染。
+
+重现：`node scripts/native-render-audit/rich-text.mjs`；输出 `packages/native/target/render-audit/rich-text/{review.html,measurements.json}`。`QUA_NATIVE_AUDIT_APP` 与 `--skip-build` 可固定二进制，`QUA_NATIVE_AUDIT_OUTPUT` 可保留对照版本输出。
+
+这批截图仅验证已完成显示的文字布局。对话 panel 高度仍在投影阶段估算；ruby、block/span 动画变换、跨 span bidi、逐 cluster 跨字体 fallback、完整 justify、CSS line-height 单位转换和更完整的空白/断字语义继续列为未完成。没有新增 MP4/WebM 解码或 sprite manifest/expression/atlas loader。

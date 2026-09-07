@@ -3,8 +3,8 @@ use crate::projection::typography::font_family_resource_ids;
 use crate::render_graph::{
     BackdropBlurDrawParams, BorderDrawParams, DrawCommand, DrawCommandKind, DrawCommandParams,
     EdgeInsetsDrawParam, FontStyleDrawParam, FontWeightDrawParam, GradientDrawKind,
-    GradientDrawParams, GradientDrawRadialShape, ImageDrawParams, LogicalRect, MediaFit,
-    MediaOrigin, PanelDrawParams, RenderGraph, RenderPlane, ShadowDrawParams, ShadowDrawStyle,
+    GradientDrawParams, GradientDrawRadialShape, ImageDrawParams, InlineTextDrawParams, InlineTextRun,
+    LogicalRect, MediaFit, MediaOrigin, PanelDrawParams, RenderGraph, RenderPlane, ShadowDrawParams, ShadowDrawStyle,
     TextDecorationDrawParam, TextDrawParams, TextOverflowDrawParam, TextTransformDrawParam,
     WhiteSpaceDrawParam,
 };
@@ -259,7 +259,7 @@ pub fn build_dialogue_commands(
 
     if let Some(speaker) = render_speaker {
         // CSS `text-shadow: 0 0 16px rgba(255,194,86,0.36)` — golden glow on speaker name.
-        commands.extend(inline_text_commands("dialogue:speaker", speaker_bounds(panel), speaker,
+        commands.extend(inline_text_commands("dialogue:speaker", speaker_bounds(panel), speaker, None,
             &dialogue.speaker_style, "speaker", 18.0, 20.0,
             Some(FontWeightDrawParam::Number(700)),
             Some((0.0, 0.0, 16.0, "rgba(255,194,86,0.36)")), &dialogue.provenance));
@@ -280,7 +280,7 @@ pub fn build_dialogue_commands(
     let mut text_rect = text_bounds(panel, render_speaker.is_some());
     text_rect.width = text_width.max(0.0);
     // CSS `text-shadow: 0 2px 10px rgba(0,0,0,0.72)` — subtle drop shadow on body text.
-    commands.extend(inline_text_commands("dialogue:text", text_rect, &dialogue.text,
+    commands.extend(inline_text_commands("dialogue:text", text_rect, &dialogue.text, dialogue.layout_text.as_ref(),
         dialogue_text_style, "dialogue-text", 20.0, 36.0, None,
         Some((0.0, 2.0, 10.0, "rgba(0,0,0,0.72)")), &dialogue.provenance));
 
@@ -358,6 +358,7 @@ fn text_command(
     DrawCommand::new(id, RenderPlane::Safe, DrawCommandKind::Text, bounds)
         .resources(font_family_resource_ids(&font_family))
         .params(DrawCommandParams::Text(TextDrawParams {
+            inline: None,
             text,
             font_family,
             font_size: resolve_font_size(style, fallback_font_size),
@@ -389,6 +390,7 @@ fn inline_text_commands(
     id: &str,
     bounds: LogicalRect,
     content: &RichTextContent,
+    layout_content: Option<&RichTextContent>,
     document_style: &RichTextStyle,
     role: &str,
     fallback_font_size: f64,
@@ -397,105 +399,150 @@ fn inline_text_commands(
     shadow: Option<(f64, f64, f64, &str)>,
     provenance: &PackageProvenance,
 ) -> Vec<DrawCommand> {
-    let runs = rich_text_runs(content, document_style);
-    let total_width = bounds.width.max(1.0);
-    let total_ems = runs
-        .iter()
-        .map(|(text, style)| estimate_text_ems(text, resolve_font_size(style, fallback_font_size)))
-        .sum::<f64>()
-        .max(1.0);
-    let mut cursor = bounds.x;
-    let mut commands = Vec::new();
-    for (index, (text, style)) in runs.into_iter().enumerate() {
-        if text.is_empty() {
-            continue;
-        }
-        let width = (total_width
-            * estimate_text_ems(&text, resolve_font_size(&style, fallback_font_size))
-            / total_ems)
-            .max(1.0);
-        let run_bounds = LogicalRect {
-            x: cursor,
-            y: bounds.y,
-            width,
-            height: bounds.height,
-        };
-        let run_id = if index == 0 {
-            id.to_string()
-        } else {
-            format!("{id}:{index}")
-        };
-        if let Some((offset_x, offset_y, blur, color)) = shadow {
-            commands.push(apply_provenance(
-                text_shadow_command(
-                    &run_id,
-                    run_bounds,
-                    text.clone(),
-                    &style,
-                    role,
-                    fallback_font_size,
-                    fallback_line_height,
-                    fallback_font_weight.clone(),
-                    offset_x,
-                    offset_y,
-                    blur,
-                    color,
-                    2,
-                ),
-                provenance,
-            ));
-        }
-        commands.push(apply_provenance(
-            text_command(
-                &run_id,
-                run_bounds,
-                text,
-                &style,
-                role,
-                fallback_font_size,
-                fallback_line_height,
-                fallback_font_weight.clone(),
-                0.0,
-            )
-            .z_index(2),
-            provenance,
-        ));
-        cursor += width;
+    if matches!(content, RichTextContent::Plain(text) if text.is_empty()) {
+        return Vec::new();
     }
+    // Web applies speakerStyle after the rich document's root typography.
+    let inherited = rich_text_style(content)
+        .map(|base| merge_rich_text_style(base, document_style))
+        .unwrap_or_else(|| document_style.clone());
+    let document_style = &inherited;
+    let text = rich_text_to_plain_text(content);
+    let mut command = text_command(
+        id,
+        bounds,
+        text.clone(),
+        document_style,
+        role,
+        fallback_font_size,
+        fallback_line_height,
+        fallback_font_weight.clone(),
+        0.0,
+    )
+    .z_index(2);
+    // Keep block/span identity and full source through reveal. Font selection,
+    // line boxes and glyph positions are resolved only after QPK fonts load.
+    let full = layout_content
+        .filter(|full| compatible_reveal_source(content, full))
+        .unwrap_or(content);
+    if let RichTextContent::Document(document) = full {
+        let RichTextContent::Document(visible) = content else {
+            unreachable!()
+        };
+        let blocks = document
+            .blocks
+            .iter()
+            .zip(&visible.blocks)
+            .map(|(block, shown)| {
+                block
+                    .spans
+                    .iter()
+                    .zip(&shown.spans)
+                    .map(|(span, shown)| {
+                        let style = merge_rich_text_style(document_style, &span.style);
+                        let font_family = resolve_font_family(&style);
+                        command
+                            .resource_ids
+                            .extend(font_family_resource_ids(&font_family));
+                        InlineTextRun {
+                            text: span.text.clone(),
+                            visible_bytes: shown.text.len(),
+                            align: resolve_text_align(&style),
+                            font_family,
+                            font_size: resolve_font_size(&style, fallback_font_size),
+                            line_height: resolve_line_height(&style, fallback_line_height),
+                            font_weight: resolve_font_weight(&style)
+                                .or_else(|| fallback_font_weight.clone()),
+                            color: resolve_text_color(
+                                &style,
+                                if role == "speaker" {
+                                    "#ffe3a0"
+                                } else {
+                                    "#fffaf2"
+                                },
+                            ),
+                        }
+                    })
+                    .collect()
+            })
+            .collect();
+        command.resource_ids.sort();
+        command.resource_ids.dedup();
+        if let DrawCommandParams::Text(params) = &mut command.params {
+            params.inline = Some(InlineTextDrawParams { blocks });
+        }
+    }
+    let mut commands = Vec::new();
+    if let Some((offset_x, offset_y, blur, color)) = shadow {
+        let mut shadow = text_shadow_command(
+            id,
+            bounds,
+            text,
+            document_style,
+            role,
+            fallback_font_size,
+            fallback_line_height,
+            fallback_font_weight,
+            offset_x,
+            offset_y,
+            blur,
+            color,
+            2,
+        );
+        shadow.resource_ids = command.resource_ids.clone();
+        if let (DrawCommandParams::Text(source), DrawCommandParams::Text(target)) =
+            (&command.params, &mut shadow.params)
+        {
+            target.inline = source.inline.clone();
+            if let Some(inline) = &mut target.inline {
+                for run in inline.blocks.iter_mut().flatten() {
+                    run.color = color.to_string();
+                }
+            }
+        }
+        commands.push(apply_provenance(shadow, provenance));
+    }
+    commands.push(apply_provenance(command, provenance));
     commands
 }
 
-fn rich_text_runs(
-    content: &RichTextContent,
-    document_style: &RichTextStyle,
-) -> Vec<(String, RichTextStyle)> {
-    match content {
-        RichTextContent::Plain(text) => vec![(text.clone(), document_style.clone())],
-        RichTextContent::Document(document) => document
-            .blocks
-            .iter()
-            .flat_map(|block| block.spans.iter())
-            .map(|span| (span.text.clone(), merge_rich_text_style(document_style, &span.style)))
-            .collect(),
+fn compatible_reveal_source(visible: &RichTextContent, full: &RichTextContent) -> bool {
+    if !is_safe_rich_text_payload(full) {
+        return false;
+    }
+    match (visible, full) {
+        (RichTextContent::Document(visible), RichTextContent::Document(full)) => {
+            visible.blocks.len() == full.blocks.len()
+                && visible.blocks.iter().zip(&full.blocks).all(|(a, b)| {
+                    a.spans.len() == b.spans.len()
+                        && a.spans
+                            .iter()
+                            .zip(&b.spans)
+                            .all(|(a, b)| b.text.starts_with(&a.text))
+                })
+        }
+        _ => false,
     }
 }
 
 fn merge_rich_text_style(base: &RichTextStyle, override_style: &RichTextStyle) -> RichTextStyle {
     RichTextStyle {
         color: override_style.color.clone().or_else(|| base.color.clone()),
-        font_family: override_style.font_family.clone().or_else(|| base.font_family.clone()),
+        font_family: override_style
+            .font_family
+            .clone()
+            .or_else(|| base.font_family.clone()),
         font_size: override_style.font_size.or(base.font_size),
-        font_weight: override_style.font_weight.clone().or_else(|| base.font_weight.clone()),
+        font_weight: override_style
+            .font_weight
+            .clone()
+            .or_else(|| base.font_weight.clone()),
         line_height: override_style.line_height.or(base.line_height),
-        text_align: override_style.text_align.clone().or_else(|| base.text_align.clone()),
+        text_align: override_style
+            .text_align
+            .clone()
+            .or_else(|| base.text_align.clone()),
     }
-}
-
-fn estimate_text_ems(text: &str, font_size: f64) -> f64 {
-    text.chars()
-        .map(|ch| if ch.is_ascii() { 0.55 } else { 1.0 })
-        .sum::<f64>()
-        * font_size.max(1.0)
 }
 
 /// Creates a CSS `text-shadow`-style pre-pass command: the text is rendered at

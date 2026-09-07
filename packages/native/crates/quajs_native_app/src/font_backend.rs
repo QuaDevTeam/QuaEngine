@@ -202,40 +202,56 @@ impl NativeFontBackend for SimpleNativeFontAtlasBackend {
         let mut requested_glyphs = BTreeMap::<FontAtlasKey, BTreeSet<char>>::new();
         let mut requested_texts = BTreeMap::<FontAtlasKey, BTreeSet<String>>::new();
         for command in frame.graph.commands() {
-            let (text, families, transform, font_size, overflow) = match &command.params {
-                DrawCommandParams::Text(params) => (
-                    params.text.as_str(),
-                    params.font_family.as_slice(),
-                    params.text_transform,
-                    params.font_size,
-                    params.text_overflow,
-                ),
-                DrawCommandParams::UiButton(params) => (
+            let requests: Vec<_> = match &command.params {
+                DrawCommandParams::Text(params) => {
+                    let mut requests = vec![(
+                        params.text.as_str(),
+                        params.font_family.as_slice(),
+                        params.text_transform,
+                        params.font_size,
+                        params.text_overflow,
+                    )];
+                    if let Some(inline) = &params.inline {
+                        requests.extend(inline.blocks.iter().flatten().map(|run| {
+                            (
+                                run.text.as_str(),
+                                run.font_family.as_slice(),
+                                params.text_transform,
+                                run.font_size,
+                                params.text_overflow,
+                            )
+                        }));
+                    }
+                    requests
+                }
+                DrawCommandParams::UiButton(params) => vec![(
                     params.label.as_str(),
                     params.font_family.as_slice(),
                     params.text_transform,
                     params.font_size,
                     params.text_overflow,
-                ),
+                )],
                 _ => continue,
             };
-            let Some(family) = self.resolve_family(families) else {
-                continue;
-            };
-            let bucket = font_raster_bucket(font_size as f32 * physical_scale);
-            let key = (family, bucket);
-            let text = transform_text(text, transform);
-            self.bucket_last_used
-                .insert(key.clone(), self.frame_ordinal);
-            requested_glyphs
-                .entry(key.clone())
-                .or_default()
-                .extend(text.chars().filter(|character| !character.is_control()));
-            if !text.is_empty() {
-                let texts = requested_texts.entry(key).or_default();
-                texts.insert(text);
-                if overflow == TextOverflowDrawParam::Ellipsis {
-                    texts.insert("…".into());
+            for (text, families, transform, font_size, overflow) in requests {
+                let Some(family) = self.resolve_family(families) else {
+                    continue;
+                };
+                let bucket = font_raster_bucket(font_size as f32 * physical_scale);
+                let key = (family, bucket);
+                let text = transform_text(text, transform);
+                self.bucket_last_used
+                    .insert(key.clone(), self.frame_ordinal);
+                requested_glyphs
+                    .entry(key.clone())
+                    .or_default()
+                    .extend(text.chars().filter(|character| !character.is_control()));
+                if !text.is_empty() {
+                    let texts = requested_texts.entry(key).or_default();
+                    texts.insert(text);
+                    if overflow == TextOverflowDrawParam::Ellipsis {
+                        texts.insert("…".into());
+                    }
                 }
             }
         }
@@ -963,6 +979,61 @@ mod tests {
 
     use super::*;
     use quajs_wgpu_renderer::fonts::FontBackendCommand;
+
+    #[test]
+    fn rich_reveal_prepares_unrevealed_fonts_and_physical_size_buckets() {
+        let mut backend = SimpleNativeFontAtlasBackend::new();
+        let mut face = demo_face("inline-font", "400", "fonts/NotoSans-Regular.ttf");
+        face.family = "Inline Font".into();
+        backend
+            .apply_font_asset_loads(&[load(
+                &face,
+                std::fs::read(demo_font_path()).unwrap(),
+                Some("runtime.fonts"),
+            )])
+            .unwrap();
+        backend.load_face(&face);
+        let source = serde_json::json!({ "style": {}, "blocks": [{ "spans": [
+            { "text": "office", "style": { "fontFamily": ["Inline Font"], "fontSize": 42 } }
+        ] }] });
+        let mut visible = source.clone();
+        visible["blocks"][0]["spans"][0]["text"] = serde_json::json!("");
+        let view = serde_json::from_value(serde_json::json!({ "dialogue": {
+            "visible": true, "mode": "say", "text": visible, "layoutText": source
+        } }))
+        .unwrap();
+        let layout = quajs_wgpu_renderer::stage_layout::resolve_stage_layout(
+            None,
+            quajs_wgpu_renderer::stage_layout::StageContainerInput {
+                width: Some(960.0),
+                height: Some(540.0),
+                device_pixel_ratio: Some(1.0),
+                ..Default::default()
+            },
+        );
+        let frame = quajs_wgpu_renderer::frame::prepare_native_frame(layout, &view);
+        backend.prepare_frame_text(&frame).unwrap();
+        let key = ("Inline Font".into(), font_raster_bucket(21.0));
+        assert!(backend.recent_texts[&key].contains("office"));
+        assert!(backend.requested_glyphs[&key].contains(&'f'));
+        let uploads = backend.drain_font_atlas_textures();
+        let atlas = uploads
+            .iter()
+            .filter_map(|upload| upload.layout.as_ref())
+            .find(|atlas| atlas.raster_size == key.1 as f32)
+            .unwrap();
+        let shaped = atlas
+            .shaping_face
+            .as_ref()
+            .unwrap()
+            .shape("office", atlas.raster_size)
+            .unwrap();
+        assert!(shaped.glyphs.len() < "office".len());
+        assert!(shaped
+            .glyphs
+            .iter()
+            .all(|g| atlas.glyphs_by_id.contains_key(&g.glyph_id)));
+    }
 
     #[test]
     #[cfg(target_os = "macos")]

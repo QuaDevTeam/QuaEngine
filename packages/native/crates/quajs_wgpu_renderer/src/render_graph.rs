@@ -22,7 +22,7 @@ pub use style::{
     BackdropBlurDrawParams, BorderDrawParams, CharacterAnchor, CharacterDrawParams,
     DrawCommandParams, DrawTransition, DrawTransitionEasing, DrawTransitionProperty,
     EdgeInsetsDrawParam, FontStyleDrawParam, FontWeightDrawParam, GradientDrawKind,
-    GradientDrawParams, GradientDrawRadialShape, ImageDrawParams, MediaFit, MediaOrigin,
+    GradientDrawParams, GradientDrawRadialShape, ImageDrawParams, InlineTextDrawParams, InlineTextRun, MediaFit, MediaOrigin,
     PanelDrawParams, RendererIntent, ShadowDrawParams, ShadowDrawStyle, TextAlign,
     TextDecorationDrawParam, TextDrawParams, TextOverflowDrawParam, TextTransformDrawParam,
     UiButtonDrawParams, UiControlDrawParam, UiControlOptionDrawParam, UiControlPartsDrawParam,

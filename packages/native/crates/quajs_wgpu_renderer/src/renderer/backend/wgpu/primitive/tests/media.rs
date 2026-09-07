@@ -123,6 +123,7 @@ fn skips_empty_param_resource_ids_when_no_resources_are_bound() {
             DrawBatchPipeline::Text,
             DrawCommandKind::Text,
             DrawCommandParams::Text(TextDrawParams {
+                inline: None,
                 text: "Fallback".to_string(),
                 font_family: vec!["  ".to_string()],
                 font_size: 24.0,

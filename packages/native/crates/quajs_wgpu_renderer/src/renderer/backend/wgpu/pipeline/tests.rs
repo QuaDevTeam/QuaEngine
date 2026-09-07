@@ -70,6 +70,7 @@ fn texture(asset_name: &str) -> WgpuNativeRenderPaint {
 
 fn text_style() -> WgpuNativeRenderTextStyle {
     WgpuNativeRenderTextStyle {
+        inline: None,
         font_family: vec!["Qua Sans".to_string()],
         font_size: 24.0,
         font_style: FontStyleDrawParam::Normal,
