@@ -17,6 +17,8 @@ pub struct CharacterProjection {
     pub expression: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub sprite_layers: Vec<CharacterSpriteLayerProjection>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sprite_base: Option<CharacterSpriteLayerProjection>,
     #[serde(default)]
     pub position: CharacterPosition,
     #[serde(default = "default_one_f32")]
@@ -41,6 +43,7 @@ impl CharacterProjection {
             sprite: None,
             expression: None,
             sprite_layers: Vec::new(),
+            sprite_base: None,
             position: CharacterPosition::default(),
             opacity: 1.0,
             presence_opacity: 1.0,
@@ -60,6 +63,14 @@ impl Default for CharacterProjection {
 #[serde(rename_all = "camelCase")]
 pub struct CharacterSpriteLayerProjection {
     pub asset: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub frame: Option<CharacterSpriteFrame>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mask: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub blend_mode: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub anchor: Option<String>,
     #[serde(default)]
     pub offset_x: f64,
     #[serde(default)]
@@ -80,6 +91,10 @@ impl Default for CharacterSpriteLayerProjection {
     fn default() -> Self {
         Self {
             asset: String::new(),
+            frame: None,
+            mask: None,
+            blend_mode: None,
+            anchor: None,
             offset_x: 0.0,
             offset_y: 0.0,
             z_index: 0,
@@ -89,6 +104,14 @@ impl Default for CharacterSpriteLayerProjection {
             visible: true,
         }
     }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+pub struct CharacterSpriteFrame {
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]

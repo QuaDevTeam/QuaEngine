@@ -164,6 +164,7 @@ fn background_image_command(
         .opacity(background.opacity)
         .resource(background_resource_id(&asset_type, asset_name))
         .params(DrawCommandParams::Image(ImageDrawParams {
+            sampling: Default::default(),
             asset_type,
             asset_name: asset_name.to_string(),
             fit: media_fit(background.fit),
@@ -221,6 +222,7 @@ fn background_layer_command(
     .opacity(layer.opacity)
     .resource(background_resource_id(&asset_type, &layer.asset_name))
     .params(DrawCommandParams::Image(ImageDrawParams {
+        sampling: Default::default(),
         asset_type,
         asset_name: layer.asset_name.clone(),
         fit: media_fit(layer.fit),
@@ -409,6 +411,7 @@ fn composition_group(
         .cloned()
         .unwrap_or_default();
     DrawCompositeGroup {
+        transform: [1.0, 0.0, 0.0, 1.0, 0.0, 0.0],
         id: id.to_string(),
         z_index,
         opacity,

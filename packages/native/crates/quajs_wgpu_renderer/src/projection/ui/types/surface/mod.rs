@@ -13,9 +13,9 @@ pub use node::{
 };
 pub use style::{
     UiSurfaceBackdropFilterProjection, UiSurfaceBackgroundPositionProjection,
-    UiSurfaceBorderStyleProjection, UiSurfaceEdgeInsetsProjection, UiSurfaceFilterProjection,
-    UiSurfaceFontStyleProjection, UiSurfaceGradientKindProjection, UiSurfaceGradientProjection,
-    UiSurfaceGradientStopProjection, UiSurfaceObjectFitProjection,
+    UiSurfaceBorderImageProjection, UiSurfaceBorderStyleProjection, UiSurfaceEdgeInsetsProjection,
+    UiSurfaceFilterProjection, UiSurfaceFontStyleProjection, UiSurfaceGradientKindProjection,
+    UiSurfaceGradientProjection, UiSurfaceGradientStopProjection, UiSurfaceObjectFitProjection,
     UiSurfaceRadialGradientShapeProjection, UiSurfaceResolvedStyle, UiSurfaceShadowProjection,
     UiSurfaceTextAlignProjection, UiSurfaceTextDecorationProjection,
     UiSurfaceTextOverflowProjection, UiSurfaceTextTransformProjection,

@@ -315,6 +315,7 @@ fn is_native_ui_surface_style_field(field: &str) -> bool {
     matches!(
         field,
         "backgroundColor"
+            | "borderImage"
             | "backgroundImage"
             | "backgroundGradient"
             | "filter"

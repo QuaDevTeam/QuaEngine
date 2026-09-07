@@ -10,6 +10,10 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "camelCase")]
 pub struct ViewProjection {
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stage: Option<crate::projection::motion::MotionProjection>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub camera: Option<crate::projection::motion::MotionProjection>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scene_transition: Option<SceneTransitionProjection>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub background: Option<BackgroundProjection>,

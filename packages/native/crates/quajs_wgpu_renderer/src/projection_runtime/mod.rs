@@ -314,11 +314,11 @@ impl NativeRendererProjectionRuntime {
         let mut animation_transitions = 0;
         if let Some(view) = frame.get_mut("view").and_then(Value::as_object_mut) {
             let animations = view.get("animations").cloned().unwrap_or(Value::Null);
-            animation_transitions = animation::apply_animations(view, &animations, now_ms);
-            local_work_active |= animation_transitions > 0;
             local_work_active |= self.apply_dialogue(view, now_ms);
             local_work_active |= self.apply_presence(view, now_ms);
             local_work_active |= self.apply_scene_transition(view, now_ms);
+            animation_transitions = animation::apply_animations(view, &animations, now_ms);
+            local_work_active |= animation_transitions > 0;
             apply_scroll_offsets(view, &self.scroll_offsets);
             view.remove("animations");
         }

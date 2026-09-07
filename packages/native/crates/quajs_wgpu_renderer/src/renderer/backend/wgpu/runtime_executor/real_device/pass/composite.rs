@@ -300,6 +300,7 @@ impl Compositor {
         let shadow_color = shadow
             .and_then(|s| crate::renderer::backend::wgpu::mesh::parse_color_literal(&s.color))
             .map_or([0.0; 4], |c| c.to_gpu_rgba());
+        let inverse = inverse_transform(group.transform);
         let values = [
             group.opacity,
             group.blur_radius as f32,
@@ -335,6 +336,12 @@ impl Compositor {
             shadow_color[1],
             shadow_color[2],
             shadow_color[3],
+            inverse[0],
+            inverse[1],
+            inverse[2],
+            inverse[3],
+            inverse[4],
+            inverse[5],
         ];
         let bytes: Vec<u8> = values.into_iter().flat_map(f32::to_le_bytes).collect();
         let uniform = target
@@ -402,3 +409,19 @@ impl Compositor {
 }
 
 const SHADER: &str = include_str!("composite.wgsl");
+
+fn inverse_transform([a, b, c, d, tx, ty]: [f64; 6]) -> [f32; 6] {
+    let determinant = a * d - b * c;
+    if determinant.abs() < 1e-12 {
+        return [1.0, 0.0, 0.0, 1.0, 0.0, 0.0];
+    }
+    [
+        d / determinant,
+        -b / determinant,
+        -c / determinant,
+        a / determinant,
+        (c * ty - d * tx) / determinant,
+        (b * tx - a * ty) / determinant,
+    ]
+    .map(|v| v as f32)
+}

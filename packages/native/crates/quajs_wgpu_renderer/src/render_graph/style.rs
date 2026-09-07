@@ -28,6 +28,7 @@ impl Default for MediaOrigin {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ImageDrawParams {
+    pub sampling: ImageSampling,
     pub asset_type: String,
     pub asset_name: String,
     pub fit: MediaFit,
@@ -46,6 +47,24 @@ pub struct ImageDrawParams {
     pub hue_rotate_radians: f64,
     /// CSS `invert(N)` — 0.0 = unchanged, 1.0 = fully inverted. effect1.w.
     pub invert: f64,
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct ImageSampling {
+    /// Texel coordinates, independent of stage dimensions or DPR.
+    pub frame: Option<LogicalRect>,
+    pub flip_horizontal: bool,
+    pub nine_slice: Option<NineSliceDrawParams>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct NineSliceDrawParams {
+    /// Top, right, bottom, left, in source texels.
+    pub slice: [f64; 4],
+    /// Top, right, bottom, left, in logical stage units.
+    pub width: [f64; 4],
+    pub repeat: bool,
+    pub fill: bool,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -83,8 +102,8 @@ pub struct CharacterDrawParams {
     pub scale: f64,
     pub rotation_degrees: f64,
     /// Mirrors the sprite horizontally when true. Equivalent to CSS
-    /// `transform: scaleX(-1)` and used when the engine emits a negative
-    /// scaleX on the character position.
+    /// `transform: scaleX(-1)`. Uniform negative character scale instead
+    /// rotates positive bounds by 180 degrees, matching Web `scale(...)`.
     pub flip_horizontal: bool,
 }
 

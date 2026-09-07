@@ -25,12 +25,30 @@ impl WgpuNativeRenderMeshPass {
         let quads = pass
             .primitives
             .iter()
-            .map(|primitive| {
+            .flat_map(|primitive| {
                 let size = primitive
                     .resource_ids
                     .iter()
                     .find_map(|id| dimensions.get(id.as_str()).copied());
-                WgpuNativeRenderQuad::from_primitive_with_texture_size(primitive, size)
+                let quad = WgpuNativeRenderQuad::from_primitive_with_texture_size(primitive, size);
+                if let super::super::primitive::WgpuNativeRenderPrimitiveKind::Image {
+                    sampling,
+                    ..
+                } = &primitive.kind
+                {
+                    if let (Some(slice), Some(size)) = (sampling.nine_slice, size) {
+                        return super::nine_slice::slice_quads(
+                            quad,
+                            size,
+                            (
+                                primitive.logical_bounds.width,
+                                primitive.logical_bounds.height,
+                            ),
+                            slice,
+                        );
+                    }
+                }
+                vec![quad]
             })
             .collect::<Vec<_>>();
         let quad_count = quads.len();

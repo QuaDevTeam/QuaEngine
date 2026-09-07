@@ -16,6 +16,8 @@ pub enum UiOverlayRenderMode {
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UiOverlayProjection {
+    #[serde(flatten)]
+    pub motion: crate::projection::motion::MotionProjection,
     pub element_id: String,
     #[serde(default = "default_true")]
     pub visible: bool,
@@ -46,6 +48,7 @@ pub struct UiOverlayProjection {
 impl UiOverlayProjection {
     pub fn new(element_id: impl Into<String>) -> Self {
         Self {
+            motion: Default::default(),
             element_id: element_id.into(),
             visible: true,
             render_mode: UiOverlayRenderMode::Ui,

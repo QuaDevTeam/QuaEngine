@@ -142,6 +142,7 @@ impl From<&UiButtonDrawParams> for WgpuNativeRenderTextStyle {
 #[derive(Clone, Debug, PartialEq)]
 pub enum WgpuNativeRenderPrimitiveKind {
     Image {
+        sampling: crate::render_graph::ImageSampling,
         asset_type: String,
         asset_name: String,
         fit: MediaFit,

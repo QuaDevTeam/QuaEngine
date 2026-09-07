@@ -83,7 +83,7 @@
 2. **富文本：** 已移除估算的 per-run 文本框，保留 block/span 到 QPK 字体测量阶段，按实际 Web `inline-block` 规则排列、换行和对齐基线，详见下方补充。全源排版与逐 cluster 显示有回归测试；panel/说话人自适应高度、block 样式与 CSS 行高单位继承已补齐（见最后的文字排版补充）。ruby、block/span 动画变换、段落/跨 span bidi、逐 cluster 多字体 fallback、完整 justify 和完整空白语义仍未补齐。
 3. **字体：** Arabic/bidi 仍有可见误差；跨字体逐 cluster fallback、竖排和语言相关断字未完成。当前截图不证明浏览器级文字布局。
 4. **音视频：** EQ/automation 已接入并有 native focused backend tests；GIF 有解码与发布测试，MP4/WebM 尚无解码器或产品实测。demo E2E 的 video decoded/published 为 0。
-5. **Sprite/UI skin：** native 可读取 package-aware `metadata.spriteLayers` 并绘制基础分层图片；支持字段的数值/资源校验、人物组透明度和局部层级隔离已补齐，见下方 2026-09-07 截图记录。父级变换、manifest JSON 解析、atlas frame、per-layer mask/blend、expression diff 加载和 UI skin manifest 仍待接入，单纯 sprite/expression 字符串仍不等于完整 Web 多层效果。
+5. **Sprite/UI skin：** manifest/expression、atlas、父子变换和 per-layer mask/blend 已补入原生资源/绘制链路，见最新 [实现记录](native-sprite-animation-2026-09-07.md)。混合 intrinsic/trimmed frame canvas、spriteLayer timeline 和自动 UI skin manifest 仍待完成；数字 QSS border-image 九宫格已能绘制。
 6. **动态场景：** stage/camera/effects/scene transition 需要真实 GPU 时间序列对照；基础数值动画测试不覆盖全部 composition/effect target。
 7. **产品覆盖：** keyboard/IME 产品 E2E 仍为 0；portrait、多分辨率、safe-area、多 GPU，以及圆角/border/shadow/rotation 复杂组合仍需补截图。此前 live CDP 超时不能算产品 Web/native parity 已通过。
 8. **工具链历史缺口：** 旧 QUI benchmark/LSP fixture 迁移失败仍需单独复核；本次没有把旧结果作为 GPU 绘制失败或已修复项。
@@ -179,3 +179,5 @@ TS bridge 不再将 Web 数字行高 `1.5` 当成 1.5 个逻辑像素：无单�
 - 完整 `pnpm native:e2e` **通过**：65 条对白投影、stealth 分支、settings/gallery、返回 title；199 commands / 4 passes，67 个 atlas text draws，1920×1080 GPU PNG。纹理/字体/清理错误为 0，结束时音频轨道为 0。日志 `packages/native/target/text-layout-e2e.log`。窗口仍为 `OccludedAfterRetry` / `presented=false`，不作为可见 OS 呈现的证据。
 
 段落级 bidi、跨字体逐 cluster fallback、完整空白/终止换行/断字语义、ruby、竖排、block/span 变换和完整 justify 仍未关闭。normal 度量目前取 family atlas，尚不等于每个 fallback/weight face 的逐 run 度量。此次不宣称全部浏览器文字能力、可见 OS 呈现、MP4/WebM 或 sprite manifest 已完成。
+
+最新后续实现、验证范围与剩余项见 [Native sprite / animation / border-image](native-sprite-animation-2026-09-07.md)；Rust 执行优化与微基准见 [QuickJS 性能记录](native-quickjs-performance-2026-09-07.md)。上方各历史批次的限制描述以最新记录为准。

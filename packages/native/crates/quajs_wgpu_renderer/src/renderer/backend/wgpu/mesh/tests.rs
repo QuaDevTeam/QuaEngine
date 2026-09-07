@@ -18,6 +18,7 @@ mod chevron;
 mod diagnostics;
 mod gradient; // Analytic gradient geometry and stop-interval coverage.
 mod media;
+mod sampling;
 mod text;
 
 fn primitive_plan(primitives: Vec<WgpuNativeRenderPrimitive>) -> WgpuNativeRenderPrimitivePlan {
@@ -185,6 +186,7 @@ fn assert_position_close(actual: [f32; 2], expected: [f32; 2]) {
 #[allow(dead_code)]
 fn _draw_param_compile_guard() {
     let _ = DrawCommandParams::Image(ImageDrawParams {
+        sampling: Default::default(),
         asset_type: "images".to_string(),
         asset_name: "bg.png".to_string(),
         fit: MediaFit::Cover,

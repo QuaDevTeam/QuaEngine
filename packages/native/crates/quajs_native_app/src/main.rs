@@ -32,6 +32,8 @@ mod product_window_loop;
 #[cfg(feature = "quickjs-rquickjs")]
 mod quickjs_bridge;
 mod renderer_smoke;
+#[cfg(any(test, feature = "image-decode"))]
+mod sprite_resources;
 mod startup;
 mod target_bundle;
 #[cfg(any(test, feature = "image-decode"))]

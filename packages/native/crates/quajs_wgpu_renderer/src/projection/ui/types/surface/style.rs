@@ -94,6 +94,19 @@ pub struct UiSurfaceEdgeInsetsProjection {
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct UiSurfaceBorderImageProjection {
+    pub source: UiSurfaceImageProjection,
+    pub slice: UiSurfaceEdgeInsetsProjection,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub width: Option<UiSurfaceEdgeInsetsProjection>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub repeat: Option<String>,
+    #[serde(default)]
+    pub fill: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UiSurfaceShadowProjection {
     pub offset_x: f64,
     pub offset_y: f64,
@@ -292,6 +305,8 @@ pub struct UiSurfaceTransitionProjection {
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UiSurfaceResolvedStyle {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub border_image: Option<UiSurfaceBorderImageProjection>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub background_color: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

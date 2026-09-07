@@ -11,11 +11,12 @@ pub use overlay::{
 pub use projection::UiProjection;
 pub use surface::{
     UiSurfaceBackdropFilterProjection, UiSurfaceBackgroundPositionProjection,
-    UiSurfaceBorderStyleProjection, UiSurfaceControlOptionProjection, UiSurfaceControlProjection,
-    UiSurfaceEdgeInsetsProjection, UiSurfaceFilterProjection, UiSurfaceFontStyleProjection,
-    UiSurfaceGradientKindProjection, UiSurfaceGradientProjection, UiSurfaceGradientStopProjection,
-    UiSurfaceImageProjection, UiSurfaceNodeKind, UiSurfaceNodeProjection, UiSurfaceNodeRect,
-    UiSurfaceNodeStateProjection, UiSurfaceObjectFitProjection, UiSurfacePseudoStateProjection,
+    UiSurfaceBorderImageProjection, UiSurfaceBorderStyleProjection,
+    UiSurfaceControlOptionProjection, UiSurfaceControlProjection, UiSurfaceEdgeInsetsProjection,
+    UiSurfaceFilterProjection, UiSurfaceFontStyleProjection, UiSurfaceGradientKindProjection,
+    UiSurfaceGradientProjection, UiSurfaceGradientStopProjection, UiSurfaceImageProjection,
+    UiSurfaceNodeKind, UiSurfaceNodeProjection, UiSurfaceNodeRect, UiSurfaceNodeStateProjection,
+    UiSurfaceObjectFitProjection, UiSurfacePseudoStateProjection,
     UiSurfaceRadialGradientShapeProjection, UiSurfaceRangeControlPartsProjection,
     UiSurfaceResolvedStyle, UiSurfaceSelectControlPartsProjection, UiSurfaceShadowProjection,
     UiSurfaceSwitchControlPartsProjection, UiSurfaceTextAlignProjection,

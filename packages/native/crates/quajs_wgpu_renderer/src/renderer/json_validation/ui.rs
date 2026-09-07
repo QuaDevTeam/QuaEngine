@@ -274,6 +274,31 @@ impl JsonProjectionValidator {
     }
 
     fn validate_ui_style(&mut self, path: &str, style: &UiSurfaceResolvedStyle) {
+        if let Some(image) = &style.border_image {
+            self.validate_ui_image(&image.source, &format!("{path}.borderImage.source"));
+            let valid_edges = |edges: &crate::projection::ui::UiSurfaceEdgeInsetsProjection| {
+                [edges.top, edges.right, edges.bottom, edges.left]
+                    .into_iter()
+                    .all(|value| value.is_finite() && (0.0..=1_000_000.0).contains(&value))
+            };
+            if !valid_edges(&image.slice)
+                || image
+                    .width
+                    .as_ref()
+                    .is_some_and(|width| !valid_edges(width))
+                || image
+                    .repeat
+                    .as_deref()
+                    .is_some_and(|repeat| !matches!(repeat, "stretch" | "repeat"))
+            {
+                self.errors.push(super::NativeRendererJsonValidationError {
+                    path: format!("{path}.borderImage"),
+                    asset_name: String::new(),
+                    reason: "requires bounded non-negative slices/widths and stretch or repeat"
+                        .into(),
+                });
+            }
+        }
         if let Some(background_color) = &style.background_color {
             self.validate_color_literal(&format!("{path}.backgroundColor"), background_color);
         }

@@ -154,8 +154,43 @@ impl JsonProjectionValidator {
         if let Some(sprite) = &character.sprite {
             self.validate_asset_reference(&format!("{path}.sprite"), sprite);
         }
-        for (index, layer) in character.sprite_layers.iter().enumerate() {
-            let path = format!("{path}.spriteLayers[{index}]");
+        for (index, layer) in character
+            .sprite_layers
+            .iter()
+            .chain(character.sprite_base.iter())
+            .enumerate()
+        {
+            let path = if index == character.sprite_layers.len() {
+                format!("{path}.spriteBase")
+            } else {
+                format!("{path}.spriteLayers[{index}]")
+            };
+            if let Some(mask) = &layer.mask {
+                self.validate_asset_reference(&format!("{path}.mask"), mask);
+            }
+            if let Some(frame) = &layer.frame {
+                if ![frame.x, frame.y, frame.width, frame.height]
+                    .into_iter()
+                    .all(|v| v.is_finite() && (0.0..=1_000_000.0).contains(&v))
+                    || frame.width <= 0.0
+                    || frame.height <= 0.0
+                {
+                    self.errors.push(NativeRendererJsonValidationError {
+                        path: format!("{path}.frame"),
+                        asset_name: layer.asset.clone(),
+                        reason:
+                            "requires positive bounded texel dimensions and non-negative offsets"
+                                .into(),
+                    });
+                }
+            }
+            if layer.scale < 0.0 {
+                self.errors.push(NativeRendererJsonValidationError {
+                    path: format!("{path}.scale"),
+                    asset_name: layer.scale.to_string(),
+                    reason: "sprite layer scale must be positive".into(),
+                });
+            }
             self.validate_asset_reference(&format!("{path}.asset"), &layer.asset);
             self.validate_character_opacity(&format!("{path}.opacity"), layer.opacity);
             self.validate_z_index(

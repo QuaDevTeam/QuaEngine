@@ -47,6 +47,19 @@ impl WgpuNativeRenderRuntimePlan {
                             .iter()
                             .cloned()
                             .map(|mut g| {
+                                let [a, b, c, d, tx, ty] = g.transform;
+                                let ox =
+                                    viewport.map_or(0.0, |v| v.viewport_x * v.device_pixel_ratio);
+                                let oy =
+                                    viewport.map_or(0.0, |v| v.viewport_y * v.device_pixel_ratio);
+                                g.transform = [
+                                    a,
+                                    b,
+                                    c,
+                                    d,
+                                    tx * scale + ox - a * ox - c * oy,
+                                    ty * scale + oy - b * ox - d * oy,
+                                ];
                                 g.blur_radius *= scale;
                                 if let Some(shadow) = &mut g.drop_shadow {
                                     shadow.sigma *= scale;

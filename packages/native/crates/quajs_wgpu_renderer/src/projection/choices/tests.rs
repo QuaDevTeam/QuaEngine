@@ -92,6 +92,7 @@ fn skips_hidden_or_empty_choices() {
     assert!(build_choice_commands(
         &layout,
         &ChoiceSetProjection {
+            motion: Default::default(),
             visible: false,
             choices: vec![ChoiceProjection::new("a", "A")],
             provenance: PackageProvenance::default(),
@@ -202,6 +203,7 @@ fn skips_choice_panel_when_all_choice_ids_are_unsafe() {
 fn appends_choice_commands_and_preserves_package_provenance() {
     let mut graph = RenderGraph::new(test_layout());
     let choices = ChoiceSetProjection {
+        motion: Default::default(),
         provenance: provenance("runtime.choices", ["base"]),
         choices: vec![ChoiceProjection {
             provenance: provenance("runtime.choice-a", ["runtime.choices"]),
@@ -234,6 +236,7 @@ fn appends_choice_commands_and_preserves_package_provenance() {
 fn skips_unsafe_package_provenance_on_direct_projection() {
     let mut graph = RenderGraph::new(test_layout());
     let choices = ChoiceSetProjection {
+        motion: Default::default(),
         provenance: provenance("runtime.choices?rev=1", ["base", "runtime/ui"]),
         choices: vec![ChoiceProjection {
             provenance: provenance("runtime.choice-a", ["runtime.choices", "bad#hash"]),

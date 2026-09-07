@@ -24,6 +24,7 @@ const cases = [
   { id: 'negative-layer', characters: [character({ opacity: 0.5, metadata: { spriteLayers: [{ asset: 'white.png', zIndex: -1, opacity: 0.7 }] } })] },
   { id: 'sibling-order', characters: [character(), character({ id: 'neighbor', name: 'Neighbor', layer: 3, opacity: 0.4, metadata: {} })] },
   { id: 'equal-order', characters: [character(), character({ id: 'neighbor', name: 'Neighbor', layer: 2, opacity: 0.4, metadata: {} })] },
+  { id: 'mask-blend', characters: [character({ opacity: 0.7, metadata: { spriteLayers: [{ asset: 'white.png', opacity: 0.65, mask: 'masks/stripes.png', blendMode: 'screen' }] } })] },
   { id: 'letterbox', container: { width: 960, height: 600, devicePixelRatio: 2 }, characters: [character({ opacity: 0.5 })] },
 ]
 const binary = process.env.QUA_NATIVE_AUDIT_APP || resolve(root, 'packages/native/target/debug/quajs_native_app')
@@ -71,7 +72,7 @@ try {
     await page.setContent(`<style>html,body{margin:0;overflow:hidden;background:black}#stage{position:absolute;width:1920px;height:1080px;transform-origin:0 0;left:${(width - 1920 * scale) / 2}px;top:${(height - 1080 * scale) / 2}px;transform:scale(${scale})}</style><div id=stage></div>`)
     const characters = item.characters.map(character => ({ ...character,
       layers: [{ asset: character.sprite, zIndex: 0 }, ...character.metadata.spriteLayers || []]
-        .map((layer, index) => ({ ...layer, style: spriteLayerStyle(layer, index === 0), base: index === 0 })) }))
+        .map((layer, index) => ({ ...layer, style: spriteLayerStyle(layer, index === 0, layer.mask ? urls[layer.mask] : undefined), base: index === 0 })) }))
     await page.evaluate(({ characters, presence, urls }) => {
       for (const character of characters) {
         const element = document.createElement('div')

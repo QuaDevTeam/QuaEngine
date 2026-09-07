@@ -42,7 +42,8 @@ pub fn resolve_character_bounds(
     let scale = position
         .scale
         .filter(|value| value.is_finite() && value.abs() > 0.0)
-        .unwrap_or(1.0);
+        .unwrap_or(1.0)
+        .abs();
     let width = position
         .width
         .filter(|value| value.is_finite() && *value >= 0.0)

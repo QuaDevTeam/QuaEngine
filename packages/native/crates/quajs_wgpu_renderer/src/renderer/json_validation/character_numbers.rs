@@ -78,14 +78,14 @@ fn validate_optional_scale(scale: Option<f64>) -> Option<(&'static str, String, 
             "character scale must be a finite value".to_string(),
         ));
     }
-    if scale <= 0.0 {
+    if scale == 0.0 {
         return Some((
             "scale",
             scale.to_string(),
-            "character scale must be greater than 0".to_string(),
+            "character scale must be non-zero".to_string(),
         ));
     }
-    if scale > MAX_NATIVE_CHARACTER_SCALE {
+    if scale.abs() > MAX_NATIVE_CHARACTER_SCALE {
         return Some((
             "scale",
             scale.to_string(),
@@ -191,7 +191,7 @@ mod tests {
         })
         .unwrap();
         assert_eq!(zero_scale.0, "scale");
-        assert!(zero_scale.2.contains("greater than 0"));
+        assert!(zero_scale.2.contains("non-zero"));
 
         let oversized_rotation =
             invalid_native_json_character_position_reason(&CharacterPosition {

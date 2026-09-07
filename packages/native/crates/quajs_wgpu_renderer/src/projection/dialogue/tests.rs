@@ -568,6 +568,7 @@ fn reveal_keeps_full_text_layout_and_avatar_clear_of_text() {
     let mut graph = RenderGraph::new(layout);
     graph.extend(complete);
     let choices = crate::projection::choices::ChoiceSetProjection {
+        motion: Default::default(),
         visible: true,
         choices: vec![crate::projection::choices::ChoiceProjection::new(
             "next", "Continue",

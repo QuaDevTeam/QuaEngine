@@ -13,7 +13,9 @@ Use this skill for `packages/plugins/animation`, animation decorators, cross-plu
 
 Coordinate-bearing animation values use logical stage coordinates before renderer scaling.
 
-For native rendering, `@quajs/engine-native` resolves `view.animations` through the shared render-core projection helpers at the frame's supplied `now` value before it serializes `NativeRendererJsonFrameInput`. Tests must supply a fixed `now` when asserting an intermediate frame. Native never owns timeline state or interpolates physical-pixel transforms; it consumes the engine-owned logical-stage projection.
+For native rendering, fixed-time `@quajs/engine-native` serialization can resolve `view.animations` through shared render-core helpers using the supplied `now`. The live Rust app sets `projectAnimations:false` and advances renderer-local interpolation from engine-owned timelines; never apply both paths to one frame. Preserve settled dialogue/choice plugin motion even when no timeline is active. Rust keeps redraws alive during delays and accounts for playbackRate, loop, direction, pause and fill (default forwards), in logical stage coordinates.
+
+Native drawing consumes character position/opacity, stage/camera subtree motion, dialogue/choice-panel/individual-choice/UI-overlay x/y/scale/rotation/opacity, and rich-text typography targets. Whole-group transforms must include inverse hit tests and hover variants. Rich-text targets follow shared render-core ids: `richText:<prefix>`, `richTextBlock:<prefix>:<id-or-index>` and `richTextSpan:<prefix>:<id-or-index>`; span targets do not include a block segment. Native typography tracks update both revealed text and full-layout text. Numeric font-weight interpolation is rounded to the native integral OpenType weight range. Per-span affine transforms, `spriteLayer:*`, and general audioBus/audioTrack timeline targets remain incomplete; existing native audio automation is a separate projection path. Test supported target/property pairs through actual draw output, not only JSON mutation.
 
 ## Setup
 

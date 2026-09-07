@@ -17,6 +17,7 @@ use crate::texture_sync::{
 
 #[derive(Debug, Default)]
 pub(crate) struct NativeProductLoop {
+    sprite_resources: crate::sprite_resources::NativeSpriteResources,
     texture_bundle_registry: NativeTextureBundleMountRegistry,
     rendered_frame_count: usize,
     cached_projection_json: Option<String>,
@@ -73,11 +74,15 @@ impl NativeProductLoop {
             }
         }
 
+        let resolved = self
+            .sprite_resources
+            .resolve_frame(host, input)
+            .map_err(NativeTextureJsonLifecycleFrameError::Host)?;
         let synced_frame = render_json_frame_with_host_texture_lifecycle_sync_and_media_teardown(
             &mut self.texture_bundle_registry,
             renderer,
             host,
-            input,
+            resolved.as_deref().unwrap_or(input),
         )?;
         self.cached_projection_json = Some(input.to_string());
         self.cached_frame_update = Some(synced_frame.frame.frame.update.clone());
@@ -103,11 +108,24 @@ impl NativeProductLoop {
         F: NativeFontBackend,
         H: NativeHostApi,
     {
-        sync_mounted_texture_bundle_lifecycle_from_host_and_media_teardown(
+        let report = sync_mounted_texture_bundle_lifecycle_from_host_and_media_teardown(
             &mut self.texture_bundle_registry,
             renderer,
             host,
-        )
+        )?;
+        // A mounted package may be patched without changing its id. Refresh
+        // metadata on explicit lifecycle ticks too, never on cached paint frames.
+        let sprite_mounts_changed =
+            self.sprite_resources.has_cached_metadata() && self.sprite_resources.reconcile(host)?;
+        if sprite_mounts_changed
+            || !report.added_package_ids.is_empty()
+            || !report.removed_package_ids.is_empty()
+        {
+            self.sprite_resources.clear();
+            self.cached_projection_json = None;
+            self.cached_frame_update = None;
+        }
+        Ok(report)
     }
 
     #[allow(dead_code)]
@@ -121,6 +139,7 @@ impl NativeProductLoop {
         V: NativeVideoBackend,
         F: NativeFontBackend,
     {
+        self.sprite_resources.clear();
         let result = clear_renderer_with_host_texture_cleanup_and_media_teardown(renderer)?;
         self.texture_bundle_registry = NativeTextureBundleMountRegistry::new();
         self.cached_projection_json = None;

@@ -4,9 +4,7 @@ use crate::render_graph::{
 };
 
 use super::super::super::style::resolve_border_edges;
-use super::super::super::types::{
-    UiOverlayProjection, UiSurfaceNodeKind, UiSurfaceNodeProjection,
-};
+use super::super::super::types::{UiOverlayProjection, UiSurfaceNodeKind, UiSurfaceNodeProjection};
 use super::super::helpers::apply_provenance;
 
 const SIDE_NAMES: [&str; 4] = ["top", "right", "bottom", "left"];
@@ -25,6 +23,36 @@ pub(in crate::projection::ui::surface) fn surface_border_edge_commands(
     bounds: LogicalRect,
     effective_opacity: f32,
 ) -> Vec<DrawCommand> {
+    if let Some(border) = &node.style.border_image {
+        let mut image_node = node.clone();
+        image_node.style.background_image = Some(border.source.clone());
+        let Some(mut command) = super::background::surface_background_image_command(
+            overlay,
+            &image_node,
+            z_base,
+            clip_bounds,
+            command_id,
+            bounds,
+            effective_opacity,
+        ) else {
+            return Vec::new();
+        };
+        command.id = format!("{command_id}:border-image");
+        command.kind = DrawCommandKind::NineSlice;
+        if let DrawCommandParams::Image(params) = &mut command.params {
+            let edges = |value: &crate::projection::ui::UiSurfaceEdgeInsetsProjection| {
+                [value.top, value.right, value.bottom, value.left]
+            };
+            params.fit = crate::render_graph::MediaFit::Fill;
+            params.sampling.nine_slice = Some(crate::render_graph::NineSliceDrawParams {
+                slice: edges(&border.slice),
+                width: edges(border.width.as_ref().unwrap_or(&border.slice)),
+                repeat: border.repeat.as_deref() == Some("repeat"),
+                fill: border.fill,
+            });
+        }
+        return vec![command];
+    }
     if !matches!(
         node.kind,
         UiSurfaceNodeKind::Backdrop

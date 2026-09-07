@@ -130,6 +130,7 @@ fn primitive_kind_from_params(
 ) -> WgpuNativeRenderPrimitiveKind {
     match params {
         DrawCommandParams::Image(params) => WgpuNativeRenderPrimitiveKind::Image {
+            sampling: params.sampling.clone(),
             asset_type: params.asset_type.clone(),
             asset_name: params.asset_name.clone(),
             fit: params.fit,
