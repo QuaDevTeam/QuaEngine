@@ -1,5 +1,5 @@
 use super::*;
-use crate::render_graph::InlineTextRun;
+use crate::render_graph::{InlineTextRun, InlineTextStyle};
 use crate::renderer::backend::wgpu::mesh::{parse_color_literal, WgpuNativeRenderPaint};
 
 struct RunBox<'a> {
@@ -26,20 +26,33 @@ fn line_metrics(style: &WgpuNativeRenderTextStyle, atlas: &FontBackendAtlasLayou
     (height, baseline)
 }
 
+fn resolve_style<'a>(
+    inline: &InlineTextStyle,
+    parent: &WgpuNativeRenderTextStyle,
+    atlases: &'a FontBackendAtlasLayoutMap,
+) -> Option<(WgpuNativeRenderTextStyle, &'a FontBackendAtlasLayout)> {
+    let mut style = parent.clone();
+    style.inline = None;
+    style.font_family = inline.font_family.clone();
+    style.font_size = inline.font_size;
+    style.font_weight = inline.font_weight.clone();
+    style.line_height = inline.line_height;
+    style.align = inline.align;
+    let atlas = select_layout(&style, atlases)?;
+    if inline.normal_line_height {
+        style.line_height =
+            f64::from(atlas.line_height / atlas.raster_size.max(1.0)) * style.font_size;
+    }
+    Some((style, atlas))
+}
+
 fn run_box<'a>(
     run: &'a InlineTextRun,
     parent: &WgpuNativeRenderTextStyle,
     atlases: &'a FontBackendAtlasLayoutMap,
     available: f32,
 ) -> Option<RunBox<'a>> {
-    let mut style = parent.clone();
-    style.inline = None;
-    style.font_family = run.font_family.clone();
-    style.font_size = run.font_size;
-    style.font_weight = run.font_weight.clone();
-    style.line_height = run.line_height;
-    style.align = run.align;
-    let atlas = select_layout(&style, atlases)?;
+    let (style, atlas) = resolve_style(&run.style, parent, atlases)?;
     let scale = style.font_size as f32 / atlas.raster_size.max(1.0);
     let measure =
         |text: &str| measure_text(text, atlas, scale, style.letter_spacing as f32, &style);
@@ -51,7 +64,9 @@ fn run_box<'a>(
         .map(measure)
         .fold(0.0_f32, f32::max)
         .min(available);
-    let lines = if style.white_space == WhiteSpaceDrawParam::PreWrap {
+    let lines = if run.text.is_empty() {
+        Vec::new()
+    } else if style.white_space == WhiteSpaceDrawParam::PreWrap {
         pre_wrap_lines(&run.text, width.max(0.01), measure)
     } else {
         layout_lines(
@@ -66,7 +81,11 @@ fn run_box<'a>(
     };
     let (line_height, baseline) = line_metrics(&style, atlas);
     let height = line_height * lines.len() as f32;
-    let baseline = baseline + line_height * lines.len().saturating_sub(1) as f32;
+    let baseline = if lines.is_empty() {
+        0.0
+    } else {
+        baseline + line_height * lines.len().saturating_sub(1) as f32
+    };
     Some(RunBox {
         run,
         style,
@@ -127,16 +146,14 @@ fn layout_inline<'a>(
     inline: &'a crate::render_graph::InlineTextDrawParams,
     width: f32,
 ) -> Option<(Vec<PositionedRun<'a>>, f32)> {
-    let mut base = style.clone();
-    base.inline = None;
-    let root = select_layout(style, atlases)?;
-    let (strut_height, strut_baseline) = line_metrics(style, root);
     let mut positioned = Vec::new();
     let mut top = 0.0;
     for block in &inline.blocks {
+        let (base, root) = resolve_style(&block.style, style, atlases)?;
+        let (strut_height, strut_baseline) = line_metrics(&base, root);
         let mut row = Vec::new();
         let mut used = 0.0;
-        for run in block {
+        for run in &block.runs {
             let item = run_box(run, &base, atlases, width)?;
             if !row.is_empty() && used + item.width > width + 0.001 {
                 top += finish_row(
@@ -147,7 +164,7 @@ fn layout_inline<'a>(
                     top,
                     strut_baseline,
                     strut_height - strut_baseline,
-                    style.align,
+                    base.align,
                 );
                 used = 0.0;
             }
@@ -163,7 +180,7 @@ fn layout_inline<'a>(
                 top,
                 strut_baseline,
                 strut_height - strut_baseline,
-                style.align,
+                base.align,
             );
         }
     }
@@ -200,6 +217,21 @@ fn finish_row<'a>(
     ascent + descent
 }
 
+pub(crate) fn measure_inline_height(
+    params: &crate::render_graph::TextDrawParams,
+    width: f64,
+    physical_scale: f64,
+    atlases: &FontBackendAtlasLayoutMap,
+) -> Option<f64> {
+    if !physical_scale.is_finite() || physical_scale <= 0.0 || !width.is_finite() || width <= 0.0 {
+        return None;
+    }
+    let style = WgpuNativeRenderTextStyle::from_text_params(params, physical_scale);
+    let width = (width * physical_scale - style.padding.left - style.padding.right) as f32;
+    let (_, height) = layout_inline(&style, atlases, style.inline.as_ref()?, width.max(0.01))?;
+    Some((height as f64 + style.padding.top + style.padding.bottom) / physical_scale)
+}
+
 pub(in crate::renderer::backend::wgpu::buffer) fn inline_text_geometry(
     bounds: WgpuPhysicalRect,
     style: &WgpuNativeRenderTextStyle,
@@ -221,13 +253,15 @@ pub(in crate::renderer::backend::wgpu::buffer) fn inline_text_geometry(
             WgpuNativeRenderVerticalAlign::Middle => (clip.height - height).max(0.0) * 0.5,
             WgpuNativeRenderVerticalAlign::Bottom => (clip.height - height).max(0.0),
         };
+    // CSS dialogue text uses overflow: visible: ink may escape a tight or zero
+    // line box. Actual ancestor/stage clipping remains on the draw's scissor.
     let mut output = Vec::new();
     for positioned in positioned {
         let item = positioned.item;
         if item.run.visible_bytes == 0 {
             continue;
         }
-        let paint_color = parse_color_literal(&item.run.color)?;
+        let paint_color = parse_color_literal(&item.run.style.color)?;
         let mut color = paint_color.to_gpu_rgba();
         color[3] *= opacity.clamp(0.0, 1.0);
         let scale = item.style.font_size as f32 / item.atlas.raster_size.max(1.0);
@@ -294,7 +328,7 @@ pub(in crate::renderer::backend::wgpu::buffer) fn inline_text_geometry(
                                 0.0
                             },
                             false,
-                            clip,
+                            None,
                             color,
                             &mut vertices,
                             &mut indices,
@@ -327,7 +361,7 @@ pub(in crate::renderer::backend::wgpu::buffer) fn inline_text_geometry(
                                 scale,
                                 embolden,
                                 false,
-                                clip,
+                                None,
                                 color,
                                 &mut vertices,
                                 &mut indices,
@@ -350,7 +384,7 @@ pub(in crate::renderer::backend::wgpu::buffer) fn inline_text_geometry(
                 WgpuNativeRenderPaint::TextPlaceholder {
                     text: item.run.text.clone(),
                     color: paint_color,
-                    literal: item.run.color.clone(),
+                    literal: item.run.style.color.clone(),
                     style: item.style,
                 },
             ));

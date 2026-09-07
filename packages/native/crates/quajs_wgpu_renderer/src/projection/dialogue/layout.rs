@@ -22,9 +22,12 @@ pub fn dialogue_panel_bounds_for_lines(
     has_speaker: bool,
     line_height: f64,
 ) -> LogicalRect {
-    let base = dialogue_panel_bounds(layout);
     let top = if has_speaker { 50.0 } else { 22.0 };
-    let needed = top + text_lines.max(1) as f64 * line_height + 18.0;
+    dialogue_panel_bounds_for_content(layout, top + text_lines.max(1) as f64 * line_height + 18.0)
+}
+
+pub fn dialogue_panel_bounds_for_content(layout: &ResolvedStageLayout, needed: f64) -> LogicalRect {
+    let base = dialogue_panel_bounds(layout);
     let height = base.height.max(needed);
     LogicalRect {
         y: base.y + base.height - height,

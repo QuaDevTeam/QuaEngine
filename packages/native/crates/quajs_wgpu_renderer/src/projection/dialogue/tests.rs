@@ -26,7 +26,7 @@ fn builds_dialogue_panel_and_text_commands() {
                 "  ",
                 "Fallback Sans",
             ])),
-            font_size: Some(36.0),
+            font_size: Some((36.0).into()),
             font_weight: Some(FontWeightProjection::keyword("bold")),
             text_align: Some("center".to_string()),
             ..Default::default()
@@ -146,12 +146,14 @@ fn skips_dialogue_with_oversized_rich_text_aggregate() {
         text: RichTextContent::Document(RichTextDocumentProjection {
             blocks: vec![
                 RichTextBlockProjection {
+                    style: Default::default(),
                     spans: vec![RichTextSpanProjection {
                         text: "a".repeat(MAX_NATIVE_TEXT_PAYLOAD_BYTES),
                         style: RichTextStyle::default(),
                     }],
                 },
                 RichTextBlockProjection {
+                    style: Default::default(),
                     spans: vec![RichTextSpanProjection {
                         text: "b".to_string(),
                         style: RichTextStyle::default(),
@@ -249,12 +251,13 @@ fn preserves_rich_text_inline_runs_and_builds_avatar_command() {
         text: RichTextContent::Document(RichTextDocumentProjection {
             style: RichTextStyle {
                 color: Some("#d8c6ff".to_string()),
-                line_height: Some(48.0),
+                line_height: Some((48.0).into()),
                 text_align: Some("right".to_string()),
                 ..Default::default()
             },
             blocks: vec![
                 RichTextBlockProjection {
+                    style: Default::default(),
                     spans: vec![
                         RichTextSpanProjection {
                             text: "Line ".to_string(),
@@ -267,6 +270,7 @@ fn preserves_rich_text_inline_runs_and_builds_avatar_command() {
                     ],
                 },
                 RichTextBlockProjection {
+                    style: Default::default(),
                     spans: vec![RichTextSpanProjection {
                         text: "Line two".to_string(),
                         style: RichTextStyle::default(),
@@ -299,16 +303,21 @@ fn preserves_rich_text_inline_runs_and_builds_avatar_command() {
             assert_eq!(params.text, "Line one\nLine two");
             let inline = params.inline.as_ref().unwrap();
             assert_eq!(inline.blocks.len(), 2);
-            assert_eq!(inline.blocks[0][1].text, "one");
-            assert_eq!(inline.blocks[1][0].text, "Line two");
+            assert_eq!(inline.blocks[0].runs[1].text, "one");
+            assert_eq!(inline.blocks[1].runs[0].text, "Line two");
             assert_eq!(params.color, "#d8c6ff");
             assert_eq!(params.line_height, 48.0);
             assert_eq!(params.align, TextAlign::Right);
         }
         _ => panic!("expected text params"),
     }
-    assert_eq!(commands.iter().filter(|c| c.id.starts_with("dialogue:text")).count(), 2);
-
+    assert_eq!(
+        commands
+            .iter()
+            .filter(|c| c.id.starts_with("dialogue:text"))
+            .count(),
+        2
+    );
 }
 
 #[test]
@@ -325,8 +334,8 @@ fn falls_back_from_unsafe_dialogue_style_on_direct_projection() {
                 "NativePayload.class",
                 "fonts:Injected",
             ])),
-            font_size: Some(MAX_NATIVE_RICH_TEXT_LOGICAL_VALUE + 1.0),
-            line_height: Some(f64::NAN),
+            font_size: Some((MAX_NATIVE_RICH_TEXT_LOGICAL_VALUE + 1.0).into()),
+            line_height: Some((f64::NAN).into()),
             ..Default::default()
         },
         text: RichTextContent::Document(RichTextDocumentProjection {
@@ -336,11 +345,12 @@ fn falls_back_from_unsafe_dialogue_style_on_direct_projection() {
                     "https://example.test/font.woff",
                     "Dialogue Sans",
                 ])),
-                font_size: Some(0.0),
-                line_height: Some(MAX_NATIVE_RICH_TEXT_LOGICAL_VALUE + 1.0),
+                font_size: Some((0.0).into()),
+                line_height: Some((MAX_NATIVE_RICH_TEXT_LOGICAL_VALUE + 1.0).into()),
                 ..Default::default()
             },
             blocks: vec![RichTextBlockProjection {
+                style: Default::default(),
                 spans: vec![RichTextSpanProjection {
                     text: "Safe text".to_string(),
                     style: RichTextStyle::default(),
@@ -595,11 +605,11 @@ fn rich_reveal_retains_full_runs_styles_fonts_and_provenance() {
         panic!()
     };
     let inline = text.inline.as_ref().unwrap();
-    assert_eq!(inline.blocks[0][0].text, "office");
-    assert_eq!(inline.blocks[0][0].visible_bytes, 2);
-    assert_eq!(inline.blocks[0][0].font_size, 32.0);
-    assert_eq!(inline.blocks[1][0].visible_bytes, 0);
-    assert_eq!(inline.blocks[1][0].font_family, ["Body"]);
+    assert_eq!(inline.blocks[0].runs[0].text, "office");
+    assert_eq!(inline.blocks[0].runs[0].visible_bytes, 2);
+    assert_eq!(inline.blocks[0].runs[0].style.font_size, 32.0);
+    assert_eq!(inline.blocks[1].runs[0].visible_bytes, 0);
+    assert_eq!(inline.blocks[1].runs[0].style.font_family, ["Body"]);
     assert!(command
         .resource_ids
         .iter()
@@ -614,14 +624,13 @@ fn rich_reveal_retains_full_runs_styles_fonts_and_provenance() {
         panic!()
     };
     let mut shadow_inline = shadow.inline.clone().unwrap();
-    for (a, b) in shadow_inline
-        .blocks
-        .iter_mut()
-        .flatten()
-        .zip(inline.blocks.iter().flatten())
-    {
-        assert_eq!(a.color, "rgba(0,0,0,0.72)");
-        a.color = b.color.clone();
+    for (a, b) in shadow_inline.blocks.iter_mut().zip(&inline.blocks) {
+        assert_eq!(a.style.color, "rgba(0,0,0,0.72)");
+        a.style.color = b.style.color.clone();
+        for (a, b) in a.runs.iter_mut().zip(&b.runs) {
+            assert_eq!(a.style.color, "rgba(0,0,0,0.72)");
+            a.style.color = b.style.color.clone();
+        }
     }
     assert_eq!(&shadow_inline, inline);
 }

@@ -1,20 +1,18 @@
+use super::inline::inline_text_commands;
 use crate::projection::common::{is_safe_native_asset_ref, PackageProvenance};
 use crate::projection::typography::font_family_resource_ids;
 use crate::render_graph::{
     BackdropBlurDrawParams, BorderDrawParams, DrawCommand, DrawCommandKind, DrawCommandParams,
     EdgeInsetsDrawParam, FontStyleDrawParam, FontWeightDrawParam, GradientDrawKind,
-    GradientDrawParams, GradientDrawRadialShape, ImageDrawParams, InlineTextDrawParams, InlineTextRun,
-    LogicalRect, MediaFit, MediaOrigin, PanelDrawParams, RenderGraph, RenderPlane, ShadowDrawParams, ShadowDrawStyle,
+    GradientDrawParams, GradientDrawRadialShape, ImageDrawParams, LogicalRect, MediaFit,
+    MediaOrigin, PanelDrawParams, RenderGraph, RenderPlane, ShadowDrawParams, ShadowDrawStyle,
     TextDecorationDrawParam, TextDrawParams, TextOverflowDrawParam, TextTransformDrawParam,
     WhiteSpaceDrawParam,
 };
 use crate::resources::ResourceId;
 use crate::stage_layout::ResolvedStageLayout;
 
-use super::layout::{
-    dialogue_accent_bounds, dialogue_panel_bounds_for_lines, speaker_accent_bounds, speaker_bounds,
-    text_bounds,
-};
+use super::layout::{dialogue_accent_bounds, speaker_accent_bounds, speaker_bounds, text_bounds};
 use super::rich_text::{
     is_safe_rich_text_payload, resolve_font_family, resolve_font_size, resolve_font_weight,
     resolve_line_height, resolve_text_align, resolve_text_color, rich_text_style,
@@ -29,6 +27,17 @@ pub fn append_dialogue_commands(graph: &mut RenderGraph, dialogue: &DialogueProj
 pub fn build_dialogue_commands(
     layout: &ResolvedStageLayout,
     dialogue: &DialogueProjection,
+) -> Vec<DrawCommand> {
+    build_dialogue_commands_with_measurement(layout, dialogue, &|_, _| None)
+}
+
+/// Measures renderer-owned text resources only; never writes engine state.
+pub type TextHeightMeasurer<'a> = dyn Fn(&TextDrawParams, f64) -> Option<f64> + 'a;
+
+pub fn build_dialogue_commands_with_measurement(
+    layout: &ResolvedStageLayout,
+    dialogue: &DialogueProjection,
+    measure: &TextHeightMeasurer<'_>,
 ) -> Vec<DrawCommand> {
     if !dialogue.visible || !is_safe_rich_text_payload(&dialogue.text) {
         return Vec::new();
@@ -46,10 +55,14 @@ pub fn build_dialogue_commands(
         .or(fallback_speaker.as_ref());
 
     let default_text_style = RichTextStyle::default();
-    let dialogue_text_style = rich_text_style(&dialogue.text).unwrap_or(&default_text_style);
+    let resolved_document_style = super::typography::inherit(
+        &super::typography::defaults(20.0, 36.0),
+        rich_text_style(&dialogue.text).unwrap_or(&default_text_style),
+    );
+    let dialogue_text_style = &resolved_document_style;
     let dialogue_text = rich_text_to_plain_text(&dialogue.text);
     let text_font_size = resolve_font_size(dialogue_text_style, 20.0);
-    let text_line_height = resolve_line_height(dialogue_text_style, 36.0);
+    let text_line_height = resolve_line_height(dialogue_text_style, text_font_size, 36.0);
 
     // Grow the panel like the Web `min-height` dialogue box so longer lines
     // are not clipped; the bottom edge stays anchored to the stage inset.
@@ -70,12 +83,67 @@ pub fn build_dialogue_commands(
         .map(rich_text_to_plain_text)
         .unwrap_or_else(|| dialogue_text.clone());
     let estimated_lines = estimate_wrapped_lines(&layout_text, text_font_size, text_width);
-    let panel = dialogue_panel_bounds_for_lines(
-        layout,
-        estimated_lines,
-        render_speaker.is_some(),
-        text_line_height,
-    );
+    let measure_content = |content: &RichTextContent,
+                           full: Option<&RichTextContent>,
+                           style: &RichTextStyle,
+                           role: &str,
+                           size,
+                           line_height,
+                           weight,
+                           width| {
+        inline_text_commands(
+            "measure",
+            LogicalRect {
+                x: 0.0,
+                y: 0.0,
+                width,
+                height: 1.0,
+            },
+            content,
+            full,
+            style,
+            role,
+            size,
+            line_height,
+            weight,
+            None,
+            &dialogue.provenance,
+        )
+        .iter()
+        .find_map(|command| match &command.params {
+            DrawCommandParams::Text(params) => {
+                measure(params, width).filter(|v| v.is_finite() && *v >= 0.0)
+            }
+            _ => None,
+        })
+    };
+    let speaker_height = render_speaker.map(|speaker| {
+        measure_content(
+            speaker,
+            None,
+            &dialogue.speaker_style,
+            "speaker",
+            18.0,
+            20.0,
+            Some(FontWeightDrawParam::Number(700)),
+            text_width,
+        )
+        .unwrap_or(20.0)
+    });
+    let body_top = 22.0 + speaker_height.map(|h| h + 8.0).unwrap_or(0.0);
+    let body_height = measure_content(
+        &dialogue.text,
+        dialogue.layout_text.as_ref(),
+        &default_text_style,
+        "dialogue-text",
+        20.0,
+        36.0,
+        None,
+        text_width,
+    )
+    .unwrap_or(estimated_lines as f64 * text_line_height);
+    let panel =
+        super::layout::dialogue_panel_bounds_for_content(layout, body_top + body_height + 18.0);
 
     // Outer drop shadow: box-shadow 0 22px 80px rgba(0,0,0,0.62)
     let shadow_blur = 80.0_f64;
@@ -259,14 +327,30 @@ pub fn build_dialogue_commands(
 
     if let Some(speaker) = render_speaker {
         // CSS `text-shadow: 0 0 16px rgba(255,194,86,0.36)` — golden glow on speaker name.
-        commands.extend(inline_text_commands("dialogue:speaker", speaker_bounds(panel), speaker, None,
-            &dialogue.speaker_style, "speaker", 18.0, 20.0,
+        commands.extend(inline_text_commands(
+            "dialogue:speaker",
+            LogicalRect {
+                width: text_width,
+                height: speaker_height.unwrap_or(20.0),
+                ..speaker_bounds(panel)
+            },
+            speaker,
+            None,
+            &dialogue.speaker_style,
+            "speaker",
+            18.0,
+            20.0,
             Some(FontWeightDrawParam::Number(700)),
-            Some((0.0, 0.0, 16.0, "rgba(255,194,86,0.36)")), &dialogue.provenance));
+            Some((0.0, 0.0, 16.0, "rgba(255,194,86,0.36)")),
+            &dialogue.provenance,
+        ));
         commands.push(apply_provenance(
             panel_command(
                 "dialogue:speaker-accent",
-                speaker_accent_bounds(panel),
+                LogicalRect {
+                    y: panel.y + 22.0 + speaker_height.unwrap_or(20.0) + 2.0,
+                    ..speaker_accent_bounds(panel)
+                },
                 "speaker-accent",
                 "rgba(255,226,166,0.48)",
                 0.0,
@@ -279,10 +363,22 @@ pub fn build_dialogue_commands(
 
     let mut text_rect = text_bounds(panel, render_speaker.is_some());
     text_rect.width = text_width.max(0.0);
+    text_rect.y = panel.y + body_top;
+    text_rect.height = (panel.height - body_top - 18.0).max(0.0);
     // CSS `text-shadow: 0 2px 10px rgba(0,0,0,0.72)` — subtle drop shadow on body text.
-    commands.extend(inline_text_commands("dialogue:text", text_rect, &dialogue.text, dialogue.layout_text.as_ref(),
-        dialogue_text_style, "dialogue-text", 20.0, 36.0, None,
-        Some((0.0, 2.0, 10.0, "rgba(0,0,0,0.72)")), &dialogue.provenance));
+    commands.extend(inline_text_commands(
+        "dialogue:text",
+        text_rect,
+        &dialogue.text,
+        dialogue.layout_text.as_ref(),
+        &default_text_style,
+        "dialogue-text",
+        20.0,
+        36.0,
+        None,
+        Some((0.0, 2.0, 10.0, "rgba(0,0,0,0.72)")),
+        &dialogue.provenance,
+    ));
 
     if let Some(avatar) = &dialogue.avatar {
         if let Some(command) = avatar_command(panel, avatar_size, avatar) {
@@ -302,7 +398,7 @@ pub fn build_dialogue_commands(
 
 /// Estimates the wrapped line count without a text measurer: CJK/wide glyphs
 /// count as one em, ASCII glyphs as roughly half an em. Good enough for the
-/// `min-height` growth decision; real wrapping still happens at draw time.
+/// pre-font fallback only; measured layout replaces it after QPK fonts load.
 fn estimate_wrapped_lines(text: &str, font_size: f64, width: f64) -> usize {
     if width <= 0.0 || font_size <= 0.0 {
         return 1;
@@ -340,7 +436,7 @@ fn panel_command(
     )
 }
 
-fn text_command(
+pub(super) fn text_command(
     id: &str,
     bounds: crate::render_graph::LogicalRect,
     text: String,
@@ -365,7 +461,11 @@ fn text_command(
             font_style: FontStyleDrawParam::Normal,
             font_weight,
             letter_spacing: 0.0,
-            line_height: resolve_line_height(style, fallback_line_height),
+            line_height: resolve_line_height(
+                style,
+                resolve_font_size(style, fallback_font_size),
+                fallback_line_height,
+            ),
             align: resolve_text_align(style),
             text_decoration: TextDecorationDrawParam::None,
             text_overflow: TextOverflowDrawParam::Clip,
@@ -384,208 +484,6 @@ fn text_command(
             role: role.to_string(),
             rotation_degrees: 0.0,
         }))
-}
-
-fn inline_text_commands(
-    id: &str,
-    bounds: LogicalRect,
-    content: &RichTextContent,
-    layout_content: Option<&RichTextContent>,
-    document_style: &RichTextStyle,
-    role: &str,
-    fallback_font_size: f64,
-    fallback_line_height: f64,
-    fallback_font_weight: Option<FontWeightDrawParam>,
-    shadow: Option<(f64, f64, f64, &str)>,
-    provenance: &PackageProvenance,
-) -> Vec<DrawCommand> {
-    if matches!(content, RichTextContent::Plain(text) if text.is_empty()) {
-        return Vec::new();
-    }
-    // Web applies speakerStyle after the rich document's root typography.
-    let inherited = rich_text_style(content)
-        .map(|base| merge_rich_text_style(base, document_style))
-        .unwrap_or_else(|| document_style.clone());
-    let document_style = &inherited;
-    let text = rich_text_to_plain_text(content);
-    let mut command = text_command(
-        id,
-        bounds,
-        text.clone(),
-        document_style,
-        role,
-        fallback_font_size,
-        fallback_line_height,
-        fallback_font_weight.clone(),
-        0.0,
-    )
-    .z_index(2);
-    // Keep block/span identity and full source through reveal. Font selection,
-    // line boxes and glyph positions are resolved only after QPK fonts load.
-    let full = layout_content
-        .filter(|full| compatible_reveal_source(content, full))
-        .unwrap_or(content);
-    if let RichTextContent::Document(document) = full {
-        let RichTextContent::Document(visible) = content else {
-            unreachable!()
-        };
-        let blocks = document
-            .blocks
-            .iter()
-            .zip(&visible.blocks)
-            .map(|(block, shown)| {
-                block
-                    .spans
-                    .iter()
-                    .zip(&shown.spans)
-                    .map(|(span, shown)| {
-                        let style = merge_rich_text_style(document_style, &span.style);
-                        let font_family = resolve_font_family(&style);
-                        command
-                            .resource_ids
-                            .extend(font_family_resource_ids(&font_family));
-                        InlineTextRun {
-                            text: span.text.clone(),
-                            visible_bytes: shown.text.len(),
-                            align: resolve_text_align(&style),
-                            font_family,
-                            font_size: resolve_font_size(&style, fallback_font_size),
-                            line_height: resolve_line_height(&style, fallback_line_height),
-                            font_weight: resolve_font_weight(&style)
-                                .or_else(|| fallback_font_weight.clone()),
-                            color: resolve_text_color(
-                                &style,
-                                if role == "speaker" {
-                                    "#ffe3a0"
-                                } else {
-                                    "#fffaf2"
-                                },
-                            ),
-                        }
-                    })
-                    .collect()
-            })
-            .collect();
-        command.resource_ids.sort();
-        command.resource_ids.dedup();
-        if let DrawCommandParams::Text(params) = &mut command.params {
-            params.inline = Some(InlineTextDrawParams { blocks });
-        }
-    }
-    let mut commands = Vec::new();
-    if let Some((offset_x, offset_y, blur, color)) = shadow {
-        let mut shadow = text_shadow_command(
-            id,
-            bounds,
-            text,
-            document_style,
-            role,
-            fallback_font_size,
-            fallback_line_height,
-            fallback_font_weight,
-            offset_x,
-            offset_y,
-            blur,
-            color,
-            2,
-        );
-        shadow.resource_ids = command.resource_ids.clone();
-        if let (DrawCommandParams::Text(source), DrawCommandParams::Text(target)) =
-            (&command.params, &mut shadow.params)
-        {
-            target.inline = source.inline.clone();
-            if let Some(inline) = &mut target.inline {
-                for run in inline.blocks.iter_mut().flatten() {
-                    run.color = color.to_string();
-                }
-            }
-        }
-        commands.push(apply_provenance(shadow, provenance));
-    }
-    commands.push(apply_provenance(command, provenance));
-    commands
-}
-
-fn compatible_reveal_source(visible: &RichTextContent, full: &RichTextContent) -> bool {
-    if !is_safe_rich_text_payload(full) {
-        return false;
-    }
-    match (visible, full) {
-        (RichTextContent::Document(visible), RichTextContent::Document(full)) => {
-            visible.blocks.len() == full.blocks.len()
-                && visible.blocks.iter().zip(&full.blocks).all(|(a, b)| {
-                    a.spans.len() == b.spans.len()
-                        && a.spans
-                            .iter()
-                            .zip(&b.spans)
-                            .all(|(a, b)| b.text.starts_with(&a.text))
-                })
-        }
-        _ => false,
-    }
-}
-
-fn merge_rich_text_style(base: &RichTextStyle, override_style: &RichTextStyle) -> RichTextStyle {
-    RichTextStyle {
-        color: override_style.color.clone().or_else(|| base.color.clone()),
-        font_family: override_style
-            .font_family
-            .clone()
-            .or_else(|| base.font_family.clone()),
-        font_size: override_style.font_size.or(base.font_size),
-        font_weight: override_style
-            .font_weight
-            .clone()
-            .or_else(|| base.font_weight.clone()),
-        line_height: override_style.line_height.or(base.line_height),
-        text_align: override_style
-            .text_align
-            .clone()
-            .or_else(|| base.text_align.clone()),
-    }
-}
-
-/// Creates a CSS `text-shadow`-style pre-pass command: the text is rendered at
-/// (`offset_x`, `offset_y`) in `shadow_color` with `blur_radius` applied.
-/// Intended to be pushed *before* the main text command (lower `z_index`).
-fn text_shadow_command(
-    id: &str,
-    bounds: crate::render_graph::LogicalRect,
-    text: String,
-    style: &RichTextStyle,
-    role: &str,
-    fallback_font_size: f64,
-    fallback_line_height: f64,
-    fallback_font_weight: Option<FontWeightDrawParam>,
-    offset_x: f64,
-    offset_y: f64,
-    blur: f64,
-    shadow_color: &str,
-    z_index: i32,
-) -> DrawCommand {
-    // Inherit all style properties from the source text but override the colour.
-    let shadow_style = RichTextStyle {
-        color: Some(shadow_color.to_string()),
-        ..style.clone()
-    };
-    let shadow_bounds = crate::render_graph::LogicalRect {
-        x: bounds.x + offset_x,
-        y: bounds.y + offset_y,
-        width: bounds.width,
-        height: bounds.height,
-    };
-    text_command(
-        &format!("{id}:shadow"),
-        shadow_bounds,
-        text,
-        &shadow_style,
-        &format!("{role}-shadow"),
-        fallback_font_size,
-        fallback_line_height,
-        fallback_font_weight,
-        blur,
-    )
-    .z_index(z_index - 1)
 }
 
 fn avatar_command(
@@ -633,7 +531,10 @@ fn avatar_command(
     Some(apply_provenance(command, &avatar.provenance))
 }
 
-fn apply_provenance(mut command: DrawCommand, provenance: &PackageProvenance) -> DrawCommand {
+pub(super) fn apply_provenance(
+    mut command: DrawCommand,
+    provenance: &PackageProvenance,
+) -> DrawCommand {
     if let Some(package_id) = provenance.safe_content_package_id() {
         command = command.owned_by(package_id);
     }

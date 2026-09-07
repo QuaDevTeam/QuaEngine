@@ -24,6 +24,8 @@ pub struct NativeRendererState {
     font_backend_faces: FontBackendFaceStateMap,
     video_backend_streams: VideoBackendStreamStateMap,
     video_backend_frame_resources: VideoBackendFrameResourceMap,
+    // Resource bindings used to prepare the current graph, before media sync.
+    frame_video_resources: VideoBackendFrameResourceMap,
 }
 
 impl NativeRendererState {

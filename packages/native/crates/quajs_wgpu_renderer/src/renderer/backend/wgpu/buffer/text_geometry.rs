@@ -9,14 +9,14 @@ use crate::render_graph::TextOverflowDrawParam;
 use crate::renderer::backend::wgpu::WgpuPhysicalRect;
 use crate::resources::ResourceId;
 
-mod atlas;
+pub(crate) mod atlas;
 pub(crate) mod bitmap;
 mod placeholder;
 pub(in crate::renderer::backend::wgpu::buffer::text_geometry) mod width;
 
 use atlas::atlas_text_geometry;
-pub(in crate::renderer::backend::wgpu::buffer) use atlas::inline_text_geometry;
 pub(in crate::renderer::backend::wgpu::buffer) use atlas::atlas_text_is_shaped;
+pub(in crate::renderer::backend::wgpu::buffer) use atlas::inline_text_geometry;
 use bitmap::bitmap_text_geometry;
 use placeholder::{
     aligned_line_x, ellipsis_marker_rects, font_style_shear, font_weight_scale, max_visible_lines,

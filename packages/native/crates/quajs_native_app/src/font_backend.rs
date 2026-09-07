@@ -212,15 +212,28 @@ impl NativeFontBackend for SimpleNativeFontAtlasBackend {
                         params.text_overflow,
                     )];
                     if let Some(inline) = &params.inline {
-                        requests.extend(inline.blocks.iter().flatten().map(|run| {
-                            (
-                                run.text.as_str(),
-                                run.font_family.as_slice(),
-                                params.text_transform,
-                                run.font_size,
-                                params.text_overflow,
-                            )
-                        }));
+                        requests.extend(
+                            inline
+                                .blocks
+                                .iter()
+                                .flat_map(|block| {
+                                    std::iter::once(("", &block.style)).chain(
+                                        block
+                                            .runs
+                                            .iter()
+                                            .map(|run| (run.text.as_str(), &run.style)),
+                                    )
+                                })
+                                .map(|(text, style)| {
+                                    (
+                                        text,
+                                        style.font_family.as_slice(),
+                                        params.text_transform,
+                                        style.font_size,
+                                        params.text_overflow,
+                                    )
+                                }),
+                        );
                     }
                     requests
                 }
@@ -402,7 +415,7 @@ impl SimpleNativeFontAtlasBackend {
             return;
         };
         let texts = self.recent_texts.get(&key).cloned().unwrap_or_default();
-        if faces.is_empty() || characters.is_empty() {
+        if faces.is_empty() {
             self.release_bucket_atlas(family, bucket);
             return;
         }
@@ -451,10 +464,12 @@ impl SimpleNativeFontAtlasBackend {
             .flat_map(|text| text.chars())
             .filter(|character| !character.is_control())
             .collect::<BTreeSet<_>>();
+        let new_bucket = !self.requested_glyphs.contains_key(&key);
         let glyphs = self.requested_glyphs.entry(key.clone()).or_default();
-        let mut changed = characters
-            .iter()
-            .any(|character| !glyphs.contains(character));
+        let mut changed = new_bucket
+            || characters
+                .iter()
+                .any(|character| !glyphs.contains(character));
         glyphs.extend(characters);
         // A new run may use contextual/ligature glyphs even when all its
         // Unicode characters already exist. Rebuild only for missing glyph IDs,
@@ -642,8 +657,15 @@ fn rasterize_font_family(
 
     let (cell_size, cell_padding) = glyph_cell_metrics(raster);
     let rows = keys.len().div_ceil(GLYPH_ATLAS_COLUMNS).max(1);
-    let width = (GLYPH_ATLAS_COLUMNS * cell_size) as u32;
-    let height = (rows * cell_size) as u32;
+    // A strut-only bucket still carries metrics, but needs no glyph bitmap.
+    let (width, height) = if keys.is_empty() {
+        (1, 1)
+    } else {
+        (
+            (GLYPH_ATLAS_COLUMNS * cell_size) as u32,
+            (rows * cell_size) as u32,
+        )
+    };
     let mut rgba = vec![0; width as usize * height as usize * 4];
     let mut rasterized = BTreeMap::new();
 
@@ -993,7 +1015,7 @@ mod tests {
             )])
             .unwrap();
         backend.load_face(&face);
-        let source = serde_json::json!({ "style": {}, "blocks": [{ "spans": [
+        let source = serde_json::json!({ "style": {}, "blocks": [{ "style": { "fontFamily": ["Inline Font"], "fontSize": 60, "lineHeight": "normal" }, "spans": [
             { "text": "office", "style": { "fontFamily": ["Inline Font"], "fontSize": 42 } }
         ] }] });
         let mut visible = source.clone();
@@ -1017,6 +1039,18 @@ mod tests {
         assert!(backend.recent_texts[&key].contains("office"));
         assert!(backend.requested_glyphs[&key].contains(&'f'));
         let uploads = backend.drain_font_atlas_textures();
+        let strut = uploads
+            .iter()
+            .find(|atlas| {
+                atlas
+                    .layout
+                    .as_ref()
+                    .is_some_and(|layout| layout.raster_size == font_raster_bucket(30.0) as f32)
+            })
+            .expect("prewarm a block font bucket even when no run has this size");
+        assert_eq!((strut.width, strut.height), (1, 1));
+        assert!(strut.layout.as_ref().unwrap().line_height > 0.0);
+        assert!(strut.layout.as_ref().unwrap().glyphs.is_empty());
         let atlas = uploads
             .iter()
             .filter_map(|upload| upload.layout.as_ref())

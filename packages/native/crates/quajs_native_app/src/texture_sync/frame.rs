@@ -231,6 +231,7 @@ where
         None,
         None,
         None,
+        false,
     )
 }
 
@@ -332,6 +333,7 @@ where
         return Err(error.into());
     }
     let font_atlas_report = sync_font_atlas_textures_for_backend(renderer);
+    let text_reflowed = renderer.reflow_text(view);
 
     let frame = finish_texture_synced_frame(
         renderer,
@@ -347,6 +349,7 @@ where
         font_asset_report,
         Some(video_frame_texture_report),
         Some(font_atlas_report),
+        text_reflowed,
     )?;
     let bundle_lifecycle_report =
         sync_mounted_texture_bundle_lifecycle_from_host_and_media_teardown(
@@ -465,6 +468,7 @@ fn finish_texture_synced_frame<B, A, V, F, H>(
     font_asset_report: Option<NativeFontAssetHostSyncReport>,
     video_frame_texture_report: Option<NativeVideoFrameTextureSyncReport>,
     font_atlas_report: Option<NativeFontAtlasTextureSyncReport>,
+    text_reflowed: bool,
 ) -> Result<NativeTextureSyncedFrameResult, NativeRenderBackendError>
 where
     B: NativeRenderBackend + NativeTextureUploadSink,
@@ -487,6 +491,7 @@ where
     if texture_upload_report.uploaded_count == 0
         && !font_atlas_uploaded
         && !video_frame_texture_uploaded
+        && !text_reflowed
     {
         let mut frame = initial;
         if texture_upload_report.released_orphaned_count > 0 {

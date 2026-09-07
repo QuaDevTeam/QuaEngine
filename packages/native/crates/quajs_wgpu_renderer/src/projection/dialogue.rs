@@ -1,13 +1,16 @@
 pub mod builder;
+mod inline;
 pub mod layout;
 pub mod rich_text;
 pub mod types;
+pub(crate) mod typography;
 
 pub use builder::{append_dialogue_commands, build_dialogue_commands};
 pub use rich_text::rich_text_to_plain_text;
 pub use types::{
     DialogueAvatarProjection, DialogueMode, DialogueProjection, RichTextBlockProjection,
-    RichTextContent, RichTextDocumentProjection, RichTextSpanProjection, RichTextStyle,
+    RichTextContent, RichTextDocumentProjection, RichTextMetric, RichTextSpanProjection,
+    RichTextStyle,
 };
 
 #[cfg(test)]

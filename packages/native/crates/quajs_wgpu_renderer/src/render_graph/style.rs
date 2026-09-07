@@ -163,7 +163,13 @@ pub struct TextDrawParams {
 /// Renderer-only blocks of CSS inline-block spans, retained until QPK font metrics are available.
 #[derive(Clone, Debug, PartialEq)]
 pub struct InlineTextDrawParams {
-    pub blocks: Vec<Vec<InlineTextRun>>,
+    pub blocks: Vec<InlineTextBlock>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct InlineTextBlock {
+    pub style: InlineTextStyle,
+    pub runs: Vec<InlineTextRun>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -171,6 +177,12 @@ pub struct InlineTextRun {
     pub text: String,
     /// Revealed UTF-8 prefix; layout/shaping always uses the full text.
     pub visible_bytes: usize,
+    pub style: InlineTextStyle,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct InlineTextStyle {
+    pub normal_line_height: bool,
     pub align: TextAlign,
     pub font_family: Vec<String>,
     pub font_size: f64,

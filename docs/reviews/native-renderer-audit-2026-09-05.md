@@ -80,7 +80,7 @@
 ## 仍未对齐
 
 1. **背景组合：** raster mask 的 alpha/luminance、cover/contain/auto/px/percent 尺寸、定位、重复规则及嵌套合成已完成真实像素验证，详见下方 2026-09-06 记录。SVG/多重 mask、完整 layered root 变换、各视频子层解码仍未实现。drop-shadow 后续已改成源图 alpha 子树合成，并修正 Web 参数解析，见下方补充记录。大 blur 半径及 filter/scale/rotation 组合仍需补齐。
-2. **富文本：** 已移除估算的 per-run 文本框，保留 block/span 到 QPK 字体测量阶段，按实际 Web `inline-block` 规则排列、换行和对齐基线，详见下方补充。全源排版与逐 cluster 显示有回归测试；panel 自适应高度仍是估算，ruby、block/span 动画变换、跨 span bidi、逐 cluster 多字体 fallback、完整 justify 和 Web CSS line-height 单位转换尚未补齐。
+2. **富文本：** 已移除估算的 per-run 文本框，保留 block/span 到 QPK 字体测量阶段，按实际 Web `inline-block` 规则排列、换行和对齐基线，详见下方补充。全源排版与逐 cluster 显示有回归测试；panel/说话人自适应高度、block 样式与 CSS 行高单位继承已补齐（见最后的文字排版补充）。ruby、block/span 动画变换、段落/跨 span bidi、逐 cluster 多字体 fallback、完整 justify 和完整空白语义仍未补齐。
 3. **字体：** Arabic/bidi 仍有可见误差；跨字体逐 cluster fallback、竖排和语言相关断字未完成。当前截图不证明浏览器级文字布局。
 4. **音视频：** EQ/automation 已接入并有 native focused backend tests；GIF 有解码与发布测试，MP4/WebM 尚无解码器或产品实测。demo E2E 的 video decoded/published 为 0。
 5. **Sprite/UI skin：** native 可读取 package-aware `metadata.spriteLayers` 并绘制基础分层图片；支持字段的数值/资源校验、人物组透明度和局部层级隔离已补齐，见下方 2026-09-07 截图记录。父级变换、manifest JSON 解析、atlas frame、per-layer mask/blend、expression diff 加载和 UI skin manifest 仍待接入，单纯 sprite/expression 字符串仍不等于完整 Web 多层效果。
@@ -161,3 +161,21 @@ mask 批次未覆盖 source-alpha drop-shadow（后续见下方补充）、inlin
 重现：`node scripts/native-render-audit/rich-text.mjs`；输出 `packages/native/target/render-audit/rich-text/{review.html,measurements.json}`。`QUA_NATIVE_AUDIT_APP` 与 `--skip-build` 可固定二进制，`QUA_NATIVE_AUDIT_OUTPUT` 可保留对照版本输出。
 
 这批截图仅验证已完成显示的文字布局。对话 panel 高度仍在投影阶段估算；ruby、block/span 动画变换、跨 span bidi、逐 cluster 跨字体 fallback、完整 justify、CSS line-height 单位转换和更完整的空白/断字语义继续列为未完成。没有新增 MP4/WebM 解码或 sprite manifest/expression/atlas loader。
+
+## 2026-09-07 CSS 行高继承与测量后容器排版
+
+研究记录见 [`docs/design/native-text-layout.md`](../design/native-text-layout.md)，包含 CSS 2.2 / CSS Text / CSS Inline、Unicode UAX #9/#14/#29、HarfBuzz cluster 资料，以及 Parley、COSMIC Text 的适用范围。此次保留现有 QPK 字体和 Rustybuzz 链路，补齐其外层 CSS 计算值、段落行框与容器测量；单纯更换 shaper 无法解决这三类问题。
+
+TS bridge 不再将 Web 数字行高 `1.5` 当成 1.5 个逻辑像素：无单位倍率保持继承，随后代字号计算；em/% 行高在声明处算成固定长度。支持 px/em/% 字号、normal/零行高以及 document → block → span 的样式继承。段落使用自身字体 strut 和对齐规则，normal 行高取所选 QPK 字体的度量；只有 strut、没有 glyph 的字体桶也发布带真实度量的 1×1 atlas。
+
+普通文字与富文本都使用完整源文排版，只改变显示前缀。字体上传后，从仍被调用方借用的 view 重建面板、说话人、正文、选择项和命中几何；不重放媒体命令或 engine 事件，也不保存一份新的游戏状态。重排保留原帧的视频资源绑定，避免改变已同步的资源计划。说话人改用完整可用宽度并按内容撑高，面板向上增长、底边保持固定。零/短行高允许 glyph ink 越过行框，祖先和舞台 scissor 继续生效。
+
+对照工具修正了两项方法问题：强制 HTML DOCTYPE / `CSS1Compat`，避免 quirks mode 的 strut/空行差异；浏览器自行计算正文高度和面板底部锚定，不再使用 Native 估算框。使用实际 Web dialogue plugin 和同一 Quack QPK 字体，显式提供相同的主题排版与内边距。
+
+- **27/27 Metal/Chrome 排版截图通过**。覆盖原 14 项及无单位/percent/em/px/normal/零行高、相对字号、block 样式、纯 strut 字体、空 span、多行说话人和内容撑高。glyph 边界最大差 **2 个物理像素**，双向 2px 邻域外未匹配比例均为 **0**；保持边界 ≤ 3px、邻域外比例 ≤ 3.5% 的既有门槛。
+- 最终报告：`packages/native/target/render-audit/typography-final/{measurements.json,review.html,typography-detail.png}`；审计 binary SHA-256：`8df5035088efbe50ce82e68f02c58418c345dbccdd4d3ba65b537a890c0c7cd8`，Chrome `152.0.7977.76`。所有案例字体上传/清理错误为 0、释放数等于上传数；全部窗口报告 `presented=false`，因此这是实际 GPU 离屏渲染证据。
+- Renderer **861** 项测试通过；native app **267** 项单元与 **14** 项 CLI 测试通过；engine-native **106** 项测试、typecheck/build 通过。回归覆盖 JSON block 样式拒绝、计算值继承、normal/零行高、字体预热、面板增长/收缩、DPR/留边、选择项命中、资源计划一致和 reveal 稳定性。日志为 `packages/native/target/text-layout-{renderer-tests,app-tests,ts-tests,ts-typecheck,ts-build}.log`。
+
+- 完整 `pnpm native:e2e` **通过**：65 条对白投影、stealth 分支、settings/gallery、返回 title；199 commands / 4 passes，67 个 atlas text draws，1920×1080 GPU PNG。纹理/字体/清理错误为 0，结束时音频轨道为 0。日志 `packages/native/target/text-layout-e2e.log`。窗口仍为 `OccludedAfterRetry` / `presented=false`，不作为可见 OS 呈现的证据。
+
+段落级 bidi、跨字体逐 cluster fallback、完整空白/终止换行/断字语义、ruby、竖排、block/span 变换和完整 justify 仍未关闭。normal 度量目前取 family atlas，尚不等于每个 fallback/weight face 的逐 run 度量。此次不宣称全部浏览器文字能力、可见 OS 呈现、MP4/WebM 或 sprite manifest 已完成。

@@ -36,6 +36,24 @@ impl From<String> for RichTextContent {
     }
 }
 
+/// Native numbers are logical lengths; strings preserve CSS unit semantics.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(untagged)]
+pub enum RichTextMetric {
+    Logical(f64),
+    Css(String),
+}
+impl From<f64> for RichTextMetric {
+    fn from(value: f64) -> Self {
+        Self::Logical(value)
+    }
+}
+impl From<&str> for RichTextMetric {
+    fn from(value: &str) -> Self {
+        Self::Css(value.into())
+    }
+}
+
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RichTextStyle {
@@ -44,11 +62,11 @@ pub struct RichTextStyle {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub font_family: Option<FontFamilyProjection>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub font_size: Option<f64>,
+    pub font_size: Option<RichTextMetric>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub font_weight: Option<FontWeightProjection>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub line_height: Option<f64>,
+    pub line_height: Option<RichTextMetric>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub text_align: Option<String>,
 }
@@ -65,6 +83,8 @@ pub struct RichTextDocumentProjection {
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RichTextBlockProjection {
+    #[serde(default)]
+    pub style: RichTextStyle,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub spans: Vec<RichTextSpanProjection>,
 }

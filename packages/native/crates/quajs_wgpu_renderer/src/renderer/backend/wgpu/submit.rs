@@ -14,6 +14,20 @@ impl<E> NativeRenderBackend for WgpuNativeRenderBackend<E>
 where
     E: WgpuNativeRenderRuntimeExecutor,
 {
+    fn measure_text_height(
+        &self,
+        text: &crate::render_graph::TextDrawParams,
+        width: f64,
+        physical_scale: f64,
+    ) -> Option<f64> {
+        super::buffer::text_geometry::atlas::inline::measure_inline_height(
+            text,
+            width,
+            physical_scale,
+            &self.font_atlas_layouts,
+        )
+    }
+
     fn submit_frame(&mut self, frame: NativeRenderFrameRef<'_>) -> NativeRenderBackendResult {
         let submission = frame.submission();
         self.config

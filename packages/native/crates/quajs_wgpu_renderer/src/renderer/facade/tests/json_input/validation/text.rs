@@ -280,3 +280,26 @@ fn json_frame_rich_text_number_validation_rejects_unsafe_resolved_values() {
     assert_eq!(renderer.state().revision(), 0);
     assert!(renderer.state().frame().is_none());
 }
+
+#[test]
+fn json_rich_text_metrics_validate_block_styles_before_frame_preparation() {
+    let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
+    let mut input = serde_json::json!({ "view": { "dialogue": { "visible": true, "mode": "say", "text": {
+        "style": { "fontSize": "24px", "lineHeight": "1.5" },
+        "blocks": [{ "style": { "fontSize": "2em", "lineHeight": "120%" },
+            "spans": [{ "text": "Valid", "style": { "lineHeight": "normal" } }] }]
+    } } } });
+    renderer.prepare_frame_json_str(&input.to_string()).unwrap();
+    let previous = renderer.state().clone();
+    input["view"]["dialogue"]["text"]["blocks"][0]["style"]["lineHeight"] =
+        serde_json::json!("1 em");
+    let NativeRendererJsonFrameError::Validation(error) = renderer
+        .prepare_frame_json_str(&input.to_string())
+        .unwrap_err()
+    else {
+        panic!()
+    };
+    assert_eq!(error.path, "view.dialogue.text.blocks[0].style.lineHeight");
+    assert_eq!(renderer.state().revision(), previous.revision());
+    assert_eq!(renderer.state().frame(), previous.frame());
+}

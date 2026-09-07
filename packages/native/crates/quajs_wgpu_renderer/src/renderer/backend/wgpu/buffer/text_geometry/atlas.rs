@@ -1,4 +1,4 @@
-mod inline;
+pub(crate) mod inline;
 pub(in crate::renderer::backend::wgpu::buffer) use inline::inline_text_geometry;
 
 use unicode_segmentation::UnicodeSegmentation;
@@ -124,7 +124,7 @@ pub(super) fn atlas_text_geometry(
                     scale,
                     embolden_offset,
                     synthetic_italic,
-                    content_rect,
+                    Some(content_rect),
                     color,
                     &mut vertices,
                     &mut indices,
@@ -164,7 +164,7 @@ pub(super) fn atlas_text_geometry(
                         scale,
                         requested_embolden_offset,
                         synthetic_italic,
-                        content_rect,
+                        Some(content_rect),
                         color,
                         &mut vertices,
                         &mut indices,
@@ -610,7 +610,7 @@ fn append_atlas_glyph(
     scale: f32,
     embolden_offset: f32,
     synthetic_italic: bool,
-    content_rect: FloatRect,
+    content_rect: Option<FloatRect>,
     color: [f32; 4],
     vertices: &mut Vec<WgpuNativeRenderBufferVertex>,
     indices: &mut Vec<u32>,
@@ -635,16 +635,19 @@ fn append_atlas_glyph(
                 vertex.position[0] += (baseline - vertex.position[1]) * 14.0_f32.to_radians().tan();
             }
         }
-        let c = content_rect;
-        let points = super::super::rounded_clip::intersect(
-            points,
-            &[
-                [c.x, c.y],
-                [c.right(), c.y],
-                [c.right(), c.y + c.height],
-                [c.x, c.y + c.height],
-            ],
-        );
+        let points = if let Some(c) = content_rect {
+            super::super::rounded_clip::intersect(
+                points,
+                &[
+                    [c.x, c.y],
+                    [c.right(), c.y],
+                    [c.right(), c.y + c.height],
+                    [c.x, c.y + c.height],
+                ],
+            )
+        } else {
+            points
+        };
         if points.len() >= 3 {
             let first = vertices.len() as u32;
             for i in 1..points.len() - 1 {
@@ -1016,26 +1019,59 @@ mod tests {
     #[test]
     fn ellipsis_and_wrapping_preserve_graphemes_and_paragraph_ends() {
         let glyph = FontBackendAtlasGlyph {
-            uv_top_left: [0.0; 2], uv_bottom_right: [0.5; 2], advance: 10.0,
-            bearing_x: 0.0, bearing_y: -8.0, width: 8.0, height: 10.0,
+            uv_top_left: [0.0; 2],
+            uv_bottom_right: [0.5; 2],
+            advance: 10.0,
+            bearing_x: 0.0,
+            bearing_y: -8.0,
+            width: 8.0,
+            height: 10.0,
         };
         let mut layout = FontBackendAtlasLayout {
-            resource_id: ResourceId::from("fonts:test"), family: "test".into(),
-            raster_size: 10.0, ascent: 8.0, descent: -2.0, line_height: 12.0,
-            is_default: true, glyphs: "e\u{301}… AB".chars().map(|c| (c, glyph.clone())).collect(),
-            glyphs_by_id: BTreeMap::new(), shaping_face: None,
+            resource_id: ResourceId::from("fonts:test"),
+            family: "test".into(),
+            raster_size: 10.0,
+            ascent: 8.0,
+            descent: -2.0,
+            line_height: 12.0,
+            is_default: true,
+            glyphs: "e\u{301}… AB".chars().map(|c| (c, glyph.clone())).collect(),
+            glyphs_by_id: BTreeMap::new(),
+            shaping_face: None,
         };
         layout.glyphs.get_mut(&'\u{301}').unwrap().advance = 0.0;
         layout.glyphs.get_mut(&'…').unwrap().advance = 5.0;
         let mut style = style(None);
         style.text_overflow = TextOverflowDrawParam::Ellipsis;
-        assert_eq!(ellipsize("e\u{301}e\u{301}e\u{301}", &layout, 1.0, 0.0, 15.0, &style), "e\u{301}…");
-        let lines = layout_lines("e\u{301}e\u{301}e\u{301}\nB", &layout, 1.0, 0.0, 20.0,
-            WhiteSpaceDrawParam::PreWrap, &style);
-        assert_eq!(lines.iter().map(|l| (l.text.as_str(), l.soft_wrapped)).collect::<Vec<_>>(),
-            vec![("e\u{301}e\u{301}", true), ("e\u{301}", false), ("B", false)]);
+        assert_eq!(
+            ellipsize("e\u{301}e\u{301}e\u{301}", &layout, 1.0, 0.0, 15.0, &style),
+            "e\u{301}…"
+        );
+        let lines = layout_lines(
+            "e\u{301}e\u{301}e\u{301}\nB",
+            &layout,
+            1.0,
+            0.0,
+            20.0,
+            WhiteSpaceDrawParam::PreWrap,
+            &style,
+        );
+        assert_eq!(
+            lines
+                .iter()
+                .map(|l| (l.text.as_str(), l.soft_wrapped))
+                .collect::<Vec<_>>(),
+            vec![
+                ("e\u{301}e\u{301}", true),
+                ("e\u{301}", false),
+                ("B", false)
+            ]
+        );
         assert_eq!(justification_gaps("A B C"), [1, 3].into_iter().collect());
-        assert_eq!(justification_gaps("你好世界"), [0, 3, 6].into_iter().collect());
+        assert_eq!(
+            justification_gaps("你好世界"),
+            [0, 3, 6].into_iter().collect()
+        );
     }
 
     fn demo_font_path() -> PathBuf {
