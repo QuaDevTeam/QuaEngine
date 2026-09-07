@@ -870,6 +870,7 @@ function createNativeRichTextBlock(block: unknown): JsonRecord | undefined {
     return undefined
   }
   return {
+    style: createNativeRichTextStyle(record),
     spans: Array.isArray(record.spans)
       ? record.spans.map(createNativeRichTextSpan).filter(isJsonRecord)
       : [],
@@ -899,11 +900,15 @@ function createNativeRichTextStyle(style: unknown): JsonRecord | undefined {
   return omitUndefined({
     color: stringValue(record.color),
     fontFamily: createNativeFontFamily(record.fontFamily),
-    fontSize: finiteNumber(record.fontSize),
+    fontSize: typeof record.fontSize === 'string' ? record.fontSize : finiteNumber(record.fontSize),
     fontWeight: typeof record.fontWeight === 'string' || typeof record.fontWeight === 'number'
       ? record.fontWeight
       : undefined,
-    lineHeight: finiteNumber(record.lineHeight),
+    // Numeric Web line-height is a multiplier, while native numeric lengths
+    // are logical pixels. Preserve CSS numbers as strings until inheritance
+    // resolves against each element's actual font size.
+    lineHeight: typeof record.lineHeight === 'string' ? record.lineHeight
+      : finiteNumber(record.lineHeight) !== undefined ? String(record.lineHeight) : undefined,
     textAlign: stringValue(record.textAlign),
   })
 }

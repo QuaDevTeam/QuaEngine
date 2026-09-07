@@ -2,7 +2,7 @@ use std::collections::BTreeSet;
 
 use crate::audio::plan_audio_backend_commands;
 use crate::fonts::plan_font_backend_commands;
-use crate::frame::prepare_native_frame_with_video_frame_resources;
+use crate::frame::builder::prepare_native_frame_with_measurement;
 use crate::projection::audio::AudioProjection;
 use crate::projection::fonts::FontsProjection;
 use crate::projection::view::ViewProjection;
@@ -27,10 +27,20 @@ impl NativeRendererState {
         layout: ResolvedStageLayout,
         view: &ViewProjection,
     ) -> NativeRendererFrameUpdate {
-        let frame = prepare_native_frame_with_video_frame_resources(
+        self.prepare_frame_with_measurement(layout, view, &|_, _| None)
+    }
+
+    pub(crate) fn prepare_frame_with_measurement(
+        &mut self,
+        layout: ResolvedStageLayout,
+        view: &ViewProjection,
+        measure: &crate::projection::dialogue::builder::TextHeightMeasurer<'_>,
+    ) -> NativeRendererFrameUpdate {
+        let frame = prepare_native_frame_with_measurement(
             layout,
             view,
             &self.video_backend_frame_resources,
+            measure,
         );
         let resource_sync = plan_frame_resource_sync(&self.resources, &frame.resources);
         let texture_uploads = plan_texture_upload_requests(&frame.assets);
@@ -77,6 +87,7 @@ impl NativeRendererState {
         self.video_backend_streams = video_backend_commands.next_streams.clone();
         self.pointer_interaction.reconcile(&frame.graph);
         self.frame = Some(frame);
+        self.frame_video_resources = self.video_backend_frame_resources.clone();
 
         NativeRendererFrameUpdate {
             revision: self.revision,
@@ -95,6 +106,27 @@ impl NativeRendererState {
             font_backend_commands,
             video_backend_commands,
         }
+    }
+    pub(crate) fn reflow_frame(
+        &mut self,
+        view: &ViewProjection,
+        measure: &crate::projection::dialogue::builder::TextHeightMeasurer<'_>,
+    ) -> bool {
+        let Some(current) = &self.frame else {
+            return false;
+        };
+        let frame = prepare_native_frame_with_measurement(
+            current.graph.layout,
+            view,
+            &self.frame_video_resources,
+            measure,
+        );
+        if current == &frame {
+            return false;
+        }
+        self.pointer_interaction.reconcile(&frame.graph);
+        self.frame = Some(frame);
+        true
     }
 }
 

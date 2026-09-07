@@ -34,6 +34,10 @@ impl JsonProjectionValidator {
                 self.validate_rich_text_style(&format!("{path}.style"), &document.style);
                 let mut total_bytes = 0usize;
                 for (block_index, block) in document.blocks.iter().enumerate() {
+                    self.validate_rich_text_style(
+                        &format!("{path}.blocks[{block_index}].style"),
+                        &block.style,
+                    );
                     if block_index > 0 {
                         total_bytes = total_bytes.saturating_add(1);
                     }

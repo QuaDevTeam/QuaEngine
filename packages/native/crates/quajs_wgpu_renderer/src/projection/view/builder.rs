@@ -1,8 +1,11 @@
 use crate::projection::{
     background::append_background_commands_with_video_frame_resources,
-    character::append_character_commands, choices::append_choice_commands_with_dialogue,
-    dialogue::append_dialogue_commands, effects::append_effect_commands,
-    scene_transition::append_scene_transition_commands, ui::append_ui_commands,
+    character::append_character_commands,
+    choices::append_choice_commands_with_dialogue,
+    dialogue::builder::{build_dialogue_commands_with_measurement, TextHeightMeasurer},
+    effects::append_effect_commands,
+    scene_transition::append_scene_transition_commands,
+    ui::append_ui_commands,
 };
 use crate::render_graph::RenderGraph;
 use crate::stage_layout::ResolvedStageLayout;
@@ -41,6 +44,15 @@ pub fn append_view_commands_with_video_frame_resources(
     view: &ViewProjection,
     video_frame_resources: &VideoBackendFrameResourceMap,
 ) {
+    append_view_commands_with_measurement(graph, view, video_frame_resources, &|_, _| None);
+}
+
+pub(crate) fn append_view_commands_with_measurement(
+    graph: &mut RenderGraph,
+    view: &ViewProjection,
+    video_frame_resources: &VideoBackendFrameResourceMap,
+    measure: &TextHeightMeasurer<'_>,
+) {
     if let Some(background) = &view.background {
         append_background_commands_with_video_frame_resources(
             graph,
@@ -52,7 +64,11 @@ pub fn append_view_commands_with_video_frame_resources(
     append_character_commands(graph, &view.characters);
 
     if let Some(dialogue) = &view.dialogue {
-        append_dialogue_commands(graph, dialogue);
+        graph.extend(build_dialogue_commands_with_measurement(
+            &graph.layout,
+            dialogue,
+            measure,
+        ));
     }
 
     if let Some(choices) = &view.choices {

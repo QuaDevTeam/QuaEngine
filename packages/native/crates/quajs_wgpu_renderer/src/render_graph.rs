@@ -22,11 +22,12 @@ pub use style::{
     BackdropBlurDrawParams, BorderDrawParams, CharacterAnchor, CharacterDrawParams,
     DrawCommandParams, DrawTransition, DrawTransitionEasing, DrawTransitionProperty,
     EdgeInsetsDrawParam, FontStyleDrawParam, FontWeightDrawParam, GradientDrawKind,
-    GradientDrawParams, GradientDrawRadialShape, ImageDrawParams, InlineTextDrawParams, InlineTextRun, MediaFit, MediaOrigin,
-    PanelDrawParams, RendererIntent, ShadowDrawParams, ShadowDrawStyle, TextAlign,
-    TextDecorationDrawParam, TextDrawParams, TextOverflowDrawParam, TextTransformDrawParam,
-    UiButtonDrawParams, UiControlDrawParam, UiControlOptionDrawParam, UiControlPartsDrawParam,
-    UiSurfaceDrawParams, VideoDrawParams, WhiteSpaceDrawParam,
+    GradientDrawParams, GradientDrawRadialShape, ImageDrawParams, InlineTextBlock,
+    InlineTextDrawParams, InlineTextRun, InlineTextStyle, MediaFit, MediaOrigin, PanelDrawParams,
+    RendererIntent, ShadowDrawParams, ShadowDrawStyle, TextAlign, TextDecorationDrawParam,
+    TextDrawParams, TextOverflowDrawParam, TextTransformDrawParam, UiButtonDrawParams,
+    UiControlDrawParam, UiControlOptionDrawParam, UiControlPartsDrawParam, UiSurfaceDrawParams,
+    VideoDrawParams, WhiteSpaceDrawParam,
 };
 pub use summary::{
     RenderGraphPackageSummary, RenderGraphResourceSummary, RenderGraphSummary, RenderPlaneSummary,

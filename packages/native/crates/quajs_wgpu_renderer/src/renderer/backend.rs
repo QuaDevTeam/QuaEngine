@@ -132,6 +132,16 @@ impl std::error::Error for NativeRenderBackendError {}
 pub type NativeRenderBackendResult = Result<NativeRenderSubmission, NativeRenderBackendError>;
 
 pub trait NativeRenderBackend {
+    /// Content height in logical units, using resident font metrics. None while fonts are unavailable.
+    fn measure_text_height(
+        &self,
+        _text: &crate::render_graph::TextDrawParams,
+        _width: f64,
+        _physical_scale: f64,
+    ) -> Option<f64> {
+        None
+    }
+
     fn submit_frame(&mut self, frame: NativeRenderFrameRef<'_>) -> NativeRenderBackendResult;
 
     fn resident_texture_resource_ids(&self) -> Vec<String> {

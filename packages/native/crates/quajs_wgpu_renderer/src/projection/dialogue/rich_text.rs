@@ -1,6 +1,5 @@
 use crate::projection::safety::{
-    is_safe_native_color_literal, is_safe_native_rich_text_logical_value,
-    is_safe_native_text_payload, is_safe_native_text_payload_bytes,
+    is_safe_native_color_literal, is_safe_native_text_payload, is_safe_native_text_payload_bytes,
 };
 use crate::projection::typography::{font_family_to_draw_param, font_weight_to_draw_param};
 use crate::render_graph::{FontWeightDrawParam, TextAlign};
@@ -78,10 +77,7 @@ pub fn resolve_text_color(style: &RichTextStyle, fallback: &str) -> String {
 }
 
 pub fn resolve_font_size(style: &RichTextStyle, fallback: f64) -> f64 {
-    style
-        .font_size
-        .filter(|value| is_safe_native_rich_text_logical_value(*value))
-        .unwrap_or(fallback)
+    super::typography::font_size(style, fallback)
 }
 
 pub fn resolve_font_family(style: &RichTextStyle) -> Vec<String> {
@@ -92,9 +88,6 @@ pub fn resolve_font_weight(style: &RichTextStyle) -> Option<FontWeightDrawParam>
     font_weight_to_draw_param(&style.font_weight)
 }
 
-pub fn resolve_line_height(style: &RichTextStyle, fallback: f64) -> f64 {
-    style
-        .line_height
-        .filter(|value| is_safe_native_rich_text_logical_value(*value))
-        .unwrap_or(fallback)
+pub fn resolve_line_height(style: &RichTextStyle, font_size: f64, fallback: f64) -> f64 {
+    super::typography::line_height(style, font_size, fallback)
 }

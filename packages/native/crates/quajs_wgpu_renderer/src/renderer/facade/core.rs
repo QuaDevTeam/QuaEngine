@@ -294,7 +294,31 @@ where
         layout: ResolvedStageLayout,
         view: &ViewProjection,
     ) -> NativeRendererFrameUpdate {
-        self.state.prepare_frame(layout, view)
+        let backend = &self.backend;
+        self.state
+            .prepare_frame_with_measurement(layout, view, &|text, width| {
+                backend.measure_text_height(text, width, layout.physical_scale)
+            })
+    }
+
+    /// Rebuild layout after font upload using the caller's current borrowed projection.
+    /// Does not re-plan audio, fonts, or engine lifecycle; hit tests use this same graph.
+    pub fn reflow_text(&mut self, view: &ViewProjection) -> bool {
+        if !view
+            .dialogue
+            .as_ref()
+            .is_some_and(|dialogue| dialogue.visible)
+        {
+            return false;
+        }
+        let Some(frame) = self.state.frame() else {
+            return false;
+        };
+        let scale = frame.graph.layout.physical_scale;
+        let backend = &self.backend;
+        self.state.reflow_frame(view, &|text, width| {
+            backend.measure_text_height(text, width, scale)
+        })
     }
 
     pub fn render_frame(&mut self) -> NativeRenderBackendResult {

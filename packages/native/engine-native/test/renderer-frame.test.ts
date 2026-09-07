@@ -48,6 +48,7 @@ describe('native renderer frame serialization', () => {
       speakerStyle: expect.objectContaining({ fontFamily: ['Noto Sans'] }),
       text: {
         blocks: [{
+          style: {},
           spans: [{
             text: 'High resolution text',
             style: { fontFamily: ['Noto Sans', 'Noto Serif'] },
@@ -56,6 +57,28 @@ describe('native renderer frame serialization', () => {
         style: {},
       },
     }))
+  })
+
+  it('preserves CSS metric inheritance through documents, blocks, spans and speaker styles', () => {
+    const text = {
+      fontSize: '24px', lineHeight: 1.5,
+      blocks: [{ fontSize: '150%', lineHeight: '120%', textAlign: 'right',
+        spans: [{ text: 'large', fontSize: '2em', lineHeight: 'normal' },
+          { text: 'tight', lineHeight: 0 }],
+      }],
+    }
+    const frame = createNativeRendererJsonFrameInput({ dialogue: {
+      visible: true, mode: 'say', text, speakerStyle: { lineHeight: 1.1 },
+    } })
+    expect(frame.view.dialogue).toMatchObject({
+      speakerStyle: { lineHeight: '1.1' },
+      text: { style: { fontSize: '24px', lineHeight: '1.5' }, blocks: [{
+        style: { fontSize: '150%', lineHeight: '120%', textAlign: 'right' },
+        spans: [{ text: 'large', style: { fontSize: '2em', lineHeight: 'normal' } },
+          { text: 'tight', style: { lineHeight: '0' } }],
+      }] },
+    })
+    expect(text.lineHeight).toBe(1.5)
   })
 
   it('serializes the engine-owned scene transition projection without mutating it', () => {
