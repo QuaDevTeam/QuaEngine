@@ -117,6 +117,8 @@ The Vite plugin adds synthetic sprite records to the dev VFS manifest and emits 
 
 Sprite manifests are asset metadata. They must not create authoritative character state or renderer caches required for save/load/replay. Runtime package sprite/UI skin assets must preserve `contentPackageId` and `requiredRuntimePackages`.
 
+Native currently consumes resolved `metadata.spriteLayers` as a limited image-layer projection. Character opacity and transient presence fades apply once to the complete base/expression subtree; layer opacity applies locally, and layer z-index remains inside the character stacking context. The native JSON boundary validates the supported asset and numeric fields, with positive scale required. Native Rust DTO defaults match JSON defaults so omitted visibility/opacity/scale fields do not hide layers. Validate this subset with `node scripts/native-render-audit/sprite.mjs` (real Metal/Chrome and the same Quack QPK bytes). Native manifest/expression resolution, atlas frames, parent transforms, per-layer mask/blend and UI skin loading remain separate unfinished work.
+
 ## Validation
 
 ```bash

@@ -154,8 +154,42 @@ impl JsonProjectionValidator {
         if let Some(sprite) = &character.sprite {
             self.validate_asset_reference(&format!("{path}.sprite"), sprite);
         }
+        for (index, layer) in character.sprite_layers.iter().enumerate() {
+            let path = format!("{path}.spriteLayers[{index}]");
+            self.validate_asset_reference(&format!("{path}.asset"), &layer.asset);
+            self.validate_character_opacity(&format!("{path}.opacity"), layer.opacity);
+            self.validate_z_index(
+                &format!("{path}.zIndex"),
+                layer.z_index,
+                "sprite layer z-index",
+            );
+            if let Some((field, value, reason)) =
+                invalid_native_json_character_position_reason(&CharacterPosition {
+                    x: Some(layer.offset_x),
+                    y: Some(layer.offset_y),
+                    scale: Some(layer.scale as f64),
+                    rotation: Some(layer.rotation),
+                    ..Default::default()
+                })
+            {
+                let field = match field {
+                    "x" => "offsetX",
+                    "y" => "offsetY",
+                    field => field,
+                };
+                self.errors.push(NativeRendererJsonValidationError {
+                    path: format!("{path}.{field}"),
+                    asset_name: value,
+                    reason,
+                });
+            }
+        }
         self.validate_character_position(&format!("{path}.position"), &character.position);
         self.validate_character_opacity(&format!("{path}.opacity"), character.opacity);
+        self.validate_character_opacity(
+            &format!("{path}.presenceOpacity"),
+            character.presence_opacity,
+        );
         self.validate_z_index(
             &format!("{path}.layer"),
             character.layer,
