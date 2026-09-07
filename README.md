@@ -103,7 +103,7 @@ The demo story, characters, artwork, and generated assets are proprietary demo c
 Requirements:
 
 - Node.js `>=20`
-- pnpm `11.0.9`
+- pnpm `12.3.4`
 
 Common commands:
 
