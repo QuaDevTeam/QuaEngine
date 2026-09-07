@@ -82,7 +82,19 @@ impl WgpuNativeRenderQuad {
             apply_gradient_aspect_uv(&mut geometry.vertices, quad_aspect(primitive));
         }
         let (effect0, effect1) = effect_params_from_primitive(primitive);
-        let effect2 = gradient_segment_params_from_primitive(primitive);
+        let mut effect2 = gradient_segment_params_from_primitive(primitive);
+        if let (WgpuNativeRenderPrimitiveKind::Image { sampling, .. }, Some((w, h))) =
+            (&primitive.kind, texture_size)
+        {
+            if let Some(frame) = sampling.frame.filter(|_| w > 0 && h > 0) {
+                effect2 = [
+                    ((frame.x + 0.5) / w as f64) as f32,
+                    ((frame.y + 0.5) / h as f64) as f32,
+                    ((frame.x + frame.width - 0.5) / w as f64) as f32,
+                    ((frame.y + frame.height - 0.5) / h as f64) as f32,
+                ];
+            }
+        }
 
         Self {
             command_id: primitive.command_id.clone(),
@@ -93,7 +105,11 @@ impl WgpuNativeRenderQuad {
             vertices: geometry.vertices,
             indices: QUAD_INDICES,
             paint,
-            opacity: opacity_from_primitive(primitive),
+            opacity: if valid_atlas_frame(primitive, texture_size) {
+                opacity_from_primitive(primitive)
+            } else {
+                0.0
+            },
             corner_radius,
             effect0,
             effect1,
@@ -113,6 +129,29 @@ impl WgpuNativeRenderQuad {
             && self.paint.is_drawable()
             && !self.paint.has_invalid_color()
     }
+}
+
+fn valid_atlas_frame(primitive: &WgpuNativeRenderPrimitive, size: Option<(u32, u32)>) -> bool {
+    let WgpuNativeRenderPrimitiveKind::Image { sampling, .. } = &primitive.kind else {
+        return true;
+    };
+    let Some(frame) = sampling.frame else {
+        return true;
+    };
+    let Some((width, height)) = size else {
+        return false;
+    };
+    // Atlas coordinates cannot be interpreted without decoded dimensions.
+    // Never fall back to displaying the complete atlas for an invalid frame.
+    [frame.x, frame.y, frame.width, frame.height]
+        .iter()
+        .all(|n| n.is_finite())
+        && frame.x >= 0.0
+        && frame.y >= 0.0
+        && frame.width >= 1.0
+        && frame.height >= 1.0
+        && frame.x + frame.width <= width as f64
+        && frame.y + frame.height <= height as f64
 }
 
 fn effect_params_from_primitive(primitive: &WgpuNativeRenderPrimitive) -> ([f32; 4], [f32; 4]) {

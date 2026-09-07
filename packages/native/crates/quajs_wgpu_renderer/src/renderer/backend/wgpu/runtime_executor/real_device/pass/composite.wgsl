@@ -10,6 +10,7 @@ struct CompositeStyle {
     rotation_cos: f32, rotation_sin: f32,
     shadow_enabled: f32, shadow_sigma: f32, shadow_x: f32, shadow_y: f32,
     shadow_r: f32, shadow_g: f32, shadow_b: f32, shadow_a: f32,
+    inverse_a: f32, inverse_b: f32, inverse_c: f32, inverse_d: f32, inverse_x: f32, inverse_y: f32,
 }
 @group(0) @binding(1) var<uniform> style: CompositeStyle;
 @group(0) @binding(2) var backdrop: texture_2d<f32>;
@@ -25,7 +26,13 @@ fn source_pixel(position: vec2<f32>) -> vec4<f32> {
     if (any(position < vec2(0.0)) || any(position >= vec2<f32>(textureDimensions(source)))) {
         return vec4(0.0);
     }
-    return textureLoad(source, vec2<i32>(position), 0);
+    let p = position - 0.5;
+    let origin = floor(p);
+    let weight = fract(p);
+    if (all(weight < vec2(0.0001))) { return textureLoad(source, vec2<i32>(origin), 0); }
+    let a = vec2<i32>(origin);
+    return mix(mix(textureLoad(source, a, 0), textureLoad(source, a + vec2(1,0), 0), weight.x),
+               mix(textureLoad(source, a + vec2(0,1), 0), textureLoad(source, a + vec2(1,1), 0), weight.x), weight.y);
 }
 
 // Convert each straight-alpha texel to mask coverage before interpolation.
@@ -177,13 +184,15 @@ fn blend(b: vec3<f32>, s: vec3<f32>, mode: u32) -> vec3<f32> {
 }
 
 @fragment fn fs_main(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
-    var pixel = filtered_pixel(position.xy);
+    let point = vec2(style.inverse_a * position.x + style.inverse_c * position.y + style.inverse_x,
+                     style.inverse_b * position.x + style.inverse_d * position.y + style.inverse_y);
+    var pixel = filtered_pixel(point);
     if (style.shadow_enabled > 0.5 && style.shadow_a > 0.0) {
-        let alpha = shadow_alpha(position.xy) * style.shadow_a;
+        let alpha = shadow_alpha(point) * style.shadow_a;
         let shadow = vec4(vec3(style.shadow_r, style.shadow_g, style.shadow_b) * alpha, alpha);
         pixel += shadow * (1.0 - pixel.a);
     }
-    let masked = pixel * (style.opacity * mask_alpha(position.xy));
+    let masked = pixel * (style.opacity * mask_alpha(point));
     if (style.blend_mode == 0.0 || masked.a <= 0.0) { return masked; }
     let back = textureLoad(backdrop, vec2<i32>(position.xy), 0);
     let cb = back.rgb / max(back.a, 0.000001);

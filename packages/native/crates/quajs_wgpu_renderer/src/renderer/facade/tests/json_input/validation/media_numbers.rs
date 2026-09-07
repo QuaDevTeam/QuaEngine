@@ -324,7 +324,7 @@ fn json_frame_character_number_validation_rejects_unsafe_resolved_values() {
         NativeRendererJsonFrameError::Validation(validation) => {
             assert_eq!(validation.path, "view.characters[0].position.scale");
             assert_eq!(validation.asset_name, "0");
-            assert!(validation.reason.contains("greater than 0"));
+            assert!(validation.reason.contains("non-zero"));
         }
         other => panic!("expected unsafe character scale validation error, got {other:?}"),
     }

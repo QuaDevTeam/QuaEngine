@@ -513,6 +513,7 @@ fn avatar_command(
         avatar.asset_type, avatar.asset_name
     )))
     .params(DrawCommandParams::Image(ImageDrawParams {
+        sampling: Default::default(),
         asset_type: avatar.asset_type.clone(),
         asset_name: avatar.asset_name.clone(),
         fit: MediaFit::Cover,

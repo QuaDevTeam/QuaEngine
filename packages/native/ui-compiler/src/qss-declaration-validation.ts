@@ -341,7 +341,7 @@ function validateNativeWgpuDeclarationValue(declaration: NativeQssDeclaration): 
     case 'border-image-slice':
       return parseNativeQssBorderImageSlice(value)
         ? undefined
-        : 'border-image-slice supports one to four non-negative logical px or unitless numbers, optionally followed by fill.'
+        : 'border-image-slice supports one to four non-negative source-texel numbers (optional px suffix), optionally followed by fill.'
     case 'border-image-width':
       return parseNativeQssBorderImageWidth(value)
         ? undefined

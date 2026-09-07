@@ -46,6 +46,7 @@ pub(in crate::projection::ui::surface) fn surface_background_image_command(
         image.asset_type, image.asset_name
     )))
     .params(DrawCommandParams::Image(ImageDrawParams {
+        sampling: Default::default(),
         asset_type: image.asset_type.clone(),
         asset_name: image.asset_name.clone(),
         fit: resolve_background_size(&node.style, MediaFit::Cover),

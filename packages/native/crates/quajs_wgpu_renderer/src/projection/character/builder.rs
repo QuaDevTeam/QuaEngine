@@ -3,8 +3,9 @@ use crate::projection::safety::{
     is_safe_native_character_position, is_safe_native_opacity, is_safe_native_z_index,
 };
 use crate::render_graph::{
-    CharacterDrawParams, DrawCommand, DrawCommandKind, DrawCommandParams, DrawCompositeGroup,
-    ImageDrawParams, MediaFit, MediaOrigin, RenderGraph, RenderPlane,
+    CharacterDrawParams, CompositeBlendMode, DrawCommand, DrawCommandKind, DrawCommandParams,
+    DrawCompositeGroup, ImageDrawParams, ImageSampling, MediaFit, MediaOrigin, RenderGraph,
+    RenderPlane,
 };
 use crate::resources::ResourceId;
 use crate::stage_layout::ResolvedStageLayout;
@@ -66,13 +67,15 @@ fn character_commands(
         .scale
         .filter(|value| value.is_finite() && value.abs() > 0.0)
         .unwrap_or(1.0);
-    let flip_horizontal = scale < 0.0;
+    let negative_scale = scale < 0.0;
+    let flip_horizontal = false;
     let scale = scale.abs();
     let rotation_degrees = character
         .position
         .rotation
         .filter(|value| value.is_finite())
-        .unwrap_or(0.0);
+        .unwrap_or(0.0)
+        + if negative_scale { 180.0 } else { 0.0 };
     let mut command = DrawCommand::new(
         format!("character:{}", character.id),
         RenderPlane::Subject,
@@ -102,7 +105,17 @@ fn character_commands(
     }
 
     let mut commands = vec![command];
-    for (index, layer) in character.sprite_layers.iter().enumerate() {
+    for (index, layer) in character
+        .sprite_base
+        .iter()
+        .chain(character.sprite_layers.iter())
+        .enumerate()
+    {
+        let is_base = character.sprite_base.is_some() && index == 0;
+        let layer_index = index.saturating_sub(usize::from(character.sprite_base.is_some()));
+        if is_base && !layer.visible {
+            commands[0].opacity = 0.0;
+        }
         if !layer.visible
             || !is_safe_native_asset_name(&layer.asset)
             || !is_safe_native_opacity(layer.opacity)
@@ -118,28 +131,65 @@ fn character_commands(
         {
             continue;
         }
-        let scale = layer.scale.abs() as f64;
+        let layer_scale = layer.scale as f64;
+        // A layer's transform belongs to the character's local coordinate
+        // system. Rotate/reflect its center about the parent's center, then
+        // compose its own rotation. Offsets are authored before parent scale.
+        let anchor_offset = match layer.anchor.as_deref() {
+            Some("left") => -bounds.width * (1.0 - layer_scale) / 2.0,
+            Some("right") => bounds.width * (1.0 - layer_scale) / 2.0,
+            _ => 0.0,
+        };
+        let local_x = layer.offset_x * scale + anchor_offset;
+        let local_y = layer.offset_y * scale;
+        let (sin, cos) = rotation_degrees.to_radians().sin_cos();
+        let local_x = if flip_horizontal { -local_x } else { local_x };
+        let width = bounds.width * layer_scale;
+        let height = bounds.height * layer_scale;
         let mut command = DrawCommand::new(
-            format!("character:{}:sprite-layer:{}", character.id, index),
+            if is_base {
+                format!("character:{}", character.id)
+            } else {
+                format!("character:{}:sprite-layer:{}", character.id, layer_index)
+            },
             RenderPlane::Subject,
             DrawCommandKind::Image,
             crate::render_graph::LogicalRect {
-                x: bounds.x + layer.offset_x,
-                y: bounds.y + layer.offset_y,
-                width: bounds.width * scale,
-                height: bounds.height * scale,
+                x: bounds.x + bounds.width / 2.0 + local_x * cos - local_y * sin - width / 2.0,
+                y: bounds.y + bounds.height / 2.0 + local_x * sin + local_y * cos - height / 2.0,
+                width,
+                height,
             },
         )
         .z_index(layer.z_index)
         .opacity(layer.opacity)
         .resource(character_resource_id(&layer.asset))
         .params(DrawCommandParams::Image(ImageDrawParams {
-            asset_type: "characters".to_string(),
+            asset_type: "characters".into(),
             asset_name: layer.asset.clone(),
-            fit: MediaFit::Contain,
+            sampling: ImageSampling {
+                frame: layer.frame.map(|frame| crate::render_graph::LogicalRect {
+                    x: frame.x,
+                    y: frame.y,
+                    width: frame.width,
+                    height: frame.height,
+                }),
+                flip_horizontal,
+                nine_slice: None,
+            },
+            fit: if is_base {
+                MediaFit::Fill
+            } else {
+                MediaFit::Contain
+            },
             origin: MediaOrigin::default(),
             source: bounds,
-            rotation_degrees: rotation_degrees + layer.rotation,
+            rotation_degrees: rotation_degrees
+                + if flip_horizontal {
+                    -layer.rotation
+                } else {
+                    layer.rotation
+                },
             brightness: 1.0,
             saturation: 1.0,
             contrast: 1.0,
@@ -148,15 +198,52 @@ fn character_commands(
             hue_rotate_radians: 0.0,
             invert: 0.0,
         }));
+        let blend_mode = layer
+            .blend_mode
+            .as_deref()
+            .map(CompositeBlendMode::from_css)
+            .unwrap_or_default();
+        if layer.mask.is_some() || blend_mode != CompositeBlendMode::Normal {
+            let mask = layer
+                .mask
+                .as_deref()
+                .filter(|mask| is_safe_native_asset_name(mask));
+            let group = DrawCompositeGroup {
+                id: format!("sprite-layer:{}:{}", character.id, index),
+                z_index: layer.z_index,
+                opacity: layer.opacity,
+                blend_mode,
+                mask_resource_id: mask.map(|name| format!("characters:{name}")),
+                mask_bounds: Some(command.bounds),
+                mask_scale: scale * layer_scale,
+                mask_rotation: rotation_degrees + layer.rotation,
+                mask_layout: crate::render_graph::mask::MaskLayout::parse(
+                    Some("0 0"),
+                    Some("auto"),
+                    Some("no-repeat"),
+                )
+                .unwrap_or_default(),
+                ..Default::default()
+            };
+            if let Some(mask) = mask {
+                command.resource_ids.push(character_resource_id(mask));
+            }
+            command.opacity = 1.0;
+            command.composite_groups.push(group);
+        }
         if let Some(package_id) = character.provenance.safe_content_package_id() {
             command = command.owned_by(package_id);
         }
         for package_id in character.provenance.safe_required_runtime_packages() {
             command = command.require_package(package_id);
         }
-        commands.push(command);
+        if is_base {
+            commands[0] = command;
+        } else {
+            commands.push(command);
+        }
     }
-    if commands.len() > 1 {
+    if commands.len() > 1 || character.sprite_base.is_some() {
         // Character opacity belongs to the completed sprite. Applying it to
         // each overlapping expression layer changes the resulting colors.
         // Keep local layer ordering inside the character's stacking context.
@@ -166,10 +253,12 @@ fn character_commands(
             z_index: character.layer,
             ..Default::default()
         };
-        commands[0].opacity = 1.0;
+        if character.sprite_base.is_none() {
+            commands[0].opacity = 1.0;
+        }
         commands[0].z_index = 0;
         for command in &mut commands {
-            command.composite_groups.push(group.clone());
+            command.composite_groups.insert(0, group.clone());
         }
     }
     Some(commands)

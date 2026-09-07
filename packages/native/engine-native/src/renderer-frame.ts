@@ -15,6 +15,7 @@ import {
   projectDialogue,
   projectEffect,
   projectUiOverlay,
+  projectStageMotion,
 } from '@quajs/render-core'
 import type { NativeRendererFeatureSurfaceEntry } from './feature-surfaces'
 import { createNativeRendererFeatureSurfaceOverlays } from './feature-surfaces'
@@ -104,6 +105,7 @@ export function createNativeRendererViewProjection(
   const effects = projectNativeEffects(view.effects, animations, now)
   const choices = projectNativeChoices(view.choices, plugins?.choices, animations, now)
   const ui = projectNativeUi(view.ui, animations, now)
+  const motion = projectStageMotion({ ...view, plugins: plugins ?? {}, animations } as unknown as QuaViewProjection, now)
   const featureOverlays = createNativeRendererFeatureSurfaceOverlays(view, options.featureSurfaces)
   const audio = animations.length > 0
     ? projectAudioProjection<Record<string, unknown>>(view as unknown as Readonly<QuaViewProjection>, now)
@@ -111,6 +113,8 @@ export function createNativeRendererViewProjection(
 
   return omitUndefined({
     sceneTransition: cloneJsonValue(view.sceneTransition),
+    stage: createNativeMotionProjection(motion.stage),
+    camera: createNativeMotionProjection(motion.camera),
     background: createNativeBackgroundProjection(background),
     characters: Array.isArray(characters)
       ? characters.map(createNativeCharacterProjection).filter(isJsonRecord)
@@ -119,7 +123,7 @@ export function createNativeRendererViewProjection(
     effects: effects.length > 0
       ? effects.map(createNativeEffectProjection).filter(isJsonRecord)
       : undefined,
-    choices: createNativeChoiceSetProjection(choices),
+    choices: createNativeChoiceSetProjection(choices.choices, choices.panel),
     ui: mergeNativeUiProjection(createNativeUiProjection(ui), featureOverlays),
     audio: createNativeAudioProjection(audio),
     plugins: createNativePluginProjection(view.plugins),
@@ -202,7 +206,7 @@ function projectNativeDialogue(
   now: number,
 ): unknown {
   const record = asRecord(dialogue)
-  return record && animations.length > 0
+  return record && (animations.length > 0 || asRecord(base))
     ? projectDialogue(
         record as unknown as Readonly<ViewDialogueProjection>,
         animations,
@@ -217,15 +221,15 @@ function projectNativeChoices(
   base: unknown,
   animations: readonly Readonly<ActiveAnimationProjection>[],
   now: number,
-): readonly unknown[] | undefined {
-  return Array.isArray(choices) && animations.length > 0
+): { choices: readonly unknown[] | undefined, panel?: unknown } {
+  return Array.isArray(choices) && (animations.length > 0 || asRecord(base))
     ? projectChoices(
         choices.filter(isJsonRecord) as unknown as readonly Readonly<ViewChoiceProjection>[],
         animations,
         now,
         asRecord(base),
-      ).choices
-    : choices
+      )
+    : { choices, panel: base }
 }
 
 function projectNativeUi(
@@ -498,6 +502,7 @@ function createNativeDialogueProjection(dialogue: unknown): JsonRecord | undefin
   }
   const text = createNativeRichTextContent(record.text ?? '')
   return omitUndefined({
+    ...createNativeMotionProjection(record),
     revision: integerValue(record.revision),
     visible: record.visible !== false,
     characterId: stringValue(record.characterId),
@@ -531,11 +536,12 @@ function createNativeDialogueAvatarProjection(avatar: unknown): JsonRecord | und
   })
 }
 
-function createNativeChoiceSetProjection(choices: readonly unknown[] | undefined): JsonRecord | undefined {
+function createNativeChoiceSetProjection(choices: readonly unknown[] | undefined, panel?: unknown): JsonRecord | undefined {
   if (!Array.isArray(choices)) {
     return undefined
   }
   return omitUndefined({
+    ...createNativeMotionProjection(panel),
     visible: choices.length > 0,
     choices: choices.map(createNativeChoiceProjection).filter(isJsonRecord),
     provenance: mergePackageProvenance(choices.map(createPackageProvenance)),
@@ -553,6 +559,7 @@ function createNativeChoiceProjection(choice: unknown): JsonRecord | undefined {
     return undefined
   }
   return omitUndefined({
+    ...createNativeMotionProjection(record),
     id,
     text,
     enabled: record.enabled !== false,
@@ -616,6 +623,7 @@ function createNativeUiOverlayProjection(elementId: string, overlay: unknown): J
   const scene = createNativeUiSceneProjection(record.scene)
   return omitUndefined({
     elementId,
+    ...createNativeMotionProjection(record),
     visible: record.visible !== false,
     renderMode: nativeUiRenderMode(record.renderMode, scene?.renderMode),
     interactive: booleanValue(record.interactive),
@@ -798,6 +806,7 @@ function createNativeCharacterProjection(character: unknown): JsonRecord | undef
     sprite: stringValue(record.sprite),
     expression: stringValue(record.expression),
     spriteLayers: createNativeSpriteLayers(record.metadata),
+    spriteBase: createNativeSpriteLayers({ spriteLayers: [asRecord(record.metadata)?.spriteBase] })?.[0],
     position: createNativeCharacterPosition(record.position),
     opacity: finiteNumber(record.opacity),
     layer: integerValue(record.layer),
@@ -816,6 +825,8 @@ function createNativeSpriteLayers(metadata: unknown): JsonRecord[] | undefined {
       return asset
         ? omitUndefined({
             asset,
+            frame: cloneJsonValue(item?.frame), mask: stringValue(item?.mask),
+            blendMode: stringValue(item?.blendMode), anchor: stringValue(item?.anchor),
             offsetX: finiteNumber(item?.offsetX),
             offsetY: finiteNumber(item?.offsetY),
             zIndex: integerValue(item?.zIndex),
@@ -870,6 +881,7 @@ function createNativeRichTextBlock(block: unknown): JsonRecord | undefined {
     return undefined
   }
   return {
+    id: stringValue(record.id),
     style: createNativeRichTextStyle(record),
     spans: Array.isArray(record.spans)
       ? record.spans.map(createNativeRichTextSpan).filter(isJsonRecord)
@@ -887,6 +899,7 @@ function createNativeRichTextSpan(span: unknown): JsonRecord | undefined {
     return undefined
   }
   return omitUndefined({
+    id: stringValue(record.id),
     text,
     style: createNativeRichTextStyle(record),
   })
@@ -999,4 +1012,15 @@ function cloneJsonValue<T>(value: T): T | undefined {
   }
   const serialized = JSON.stringify(value)
   return serialized === undefined ? undefined : JSON.parse(serialized) as T
+}
+
+function createNativeMotionProjection(value: unknown): JsonRecord | undefined {
+  const record = asRecord(value)
+  if (!record) return undefined
+  const motion = omitUndefined({
+    x: finiteNumber(record.x), y: finiteNumber(record.y), scale: finiteNumber(record.scale),
+    rotation: finiteNumber(record.rotation), opacity: finiteNumber(record.opacity),
+    composition: cloneJsonValue(record.composition),
+  })
+  return Object.keys(motion).length > 0 ? motion : undefined
 }

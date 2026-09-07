@@ -115,6 +115,9 @@ fn corner_radii_with_base(style: &UiSurfaceResolvedStyle, base: f64) -> [f64; 4]
 }
 
 pub fn resolve_border_color(style: &UiSurfaceResolvedStyle) -> Option<String> {
+    if style.border_image.is_some() {
+        return None;
+    }
     if matches!(
         style.border_style,
         Some(UiSurfaceBorderStyleProjection::None)

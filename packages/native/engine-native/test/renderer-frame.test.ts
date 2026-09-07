@@ -2,6 +2,31 @@ import { describe, expect, it } from 'vitest'
 import { createNativeRendererJsonFrameInput } from '../src'
 
 describe('native renderer frame serialization', () => {
+  it('preserves stage, camera, dialogue, choice and rich-span timeline results', () => {
+    const track = (target: string, property: string) => ({ target, property, keyframes: [{ at: 0, value: 0 }, { at: 1000, value: 100 }] })
+    const frame = createNativeRendererJsonFrameInput({
+      plugins: { camera: { x: 15 } },
+      dialogue: { visible: true, text: { kind: 'rich-text', blocks: [{ id: 'line', spans: [{ id: 'word', text: 'Animated' }] }] } },
+      choices: [{ id: 'one', text: 'One' }],
+      animations: [{ id: 'motion', state: 'running', startedAt: 1000, duration: 1000,
+        resolvedTracks: [track('stage:main', 'x'), track('dialogue:box', 'y'),
+          track('choices:panel', 'y'), track('choice:one', 'x'), track('richTextSpan:dialogue:word', 'fontSize')] }],
+    }, { now: 1500 })
+    expect(frame.view.stage).toEqual({ x: 50 })
+    expect(frame.view.camera).toEqual({ x: 15 })
+    expect(frame.view.dialogue).toMatchObject({ y: 50, text: { blocks: [{ id: 'line', spans: [{ id: 'word', style: { fontSize: 50 } }] }] } })
+    expect(frame.view.choices).toMatchObject({ y: 50, choices: [{ id: 'one', x: 50 }] })
+  })
+
+  it('keeps engine-owned settled motion when Rust projects active timelines', () => {
+    const frame = createNativeRendererJsonFrameInput({
+      plugins: { dialogue: { x: 25 }, choices: { y: 40, choices: { one: { scale: 0.8 } } } },
+      dialogue: { visible: true, text: 'Settled' }, choices: [{ id: 'one', text: 'One' }],
+    }, { projectAnimations: false })
+    expect(frame.view.dialogue).toMatchObject({ x: 25 })
+    expect(frame.view.choices).toMatchObject({ y: 40, choices: [{ id: 'one', scale: 0.8 }] })
+  })
+
   it('preserves background composition fields across the native frame boundary', () => {
     const frame = createNativeRendererJsonFrameInput({
       background: {

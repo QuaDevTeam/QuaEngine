@@ -114,3 +114,45 @@ fn append_view_commands_keeps_existing_commands() {
     assert_eq!(graph.commands().last().unwrap().id, "screen:debug");
     assert_eq!(graph.summary().command_count, 18);
 }
+
+#[test]
+fn motion_projects_scene_groups_and_moves_choice_hit_tests() {
+    use crate::projection::motion::MotionProjection;
+    let mut view = full_view();
+    view.stage = Some(MotionProjection {
+        x: Some(100.0),
+        opacity: Some(0.5),
+        ..Default::default()
+    });
+    let set = view.choices.as_mut().unwrap();
+    set.choices[0].motion.y = Some(-200.0);
+    set.choices[0].motion.scale = Some(0.5);
+    let graph = build_view_render_graph(test_layout(), &view);
+    let choice = graph
+        .commands()
+        .iter()
+        .find(|c| c.id.starts_with("choice:"))
+        .unwrap();
+    let cx = choice.bounds.x + choice.bounds.width / 2.0;
+    let cy = choice.bounds.y + choice.bounds.height / 2.0;
+    assert_eq!(
+        graph.hit_test(cx, cy - 200.0).map(|c| c.id.as_str()),
+        Some(choice.id.as_str())
+    );
+    assert_ne!(
+        graph.hit_test(cx, cy).map(|c| c.id.as_str()),
+        Some(choice.id.as_str())
+    );
+    let character = graph
+        .commands()
+        .iter()
+        .find(|c| c.id.starts_with("character:"))
+        .unwrap();
+    assert_eq!(character.composite_groups[0].id, "motion:stage");
+    assert_eq!(character.composite_groups[0].opacity, 0.5);
+    assert_eq!(character.composite_groups[0].transform[4], 100.0);
+    assert!(!choice
+        .composite_groups
+        .iter()
+        .any(|g| g.id == "motion:stage"));
+}

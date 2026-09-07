@@ -14,12 +14,12 @@ pub fn apply_animations(view: &mut Map<String, Value>, animations: &Value, now_m
         let Some(animation) = animation.as_object() else {
             continue;
         };
-        let Some(elapsed) = local_time(animation, now_ms) else {
-            continue;
-        };
         if local_is_active(animation, now_ms) {
             active += 1;
         }
+        let Some(elapsed) = local_time(animation, now_ms) else {
+            continue;
+        };
         let Some(tracks) = animation.get("resolvedTracks").and_then(Value::as_array) else {
             continue;
         };
@@ -44,7 +44,32 @@ pub fn apply_animations(view: &mut Map<String, Value>, animations: &Value, now_m
                 continue;
             };
             for target_object in target_objects(view, target) {
-                set_path(target_object, property, value.clone());
+                if target.starts_with("richText")
+                    && !property.starts_with("style.")
+                    && matches!(
+                        property,
+                        "color"
+                            | "fontFamily"
+                            | "fontSize"
+                            | "fontWeight"
+                            | "lineHeight"
+                            | "textAlign"
+                    )
+                {
+                    let value = if property == "lineHeight" && value.is_number() {
+                        Value::String(value.to_string())
+                    } else if property == "fontWeight" && value.is_number() {
+                        // Native font selection uses integral OpenType weights.
+                        Value::from(value.as_f64().unwrap().round().clamp(1.0, 1000.0) as u16)
+                    } else if property == "fontFamily" && value.is_string() {
+                        Value::Array(vec![value.clone()])
+                    } else {
+                        value.clone()
+                    };
+                    set_path(target_object, &format!("style.{property}"), value);
+                } else {
+                    set_path(target_object, property, value.clone());
+                }
             }
         }
     }
@@ -55,12 +80,31 @@ fn target_objects<'a>(
     view: &'a mut Map<String, Value>,
     target: &str,
 ) -> Vec<&'a mut Map<String, Value>> {
-    // Rust's borrow checker cannot return multiple nested mutable references from a
-    // generic tree walk. The renderer targets are a bounded set of projection roots,
-    // so each branch returns at most one object and nested list items are handled
-    // directly below.
+    // Match the shared projection roots. Rich text may select the same span id
+    // in multiple blocks and must update visible and full-layout documents.
     let mut result = Vec::new();
-    if target == "background:main" {
+    if target.starts_with("richText") {
+        let parts: Vec<_> = target.split(':').collect();
+        let fields = match parts.get(1).copied() {
+            Some("dialogue") => ["text", "layoutText"],
+            Some("speaker") => ["speaker", "layoutSpeaker"],
+            _ => return result,
+        };
+        let Some(dialogue) = view.get_mut("dialogue").and_then(Value::as_object_mut) else {
+            return result;
+        };
+        for (key, value) in dialogue.iter_mut() {
+            if fields.contains(&key.as_str()) {
+                result.extend(rich_text_targets(value, &parts));
+            }
+        }
+    } else if matches!(target, "stage:main" | "camera:main") {
+        let key = target.split(':').next().unwrap();
+        let root = view.entry(key).or_insert_with(|| Value::Object(Map::new()));
+        if let Some(object) = root.as_object_mut() {
+            result.push(object);
+        }
+    } else if target == "background:main" {
         if let Some(object) = view.get_mut("background").and_then(Value::as_object_mut) {
             result.push(object);
         }
@@ -138,6 +182,59 @@ fn target_objects<'a>(
     result
 }
 
+fn rich_text_targets<'a>(value: &'a mut Value, parts: &[&str]) -> Vec<&'a mut Map<String, Value>> {
+    let mut result = Vec::new();
+    let Some(document) = value.as_object_mut() else {
+        return result;
+    };
+    if parts == ["richText", "dialogue"] || parts == ["richText", "speaker"] {
+        result.push(document);
+        return result;
+    }
+    let Some(id) = parts
+        .get(2..)
+        .filter(|p| !p.is_empty())
+        .map(|p| p.join(":"))
+    else {
+        return result;
+    };
+    let Some(blocks) = document.get_mut("blocks").and_then(Value::as_array_mut) else {
+        return result;
+    };
+    for (index, block) in blocks.iter_mut().enumerate() {
+        let Some(block) = block.as_object_mut() else {
+            continue;
+        };
+        if parts[0] == "richTextBlock" {
+            if rich_text_id_matches(block, index, &id) {
+                result.push(block);
+            }
+        } else if parts[0] == "richTextSpan" {
+            // Shared render-core targets a span id (or its index within each
+            // block), without a block-id segment. Repeated ids match each block.
+            if let Some(spans) = block.get_mut("spans").and_then(Value::as_array_mut) {
+                for (index, span) in spans.iter_mut().enumerate() {
+                    if let Some(span) = span
+                        .as_object_mut()
+                        .filter(|s| rich_text_id_matches(s, index, &id))
+                    {
+                        result.push(span);
+                    }
+                }
+            }
+        }
+    }
+    result
+}
+
+fn rich_text_id_matches(object: &Map<String, Value>, index: usize, id: &str) -> bool {
+    object
+        .get("id")
+        .and_then(Value::as_str)
+        .filter(|id| !id.is_empty())
+        .map_or_else(|| index.to_string() == id, |value| value == id)
+}
+
 fn local_time(animation: &Map<String, Value>, now_ms: f64) -> Option<f64> {
     let started = animation.get("startedAt").and_then(Value::as_f64)?;
     let duration = animation
@@ -197,8 +294,11 @@ fn local_time(animation: &Map<String, Value>, now_ms: f64) -> Option<f64> {
     };
     if active >= duration * loops {
         return if matches!(
-            animation.get("fill").and_then(Value::as_str),
-            Some("forwards") | Some("both")
+            animation
+                .get("fill")
+                .and_then(Value::as_str)
+                .unwrap_or("forwards"),
+            "forwards" | "both"
         ) {
             Some(direction(duration, duration, loops as usize - 1, animation))
         } else {
@@ -239,7 +339,12 @@ fn local_is_active(animation: &Map<String, Value>, now_ms: f64) -> bool {
         Some(Value::Number(value)) => value.as_f64().unwrap_or(1.0).max(1.0),
         _ => 1.0,
     };
-    now_ms < started + delay + duration * loops
+    let playback_rate = animation
+        .get("playbackRate")
+        .and_then(Value::as_f64)
+        .filter(|value| value.is_finite() && *value > 0.0)
+        .unwrap_or(1.0);
+    now_ms < started + (delay + duration * loops) / playback_rate
 }
 
 fn direction(local: f64, duration: f64, iteration: usize, animation: &Map<String, Value>) -> f64 {

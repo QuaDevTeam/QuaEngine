@@ -1,5 +1,6 @@
 mod color;
 mod geometry;
+mod nine_slice;
 mod paint;
 mod pass;
 mod plan;

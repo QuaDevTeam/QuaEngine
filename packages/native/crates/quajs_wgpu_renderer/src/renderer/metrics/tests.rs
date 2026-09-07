@@ -88,12 +88,14 @@ fn package_aware_view() -> ViewProjection {
             ..Default::default()
         }),
         choices: Some(ChoiceSetProjection {
+            motion: Default::default(),
             visible: true,
             provenance: PackageProvenance {
                 content_package_id: None,
                 required_runtime_packages: required_base.clone(),
             },
             choices: vec![ChoiceProjection {
+                motion: Default::default(),
                 id: "stay".to_string(),
                 text: "Stay".to_string(),
                 enabled: true,

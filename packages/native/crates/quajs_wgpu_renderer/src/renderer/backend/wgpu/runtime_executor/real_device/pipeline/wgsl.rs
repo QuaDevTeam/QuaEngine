@@ -259,6 +259,7 @@ struct VertexInput {
     @location(2) color: vec4<f32>,
     @location(3) effect0: vec4<f32>,
     @location(4) effect1: vec4<f32>,
+    @location(5) effect2: vec4<f32>,
 };
 
 struct VertexOutput {
@@ -267,6 +268,7 @@ struct VertexOutput {
     @location(1) color: vec4<f32>,
     @location(2) effect0: vec4<f32>,
     @location(3) effect1: vec4<f32>,
+    @location(4) effect2: vec4<f32>,
 };
 
 struct FrameUniforms {
@@ -295,6 +297,7 @@ fn vs_main(input: VertexInput) -> VertexOutput {
     output.color = input.color;
     output.effect0 = input.effect0;
     output.effect1 = input.effect1;
+    output.effect2 = input.effect2;
     return output;
 }
 
@@ -327,7 +330,12 @@ fn sepia(rgb: vec3<f32>, amount: f32) -> vec3<f32> {
 
 @fragment
 fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
-    let sample = textureSample(texture_source, texture_sampler, input.uv);
+    var sample = textureSample(texture_source, texture_sampler, input.uv);
+    if (input.effect2.z > 0.0 && input.effect2.w > 0.0) {
+        // A sliced image/atlas frame owns only these texels. Full-texture mip
+        // levels contain neighboring frames, so sample its clamped base level.
+        sample = textureSampleLevel(texture_source, texture_sampler, clamp(input.uv, input.effect2.xy, input.effect2.zw), 0.0);
+    }
     if (input.effect1.x > 0.5) {
         var rgb = sample.rgb;
         // effect0: [brightness, saturation, contrast, grayscale]

@@ -96,6 +96,8 @@ pub struct CompositeDropShadow {
 /// its complete subtree. Blend is evaluated against its parent's backdrop.
 #[derive(Clone, Debug, PartialEq)]
 pub struct DrawCompositeGroup {
+    /// Local logical affine transform [a,b,c,d,tx,ty], applied after compositing.
+    pub transform: [f64; 6],
     pub blur_radius: f64,
     pub id: String,
     pub opacity: f32,
@@ -114,6 +116,7 @@ pub struct DrawCompositeGroup {
 impl Default for DrawCompositeGroup {
     fn default() -> Self {
         Self {
+            transform: [1.0, 0.0, 0.0, 1.0, 0.0, 0.0],
             blur_radius: 0.0,
             id: String::new(),
             opacity: 1.0,

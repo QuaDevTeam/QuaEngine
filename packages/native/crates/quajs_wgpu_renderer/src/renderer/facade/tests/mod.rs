@@ -41,6 +41,7 @@ fn view_with_background_and_choice() -> ViewProjection {
             ..Default::default()
         }),
         choices: Some(ChoiceSetProjection {
+            motion: Default::default(),
             visible: true,
             provenance: provenance("runtime.choices", ["base"]),
             choices: vec![

@@ -46,6 +46,7 @@ fn lowers_execution_draws_into_wgpu_primitives() {
             pipeline: DrawBatchPipeline::Image,
             kind: DrawCommandKind::Image,
             metadata: draw_metadata(DrawCommandParams::Image(ImageDrawParams {
+                sampling: Default::default(),
                 asset_type: "images".to_string(),
                 asset_name: "bg/school.png".to_string(),
                 fit: MediaFit::Cover,

@@ -139,6 +139,7 @@ pub(super) fn image_node_command(
         image.asset_type, image.asset_name
     )))
     .params(DrawCommandParams::Image(ImageDrawParams {
+        sampling: Default::default(),
         asset_type: image.asset_type.clone(),
         asset_name: image.asset_name.clone(),
         fit: resolve_object_fit(&node.style, MediaFit::Contain),

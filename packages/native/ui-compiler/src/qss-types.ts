@@ -277,7 +277,7 @@ export interface NativeQssBorderImageValue {
    * Gradient sources are not supported for nine-slice.
    */
   source: NativeQssBackgroundImageValue
-  /** Per-edge slice widths in logical pixels (top right bottom left). */
+  /** Per-edge slice widths in source image texels (top right bottom left), independent of DPR. */
   slice: NativeQssEdgeInsetsValue
   /** Per-edge draw widths in logical pixels; defaults to slice when absent. */
   width?: NativeQssEdgeInsetsValue

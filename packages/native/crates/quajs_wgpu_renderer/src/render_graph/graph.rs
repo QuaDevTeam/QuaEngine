@@ -49,7 +49,21 @@ impl RenderGraph {
         let mut hit = None;
 
         for command in &self.commands {
-            if command.interactive
+            let (mut x, mut y) = (x, y);
+            let mut visible = true;
+            for group in &command.composite_groups {
+                let [a, b, c, d, tx, ty] = group.transform;
+                let det = a * d - b * c;
+                if group.opacity <= 0.0 || det.abs() < 1e-12 {
+                    visible = false;
+                    break;
+                }
+                let (px, py) = (x - tx, y - ty);
+                x = (d * px - c * py) / det;
+                y = (-b * px + a * py) / det;
+            }
+            if visible
+                && command.interactive
                 && (super::command::RoundedClip {
                     bounds: command.bounds,
                     corner_radii: None,
@@ -149,7 +163,7 @@ impl RenderGraph {
         summary
     }
 
-    fn sort_commands(&mut self) {
+    pub(crate) fn sort_commands(&mut self) {
         // A stacking context paints atomically at its parent's z position.
         // Within it, preserve ordinary z ordering and insertion order.
         let mut order = std::collections::BTreeMap::new();

@@ -73,6 +73,46 @@ fn scene_change_is_renderer_timed_and_emits_ready() {
     );
 }
 
+#[test]
+fn animation_redraw_covers_delay_rate_loops_and_pause() {
+    use serde_json::json;
+    let mut animation = json!({
+        "state": "running", "startedAt": 1000, "duration": 1000,
+        "delay": 200, "playbackRate": 0.5, "loop": 2, "direction": "alternate", "fill": "none",
+        "resolvedTracks": [{"target":"character:mira", "property":"position.x",
+            "keyframes":[{"at":0,"value":10},{"at":1000,"value":110}]}]
+    });
+    let project = |animation: &serde_json::Value, now| {
+        let mut view = json!({"characters":[{"id":"mira","position":{"x":10}}]});
+        let active = super::animation::apply_animations(
+            view.as_object_mut().unwrap(),
+            &json!([animation]),
+            now,
+        );
+        (
+            view.pointer("/characters/0/position/x")
+                .unwrap()
+                .as_f64()
+                .unwrap(),
+            active,
+        )
+    };
+    assert_eq!(project(&animation, 1100.0), (10.0, 1)); // delay owes a future frame without backwards fill
+    assert_eq!(project(&animation, 2400.0), (60.0, 1)); // slow timeline still active after 1 second
+    assert_eq!(project(&animation, 4400.0), (60.0, 1)); // second, reverse iteration
+    assert_eq!(project(&animation, 5400.0), (10.0, 0));
+    animation["state"] = json!("paused");
+    animation["pausedAt"] = json!(2400);
+    assert_eq!(project(&animation, 9999.0), (60.0, 0));
+    animation["state"] = json!("running");
+    animation["playbackRate"] = json!(2);
+    assert_eq!(project(&animation, 1700.0), (90.0, 1));
+    assert_eq!(project(&animation, 2100.0), (10.0, 0));
+    animation.as_object_mut().unwrap().remove("fill");
+    animation["direction"] = json!("normal");
+    assert_eq!(project(&animation, 2100.0), (110.0, 0)); // shared default is forwards
+}
+
 mod easing {
     use super::super::animation::ease_progress;
 
@@ -316,4 +356,49 @@ mod scroll {
             "hit outside inner but inside outer should scroll outer"
         );
     }
+}
+
+#[test]
+fn rich_text_animation_survives_typewriter_projection_and_updates_full_layout() {
+    use serde_json::json;
+    let input = json!({"view":{"dialogue":{"visible":true,"text":{"blocks":[{"id":"line","spans":[{"id":"word","text":"abcdef"}]}]},"typewriter":{"enabled":true,"durationMs":1000}},"animations":[{
+        "startedAt":0,"duration":1000,"fill":"forwards","resolvedTracks":[{"target":"richTextSpan:dialogue:word","property":"fontSize","keyframes":[{"at":0,"value":20},{"at":1000,"value":40}]}]
+    }]}});
+    let mut runtime = NativeRendererProjectionRuntime::from_frame_json(&input.to_string()).unwrap();
+    runtime.base_frame["view"]["animations"][0]["startedAt"] = json!(runtime.received_epoch_ms);
+    let frame = runtime
+        .project_at_epoch_ms(runtime.received_epoch_ms + 500.0)
+        .unwrap();
+    let view: serde_json::Value = serde_json::from_str(&frame.json).unwrap();
+    for field in ["text", "layoutText"] {
+        assert_eq!(
+            view.pointer(&format!(
+                "/view/dialogue/{field}/blocks/0/spans/0/style/fontSize"
+            ))
+            .unwrap(),
+            30.0
+        );
+    }
+}
+
+#[test]
+fn rich_span_targets_follow_shared_ids_across_blocks_and_normalize_native_styles() {
+    use serde_json::json;
+    let mut view = json!({"dialogue":{"text":{"blocks":[
+        {"spans":[{"id":"word:one","text":"first"}]},
+        {"spans":[{"id":"word:one","text":"second"}]}
+    ]}}});
+    let animations = json!([{"startedAt":0,"duration":100,"resolvedTracks":[
+        {"target":"richTextSpan:dialogue:word:one","property":"fontFamily","keyframes":[{"at":0,"value":"Noto Sans"}]},
+        {"target":"richTextSpan:dialogue:word:one","property":"lineHeight","keyframes":[{"at":0,"value":1.5}]},
+        {"target":"richTextSpan:dialogue:word:one","property":"fontWeight","keyframes":[{"at":0,"value":400},{"at":100,"value":700}]}
+    ]}]);
+    super::animation::apply_animations(view.as_object_mut().unwrap(), &animations, 50.0);
+    for block in view["dialogue"]["text"]["blocks"].as_array().unwrap() {
+        assert_eq!(
+            block["spans"][0]["style"],
+            json!({"fontFamily":["Noto Sans"],"lineHeight":"1.5","fontWeight":550})
+        );
+    }
+    serde_json::from_value::<crate::projection::view::ViewProjection>(view).unwrap();
 }

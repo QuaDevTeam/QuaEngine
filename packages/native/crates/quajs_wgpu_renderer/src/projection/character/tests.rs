@@ -409,3 +409,42 @@ fn provenance<const N: usize>(owner: &str, required: [&str; N]) -> PackageProven
             .collect::<BTreeSet<_>>(),
     }
 }
+
+#[test]
+fn layered_character_inherits_signed_uniform_scale_and_rotation() {
+    let character = CharacterProjection {
+        sprite: Some("yuki/base.png".into()),
+        position: CharacterPosition {
+            x: Some(960.0),
+            y: Some(540.0),
+            width: Some(100.0),
+            height: Some(200.0),
+            scale: Some(-2.0),
+            rotation: Some(90.0),
+            ..Default::default()
+        },
+        sprite_layers: vec![CharacterSpriteLayerProjection {
+            asset: "yuki/face.png".into(),
+            offset_x: 20.0,
+            offset_y: 10.0,
+            rotation: 15.0,
+            scale: 0.5,
+            ..Default::default()
+        }],
+        ..CharacterProjection::new("yuki", "Yuki")
+    };
+    let commands = build_character_commands(&test_layout(), &[character]);
+    let base = &commands[0];
+    let layer = &commands[1];
+    assert_eq!(base.bounds.width, 200.0);
+    assert_eq!(base.bounds.height, 400.0);
+    assert_eq!(layer.bounds.width, 100.0);
+    assert_eq!(layer.bounds.height, 200.0);
+    assert!((layer.bounds.x + 50.0 - 980.0).abs() < 1e-9);
+    assert!((layer.bounds.y + 100.0 - 500.0).abs() < 1e-9);
+    let DrawCommandParams::Image(params) = &layer.params else {
+        panic!("character layer");
+    };
+    assert_eq!(params.rotation_degrees, 285.0);
+    assert!(!params.sampling.flip_horizontal);
+}
