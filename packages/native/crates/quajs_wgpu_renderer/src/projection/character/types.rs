@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::projection::defaults::{default_one_f32, default_true, is_one_f32};
 
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CharacterProjection {
     pub id: String,
@@ -50,7 +50,13 @@ impl CharacterProjection {
     }
 }
 
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+impl Default for CharacterProjection {
+    fn default() -> Self {
+        Self::new("", "")
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CharacterSpriteLayerProjection {
     pub asset: String,
@@ -68,6 +74,21 @@ pub struct CharacterSpriteLayerProjection {
     pub rotation: f64,
     #[serde(default = "default_true")]
     pub visible: bool,
+}
+
+impl Default for CharacterSpriteLayerProjection {
+    fn default() -> Self {
+        Self {
+            asset: String::new(),
+            offset_x: 0.0,
+            offset_y: 0.0,
+            z_index: 0,
+            opacity: 1.0,
+            scale: 1.0,
+            rotation: 0.0,
+            visible: true,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]

@@ -3,14 +3,14 @@ use crate::projection::safety::{
     is_safe_native_character_position, is_safe_native_opacity, is_safe_native_z_index,
 };
 use crate::render_graph::{
-    CharacterDrawParams, DrawCommand, DrawCommandKind, DrawCommandParams, ImageDrawParams,
-    MediaFit, MediaOrigin, RenderGraph, RenderPlane,
+    CharacterDrawParams, DrawCommand, DrawCommandKind, DrawCommandParams, DrawCompositeGroup,
+    ImageDrawParams, MediaFit, MediaOrigin, RenderGraph, RenderPlane,
 };
 use crate::resources::ResourceId;
 use crate::stage_layout::ResolvedStageLayout;
 
 use super::layout::{resolve_character_anchor, resolve_character_bounds};
-use super::types::CharacterProjection;
+use super::types::{CharacterPosition, CharacterProjection};
 
 pub fn append_character_commands(graph: &mut RenderGraph, characters: &[CharacterProjection]) {
     graph.extend(build_character_commands(&graph.layout, characters));
@@ -53,6 +53,7 @@ fn character_commands(
     }
     if !is_safe_native_character_position(&character.position)
         || !is_safe_native_opacity(character.opacity)
+        || !is_safe_native_opacity(character.presence_opacity)
         || !is_safe_native_z_index(character.layer)
     {
         return None;
@@ -105,8 +106,15 @@ fn character_commands(
         if !layer.visible
             || !is_safe_native_asset_name(&layer.asset)
             || !is_safe_native_opacity(layer.opacity)
-            || !layer.scale.is_finite()
-            || layer.scale.abs() <= f32::EPSILON
+            || !is_safe_native_z_index(layer.z_index)
+            || layer.scale <= 0.0
+            || !is_safe_native_character_position(&CharacterPosition {
+                x: Some(layer.offset_x),
+                y: Some(layer.offset_y),
+                scale: Some(layer.scale as f64),
+                rotation: Some(layer.rotation),
+                ..Default::default()
+            })
         {
             continue;
         }
@@ -122,8 +130,8 @@ fn character_commands(
                 height: bounds.height * scale,
             },
         )
-        .z_index(character.layer.saturating_add(layer.z_index))
-        .opacity((character.opacity * character.presence_opacity * layer.opacity).clamp(0.0, 1.0))
+        .z_index(layer.z_index)
+        .opacity(layer.opacity)
         .resource(character_resource_id(&layer.asset))
         .params(DrawCommandParams::Image(ImageDrawParams {
             asset_type: "characters".to_string(),
@@ -147,6 +155,22 @@ fn character_commands(
             command = command.require_package(package_id);
         }
         commands.push(command);
+    }
+    if commands.len() > 1 {
+        // Character opacity belongs to the completed sprite. Applying it to
+        // each overlapping expression layer changes the resulting colors.
+        // Keep local layer ordering inside the character's stacking context.
+        let group = DrawCompositeGroup {
+            id: format!("character-sprite:{}", character.id),
+            opacity: character.opacity * character.presence_opacity,
+            z_index: character.layer,
+            ..Default::default()
+        };
+        commands[0].opacity = 1.0;
+        commands[0].z_index = 0;
+        for command in &mut commands {
+            command.composite_groups.push(group.clone());
+        }
     }
     Some(commands)
 }

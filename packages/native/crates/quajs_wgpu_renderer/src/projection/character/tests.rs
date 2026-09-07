@@ -1,5 +1,7 @@
 use std::collections::BTreeSet;
 
+mod sprite;
+
 use super::*;
 use crate::projection::common::PackageProvenance;
 use crate::render_graph::{

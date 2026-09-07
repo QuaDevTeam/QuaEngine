@@ -112,6 +112,8 @@ Official Web, Vue, React, Svelte, and Cocos dialogue renderers project `mode: 'n
 
 Sprite manifest and expression diff tooling belongs to `@quajs/plugin-sprite`. Character state chooses sprite/expression; renderer sprite plugins resolve manifests as transient projection resources.
 
+Native resolved sprite layers share a character stacking context. Compose layers before applying character opacity and transient presence opacity, so fades preserve overlap colors; layer z-index must not interleave with neighboring characters. These are transient renderer operations, with no new engine-owned state. This support does not imply native manifest/expression resolution or complete parent-transform support.
+
 ## Validation
 
 ```bash

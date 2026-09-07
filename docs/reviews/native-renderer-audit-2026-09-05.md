@@ -83,7 +83,7 @@
 2. **富文本：** 桥接保留 inline span 字段，但当前渲染将 runs 按估算宽度分成独立文本框，缺少连续 inline flow、正确 block breaks、混合字号基线和跨 run wrapping；真实 bidi/cluster wrapping、多字体 fallback 和 typewriter grapheme 对齐也未完成。
 3. **字体：** Arabic/bidi 仍有可见误差；跨字体逐 cluster fallback、竖排和语言相关断字未完成。当前截图不证明浏览器级文字布局。
 4. **音视频：** EQ/automation 已接入并有 native focused backend tests；GIF 有解码与发布测试，MP4/WebM 尚无解码器或产品实测。demo E2E 的 video decoded/published 为 0。
-5. **Sprite/UI skin：** native 可读取 package-aware `metadata.spriteLayers` 并绘制基础分层图片，但完整字段校验、父级变换和组透明度还存在缺口；manifest JSON 解析、atlas frame、per-layer mask/blend、expression diff 加载和 UI skin manifest 仍待接入，单纯 sprite/expression 字符串仍不等于完整 Web 多层效果。
+5. **Sprite/UI skin：** native 可读取 package-aware `metadata.spriteLayers` 并绘制基础分层图片；支持字段的数值/资源校验、人物组透明度和局部层级隔离已补齐，见下方 2026-09-07 截图记录。父级变换、manifest JSON 解析、atlas frame、per-layer mask/blend、expression diff 加载和 UI skin manifest 仍待接入，单纯 sprite/expression 字符串仍不等于完整 Web 多层效果。
 6. **动态场景：** stage/camera/effects/scene transition 需要真实 GPU 时间序列对照；基础数值动画测试不覆盖全部 composition/effect target。
 7. **产品覆盖：** keyboard/IME 产品 E2E 仍为 0；portrait、多分辨率、safe-area、多 GPU，以及圆角/border/shadow/rotation 复杂组合仍需补截图。此前 live CDP 超时不能算产品 Web/native parity 已通过。
 8. **工具链历史缺口：** 旧 QUI benchmark/LSP fixture 迁移失败仍需单独复核；本次没有把旧结果作为 GPU 绘制失败或已修复项。
@@ -133,3 +133,14 @@ mask 批次未覆盖 source-alpha drop-shadow（后续见下方补充）、inlin
 - Renderer 的 841 项原有/阴影测试通过，另加 1 项缓存生命周期回归；Native app 274 项测试通过。最终 Demo E2E 使用仓库指定的 pnpm 11.11.0 入口运行：67 条对白、stealth 分支、settings/gallery、返回 title，199 commands / 4 passes，1920×1080 PNG，纹理/字体/清理错误为 0。`presented=false` / `OccludedAfterRetry`，仍只证明完整流程及真实 GPU 离屏渲染。
 
 截图与测量输出：`packages/native/target/render-audit/background/{review.html,measurements.json}`；最终日志：`shadow-final-e2e.log`、`shadow-lifecycle-tests.log`。此次不包含 MP4/WebM 解码验证，也未替换源图 blur 的既有采样实现。
+
+## 2026-09-07 resolved sprite layer 合成修正
+
+人物基础图与附加图层进入同一 stacking context，先按局部 z-index 合成，再乘人物 opacity × presenceOpacity。此前逐层乘父透明度导致交叠区颜色改变，局部大 z-index 还会越过相邻人物。Rust `Default` 与 serde 默认值统一，避免 DTO 直接构建时 visible=false、opacity/scale=0 导致图层消失；JSON 在准备资源前校验图层资源引用、offset、opacity、正 scale、rotation 和 z-index，直接 Rust 投影跳过非法图层。
+
+- **10/10 Metal/Chrome 截图对照通过**，两端读取同一 Quack characters QPK，Web 使用实际 `spriteLayerStyle`；只验证已解析图层的透明度/层级合成。覆盖 0/0.25/0.5/1 人物透明度、presence fade、隐藏层、负局部层级、相邻人物层级、同层人物插入顺序和黑边窗口。检查了透明底图在黑色背景上的并排截图。
+- 先用修复前二进制运行同一用例，7 项失败；修复后半透明重叠 MAE 从 4.369 降至 0.028，负层级从 18.422 降至 0.006，相邻人物从 4.045 降至 0.110。全部用例的差异超过 16 的像素比例为 0。指标按 Web 有色像素数归一化，黑边不能稀释误差；阈值 MAE ≤ 0.4，超 16 比例 ≤ 0.1%。纹理上传/字体/清理错误均为 0，已上传纹理数与退出释放数一致。
+- Renderer **846** 项测试通过；Native app **266** 项单元测试与 **14** 项 CLI 集成测试通过。测试包含 Rust/serde 默认值对齐、人物内局部层级、人物间顺序、非法图层在资源准备前被拒绝及 provenance 保留。
+- 最终 `native:e2e` 完整流程通过：128 条对白投影、stealth 分支、settings/gallery、返回 title，199 commands / 4 passes，1920×1080 GPU PNG；纹理/字体/清理错误为 0，退出时音频轨道为 0。日志 `packages/native/target/render-audit/sprite-final-e2e.log`。窗口仍为 `presented=false` / `OccludedAfterRetry`，不算可见窗口呈现的证明。
+
+重现：`node scripts/native-render-audit/sprite.mjs`；输出 `packages/native/target/render-audit/sprite/{review.html,measurements.json}`。本批次不新增 manifest/expression loader，未宣称 atlas、mask/blend、父级变换或 UI skin 已完成。

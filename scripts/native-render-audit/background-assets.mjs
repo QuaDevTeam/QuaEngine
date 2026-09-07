@@ -6,7 +6,7 @@ import { QPKBundler, readQpkBundle } from '../../packages/build/quack/dist/index
 
 // Deterministic raster fixtures are bundled by Quack, then read back for both
 // renderers. No test-only loose asset path is added to the native runtime.
-export async function backgroundAuditAssets(demoQpk, output) {
+export async function backgroundAuditAssets(demoQpk, output, assetType = 'images') {
   const original = await readQpkBundle(demoQpk)
   const files = new Map(['backgrounds/morning-city.jpg', 'cg/title.webp'].map(name => {
     const bytes = original.assets.get(`assets/images/${name}`)
@@ -28,7 +28,7 @@ export async function backgroundAuditAssets(demoQpk, output) {
   const assets = [...files].map(([name, bytes]) => {
     const path = resolve(output, 'assets', name)
     mkdirSync(dirname(path), { recursive: true }); writeFileSync(path, bytes)
-    return { name, path, relativePath: name, type: 'images', subType: 'image',
+    return { name, path, relativePath: name, type: assetType, subType: 'image',
       size: bytes.length, hash: createHash('sha256').update(bytes).digest('hex'), mtime: 0, locales: ['default'] }
   })
   const qpk = resolve(output, 'background-audit.qpk')
@@ -40,7 +40,7 @@ export async function backgroundAuditAssets(demoQpk, output) {
   }, qpk, { compress: false, encrypt: false })
   const bundle = await readQpkBundle(qpk)
   const urls = Object.fromEntries([...files.keys()].map(name => [name,
-    `data:image/${name.endsWith('.png') ? 'png' : name.endsWith('.webp') ? 'webp' : 'jpeg'};base64,${bundle.assets.get(`assets/images/${name}`).toString('base64')}`]))
+    `data:image/${name.endsWith('.png') ? 'png' : name.endsWith('.webp') ? 'webp' : 'jpeg'};base64,${bundle.assets.get(`assets/${assetType}/${name}`).toString('base64')}`]))
   return { qpk, urls }
 }
 
