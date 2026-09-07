@@ -7,8 +7,6 @@ fn sprite_layer_fields_are_validated_before_preparing_resources() {
         ("asset", serde_json::json!("../escape.png")),
         ("offsetX", serde_json::json!(1e20)),
         ("offsetY", serde_json::json!(-1e20)),
-        ("scale", serde_json::json!(-1)),
-        ("scale", serde_json::json!(0)),
         ("scale", serde_json::json!(1e20)),
         ("rotation", serde_json::json!(1e20)),
         ("opacity", serde_json::json!(1.1)),
@@ -31,5 +29,27 @@ fn sprite_layer_fields_are_validated_before_preparing_resources() {
             format!("view.characters[0].spriteLayers[0].{field}")
         );
         assert_eq!(renderer.state().revision(), 0);
+    }
+}
+
+#[test]
+fn zero_and_negative_sprite_layer_scales_survive_json_validation() {
+    use crate::render_graph::DrawCommandParams;
+    for scale in [0.0, -0.5] {
+        let frame = serde_json::json!({"view":{"characters":[{
+            "id":"mira", "name":"Mira", "visible":true, "sprite":"mira/base.png",
+            "spriteBase":{"asset":"mira/base.png", "scale":scale}
+        }]}});
+        let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
+        renderer.prepare_frame_json_str(&frame.to_string()).unwrap();
+        let command = &renderer.state().frame().unwrap().graph.commands()[0];
+        if scale == 0.0 {
+            assert_eq!(command.opacity, 0.0);
+        } else {
+            let DrawCommandParams::Image(image) = &command.params else {
+                panic!("image");
+            };
+            assert_eq!(image.rotation_degrees, 180.0);
+        }
     }
 }

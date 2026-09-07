@@ -20,6 +20,8 @@ import {
 import type { NativeRendererFeatureSurfaceEntry } from './feature-surfaces'
 import { createNativeRendererFeatureSurfaceOverlays } from './feature-surfaces'
 
+import { sampleNativeSpriteLayerAnimations } from './sprite-animation'
+
 type JsonRecord = Record<string, unknown>
 
 export interface NativeRendererSafeAreaInsetsInput {
@@ -60,6 +62,7 @@ export interface CreateNativeRendererJsonFrameInputOptions {
   container?: NativeRendererStageContainerInput
   featureSurfaces?: readonly NativeRendererFeatureSurfaceEntry[]
   layout?: unknown
+  projectAnimations?: boolean
   now?: number
 }
 
@@ -69,6 +72,7 @@ export function createNativeRendererJsonFrameInput(
 ): NativeRendererJsonFrameInput {
   const frame: NativeRendererJsonFrameInput = {
     view: createNativeRendererViewProjection(view, {
+      projectAnimations: options.projectAnimations,
       featureSurfaces: options.featureSurfaces,
       now: options.now,
     }),
@@ -108,7 +112,7 @@ export function createNativeRendererViewProjection(
   const motion = projectStageMotion({ ...view, plugins: plugins ?? {}, animations } as unknown as QuaViewProjection, now)
   const featureOverlays = createNativeRendererFeatureSurfaceOverlays(view, options.featureSurfaces)
   const audio = animations.length > 0
-    ? projectAudioProjection<Record<string, unknown>>(view as unknown as Readonly<QuaViewProjection>, now)
+    ? projectAudioProjection<Record<string, unknown>>({ ...view, plugins: plugins ?? {} } as unknown as Readonly<QuaViewProjection>, now)
     : plugins?.audio
 
   return omitUndefined({
@@ -117,7 +121,7 @@ export function createNativeRendererViewProjection(
     camera: createNativeMotionProjection(motion.camera),
     background: createNativeBackgroundProjection(background),
     characters: Array.isArray(characters)
-      ? characters.map(createNativeCharacterProjection).filter(isJsonRecord)
+      ? characters.map(character => createNativeCharacterProjection(character, animations, now)).filter(isJsonRecord)
       : undefined,
     dialogue: createNativeDialogueProjection(dialogue),
     effects: effects.length > 0
@@ -789,7 +793,7 @@ function createNativeBackgroundVideoProjection(video: unknown): JsonRecord | und
   })
 }
 
-function createNativeCharacterProjection(character: unknown): JsonRecord | undefined {
+function createNativeCharacterProjection(character: unknown, animations: readonly Readonly<ActiveAnimationProjection>[], now: number): JsonRecord | undefined {
   const record = asRecord(character)
   if (!record) {
     return undefined
@@ -805,6 +809,7 @@ function createNativeCharacterProjection(character: unknown): JsonRecord | undef
     visible: record.visible !== false,
     sprite: stringValue(record.sprite),
     expression: stringValue(record.expression),
+    spriteLayerAnimationValues: sampleNativeSpriteLayerAnimations(id, animations, now),
     spriteLayers: createNativeSpriteLayers(record.metadata),
     spriteBase: createNativeSpriteLayers({ spriteLayers: [asRecord(record.metadata)?.spriteBase] })?.[0],
     position: createNativeCharacterPosition(record.position),

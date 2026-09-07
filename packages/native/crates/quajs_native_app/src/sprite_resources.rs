@@ -360,6 +360,53 @@ mod tests {
     }
 
     #[test]
+    fn sampled_timeline_applies_after_manifest_resolution_without_new_asset_reads() {
+        use quajs_wgpu_renderer::{
+            projection::view::{build_view_render_graph, ViewProjection},
+            projection_runtime::NativeRendererProjectionRuntime,
+            stage_layout::{resolve_stage_layout, StageContainerInput, ViewLayoutInput},
+        };
+        let host = RecordingAssetHost::new().with_bundle(bundle("new"))
+            .with_asset(Some("new"), "assets/characters/mira/sprite.manifest.json", *br#"{"version":1,"base":{"asset":"base.png"},"expressions":{"smile":{"layers":[{"asset":"face.png","offsetX":99}]}}}"#);
+        let frame = serde_json::json!({"view":{"characters":[{"id":"mira","name":"Mira","visible":true,"sprite":"mira/base.png","expression":"smile",
+            "position":{"x":960,"y":600,"width":240,"height":240,"scale":2,"rotation":90},"provenance":{"contentPackageId":"new"}}],
+            "animations":[{"startedAt":1000,"state":"paused","pausedAt":1500,"duration":1000,"resolvedTracks":[{"target":"spriteLayer:mira:expression:1","property":"offsetX","keyframes":[{"at":0,"value":0},{"at":1000,"value":100}]}]}]}});
+        let mut clock =
+            NativeRendererProjectionRuntime::from_frame_json(&frame.to_string()).unwrap();
+        let sampled = clock.project_at_epoch_ms(1500.0).unwrap();
+        let mut resources = NativeSpriteResources::default();
+        let resolved = resources
+            .resolve_frame(&host, &sampled.json)
+            .unwrap()
+            .unwrap();
+        let resolved: Value = serde_json::from_str(&resolved).unwrap();
+        let view: ViewProjection = serde_json::from_value(resolved["view"].clone()).unwrap();
+        let graph = build_view_render_graph(
+            resolve_stage_layout(
+                Some(ViewLayoutInput::default()),
+                StageContainerInput::default(),
+            ),
+            &view,
+        );
+        let layer = graph
+            .commands()
+            .iter()
+            .find(|c| c.id == "character:mira:sprite-layer:0")
+            .unwrap();
+        assert!((layer.bounds.x + layer.bounds.width / 2.0 - 960.0).abs() < 1e-9);
+        assert!((layer.bounds.y + layer.bounds.height / 2.0 - 700.0).abs() < 1e-9);
+        assert_eq!(layer.owner_package_id.as_deref(), Some("new"));
+        assert!(layer
+            .resource_ids
+            .iter()
+            .any(|id| id.as_str() == "characters:mira/face.png"));
+        let reads = host.reads.borrow().len();
+        resources.resolve_frame(&host, &sampled.json).unwrap();
+        assert_eq!(host.reads.borrow().len(), reads);
+        assert_eq!(view.characters[0].sprite_layers[0].offset_x, 99.0); // resource metadata stays immutable
+    }
+
+    #[test]
     fn rejects_unsafe_manifest_asset_before_resource_read() {
         let host = RecordingAssetHost::new()
             .with_bundle(bundle("new"))

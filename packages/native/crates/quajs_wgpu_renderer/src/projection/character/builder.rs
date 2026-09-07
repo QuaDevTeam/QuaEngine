@@ -48,6 +48,7 @@ fn character_commands(
         return None;
     }
 
+    let character = super::animation::project_layers(character);
     let sprite_asset_name = character.sprite.as_ref()?;
     if !is_safe_native_asset_name(sprite_asset_name) {
         return None;
@@ -113,14 +114,14 @@ fn character_commands(
     {
         let is_base = character.sprite_base.is_some() && index == 0;
         let layer_index = index.saturating_sub(usize::from(character.sprite_base.is_some()));
-        if is_base && !layer.visible {
+        if is_base {
             commands[0].opacity = 0.0;
         }
         if !layer.visible
             || !is_safe_native_asset_name(&layer.asset)
             || !is_safe_native_opacity(layer.opacity)
             || !is_safe_native_z_index(layer.z_index)
-            || layer.scale <= 0.0
+            || layer.scale == 0.0
             || !is_safe_native_character_position(&CharacterPosition {
                 x: Some(layer.offset_x),
                 y: Some(layer.offset_y),
@@ -131,7 +132,8 @@ fn character_commands(
         {
             continue;
         }
-        let layer_scale = layer.scale as f64;
+        let layer_scale = (layer.scale as f64).abs();
+        let layer_rotation = layer.rotation + if layer.scale < 0.0 { 180.0 } else { 0.0 };
         // A layer's transform belongs to the character's local coordinate
         // system. Rotate/reflect its center about the parent's center, then
         // compose its own rotation. Offsets are authored before parent scale.
@@ -186,9 +188,9 @@ fn character_commands(
             source: bounds,
             rotation_degrees: rotation_degrees
                 + if flip_horizontal {
-                    -layer.rotation
+                    -layer_rotation
                 } else {
-                    layer.rotation
+                    layer_rotation
                 },
             brightness: 1.0,
             saturation: 1.0,
@@ -216,7 +218,7 @@ fn character_commands(
                 mask_resource_id: mask.map(|name| format!("characters:{name}")),
                 mask_bounds: Some(command.bounds),
                 mask_scale: scale * layer_scale,
-                mask_rotation: rotation_degrees + layer.rotation,
+                mask_rotation: rotation_degrees + layer_rotation,
                 mask_layout: crate::render_graph::mask::MaskLayout::parse(
                     Some("0 0"),
                     Some("auto"),
@@ -256,7 +258,9 @@ fn character_commands(
         if character.sprite_base.is_none() {
             commands[0].opacity = 1.0;
         }
-        commands[0].z_index = 0;
+        if character.sprite_base.is_none() {
+            commands[0].z_index = 0;
+        }
         for command in &mut commands {
             command.composite_groups.insert(0, group.clone());
         }

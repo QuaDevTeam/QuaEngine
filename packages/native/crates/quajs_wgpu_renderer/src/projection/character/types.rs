@@ -19,6 +19,10 @@ pub struct CharacterProjection {
     pub sprite_layers: Vec<CharacterSpriteLayerProjection>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sprite_base: Option<CharacterSpriteLayerProjection>,
+    /// Sampled on the frame clock, applied after QPK sprite resolution.
+    /// These values never become character or animation state authority.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub sprite_layer_animation_values: Vec<SpriteLayerAnimationValue>,
     #[serde(default)]
     pub position: CharacterPosition,
     #[serde(default = "default_one_f32")]
@@ -44,6 +48,7 @@ impl CharacterProjection {
             expression: None,
             sprite_layers: Vec::new(),
             sprite_base: None,
+            sprite_layer_animation_values: Vec::new(),
             position: CharacterPosition::default(),
             opacity: 1.0,
             presence_opacity: 1.0,
@@ -51,6 +56,13 @@ impl CharacterProjection {
             provenance: PackageProvenance::default(),
         }
     }
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct SpriteLayerAnimationValue {
+    pub target: String,
+    pub property: String,
+    pub value: serde_json::Value,
 }
 
 impl Default for CharacterProjection {

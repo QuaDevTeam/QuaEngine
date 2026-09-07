@@ -101,7 +101,7 @@ fn unsafe_direct_sprite_layers_do_not_reach_gpu_geometry() {
             ..valid.clone()
         },
         CharacterSpriteLayerProjection {
-            scale: -1.0,
+            scale: f32::NAN,
             ..valid.clone()
         },
         CharacterSpriteLayerProjection {
