@@ -1,3 +1,4 @@
+pub(crate) mod animation;
 pub mod builder;
 pub mod layout;
 pub mod types;

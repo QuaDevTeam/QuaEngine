@@ -402,3 +402,51 @@ fn rich_span_targets_follow_shared_ids_across_blocks_and_normalize_native_styles
     }
     serde_json::from_value::<crate::projection::view::ViewProjection>(view).unwrap();
 }
+
+#[test]
+fn sprite_tracks_share_the_frame_clock_and_disappear_when_the_engine_removes_the_timeline() {
+    use serde_json::{json, Value};
+    let input = json!({"view":{"characters":[{"id":"mira","visible":true,"name":"Mira","sprite":"mira/base.png"}],
+        "animations":[{"startedAt":1000,"state":"running","duration":1000,"delay":200,"playbackRate":0.5,"fill":"none",
+            "resolvedTracks":[{"target":"spriteLayer:mira:expression","property":"offsetX","keyframes":[{"at":0,"value":0},{"at":1000,"value":100,"easing":"ease-in"}]}]}]}});
+    let mut runtime = NativeRendererProjectionRuntime::from_frame_json(&input.to_string()).unwrap();
+    let delay = runtime.project_at_epoch_ms(1100.0).unwrap();
+    assert!(delay.local_work_active);
+    assert!(!delay.json.contains("spriteLayerAnimationValues"));
+    let middle: Value =
+        serde_json::from_str(&runtime.project_at_epoch_ms(2400.0).unwrap().json).unwrap();
+    assert_eq!(
+        middle["view"]["characters"][0]["spriteLayerAnimationValues"][0]["value"],
+        25.0
+    );
+    assert!(middle["view"].get("animations").is_none());
+    assert!(runtime.base_frame["view"]["characters"][0]
+        .get("spriteLayerAnimationValues")
+        .is_none());
+    let mut paused = input.clone();
+    paused["view"]["animations"][0]["state"] = json!("paused");
+    paused["view"]["animations"][0]["pausedAt"] = json!(2400);
+    paused["view"]["characters"][0]["spriteLayerAnimationValues"] =
+        middle["view"]["characters"][0]["spriteLayerAnimationValues"].clone();
+    runtime.replace_frame_json(&paused.to_string()).unwrap();
+    let frozen: Value =
+        serde_json::from_str(&runtime.project_at_epoch_ms(9999.0).unwrap().json).unwrap();
+    assert_eq!(
+        frozen["view"]["characters"][0]["spriteLayerAnimationValues"],
+        middle["view"]["characters"][0]["spriteLayerAnimationValues"]
+    );
+    paused["view"]["animations"] = json!([]);
+    runtime.replace_frame_json(&paused.to_string()).unwrap();
+    let stopped = runtime.project_at_epoch_ms(9999.0).unwrap();
+    assert!(!stopped.json.contains("spriteLayerAnimationValues"));
+    let settled = runtime
+        .project_at_epoch_ms(runtime.received_epoch_ms + 1000.0)
+        .unwrap();
+    assert!(!settled.json.contains("spriteLayerAnimationValues"));
+    // Pre-sampled frames without an authoritative timeline remain usable.
+    runtime.replace_frame_json(&middle.to_string()).unwrap();
+    let sampled = runtime
+        .project_at_epoch_ms(runtime.received_epoch_ms + 1000.0)
+        .unwrap();
+    assert!(sampled.json.contains("spriteLayerAnimationValues"));
+}

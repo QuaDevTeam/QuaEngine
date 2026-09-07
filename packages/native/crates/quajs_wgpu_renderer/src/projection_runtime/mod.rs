@@ -294,6 +294,9 @@ impl NativeRendererProjectionRuntime {
             }
             let mut frame = self.base_frame.clone();
             if let Some(view) = frame.get_mut("view").and_then(Value::as_object_mut) {
+                if view.get("animations").is_some_and(Value::is_array) {
+                    animation::apply_animations(view, &json!([]), now_ms);
+                }
                 view.remove("animations");
                 apply_scroll_offsets(view, &self.scroll_offsets);
             }

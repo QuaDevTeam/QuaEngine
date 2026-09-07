@@ -184,13 +184,6 @@ impl JsonProjectionValidator {
                     });
                 }
             }
-            if layer.scale < 0.0 {
-                self.errors.push(NativeRendererJsonValidationError {
-                    path: format!("{path}.scale"),
-                    asset_name: layer.scale.to_string(),
-                    reason: "sprite layer scale must be positive".into(),
-                });
-            }
             self.validate_asset_reference(&format!("{path}.asset"), &layer.asset);
             self.validate_character_opacity(&format!("{path}.opacity"), layer.opacity);
             self.validate_z_index(
@@ -202,7 +195,9 @@ impl JsonProjectionValidator {
                 invalid_native_json_character_position_reason(&CharacterPosition {
                     x: Some(layer.offset_x),
                     y: Some(layer.offset_y),
-                    scale: Some(layer.scale as f64),
+                    // Zero collapses a layer; signed non-zero scales use the
+                    // same bounded geometry checks as character transforms.
+                    scale: (layer.scale != 0.0).then_some(layer.scale as f64),
                     rotation: Some(layer.rotation),
                     ..Default::default()
                 })

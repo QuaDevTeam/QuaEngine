@@ -223,6 +223,15 @@ describe('@quajs/engine-native runtime product smoke', () => {
               commit: 'none',
               easing: 'linear'
             });
+            await registerAnimationWithEngine(ctx.engine, {
+              id: 'mira-base-motion', duration: 1000, fill: 'both', commit: 'none',
+              tracks: [{ target: 'spriteLayer:mira:base', property: 'offsetX', keyframes: [
+                { at: 0, value: 0 }, { at: 1000, value: 200, easing: 'ease-in' }
+              ] }]
+            });
+            await playAnimationWithEngine(ctx.engine, 'mira-base-motion', {
+              id: 'mira-base-motion-playback'
+            });
           }
         }];
       }
@@ -297,6 +306,7 @@ describe('@quajs/engine-native runtime product smoke', () => {
         }),
       ])
       expect(engine.getViewState().animations.map(item => item.id).sort()).toEqual([
+        'mira-base-motion-playback',
         'mira-cross-stage-playback',
         'mira-fade-playback',
       ])
@@ -329,10 +339,23 @@ describe('@quajs/engine-native runtime product smoke', () => {
       expect(rendererSummary).toEqual(expect.objectContaining({
         revision: 1,
         missingResourceCount: 0,
-        commandGraphSignature: 'fnv1a64:b7865ef4c9229a17',
       }))
       expect(rendererSummary.commandIds).toEqual(['character:mira'])
       expect(rendererSummary.commandKindCounts).toEqual({ image: 1 })
+      expect(frame.view.characters).toMatchObject([{ spriteLayerAnimationValues: [
+        { target: 'spriteLayer:mira:base', property: 'offsetX', value: 50 },
+      ] }])
+      const settled = structuredClone(frame)
+      const settledCharacter = (settled.view.characters as Record<string, unknown>[])[0]
+      delete settledCharacter.spriteLayerAnimationValues
+      const baseline = await runNativeRendererSmokeFrame(settled)
+      expect(baseline.commandGraphSignature).toBe('fnv1a64:b7865ef4c9229a17')
+      settledCharacter.spriteBase = { asset: 'mira/focus.png', offsetX: 50 }
+      const expected = await runNativeRendererSmokeFrame(settled)
+      expect(rendererSummary.commandGraphSignature).toBe(expected.commandGraphSignature)
+      expect(rendererSummary.commandGraphSignature).not.toBe(baseline.commandGraphSignature)
+      expect(engine.getViewState().characters[0].position?.x).toBe(800)
+      expect(engine.getViewState().characters[0].metadata?.spriteBase).toBeUndefined()
 
       await engine.unloadRuntimePackage('runtime.native.character-animation', { force: true })
       expect(engine.getViewState().characters).toEqual([])

@@ -9,6 +9,13 @@ pub fn apply_animations(view: &mut Map<String, Value>, animations: &Value, now_m
     let Some(animations) = animations.as_array() else {
         return 0;
     };
+    // Supplied timelines replace prior derived samples. Frames with no timeline
+    // field may already have been sampled by the fixed-time TS serializer.
+    if let Some(characters) = view.get_mut("characters").and_then(Value::as_array_mut) {
+        for character in characters.iter_mut().filter_map(Value::as_object_mut) {
+            character.remove("spriteLayerAnimationValues");
+        }
+    }
     let mut active = 0usize;
     for animation in animations {
         let Some(animation) = animation.as_object() else {
@@ -43,6 +50,12 @@ pub fn apply_animations(view: &mut Map<String, Value>, animations: &Value, now_m
             ) else {
                 continue;
             };
+            if target.starts_with("spriteLayer:") {
+                crate::projection::character::animation::collect_sample(
+                    view, target, property, &value,
+                );
+                continue;
+            }
             for target_object in target_objects(view, target) {
                 if target.starts_with("richText")
                     && !property.starts_with("style.")
@@ -402,7 +415,7 @@ fn track_value(track: &Map<String, Value>, elapsed: f64, duration: f64) -> Optio
             return interpolate(
                 previous.get("value")?,
                 next.get("value")?,
-                ease_progress(
+                timeline_ease_progress(
                     progress,
                     next.get("easing")
                         .and_then(Value::as_str)
@@ -532,6 +545,20 @@ fn parse_color(value: &str) -> Option<[f64; 4]> {
             .and_then(|value| value.parse().ok())
             .unwrap_or(1.0),
     ])
+}
+
+// Engine timeline keywords follow render-core. CSS interaction/presence easing
+// still uses the CSS solver below; the two contracts deliberately differ.
+fn timeline_ease_progress(progress: f64, easing: Option<&str>) -> f64 {
+    ease_progress(
+        progress,
+        match easing {
+            Some("ease-in") => Some("quad-in"),
+            Some("ease-out") => Some("quad-out"),
+            Some("ease-in-out") => Some("quad-in-out"),
+            _ => easing,
+        },
+    )
 }
 
 pub fn ease_progress(progress: f64, easing: Option<&str>) -> f64 {
