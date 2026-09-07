@@ -1,5 +1,6 @@
 mod lookup;
 mod materialize;
+mod shadow_blur;
 mod types;
 mod validation;
 

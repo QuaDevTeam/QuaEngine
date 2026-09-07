@@ -21,6 +21,17 @@ impl WgpuNativeRenderRuntimeDevice for RealWgpuNativeRenderRuntimeDevice {
             .values()
             .flatten()
             .any(|group| group.blend_mode != crate::render_graph::CompositeBlendMode::Normal);
+        let has_blurred_shadow = self.composite_groups.values().flatten().any(|group| {
+            group
+                .drop_shadow
+                .as_ref()
+                .is_some_and(|shadow| group.blur_radius.hypot(shadow.sigma) >= 0.001)
+        });
+        if !has_blurred_shadow {
+            if let Some(compositor) = &mut self.compositor {
+                compositor.clear_shadow_blur();
+            }
+        }
         let has_backdrop = has_blend
             || plan.operations.iter().any(|op| {
                 matches!(op,
@@ -37,7 +48,9 @@ impl WgpuNativeRenderRuntimeDevice for RealWgpuNativeRenderRuntimeDevice {
             .max()
             .unwrap_or(0);
         let extent = self.target.extent();
-        let bytes = (depth as u64 + u64::from(has_backdrop))
+        // The blur pyramid and two Gaussian outputs occupy at most two full
+        // frame textures. Reject over-budget frames before recording GPU work.
+        let bytes = (depth as u64 + u64::from(has_backdrop) + 2 * u64::from(has_blurred_shadow))
             * u64::from(extent.width)
             * u64::from(extent.height)
             * 4;

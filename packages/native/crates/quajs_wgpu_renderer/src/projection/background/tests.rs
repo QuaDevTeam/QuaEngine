@@ -52,39 +52,38 @@ fn builds_main_image_background_command() {
 }
 
 #[test]
-fn projects_css_drop_shadow_as_package_aware_sibling_command() {
+fn projects_drop_shadow_on_source_subtree_with_group_opacity_and_provenance() {
     let layout = test_layout();
     let background = BackgroundProjection {
-        asset_name: Some("bg/school.png".to_string()),
+        asset_name: Some("bg/school.png".into()),
+        opacity: 0.6,
         provenance: provenance("runtime.bg", ["base"]),
         composition: Some(BackgroundCompositionProjection {
             filter: Some(BackgroundFilterProjection {
-                drop_shadow: Some("drop-shadow(12px 18px 24px rgba(0,0,0,0.55))".to_string()),
+                drop_shadow: Some("12px 18px 24px rgba(0, 0, 0, 0.55)".into()),
                 ..Default::default()
             }),
             ..Default::default()
         }),
         ..Default::default()
     };
-
     let commands = build_background_commands(&layout, &background);
-    assert_eq!(commands.len(), 2);
-    assert_eq!(commands[0].id, "background:main:drop-shadow");
-    assert_eq!(commands[0].kind, DrawCommandKind::RoundedRect);
-    assert_eq!(commands[0].owner_package_id.as_deref(), Some("runtime.bg"));
-    assert!(commands[0]
-        .required_package_ids
-        .contains(&"base".to_string()));
-    match &commands[0].params {
-        DrawCommandParams::Shadow(params) => {
-            assert_eq!(params.offset_x, 12.0);
-            assert_eq!(params.offset_y, 18.0);
-            assert_eq!(params.blur_radius, 24.0);
-            assert_eq!(params.color, "rgba(0,0,0,0.55)");
-        }
-        _ => panic!("expected drop shadow params"),
-    }
-    assert_eq!(commands[1].id, "background:main");
+    assert_eq!(
+        commands.len(),
+        1,
+        "a drop shadow must not synthesize a rectangular sibling"
+    );
+    let command = &commands[0];
+    assert_eq!(command.kind, DrawCommandKind::Image);
+    assert_eq!(command.opacity, 1.0);
+    assert_eq!(command.owner_package_id.as_deref(), Some("runtime.bg"));
+    assert!(command.required_package_ids.contains("base"));
+    let group = &command.composite_groups[0];
+    assert_eq!(group.opacity, 0.6);
+    let shadow = group.drop_shadow.as_ref().unwrap();
+    assert_eq!(shadow.offset, [12.0, 18.0]);
+    assert_eq!(shadow.sigma, 24.0);
+    assert_eq!(shadow.color, "rgba(0, 0, 0, 0.55)");
 }
 
 #[test]

@@ -1,4 +1,4 @@
-# Native Renderer / Web 渲染审计（2026-09-06 更新）
+# Native Renderer / Web 渲染审计（2026-09-07 更新）
 
 审计环境为 macOS Apple M4、Metal/WGPU、1920×1080 逻辑舞台、960×540 窗口、DPR 2。Native 和 Chrome 使用相同 QPK 图片/字体及逻辑坐标。MAE 是每个 RGB 通道的平均绝对误差（0..255），只说明对应夹具的结果，不能作为完整渲染器评分。
 
@@ -79,7 +79,7 @@
 
 ## 仍未对齐
 
-1. **背景组合：** raster mask 的 alpha/luminance、cover/contain/auto/px/percent 尺寸、定位、重复规则及嵌套合成已完成真实像素验证，详见下方 2026-09-06 记录。SVG/多重 mask、完整 layered root 变换、各视频子层解码仍未实现。现有 drop-shadow 是矩形 analytic sibling，不是源图 alpha 轮廓，且输入解析与 Web 的 `filter.dropShadow` 内部值不一致，不能视为功能对齐。大 blur 半径及 filter/scale/rotation 组合仍需补齐。
+1. **背景组合：** raster mask 的 alpha/luminance、cover/contain/auto/px/percent 尺寸、定位、重复规则及嵌套合成已完成真实像素验证，详见下方 2026-09-06 记录。SVG/多重 mask、完整 layered root 变换、各视频子层解码仍未实现。drop-shadow 后续已改成源图 alpha 子树合成，并修正 Web 参数解析，见下方补充记录。大 blur 半径及 filter/scale/rotation 组合仍需补齐。
 2. **富文本：** 桥接保留 inline span 字段，但当前渲染将 runs 按估算宽度分成独立文本框，缺少连续 inline flow、正确 block breaks、混合字号基线和跨 run wrapping；真实 bidi/cluster wrapping、多字体 fallback 和 typewriter grapheme 对齐也未完成。
 3. **字体：** Arabic/bidi 仍有可见误差；跨字体逐 cluster fallback、竖排和语言相关断字未完成。当前截图不证明浏览器级文字布局。
 4. **音视频：** EQ/automation 已接入并有 native focused backend tests；GIF 有解码与发布测试，MP4/WebM 尚无解码器或产品实测。demo E2E 的 video decoded/published 为 0。
@@ -120,4 +120,16 @@ pnpm native:e2e
 - Renderer Rust：839 tests passed；native app：274 tests passed；engine-native：105 tests passed、typecheck 通过。
 - `pnpm native:e2e` 报告通过：64 条对白、stealth 选择、settings/gallery、返回 title；199 commands / 4 passes，1920×1080 PNG，纹理/字体/清理错误为 0，结束时音频轨道为 0。本次窗口报告 `OccludedAfterRetry`、`presented=false`：验证的是完整应用流程和真实 GPU 离屏截图，不能作为桌面窗口可见呈现的证据。
 
-这批验证没有覆盖真实源 alpha drop-shadow、inline text flow、sprite manifest/expression diff、MP4/WebM 或新音频处理效果，不将它们算作已完成。
+mask 批次未覆盖 source-alpha drop-shadow（后续见下方补充）、inline text flow、sprite manifest/expression diff、MP4/WebM 或新音频处理效果。
+
+## 2026-09-07 source-alpha drop shadow 补充
+
+移除了矩形 analytic shadow sibling。背景图、子层、分层根节点和视频帧/海报共用 compositor 的源 alpha 轮廓，保留透明孔洞、半透明 texel 和重叠子层。源滤镜之后生成彩色阴影，再统一应用 opacity、mask 和 blend；前置 blur 与阴影 blur 的 Gaussian variance 合并。单图旋转会同步旋转 shadow offset。修正参数解析：`filter.dropShadow` 接收 `12px 18px 24px rgba(0, 0, 0, 0.55)`，无需 `drop-shadow()` 包装，支持带空格的 RGB/RGBA、hex 和基础命名颜色。
+
+新增 11 个 Quack QPK 透明轮廓截图用例，覆盖硬阴影、8/24/48px 模糊、全透明源图、opacity、mask、前置滤镜、旋转、分层根节点和子层 blend。合成测试使用有界的可分离 Gaussian pass，大半径先做线性降采样，保留极大半径细节近似的限制；没有宣称任意尺寸/复杂变换下与浏览器逐像素等价。未解析 currentColor、其他颜色形式、spread/多阴影和非 px 单位均为明确诊断。
+
+- **65/65 Metal/Chrome 背景截图对照通过**。硬阴影及 8/24/48px 阴影重叠区 RGB MAE 分别为 0.001 / 0.017 / 0.054 / 0.133；透明控制、opacity/filter/mask/rotation/root 合成均 ≤ 0.064；这些合成控制用例差异超过 16 的像素比例均为 0。照片 blend 用例 MAE 1.793。透明轮廓使用更严格的逐例门槛，避免照片用例的宽松门槛漏掉稀疏采样条带。
+- 模糊缓存只保存可替换的 GPU 临时资源；整个 blur pyramid 和两个 Gaussian 输出按最多两张全帧纹理计入 256 MiB 预算，移除阴影时释放，稳定尺寸复用。资源回归覆盖模糊半径往返变化、窗口放大/缩小、保留 isolation 时移除阴影、空帧清理。
+- Renderer 的 841 项原有/阴影测试通过，另加 1 项缓存生命周期回归；Native app 274 项测试通过。最终 Demo E2E 使用仓库指定的 pnpm 11.11.0 入口运行：67 条对白、stealth 分支、settings/gallery、返回 title，199 commands / 4 passes，1920×1080 PNG，纹理/字体/清理错误为 0。`presented=false` / `OccludedAfterRetry`，仍只证明完整流程及真实 GPU 离屏渲染。
+
+截图与测量输出：`packages/native/target/render-audit/background/{review.html,measurements.json}`；最终日志：`shadow-final-e2e.log`、`shadow-lifecycle-tests.log`。此次不包含 MP4/WebM 解码验证，也未替换源图 blur 的既有采样实现。

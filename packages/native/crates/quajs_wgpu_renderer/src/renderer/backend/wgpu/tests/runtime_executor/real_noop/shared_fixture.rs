@@ -308,3 +308,92 @@ fn real_noop_background_blends_share_scratch_and_release_it_with_the_frame() {
         0
     );
 }
+
+#[test]
+fn real_noop_drop_shadow_scratch_is_bounded_reused_and_released() {
+    let mut renderer = create_noop_renderer(320, 180);
+    let frame_bytes = 320 * 180 * 4;
+    let mut frame = serde_json::json!({"layout":{"preset":"landscape"},
+    "container":{"width":320,"height":180}, "view":{"background":{
+        "mode":"image", "layers":[], "opacity":1.0, "assetName":"silhouette.png",
+        "composition":{"isolation":true, "filter":{"dropShadow":"12px 18px 72px red"}}
+    }}});
+    // Exercise both directions of pyramid resizing, not just repeated startup.
+    for blur in [72, 288, 72, 0] {
+        frame["view"]["background"]["composition"]["filter"]["dropShadow"] =
+            format!("12px 18px {blur}px red").into();
+        renderer
+            .prepare_and_render_json_str(&frame.to_string())
+            .unwrap();
+        let bytes = renderer
+            .backend()
+            .runtime_snapshot()
+            .resident_compositor_texture_byte_len;
+        if blur == 0 {
+            assert_eq!(bytes, frame_bytes);
+        } else {
+            assert!(bytes > frame_bytes && bytes <= 3 * frame_bytes);
+        }
+        renderer
+            .prepare_and_render_json_str(&frame.to_string())
+            .unwrap();
+        assert_eq!(
+            renderer
+                .backend()
+                .runtime_snapshot()
+                .resident_compositor_texture_byte_len,
+            bytes
+        );
+    }
+    frame["view"]["background"]["composition"]["filter"]["dropShadow"] =
+        "12px 18px 72px red".into();
+    renderer
+        .prepare_and_render_json_str(&frame.to_string())
+        .unwrap();
+    for (width, height) in [(640, 360), (320, 180)] {
+        renderer
+            .backend_mut()
+            .resize_target(
+                wgpu::TextureFormat::Rgba8UnormSrgb,
+                wgpu::Extent3d {
+                    width,
+                    height,
+                    depth_or_array_layers: 1,
+                },
+            )
+            .unwrap();
+        frame["container"] = serde_json::json!({"width":width,"height":height});
+        renderer
+            .prepare_and_render_json_str(&frame.to_string())
+            .unwrap();
+        let bytes = renderer
+            .backend()
+            .runtime_snapshot()
+            .resident_compositor_texture_byte_len;
+        let resized_frame_bytes = width as usize * height as usize * 4;
+        assert!(bytes > resized_frame_bytes && bytes <= 3 * resized_frame_bytes);
+    }
+    frame["view"]["background"]["composition"]["filter"] = serde_json::json!({});
+    renderer
+        .prepare_and_render_json_str(&frame.to_string())
+        .unwrap();
+    assert_eq!(
+        renderer
+            .backend()
+            .runtime_snapshot()
+            .resident_compositor_texture_byte_len,
+        frame_bytes,
+        "isolation keeps its target; shadow scratch is released"
+    );
+    frame["view"] = serde_json::json!({});
+    renderer
+        .prepare_and_render_json_str(&frame.to_string())
+        .unwrap();
+    assert_eq!(
+        renderer
+            .backend()
+            .runtime_snapshot()
+            .resident_compositor_texture_byte_len,
+        0
+    );
+}

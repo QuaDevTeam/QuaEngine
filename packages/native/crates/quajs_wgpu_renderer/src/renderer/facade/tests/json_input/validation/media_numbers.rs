@@ -382,3 +382,26 @@ fn mask_layout_validation_reports_unsupported_fields_before_frame_preparation() 
         assert_eq!(renderer.state().revision(), 0);
     }
 }
+
+#[test]
+fn drop_shadow_rejects_invalid_web_filter_inner_values_before_frame_preparation() {
+    for value in [
+        "drop-shadow(2px 3px black)",
+        "2px 3px -5px black",
+        "2px 3px 4px 5px red",
+        "0 0 url(bad)",
+    ] {
+        let mut input: serde_json::Value = serde_json::from_str(json_frame_input()).unwrap();
+        input["view"]["background"]["composition"] =
+            serde_json::json!({"filter": {"dropShadow": value}});
+        let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
+        let error = renderer
+            .prepare_frame_json_str(&input.to_string())
+            .unwrap_err();
+        let NativeRendererJsonFrameError::Validation(error) = error else {
+            panic!("expected drop shadow validation")
+        };
+        assert_eq!(error.path, "view.background.composition.filter.dropShadow");
+        assert_eq!(renderer.state().revision(), 0);
+    }
+}
