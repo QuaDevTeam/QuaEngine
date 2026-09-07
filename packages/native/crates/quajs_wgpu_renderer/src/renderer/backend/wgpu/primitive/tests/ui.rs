@@ -88,6 +88,7 @@ fn scales_ui_paint_and_typography_metrics_to_physical_pixels() {
                     pipeline: DrawBatchPipeline::Text,
                     kind: DrawCommandKind::Text,
                     metadata: draw_metadata(DrawCommandParams::Text(TextDrawParams {
+                        inline: None,
                         text: "DPR".to_string(),
                         font_family: Vec::new(),
                         font_size: 24.0,
@@ -172,6 +173,7 @@ fn lowers_foundational_ui_surface_primitives() {
             pipeline: DrawBatchPipeline::Text,
             kind: DrawCommandKind::Text,
             metadata: draw_metadata(DrawCommandParams::Text(TextDrawParams {
+                inline: None,
                 text: "Menu".to_string(),
                 font_family: vec!["Inter".to_string(), "Noto Sans".to_string()],
                 font_size: 24.0,
@@ -294,6 +296,7 @@ fn lowers_rich_text_draws_into_text_primitives_without_losing_draw_kind() {
             pipeline: DrawBatchPipeline::Text,
             kind: DrawCommandKind::RichText,
             metadata: draw_metadata(DrawCommandParams::Text(TextDrawParams {
+                inline: None,
                 text: "First line\nSecond line".to_string(),
                 font_family: vec!["Qua Serif".to_string(), "Fallback Serif".to_string()],
                 font_size: 22.0,

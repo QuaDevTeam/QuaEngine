@@ -296,24 +296,19 @@ fn preserves_rich_text_inline_runs_and_builds_avatar_command() {
 
     match &text.params {
         DrawCommandParams::Text(params) => {
-            assert_eq!(params.text, "Line ");
+            assert_eq!(params.text, "Line one\nLine two");
+            let inline = params.inline.as_ref().unwrap();
+            assert_eq!(inline.blocks.len(), 2);
+            assert_eq!(inline.blocks[0][1].text, "one");
+            assert_eq!(inline.blocks[1][0].text, "Line two");
             assert_eq!(params.color, "#d8c6ff");
             assert_eq!(params.line_height, 48.0);
             assert_eq!(params.align, TextAlign::Right);
         }
         _ => panic!("expected text params"),
     }
-    let second_run = commands
-        .iter()
-        .find(|command| command.id == "dialogue:text:1")
-        .expect("second inline run");
-    match &second_run.params {
-        DrawCommandParams::Text(params) => assert_eq!(params.text, "one"),
-        _ => panic!("expected second text params"),
-    }
-    assert!(commands.iter().any(|command| {
-        matches!(&command.params, DrawCommandParams::Text(params) if params.text == "Line two")
-    }));
+    assert_eq!(commands.iter().filter(|c| c.id.starts_with("dialogue:text")).count(), 2);
+
 }
 
 #[test]
@@ -573,4 +568,60 @@ fn reveal_keeps_full_text_layout_and_avatar_clear_of_text() {
     let choice_panel = bounds(graph.commands(), "choices:panel");
     let dialogue_panel = bounds(graph.commands(), "dialogue:panel");
     assert!(choice_panel.y + choice_panel.height < dialogue_panel.y);
+}
+
+#[test]
+fn rich_reveal_retains_full_runs_styles_fonts_and_provenance() {
+    let full: RichTextContent = serde_json::from_value(serde_json::json!({
+        "style": { "fontFamily": ["Body"] }, "blocks": [
+            { "spans": [{ "text": "office", "style": { "fontFamily": ["Accent"], "fontSize": 32, "color": "#ff0000" } }] },
+            { "spans": [{ "text": "next" }] }
+        ]
+    })).unwrap();
+    let mut visible = full.clone();
+    if let RichTextContent::Document(doc) = &mut visible {
+        doc.blocks[0].spans[0].text = "of".into();
+        doc.blocks[1].spans[0].text.clear();
+    }
+    let dialogue = DialogueProjection {
+        text: visible,
+        layout_text: Some(full),
+        provenance: provenance("runtime.story", ["runtime.fonts"]),
+        ..DialogueProjection::say("")
+    };
+    let commands = build_dialogue_commands(&test_layout(), &dialogue);
+    let command = commands.iter().find(|c| c.id == "dialogue:text").unwrap();
+    let DrawCommandParams::Text(text) = &command.params else {
+        panic!()
+    };
+    let inline = text.inline.as_ref().unwrap();
+    assert_eq!(inline.blocks[0][0].text, "office");
+    assert_eq!(inline.blocks[0][0].visible_bytes, 2);
+    assert_eq!(inline.blocks[0][0].font_size, 32.0);
+    assert_eq!(inline.blocks[1][0].visible_bytes, 0);
+    assert_eq!(inline.blocks[1][0].font_family, ["Body"]);
+    assert!(command
+        .resource_ids
+        .iter()
+        .any(|id| id.as_str().contains("Accent")));
+    assert_eq!(command.owner_package_id.as_deref(), Some("runtime.story"));
+    assert!(command.required_package_ids.contains("runtime.fonts"));
+    let shadow = commands
+        .iter()
+        .find(|c| c.id == "dialogue:text:shadow")
+        .unwrap();
+    let DrawCommandParams::Text(shadow) = &shadow.params else {
+        panic!()
+    };
+    let mut shadow_inline = shadow.inline.clone().unwrap();
+    for (a, b) in shadow_inline
+        .blocks
+        .iter_mut()
+        .flatten()
+        .zip(inline.blocks.iter().flatten())
+    {
+        assert_eq!(a.color, "rgba(0,0,0,0.72)");
+        a.color = b.color.clone();
+    }
+    assert_eq!(&shadow_inline, inline);
 }

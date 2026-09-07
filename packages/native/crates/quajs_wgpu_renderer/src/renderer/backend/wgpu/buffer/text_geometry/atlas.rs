@@ -1,3 +1,6 @@
+mod inline;
+pub(in crate::renderer::backend::wgpu::buffer) use inline::inline_text_geometry;
+
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::fonts::{
@@ -1120,6 +1123,7 @@ mod tests {
 
     fn style(font_weight: Option<FontWeightDrawParam>) -> WgpuNativeRenderTextStyle {
         WgpuNativeRenderTextStyle {
+            inline: None,
             font_family: vec!["Noto Sans".to_string()],
             font_size: 20.0,
             font_style: FontStyleDrawParam::Normal,

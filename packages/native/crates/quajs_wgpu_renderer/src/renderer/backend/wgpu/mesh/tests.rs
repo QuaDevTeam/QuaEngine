@@ -127,6 +127,7 @@ fn text_style(
     padding: EdgeInsetsDrawParam,
 ) -> WgpuNativeRenderTextStyle {
     WgpuNativeRenderTextStyle {
+        inline: None,
         font_family: vec!["Inter".to_string()],
         font_size,
         font_style: FontStyleDrawParam::Normal,
@@ -146,6 +147,7 @@ fn text_style(
 
 fn rich_text_style() -> WgpuNativeRenderTextStyle {
     WgpuNativeRenderTextStyle {
+        inline: None,
         font_family: vec!["Inter".to_string(), "Noto Serif".to_string()],
         font_size: 24.0,
         font_style: FontStyleDrawParam::Italic,
@@ -198,6 +200,7 @@ fn _draw_param_compile_guard() {
         invert: 0.0,
     });
     let _ = DrawCommandParams::Text(TextDrawParams {
+        inline: None,
         text: "x".to_string(),
         font_family: vec!["Inter".to_string()],
         font_size: 16.0,

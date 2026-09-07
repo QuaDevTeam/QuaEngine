@@ -91,6 +91,7 @@ pub(super) fn text_node_command(
         DrawCommand::new(command_id, RenderPlane::Screen, kind, bounds)
             .resources(font_family_resource_ids(&font_family))
             .params(DrawCommandParams::Text(TextDrawParams {
+                inline: None,
                 text: text.to_string(),
                 font_family,
                 font_size: resolve_font_size(&node.style, 28.0),

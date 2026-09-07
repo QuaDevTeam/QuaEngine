@@ -1,7 +1,7 @@
 use crate::render_graph::{
     BorderDrawParams, DrawBatchPipeline, DrawCommandKind, EdgeInsetsDrawParam, FontStyleDrawParam,
-    FontWeightDrawParam, GradientDrawKind, GradientDrawRadialShape, LogicalRect, MediaFit,
-    MediaOrigin, TextAlign, TextDecorationDrawParam, TextDrawParams, TextOverflowDrawParam,
+    FontWeightDrawParam, GradientDrawKind, GradientDrawRadialShape, InlineTextDrawParams, LogicalRect,
+    MediaFit, MediaOrigin, TextAlign, TextDecorationDrawParam, TextDrawParams, TextOverflowDrawParam,
     TextTransformDrawParam, UiButtonDrawParams, WhiteSpaceDrawParam,
 };
 use crate::resources::ResourceId;
@@ -39,6 +39,7 @@ impl WgpuNativeRenderPrimitive {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct WgpuNativeRenderTextStyle {
+    pub inline: Option<InlineTextDrawParams>,
     pub font_family: Vec<String>,
     pub font_size: f64,
     pub font_style: FontStyleDrawParam,
@@ -72,6 +73,13 @@ impl From<&TextDrawParams> for WgpuNativeRenderTextStyle {
 impl WgpuNativeRenderTextStyle {
     pub fn from_text_params(params: &TextDrawParams, physical_scale: f64) -> Self {
         Self {
+            inline: params.inline.clone().map(|mut inline| {
+                for run in inline.blocks.iter_mut().flatten() {
+                    run.font_size *= physical_scale;
+                    run.line_height *= physical_scale;
+                }
+                inline
+            }),
             font_family: params.font_family.clone(),
             font_size: params.font_size * physical_scale,
             font_style: params.font_style,
@@ -102,6 +110,7 @@ impl WgpuNativeRenderTextStyle {
 
     pub fn from_button_params(params: &UiButtonDrawParams, physical_scale: f64) -> Self {
         Self {
+            inline: None,
             font_family: params.font_family.clone(),
             font_size: params.font_size * physical_scale,
             font_style: params.font_style,

@@ -5,7 +5,7 @@ use super::super::color::{color_struct_to_rgba, color_to_rgba};
 use super::super::geometry::{
     rounded_rect_geometry_with_uv_bounds, WgpuNativeRenderBufferGeometry,
 };
-use super::super::text_geometry::text_placeholder_geometry;
+use super::super::text_geometry::{inline_text_geometry, text_placeholder_geometry};
 use super::super::types::{WgpuNativeRenderBufferVertex, WgpuNativeRenderDrawCall};
 use super::{
     append_geometry_buffers, append_prepared_geometry_buffers, prepare_text_blur_geometry,
@@ -25,14 +25,32 @@ pub(in crate::renderer::backend::wgpu::buffer) fn append_quad_buffers(
         text, color, style, ..
     } = &quad.paint
     {
-        if let Some((geometry, atlas_resource_id)) = text_placeholder_geometry(
-            quad.physical_bounds,
-            text,
-            style,
-            color_to_rgba(*color),
-            quad.opacity,
-            font_atlases,
-        ) {
+        let inline = inline_text_geometry(quad.physical_bounds, style, quad.opacity, font_atlases);
+        let fallback = if inline.is_none() {
+            text_placeholder_geometry(
+                quad.physical_bounds,
+                text,
+                style,
+                color_to_rgba(*color),
+                quad.opacity,
+                font_atlases,
+            )
+        } else {
+            None
+        };
+        // Preserve the allocation-free single-geometry path for plain UI text.
+        let geometries = inline
+            .into_iter()
+            .flatten()
+            .map(|(g, id, paint)| (g, Some(id), paint))
+            .chain(
+                fallback
+                    .into_iter()
+                    .map(|(g, id)| (g, id, quad.paint.clone())),
+            );
+        for (geometry, atlas_resource_id, paint) in geometries {
+            let first_vertex = vertices.len() as u32;
+            let first_index = indices.len() as u32;
             let geometry = prepare_text_blur_geometry(geometry, style.blur_radius as f32);
             let physical_bounds = geometry.physical_bounds;
             let placeholder_quad = WgpuNativeRenderQuad {
@@ -43,7 +61,7 @@ pub(in crate::renderer::backend::wgpu::buffer) fn append_quad_buffers(
                 scissor: quad.scissor,
                 vertices: quad.vertices,
                 indices: quad.indices,
-                paint: quad.paint.clone(),
+                paint,
                 opacity: quad.opacity,
                 corner_radius: 0.0,
                 effect0: [0.0; 4],

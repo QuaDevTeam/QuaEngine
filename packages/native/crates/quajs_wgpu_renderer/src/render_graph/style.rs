@@ -140,6 +140,7 @@ pub enum WhiteSpaceDrawParam {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct TextDrawParams {
+    pub inline: Option<InlineTextDrawParams>,
     pub text: String,
     pub font_family: Vec<String>,
     pub font_size: f64,
@@ -157,6 +158,25 @@ pub struct TextDrawParams {
     pub padding: EdgeInsetsDrawParam,
     pub role: String,
     pub rotation_degrees: f64,
+}
+
+/// Renderer-only blocks of CSS inline-block spans, retained until QPK font metrics are available.
+#[derive(Clone, Debug, PartialEq)]
+pub struct InlineTextDrawParams {
+    pub blocks: Vec<Vec<InlineTextRun>>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct InlineTextRun {
+    pub text: String,
+    /// Revealed UTF-8 prefix; layout/shaping always uses the full text.
+    pub visible_bytes: usize,
+    pub align: TextAlign,
+    pub font_family: Vec<String>,
+    pub font_size: f64,
+    pub font_weight: Option<FontWeightDrawParam>,
+    pub line_height: f64,
+    pub color: String,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]

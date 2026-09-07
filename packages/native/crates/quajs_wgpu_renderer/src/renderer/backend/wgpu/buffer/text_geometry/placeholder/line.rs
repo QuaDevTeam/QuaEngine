@@ -184,6 +184,7 @@ mod tests {
 
     fn text_style(font_size: f64) -> WgpuNativeRenderTextStyle {
         WgpuNativeRenderTextStyle {
+            inline: None,
             font_family: vec!["Inter".to_string()],
             font_size,
             font_style: FontStyleDrawParam::Normal,
