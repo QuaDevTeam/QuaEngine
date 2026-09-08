@@ -8,11 +8,10 @@ export function StoryTreeOverlay({ view }: { view: NativeAppView }) {
     <Stack class="system-overlay">
       <Backdrop id="native-story-tree-backdrop" class="system-backdrop" onDismiss={ui.close('story-tree')} />
       <Panel id="native-story-tree-panel" class="list-panel list-panel--wide">
-        <Text id="native-story-tree-eyebrow" class="panel-eyebrow">{view.t('ui.storyTree.eyebrow')}</Text>
         <Text id="native-story-tree-title" class="panel-title">{view.t('ui.storyTree.title')}</Text>
         <Column id="native-story-tree-list" class="list-content">
           {view.storyTreeItems.map(item => (
-            <Text key={item.id} id={item.id} class="list-line">{item.label}</Text>
+            <Button key={item.id} id={item.id} class="chapter-action" disabled={item.disabled} onClick={ui.open(`chapter:${item.id}`)}>{item.label}</Button>
           ))}
         </Column>
         <Button id="native-story-tree-close" class="panel-close" onClick={ui.close('story-tree')}>{view.t('ui.common.close')}</Button>

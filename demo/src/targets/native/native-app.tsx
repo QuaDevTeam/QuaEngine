@@ -8,7 +8,7 @@ import { GameHud } from './screens/game-hud'
 import { GameMenuOverlay } from './screens/game-menu'
 import { GameOverDialog } from './screens/game-over'
 import { GalleryOverlay } from './screens/gallery'
-import { SaveLoadOverlay } from './screens/save-load'
+import { SaveLoadOverlay, SaveConfirmDialog } from './screens/save-load'
 import { SettingsOverlay } from './screens/settings'
 import { ShellVignette, TitleSurface } from './screens/shell'
 import { StoryTreeOverlay } from './screens/story-tree'
@@ -36,6 +36,7 @@ const SCREEN_REGISTRY: Partial<Record<NativeDemoAppScreen, ScreenComponent>> = {
   'game-over': GameOverDialog,
   'story-tree': StoryTreeOverlay,
   'save-load': SaveLoadOverlay,
+  'save-confirm': SaveConfirmDialog,
   'gallery': GalleryOverlay,
   'settings': SettingsOverlay,
   'backlog': BacklogOverlay,

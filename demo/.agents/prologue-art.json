@@ -1,0 +1,116 @@
+{
+  "schemaVersion": 1,
+  "title": "明天，请再一次呼唤我",
+  "generationStatus": "deferred-by-user",
+  "note": "用户已明确要求所有图片生成后续统一制作。当前不生成、不询问备用方式；提示词与依赖保留供后续使用。所有路径仍为 planned，不注册为运行资产。角色参考通过审阅后再派生透明立绘与差分。",
+  "assets": [
+    {
+      "id": "rin-reference",
+      "type": "character-reference",
+      "description": "神代凛常服参考",
+      "status": "planned",
+      "dependsOn": [],
+      "destination": "demo/assets/characters/rin/reference.png",
+      "prompt": "Use case: illustration-story. Asset type: character-reference. Adult woman age 25, slim mature proportions, natural skin, gray-brown eyes, dark blue-black asymmetrical short bob with a teal lock on one side. Mist-blue lightweight open shirt jacket, ivory cotton top, charcoal cropped straight trousers, light gray waterproof sneakers, navy crossbody recording bag. Relaxed reserved standing pose, full body head to soles, both hands anatomically correct. Plain neutral background. Style: Commercial Japanese visual novel anime illustration, clean confident linework, soft painted shading, cohesive early summer rainy seaside town palette: warm ivory, muted blue, sage, natural wood. Adult proportions. No text, logos, watermark, interface, neon cyberpunk, glowing clothing or weapons.",
+      "tool": null,
+      "model": null,
+      "sourceFile": null,
+      "review": null
+    },
+    {
+      "id": "mara-reference",
+      "type": "character-reference",
+      "description": "Mara 常服参考",
+      "status": "planned",
+      "dependsOn": [],
+      "destination": "demo/assets/characters/mara/reference.png",
+      "prompt": "Use case: illustration-story. Asset type: character-reference. Adult woman age 24, natural healthy skin, amber eyes, ash-brown short bob. Cream yellow short sleeve utility shirt over ivory top, navy ankle-length loose trousers, white-soled deck sneakers, thin red cord bracelet, simple staff clip, small removable blue-gray work headset. Warm approachable expression, grounded relaxed posture, full body head to soles. Plain neutral background. Style: Commercial Japanese visual novel anime illustration, clean confident linework, soft painted shading, cohesive early summer rainy seaside town palette: warm ivory, muted blue, sage, natural wood. Adult proportions. No text, logos, watermark, interface, neon cyberpunk, glowing clothing or weapons.",
+      "tool": null,
+      "model": null,
+      "sourceFile": null,
+      "review": null
+    },
+    {
+      "id": "town-bus-rain",
+      "type": "background",
+      "description": "雨中巴士站",
+      "status": "planned",
+      "dependsOn": [],
+      "destination": "demo/assets/images/backgrounds/town-bus-rain.webp",
+      "prompt": "Use case: illustration-story. Asset type: background. Empty bus stop on an ordinary small Japanese coastal shopping street in June 2047 after midday, rain on translucent shelter, wet concrete, low-rise shops, distant sliver of gray blue sea between buildings. A simple electronic bus display without readable text, no holograms. Eye level wide framing, foreground room for two standees, lower dialogue area uncluttered. Landscape 16:9. Style: Commercial Japanese visual novel anime illustration, clean confident linework, soft painted shading, cohesive early summer rainy seaside town palette: warm ivory, muted blue, sage, natural wood. Adult proportions. No text, logos, watermark, interface, neon cyberpunk, glowing clothing or weapons.",
+      "tool": null,
+      "model": null,
+      "sourceFile": null,
+      "review": null
+    },
+    {
+      "id": "town-street-rain",
+      "type": "background",
+      "description": "商店街",
+      "status": "planned",
+      "dependsOn": [
+        "town-bus-rain"
+      ],
+      "destination": "demo/assets/images/backgrounds/town-street-rain.webp",
+      "prompt": "Use case: illustration-story. Asset type: background. Same town and architecture as town-bus-rain reference. Eye-level view beneath connected shopping street awnings, cozy small bakery, rolled shop curtain, wet pavement, distant gray blue sea at end of street. A small practical delivery cart parked by a doorway. No prominent people, signage without legible text. Landscape 16:9. Style: Commercial Japanese visual novel anime illustration, clean confident linework, soft painted shading, cohesive early summer rainy seaside town palette: warm ivory, muted blue, sage, natural wood. Adult proportions. No text, logos, watermark, interface, neon cyberpunk, glowing clothing or weapons.",
+      "tool": null,
+      "model": null,
+      "sourceFile": null,
+      "review": null
+    },
+    {
+      "id": "radio-studio-day",
+      "type": "background",
+      "description": "海岸台播音室白天",
+      "status": "planned",
+      "dependsOn": [],
+      "destination": "demo/assets/images/backgrounds/radio-studio-day.webp",
+      "prompt": "Use case: illustration-story. Asset type: background. Small lived-in community radio studio in an old two-story seaside building. Eye-level view: wood desk with modest mixing console in center-left, glass microphone booth at left rear, rainy window on right with white mug bearing a simple blue whale on coaster, door to corridor at rear center. Worn acoustic panels, papers and moving boxes, warm lighting, restrained near-future ordinary equipment, two simple audio level displays without readable text. Room for standees, uncluttered lower quarter. Landscape 16:9. Style: Commercial Japanese visual novel anime illustration, clean confident linework, soft painted shading, cohesive early summer rainy seaside town palette: warm ivory, muted blue, sage, natural wood. Adult proportions. No text, logos, watermark, interface, neon cyberpunk, glowing clothing or weapons.",
+      "tool": null,
+      "model": null,
+      "sourceFile": null,
+      "review": null
+    },
+    {
+      "id": "radio-studio-night",
+      "type": "background-variant",
+      "description": "海岸台播音室雨夜",
+      "status": "planned",
+      "dependsOn": [
+        "radio-studio-day"
+      ],
+      "destination": "demo/assets/images/backgrounds/radio-studio-night.webp",
+      "prompt": "Use case: illustration-story. Asset type: background-variant. Lighting variation of radio-studio-day reference. Preserve exactly the same camera, desk, booth, doorway, window, mixer and whale mug placement. Rainy blue evening outside, warm overhead lights inside, calm ordinary workplace, no horror lighting. No new people or objects, no text. Landscape 16:9. Style: Commercial Japanese visual novel anime illustration, clean confident linework, soft painted shading, cohesive early summer rainy seaside town palette: warm ivory, muted blue, sage, natural wood. Adult proportions. No text, logos, watermark, interface, neon cyberpunk, glowing clothing or weapons.",
+      "tool": null,
+      "model": null,
+      "sourceFile": null,
+      "review": null
+    },
+    {
+      "id": "radio-archive-day",
+      "type": "background",
+      "description": "资料室",
+      "status": "planned",
+      "dependsOn": [],
+      "destination": "demo/assets/images/backgrounds/radio-archive-day.webp",
+      "prompt": "Use case: illustration-story. Asset type: background. Small archive room adjacent to the same community radio studio. Open wooden shelves of tapes and old hard drives, neatly labeled cardboard boxes without readable writing, small desk for two people with workstation, wired headphones and external drive, portable dehumidifier near door, narrow window showing wet gray-green trees. Cozy daylight and warm desk lamp, no characters, standing room in foreground, clear lower quarter. Landscape 16:9. Style: Commercial Japanese visual novel anime illustration, clean confident linework, soft painted shading, cohesive early summer rainy seaside town palette: warm ivory, muted blue, sage, natural wood. Adult proportions. No text, logos, watermark, interface, neon cyberpunk, glowing clothing or weapons.",
+      "tool": null,
+      "model": null,
+      "sourceFile": null,
+      "review": null
+    },
+    {
+      "id": "radio-breakroom-day",
+      "type": "background",
+      "description": "休息间",
+      "status": "planned",
+      "dependsOn": [],
+      "destination": "demo/assets/images/backgrounds/radio-breakroom-day.webp",
+      "prompt": "Use case: illustration-story. Asset type: background. Small modest breakroom in same radio station building, pale wood lunch table, three closed food containers and a water jug, electric kettle on side counter, open doorway, rain-streaked window and a slightly damp towel on indoor drying rail. Warm everyday feeling, simple working adults interior, no people, no readable text, no futuristic excess. Landscape 16:9. Style: Commercial Japanese visual novel anime illustration, clean confident linework, soft painted shading, cohesive early summer rainy seaside town palette: warm ivory, muted blue, sage, natural wood. Adult proportions. No text, logos, watermark, interface, neon cyberpunk, glowing clothing or weapons.",
+      "tool": null,
+      "model": null,
+      "sourceFile": null,
+      "review": null
+    }
+  ]
+}

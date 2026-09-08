@@ -1,58 +1,38 @@
+// Demo theme owns appearance; the renderer supplies structural CSS only.
 :root {
-  color: #f7f2ea;
-  background: #050507;
-  font-family:
-    "Noto Sans", "Hiragino Mincho ProN", "Yu Mincho", "Noto Serif CJK SC",
-    "Songti SC", serif;
+  color: #29453f;
+  background: #101c1c;
+  font-family: "Noto Sans", "Hiragino Sans", system-ui, sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 }
-
-* {
-  box-sizing: border-box;
+* { box-sizing: border-box; }
+html, body, #app { width: 100%; height: 100%; margin: 0; }
+body { overflow: hidden; }
+.game-root {
+  --vn-paper: #f5f3eb;
+  --vn-sheet: #fffdf7;
+  --vn-ink: #29453f;
+  --vn-muted: #61736b;
+  --vn-sea: #42796e;
+  --vn-tint: #e3ebe2;
+  --vn-line: #c7d2c5;
+  --vn-accent: #a56149;
+  --vn-shadow: 0 18px 64px #102e2926;
+  color: var(--vn-ink);
+  font-family: "Noto Sans", sans-serif;
+  color-scheme: light;
 }
-
-html,
-body,
-#app {
-  width: 100%;
-  height: 100%;
-  margin: 0;
-}
-
-body {
-  overflow: hidden;
-}
-
+button, input, select { font: inherit; }
 button {
-  min-height: 28px;
-  border: 0;
-  border-bottom: 1px solid rgba(235, 204, 144, 0.42);
-  border-radius: 0;
-  background: transparent;
-  color: rgba(247, 242, 234, 0.82);
-  cursor: pointer;
-  font: inherit;
-  font-family: "SFMono-Regular", "Menlo", monospace;
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  padding: 5px 7px 4px;
-  text-transform: uppercase;
-  user-select: none;
-  transition:
-    border-color 140ms ease,
-    color 140ms ease,
-    text-shadow 140ms ease;
+  min-height: 48px; padding: 10px 20px;
+  border: 1px solid var(--vn-line); border-radius: 3px;
+  background: transparent; color: var(--vn-ink);
+  font-size: 20px; cursor: pointer;
+  transition: background-color 140ms ease, color 140ms ease, border-color 140ms ease;
 }
-
-button:hover {
-  border-color: rgba(255, 226, 166, 0.9);
-  color: #ffe8b3;
-  text-shadow: 0 0 14px rgba(255, 194, 86, 0.54);
-}
-
-button.is-active {
-  border-color: rgba(129, 229, 255, 0.86);
-  color: #d8f8ff;
-  text-shadow: 0 0 18px rgba(80, 206, 255, 0.62);
-}
+button:not(:disabled):hover { background: var(--vn-tint); border-color: var(--vn-sea); }
+button.is-active, button[aria-pressed="true"] { background: var(--vn-sea); color: var(--vn-sheet); border-color: var(--vn-sea); }
+button:disabled { opacity: .42; cursor: default; }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid var(--vn-sea); outline-offset: 4px; }
+.game-root * { scrollbar-width: thin; scrollbar-color: #91aa9b transparent; }

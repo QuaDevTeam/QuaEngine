@@ -1,8 +1,7 @@
 /** @jsxImportSource @quajs/native-ui */
 import { Backdrop, Button, Column, Panel, Stack, Text } from '@quajs/native-ui'
-import { createMenuActionPresentation } from '@quajs/render-core'
 import { ui } from '@quajs/native-ui'
-import { DEMO_MENU_OPTIONS, DEMO_UI_METRICS, demoPanelRect } from '../../../game/ui-presentation'
+import { DEMO_GAME_ACTIONS, DEMO_UI_METRICS, demoPanelRect } from '../../../game/ui-presentation'
 import type { NativeAppView } from '../native-app'
 
 export function GameMenuOverlay({ view }: { view: NativeAppView }) {
@@ -16,7 +15,7 @@ export function GameMenuOverlay({ view }: { view: NativeAppView }) {
         <Button id="native-game-menu-header-close" class="parity-close" x={panel.x + panel.width - 71} y={panel.y + 29} width={42} height={42} onClick={ui.close('game-menu')}>×</Button>
         <Panel id="native-game-menu-divider" class="parity-divider" x={panel.x + 29} y={panel.y + 105} width={402} height={1} />
         <Column id="native-game-menu-actions" class="game-menu-actions" x={panel.x + 29} y={panel.y + 124} width={402} height={252}>
-          {createMenuActionPresentation(DEMO_MENU_OPTIONS).map(action => (
+          {DEMO_GAME_ACTIONS.map(action => (
             <Button id={`native-game-menu-${action.id === 'continue' ? 'close' : action.id === 'title' ? 'title-action' : action.id}`} key={action.id} class="panel-action" width={402} height={44}
               onClick={action.id === 'continue' ? ui.close('game-menu')
                 : action.id === 'title' ? ui.open('title-confirm')

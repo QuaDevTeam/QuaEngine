@@ -1,5 +1,5 @@
 /** @jsxImportSource @quajs/native-ui */
-import { Backdrop, Box, Image, Stack } from '@quajs/native-ui'
+import { Backdrop, Box, Stack } from '@quajs/native-ui'
 import { ui } from '@quajs/native-ui'
 import type { NativeAppView } from '../native-app'
 
@@ -22,8 +22,7 @@ export function TitleSurface({ view }: { view: NativeAppView }) {
         <Backdrop id="native-title-input-blocker" class="title-input-blocker"
           onDismiss={ui.block('title')} />
       )}
-      <Image id="native-title-background" class="title-background"
-        src="ui/menu-route.jpg" />
+      <Box id="native-title-background" class="title-background" />
       <Box id="native-title-linear-scrim" class="title-linear-scrim" />
       <Box id="native-title-radial-scrim" class="title-radial-scrim" />
     </Stack>

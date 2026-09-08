@@ -850,6 +850,10 @@ function shouldDispatchKeyboardBindingFromInteractiveTarget(
   binding: RendererInputKeyboardBinding,
   target: Element,
 ): boolean {
+  // Panel controls keep activation/navigation keys, but must still allow dismissal.
+  if (binding.command === 'ui:cancel' || binding.command === 'ui:menu') {
+    return true
+  }
   if (!target.closest('.qua-choice-panel')) {
     return false
   }

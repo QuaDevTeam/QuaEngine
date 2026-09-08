@@ -13,6 +13,7 @@ export type NativeDemoAppScreen =
   | 'game-over'
   | 'game-menu'
   | 'save-load'
+  | 'save-confirm'
   | 'settings'
   | 'story-tree'
   | 'system'
@@ -22,6 +23,7 @@ export type NativeDemoAppScreen =
 export interface NativeDemoAppListItem {
   id: string
   label: string
+  disabled?: boolean
 }
 
 export interface NativeDemoAppSettingItem {
@@ -36,6 +38,8 @@ export interface NativeDemoAppSettingItem {
 export interface NativeDemoAppSurfaceState {
   /** Translation function — called for every static UI string. */
   t: (key: string) => string
+  pendingSaveSlotId?: string
+  canContinue: boolean
   autoActive: boolean
   englishTitle: string
   gameOverDescription: string

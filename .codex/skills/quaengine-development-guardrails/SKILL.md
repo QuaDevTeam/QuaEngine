@@ -171,3 +171,14 @@ description: QuaEngine architecture guardrails for renderer statelessness, dynam
 ## Native renderer resource bounds
 
 Renderer diagnostics must not retain unbounded per-frame command, mesh, buffer, or runtime plans. Keep only a small recent window needed for inspection and maintain cumulative counters separately. Resource and texture caches remain renderer-local and must release package-owned entries on unload/teardown. Pointer hit testing must use stable projected geometry even while hover paint transitions change visual bounds.
+
+
+## Production Web build integrity
+
+The Web security plugin hashes final JS/CSS in an ordered post `generateBundle` hook after Vite dynamic-import rewrites and HTML emission. Generate HTML SRI and CSP/security manifests from the same final bytes. Keep a real Vite build regression with dynamic imports and multiple HTML entries; do not disable SRI to hide drift.
+
+Quack-created static bundles must be emitted through Vite/Rollup, not only written to outDir during buildStart (emptyOutDir can remove them). `asset-manifest.json.bundleFile` is the emitted versioned bundle filename. Production applications load that QPK with a Web asset runtime; development alone uses the VFS endpoint. The Vite plugin's ES2022 library typing matches its supported Node 20 runtime and imported Error.cause APIs.
+
+## Web panel keyboard dismissal
+
+The shared Web input runtime permits `ui:cancel` and `ui:menu` keyboard bindings from focused non-editable controls and history lists. Other narrative bindings remain filtered inside interactive panels so Enter, Space and PageDown do not advance the story. Editable fields keep their existing keyboard handling. Keep this in the pipeline-backed input runtime; products must not add a second global keyboard bus just to make Escape close a panel.

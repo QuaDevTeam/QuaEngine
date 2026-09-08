@@ -140,3 +140,7 @@ Run engine rollback/save-load tests when checkpoint or runtime dependency behavi
 The native panel is centered and bounded to 1040×660 logical pixels. History rows grow to accommodate newline-preserving wrapped text, keep metadata and replay/rewind controls separate, and overflow through the enclosing Scroll node. Do not use ellipsis as the only path to read long history entries. Row sizing is a projection estimate; test long CJK text and adjacent-row non-overlap without changing retention or rewind policy.
 
 `createBacklogNativeRendererFeature({ resolvePanelBounds, density })` permits pure product-owned logical bounds and optional `density: 'compact'`. Compact mode separates index/time from speaker/body and retains long-row growth, scrolling, rewind/voice allowlists and package provenance. The default comfortable layout remains available. Bounds callbacks only project UI and must not write engine state. Test both densities, long text, adjacent-row non-overlap and callback placement.
+
+## Product recording filters
+
+`BacklogPlugin({ filter(entry, { engine, checkpoint }) })` can exclude a candidate at the logic boundary using the existing engine-owned backlog projection. Do not implement equivalent history mutation in a renderer. The linear demo uses this hook to retain the original tail record when restoring the same authored point and identical content; different steps, speakers, choices and runtime package provenance remain distinct. This is demo policy, not a global deduplication default for games that intentionally loop at the same point.

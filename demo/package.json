@@ -11,15 +11,6 @@
     "directory": "demo"
   },
   "scripts": {
-    "assets:generate": "node scripts/generate-assets.mjs",
-    "assets:generate-backgrounds": "node scripts/generate-assets.mjs --only background",
-    "assets:generate-cgs": "node scripts/generate-assets.mjs --only cg",
-    "assets:generate-characters": "node scripts/generate-assets.mjs --only character",
-    "assets:list": "node scripts/generate-assets.mjs --list",
-    "assets:regenerate": "REGENERATE_ALL_ASSETS=1 node scripts/generate-assets.mjs",
-    "assets:regenerate-backgrounds": "REGENERATE_BACKGROUNDS=1 node scripts/generate-assets.mjs",
-    "assets:regenerate-cgs": "REGENERATE_CGS=1 node scripts/generate-assets.mjs",
-    "assets:regenerate-characters": "REGENERATE_CHARACTERS=1 node scripts/generate-assets.mjs",
     "dev": "vite",
     "dev:web": "vite",
     "dev:native": "node --experimental-strip-types scripts/native-dev.mjs",
@@ -27,7 +18,10 @@
     "build": "vite build",
     "preview": "vite preview",
     "assets:build": "quack workspace:bundle --all",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:story": "node scripts/story-smoke.mjs",
+    "test:ui": "node scripts/ui-review.mjs",
+    "test:backlog": "node --experimental-strip-types --test scripts/backlog-policy.test.mjs"
   },
   "dependencies": {
     "@quajs/assets": "workspace:*",

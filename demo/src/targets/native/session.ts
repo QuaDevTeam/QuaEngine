@@ -17,12 +17,11 @@ import {
   type NativeRendererEngineViewProjection,
 } from '@quajs/engine-native'
 import { parseNativeRendererIntentPayload, type NativeRendererIntent } from '@quajs/native-contracts'
-import type { AudioPlayBgmOptions } from '@quajs/plugin-audio'
-import { BGM, DEFAULT_BGM_OPTIONS, GAME_ENGLISH_TITLE, GAME_TITLE, SAVE_LOAD_SLOT_COUNT } from '../../game/config'
-import { DEMO_GALLERY_CATALOG_ID, type DemoGalleryEntryId } from '../../game/content/gallery'
-import { INITIAL_STORY_TREE_NODE_ID, STORY_TREE_NODES } from '../../game/content/story-tree'
+import { GAME_ENGLISH_TITLE, GAME_TITLE, SAVE_LOAD_SLOT_COUNT } from '../../game/config'
+import { DEMO_GALLERY_CATALOG_ID } from '../../game/content/gallery'
+import { STORY_TREE_NODES } from '../../game/content/story-tree'
 import { createDemoEngineRuntime } from '../../game/runtime-shared'
-import { MainScene } from '../../game/story/main-scene'
+import { DEMO_STORY_REQUEST, DEMO_LIBRARY_PLUGIN_ID, type StoryLibrary } from '../../game/story/prologue-state'
 import type { HudPatch } from '../../game/types'
 import { createUiScene, DEMO_OVERLAY_PLACEMENTS, parseChapterIndex } from '../../game/ui/scene'
 import { DEMO_NATIVE_FEATURE_SURFACES } from './features'
@@ -56,13 +55,13 @@ export async function createDemoNativeSession(): Promise<DemoNativeSession> {
   const runtime = await createDemoEngineRuntime({
     engine: {
       project: {
-        name: 'Broken Link Era Demo',
-        bundleId: 'dev.quajs.demo.brokenlinkera',
+        name: 'Call Me Again Tomorrow Demo',
+        bundleId: 'dev.quajs.demo.callmetomorrow',
         version: '0.1.0',
       },
       layout: 'landscape',
       assets: { adapter: createMemoryAssetsAdapter(), locale: 'default', enableCache: false },
-      flowControl: { skipMode: 'all' },
+      flowControl: { skipMode: 'read' },
       dialogue: {
         typewriter: { enabled: true, durationMs: 1600, revealOnAdvance: true },
       },
@@ -96,8 +95,6 @@ export async function createDemoNativeSession(): Promise<DemoNativeSession> {
   let currentChapterIndex = -1
   let currentChapter = 'BOOT'
   let currentRoute = 'UNDECIDED'
-  let activeBgmAssetKey: string | undefined
-  let storyLoadPromise: Promise<void> | undefined
   let systemReturnScreen: NativeDemoAppScreen = 'title'
   let systemReturnTitleSurface = true
   let saveLoadMode: SaveLoadMode = 'load'
@@ -106,6 +103,7 @@ export async function createDemoNativeSession(): Promise<DemoNativeSession> {
 
   let appState: NativeDemoAppSurfaceState = {
     t: nativeDemoUiString,
+    canContinue: false,
     autoActive: false,
     englishTitle: GAME_ENGLISH_TITLE,
     gameOverDescription: '故事已经结束。你可以回到标题菜单，或关闭面板停留在当前画面。',
@@ -113,7 +111,7 @@ export async function createDemoNativeSession(): Promise<DemoNativeSession> {
     gameOverTitle: 'GAME OVER',
     gameMenuSubtitle: `${GAME_TITLE} / CH BOOT / UNDECIDED`,
     saveLoadMode,
-    saveLoadTitle: 'LOAD',
+    saveLoadTitle: '读取',
     saveSlotItems: createEmptySaveSlotItems(),
     screen: 'title',
     skipActive: false,
@@ -133,40 +131,11 @@ export async function createDemoNativeSession(): Promise<DemoNativeSession> {
     appState = {
       ...appState,
       ...patch,
+      canContinue: Boolean((runtime.engine.getViewState().plugins[DEMO_LIBRARY_PLUGIN_ID] as StoryLibrary | undefined)?.canContinue),
       autoActive: flowMode === 'auto',
       skipActive: flowMode === 'skip',
     }
     await runtime.engine.showUI(NATIVE_DEMO_APP_ELEMENT_ID, createNativeDemoAppSurface(appState, runtime.engine.getViewState().layout))
-  }
-
-  const playDemoBgm = async (assetKey: string, options: AudioPlayBgmOptions = {}) => {
-    if (activeBgmAssetKey === assetKey) {
-      return
-    }
-    activeBgmAssetKey = assetKey
-    await runtime.audio.playBGM(assetKey, {
-      ...DEFAULT_BGM_OPTIONS,
-      ...options,
-      id: 'demo-native-bgm',
-    })
-  }
-
-  const playCurrentStoryBgm = async () => {
-    if (currentChapterIndex >= 5) {
-      await playDemoBgm(BGM.breach)
-    }
-    else if (currentChapterIndex === 4) {
-      await playDemoBgm(BGM.oracle, { gainDb: -9 })
-    }
-    else if (currentChapterIndex >= 2) {
-      await playDemoBgm(BGM.archive, { gainDb: -9 })
-    }
-    else if (currentChapterIndex === 1) {
-      await playDemoBgm(BGM.trace)
-    }
-    else {
-      await playDemoBgm(BGM.blackout)
-    }
   }
 
   const refreshStoryTree = async () => {
@@ -181,7 +150,8 @@ export async function createDemoNativeSession(): Promise<DemoNativeSession> {
           : 'AVAILABLE'
       return {
         id: node.nodeId,
-        label: `CH ${chapter}  ${node.title || 'Locked'} / ${node.summary || ''}  [${state}]`,
+        label: `${chapter} · ${node.title || '未读章节'}${state === 'LOCKED' ? ' · 未解锁' : ''}`,
+        disabled: node.entryLocked,
       }
     })
   }
@@ -192,12 +162,6 @@ export async function createDemoNativeSession(): Promise<DemoNativeSession> {
     const nextChapterIndex = parseChapterIndex(currentChapter)
     if (nextChapterIndex >= 0) {
       currentChapterIndex = nextChapterIndex
-      const node = STORY_TREE_NODES[nextChapterIndex]
-      if (node) {
-        void runtime.storyGraph.unlockNode(node.id)
-          .then(refreshStoryTree)
-          .catch(error => recordError(error, 'story-tree:unlock'))
-      }
     }
     void refreshAppSurface({
       gameMenuSubtitle: `${GAME_TITLE} / CH ${currentChapter} / ${currentRoute}`,
@@ -231,7 +195,7 @@ export async function createDemoNativeSession(): Promise<DemoNativeSession> {
     if (panel === 'settings') {
       await runtime.engine.showUI('settings', {
         ...DEMO_OVERLAY_PLACEMENTS.settings,
-        title: 'Config',
+        title: '设置',
         source: openedFromTitle ? 'main-menu' : 'game-menu',
         scene: createUiScene(
           openedFromTitle ? 'system:settings' : 'game:settings',
@@ -246,7 +210,6 @@ export async function createDemoNativeSession(): Promise<DemoNativeSession> {
       await runtime.gallery.openScene({
         ...DEMO_OVERLAY_PLACEMENTS.gallery,
         catalogId: DEMO_GALLERY_CATALOG_ID,
-        entryId: 'cg.title',
         reason: openedFromTitle ? 'main-menu' : 'game-menu',
         filter: { unlockedOnly: false },
       })
@@ -259,43 +222,18 @@ export async function createDemoNativeSession(): Promise<DemoNativeSession> {
     })
   }
 
-  const startStory = async () => {
-    phase('story:start')
+  const startStory = async (action: 'start' | 'continue' = 'start') => {
     await closeFeaturePanels()
     await refreshAppSurface({ screen: 'game', titleSurface: false })
-    try {
-      await playCurrentStoryBgm()
-    }
-    catch (error) {
-      recordError(error, 'story:bgm')
-    }
-    if (storyLoadPromise) {
-      phase('story:resume')
-      return
-    }
-    const scene = new MainScene(
-      runtime.engine,
-      updateHud,
-      playDemoBgm,
-      async (entryIdOrIds: DemoGalleryEntryId | readonly DemoGalleryEntryId[]) => {
-        const entryIds = Array.isArray(entryIdOrIds) ? entryIdOrIds : [entryIdOrIds]
-        await runtime.gallery.unlockEntries(entryIds, { source: 'story' })
-      },
-      () => phase('story:running'),
-    )
-    storyLoadPromise = runtime.engine.loadScene(scene).catch((error) => {
-      storyLoadPromise = undefined
-      recordError(error, 'story')
-    })
+    await runtime.engine.getPipeline().emit(DEMO_STORY_REQUEST, { action })
+    await refreshAppSurface({ screen: 'game', titleSurface: false })
   }
 
   const returnToTitle = async () => {
     phase('title:return')
     await closeFeaturePanels()
-    await runtime.engine.stopAuto()
-    await runtime.engine.stopSkip()
+    await runtime.engine.getPipeline().emit(DEMO_STORY_REQUEST, { action: 'pause' })
     await refreshAppSurface({ screen: 'title', titleSurface: true })
-    await playDemoBgm(BGM.title, { gainDb: -10 })
   }
 
   const openStoryTree = async () => {
@@ -316,7 +254,7 @@ export async function createDemoNativeSession(): Promise<DemoNativeSession> {
     const saveSlotItems = createSaveSlotGrid({ slotCount: SAVE_LOAD_SLOT_COUNT }, await runtime.engine.listSaveSlots())
     await refreshAppSurface({
       saveLoadMode: mode,
-      saveLoadTitle: mode === 'save' ? 'SAVE' : 'LOAD',
+      saveLoadTitle: mode === 'save' ? '保存' : '读取',
       saveSlotItems,
       screen: 'save-load',
       titleSurface: saveLoadReturnTitleSurface,
@@ -330,9 +268,13 @@ export async function createDemoNativeSession(): Promise<DemoNativeSession> {
     })
   }
 
-  const selectSaveSlot = async (slotId: string) => {
+  const selectSaveSlot = async (slotId: string, confirmed = false) => {
     phase(`save:${saveLoadMode}:${slotId}`)
     if (saveLoadMode === 'save') {
+      if (!confirmed && (await runtime.engine.listSaveSlots()).some(slot => slot.slotId === slotId)) {
+        await refreshAppSurface({ screen: 'save-confirm', pendingSaveSlotId: slotId })
+        return
+      }
       await runtime.engine.saveToSlot(slotId)
       await openSaveLoad('save')
       return
@@ -343,9 +285,9 @@ export async function createDemoNativeSession(): Promise<DemoNativeSession> {
       return
     }
     await runtime.engine.loadFromSlot(slotId, { force: true, reason: 'renderer-load' })
+    updateHud({ chapter: runtime.engine.getStoryPoint()?.chapterId || '00', route: STORY_TREE_NODES.find(node => node.chapter === runtime.engine.getStoryPoint()?.chapterId)?.title || '' })
     await closeFeaturePanels()
     await refreshAppSurface({ screen: 'game', titleSurface: false })
-    await playCurrentStoryBgm()
   }
 
   const showGameOver = async (payload: GameOverPayload) => {
@@ -354,7 +296,7 @@ export async function createDemoNativeSession(): Promise<DemoNativeSession> {
     await closeFeaturePanels()
     await refreshAppSurface({
       gameOverDescription: payload.message || appState.gameOverDescription,
-      gameOverSubtitle: payload.ending ? `ENDING / ${payload.ending.toUpperCase()}` : 'ENDING',
+      gameOverSubtitle: payload.ending === 'handoff' ? '短结局' : payload.ending === 'letter' ? '普通结局' : '完整结局',
       gameOverTitle: payload.title || 'GAME OVER',
       screen: 'game-over',
       titleSurface: false,
@@ -367,8 +309,12 @@ export async function createDemoNativeSession(): Promise<DemoNativeSession> {
     if (action === 'block') {
       return true
     }
+    if (action === 'open' && target === 'save' && appState.titleSurface) return true
     if (action === 'open' && target) {
       switch (target) {
+        case 'continue':
+          await startStory('continue')
+          return true
         case 'story':
           await startStory()
           return true
@@ -385,6 +331,7 @@ export async function createDemoNativeSession(): Promise<DemoNativeSession> {
           await openFeaturePanel(target)
           return true
         case 'game-menu':
+          updateHud({ chapter: runtime.engine.getStoryPoint()?.chapterId || '00', route: STORY_TREE_NODES.find(node => node.chapter === runtime.engine.getStoryPoint()?.chapterId)?.title || '' })
           await runtime.engine.stopAuto()
           await refreshAppSurface({ screen: 'game-menu', titleSurface: false })
           return true
@@ -407,6 +354,9 @@ export async function createDemoNativeSession(): Promise<DemoNativeSession> {
         case 'story-tree':
           await refreshAppSurface({ screen: 'title', titleSurface: true })
           return true
+        case 'save-confirm':
+          await refreshAppSurface({ screen: 'save-load', pendingSaveSlotId: undefined })
+          return true
         case 'save-load':
           await closeSaveLoad()
           return true
@@ -418,6 +368,16 @@ export async function createDemoNativeSession(): Promise<DemoNativeSession> {
     if (action === 'toggle' && (target === 'auto' || target === 'skip')) {
       await toggleDemoFlowControl(runtime.engine, target)
       await refreshAppSurface()
+      return true
+    }
+    if (action === 'open' && target?.startsWith('chapter:')) {
+      await runtime.engine.getPipeline().emit(DEMO_STORY_REQUEST, { action: 'chapter', nodeId: target.slice(8) })
+      await refreshAppSurface({ screen: 'game', titleSurface: false })
+      return true
+    }
+    if (action === 'open' && target?.startsWith('save-overwrite:') && appState.screen === 'save-confirm') {
+      const slotId = target.slice('save-overwrite:'.length)
+      if (slotId === appState.pendingSaveSlotId) await selectSaveSlot(slotId, true)
       return true
     }
     if (action === 'save.select' && target) {
@@ -432,11 +392,8 @@ export async function createDemoNativeSession(): Promise<DemoNativeSession> {
     void showGameOver(payload).catch(error => recordError(error, 'game-over'))
   })
 
-  await runtime.storyGraph.unlockNode(INITIAL_STORY_TREE_NODE_ID)
   await refreshStoryTree()
-  await runtime.background.setBackground('ui/menu-route.jpg', { fit: 'cover' })
   await refreshAppSurface({ storyTreeItems: appState.storyTreeItems })
-  await playDemoBgm(BGM.title, { gainDb: -10 })
 
   return {
     connectPipelineBridge(bridge) {
@@ -486,6 +443,14 @@ export async function createDemoNativeSession(): Promise<DemoNativeSession> {
         if (handled) {
           return
         }
+      }
+      if (intent.type === RenderToLogicEvents.USER_INPUT_COMMAND
+        && (record?.command === 'ui:cancel' || record?.command === 'ui:menu')
+        && record.pressed !== false) {
+        if (appState.screen === 'game') await handleUiIntent({ action: 'open', arg0: 'game-menu' })
+        else if (appState.screen === 'system') { await closeFeaturePanels(); await restoreSystemScreen() }
+        else if (appState.screen !== 'title') await handleUiIntent({ action: 'close', arg0: appState.screen })
+        return
       }
       if (intent.type === RenderToLogicEvents.USER_INPUT_COMMAND
         && record?.command === 'advance'
@@ -579,35 +544,34 @@ function createDefaultSettingItems() {
  */
 function nativeDemoUiString(key: string): string {
   const strings: Record<string, string> = {
-    'ui.title.start':      'START',
-    'ui.title.load':       'LOAD',
-    'ui.title.storyTree':  'STORY TREE',
+    'ui.title.start':      '从头开始',
+    'ui.title.load':       '读取存档',
+    'ui.title.storyTree':  '章节选择',
     'ui.title.gallery':    'GALLERY',
-    'ui.title.config':     'CONFIG',
-    'ui.hud.subtitle':     'TOKYO 2048',
-    'ui.hud.log':          'LOG',
-    'ui.hud.menu':         'MENU',
-    'ui.gameMenu.menu':    'MENU',
-    'ui.storyTree.eyebrow':'ROUTE MAP',
-    'ui.storyTree.title':  'STORY TREE',
+    'ui.title.config':     '设置',
+    'ui.hud.log':          '记录',
+    'ui.hud.menu':         '菜单',
+    'ui.gameMenu.menu':    '菜单',
+    'ui.storyTree.eyebrow':'六月的声音',
+    'ui.storyTree.title':  '章节选择',
     'ui.saveLoad.eyebrow': 'ARCHIVE',
-    'ui.backlog.eyebrow':  'DIALOGUE LOG',
-    'ui.backlog.title':    'BACKLOG',
+    'ui.backlog.eyebrow':  '已读对白',
+    'ui.backlog.title':    '对话记录',
     'ui.gallery.eyebrow':  'CG COLLECTION',
     'ui.gallery.title':    'GALLERY',
-    'ui.settings.title':   'CONFIG',
+    'ui.settings.title':   '设置',
     'ui.settings.off':     'OFF',
     'ui.settings.on':      'ON',
     'ui.titleConfirm.title': DEMO_TITLE_CONFIRM.title,
     'ui.titleConfirm.subtitle': DEMO_TITLE_CONFIRM.subtitle,
     'ui.titleConfirm.description': DEMO_TITLE_CONFIRM.description,
-    'ui.common.close':     'CLOSE',
-    'ui.common.cancel':    'CANCEL',
-    'ui.common.title':     'TITLE',
-    'ui.common.save':      'SAVE',
-    'ui.common.load':      'LOAD',
-    'ui.common.config':    'CONFIG',
-    'ui.common.backlog':   'BACKLOG',
+    'ui.common.close':     '关闭',
+    'ui.common.cancel':    '取消',
+    'ui.common.title':     '返回标题',
+    'ui.common.save':      '保存',
+    'ui.common.load':      '读取',
+    'ui.common.config':    '设置',
+    'ui.common.backlog':   '记录',
   }
   return strings[key] ?? key
 }

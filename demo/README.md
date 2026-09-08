@@ -1,8 +1,58 @@
-# 断链纪元
+# 明天，请再一次呼唤我
 
-`demo/` is the QuaEngine visual novel demo project. It presents a near-future story about a human resistance group, a city-scale predictive AI, and a machine witness named Unit-7.
+QuaEngine 的日系近未来科幻悬疑视觉小说 demo，现处于故事重开发阶段。
 
-The demo is also the reference application for the current Web/Vue and native WGPU visual novel stacks: engine plugins, renderer feature surfaces, settings/save/load scenes, backlog, achievements, story tree, typewriter text, character staging, sprite expressions, background transitions, CG overlays, and generated assets.
+2047 年初夏，神代凛来到青叶市，为即将搬迁的海岸台整理声音档案。她与录音员 Mara 在共事中逐渐亲近，直到一条监听线路传来尚未制作完成的次日节目。
+
+## 当前状态
+
+- 世界观、人物、时间通信规则、完整因果链、感情铺垫、序章分场和美术需求已经整理在 [.agents/README.md](.agents/README.md)。文档包含完整剧透。
+- 旧故事、旧分支、背景、立绘、CG、配乐和故事专用生成器已删除。
+- 14个QuaScript模块贯通序章、七章共同线、尾声和三种结局。人物入口、广播来历、跨夜揭露和新结局已实际写入QS。完整结局单次正文90,205—90,288汉字，提前交接71,034—71,110字，已到9万字的篇幅下限，114,500字分场预算与完整演出仍未完成。详见 [实际实施状态](.agents/manuscript-status.md)；运行 `python3 scripts/story-length.py` 可重算。
+- 序章已扩为约1.49万字，研究租用、普通信号对照与两人工作日先行，晚八点再导入首次异常。见 [序章实施](.agents/prologue.md)。
+- [89场主线与3场短结局](.agents/scene-plan.md) 的114,500字主线预算继续作为扩写目标。当前正文不能视为全量分场成稿。
+
+- 主菜单区分继续阅读／从头开始，提供读档、章节选择和设置。已读章节可恢复章首状态重读；未读章节隐藏内容。手动存档带章节与时间、覆盖确认；Web 阅读设置独立持久化。图库入口随美术统一制作暂缓开放。
+- 保留 Web/Vue 与原生共用的引擎、UI、存档、设置、回看、字体与 Quack 构建基础。内部demo未公开发布，不考虑旧代码、旧接口、旧步骤或旧存档兼容，不添加迁移或稿次分库；见 [开发规范](AGENTS.md)。
+- 已修复生产版 SRI 与 QPK 输出／加载链路，实际生产预览已跑通主线。完整验证与未完成项见[开发交接](.agents/implementation-plan.md)。
+
+## 开发
+
+从仓库根目录执行：
+
+```sh
+pnpm --filter demo dev
+pnpm --filter demo typecheck
+pnpm --filter demo assets:build
+pnpm --filter demo build
+pnpm --filter demo exec vite build --config vite.native-quickjs.config.ts
+pnpm dev:native
+```
+
+当前 Web 界面采用统一的暖白纸面与海绿色，设计记录见 [.agents/ui-design.md](.agents/ui-design.md)。界面截图与交互检查可运行 `pnpm --filter demo test:ui`。
+
+完整文字故事与 UI 回归：先运行 `pnpm --filter demo exec vite preview --port 4178`，再运行 `pnpm --filter demo test:story`。需要仓库的 Playwright 和本机 Chrome；可用 `QUA_STORY_URL` 指定预览地址。脚本在独立浏览器存储中检查三个结局、各选择回应、刷新读档、标题续读、覆盖确认、章节重读、回看、设置与不同窗口尺寸；结果位于 `.generated/qa/story/`。
+
+旧 `assets:generate` / `assets:regenerate*` 命令已移除。首批角色参考及背景提示词已经整理为 [.agents/prologue-art.json](.agents/prologue-art.json)。用户已要求所有图片后续统一制作，当前不再等待生成方式确认。没有新生成图片，也未注册计划中的素材路径。
+
+`pnpm native:e2e` 仍要求正式美术、声音、图库及原生端完整演出，当前文字回归不能替代该门禁。统一制作媒体并接入后，更新真实选项与断言并运行该命令，不能删掉交互检查。
+
+## 工程边界
+
+| 位置 | 用途 |
+| --- | --- |
+| `.agents/` | 版本化创作档案和实施交接 |
+| `src/game/story/prologue-state.ts` | Web／原生共用剧情插件，接收 pipeline 导航意图、执行全文、恢复存档与章节 |
+| `src/game/scenes/` | 14 个 QuaScript 文件，覆盖完整主线与三种结局 |
+| `src/game/settings-storage.ts` | Web 阅读偏好存储适配器，与剧情存档分离 |
+| `src/game/content/` | 已实现内容的图库、章节定义 |
+| `src/game/runtime*.ts` | 共用插件与 Web 平台适配 |
+| `src/game/bootstrap.ts` | Web/Vue 界面与 pipeline 接线 |
+| `src/targets/native/` | 原生界面、会话与 QuickJS 入口 |
+| `assets/` | 发布资源，目前仅通用字体；原生脚本由构建生成 |
+| `scripts/` | 运行与验证工具 |
+
+游戏与叙事状态由 engine/store 持有，界面只投影并通过 pipeline 发出意图。静态素材走 Quack 主包，后续运行期增量内容走 Runtime QPK。保留 1920×1080 逻辑舞台和现有目标隔离约束。
 
 ## Copyright
 
@@ -21,116 +71,3 @@ Engine source packages outside `demo/` keep their own package licenses.
 
 QuaEngine names, logos, icons, badges, and related brand assets are not licensed
 for reuse. See `../TRADEMARKS.md`.
-
-## What This Demo Shows
-
-- Vue renderer preset with a custom visual novel UI skin.
-- Main menu, in-game menu, settings, save/load, backlog, and story tree panels.
-- Settings and save/load UI as scene-like surfaces with their own overlay presentation.
-- Multi-stack overlay placement with engine-owned `overlayStack` and `zIndex` ordering for menu, save/load, backlog, settings, gallery, modal confirms, and toasts.
-- Typewriter dialogue, auto/skip flow, input-driven auto cancellation, and keyboard/click advance.
-- Backlog entries that are view-only by default. Rewind is exposed only when the backlog policy marks an entry rewindable.
-- Story graph driven story tree projection with spoiler-safe locked entries.
-- CG gallery catalog registration, profile-level unlock state, and story-driven unlock toasts.
-- Background fade/crossfade transitions without renderer-owned game state.
-- Character enter/exit fade defaults, sprite sizing normalization, expression changes, and CG overlay support.
-- Runtime package aware asset and projection handling.
-
-## Project Structure
-
-| Path | Purpose |
-| --- | --- |
-| `src/game/bootstrap.ts` | Vue app shell, menu/settings/save/load/backlog/gallery/story tree wiring, and pipeline listeners |
-| `src/game/runtime.ts` | Web asset runtime, QuaEngine setup, runtime loaders, trust policy, and plugin registration |
-| `src/game/config.ts` | Demo constants such as title copy, BGM keys, locale defaults, and runtime trust keys |
-| `src/game/content/*.ts` | Gallery catalog entries and story graph/chapter-select definitions |
-| `src/game/story/main-scene.ts` | Main scene route state, choices, BGM cues, and story-driven gallery unlocks |
-| `src/game/ui/*.ts` | UI projection helpers, overlay scene metadata, slot labels, and settings slot renderers |
-| `src/game/styles.scss` | Demo theme entrypoint that imports feature-specific style modules |
-| `src/game/styles/*.scss` | Demo visual skin split by base, shell, dialogue, system panels, gallery, motion, and responsive rules |
-| `src/game/scenes/*.qs` | QuaScript scenario files |
-| `src/targets/native/session.ts` | Native application navigation over the shared engine, plugins, `MainScene`, and QuaScript story |
-| `assets/ui/native-app.qui` | Complete native title, HUD, game menu, confirmation, story tree, save/load, and game-over UI structure |
-| `assets/ui/native-app.qss` | Native demo shell presentation and interaction states |
-| `assets/images` | Backgrounds, CGs, and UI imagery |
-| `assets/characters` | Character sprite assets and expression families |
-| `scripts/generate-assets.mjs` | Asset generation/regeneration pipeline |
-| `dist/` | Generated build output, not source |
-
-## Local Commands
-
-Run from the repository root:
-
-```bash
-pnpm install
-pnpm --filter demo dev
-pnpm --filter demo build
-pnpm --filter demo typecheck
-pnpm dev:native
-pnpm native:e2e
-```
-
-`pnpm dev:native` launches the complete native demo from its QPK and watches its TypeScript, QuaScript, QUI/QSS, assets, and native renderer sources. It does not accept panel or scene fixtures.
-
-`pnpm native:e2e` is the native demo availability gate. It drives the real rendered command bounds through the native input bridge: title menu, START, shared `MainScene` dialogue advance, the HUD skip control, a real story choice, game menu, title confirmation, settings, gallery, and the final return to the title menu. Skip is enabled and disabled through the rendered HUD after the E2E has already proved the typewriter and engine `USER_ADVANCE` path; it is not a session-state shortcut. Single-scene and single-panel smoke commands are intentionally not part of product validation.
-
-Asset commands:
-
-```bash
-pnpm --filter demo assets:generate
-pnpm --filter demo assets:regenerate
-pnpm --filter demo assets:regenerate-backgrounds
-pnpm --filter demo assets:regenerate-cgs
-pnpm --filter demo assets:regenerate-characters
-pnpm --filter demo assets:build
-```
-
-`assets:generate` only fills missing images. Regeneration commands intentionally replace matching asset families.
-
-## Asset Generation Notes
-
-The generation script uses the local Replicate CLI profile `quaengine-demo`. Do not commit API keys, local credentials, raw prompts, failed generations, temporary masks, or unused raw generation output.
-
-Character regeneration currently favors an anime-oriented image model, solid light/dark background, background removal, cleanup, and sprite-size normalization. Character and CG generation should keep character identity, outfit, color language, and world details consistent.
-
-Committed demo assets should be final assets used by the demo. Unused raw material under generated working directories should be removed.
-
-## Story Tree Locking
-
-The demo story tree is registered through `@quajs/story-graph` in `src/game/content/story-tree.ts`. Locked nodes are projected through chapter-select options instead of being hidden by renderer-only logic. The Vue-facing node projection lives in `src/game/ui/story-tree.ts`.
-
-Before unlock, route nodes show only a neutral chapter label, `LOCKED`, and placeholder copy. Real route titles, summaries, thumbnails, and metadata are not projected to the renderer until the node is unlocked.
-
-This is the intended pattern for spoiler-sensitive chapter select UI:
-
-```ts
-chapterSelect: {
-  title: node.title,
-  summary: node.description,
-  lockedVisibility: 'placeholder',
-  lockedTitle: `CH ${node.chapter}`,
-  lockedSummary: '继续主线后解锁该路线节点。',
-  lockEntryUntilUnlocked: true,
-}
-```
-
-## Plugin Stack
-
-The demo uses:
-
-- `@quajs/plugin-animation`
-- `@quajs/plugin-achievement`
-- `@quajs/plugin-background`
-- `@quajs/plugin-backlog`
-- `@quajs/plugin-fonts`
-- `@quajs/plugin-gallery`
-- `@quajs/plugin-settings`
-- `@quajs/plugin-sprite`
-- `@quajs/story-graph`
-- `@quajs/renderer-vue` visual novel preset
-
-The renderer remains projection-only. Menu, settings, save/load, backlog, achievements, and story tree actions flow through engine/plugin APIs or pipeline events. The native app shell is authored in QUI/QSS, while the native and Web demos share the same `MainScene`, QuaScript files, engine runtime, plugin definitions, content catalogs, and story graph. Native product availability is established only by the complete `pnpm native:e2e` flow.
-
-## Build Output
-
-`pnpm --filter demo build` creates a production Vite build and a QPK asset bundle in `demo/dist/`. Generated `dist/` output is not source content.

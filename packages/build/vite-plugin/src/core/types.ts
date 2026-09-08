@@ -97,6 +97,8 @@ export interface VirtualPluginRegistryEntry {
 }
 
 export interface AssetBundleManifest {
+  /** Emitted, versioned static bundle path relative to the Vite output root. */
+  bundleFile?: string
   version: string
   buildNumber: string | number
   totalFiles: number

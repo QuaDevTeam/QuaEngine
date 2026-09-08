@@ -1,10 +1,10 @@
 schemaVersion: 1
-name: Broken Link Era Demo
-bundleId: dev.quajs.demo.brokenlinkera
+name: Call Me Again Tomorrow Demo
+bundleId: dev.quajs.demo.callmetomorrow
 version: 0.1.0
 home:
-  title: 断链纪元 Demo
-  shortName: 断链纪元
+  title: 明天，请再一次呼唤我 Demo
+  shortName: 明天，请再一次呼唤我
   description: QuaEngine Web and native renderer demo.
   lang: zh-CN
   themeColor: '#050507'
@@ -36,7 +36,7 @@ targets:
     layout: landscape
     outputDir: dist/native
     app:
-      bundleId: dev.quajs.demo.brokenlinkera
+      bundleId: dev.quajs.demo.callmetomorrow
       version: 0.1.0
       buildNumber: '1'
       icon: public/favicon.svg

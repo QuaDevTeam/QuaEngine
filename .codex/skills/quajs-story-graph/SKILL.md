@@ -126,3 +126,11 @@ Run script-compiler/project-inspector tests when story declaration extraction ch
 - Are runtime package dependencies checked before dynamic jumps?
 - Are same-scene continuations package-aware?
 - If story decorators, graph shape, chapter select, or runtime deltas changed, was this skill updated?
+
+## Demo chapter replay
+
+The demo registers nine implemented chapters with spoiler-hidden locked entries. First visits use `unlockOnVisit`; its story plugin restores cross-session access from actual `chapter-<nodeId>` save slots. UI emits `demo/story/request`; the logic handler validates the slot and restores the chapter-start snapshot, preserving the decisions known at that point. Do not implement chapter buttons as renderer-owned progress mutations or jump with choices from later chapters. Validate fresh-page chapter access and alternate ending selection through `pnpm --filter demo test:story`.
+
+### Demo epilogue metadata
+
+The current demo epilogue spans June through November, including July public follow-up and November closure. Its shared story-tree description is `6 月—11 月`; preserve the existing `epilogue` chapter-start save and engine-derived unlock behavior when revising this authored date range. No extra renderer-owned chapter state is needed.
