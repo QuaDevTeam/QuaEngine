@@ -11,9 +11,3 @@ export interface DemoToast {
 }
 
 export type HudPatch = Partial<DemoHud>
-
-export interface ChoiceOption<T extends string> {
-  id: T
-  text: string
-  description?: string
-}

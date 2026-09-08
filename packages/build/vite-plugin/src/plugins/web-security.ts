@@ -55,72 +55,74 @@ export function webSecurityPlugin(options: WebSecurityOptions = {}): Plugin {
     apply: 'build',
     enforce: 'post',
 
-    generateBundle(_, bundle) {
-      collectSecurityAssetHashes(bundle, assetHashes, sriAlgorithm)
+    // Vite's import-analysis pass rewrites dynamic-import/preload references in
+    // generateBundle. Hash only after those normal hooks and HTML emission.
+    generateBundle: {
+      order: 'post',
+      handler(_, bundle) {
+        collectSecurityAssetHashes(bundle, assetHashes, sriAlgorithm)
 
-      generatedCsp = createCspHeader(assetHashes, {
-        allowRuntimeBlobModules: csp.allowRuntimeBlobModules === true,
-        connectSrc: csp.connectSrc || [],
-        mode: cspMode,
-        reportUri: csp.reportUri,
-        trustedTypes: csp.trustedTypes === true,
-      })
+        if (sriEnabled) {
+          for (const [fileName, output] of Object.entries(bundle)) {
+            if (output.type === 'asset' && fileName.endsWith('.html')) {
+              const html = typeof output.source === 'string'
+                ? output.source : Buffer.from(output.source).toString('utf8')
+              output.source = injectSriAttributes(html, assetHashes)
+            }
+          }
+        }
 
-      const manifest = createSecurityManifest(assetHashes, {
-        allowRuntimeBlobModules: csp.allowRuntimeBlobModules === true,
-        csp: generatedCsp,
-        mode: cspMode,
-        noncePlaceholder: NONCE_PLACEHOLDER,
-        sriAlgorithm,
-        sriEnabled,
-        trustedTypes: csp.trustedTypes === true,
-      })
-
-      this.emitFile({
-        type: 'asset',
-        fileName: 'qua-security/csp.txt',
-        source: generatedCsp,
-      })
-      this.emitFile({
-        type: 'asset',
-        fileName: 'qua-security/csp-meta.html',
-        source: `<meta http-equiv="Content-Security-Policy" content="${escapeHtmlAttribute(generatedCsp)}">`,
-      })
-      this.emitFile({
-        type: 'asset',
-        fileName: 'qua-security/headers.json',
-        source: JSON.stringify({ 'Content-Security-Policy': generatedCsp }, null, 2),
-      })
-      this.emitFile({
-        type: 'asset',
-        fileName: 'qua-security/nonce-node-middleware.js',
-        source: createNonceMiddlewareTemplate(createCspHeader(assetHashes, {
+        generatedCsp = createCspHeader(assetHashes, {
           allowRuntimeBlobModules: csp.allowRuntimeBlobModules === true,
           connectSrc: csp.connectSrc || [],
           mode: cspMode,
           reportUri: csp.reportUri,
           trustedTypes: csp.trustedTypes === true,
-        })),
-      })
-      this.emitFile({
-        type: 'asset',
-        fileName: 'qua-security/security-manifest.json',
-        source: JSON.stringify(manifest, null, 2),
-      })
+        })
 
-      logPluginMessage(`Web security metadata generated (${assetHashes.size} SRI assets, CSP ${cspMode} mode)`, 'info')
-    },
+        const manifest = createSecurityManifest(assetHashes, {
+          allowRuntimeBlobModules: csp.allowRuntimeBlobModules === true,
+          csp: generatedCsp,
+          mode: cspMode,
+          noncePlaceholder: NONCE_PLACEHOLDER,
+          sriAlgorithm,
+          sriEnabled,
+          trustedTypes: csp.trustedTypes === true,
+        })
 
-    transformIndexHtml: {
-      order: 'post',
-      handler(html, context) {
-        if (context.bundle) {
-          collectSecurityAssetHashes(context.bundle, assetHashes, sriAlgorithm)
-        }
-        if (!sriEnabled || assetHashes.size === 0) {
-          return html
-        }
-        return injectSriAttributes(html, assetHashes)
+        this.emitFile({
+          type: 'asset',
+          fileName: 'qua-security/csp.txt',
+          source: generatedCsp,
+        })
+        this.emitFile({
+          type: 'asset',
+          fileName: 'qua-security/csp-meta.html',
+          source: `<meta http-equiv="Content-Security-Policy" content="${escapeHtmlAttribute(generatedCsp)}">`,
+        })
+        this.emitFile({
+          type: 'asset',
+          fileName: 'qua-security/headers.json',
+          source: JSON.stringify({ 'Content-Security-Policy': generatedCsp }, null, 2),
+        })
+        this.emitFile({
+          type: 'asset',
+          fileName: 'qua-security/nonce-node-middleware.js',
+          source: createNonceMiddlewareTemplate(createCspHeader(assetHashes, {
+            allowRuntimeBlobModules: csp.allowRuntimeBlobModules === true,
+            connectSrc: csp.connectSrc || [],
+            mode: cspMode,
+            reportUri: csp.reportUri,
+            trustedTypes: csp.trustedTypes === true,
+          })),
+        })
+        this.emitFile({
+          type: 'asset',
+          fileName: 'qua-security/security-manifest.json',
+          source: JSON.stringify(manifest, null, 2),
+        })
+
+        logPluginMessage(`Web security metadata generated (${assetHashes.size} SRI assets, CSP ${cspMode} mode)`, 'info')
       },
     },
   }

@@ -3,36 +3,42 @@ import { QuaEngine, UiOverlayPlugin } from '@quajs/engine'
 import { AchievementPlugin } from '@quajs/plugin-achievement'
 import { AnimationPlugin } from '@quajs/plugin-animation'
 import { AudioPlugin } from '@quajs/plugin-audio'
-import { BacklogPlugin } from '@quajs/plugin-backlog'
+import { BacklogPlugin, getBacklogProjection, type BacklogEntry, type BacklogFilterContext } from '@quajs/plugin-backlog'
 import { BackgroundPlugin } from '@quajs/plugin-background'
 import { FontsPlugin } from '@quajs/plugin-fonts'
 import { GalleryPlugin } from '@quajs/plugin-gallery'
-import { SettingsPlugin } from '@quajs/plugin-settings'
+import { SettingsPlugin, type SettingsStorageAdapter } from '@quajs/plugin-settings'
 import { StoryGraphPlugin } from '@quajs/story-graph'
 import { DEMO_SUPPORTED_LOCALES } from './config'
 import { registerDemoGallery } from './content/gallery'
 import { registerDemoStoryGraph } from './content/story-tree'
+import { DemoStoryPlugin } from './story/prologue-state'
+import { shouldRecordDemoBacklog } from './story/backlog-policy'
 
 export interface DemoEngineRuntimeOptions {
   engine: EngineConfig
   systemLocale?: string
+  settingsStorage?: SettingsStorageAdapter
 }
 
 export async function createDemoEngineRuntime(options: DemoEngineRuntimeOptions) {
   const engine = new QuaEngine(options.engine)
   const animation = new AnimationPlugin()
   const achievement = new AchievementPlugin({
-    profileId: 'demo',
+    profileId: 'call-me-tomorrow',
     notifications: { mode: 'toast', durationMs: 3200 },
   })
   const audio = new AudioPlugin()
-  const backlog = new BacklogPlugin()
+  const backlog = new BacklogPlugin({
+    filter: (entry: BacklogEntry, { engine }: BacklogFilterContext) => shouldRecordDemoBacklog(entry, getBacklogProjection(engine).entries.at(-1)),
+  })
   const background = new BackgroundPlugin()
   const storyGraph = new StoryGraphPlugin()
-  const gallery = new GalleryPlugin({ profileId: 'demo' })
+  const gallery = new GalleryPlugin({ profileId: 'call-me-tomorrow' })
   const fonts = new FontsPlugin()
 
   engine
+    .use(new DemoStoryPlugin(engine))
     .use(background)
     .use(animation)
     .use(audio)
@@ -40,6 +46,8 @@ export async function createDemoEngineRuntime(options: DemoEngineRuntimeOptions)
     .use(storyGraph)
     .use(gallery)
     .use(new SettingsPlugin({
+      profileId: 'call-me-tomorrow',
+      storage: options.settingsStorage,
       builtin: {
         developer: {
           defaultLocale: 'zh-cn',
@@ -49,7 +57,7 @@ export async function createDemoEngineRuntime(options: DemoEngineRuntimeOptions)
         player: {
           textSpeedCps: 36,
           autoAdvanceDelayMs: 2000,
-          skipMode: 'all',
+          skipMode: 'read',
         },
       },
     }))
@@ -75,21 +83,8 @@ export async function createDemoEngineRuntime(options: DemoEngineRuntimeOptions)
     display: 'swap',
   })
   await registerDemoGallery(gallery)
-  await achievement.registerDefinitions({
-    groups: [{
-      id: 'demo',
-      title: 'Demo',
-    }],
-    achievements: [{
-      id: 'first-signal',
-      groupId: 'demo',
-      title: 'First Signal',
-      summary: 'Recover the first human signal from the blackout.',
-      icon: { type: 'images', name: 'cg/blackout.webp' },
-      maxProgress: 1,
-    }],
-  })
   await registerDemoStoryGraph(storyGraph)
+  await engine.getPluginById<DemoStoryPlugin>('demo-story')?.refreshLibrary()
 
   return {
     achievement,

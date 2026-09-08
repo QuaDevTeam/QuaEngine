@@ -1,0 +1,79 @@
+{
+  "sourceCjk": 99213,
+  "proseWithAllAlternativesCjk": 94045,
+  "routes": {
+    "tomorrow": {
+      "combinations": 16,
+      "min": 90205,
+      "max": 90281
+    },
+    "letter": {
+      "combinations": 16,
+      "min": 90212,
+      "max": 90288
+    },
+    "handoff": {
+      "combinations": 16,
+      "min": 71034,
+      "max": 71110
+    }
+  },
+  "sections": {
+    "prologue-arrival": {
+      "min": 2984,
+      "max": 2984
+    },
+    "prologue-commission": {
+      "min": 7507,
+      "max": 7533
+    },
+    "prologue-restoration": {
+      "min": 6572,
+      "max": 6579
+    },
+    "prologue-return-line": {
+      "min": 4199,
+      "max": 4199
+    },
+    "chapter-01": {
+      "min": 8974,
+      "max": 8981
+    },
+    "chapter-02": {
+      "min": 7680,
+      "max": 7680
+    },
+    "chapter-03": {
+      "min": 18235,
+      "max": 18235
+    },
+    "chapter-04": {
+      "min": 8534,
+      "max": 8541
+    },
+    "chapter-05": {
+      "min": 4027,
+      "max": 4056
+    },
+    "chapter-05-inspection": {
+      "min": 2924,
+      "max": 2924
+    },
+    "chapter-06": {
+      "min": 2902,
+      "max": 2918
+    },
+    "chapter-07": {
+      "min": 7788,
+      "max": 7792
+    },
+    "epilogue": {
+      "min": 7866,
+      "max": 7879
+    },
+    "ending-handoff": {
+      "min": 2322,
+      "max": 2322
+    }
+  }
+}

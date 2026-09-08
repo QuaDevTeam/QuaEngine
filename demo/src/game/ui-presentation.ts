@@ -2,17 +2,17 @@ import type { ViewLayoutProjection } from '@quajs/render-core'
 
 /** Demo-owned presentation contract shared by Web and native shells. */
 export const DEMO_HUD_ACTIONS = [
-  { id: 'auto', label: 'AUTO', title: 'Auto mode', width: 47, action: 'toggle', target: 'auto' },
-  { id: 'skip', label: 'SKIP', title: 'Skip read text', width: 47, action: 'toggle', target: 'skip' },
-  { id: 'log', label: 'LOG', title: 'Backlog', width: 40, action: 'open', target: 'backlog' },
-  { id: 'menu', label: 'MENU', title: 'Menu', width: 48, action: 'open', target: 'game-menu' },
+  { id: 'auto', label: '自动', title: '自动阅读', width: 47, action: 'toggle', target: 'auto' },
+  { id: 'skip', label: '快进', title: '按设置快进；遇到选项停止', width: 47, action: 'toggle', target: 'skip' },
+  { id: 'log', label: '记录', title: '查看已读对白', width: 40, action: 'open', target: 'backlog' },
+  { id: 'menu', label: '菜单', title: '保存、读取与设置', width: 48, action: 'open', target: 'game-menu' },
 ] as const
 
 export const DEMO_MENU_OPTIONS = { showBacklog: false, titleActionLabel: 'TITLE' } as const
 export const DEMO_TITLE_CONFIRM = {
-  title: '回到标题菜单？',
-  subtitle: '当前进度不会自动保存',
-  description: '回到标题菜单前建议先保存。继续返回后，故事运行状态会保留在后台，START 会回到当前进度。',
+  title: '返回标题？',
+  subtitle: '',
+  description: '当前进度会自动保存。下次可选择“继续阅读”。',
 } as const
 
 export const DEMO_UI_METRICS = {
@@ -57,3 +57,9 @@ export async function toggleDemoFlowControl(engine: {
   if (engine.getFlowControlState().mode === 'auto') await engine.stopAuto()
   return active ? engine.stopSkip() : engine.startSkip()
 }
+
+export const DEMO_GAME_ACTIONS = [
+  { id: 'continue', label: '继续阅读' }, { id: 'save', label: '保存进度' },
+  { id: 'load', label: '读取存档' }, { id: 'settings', label: '设置' },
+  { id: 'title', label: '返回标题' },
+] as const

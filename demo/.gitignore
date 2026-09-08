@@ -5,5 +5,4 @@ dist
 .env
 .env.*
 .generated
-.agents
 assets/.tmp

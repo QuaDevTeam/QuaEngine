@@ -1,0 +1,36 @@
+// Title and chapter pages use the same restrained programme-book typography.
+.vn-main-menu { position: absolute; inset: 0; z-index: 52; display: grid; align-items: center; padding: 100px 154px; }
+.vn-main-menu__inner { position: relative; width: 100%; }
+.vn-main-menu__title { margin: 0; font-family: "Noto Serif", serif; font-size: 76px; line-height: 1.5; font-weight: 400; letter-spacing: .04em; color: var(--vn-ink); }
+.vn-main-menu__english-title { margin: 12px 0 64px; color: var(--vn-sea); font-size: 15px; letter-spacing: .12em; }
+.vn-main-menu__actions { width: 430px; display: grid; gap: 4px; }
+.vn-main-menu__actions button { position: relative; min-height: 64px; padding: 12px 24px; border-color: transparent; border-bottom-color: var(--vn-line); border-radius: 0; text-align: left; font-size: 25px; letter-spacing: .03em; }
+.vn-main-menu__actions button::after { content: ''; position: absolute; right: 24px; top: 27px; width: 7px; height: 7px; border-top: 1px solid var(--vn-sea); border-right: 1px solid var(--vn-sea); transform: rotate(45deg); }
+.vn-main-menu__hint { margin: 30px 0 0; color: var(--vn-muted); font-size: 16px; letter-spacing: .04em; }
+// A two-column contents page: read down the left column, then the right.
+.vn-story-tree { position: absolute; inset: 0; z-index: 60; display: grid; place-items: center; background: var(--vn-paper); color: var(--vn-ink); }
+.vn-story-tree .qua-story-tree__panel { width: 1560px; max-width: 90%; max-height: 90%; padding: 34px 36px; overflow: auto; }
+.qua-story-tree__header { display: flex; align-items: center; justify-content: space-between; gap: 32px; padding-bottom: 34px; border-bottom: 1px solid var(--vn-line); }
+.qua-story-tree__eyebrow { display: none; }
+.qua-story-tree__title { margin: 0; font-family: "Noto Serif", serif; font-size: 46px; font-weight: 400; }
+.qua-story-tree__subtitle { margin: 16px 0 0; font-size: 20px; line-height: 1.7; color: var(--vn-muted); }
+.qua-story-tree__close { min-height: 58px; padding: 12px 26px; font-size: 22px; }
+.qua-story-tree__nodes { margin: 24px 0 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(5, 128px); grid-auto-flow: column; column-gap: 70px; }
+.qua-story-tree__node { position: relative; min-width: 0; border-bottom: 1px solid var(--vn-line); }
+.qua-story-tree__node-content, .qua-story-tree__node-button { position: relative; display: grid; grid-template-columns: 94px minmax(0, 1fr); align-items: center; gap: 22px; width: 100%; height: 100%; padding: 20px 48px 20px 16px; text-align: left; border: 0; border-radius: 0; }
+.qua-story-tree__node-button:not(:disabled):hover { background: #e3ebe280; }
+.qua-story-tree__chapter { color: var(--vn-sea); font-size: 22px; }
+.qua-story-tree__body { display: grid; gap: 12px; min-width: 0; }
+.qua-story-tree__node-title { font-size: 29px; line-height: 1.5; font-family: "Noto Serif", serif; font-weight: 500; }
+.qua-story-tree__node-description { color: var(--vn-muted); font-size: 19px; line-height: 1.5; }
+.qua-story-tree__node-status { position: absolute; right: 12px; bottom: 12px; font-size: 16px; color: var(--vn-sea); }
+.qua-story-tree__node.is-current { box-shadow: inset 3px 0 var(--vn-sea); background: #e3ebe24d; }
+.qua-story-tree__node.is-entry-locked .qua-story-tree__node-title { font-family: "Noto Sans", sans-serif; font-size: 23px; color: #819088; }
+.qua-story-tree__node.is-entry-locked .qua-story-tree__chapter { color: var(--vn-muted); }
+.vn-chapter-arrow { position: absolute; right: 16px; top: 50%; width: 9px; height: 9px; border-top: 1px solid var(--vn-sea); border-right: 1px solid var(--vn-sea); transform: translateY(-50%) rotate(45deg); }
+
+// Static procedural grain, embedded in the stylesheet; no downloaded image or animation.
+.game-root :is(.vn-title-surface, .vn-story-tree, .qua-menu-overlay, .qua-save-load-panel, .qua-settings-panel, .qua-confirm-overlay, .qua-backlog-panel, .qua-dialogue-box) {
+  background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22240%22%20height%3D%22240%22%3E%3Cfilter%20id%3D%22grain%22%3E%3CfeTurbulence%20type%3D%22fractalNoise%22%20baseFrequency%3D%22.78%22%20numOctaves%3D%223%22%20seed%3D%2211%22%20stitchTiles%3D%22stitch%22%2F%3E%3CfeColorMatrix%20type%3D%22saturate%22%20values%3D%220%22%2F%3E%3CfeComponentTransfer%3E%3CfeFuncA%20type%3D%22linear%22%20slope%3D%22.09%22%2F%3E%3C%2FfeComponentTransfer%3E%3C%2Ffilter%3E%3Cpath%20fill%3D%22%23fff%22%20filter%3D%22url%28%23grain%29%22%20d%3D%22M0%200h240v240H0z%22%2F%3E%3C%2Fsvg%3E");
+  background-size: 240px 240px;
+}

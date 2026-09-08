@@ -87,7 +87,7 @@ Box.shell-vignette-linear,
 Box.title-linear-scrim,
 Box.title-radial-scrim { left: 0; top: 0; width: 1920px; height: 1080px; }
 
-Image.title-background { left: -29px; top: -16px; width: 1978px; height: 1112px; }
+Box.title-background { left: -29px; top: -16px; width: 1978px; height: 1112px; }
 
 Box.shell-vignette-radial {
   background-image: radial-gradient(ellipse at center, transparent 46%, rgba(0, 0, 0, 0.34) 100%);
@@ -104,7 +104,7 @@ Box.shell-vignette-linear {
 // ─── Title surface ────────────────────────────────────────────────────────────
 
 Backdrop.title-input-blocker { background-color: #030407; z-index: -1; }
-Image.title-background       { filter: brightness(0.46) saturate(0.88); object-fit: cover; }
+Box.title-background       { background-color: #182830; }
 
 Box.title-linear-scrim {
   background-image: linear-gradient(90deg, rgba(4, 5, 8, 0.94) 0%, rgba(4, 5, 8, 0.34) 50%, rgba(4, 5, 8, 0.84) 100%);
@@ -116,12 +116,12 @@ Box.title-radial-scrim {
 // ─── Main menu ────────────────────────────────────────────────────────────────
 
 Text.main-menu-title {
-  left: 130px; top: 292px; width: 660px; height: 160px;
+  left: 130px; top: 292px; width: 1100px; height: 112px;
   color: #fffaf0;
   font-family: $font-serif;
-  font-size: 104px;
+  font-size: 76px;
   font-weight: 700;
-  line-height: 104px;
+  line-height: 99px;
   text-shadow: $shadow-text-lg;
 }
 
@@ -170,26 +170,6 @@ Button.main-menu-action:active {
 }
 
 // ─── Game HUD ─────────────────────────────────────────────────────────────────
-
-Row.title-plate       { left: 28px; top: 20px; width: 430px; height: 24px; align-items: center; column-gap: 12px; }
-
-// Matches the Web title plate: 24px title line at (28, 20), subtitle baseline
-// starts right after the 4-glyph title (28 + 96 + 12 = 136).
-Text.title-plate-name { width: 96px; height: 24px;
-  color: #fff8ea;
-  font-family: $font-sans;
-  font-size: 24px;
-  font-weight: 700;
-  text-shadow: $shadow-text;
-}
-
-Text.title-plate-subtitle { width: 210px; height: 24px;
-  color: $text-accent;
-  font-family: $font-sans;
-  font-size: 10px;
-  letter-spacing: 1.4px;
-  text-shadow: $shadow-text;
-}
 
 // GameHud resolves the strip and button bounds from the engine layout's safe
 // area. Keep geometry in that projection so base and hover use the same anchor.
@@ -484,3 +464,17 @@ Panel.save-card.is-disabled:hover { @include shared.slot; }
 Row.confirm-actions { column-gap: 8px; }
 #native-game-menu-backdrop, #native-save-load-backdrop { background-color: rgba(3,4,7,0.62); }
 Button.panel-action:hover, Button.panel-action:focus-visible { @include shared.menu-hover; translate: 2px 0; }
+
+// Call Me Again Tomorrow: text-first title and chapter controls.
+Box.title-background { background-color: #edf0e9; }
+Box.title-linear-scrim { background-image: linear-gradient(115deg, #f3f1e8 0%, #dbe6df 100%); }
+Box.title-radial-scrim { background-image: linear-gradient(0deg, transparent 0%, transparent 100%); }
+Text.main-menu-title { top: 220px; width: 1320px; height: 130px; color: #193841; font-weight: 400; text-shadow: none; }
+Text.main-menu-subtitle { top: 360px; width: 950px; font-size: 16px; color: #52726f; text-shadow: none; }
+Column.main-menu-actions { top: 430px; width: 410px; height: 340px; row-gap: 8px; }
+Button.main-menu-action { width: 410px; height: 60px; font-size: 22px; font-weight: 400; color: #254850; background-color: transparent; background-image: linear-gradient(0deg, transparent 0%, transparent 100%); border-color: #bdcdc5; box-shadow: none; text-shadow: none; padding: 0 28px; }
+Button.main-menu-action:hover, Button.main-menu-action:focus-visible { color: #142e36; background-color: #d7e2d9; background-image: linear-gradient(0deg, transparent 0%, transparent 100%); border-color: #8ba8a1; }
+Button.main-menu-action:disabled { opacity: 0.36; }
+Button.chapter-action { height: 52px; width: 820px; font-size: 20px; color: #e7efe9; background-color: #203d46; padding: 10px 18px; text-align: left; }
+Button.chapter-action:disabled { opacity: 0.42; }
+Column.list-content { row-gap: 8px; }

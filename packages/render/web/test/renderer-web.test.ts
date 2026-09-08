@@ -2030,6 +2030,14 @@ describe('@quajs/renderer-web', () => {
     expect(commands).toEqual([])
     expect(advances).toEqual([])
 
+    const control = document.createElement('button')
+    overlay.append(control)
+    control.focus()
+    control.dispatchEvent(new KeyboardEvent('keydown', { code: 'Escape', key: 'Escape', bubbles: true }))
+    await flushDom()
+    expect(commands).toEqual([expect.objectContaining({ command: 'ui:cancel' })])
+    expect(advances).toEqual([])
+
     await renderer.unmount()
   })
 

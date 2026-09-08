@@ -158,3 +158,7 @@ Native settings content scrolls within a centered logical-stage panel capped at 
 
 
 Native select controls use the Web closed-field fill, 4px radius, hover border/gradient, padded ellipsized value text and a dedicated up/down chevron. Opening the control appends a transient option list above/below the field; options are package-aware intents and must not become authoritative state. Keep Web select styling and native control geometry aligned, while documenting that browser OS-native popup chrome cannot be pixel-matched by CSS.
+
+## Demo preference persistence
+
+`demo/src/game/runtime-shared.ts` accepts an injected `SettingsStorageAdapter`. The Web entry supplies `settings-storage.ts`, storing the named profile separately from story slots. Without that injection, SettingsPlugin defaults to memory and preferences reset on browser reload. Browser regression must change a preference, refresh, load a story save, and verify the preference still applies; a same-page control change is insufficient.

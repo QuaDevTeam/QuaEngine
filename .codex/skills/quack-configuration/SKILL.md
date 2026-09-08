@@ -315,3 +315,8 @@ quack extract ./dist/game.qpk ./extracted
 - Are Cocos hybrid/static assets described through target metadata instead of renderer-side loose caches?
 - Are encryption and signing separate and appropriate for the environment?
 - If a Quack config option, runtime manifest field, or bundler behavior changed, was this skill updated in the same change?
+
+
+## Vite static bundle output
+
+The Vite integration captures the finished Quack artifact through `postBundle` and emits its bytes through Vite, so `emptyOutDir` cannot remove the only bundle. Production `asset-manifest.json.bundleFile` names the emitted versioned QPK/ZIP at the output root. Clients should resolve that name relative to their deployment base and use `createWebAssetRuntime`; `createViteDevAssetRuntime` requires the development server and is not a production loader. Verify the named file exists after a complete Vite build.
