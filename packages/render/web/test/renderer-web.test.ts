@@ -46,6 +46,7 @@ import {
   stageLogicalToClientPoint,
   stageViewportStyle,
   WebAssetUrlHandle,
+  getWebAssetMemoryStats,
 } from '../src'
 import { WebAudioRendererController } from '../src/audio'
 import { WebFontFaceRegistry } from '../src/plugins/fonts'
@@ -1400,6 +1401,75 @@ describe('@quajs/renderer-web', () => {
       handle.dispose()
       await assets.cleanup()
     }
+  })
+
+  it('deduplicates pending reads and revocation invalidates an in-flight URL load', async () => {
+    const assets = await createImageAssets(['shared.png'])
+    const create = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:shared')
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+    let finish!: (value: AssetData) => void
+    const read = vi.spyOn(assets, 'getAsset').mockImplementation(() => new Promise(resolve => { finish = resolve }))
+    const options = { getAssets: () => assets, getType: () => 'images' as const, getName: () => 'shared.png' }
+    const first = new WebAssetUrlHandle(options)
+    const second = new WebAssetUrlHandle(options)
+    const loads = [first.load(), second.load()]
+    expect(read).toHaveBeenCalledTimes(1)
+    first.revoke()
+    finish(assetData('shared.png', 'images', 'image/png'))
+    await Promise.all(loads)
+    expect(first.getState().url).toBeUndefined()
+    expect(second.getState().url).toBe('blob:shared')
+    expect(create).toHaveBeenCalledTimes(1)
+    first.dispose(); second.dispose()
+    expect(getWebAssetMemoryStats(assets).activeUrls).toBe(0)
+    await assets.cleanup()
+  })
+
+  it('bounds storage read concurrency and drops superseded queued images', async () => {
+    const names = Array.from({ length: 12 }, (_, i) => `${i}.png`)
+    const assets = await createImageAssets(names)
+    vi.spyOn(URL, 'createObjectURL').mockImplementation(() => `blob:${Math.random()}`)
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+    const finish: Array<() => void> = []
+    const read = vi.spyOn(assets, 'getAsset').mockImplementation((_type, name) => new Promise(resolve => {
+      finish.push(() => resolve(assetData(name, 'images', 'image/png')))
+    }))
+    const handles = names.map(name => new WebAssetUrlHandle({ getAssets: () => assets, getType: () => 'images', getName: () => name }))
+    const loads = handles.map(handle => handle.load())
+    expect(read).toHaveBeenCalledTimes(4)
+    expect(getWebAssetMemoryStats(assets).queuedReads).toBe(8)
+    for (const handle of handles.slice(4)) handle.dispose()
+    for (const done of finish) done()
+    await Promise.all(loads)
+    expect(read).toHaveBeenCalledTimes(4)
+    expect(getWebAssetMemoryStats(assets).queuedReads).toBe(0)
+    for (const handle of handles) handle.dispose()
+    await assets.cleanup()
+  })
+
+  it('budgets idle URLs by decoded image dimensions, while active images remain pinned', async () => {
+    vi.useFakeTimers()
+    const names = Array.from({ length: 24 }, (_, i) => `${i}.png`)
+    const assets = await createImageAssets(names)
+    let next = 0
+    vi.spyOn(URL, 'createObjectURL').mockImplementation(() => `blob:budget-${next++}`)
+    const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+    vi.spyOn(assets, 'getAsset').mockImplementation(async (_type, name) => ({
+      ...assetData(name, 'images', 'image/png'), mediaMetadata: { format: 'png', width: 2048, height: 2048 },
+    }))
+    const handles = names.map(name => new WebAssetUrlHandle({ getAssets: () => assets, getType: () => 'images', getName: () => name }))
+    await handles[0].load()
+    for (const handle of handles.slice(1)) { await handle.load(); handle.dispose({ defer: true }) }
+    const stats = getWebAssetMemoryStats(assets)
+    expect(stats.activeUrls).toBe(1)
+    expect(stats.estimatedIdleBytes).toBeLessThanOrEqual(32 * 1024 * 1024)
+    expect(stats.idleUrls).toBeLessThanOrEqual(16)
+    expect(revoke).not.toHaveBeenCalledWith('blob:budget-0')
+    await vi.advanceTimersByTimeAsync(250)
+    expect(getWebAssetMemoryStats(assets).idleUrls).toBe(0)
+    handles[0].dispose()
+    expect(getWebAssetMemoryStats(assets).estimatedResidentBytes).toBe(0)
+    await assets.cleanup()
   })
 
   it('reuses cached asset URLs across deferred renderer remounts', async () => {

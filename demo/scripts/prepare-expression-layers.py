@@ -21,25 +21,30 @@ BOXES = {'rin': (256, 152, 512, 408), 'mara': (230, 70, 486, 326),
 FACES = {
     'rin': [(85, 108), (137, 93), (192, 106), (205, 146), (190, 179), (148, 207), (126, 211), (97, 187), (85, 156)],
     'mara': [(69, 138), (100, 100), (144, 87), (169, 109), (176, 157), (161, 197), (135, 216), (112, 211), (82, 186)],
-    'haruka': [(84, 109), (139, 91), (194, 117), (202, 153), (180, 187), (148, 215), (134, 219), (112, 198), (91, 173)],
+    'haruka': [(81, 143), (103, 129), (139, 97), (171, 103), (179, 123), (178, 163), (164, 188), (141, 207), (119, 197), (100, 178)],
     'mayu': [(64, 104), (103, 70), (130, 73), (153, 114), (151, 157), (136, 183), (114, 198), (89, 181), (70, 155)],
     'reiko': [(60, 119), (100, 86), (140, 86), (159, 119), (151, 170), (129, 196), (102, 210), (83, 198), (65, 161)],
-    'yumi': [(64, 125), (114, 102), (170, 106), (192, 144), (185, 180), (163, 211), (130, 224), (98, 214), (76, 190)]}
+    'yumi': [(74, 148), (100, 131), (124, 94), (152, 101), (176, 128), (185, 165), (174, 195), (140, 216), (106, 210), (84, 189)]}
 
 
-def prepare(asset_id):
+def prepare(asset_id, job=None):
     name = asset_id.split('-')[0]
-    source = next((ART / 'replicate/generated' / f'{asset_id}-face').glob('*.png'))
-    result = json.loads((ART / 'replicate' / f'{asset_id}-face-generation-complete.json').read_text())
+    source = ROOT / job['generatedImage'] if job else next((ART / 'replicate/generated' / f'{asset_id}-face').glob('*.png'))
+    result_path = ROOT / job['generationResult'] if job else ART / 'replicate' / f'{asset_id}-face-generation-complete.json'
+    result = json.loads(result_path.read_text())
     assert result['data']['status'] == 'succeeded'
-    base = Image.open(ROOT / f'demo/assets/characters/{name}/neutral.png').convert('RGBA')
-    box = BOXES[name]
+    base_path = ROOT / job['source'] if job else ROOT / f'demo/assets/characters/{name}/neutral.png'
+    base = Image.open(base_path).convert('RGBA')
+    box = tuple(job['baseCrop']) if job else BOXES[name]
+    assert box[2] - box[0] == 256 and box[3] - box[1] == 256
     target = Image.new('RGBA', (256, 256), 'white')
     target.alpha_composite(base.crop(box))
     target = target.convert('RGB').resize((1024, 1024), Image.Resampling.LANCZOS)
     generated = Image.open(source).convert('RGB').resize((1024, 1024), Image.Resampling.LANCZOS)
     mask = Image.new('L', (256, 256))
-    ImageDraw.Draw(mask).polygon(FACES[name], fill=255)
+    polygons = job['polygons'] if job else [FACES[name]]
+    for polygon in polygons:
+        ImageDraw.Draw(mask).polygon(polygon, fill=255)
     exclude = mask.filter(ImageFilter.MaxFilter(21)).resize((1024, 1024))
     features_mask = 255 - np.asarray(exclude)
     sift = cv2.SIFT_create(nfeatures=2500)
@@ -65,7 +70,13 @@ def prepare(asset_id):
     # Feather only inside the explicitly selected face. Keep alpha byte-identical.
     interior = mask.filter(ImageFilter.MinFilter(7)).filter(ImageFilter.GaussianBlur(1.6))
     alpha = np.minimum(np.array(interior), np.array(mask))
-    assert np.all(np.asarray(base.crop(box))[:, :, 3][alpha > 0] >= 250), 'edit touches outer matte'
+    # Reviewed interior eyes in Haruka's original model cutout have alpha231–249;
+    # Yumi's summer face has a few248 pixels. Retain those original values.
+    # This check only guards the color-edit region; it never rebuilds alpha.
+    minimum_alpha = {'haruka': 230, 'yumi': 245}.get(name, 250)
+    if job and 'reviewedInteriorMinimumAlpha' in job:
+        minimum_alpha = job['reviewedInteriorMinimumAlpha']
+    assert np.all(np.asarray(base.crop(box))[:, :, 3][alpha > 0] >= minimum_alpha), 'edit touches outer matte'
     layer = Image.new('RGBA', base.size)
     patch = aligned.convert('RGBA'); patch.putalpha(Image.fromarray(alpha))
     layer.alpha_composite(patch, box[:2])
@@ -74,22 +85,35 @@ def prepare(asset_id):
     assert np.array_equal(np.array(base)[:, :, 3], np.array(composite)[:, :, 3])
     unchanged = np.array(layer)[:, :, 3] == 0
     assert np.array_equal(np.array(base)[unchanged], np.array(composite)[unchanged])
-    out = ART / 'expression-candidates'; out.mkdir(exist_ok=True)
+    out = ROOT / job['outputDir'] if job else ART / 'expression-candidates'
+    out.mkdir(parents=True, exist_ok=True)
     layer.save(out / f'{asset_id}-layer.png')
     composite.save(out / f'{asset_id}.png')
     record = dict(assetId=asset_id, predictionId=result['data']['id'],
                   quality=result['data']['input'].get('quality'), source=str(source.relative_to(ROOT)),
-                  baseCrop=box, facePolygon=FACES[name], alignment=matrix.tolist(),
+                  sourceSprite=str(base_path.relative_to(ROOT)), model=result['data'].get('model'),
+                  baseCrop=box, facePolygons=polygons, alignment=matrix.tolist(),
                   stableMatches=len(good), inliers=int(inliers.sum()), scale=scale, angle=angle,
                   alphaUnchanged=True, bodyUnchanged=True, status='candidate-needs-visual-review')
+    record['interiorMinimumAlpha'] = minimum_alpha
     (out / f'{asset_id}.json').write_text(json.dumps(record, indent=2) + '\n')
     print(asset_id, 'candidate', round(scale, 3), int(inliers.sum()), flush=True)
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(); parser.add_argument('ids', nargs='+'); args = parser.parse_args()
-    for asset_id in args.ids:
+    parser = argparse.ArgumentParser()
+    parser.add_argument('ids', nargs='*')
+    parser.add_argument('--jobs', type=Path, help='Explicit source, crop, edit regions and provenance for pose-face repairs')
+    args = parser.parse_args()
+    jobs = json.loads(args.jobs.read_text()) if args.jobs else [{'id': item} for item in args.ids]
+    if not jobs:
+        parser.error('provide asset ids or --jobs')
+    failed = []
+    for job in jobs:
         try:
-            prepare(asset_id)
+            prepare(job['id'], job if args.jobs else None)
         except Exception as error:
-            print(asset_id, 'REVIEW REQUIRED', error, flush=True)
+            failed.append(job['id'])
+            print(job['id'], 'REVIEW REQUIRED', error, flush=True)
+    if failed:
+        raise SystemExit(1)

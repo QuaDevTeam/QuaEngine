@@ -26,6 +26,10 @@ Config may be single-bundle or workspace mode. Do not mix loose runtime content 
 
 ## Single Bundle Config
 
+Nested asset records must retain their path relative to the type directory in both manifest keys and `name`, matching dev VFS lookups: `images/backgrounds/room.webp` is `images` + `backgrounds/room.webp`; `images/cg/room.webp` is a distinct asset. Flattening a record's name to its basename makes correctly authored background/audio/script references fail after packaging even when bytes exist in the QPK. Explicit plugin-assigned path names and locale normalization remain respected. Verify actual production image decode as well as the presence of bundle bytes.
+
+`cg` and `ui` are asset directories, not language codes; locale detection must retain these path segments. A real locale above them (e.g. `locales/ja/images/cg/scene.webp`) still identifies a Japanese variant. For a product that keeps its mounted static QPK in MemoryAssetStorage, budget cache capacity from the emitted manifest's uncompressed totalSize; the default100MiB can otherwise evict source images immediately after a large bundle loads.
+
 `QuackConfig` supports:
 
 - `source`: source asset directory.

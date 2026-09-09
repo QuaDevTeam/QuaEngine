@@ -135,6 +135,12 @@ describe('assetDetector', () => {
   })
 
   describe('locale Detection', () => {
+    it('keeps CG and UI folders as asset namespaces', () => {
+      for (const name of ['images/cg/shared-earbuds.webp', 'images/ui/title.webp', 'data/ui/menu.json', 'ui/button.png']) {
+        expect((assetDetector as any).detectLocales(name, name.split('/').at(-1))).toEqual(['default'])
+      }
+      expect((assetDetector as any).detectLocales('locales/ja/images/cg/memory.webp', 'memory.webp')).toEqual(['ja'])
+    })
     it('should detect locales from asset names', () => {
       const localeTests = [
         { name: 'script.en.js', expectedLocales: ['en'] },

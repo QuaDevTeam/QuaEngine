@@ -1,5 +1,5 @@
 import { MemoryAssetStorage } from '@quajs/assets'
-import { createViteDevAssetRuntime, createWebAssetRuntime, createWebAssetsAdapter } from '@quajs/assets-web'
+import { createViteDevAssetRuntime, createWebAssetRuntime, createWebAssetStorage, createWebAssetsAdapter } from '@quajs/assets-web'
 import {
   createWebRuntimeModuleLoader,
   createWebRuntimeRendererPluginLoader,
@@ -11,8 +11,11 @@ import { TRUSTED_RUNTIME_KEYS } from './config'
 import { createDemoEngineRuntime } from './runtime-shared'
 
 export async function createDemoRuntime() {
-  const storage = new MemoryAssetStorage()
+  const storage = import.meta.env.PROD
+    ? createWebAssetStorage({ databaseName: 'call-me-tomorrow-assets' })
+    : new MemoryAssetStorage()
   const web = { databaseName: 'call-me-tomorrow-assets', storage }
+  const productionBundle = import.meta.env.PROD ? await loadProductionBundle() : undefined
   const assets = import.meta.env.DEV ? await createViteDevAssetRuntime({
     hmr: import.meta.hot,
     manifestUrl: `${import.meta.env.BASE_URL}@qua-assets/manifest.json`,
@@ -21,7 +24,10 @@ export async function createDemoRuntime() {
   }) : await createWebAssetRuntime({
     web,
     endpoint: import.meta.env.BASE_URL,
-    initialBundles: await loadProductionBundleName(),
+    initialBundles: productionBundle!.bundleFile,
+    // Persistent byte-store quota, NOT a resident-memory budget. Images are read
+    // from IndexedDB on demand; never evict the only copy of a mounted QPK.
+    cacheSize: Math.max(256 * 1024 * 1024, productionBundle!.totalSize * 2),
   })
   const trustPolicy = createWebRuntimeTrustPolicy({
     keys: TRUSTED_RUNTIME_KEYS,
@@ -86,12 +92,15 @@ export async function createDemoRuntime() {
   }
 }
 
-async function loadProductionBundleName(): Promise<string> {
+async function loadProductionBundle(): Promise<{ bundleFile: string, totalSize: number }> {
   const response = await fetch(`${import.meta.env.BASE_URL}asset-manifest.json`)
   if (!response.ok) throw new Error(`Asset manifest request failed: ${response.status}`)
-  const manifest: { bundleFile?: string } = await response.json()
+  const manifest: { bundleFile?: string, totalSize?: number } = await response.json()
   if (!manifest.bundleFile || !/^[a-zA-Z0-9._-]+\.(qpk|zip)$/.test(manifest.bundleFile)) {
     throw new Error('Build manifest does not declare a static asset bundle.')
   }
-  return manifest.bundleFile
+  if (!Number.isSafeInteger(manifest.totalSize) || manifest.totalSize! <= 0) {
+    throw new Error('Build manifest does not declare a positive static asset size.')
+  }
+  return { bundleFile: manifest.bundleFile, totalSize: manifest.totalSize! }
 }

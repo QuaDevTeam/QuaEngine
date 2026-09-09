@@ -2,11 +2,72 @@
   "version": 1,
   "family": "mayu",
   "base": {
-    "asset": "mayu/neutral.png"
+    "asset": "mayu/neutral.png",
+    "opacity": 0
   },
   "expressions": {
+    "hesitant": {
+      "layers": [
+        {
+          "asset": "mayu/hesitant.png"
+        }
+      ]
+    },
     "neutral": {
-      "layers": []
+      "layers": [
+        {
+          "asset": "mayu/neutral.png"
+        }
+      ]
+    },
+    "serious": {
+      "layers": [
+        {
+          "asset": "mayu/serious.png"
+        }
+      ]
+    },
+    "smile": {
+      "layers": [
+        {
+          "asset": "mayu/smile.png"
+        }
+      ]
+    },
+    "work-alt-neutral": {
+      "layers": [
+        {
+          "asset": "mayu/outfits/work-alt/neutral.png"
+        }
+      ]
+    },
+    "work-alt-serious": {
+      "layers": [
+        {
+          "asset": "mayu/outfits/work-alt/serious.png"
+        }
+      ]
+    },
+    "work-alt-hesitant": {
+      "layers": [
+        {
+          "asset": "mayu/outfits/work-alt/hesitant.png"
+        }
+      ]
+    },
+    "work-alt-smile": {
+      "layers": [
+        {
+          "asset": "mayu/outfits/work-alt/smile.png"
+        }
+      ]
+    },
+    "work-alt-documents": {
+      "layers": [
+        {
+          "asset": "mayu/outfits/work-alt/documents.png"
+        }
+      ]
     }
   }
 }

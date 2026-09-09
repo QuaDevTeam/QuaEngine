@@ -2,11 +2,79 @@
   "version": 1,
   "family": "haruka",
   "base": {
-    "asset": "haruka/neutral.png"
+    "asset": "haruka/neutral.png",
+    "opacity": 0
   },
   "expressions": {
+    "hesitant": {
+      "layers": [
+        {
+          "asset": "haruka/hesitant.png"
+        }
+      ]
+    },
     "neutral": {
-      "layers": []
+      "layers": [
+        {
+          "asset": "haruka/neutral.png"
+        }
+      ]
+    },
+    "serious": {
+      "layers": [
+        {
+          "asset": "haruka/serious.png"
+        }
+      ]
+    },
+    "smile": {
+      "layers": [
+        {
+          "asset": "haruka/smile.png"
+        }
+      ]
+    },
+    "leisure-neutral": {
+      "layers": [
+        {
+          "asset": "haruka/outfits/leisure/neutral.png"
+        }
+      ]
+    },
+    "leisure-serious": {
+      "layers": [
+        {
+          "asset": "haruka/outfits/leisure/serious.png"
+        }
+      ]
+    },
+    "leisure-hesitant": {
+      "layers": [
+        {
+          "asset": "haruka/outfits/leisure/hesitant.png"
+        }
+      ]
+    },
+    "leisure-smile": {
+      "layers": [
+        {
+          "asset": "haruka/outfits/leisure/smile.png"
+        }
+      ]
+    },
+    "pose-script": {
+      "layers": [
+        {
+          "asset": "haruka/pose-script.png"
+        }
+      ]
+    },
+    "pose-script-laugh": {
+      "layers": [
+        {
+          "asset": "haruka/pose-script-laugh.png"
+        }
+      ]
     }
   }
 }

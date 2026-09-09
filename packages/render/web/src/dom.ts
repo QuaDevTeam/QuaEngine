@@ -104,6 +104,8 @@ export class QuaWebDomRenderer {
     this.viewportEnvironmentDisposer = undefined
     this.scenePlaneNode = undefined
     this.disposeAssetHandles()
+    this.layerNodes.clear()
+    this.root.replaceChildren()
     this.root.remove()
     await this.controller.destroy()
   }

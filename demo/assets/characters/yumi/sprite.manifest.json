@@ -2,11 +2,51 @@
   "version": 1,
   "family": "yumi",
   "base": {
-    "asset": "yumi/neutral.png"
+    "asset": "yumi/neutral.png",
+    "opacity": 0
   },
   "expressions": {
+    "hesitant": {
+      "layers": [
+        {
+          "asset": "yumi/hesitant.png"
+        }
+      ]
+    },
     "neutral": {
-      "layers": []
+      "layers": [
+        {
+          "asset": "yumi/neutral.png"
+        }
+      ]
+    },
+    "serious": {
+      "layers": [
+        {
+          "asset": "yumi/serious.png"
+        }
+      ]
+    },
+    "leisure-neutral": {
+      "layers": [
+        {
+          "asset": "yumi/outfits/leisure/neutral.png"
+        }
+      ]
+    },
+    "leisure-serious": {
+      "layers": [
+        {
+          "asset": "yumi/outfits/leisure/serious.png"
+        }
+      ]
+    },
+    "leisure-hesitant": {
+      "layers": [
+        {
+          "asset": "yumi/outfits/leisure/hesitant.png"
+        }
+      ]
     }
   }
 }

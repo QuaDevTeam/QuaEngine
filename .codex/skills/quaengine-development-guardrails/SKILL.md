@@ -34,6 +34,8 @@ description: QuaEngine architecture guardrails for renderer statelessness, dynam
 - For full details, read `docs/design/dynamic-runtime-qpk.md` when working on Runtime Package behavior.
 
 ### Renderer
+
+- For Web image/byte lifecycle changes, read `../quaassets-web-memory.md`. Keep shared IndexedDB byte storage and bounded URL/read resources in Web adapters, never in core/store. Resource statistics describe implementation allocations, not narrative state or a browser/GPU hard memory cap. Validate queued cancellation, active-reference pinning and actual production QPK decoding.
 - Treat the renderer as a projection canvas.
 - Consume pipeline events and engine view state.
 - Draw UI, animations, audio, and other effects from those inputs only.
