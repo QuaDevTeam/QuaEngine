@@ -12,8 +12,8 @@ home:
   startUrl: /
   scope: /
 icons:
-  source: assets/app/icon.svg
-  favicon: assets/app/favicon.svg
+  source: assets/app/icon.png
+  favicon: assets/app/favicon.png
 targets:
   web:
     enabled: true

@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "family": "mara",
+  "base": {
+    "asset": "mara/neutral.png"
+  },
+  "expressions": {
+    "neutral": {
+      "layers": []
+    }
+  }
+}

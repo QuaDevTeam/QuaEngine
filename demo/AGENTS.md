@@ -4,4 +4,4 @@
 
 按当前获批的故事和技术设计直接重构、替换或删除 demo 内容，同步更新调用方、文档和相关测试。需要时可以重置 demo 开发测试数据。验证当前版本的存读档、分支和运行正确性，不测试跨版本恢复。
 
-详细规范见 [.agents/development-rules.md](.agents/development-rules.md)。本约定覆盖 demo 旧档案或 skill 中相反的兼容要求；引擎与渲染边界、QPK 资源体系和当前版本的质量要求仍按仓库规范执行。图片生成继续遵循用户已提出的暂停要求。
+详细规范见 [.agents/development-rules.md](.agents/development-rules.md)。本约定覆盖 demo 旧档案或 skill 中相反的兼容要求；引擎与渲染边界、QPK 资源体系和当前版本的质量要求仍按仓库规范执行。用户已于2026-09-08要求恢复图片生成并补齐缺失美术，此指令覆盖此前暂停要求。按 `.agents/art-production.json` 与 imagegen 技能执行；名字、既定服装和常规美术取舍无需再次审批。

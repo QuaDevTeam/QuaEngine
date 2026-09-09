@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "family": "mayu",
+  "base": {
+    "asset": "mayu/neutral.png"
+  },
+  "expressions": {
+    "neutral": {
+      "layers": []
+    }
+  }
+}

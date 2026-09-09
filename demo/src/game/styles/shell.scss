@@ -2,7 +2,7 @@
 .game-root { position: relative; width: 100%; height: 100%; overflow: hidden; background: #20352f; }
 .qua-renderer { width: 100%; height: 100%; font-family: "Noto Sans", sans-serif; }
 .vn-renderer .qua-character { width: 500px; max-width: 520px; max-height: 88%; }
-.vn-title-surface { position: absolute; inset: 0; z-index: 30; pointer-events: none; background: var(--vn-paper); opacity: 0; transition: opacity 180ms ease; }
+.vn-title-surface { position: absolute; inset: 0; z-index: 30; pointer-events: none; background-image: linear-gradient(90deg, rgba(16,39,54,.58) 0%, rgba(16,39,54,.28) 34%, rgba(16,39,54,.04) 64%), url("/assets/images/ui/title-menu-background.webp"); background-size: cover; background-position: center; opacity: 0; transition: opacity 180ms ease; }
 .game-root[data-title-surface="true"] .vn-title-surface { opacity: 1; }
 .vn-title-surface::after { content: ''; position: absolute; inset: 70px 96px; border-top: 1px solid var(--vn-line); border-bottom: 1px solid var(--vn-line); }
 .game-root[data-system-overlay] .qua-choice-panel { visibility: hidden; pointer-events: none; }
