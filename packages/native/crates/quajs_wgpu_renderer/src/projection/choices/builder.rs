@@ -80,6 +80,86 @@ fn build_choice_commands_with_top(
         return Vec::new();
     }
 
+    if let Some(chrome) = &choices.chrome {
+        let width = chrome.width.min(layout.safe_area.width * 0.9).max(1.0);
+        let text_width = (width - chrome.padding_x * 2.0).max(1.0);
+        let heights: Vec<f64> = safe_choices
+            .iter()
+            .map(|choice| {
+                let lines: f64 = choice
+                    .text
+                    .split('\n')
+                    .map(|line| {
+                        let units: f64 = line
+                            .chars()
+                            .map(|c| if c.is_ascii() { 0.55 } else { 1.0 })
+                            .sum();
+                        (units * chrome.font_size / text_width).ceil().max(1.0)
+                    })
+                    .sum();
+                lines * chrome.line_height + chrome.padding_y * 2.0
+            })
+            .collect();
+        let total =
+            heights.iter().sum::<f64>() + chrome.gap * (heights.len().saturating_sub(1)) as f64;
+        let mut y = (dialogue_top.unwrap_or(layout.logical_height * 0.7) - 30.0 - total)
+            .max(layout.safe_area.y);
+        let x = layout.safe_area.x + (layout.safe_area.width - width) / 2.0;
+        let mut commands = vec![apply_provenance(
+            DrawCommand::new(
+                "choices:panel",
+                RenderPlane::Safe,
+                DrawCommandKind::RoundedRect,
+                crate::render_graph::LogicalRect {
+                    x,
+                    y,
+                    width,
+                    height: total,
+                },
+            )
+            .z_index(10)
+            .params(DrawCommandParams::Panel(
+                crate::render_graph::PanelDrawParams {
+                    role: "choices-panel".into(),
+                    fill_color: "transparent".into(),
+                    corner_radius: 0.0,
+                    border: Default::default(),
+                    padding: Default::default(),
+                    intent: None,
+                    rotation_degrees: 0.0,
+                },
+            )),
+            &choices.provenance,
+        )];
+        commands.extend(safe_choices.iter().enumerate().map(|(index, choice)| {
+            let bounds = crate::render_graph::LogicalRect {
+                x,
+                y,
+                width,
+                height: heights[index],
+            };
+            y += heights[index] + chrome.gap;
+            let mut command = choice_command(bounds, 0, choice);
+            command.bounds = bounds;
+            if let DrawCommandParams::UiButton(p) = &mut command.params {
+                p.background_color = chrome.fill_color.clone();
+                p.text_color = chrome.text_color.clone();
+                p.border.color = Some(chrome.border_color.clone());
+                p.corner_radius = 3.0;
+                p.font_size = chrome.font_size;
+                p.line_height = chrome.line_height;
+                p.padding = EdgeInsetsDrawParam {
+                    top: chrome.padding_y,
+                    bottom: chrome.padding_y,
+                    left: chrome.padding_x,
+                    right: chrome.padding_x,
+                };
+            }
+            command
+        }));
+        return commands;
+    }
+
     let panel = if let Some(top) = dialogue_top {
         choices_panel_bounds_with_bottom(layout, safe_choices.len(), top - 74.0)
     } else {

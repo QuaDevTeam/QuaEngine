@@ -509,3 +509,51 @@ fn prefers_video_poster_texture_when_available() {
         }
     );
 }
+
+#[test]
+fn offstage_character_image_keeps_aspect_and_is_clipped_instead_of_squashed() {
+    let mut item = primitive(
+        "character:mara:sprite-base",
+        DrawBatchPipeline::Image,
+        DrawCommandKind::Image,
+        WgpuNativeRenderPrimitiveKind::Image {
+            sampling: Default::default(),
+            asset_type: "characters".into(),
+            asset_name: "mara.png".into(),
+            fit: MediaFit::Contain,
+            origin: MediaOrigin::default(),
+            source: LogicalRect {
+                x: 640.0,
+                y: 110.0,
+                width: 640.0,
+                height: 1280.0,
+            },
+            rotation_degrees: 0.0,
+            brightness: 1.0,
+            saturation: 1.0,
+            contrast: 1.0,
+            grayscale: 0.0,
+            sepia: 0.0,
+            hue_rotate_radians: 0.0,
+            invert: 0.0,
+        },
+        physical_rect(640, 110, 640, 970),
+        vec![ResourceId::from("characters:mara.png")],
+    );
+    item.logical_bounds = LogicalRect {
+        x: 640.0,
+        y: 110.0,
+        width: 640.0,
+        height: 1280.0,
+    };
+    item.geometry_bounds = Some(item.logical_bounds);
+    let plan = WgpuNativeRenderMeshPlan::from_primitive_plan_with_texture_dimensions(
+        &primitive_plan(vec![item]),
+        &std::collections::BTreeMap::from([("characters:mara.png".into(), (768, 1536))]),
+    );
+    let quad = &plan.passes[0].quads[0];
+    assert_eq!(quad.vertices[0].position, [640.0, 110.0]);
+    assert_eq!(quad.vertices[2].position, [1280.0, 1390.0]);
+    assert_eq!(quad.vertices[2].uv, [1.0, 1.0]);
+    assert_eq!(quad.scissor, Some(physical_rect(640, 110, 640, 970)));
+}

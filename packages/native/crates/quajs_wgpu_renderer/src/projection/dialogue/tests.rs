@@ -568,6 +568,7 @@ fn reveal_keeps_full_text_layout_and_avatar_clear_of_text() {
     let mut graph = RenderGraph::new(layout);
     graph.extend(complete);
     let choices = crate::projection::choices::ChoiceSetProjection {
+        chrome: None,
         motion: Default::default(),
         visible: true,
         choices: vec![crate::projection::choices::ChoiceProjection::new(
@@ -634,4 +635,42 @@ fn rich_reveal_retains_full_runs_styles_fonts_and_provenance() {
         }
     }
     assert_eq!(&shadow_inline, inline);
+}
+
+#[test]
+fn product_chrome_keeps_full_line_layout_during_reveal_and_reserves_footer() {
+    let mut dialogue = DialogueProjection::say("风");
+    dialogue.layout_text = Some("风从窗外吹进来。".repeat(40).into());
+    dialogue.speaker = Some("凛".into());
+    dialogue.chrome = Some(
+        serde_json::from_value(serde_json::json!({
+            "minHeight":250,"paddingX":52,"paddingTop":30,"paddingBottom":76,"speakerGap":14,
+            "fillColor":"#f5f3eb","borderColor":"#c7d2c5","accentColor":"#42796e",
+            "textStyle":{"fontSize":30,"lineHeight":54,"color":"#29453f"},
+            "speakerStyle":{"fontSize":25,"lineHeight":38,"color":"#42796e"}
+        }))
+        .unwrap(),
+    );
+    dialogue.provenance = provenance("base", ["episode"]);
+    let partial = build_dialogue_commands(&test_layout(), &dialogue);
+    dialogue.text = dialogue.layout_text.clone().unwrap();
+    let full = build_dialogue_commands(&test_layout(), &dialogue);
+    let command = |items: &Vec<crate::render_graph::DrawCommand>, id: &str| {
+        items.iter().find(|c| c.id == id).unwrap().clone()
+    };
+    let panel = command(&full, "dialogue:panel");
+    assert_eq!(panel.bounds, command(&partial, "dialogue:panel").bounds);
+    assert!(panel.bounds.height > 250.0);
+    let body = command(&full, "dialogue:text");
+    let speaker = command(&full, "dialogue:speaker");
+    let footer = command(&full, "dialogue:footer-rule");
+    assert!(speaker.bounds.y + speaker.bounds.height <= body.bounds.y);
+    assert!(body.bounds.y + body.bounds.height < footer.bounds.y);
+    assert_eq!(body.owner_package_id.as_deref(), Some("base"));
+    if let DrawCommandParams::Text(params) = &command(&partial, "dialogue:text").params {
+        assert_eq!(params.text, "风");
+        assert_eq!(params.font_size, 30.0);
+    } else {
+        panic!("expected native inline text")
+    }
 }

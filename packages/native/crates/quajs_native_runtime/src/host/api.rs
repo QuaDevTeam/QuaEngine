@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
@@ -147,7 +148,7 @@ pub trait NativeHostApi {
 #[derive(Debug, Clone)]
 pub struct InMemoryNativeHostApi {
     host_info: NativeHostInfo,
-    assets: BTreeMap<String, Vec<u8>>,
+    assets: BTreeMap<String, Arc<[u8]>>,
     mounted_bundles: Vec<NativeMountedBundleInfo>,
     storage: BTreeMap<String, Vec<u8>>,
     renderer_intents: Vec<NativeRendererIntent>,
@@ -165,7 +166,7 @@ impl InMemoryNativeHostApi {
     }
 
     pub fn with_asset(mut self, url: impl Into<String>, bytes: impl Into<Vec<u8>>) -> Self {
-        self.assets.insert(url.into(), bytes.into());
+        self.assets.insert(url.into(), Arc::from(bytes.into()));
         self
     }
 
@@ -187,7 +188,7 @@ impl NativeHostApi for InMemoryNativeHostApi {
     fn read_asset_bytes(&self, request: &NativeAssetReadRequest) -> NativeHostApiResult<Vec<u8>> {
         self.assets
             .get(&request.url)
-            .cloned()
+            .map(|bytes| bytes.to_vec())
             .ok_or_else(|| NativeHostApiError::AssetNotFound(request.url.clone()))
     }
 

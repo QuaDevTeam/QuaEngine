@@ -16,6 +16,8 @@ pub struct WgpuNativeRenderPrimitive {
     pub draw_kind: DrawCommandKind,
     pub kind: WgpuNativeRenderPrimitiveKind,
     pub logical_bounds: LogicalRect,
+    /// Unclipped signed device coordinates for sampled geometry; scissor stays separate.
+    pub geometry_bounds: Option<LogicalRect>,
     pub physical_bounds: WgpuPhysicalRect,
     pub scissor: Option<WgpuPhysicalRect>,
     pub opacity: f32,

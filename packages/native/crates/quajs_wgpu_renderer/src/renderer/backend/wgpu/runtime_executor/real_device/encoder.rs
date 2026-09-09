@@ -128,7 +128,25 @@ impl RealWgpuNativeRenderRuntimeDevice {
             return invalid_order("cannot submit command buffer while a render pass is active");
         }
         let command_buffer = encoder.encoder.finish();
-        self.target.queue().submit([command_buffer]);
+        let submission = self.target.queue().submit([command_buffer]);
+        self.pending_submissions.push_back(submission);
+        // A hidden/offscreen surface offers no vsync back-pressure. Bound
+        // queued uploads, uniforms and draw buffers independently of the window.
+        if self.pending_submissions.len() > 2 {
+            let oldest = self.pending_submissions.pop_front().unwrap();
+            self.target
+                .device()
+                .poll(wgpu::PollType::Wait {
+                    submission_index: Some(oldest),
+                    timeout: Some(std::time::Duration::from_secs(5)),
+                })
+                .map_err(|error| {
+                    WgpuNativeRenderRuntimeError::new(
+                        super::WgpuNativeRenderRuntimeErrorKind::InvalidOperationOrder,
+                        format!("native GPU submission wait failed: {error}"),
+                    )
+                })?;
+        }
         self.submitted_command_buffer_count += 1;
         Ok(())
     }

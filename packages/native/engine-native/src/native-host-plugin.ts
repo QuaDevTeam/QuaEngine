@@ -42,6 +42,15 @@ export interface NativeHostPluginOptions {
   targetBundleManifest?: TargetBundleManifest
 }
 
+// Diagnostics must not retain every unloaded namespace or error for a whole game.
+const DIAGNOSTIC_HISTORY_LIMIT = 64
+
+function appendDiagnostic<T>(history: T[], records: readonly T[]): void {
+  history.push(...records.slice(-DIAGNOSTIC_HISTORY_LIMIT))
+  if (history.length > DIAGNOSTIC_HISTORY_LIMIT)
+    history.splice(0, history.length - DIAGNOSTIC_HISTORY_LIMIT)
+}
+
 export class NativeHostPlugin implements EnginePlugin {
   readonly name = '@quajs/engine-native/native-host'
   readonly version = '0.1.0'
@@ -224,7 +233,7 @@ export class NativeHostPlugin implements EnginePlugin {
       for (const record of released) {
         this.options.quickJsPipelineSubscriptionBridge?.releaseModuleNamespace(record.id)
       }
-      this.releasedQuickJsPackages.push(...released)
+      appendDiagnostic(this.releasedQuickJsPackages, released)
     }
     catch (error) {
       await this.recordQuickJsCleanupError(pipeline, error, packageId).catch(() => undefined)
@@ -237,7 +246,7 @@ export class NativeHostPlugin implements EnginePlugin {
     event: NativeRendererIntent,
   ): Promise<void> {
     const normalized = error instanceof Error ? error : new Error(String(error))
-    this.rendererIntentErrors.push(normalized)
+    appendDiagnostic(this.rendererIntentErrors, [normalized])
     await emitRenderToLogic(pipeline, RenderToLogicEvents.RENDER_ERROR, {
       message: normalized.message,
       error: {
@@ -261,7 +270,7 @@ export class NativeHostPlugin implements EnginePlugin {
     packageId: string,
   ): Promise<void> {
     const normalized = error instanceof Error ? error : new Error(String(error))
-    this.quickJsCleanupErrors.push(normalized)
+    appendDiagnostic(this.quickJsCleanupErrors, [normalized])
     await emitRenderToLogic(pipeline, RenderToLogicEvents.RENDER_ERROR, {
       message: normalized.message,
       error: {

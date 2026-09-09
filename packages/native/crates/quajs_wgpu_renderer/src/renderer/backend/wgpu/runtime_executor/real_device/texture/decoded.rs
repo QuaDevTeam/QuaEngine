@@ -96,11 +96,14 @@ pub(in crate::renderer::backend::wgpu::runtime_executor::real_device) struct Rea
 pub(in crate::renderer::backend::wgpu::runtime_executor::real_device) fn create_runtime_decoded_texture_rgba8(
     target: &RealWgpuNativeRenderRuntimeTarget,
     resource_id: &str,
-    decoded: RealWgpuDecodedTextureRgba8,
+    mut decoded: RealWgpuDecodedTextureRgba8,
     metadata: RealWgpuDecodedTextureMetadata,
 ) -> Result<RealRuntimeDecodedTexture, WgpuNativeRenderRuntimeError> {
     validate_decoded_texture_rgba8(resource_id, &decoded)?;
     validate_decoded_texture_metadata(&metadata)?;
+    // Filter premultiplied texels at every mip level, including magnification.
+    // Straight RGBA stays at the decode/public boundary; GPU bytes are transient.
+    super::mipmap::premultiply(&mut decoded);
     let texture_label = format!("decoded-texture::{resource_id}");
     let extent = wgpu::Extent3d {
         width: decoded.width,

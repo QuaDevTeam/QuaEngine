@@ -2,10 +2,10 @@ import type { ViewLayoutProjection } from '@quajs/render-core'
 
 /** Demo-owned presentation contract shared by Web and native shells. */
 export const DEMO_HUD_ACTIONS = [
-  { id: 'auto', label: '自动', title: '自动阅读', width: 47, action: 'toggle', target: 'auto' },
-  { id: 'skip', label: '快进', title: '按设置快进；遇到选项停止', width: 47, action: 'toggle', target: 'skip' },
-  { id: 'log', label: '记录', title: '查看已读对白', width: 40, action: 'open', target: 'backlog' },
-  { id: 'menu', label: '菜单', title: '保存、读取与设置', width: 48, action: 'open', target: 'game-menu' },
+  { id: 'auto', label: '自动', title: '自动阅读', width: 99, action: 'toggle', target: 'auto' },
+  { id: 'skip', label: '快进', title: '按设置快进；遇到选项停止', width: 99, action: 'toggle', target: 'skip' },
+  { id: 'log', label: '记录', title: '查看已读对白', width: 99, action: 'open', target: 'backlog' },
+  { id: 'menu', label: '菜单', title: '保存、读取与设置', width: 99, action: 'open', target: 'game-menu' },
 ] as const
 
 export const DEMO_MENU_OPTIONS = { showBacklog: false, titleActionLabel: 'TITLE' } as const
@@ -16,10 +16,10 @@ export const DEMO_TITLE_CONFIRM = {
 } as const
 
 export const DEMO_UI_METRICS = {
-  toolbarWidth: 214, toolbarHeight: 40, toolbarGap: 4,
-  menuWidth: 460, menuHeight: 405,
-  saveWidth: 980, saveHeight: 478,
-  confirmWidth: 520, confirmHeight: 260,
+  toolbarWidth: 420, toolbarHeight: 46, toolbarGap: 8,
+  menuWidth: 700, menuHeight: 620,
+  saveWidth: 1360, saveHeight: 820,
+  confirmWidth: 800, confirmHeight: 380,
   backdropTop: 42,
 } as const
 
@@ -29,16 +29,16 @@ export function demoHudRect(layout: Readonly<ViewLayoutProjection>) {
   const safeWidth = Math.min(stageWidth, layout.height * layout.minAspectRatio)
   const safeX = (stageWidth - safeWidth) / 2
   return {
-    x: safeX + safeWidth * 0.95 - DEMO_UI_METRICS.toolbarWidth,
-    y: layout.height * (1 - 0.05 - 0.1225) - 8 - DEMO_UI_METRICS.toolbarHeight,
+    x: safeX + safeWidth * 0.95 - 42 - DEMO_UI_METRICS.toolbarWidth,
+    y: layout.height * .95 - 10 - DEMO_UI_METRICS.toolbarHeight,
     width: DEMO_UI_METRICS.toolbarWidth,
     height: DEMO_UI_METRICS.toolbarHeight,
   }
 }
 
-export function demoPanelRect(width: number, height: number, inGame: boolean, stageWidth = 1920, stageHeight = 1080) {
+export function demoPanelRect(width: number, height: number, _inGame: boolean, stageWidth = 1920, stageHeight = 1080) {
   const top = DEMO_UI_METRICS.backdropTop
-  const bottom = inGame ? stageHeight * (0.05 + 0.1225) + 8 + DEMO_UI_METRICS.toolbarHeight + 14 : top
+  const bottom = top
   const panelWidth = Math.min(width, stageWidth - top * 2)
   const panelHeight = Math.min(height, stageHeight - top - bottom)
   return { x: (stageWidth - panelWidth) / 2, y: top + (stageHeight - top - bottom - panelHeight) / 2, width: panelWidth, height: panelHeight }

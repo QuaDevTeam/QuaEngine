@@ -74,6 +74,47 @@ fn real_noop_backend_releases_decoded_textures_from_host_cleanup_records() {
 }
 
 #[test]
+fn repeated_scene_textures_return_to_zero_after_frame_cleanup() {
+    let device =
+        RealWgpuNativeRenderRuntimeDevice::new(RealWgpuNativeRenderRuntimeTarget::noop(320, 180));
+    let executor = InMemoryWgpuNativeRenderRuntimeExecutor::with_device(device);
+    let backend = WgpuNativeRenderBackend::with_runtime_executor(
+        WgpuNativeRenderBackendConfig::default(),
+        executor,
+    );
+    let mut renderer = NativeRenderer::new(backend);
+    let layout = resolve_stage_layout(
+        None,
+        StageContainerInput {
+            width: Some(320.0),
+            height: Some(180.0),
+            ..Default::default()
+        },
+    );
+    for index in 0..128 {
+        let asset = format!("bg/scene-{index}.png");
+        renderer
+            .backend_mut()
+            .upload_decoded_texture_rgba8(
+                format!("images:{asset}"),
+                RealWgpuDecodedTextureRgba8::new(2, 2, vec![255; 16]),
+            )
+            .unwrap();
+        renderer
+            .prepare_and_render(layout, &textured_background_view(&asset))
+            .unwrap();
+        assert_eq!(renderer.backend().decoded_texture_resource_count(), 1);
+        let update = renderer.prepare_frame(layout, &ViewProjection::default());
+        let cleanup = renderer
+            .backend_mut()
+            .release_decoded_textures_for_frame_update(&update);
+        assert_eq!(cleanup.released_resource_ids.len(), 1);
+        renderer.submit_latest_frame().unwrap();
+        assert_eq!(renderer.backend().decoded_texture_resource_count(), 0);
+    }
+}
+
+#[test]
 fn real_noop_backend_reports_mixed_host_cleanup_records() {
     let target = RealWgpuNativeRenderRuntimeTarget::noop(1600, 900);
     let device = RealWgpuNativeRenderRuntimeDevice::new(target);

@@ -31,6 +31,7 @@ pub struct RealWgpuNativeRenderRuntimeDevice {
     pub(super) backdrop_texture: Option<wgpu::Texture>,
     pub(super) active_encoder: Option<RealRuntimeEncoder>,
     pub(super) submitted_command_buffer_count: usize,
+    pub(super) pending_submissions: std::collections::VecDeque<wgpu::SubmissionIndex>,
 }
 
 impl Clone for RealWgpuNativeRenderRuntimeDevice {
@@ -54,6 +55,7 @@ impl Clone for RealWgpuNativeRenderRuntimeDevice {
             backdrop_texture: self.backdrop_texture.clone(),
             active_encoder: None,
             submitted_command_buffer_count: self.submitted_command_buffer_count,
+            pending_submissions: self.pending_submissions.clone(),
         }
     }
 }
@@ -80,6 +82,7 @@ impl RealWgpuNativeRenderRuntimeDevice {
             backdrop_texture: None,
             active_encoder: None,
             submitted_command_buffer_count: 0,
+            pending_submissions: Default::default(),
         }
     }
 

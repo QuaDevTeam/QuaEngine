@@ -326,9 +326,13 @@ async function buildNativeTypeScriptPackages() {
     '@quajs/plugin-settings',
     '@quajs/engine-native',
   ]) {
-    const command = process.env.npm_execpath ? process.execPath : 'pnpm'
-    const args = process.env.npm_execpath
-      ? [process.env.npm_execpath, '--filter', packageName, 'build']
+    // npm_execpath can point to pnpm's standalone native executable as well
+    // as its JS entry. Feeding a Mach-O/PE executable to Node is invalid.
+    const manager = process.env.npm_execpath
+    const nodeEntry = manager && /\.(?:c|m)?js$/i.test(manager)
+    const command = nodeEntry ? process.execPath : manager || 'pnpm'
+    const args = nodeEntry
+      ? [manager, '--filter', packageName, 'build']
       : ['--filter', packageName, 'build']
     await run(command, args, { cwd: REPO_ROOT })
   }
@@ -396,8 +400,8 @@ async function validateNativeE2eOutput(output) {
     'title-return',
     'settings',
     'settings-return',
-    'gallery',
-    'gallery-return',
+    'chapters',
+    'chapters-return',
   ]
   if (e2eReport.completed !== true) {
     failures.push('the complete demo flow did not finish')
@@ -409,21 +413,21 @@ async function validateNativeE2eOutput(output) {
     failures.push('the story did not advance through real dialogue lines')
   }
   if (e2eReport.skipUsed !== true) {
-    failures.push('the story did not reach its first choice through the real HUD skip control')
+    failures.push('the real HUD skip control was not exercised')
   }
-  if (e2eReport.selectedChoiceId !== 'stealth') {
+  if (e2eReport.selectedChoiceId !== 'catalog-first') {
     failures.push(`the story choice was not selected through native input (${e2eReport.selectedChoiceId || 'none'})`)
   }
-  if (e2eReport.settingsVisited !== true || e2eReport.galleryVisited !== true) {
-    failures.push('settings and gallery were not both visited through the title menu')
+  if (e2eReport.settingsVisited !== true || e2eReport.chaptersVisited !== true) {
+    failures.push('settings and chapters were not both visited through the title menu')
   }
   // A panel that merely exists in the render graph can still be fully covered by
   // the app shell. Assert it actually reached the top of the UI overlay stack.
   if (e2eReport.settingsTopmost !== true) {
     failures.push('the settings panel was occluded instead of being the topmost UI overlay')
   }
-  if (e2eReport.galleryTopmost !== true) {
-    failures.push('the gallery panel was occluded instead of being the topmost UI overlay')
+  if (e2eReport.chaptersTopmost !== true) {
+    failures.push('the chapters panel was occluded instead of being the topmost UI overlay')
   }
   if (report.pointerProbeCount < expectedSteps.length || report.pointerIntentEmitCount < expectedSteps.length) {
     failures.push('the native render-command clicks did not all emit through the renderer intent bridge')
@@ -458,10 +462,10 @@ async function validateNativeE2eOutput(output) {
   if (report.linearSampledTextureBindGroupCount < 1 || report.nearestSampledTextureBindGroupCount !== 0) {
     failures.push('the final title texture sampling was not exclusively linear')
   }
-  if (report.audioBackendAppliedPlanCount < 1
-    || report.audioBackendAppliedCommandCount < 2
-    || report.audioBackendPeakActiveTrackCount < 1) {
-    failures.push('the native audio backend did not project and play the demo BGM')
+  // The current prologue has no audio cues/assets. Exercise the real backend's
+  // silent projection lifecycle; audio playback is covered by native media tests.
+  if (report.audioBackendAppliedPlanCount < 1) {
+    failures.push('the native audio backend did not process the demo projection')
   }
   if (report.audioBackendActiveTrackCount !== 0) {
     failures.push('the native audio backend retained an active track after shutdown')
@@ -494,7 +498,7 @@ async function validateNativeE2eOutput(output) {
   if (failures.length > 0) {
     throw new Error(`Native demo E2E failed: ${failures.join('; ')}.`)
   }
-  console.log(`Native demo E2E validated ${e2eReport.dialogueLineCount} dialogue lines, choice ${e2eReport.selectedChoiceId}, settings, gallery, ${report.passCount} WGPU pass(es), and a ${report.frameCaptureWidth}x${report.frameCaptureHeight} PNG readback.`)
+  console.log(`Native demo E2E validated ${e2eReport.dialogueLineCount} dialogue lines, choice ${e2eReport.selectedChoiceId}, settings, chapters, ${report.passCount} WGPU pass(es), and a ${report.frameCaptureWidth}x${report.frameCaptureHeight} PNG readback.`)
 }
 
 for (const signal of ['SIGINT', 'SIGTERM']) {

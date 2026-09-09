@@ -17,6 +17,14 @@ use crate::window_smoke::frame::normalized_physical_size;
 use crate::window_smoke::input::{pointer_button_from_winit, pointer_phase_from_element_state};
 
 impl ApplicationHandler for NativeWindowSmokeApp {
+    fn new_events(&mut self, _event_loop: &ActiveEventLoop, cause: winit::event::StartCause) {
+        if matches!(cause, winit::event::StartCause::ResumeTimeReached { .. })
+            && self.needs_more_frames()
+        {
+            self.request_redraw();
+        }
+    }
+
     fn user_event(&mut self, _event_loop: &ActiveEventLoop, _event: ()) {
         // Control-channel clients wake the loop after queueing a request;
         // process it on a fresh frame instead of waiting for user input.
@@ -222,6 +230,14 @@ impl ApplicationHandler for NativeWindowSmokeApp {
                 }
             }
             WindowEvent::RedrawRequested => {
+                // request_redraw can wake winit before WaitUntil. Coalesce these
+                // events until the deadline; new_events requests the owed frame.
+                if self
+                    .next_frame_deadline()
+                    .is_some_and(|deadline| deadline > std::time::Instant::now())
+                {
+                    return;
+                }
                 if !self.needs_more_frames() {
                     if native_window_dev_enabled() {
                         return;

@@ -25,6 +25,7 @@ pub(in crate::bench_smoke) fn heavy_ui_view(node_count: usize) -> ViewProjection
             ..DialogueProjection::say("Benchmark smoke dialogue.")
         }),
         choices: Some(ChoiceSetProjection {
+            chrome: None,
             visible: true,
             provenance: provenance("runtime.choice", ["base"]),
             choices: (0..8)

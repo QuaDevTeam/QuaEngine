@@ -8,22 +8,22 @@ use serde::Serialize;
 use super::error::NativeWindowSmokeError;
 use super::input::NativeWindowSmokeInputState;
 
-const DEMO_E2E_MAX_DURATION: Duration = Duration::from_secs(3 * 60);
+const DEMO_E2E_MAX_DURATION: Duration = Duration::from_secs(8 * 60);
 const DEMO_E2E_STALL_TIMEOUT: Duration = Duration::from_secs(30);
 
 const TITLE_START: &str = "ui:native-app-shell:native-main-menu-start";
 const TITLE_CONFIG: &str = "ui:native-app-shell:native-main-menu-config";
-const TITLE_GALLERY: &str = "ui:native-app-shell:native-main-menu-gallery";
+const TITLE_CHAPTERS: &str = "ui:native-app-shell:native-main-menu-story-tree";
 const DIALOGUE_PANEL: &str = "dialogue:panel";
-const FIRST_STORY_CHOICE: &str = "choice:stealth";
+const FIRST_STORY_CHOICE: &str = "choice:catalog-first";
 const GAME_HUD_SKIP: &str = "ui:native-app-shell:native-game-hud-skip";
 const GAME_HUD_MENU: &str = "ui:native-app-shell:native-game-hud-menu";
 const GAME_MENU_TITLE: &str = "ui:native-app-shell:native-game-menu-title-action";
 const TITLE_CONFIRM: &str = "ui:native-app-shell:native-title-confirm-confirm";
 const SETTINGS_CLOSE: &str = "ui:settings:settings-close";
-const GALLERY_CLOSE: &str = "ui:gallery:gallery-close";
+const CHAPTERS_CLOSE: &str = "ui:native-app-shell:native-story-tree-close";
 const SETTINGS_ELEMENT_ID: &str = "settings";
-const GALLERY_ELEMENT_ID: &str = "gallery";
+const CHAPTERS_ELEMENT_ID: &str = "native-app-shell";
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -35,9 +35,9 @@ pub(super) struct NativeDemoE2eReport {
     skip_used: bool,
     selected_choice_id: Option<String>,
     settings_visited: bool,
-    gallery_visited: bool,
+    chapters_visited: bool,
     settings_topmost: bool,
-    gallery_topmost: bool,
+    chapters_topmost: bool,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -53,7 +53,7 @@ enum NativeDemoE2eStep {
     AwaitReturnedTitle,
     AwaitSettings,
     AwaitTitleAfterSettings,
-    AwaitGallery,
+    AwaitChapters,
     AwaitFinalTitle,
     Complete,
 }
@@ -82,9 +82,9 @@ pub(super) struct NativeDemoE2eState {
     skip_stop_requested: bool,
     selected_choice_id: Option<String>,
     settings_visited: bool,
-    gallery_visited: bool,
+    chapters_visited: bool,
     settings_topmost: bool,
-    gallery_topmost: bool,
+    chapters_topmost: bool,
     stop_requested: bool,
     stop_requested_at: Option<Instant>,
     report_emitted: bool,
@@ -188,7 +188,8 @@ impl NativeDemoE2eState {
                 self.observe_dialogue_frame(frame_json);
                 if command_visible(renderer, FIRST_STORY_CHOICE) {
                     if self.skip_started && flow_control_is_skip(frame_json) {
-                        if !self.skip_stop_requested && self.click(renderer, host, input, GAME_HUD_SKIP)?
+                        if !self.skip_stop_requested
+                            && self.click(renderer, host, input, GAME_HUD_SKIP)?
                         {
                             self.skip_stop_requested = true;
                             self.last_progress_at = Some(Instant::now());
@@ -197,7 +198,7 @@ impl NativeDemoE2eState {
                         self.record_step("story-choice");
                         self.choice_dialogue_signature = self.dialogue_signature.clone();
                         if self.click(renderer, host, input, FIRST_STORY_CHOICE)? {
-                            self.selected_choice_id = Some("stealth".to_string());
+                            self.selected_choice_id = Some("catalog-first".to_string());
                             self.step = NativeDemoE2eStep::AwaitChoiceBranch;
                         }
                     }
@@ -209,7 +210,7 @@ impl NativeDemoE2eState {
                         self.skip_started = true;
                         self.last_progress_at = Some(Instant::now());
                     }
-                } else if !self.skip_started {
+                } else if !flow_control_is_skip(frame_json) {
                     self.advance_dialogue(renderer, host, input)?;
                 }
             }
@@ -269,28 +270,28 @@ impl NativeDemoE2eState {
             }
             NativeDemoE2eStep::AwaitTitleAfterSettings => {
                 if command_visible(renderer, TITLE_START)
-                    && command_visible(renderer, TITLE_GALLERY)
+                    && command_visible(renderer, TITLE_CHAPTERS)
                 {
                     self.record_step("settings-return");
-                    if self.click(renderer, host, input, TITLE_GALLERY)? {
-                        self.step = NativeDemoE2eStep::AwaitGallery;
+                    if self.click(renderer, host, input, TITLE_CHAPTERS)? {
+                        self.step = NativeDemoE2eStep::AwaitChapters;
                     }
                 }
             }
-            NativeDemoE2eStep::AwaitGallery => {
-                if command_visible(renderer, GALLERY_CLOSE) {
-                    self.gallery_visited = true;
-                    self.gallery_topmost = topmost_ui_overlay_element_id(renderer).as_deref()
-                        == Some(GALLERY_ELEMENT_ID);
-                    self.record_step("gallery");
-                    if self.click(renderer, host, input, GALLERY_CLOSE)? {
+            NativeDemoE2eStep::AwaitChapters => {
+                if command_visible(renderer, CHAPTERS_CLOSE) {
+                    self.chapters_visited = true;
+                    self.chapters_topmost = topmost_ui_overlay_element_id(renderer).as_deref()
+                        == Some(CHAPTERS_ELEMENT_ID);
+                    self.record_step("chapters");
+                    if self.click(renderer, host, input, CHAPTERS_CLOSE)? {
                         self.step = NativeDemoE2eStep::AwaitFinalTitle;
                     }
                 }
             }
             NativeDemoE2eStep::AwaitFinalTitle => {
                 if command_visible(renderer, TITLE_START) {
-                    self.record_step("gallery-return");
+                    self.record_step("chapters-return");
                     self.finish()?;
                 }
             }
@@ -354,7 +355,9 @@ impl NativeDemoE2eState {
         // Diagnostic: QUA_NATIVE_RENDERER_WINDOW_DEMO_E2E_STOP_AT=<step> stops
         // the run right after the named step so the capture artifact shows
         // that exact screen (e.g. "game-menu" to inspect the menu panel).
-        if std::env::var("QUA_NATIVE_RENDERER_WINDOW_DEMO_E2E_STOP_AT").ok().as_deref()
+        if std::env::var("QUA_NATIVE_RENDERER_WINDOW_DEMO_E2E_STOP_AT")
+            .ok()
+            .as_deref()
             == Some(step)
         {
             self.stop_requested = true;
@@ -374,9 +377,9 @@ impl NativeDemoE2eState {
             skip_used: self.skip_started,
             selected_choice_id: self.selected_choice_id.clone(),
             settings_visited: self.settings_visited,
-            gallery_visited: self.gallery_visited,
+            chapters_visited: self.chapters_visited,
             settings_topmost: self.settings_topmost,
-            gallery_topmost: self.gallery_topmost,
+            chapters_topmost: self.chapters_topmost,
         };
         let json = serde_json::to_string(&report).map_err(|error| {
             NativeWindowSmokeError::new(format!(

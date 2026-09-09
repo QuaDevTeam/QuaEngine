@@ -439,3 +439,49 @@ fn image_sampler_never_substitutes_an_auxiliary_mask_for_a_missing_source() {
         );
     }
 }
+
+#[test]
+fn offstage_character_keeps_signed_geometry_with_letterboxing_and_dpr() {
+    let mut metadata = draw_metadata(DrawCommandParams::Character(CharacterDrawParams {
+        character_id: "mara".into(),
+        character_name: "Mara".into(),
+        sprite_asset_name: "mara.png".into(),
+        expression: None,
+        anchor: CharacterAnchor::Center,
+        scale: 1.0,
+        rotation_degrees: 0.0,
+        flip_horizontal: false,
+    }));
+    metadata.bounds = LogicalRect {
+        x: -120.0,
+        y: 110.0,
+        width: 640.0,
+        height: 1280.0,
+    };
+    let mut execution = execution_plan(vec![WgpuNativeRenderExecutionOperation::Draw {
+        command_id: "character:mara".into(),
+        pipeline: DrawBatchPipeline::Character,
+        kind: DrawCommandKind::Image,
+        metadata,
+        physical_bounds: physical_rect(100, 205, 780, 915),
+        clip_depth: 0,
+        resource_count: 1,
+    }]);
+    execution.passes[0].viewport.viewport_x = 50.0;
+    execution.passes[0].viewport.viewport_y = 20.0;
+    execution.passes[0].viewport.device_pixel_ratio = 2.0;
+    execution.passes[0].viewport.scale = 0.75;
+    execution.passes[0].viewport.physical_scale = 1.5;
+    let plan = WgpuNativeRenderPrimitivePlan::from_execution_plan(&execution);
+    let primitive = &plan.passes[0].primitives[0];
+    assert_eq!(
+        primitive.geometry_bounds,
+        Some(LogicalRect {
+            x: -80.0,
+            y: 205.0,
+            width: 960.0,
+            height: 1920.0
+        })
+    );
+    assert_eq!(primitive.physical_bounds, physical_rect(100, 205, 780, 915));
+}

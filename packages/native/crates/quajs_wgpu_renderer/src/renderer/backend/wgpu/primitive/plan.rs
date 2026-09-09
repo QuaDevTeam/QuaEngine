@@ -97,7 +97,7 @@ impl WgpuNativeRenderPrimitivePass {
                         operation,
                         scissor,
                         resource_ids,
-                        pass.viewport.physical_scale,
+                        &pass.viewport,
                     ) {
                         primitives.push(primitive);
                     }
@@ -107,7 +107,7 @@ impl WgpuNativeRenderPrimitivePass {
                         operation,
                         None,
                         None,
-                        pass.viewport.physical_scale,
+                        &pass.viewport,
                     ) {
                         primitives.push(primitive);
                     }

@@ -1,3 +1,4 @@
+import { projectDemoNativeView } from './presentation'
 import { createSaveSlotGrid } from '@quajs/render-core'
 import { DEMO_TITLE_CONFIRM, toggleDemoFlowControl } from '../../game/ui-presentation'
 import { createMemoryAssetsAdapter } from '@quajs/assets-memory'
@@ -10,7 +11,6 @@ import {
   type GameOverPayload,
 } from '@quajs/engine'
 import {
-  createNativeRendererViewProjection,
   emitNativeRendererIntentToPipeline,
   installNativeQuickJsPipelineBridge,
   type NativeQuickJsPipelineBridge,
@@ -63,7 +63,7 @@ export async function createDemoNativeSession(): Promise<DemoNativeSession> {
       assets: { adapter: createMemoryAssetsAdapter(), locale: 'default', enableCache: false },
       flowControl: { skipMode: 'read' },
       dialogue: {
-        typewriter: { enabled: true, durationMs: 1600, revealOnAdvance: true },
+        typewriter: { enabled: true, charactersPerSecond: 36, revealOnAdvance: true },
       },
     },
     systemLocale: 'zh-cn',
@@ -150,7 +150,7 @@ export async function createDemoNativeSession(): Promise<DemoNativeSession> {
           : 'AVAILABLE'
       return {
         id: node.nodeId,
-        label: `${chapter} · ${node.title || '未读章节'}${state === 'LOCKED' ? ' · 未解锁' : ''}`,
+        label: state === 'LOCKED' ? '未读章节' : node.title || '未读章节',
         disabled: node.entryLocked,
       }
     })
@@ -164,7 +164,7 @@ export async function createDemoNativeSession(): Promise<DemoNativeSession> {
       currentChapterIndex = nextChapterIndex
     }
     void refreshAppSurface({
-      gameMenuSubtitle: `${GAME_TITLE} / CH ${currentChapter} / ${currentRoute}`,
+      gameMenuSubtitle: STORY_TREE_NODES.find(node => node.chapter === currentChapter)?.title || '',
     }).catch(error => recordError(error, 'hud:update'))
   }
 
@@ -284,9 +284,10 @@ export async function createDemoNativeSession(): Promise<DemoNativeSession> {
       phase('save:load:empty')
       return
     }
+    await closeFeaturePanels()
+    await refreshAppSurface({ screen: 'game', titleSurface: false })
     await runtime.engine.loadFromSlot(slotId, { force: true, reason: 'renderer-load' })
     updateHud({ chapter: runtime.engine.getStoryPoint()?.chapterId || '00', route: STORY_TREE_NODES.find(node => node.chapter === runtime.engine.getStoryPoint()?.chapterId)?.title || '' })
-    await closeFeaturePanels()
     await refreshAppSurface({ screen: 'game', titleSurface: false })
   }
 
@@ -405,13 +406,7 @@ export async function createDemoNativeSession(): Promise<DemoNativeSession> {
           if (event === LogicToRenderEvents.VIEW_UPDATE && record?.view) {
             bridge.emit(event, {
               ...record,
-              view: createNativeRendererViewProjection(
-                record.view as NativeRendererEngineViewProjection,
-                {
-                  featureSurfaces: DEMO_NATIVE_FEATURE_SURFACES,
-                  projectAnimations: false,
-                },
-              ),
+              view: projectDemoNativeView(record.view as NativeRendererEngineViewProjection),
             })
             return
           }

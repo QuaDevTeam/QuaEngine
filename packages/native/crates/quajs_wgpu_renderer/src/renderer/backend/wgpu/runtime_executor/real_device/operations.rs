@@ -48,12 +48,16 @@ impl WgpuNativeRenderRuntimeDevice for RealWgpuNativeRenderRuntimeDevice {
             .max()
             .unwrap_or(0);
         let extent = self.target.extent();
-        // The blur pyramid and two Gaussian outputs occupy at most two full
-        // frame textures. Reject over-budget frames before recording GPU work.
-        let bytes = (depth as u64 + u64::from(has_backdrop) + 2 * u64::from(has_blurred_shadow))
-            * u64::from(extent.width)
-            * u64::from(extent.height)
-            * 4;
+        // Every main/group target has a resolve texture plus an MSAA
+        // attachment when enabled. Backdrop and blur outputs are single-sample.
+        let bytes = transient_target_bytes(
+            depth,
+            has_backdrop,
+            has_blurred_shadow,
+            extent.width,
+            extent.height,
+            self.target.sample_count(),
+        );
         if depth > 16 || bytes > 256 * 1024 * 1024 {
             return invalid_order(
                 "native compositing exceeds its 16-level / 256 MiB transient target budget",
@@ -111,5 +115,46 @@ impl WgpuNativeRenderRuntimeDevice for RealWgpuNativeRenderRuntimeDevice {
         {
             "real-wgpu feature is enabled and applies runtime plans to an attached wgpu::Device/Queue for buffer creation, queue writes, retained offscreen frame-target render passes, no-bind-group color fallback indexed drawing, uploaded decoded RGBA texture sampling with deterministic placeholder fallback, uploaded-or-built-in TextAtlas sampling for TextPlaceholder draws including per-character CJK/fullwidth atlas slots, and command submission; swapchain presentation, automatic QuaAssets texture lookup/sync, encoded image decoding, real text shaping, full font fallback/layout, advanced CJK typography, video decode, and audio playback remain future backend work."
         }
+    }
+}
+
+fn transient_target_bytes(
+    depth: usize,
+    backdrop: bool,
+    blurred_shadow: bool,
+    width: u32,
+    height: u32,
+    samples: u32,
+) -> u64 {
+    let attachments = 1 + if samples > 1 { u64::from(samples) } else { 0 };
+    let textures = (depth as u64)
+        .saturating_add(1)
+        .saturating_mul(attachments)
+        .saturating_add(u64::from(backdrop) + 2 * u64::from(blurred_shadow));
+    textures
+        .saturating_mul(u64::from(width))
+        .saturating_mul(u64::from(height))
+        .saturating_mul(4)
+}
+
+#[cfg(test)]
+mod memory_budget_tests {
+    use super::transient_target_bytes;
+
+    #[test]
+    fn counts_resolve_msaa_and_auxiliary_targets() {
+        assert_eq!(
+            transient_target_bytes(2, true, true, 1920, 1080, 1),
+            6 * 1920 * 1080 * 4
+        );
+        assert_eq!(
+            transient_target_bytes(2, true, true, 1920, 1080, 4),
+            18 * 1920 * 1080 * 4
+        );
+        assert!(transient_target_bytes(2, false, false, 3840, 2160, 4) > 256 * 1024 * 1024);
+        assert_eq!(
+            transient_target_bytes(usize::MAX, true, true, u32::MAX, u32::MAX, 4),
+            u64::MAX
+        );
     }
 }

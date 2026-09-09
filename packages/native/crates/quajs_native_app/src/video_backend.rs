@@ -289,6 +289,9 @@ where
         frame.required_package_ids = active.package_metadata.required_package_ids.clone();
         active.last_published_index = Some(frame_index);
 
+        // A delayed host drain only needs the latest frame for each texture.
+        self.pending_frames
+            .retain(|pending| pending.resource_id != frame.resource_id);
         self.pending_frames.push(frame);
         self.published_frame_count = self.published_frame_count.saturating_add(1);
     }
@@ -299,7 +302,13 @@ where
             .values()
             .any(|active| active.stream.texture_ring_resource_id == resource_id)
         {
-            self.pending_releases.push(resource_id);
+            // Release sync runs before upload sync: discard stale queued frames
+            // so a stopped stream cannot recreate an unowned GPU texture.
+            self.pending_frames
+                .retain(|frame| frame.resource_id != resource_id);
+            if !self.pending_releases.contains(&resource_id) {
+                self.pending_releases.push(resource_id);
+            }
             self.released_texture_count = self.released_texture_count.saturating_add(1);
         }
     }
@@ -529,6 +538,38 @@ mod tests {
         assert_eq!(diagnostics.missing_asset_count, 0);
         assert_eq!(diagnostics.published_frame_count, 1);
         assert_eq!(diagnostics.pending_frame_count, 0);
+    }
+
+    #[test]
+    fn repeated_video_start_stop_cancels_undrained_frames() {
+        let mut backend = GifNativeVideoBackend::new();
+        let stream = stream_state(["runtime-pack"]);
+        for _ in 0..128 {
+            backend
+                .apply_video_asset_loads(&[VideoBackendAssetLoad {
+                    stream_id: stream.id.clone(),
+                    resource_id: stream.decoder_resource_id.clone(),
+                    asset_type: stream.asset_type.clone(),
+                    asset_name: stream.asset_name.clone(),
+                    package_id: Some("runtime-pack".into()),
+                    bytes: ONE_PIXEL_GIF.to_vec(),
+                }])
+                .unwrap();
+            backend.start_stream(&stream);
+            for _ in 0..16 {
+                backend.publish_frame(&stream.id, 0);
+            }
+            assert_eq!(backend.pending_frames.len(), 1);
+            backend.release_stream(&stream);
+            assert!(backend.pending_frames.is_empty());
+            assert!(backend.active_streams.is_empty());
+            assert!(backend.loaded_assets.is_empty());
+        }
+        assert!(backend.drain_video_frame_textures().is_empty());
+        assert_eq!(
+            backend.drain_video_frame_texture_releases(),
+            vec![stream.texture_ring_resource_id]
+        );
     }
 
     #[test]

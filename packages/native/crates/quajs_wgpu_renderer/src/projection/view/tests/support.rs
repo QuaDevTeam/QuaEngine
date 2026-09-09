@@ -35,6 +35,7 @@ pub(super) fn full_view() -> ViewProjection {
             ..DialogueProjection::say("Native renderer frame.")
         }),
         choices: Some(ChoiceSetProjection {
+            chrome: None,
             motion: Default::default(),
             visible: true,
             provenance: provenance("runtime.choices", ["base"]),

@@ -156,7 +156,15 @@ fn materialize_draw(
     // Vertices already include stage scale and letterbox offset in physical
     // target pixels; applying the stage viewport again shrinks/translates them.
     let extent = target.extent();
-    set_viewport(render_pass, WgpuPhysicalRect { x: 0, y: 0, width: extent.width, height: extent.height });
+    set_viewport(
+        render_pass,
+        WgpuPhysicalRect {
+            x: 0,
+            y: 0,
+            width: extent.width,
+            height: extent.height,
+        },
+    );
     render_pass.set_vertex_buffer(0, vertex_buffer.buffer.slice(..));
     render_pass.set_index_buffer(index_buffer.buffer.slice(..), wgpu::IndexFormat::Uint32);
     render_pass.set_pipeline(&pipeline.pipeline);
@@ -201,9 +209,9 @@ fn frame_color_attachments(
     frame_target: &RealRuntimeFrameTarget,
 ) -> [Option<wgpu::RenderPassColorAttachment<'_>>; 1] {
     [Some(wgpu::RenderPassColorAttachment {
-        view: frame_target.view(),
+        view: frame_target.attachment_view(),
         depth_slice: None,
-        resolve_target: None,
+        resolve_target: frame_target.resolve_view(),
         ops: wgpu::Operations {
             load: frame_target.load_op(),
             store: wgpu::StoreOp::Store,

@@ -105,6 +105,7 @@ pub(crate) struct SimpleNativeFontAtlasBackend {
     recent_texts: BTreeMap<FontAtlasKey, BTreeSet<String>>,
     requested_shaped_glyphs: BTreeMap<FontAtlasKey, BTreeMap<String, BTreeSet<u32>>>,
     shaping_faces: BTreeMap<String, FontBackendShapingFace>,
+    raster_faces: BTreeMap<String, FontArc>,
     prewarm_texts: BTreeSet<String>,
     /// Frame ordinal of the last draw that requested each bucket, used to pick
     /// an eviction victim once `MAX_BUCKETS_PER_FAMILY` is exceeded.
@@ -153,37 +154,13 @@ impl NativeFontBackend for SimpleNativeFontAtlasBackend {
     }
 
     fn prewarm_texts(&mut self, texts: &[String]) -> NativeFontBackendResult {
-        let next = texts
+        // The font and physical size are known only at frame preparation.
+        // Do not copy dialogue glyphs into unrelated title/menu atlases.
+        self.prewarm_texts = texts
             .iter()
             .filter(|text| !text.is_empty())
             .cloned()
-            .collect::<BTreeSet<_>>();
-        let changed = next != self.prewarm_texts;
-        self.prewarm_texts = next.clone();
-        if !changed {
-            return Ok(());
-        }
-        // Prewarm carries no font size, so it feeds every bucket already in
-        // play for the family. Before the first frame there is none yet; seed
-        // the default bucket so prewarming still does useful work.
-        let mut keys = self
-            .requested_glyphs
-            .keys()
-            .chain(self.recent_texts.keys())
-            .cloned()
-            .collect::<BTreeSet<_>>();
-        if keys.is_empty() {
-            keys = self
-                .active_faces
-                .values()
-                .map(|face| (face.family.clone(), font_raster_bucket(RASTER_SCALE)))
-                .collect();
-        }
-        for (family, bucket) in keys {
-            if self.merge_requested_texts(&family, bucket, &next) {
-                self.rebuild_bucket_atlas(&family, bucket);
-            }
-        }
+            .collect();
         Ok(())
     }
 
@@ -259,9 +236,18 @@ impl NativeFontBackend for SimpleNativeFontAtlasBackend {
                     .entry(key.clone())
                     .or_default()
                     .extend(text.chars().filter(|character| !character.is_control()));
-                if !text.is_empty() {
+                if !text.is_empty() || command.id == "dialogue:text" {
                     let texts = requested_texts.entry(key).or_default();
                     texts.insert(text);
+                    if command.id == "dialogue:text"
+                        && matches!(&command.params, DrawCommandParams::Text(params) if params.inline.is_none())
+                    {
+                        texts.extend(
+                            self.prewarm_texts
+                                .iter()
+                                .map(|text| transform_text(text, transform)),
+                        );
+                    }
                     if overflow == TextOverflowDrawParam::Ellipsis {
                         texts.insert("…".into());
                     }
@@ -276,10 +262,7 @@ impl NativeFontBackend for SimpleNativeFontAtlasBackend {
             .cloned()
             .collect::<BTreeSet<_>>()
         {
-            let mut texts = requested_texts.remove(&key).unwrap_or_default();
-            if !self.requested_glyphs.contains_key(&key) {
-                texts.extend(self.prewarm_texts.iter().cloned());
-            }
+            let texts = requested_texts.remove(&key).unwrap_or_default();
             if self.merge_requested_texts(&key.0, key.1, &texts) {
                 self.rebuild_bucket_atlas(&key.0, key.1);
             }
@@ -331,9 +314,10 @@ impl SimpleNativeFontAtlasBackend {
         let Some(load) = self.loaded_assets.get(&face.id) else {
             return;
         };
-        if font_arc_for_face(load, face).is_none() {
+        let Some(font) = font_arc_for_face(load, face) else {
             return;
-        }
+        };
+        self.raster_faces.insert(face.id.clone(), font);
         if let Some(shaping) = FontBackendShapingFace::new(load.bytes.clone(), 0) {
             self.shaping_faces.insert(
                 face.id.clone(),
@@ -344,17 +328,10 @@ impl SimpleNativeFontAtlasBackend {
             );
         }
         self.active_faces.insert(face.id.clone(), face.clone());
-        let prewarm_texts = self.prewarm_texts.clone();
-        let mut buckets = self.family_buckets(&face.family);
-        // If no bucket exists for this family yet but we have prewarm texts,
-        // seed the default bucket so the typewriter atlas is ready on first use.
-        if buckets.is_empty() && !prewarm_texts.is_empty() {
-            buckets.push(font_raster_bucket(RASTER_SCALE));
-        }
+        let buckets = self.family_buckets(&face.family);
         for bucket in buckets {
             let key = (face.family.clone(), bucket);
-            let mut seeds = self.recent_texts.remove(&key).unwrap_or_default();
-            seeds.extend(prewarm_texts.iter().cloned());
+            let seeds = self.recent_texts.remove(&key).unwrap_or_default();
             self.requested_shaped_glyphs
                 .entry(key)
                 .or_default()
@@ -367,6 +344,7 @@ impl SimpleNativeFontAtlasBackend {
     fn release_face(&mut self, face: &FontBackendFaceState) {
         self.loaded_assets.remove(&face.id);
         self.shaping_faces.remove(&face.id);
+        self.raster_faces.remove(&face.id);
         for glyphs in self.requested_shaped_glyphs.values_mut() {
             glyphs.remove(&face.id);
         }
@@ -443,6 +421,10 @@ impl SimpleNativeFontAtlasBackend {
         );
         self.active_atlas_resources
             .insert(key, atlas.resource_id.clone());
+        // Only the newest bitmap can be uploaded for a resource. A second
+        // face activation may rebuild this bucket before the host drains it.
+        self.pending_atlases
+            .retain(|pending| pending.resource_id != atlas.resource_id);
         self.pending_atlases.push(atlas);
     }
 
@@ -464,6 +446,17 @@ impl SimpleNativeFontAtlasBackend {
             .flat_map(|text| text.chars())
             .filter(|character| !character.is_control())
             .collect::<BTreeSet<_>>();
+        // Large title sizes must not retain as many old glyphs as body text.
+        // This is a history budget; all glyphs in the current frame stay present.
+        let (cell, _) = glyph_cell_metrics(bucket as f32);
+        let retained_glyphs = (16 * 1024 * 1024 / (cell * cell * 4)).clamp(16, 2048);
+        if self.requested_glyphs.get(&key).is_some_and(|known| {
+            characters.difference(known).next().is_some()
+                && known.len() + characters.difference(known).count() > retained_glyphs
+        }) {
+            self.requested_glyphs.remove(&key);
+            self.requested_shaped_glyphs.remove(&key);
+        }
         let new_bucket = !self.requested_glyphs.contains_key(&key);
         let glyphs = self.requested_glyphs.entry(key.clone()).or_default();
         let mut changed = new_bucket
@@ -483,7 +476,11 @@ impl SimpleNativeFontAtlasBackend {
             let Some(shaping) = self.shaping_faces.get(&face.id) else {
                 continue;
             };
-            let ids = collect_shaped_glyph_ids(shaping, &new_texts, bucket as f32);
+            let ids = collect_shaped_glyph_ids(
+                shaping,
+                if new_bucket { texts } else { &new_texts },
+                bucket as f32,
+            );
             let known = requested.entry(face.id.clone()).or_default();
             changed |= ids.iter().any(|id| !known.contains(id));
             known.extend(ids);
@@ -530,9 +527,10 @@ impl SimpleNativeFontAtlasBackend {
             .filter(|face| face.family == family)
             .filter_map(|face| {
                 let load = self.loaded_assets.get(&face.id)?;
-                let font = font_arc_for_face(load, face)?;
+                let font = self.raster_faces.get(&face.id)?.clone();
                 Some(LoadedFontFace {
                     face: face.clone(),
+                    shaping: self.shaping_faces.get(&face.id).cloned(),
                     font,
                     owner_package_id: load
                         .package_id
@@ -557,7 +555,13 @@ impl SimpleNativeFontAtlasBackend {
         else {
             return;
         };
-        self.pending_releases.push(resource_id);
+        // Host sync processes releases before uploads. Cancel the queued
+        // bitmap too, otherwise an evicted atlas is resurrected without an owner.
+        self.pending_atlases
+            .retain(|atlas| atlas.resource_id != resource_id);
+        if !self.pending_releases.contains(&resource_id) {
+            self.pending_releases.push(resource_id);
+        }
     }
 
     fn default_family(&self) -> Option<String> {
@@ -590,6 +594,7 @@ impl SimpleNativeFontAtlasBackend {
 struct LoadedFontFace {
     face: FontBackendFaceState,
     font: FontArc,
+    shaping: Option<FontBackendShapingFace>,
     owner_package_id: Option<String>,
 }
 
@@ -611,16 +616,19 @@ fn rasterize_font_family(
     // Derived from the bucket rather than passed separately, so the resource id
     // and the layout's `raster_size` can never disagree.
     let raster = bucket as f32;
-    let (cell_size, cell_padding) = glyph_cell_metrics(raster);
     let shaping_faces = faces
         .iter()
         .map(|loaded| {
-            FontBackendShapingFace::new(loaded.font.font_data().to_vec(), 0).map(|shaping| {
-                shaping.with_settings(
-                    loaded.face.feature_settings.as_deref(),
-                    loaded.face.variation_settings.as_deref(),
-                )
-            })
+            loaded
+                .shaping
+                .clone()
+                .or_else(|| FontBackendShapingFace::new(loaded.font.font_data().to_vec(), 0))
+                .map(|shaping| {
+                    shaping.with_settings(
+                        loaded.face.feature_settings.as_deref(),
+                        loaded.face.variation_settings.as_deref(),
+                    )
+                })
         })
         .collect::<Vec<_>>();
     let shaped_glyph_ids = shaping_faces
@@ -1003,6 +1011,78 @@ mod tests {
     use quajs_wgpu_renderer::fonts::FontBackendCommand;
 
     #[test]
+    fn undrained_font_uploads_are_coalesced_and_cancelled_on_eviction_and_release() {
+        let bytes = std::fs::read(demo_font_path()).expect("demo font bytes");
+        let face = demo_face("noto-regular", "400", "fonts/NotoSans-Regular.ttf");
+        let mut backend = SimpleNativeFontAtlasBackend::new();
+        backend
+            .apply_font_asset_loads(&[load(&face, bytes, Some("base.fonts"))])
+            .unwrap();
+        backend.load_face(&face);
+        for cycle in 0..32 {
+            let bucket = 16 + cycle;
+            backend.merge_requested_texts(&face.family, bucket, &BTreeSet::from(["ABC".into()]));
+            backend.rebuild_bucket_atlas(&face.family, bucket);
+            backend.rebuild_bucket_atlas(&face.family, bucket);
+            backend.evict_stale_buckets(&face.family);
+            assert!(backend.pending_atlases.len() <= MAX_BUCKETS_PER_FAMILY);
+            assert!(backend.pending_atlases.iter().all(|atlas| backend
+                .active_atlas_resources
+                .values()
+                .any(|id| id == &atlas.resource_id)));
+        }
+        backend.release_face(&face);
+        assert!(backend.drain_font_atlas_textures().is_empty());
+        assert!(backend.active_atlas_resources.is_empty());
+        assert!(backend.loaded_assets.is_empty());
+        assert!(backend.raster_faces.is_empty());
+        assert!(backend.shaping_faces.is_empty());
+        assert_eq!(backend.drain_font_atlas_texture_releases().len(), 32);
+    }
+
+    #[test]
+    fn large_raster_buckets_recycle_history_earlier() {
+        let mut backend = SimpleNativeFontAtlasBackend::new();
+        let old: String = (0x4e00..0x4e00 + 30).filter_map(char::from_u32).collect();
+        backend.merge_requested_texts("Title", 320, &BTreeSet::from([old]));
+        backend.merge_requested_texts("Title", 320, &BTreeSet::from(["XYZ".into()]));
+        assert_eq!(
+            backend.requested_glyphs[&("Title".into(), 320)],
+            BTreeSet::from(['X', 'Y', 'Z'])
+        );
+    }
+
+    #[test]
+    fn historical_glyphs_are_recycled_but_a_large_current_passage_is_kept() {
+        let mut backend = SimpleNativeFontAtlasBackend::new();
+        let key = ("CJK".to_string(), 32);
+        let old: String = (0x4e00..0x4e00 + 2048).filter_map(char::from_u32).collect();
+        backend.merge_requested_texts(&key.0, key.1, &BTreeSet::from([old]));
+        let current = BTreeSet::from(["新的一段对白".to_string(), "Latin".to_string()]);
+        assert!(backend.merge_requested_texts(&key.0, key.1, &current));
+        assert_eq!(
+            backend.requested_glyphs[&key],
+            current.iter().flat_map(|text| text.chars()).collect()
+        );
+        let large: String = (0x4e00..0x4e00 + 2100).filter_map(char::from_u32).collect();
+        let current = BTreeSet::from([large]);
+        assert!(backend.merge_requested_texts(&key.0, key.1, &current));
+        assert_eq!(backend.requested_glyphs[&key].len(), 2100);
+        assert!(!backend.merge_requested_texts(&key.0, key.1, &current));
+    }
+
+    #[test]
+    fn dialogue_prewarm_does_not_pollute_existing_title_buckets() {
+        let mut backend = SimpleNativeFontAtlasBackend::new();
+        let key = ("Title".to_string(), 80);
+        backend.merge_requested_texts(&key.0, key.1, &BTreeSet::from(["Title".into()]));
+        let previous = backend.requested_glyphs[&key].clone();
+        backend.prewarm_texts(&["后续完整对白".into()]).unwrap();
+        assert_eq!(backend.requested_glyphs[&key], previous);
+        assert!(backend.drain_font_atlas_textures().is_empty());
+    }
+
+    #[test]
     fn rich_reveal_prepares_unrevealed_fonts_and_physical_size_buckets() {
         let mut backend = SimpleNativeFontAtlasBackend::new();
         let mut face = demo_face("inline-font", "400", "fonts/NotoSans-Regular.ttf");
@@ -1077,6 +1157,7 @@ mod tests {
         };
         let font = FontArc::try_from_vec(bytes).unwrap();
         let faces = vec![LoadedFontFace {
+            shaping: None,
             face: face("latin", 0, "fonts/latin.ttf"),
             font,
             owner_package_id: Some("base.fonts".to_string()),
@@ -1105,6 +1186,7 @@ mod tests {
         let bytes = std::fs::read(demo_font_path()).expect("demo font bytes");
         let font = FontArc::try_from_vec(bytes).unwrap();
         let faces = vec![LoadedFontFace {
+            shaping: None,
             face: FontBackendFaceState {
                 id: "noto-latin".to_string(),
                 order: 0,
@@ -1245,9 +1327,32 @@ mod tests {
             })
             .unwrap();
 
+        assert!(backend.drain_font_atlas_textures().is_empty());
+        let view = serde_json::from_value(serde_json::json!({ "dialogue": {
+            "visible": true, "mode": "say", "text": "", "layoutText": "Typewriter complete text"
+        } }))
+        .unwrap();
+        let layout =
+            quajs_wgpu_renderer::stage_layout::resolve_stage_layout(None, Default::default());
+        backend
+            .prepare_frame_text(&quajs_wgpu_renderer::frame::prepare_native_frame(
+                layout, &view,
+            ))
+            .unwrap();
         let atlases = backend.drain_font_atlas_textures();
-        assert_eq!(atlases.len(), 1);
-        let glyphs = &atlases[0].layout.as_ref().unwrap().glyphs;
+        let glyphs = &atlases
+            .iter()
+            .find(|atlas| {
+                atlas
+                    .layout
+                    .as_ref()
+                    .is_some_and(|layout| layout.glyphs.contains_key(&'T'))
+            })
+            .expect("actual dialogue bucket is prewarmed")
+            .layout
+            .as_ref()
+            .unwrap()
+            .glyphs;
         assert!("Typewriter complete text"
             .chars()
             .filter(|character| !character.is_whitespace())
@@ -1261,11 +1366,13 @@ mod tests {
         let bold_face = demo_face("noto-bold", "700", "fonts/NotoSans-Bold.ttf");
         let faces = vec![
             LoadedFontFace {
+                shaping: None,
                 face: regular_face,
                 font: FontArc::try_from_vec(bytes.clone()).unwrap(),
                 owner_package_id: Some("base.fonts".to_string()),
             },
             LoadedFontFace {
+                shaping: None,
                 face: bold_face,
                 font: FontArc::try_from_vec(bytes).unwrap(),
                 owner_package_id: Some("base.fonts".to_string()),
@@ -1358,17 +1465,17 @@ mod tests {
             .unwrap();
 
         let atlases = backend.drain_font_atlas_textures();
-        assert_eq!(atlases.len(), 2);
+        assert_eq!(atlases.len(), 1);
         assert!(atlases[0]
             .layout
             .as_ref()
             .unwrap()
             .glyphs
             .contains_key(&'界'));
-        assert!(atlases[1].layout.as_ref().unwrap().glyphs[&'界'].width > 0.0);
-        assert_eq!(atlases[1].owner_package_id, None);
-        assert!(atlases[1].required_package_ids.contains("base.fonts"));
-        assert!(atlases[1].required_package_ids.contains("runtime.cjk"));
+        assert!(atlases[0].layout.as_ref().unwrap().glyphs[&'界'].width > 0.0);
+        assert_eq!(atlases[0].owner_package_id, None);
+        assert!(atlases[0].required_package_ids.contains("base.fonts"));
+        assert!(atlases[0].required_package_ids.contains("runtime.cjk"));
     }
 
     #[cfg(target_os = "macos")]

@@ -95,7 +95,7 @@ Validate actual QPK images in the normal-reading story regression, including off
 - Against a production preview on port 4178, run `pnpm --filter demo test:story` (Playwright and Chrome required); `QUA_STORY_URL` overrides the URL. This tests three endings, all choice alternatives, fresh-page load, overwrite/cancel, title continuation, chapter replay, new game, backlog, settings persistence, responsive title controls and production QPK loading.
 - Run affected checks: `pnpm --filter demo typecheck`, `pnpm --filter demo build`, `pnpm --filter demo assets:build`, and `pnpm --filter demo exec vite build --config vite.native-quickjs.config.ts`.
 - For UI changes, inspect the Web title, START, dialogue progression, panels, and return to title. Check native compilation when changing shared content or native shell.
-- Full `pnpm native:e2e` requires actual story choices, gallery content, and audio. Update the old choice target once full media is integrated; do not weaken its assertions for the text slice. Test both choice responses, end-of-prologue, and fresh-page load followed by further dialogue.
+- Full `pnpm native:e2e` must target the current story and reachable product UI: `catalog-first`, settings, and chapters. The current prologue/QPK has no audio cues/assets; validate silent backend lifecycle and cleanup, and add playback assertions when actual cues are authored. Do not restore deleted choices, gallery title entries or fake BGM just for a gate. See `demo/.agents/native-ui-sync.md` for tested scope; full route coverage remains the story regression.
 - Before committing broader demo/engine changes, run `pnpm run ci`. Never claim compilation proves story completeness or visual parity.
 
 ## Product UI and save semantics
@@ -248,3 +248,14 @@ The user explicitly selected Replicate CLI with `openai/gpt-image-2`; live gener
 ## Contextual Chinese line editing
 
 Follow `demo/.agents/line-polish-2026-09-09.md` for the latest targeted passage edits. Revise a reply with its preceding question and subsequent action: splitting prepared curry is possible, but adding more curry roux changes salt concentration; a chair change affects seating, not monitor height. Follow props through every transfer (recorder, earbud, bottle, phone), and preserve any sound later reused as evidence or a callback. Read each complete rewritten sentence after replacements, including pronouns and repeated verbs. Narration should present what Rin perceives rather than certify that a scene follows the author rules. Record actual modules/lines edited and validation separately from full-manuscript or reader-response claims.
+
+## Native alpha edges and MSAA
+
+Read `demo/.agents/alpha-edges-and-native-aa.md` for the premultiplied native texture sampling fix and optional `QUA_NATIVE_MSAA=4` startup. Default1x bounds extra attachment memory; do not treat MSAA as automatic repair of visible matte contamination. Keep soft-alpha art unchanged. The native launcher handles both standalone pnpm and JS npm_execpath entries.
+
+
+## Current native product UI
+
+Native character clipping and memory findings are in `demo/.agents/native-memory-and-proportions.md`. Keep the640×1280 authored reference box: offstage sprites must be clipped without squeezing their full UVs. Validate actual WGPU characters and repeated panel/asset switches; record resident/peak memory and measurement duration rather than claiming a fixed budget from short runs. Keep full dialogue prewarm separate from title fonts, and leave MSAA opt-in.
+
+Read `demo/.agents/native-ui-sync.md`. Web CSS does not style native: update the product native DTO chrome, TSX/QSS screens and feature surface skin together. Preserve full-text layout throughout reveal, footer toolbar containment, character640×1280 reference sizing, Chinese actions and hidden locked chapter titles. Native control feedback must respect authored colors. Test actual WGPU/QPK pointer flows and capture settled dialogue, characters, settings, backlog and save/load; isolated renderer fixtures do not prove product parity. Keep settings controls and feature intents owned by their official plugins. Native settings may use a scrolling column, but shared fixed stage geometry must match Web. This supersedes earlier dark UI/stealth demo assumptions.

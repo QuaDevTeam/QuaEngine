@@ -2,7 +2,16 @@ use super::*;
 
 #[test]
 fn noop_device_materializes_solid_color_indexed_draw_with_scissor() {
-    let target = RealWgpuNativeRenderRuntimeTarget::noop(64, 64);
+    materializes_draw(1);
+}
+
+#[test]
+fn noop_device_resolves_msaa_solid_draw() {
+    materializes_draw(4);
+}
+
+fn materializes_draw(samples: u32) {
+    let target = RealWgpuNativeRenderRuntimeTarget::noop(64, 64).with_msaa_samples(samples);
     let device = RealWgpuNativeRenderRuntimeDevice::new(target);
     let mut executor = InMemoryWgpuNativeRenderRuntimeExecutor::with_device(device);
     let vertex_bytes = quad_vertex_bytes();
@@ -139,6 +148,10 @@ fn noop_device_materializes_solid_color_indexed_draw_with_scissor() {
 
     let report = executor.apply_runtime_plan(&plan).unwrap();
 
+    assert_eq!(
+        executor.device().frame_target_snapshot().sample_count,
+        samples
+    );
     assert!(executor.device_attached());
     assert_eq!(report.buffer_create_count, 2);
     assert_eq!(report.pipeline_create_count, 1);

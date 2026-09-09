@@ -1,6 +1,16 @@
 use super::decoded::RealWgpuDecodedTextureRgba8;
 
-/// Area filtering in premultiplied sRGB prevents transparent texels from
+/// Convert once before GPU upload and before constructing the mip chain.
+pub(super) fn premultiply(source: &mut RealWgpuDecodedTextureRgba8) {
+    for pixel in source.rgba.chunks_exact_mut(4) {
+        let alpha = pixel[3] as u32;
+        for channel in &mut pixel[..3] {
+            *channel = ((*channel as u32 * alpha + 127) / 255) as u8;
+        }
+    }
+}
+
+/// Area filtering of already-premultiplied sRGB prevents transparent texels from
 /// tinting smaller levels. Odd dimensions include the entire source extent.
 pub(super) fn downsample(source: &RealWgpuDecodedTextureRgba8) -> RealWgpuDecodedTextureRgba8 {
     let width = (source.width / 2).max(1);
@@ -18,18 +28,15 @@ pub(super) fn downsample(source: &RealWgpuDecodedTextureRgba8) -> RealWgpuDecode
                     let weight = ((sx + 1) as f64).min(x1) - (sx as f64).max(x0);
                     let weight = weight * (((sy + 1) as f64).min(y1) - (sy as f64).max(y0));
                     let at = ((sy * source.width + sx) * 4) as usize;
-                    let alpha = source.rgba[at + 3] as f64;
-                    for c in 0..3 {
-                        sum[c] += source.rgba[at + c] as f64 * alpha * weight;
+                    for c in 0..4 {
+                        sum[c] += source.rgba[at + c] as f64 * weight;
                     }
-                    sum[3] += alpha * weight;
                 }
             }
             let at = ((y * width + x) * 4) as usize;
-            for c in 0..3 {
-                rgba[at + c] = (sum[c] / sum[3].max(0.000001)).round() as u8;
+            for c in 0..4 {
+                rgba[at + c] = (sum[c] / ((x1 - x0) * (y1 - y0))).round() as u8;
             }
-            rgba[at + 3] = (sum[3] / ((x1 - x0) * (y1 - y0))).round() as u8;
         }
     }
     RealWgpuDecodedTextureRgba8::new(width, height, rgba)
@@ -40,13 +47,32 @@ mod tests {
     use super::*;
 
     #[test]
+    fn transparent_matte_cannot_tint_bilinear_samples() {
+        let mut source = RealWgpuDecodedTextureRgba8::new(
+            3,
+            1,
+            vec![255, 255, 255, 0, 200, 100, 50, 128, 200, 100, 50, 255],
+        );
+        premultiply(&mut source);
+        assert_eq!(
+            source.rgba,
+            [0, 0, 0, 0, 100, 50, 25, 128, 200, 100, 50, 255]
+        );
+        // Halfway between the clear texel and the opaque texel, RGB contribution
+        // is half the foreground color, never half the hidden white matte.
+        assert_eq!(source.rgba[0] as u16 + source.rgba[8] as u16, 200);
+    }
+
+    #[test]
     fn minification_preserves_transparent_color_and_odd_edges() {
-        let level = downsample(&RealWgpuDecodedTextureRgba8::new(
+        let mut source = RealWgpuDecodedTextureRgba8::new(
             3,
             1,
             vec![255, 0, 0, 255, 0, 255, 0, 0, 0, 0, 255, 255],
-        ));
+        );
+        premultiply(&mut source);
+        let level = downsample(&source);
         assert_eq!((level.width, level.height), (1, 1));
-        assert_eq!(level.rgba, [128, 0, 128, 170]);
+        assert_eq!(level.rgba, [85, 0, 85, 170]);
     }
 }

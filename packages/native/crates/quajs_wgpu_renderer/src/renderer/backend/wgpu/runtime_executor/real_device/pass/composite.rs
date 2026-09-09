@@ -100,7 +100,10 @@ impl Compositor {
             },
             primitive: Default::default(),
             depth_stencil: None,
-            multisample: Default::default(),
+            multisample: wgpu::MultisampleState {
+                count: target.sample_count(),
+                ..Default::default()
+            },
             fragment: Some(wgpu::FragmentState {
                 module: &shader,
                 entry_point: Some("fs_main"),
@@ -387,9 +390,9 @@ impl Compositor {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("qua-native::composite-subtree"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: destination.view(),
+                    view: destination.attachment_view(),
                     depth_slice: None,
-                    resolve_target: None,
+                    resolve_target: destination.resolve_view(),
                     ops: wgpu::Operations {
                         load: destination.load_op(),
                         store: wgpu::StoreOp::Store,
