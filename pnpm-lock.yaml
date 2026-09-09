@@ -964,6 +964,10 @@ importers:
       lzma-web:
         specifier: 'catalog:'
         version: 3.0.1
+    devDependencies:
+      fake-indexeddb:
+        specifier: 'catalog:'
+        version: 6.2.5
 
   packages/platform/cocos-host: {}
 

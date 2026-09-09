@@ -2,11 +2,485 @@
   "version": 1,
   "family": "mara",
   "base": {
-    "asset": "mara/neutral.png"
+    "asset": "mara/neutral.png",
+    "opacity": 0
   },
   "expressions": {
+    "afraid": {
+      "layers": [
+        {
+          "asset": "mara/afraid.png"
+        }
+      ]
+    },
+    "annoyed": {
+      "layers": [
+        {
+          "asset": "mara/annoyed.png"
+        }
+      ]
+    },
+    "blush": {
+      "layers": [
+        {
+          "asset": "mara/blush.png"
+        }
+      ]
+    },
+    "hesitant": {
+      "layers": [
+        {
+          "asset": "mara/hesitant.png"
+        }
+      ]
+    },
     "neutral": {
-      "layers": []
+      "layers": [
+        {
+          "asset": "mara/neutral.png"
+        }
+      ]
+    },
+    "pose-explaining": {
+      "layers": [
+        {
+          "asset": "mara/pose-explaining.png"
+        }
+      ]
+    },
+    "pose-listening": {
+      "layers": [
+        {
+          "asset": "mara/pose-listening.png"
+        }
+      ]
+    },
+    "pose-phone": {
+      "layers": [
+        {
+          "asset": "mara/pose-phone.png"
+        }
+      ]
+    },
+    "relieved": {
+      "layers": [
+        {
+          "asset": "mara/relieved.png"
+        }
+      ]
+    },
+    "serious": {
+      "layers": [
+        {
+          "asset": "mara/serious.png"
+        }
+      ]
+    },
+    "smile": {
+      "layers": [
+        {
+          "asset": "mara/smile.png"
+        }
+      ]
+    },
+    "tired": {
+      "layers": [
+        {
+          "asset": "mara/tired.png"
+        }
+      ]
+    },
+    "laugh-soft": {
+      "layers": [
+        {
+          "asset": "mara/laugh-soft.png"
+        }
+      ]
+    },
+    "hurt-look-away": {
+      "layers": [
+        {
+          "asset": "mara/hurt-look-away.png"
+        }
+      ]
+    },
+    "shy-look-down": {
+      "layers": [
+        {
+          "asset": "mara/shy-look-down.png"
+        }
+      ]
+    },
+    "pose-offer-hand": {
+      "layers": [
+        {
+          "asset": "mara/pose-offer-hand.png"
+        }
+      ]
+    },
+    "leisure-neutral": {
+      "layers": [
+        {
+          "asset": "mara/outfits/leisure/neutral.png"
+        }
+      ]
+    },
+    "leisure-laugh-soft": {
+      "layers": [
+        {
+          "asset": "mara/outfits/leisure/laugh-soft.png"
+        }
+      ]
+    },
+    "leisure-shy-look-down": {
+      "layers": [
+        {
+          "asset": "mara/outfits/leisure/shy-look-down.png"
+        }
+      ]
+    },
+    "leisure-serious": {
+      "layers": [
+        {
+          "asset": "mara/outfits/leisure/serious.png"
+        }
+      ]
+    },
+    "leisure-annoyed": {
+      "layers": [
+        {
+          "asset": "mara/outfits/leisure/annoyed.png"
+        }
+      ]
+    },
+    "leisure-blush": {
+      "layers": [
+        {
+          "asset": "mara/outfits/leisure/blush.png"
+        }
+      ]
+    },
+    "leisure-relieved": {
+      "layers": [
+        {
+          "asset": "mara/outfits/leisure/relieved.png"
+        }
+      ]
+    },
+    "leisure-hesitant": {
+      "layers": [
+        {
+          "asset": "mara/outfits/leisure/hesitant.png"
+        }
+      ]
+    },
+    "leisure-tired": {
+      "layers": [
+        {
+          "asset": "mara/outfits/leisure/tired.png"
+        }
+      ]
+    },
+    "leisure-afraid": {
+      "layers": [
+        {
+          "asset": "mara/outfits/leisure/afraid.png"
+        }
+      ]
+    },
+    "leisure-smile": {
+      "layers": [
+        {
+          "asset": "mara/outfits/leisure/smile.png"
+        }
+      ]
+    },
+    "leisure-hurt-look-away": {
+      "layers": [
+        {
+          "asset": "mara/outfits/leisure/hurt-look-away.png"
+        }
+      ]
+    },
+    "date-neutral": {
+      "layers": [
+        {
+          "asset": "mara/outfits/date/neutral.png"
+        }
+      ]
+    },
+    "date-laugh-soft": {
+      "layers": [
+        {
+          "asset": "mara/outfits/date/laugh-soft.png"
+        }
+      ]
+    },
+    "date-shy-look-down": {
+      "layers": [
+        {
+          "asset": "mara/outfits/date/shy-look-down.png"
+        }
+      ]
+    },
+    "date-serious": {
+      "layers": [
+        {
+          "asset": "mara/outfits/date/serious.png"
+        }
+      ]
+    },
+    "date-annoyed": {
+      "layers": [
+        {
+          "asset": "mara/outfits/date/annoyed.png"
+        }
+      ]
+    },
+    "date-blush": {
+      "layers": [
+        {
+          "asset": "mara/outfits/date/blush.png"
+        }
+      ]
+    },
+    "date-relieved": {
+      "layers": [
+        {
+          "asset": "mara/outfits/date/relieved.png"
+        }
+      ]
+    },
+    "date-hesitant": {
+      "layers": [
+        {
+          "asset": "mara/outfits/date/hesitant.png"
+        }
+      ]
+    },
+    "date-tired": {
+      "layers": [
+        {
+          "asset": "mara/outfits/date/tired.png"
+        }
+      ]
+    },
+    "date-afraid": {
+      "layers": [
+        {
+          "asset": "mara/outfits/date/afraid.png"
+        }
+      ]
+    },
+    "date-smile": {
+      "layers": [
+        {
+          "asset": "mara/outfits/date/smile.png"
+        }
+      ]
+    },
+    "date-hurt-look-away": {
+      "layers": [
+        {
+          "asset": "mara/outfits/date/hurt-look-away.png"
+        }
+      ]
+    },
+    "rain-neutral": {
+      "layers": [
+        {
+          "asset": "mara/outfits/rain/neutral.png"
+        }
+      ]
+    },
+    "rain-laugh-soft": {
+      "layers": [
+        {
+          "asset": "mara/outfits/rain/laugh-soft.png"
+        }
+      ]
+    },
+    "rain-shy-look-down": {
+      "layers": [
+        {
+          "asset": "mara/outfits/rain/shy-look-down.png"
+        }
+      ]
+    },
+    "rain-serious": {
+      "layers": [
+        {
+          "asset": "mara/outfits/rain/serious.png"
+        }
+      ]
+    },
+    "rain-annoyed": {
+      "layers": [
+        {
+          "asset": "mara/outfits/rain/annoyed.png"
+        }
+      ]
+    },
+    "rain-blush": {
+      "layers": [
+        {
+          "asset": "mara/outfits/rain/blush.png"
+        }
+      ]
+    },
+    "rain-relieved": {
+      "layers": [
+        {
+          "asset": "mara/outfits/rain/relieved.png"
+        }
+      ]
+    },
+    "rain-hesitant": {
+      "layers": [
+        {
+          "asset": "mara/outfits/rain/hesitant.png"
+        }
+      ]
+    },
+    "rain-tired": {
+      "layers": [
+        {
+          "asset": "mara/outfits/rain/tired.png"
+        }
+      ]
+    },
+    "rain-afraid": {
+      "layers": [
+        {
+          "asset": "mara/outfits/rain/afraid.png"
+        }
+      ]
+    },
+    "rain-smile": {
+      "layers": [
+        {
+          "asset": "mara/outfits/rain/smile.png"
+        }
+      ]
+    },
+    "rain-hurt-look-away": {
+      "layers": [
+        {
+          "asset": "mara/outfits/rain/hurt-look-away.png"
+        }
+      ]
+    },
+    "autumn-neutral": {
+      "layers": [
+        {
+          "asset": "mara/outfits/autumn/neutral.png"
+        }
+      ]
+    },
+    "autumn-laugh-soft": {
+      "layers": [
+        {
+          "asset": "mara/outfits/autumn/laugh-soft.png"
+        }
+      ]
+    },
+    "autumn-shy-look-down": {
+      "layers": [
+        {
+          "asset": "mara/outfits/autumn/shy-look-down.png"
+        }
+      ]
+    },
+    "autumn-serious": {
+      "layers": [
+        {
+          "asset": "mara/outfits/autumn/serious.png"
+        }
+      ]
+    },
+    "autumn-annoyed": {
+      "layers": [
+        {
+          "asset": "mara/outfits/autumn/annoyed.png"
+        }
+      ]
+    },
+    "autumn-blush": {
+      "layers": [
+        {
+          "asset": "mara/outfits/autumn/blush.png"
+        }
+      ]
+    },
+    "autumn-relieved": {
+      "layers": [
+        {
+          "asset": "mara/outfits/autumn/relieved.png"
+        }
+      ]
+    },
+    "autumn-hesitant": {
+      "layers": [
+        {
+          "asset": "mara/outfits/autumn/hesitant.png"
+        }
+      ]
+    },
+    "autumn-tired": {
+      "layers": [
+        {
+          "asset": "mara/outfits/autumn/tired.png"
+        }
+      ]
+    },
+    "autumn-afraid": {
+      "layers": [
+        {
+          "asset": "mara/outfits/autumn/afraid.png"
+        }
+      ]
+    },
+    "autumn-smile": {
+      "layers": [
+        {
+          "asset": "mara/outfits/autumn/smile.png"
+        }
+      ]
+    },
+    "autumn-hurt-look-away": {
+      "layers": [
+        {
+          "asset": "mara/outfits/autumn/hurt-look-away.png"
+        }
+      ]
+    },
+    "leisure-pose-listening": {
+      "layers": [
+        {
+          "asset": "mara/outfits/leisure/pose-listening.png"
+        }
+      ]
+    },
+    "pose-drinks": {
+      "layers": [
+        {
+          "asset": "mara/pose-drinks.png"
+        }
+      ]
+    },
+    "pose-equipment-worried": {
+      "layers": [
+        {
+          "asset": "mara/pose-equipment-worried.png"
+        }
+      ]
+    },
+    "pose-equipment-soft": {
+      "layers": [
+        {
+          "asset": "mara/pose-equipment-soft.png"
+        }
+      ]
     }
   }
 }

@@ -3,23 +3,21 @@
   "title": "明天，请再一次呼唤我",
   "updatedAt": "2026-09-09",
   "generationStatus": "in-progress",
-  "authorization": "用户已要求开始补齐全部缺失美术，覆盖此前暂停要求；名称和已定服装不需再次审批。",
+  "authorization": "用户已要求开始补齐全部缺失美术，覆盖此前暂停要求；名称和已定服装不需再次审批。 用户进一步明确允许全员多套服装，主角优先；旧单套限制不适用。",
   "execution": {
-    "preferred": "replicate-cli / openai/gpt-image-2 (explicit user selection)",
+    "preferred": "replicate-cli / openai/gpt-image-2.5-flare (explicit user selection)",
     "available": true,
     "fallback": "authorized-by-user",
-    "note": "Replicate openai/gpt-image-2已成功生成灯塔背景，继续缺失素材制作。",
+    "note": "Flare confirmed and succeeded:10 eye repairs +8 new variants,19 medium generations including one rejected retry.",
     "selected": "replicate-cli",
     "credentials": "Replicate saved profile; no OpenAI key passed",
     "endpointConfiguration": "Replicate official model endpoint",
     "lastGenerationAttempt": {
-      "assetId": "next-date",
-      "styleRevision": "heroine-summer-v7",
-      "mode": "generate",
+      "assetId": "mara-hurt-look-away",
       "tool": "replicate-cli",
-      "model": "openai/gpt-image-2",
+      "model": "openai/gpt-image-2.5-flare",
       "result": "success",
-      "outputFile": "demo/.generated/art/drafts/next-date.png"
+      "predictionId": "4rsfdbvhh5rmt0d0gqtb37tvxm"
     },
     "lastModelListAttempt": {
       "httpStatus": 403
@@ -51,8 +49,8 @@
       "date": "2026-09-09",
       "scope": "Historical direct OpenAI-compatible provider only; Replicate generation succeeds."
     },
-    "qualityPolicy": "New jobs low by default; medium only for a documented failed low composition or complex interaction; no automatic high upgrade.",
-    "expressionBatch": "Existing first six face crops were generated at HIGH before latest preference; preserve actual provenance. New batches use low.",
+    "qualityPolicy": "User allows low or medium first. This face-fidelity pass uses medium; no high/xhigh/max calls.",
+    "expressionBatch": "Flare medium repair and expansion reviewed; previous models retained only as provenance.",
     "styleReview": "User rejected photographic/architectural-render backgrounds; anime-background-v3 pilots at low, inspect before expanding."
   },
   "rules": {
@@ -64,7 +62,7 @@
     "style": "日本二次元galgame：明确动画五官、简洁线稿、块面头发与赛璐璐色阶；成年角色不等于写实面孔。禁止复用被否决的写实参考。",
     "characterIdentity": "六位角色从独立文字设定生成，绝不以一人的整张脸/身体参考改出另一人；仅同一个角色的差分才能用其已审阅身份参考。身高按设定比例排版，不能每人等高拉伸。",
     "heroineAgeAndSeason": "剧情年龄保持凛25/Mara24。最新身高为凛163cm、Mara172cm，自然相差9cm；此前185cm、高一个头与3cm差距均被替代。凛清秀可爱、中性T恤直筒长裤；Mara及腰长发、气质更成熟温柔。统一六月轻薄夏装，身高差按共同地面与真实比例体现。",
-    "alpha": "原始RGB图交给Replicate模型生成soft alpha。不得用RGB颜色阈值重建人物轮廓；本地仅分离不相连角色、裁切留边与等比排版，保存模型原始输出。"
+    "alpha": "保留模型soft alpha；Flare原生透明PNG或已批准removebg输出均可。本地只等比排版，禁止RGB阈值重建。面部RGB修补不得改变原alpha。"
   },
   "assets": [
     {
@@ -471,7 +469,7 @@
       "id": "rin-smile",
       "type": "sprite",
       "description": "神代凛常服／smile",
-      "status": "planned",
+      "status": "reviewed",
       "batch": 2,
       "usedBy": [],
       "dependsOn": [
@@ -484,7 +482,7 @@
       "prompt": "Use case: identity-preserve. Input image1 is the edit target for rin ONLY. Change facial expression ONLY. A small genuine closed-mouth smile, relaxed brows, eyes gently softened; warmer than the base, still reserved. Keep head angle, facial anatomy, eye color, hair, all body pixels, pose, clothing, outline, framing and lighting unchanged. Do not repaint the full figure.\nPreserve the approved delicate Japanese galgame linework and colors. Exactly one character on the existing plain white background, no extra people, panels, text or watermark. Output RGB PNG; actual background removal is a separate Replicate step. The character must remain the same person.",
       "tool": null,
       "model": null,
-      "sourceFile": null,
+      "sourceFile": "demo/.generated/art/expression-candidates/rin-smile.png",
       "review": null,
       "styleRevision": "heroine-summer-v7",
       "actingDirection": "轻轻笑起来，眉头舒展，眼睛略弯，嘴角比常态明显；保留含蓄感。",
@@ -503,13 +501,18 @@
         "background_type": "rgba",
         "format": "png",
         "expressionContinuity": "For expression-only outputs compare alignment, preserve the base body and alpha; accept only the reviewed changed face region. Never scale or crop variants independently."
-      }
+      },
+      "preparedFile": "demo/assets/characters/rin/smile.png",
+      "reviewNotes": "2026-09-09: face/detail or full-pose review; original model alpha retained; full-frame manifest replacement. See character-staging-assets.json.",
+      "preparationRecord": "demo/.agents/character-staging-assets.json",
+      "predictionId": "4z47f8sv9drmt0d0g8ba0fs9h0",
+      "quality": "high"
     },
     {
       "id": "rin-serious",
       "type": "sprite",
       "description": "神代凛常服／serious",
-      "status": "planned",
+      "status": "reviewed",
       "batch": 2,
       "usedBy": [],
       "dependsOn": [
@@ -519,11 +522,11 @@
       "stagingPath": "demo/.generated/art/drafts/rin-serious.png",
       "aspectRatio": "2:3",
       "requiresAlpha": true,
-      "prompt": "Use case: identity-preserve. Input image1 is the edit target for rin ONLY. Change facial expression ONLY. Focused steady gaze, subtly drawn brows, closed neutral lips; concentrated, not angry. Keep head angle, facial anatomy, eye color, hair, all body pixels, pose, clothing, outline, framing and lighting unchanged. Do not repaint the full figure.\nPreserve the approved delicate Japanese galgame linework and colors. Exactly one character on the existing plain white background, no extra people, panels, text or watermark. Output RGB PNG; actual background removal is a separate Replicate step. The character must remain the same person.",
-      "tool": null,
-      "model": null,
-      "sourceFile": null,
-      "review": null,
+      "prompt": "Use case: identity-preserve. Precisely refine this existing Japanese anime visual novel face crop. Character is rin, an adult woman aged24-25. Improve ONLY eyes and lashes: delicate crisp tapered eyelash linework, coherent pupils in both eyes, finely drawn gray-brown with subtle warm reflections irises, restrained subtle iris gradients and consistent small catchlights. Keep the SAME eye outline, iris size, eye angle, gaze, expression and exact position. This is a quality refinement, NOT a new facial expression. Preserve all hair strands, head angle, ears, eyebrows, mouth, cheeks and background exactly. Maintain clean Japanese bishoujo galgame cel style, no realistic eyes, heavy makeup, glitter, enlarged eyes, western illustration, changed age or extra pupils. Output the exact same locked1024x1024 face crop; do not zoom or recenter. Preserve focused unsmiling expression; no smiling or open mouth.",
+      "tool": "replicate-cli",
+      "model": "openai/gpt-image-2.5-flare",
+      "sourceFile": "demo/.generated/art/flare/rin-serious-output/g8g2zns429rmw0d0gqmttdmvkr-output-0-0.png",
+      "review": "2026-09-09 Flare重绘；详见heroine-flare-review.json。",
       "styleRevision": "heroine-summer-v7",
       "actingDirection": "收起笑意，视线集中，眉心略收；是专注核对，不是生气。",
       "generationMode": "edit",
@@ -541,13 +544,31 @@
         "background_type": "rgba",
         "format": "png",
         "expressionContinuity": "For expression-only outputs compare alignment, preserve the base body and alpha; accept only the reviewed changed face region. Never scale or crop variants independently."
+      },
+      "preparedFile": "demo/assets/characters/rin/serious.png",
+      "reviewNotes": "2026-09-09: face/detail or full-pose review; original model alpha retained; full-frame manifest replacement. See character-staging-assets.json.",
+      "preparationRecord": "demo/.agents/character-staging-assets.json",
+      "predictionId": "k8bedz7kpnrmy0d0g8qtmkkgmg",
+      "quality": "medium",
+      "revisionHistory": [
+        {
+          "model": null,
+          "quality": "high",
+          "sourceFile": "demo/.generated/art/expression-candidates/rin-serious.png",
+          "preparedFile": "demo/assets/characters/rin/serious.png",
+          "status": "reviewed"
+        }
+      ],
+      "generation": {
+        "predictionId": "g8g2zns429rmw0d0gqmttdmvkr",
+        "quality": "medium"
       }
     },
     {
       "id": "rin-hesitant",
       "type": "sprite",
       "description": "神代凛常服／hesitant",
-      "status": "planned",
+      "status": "reviewed",
       "batch": 2,
       "usedBy": [],
       "dependsOn": [
@@ -560,7 +581,7 @@
       "prompt": "Use case: identity-preserve. Input image1 is the edit target for rin ONLY. Change facial expression ONLY. Eyes glance slightly aside, inner brows subtly raised, lips barely parted in uncertainty; no change to head angle. Keep head angle, facial anatomy, eye color, hair, all body pixels, pose, clothing, outline, framing and lighting unchanged. Do not repaint the full figure.\nPreserve the approved delicate Japanese galgame linework and colors. Exactly one character on the existing plain white background, no extra people, panels, text or watermark. Output RGB PNG; actual background removal is a separate Replicate step. The character must remain the same person.",
       "tool": null,
       "model": null,
-      "sourceFile": null,
+      "sourceFile": "demo/.generated/art/expression-candidates/rin-hesitant.png",
       "review": null,
       "styleRevision": "heroine-summer-v7",
       "actingDirection": "视线略偏开，眉心轻抬，嘴唇刚要张开又收住。",
@@ -579,13 +600,18 @@
         "background_type": "rgba",
         "format": "png",
         "expressionContinuity": "For expression-only outputs compare alignment, preserve the base body and alpha; accept only the reviewed changed face region. Never scale or crop variants independently."
-      }
+      },
+      "preparedFile": "demo/assets/characters/rin/hesitant.png",
+      "reviewNotes": "2026-09-09: face/detail or full-pose review; original model alpha retained; full-frame manifest replacement. See character-staging-assets.json.",
+      "preparationRecord": "demo/.agents/character-staging-assets.json",
+      "predictionId": "c1fs1vzdhsrmt0d0g918xfa06r",
+      "quality": "low"
     },
     {
       "id": "rin-annoyed",
       "type": "sprite",
       "description": "神代凛常服／annoyed",
-      "status": "planned",
+      "status": "reviewed",
       "batch": 2,
       "usedBy": [],
       "dependsOn": [
@@ -598,7 +624,7 @@
       "prompt": "Use case: identity-preserve. Input image1 is the edit target for rin ONLY. Change facial expression ONLY. A restrained frown, slightly narrowed eyes and pressed lips, mildly annoyed rather than furious. Keep head angle, facial anatomy, eye color, hair, all body pixels, pose, clothing, outline, framing and lighting unchanged. Do not repaint the full figure.\nPreserve the approved delicate Japanese galgame linework and colors. Exactly one character on the existing plain white background, no extra people, panels, text or watermark. Output RGB PNG; actual background removal is a separate Replicate step. The character must remain the same person.",
       "tool": null,
       "model": null,
-      "sourceFile": null,
+      "sourceFile": "demo/.generated/art/expression-candidates/rin-annoyed.png",
       "review": null,
       "styleRevision": "heroine-summer-v7",
       "actingDirection": "眉头轻皱，眼睛稍眯，嘴角抿住；有克制的埋怨。",
@@ -617,13 +643,18 @@
         "background_type": "rgba",
         "format": "png",
         "expressionContinuity": "For expression-only outputs compare alignment, preserve the base body and alpha; accept only the reviewed changed face region. Never scale or crop variants independently."
-      }
+      },
+      "preparedFile": "demo/assets/characters/rin/annoyed.png",
+      "reviewNotes": "2026-09-09: face/detail or full-pose review; original model alpha retained; full-frame manifest replacement. See character-staging-assets.json.",
+      "preparationRecord": "demo/.agents/character-staging-assets.json",
+      "predictionId": "7jpacjffz9rmt0d0g91bagyszg",
+      "quality": "low"
     },
     {
       "id": "rin-afraid",
       "type": "sprite",
       "description": "神代凛常服／afraid",
-      "status": "planned",
+      "status": "reviewed",
       "batch": 2,
       "usedBy": [],
       "dependsOn": [
@@ -633,11 +664,11 @@
       "stagingPath": "demo/.generated/art/drafts/rin-afraid.png",
       "aspectRatio": "2:3",
       "requiresAlpha": true,
-      "prompt": "Use case: identity-preserve. Input image1 is the edit target for rin ONLY. Change facial expression ONLY. Eyes widen slightly, inner brows lift, lips part with held breath; quiet fear, no screaming or horror distortion. Keep head angle, facial anatomy, eye color, hair, all body pixels, pose, clothing, outline, framing and lighting unchanged. Do not repaint the full figure.\nPreserve the approved delicate Japanese galgame linework and colors. Exactly one character on the existing plain white background, no extra people, panels, text or watermark. Output RGB PNG; actual background removal is a separate Replicate step. The character must remain the same person.",
-      "tool": null,
-      "model": null,
-      "sourceFile": null,
-      "review": null,
+      "prompt": "Use case: identity-preserve. Precisely refine this existing Japanese anime visual novel face crop. Character is rin, an adult woman aged24-25. Improve ONLY eyes and lashes: delicate crisp tapered eyelash linework, coherent pupils in both eyes, finely drawn gray-brown with subtle warm reflections irises, restrained subtle iris gradients and consistent small catchlights. Keep the SAME eye outline, iris size, eye angle, gaze, expression and exact position. This is a quality refinement, NOT a new facial expression. Preserve all hair strands, head angle, ears, eyebrows, mouth, cheeks and background exactly. Maintain clean Japanese bishoujo galgame cel style, no realistic eyes, heavy makeup, glitter, enlarged eyes, western illustration, changed age or extra pupils. Output the exact same locked1024x1024 face crop; do not zoom or recenter. Preserve frightened tense brows and uncertain mouth; do not make her smile or give a vacant doll stare.",
+      "tool": "replicate-cli",
+      "model": "openai/gpt-image-2.5-flare",
+      "sourceFile": "demo/.generated/art/flare/rin-afraid-output/cvfhmg928xrmt0d0gqmr4taqkr-output-0-0.png",
+      "review": "2026-09-09 Flare重绘；详见heroine-flare-review.json。",
       "styleRevision": "heroine-summer-v7",
       "actingDirection": "瞳孔方向保持，眼睛略睁大，眉心抬起，唇微张；恐惧压着没说出口。",
       "generationMode": "edit",
@@ -655,13 +686,31 @@
         "background_type": "rgba",
         "format": "png",
         "expressionContinuity": "For expression-only outputs compare alignment, preserve the base body and alpha; accept only the reviewed changed face region. Never scale or crop variants independently."
+      },
+      "preparedFile": "demo/assets/characters/rin/afraid.png",
+      "reviewNotes": "2026-09-09: face/detail or full-pose review; original model alpha retained; full-frame manifest replacement. See character-staging-assets.json.",
+      "preparationRecord": "demo/.agents/character-staging-assets.json",
+      "predictionId": "exv0p17mpxrmr0d0g8qs2da4x8",
+      "quality": "medium",
+      "revisionHistory": [
+        {
+          "model": null,
+          "quality": "high",
+          "sourceFile": "demo/.generated/art/expression-candidates/rin-afraid.png",
+          "preparedFile": "demo/assets/characters/rin/afraid.png",
+          "status": "reviewed"
+        }
+      ],
+      "generation": {
+        "predictionId": "cvfhmg928xrmt0d0gqmr4taqkr",
+        "quality": "medium"
       }
     },
     {
       "id": "rin-tired",
       "type": "sprite",
       "description": "神代凛常服／tired",
-      "status": "planned",
+      "status": "reviewed",
       "batch": 2,
       "usedBy": [],
       "dependsOn": [
@@ -674,7 +723,7 @@
       "prompt": "Use case: identity-preserve. Input image1 is the edit target for rin ONLY. Change facial expression ONLY. Slightly lowered lids, unfocused tired eyes and relaxed neutral lips; no exaggerated dark circles or aging. Keep head angle, facial anatomy, eye color, hair, all body pixels, pose, clothing, outline, framing and lighting unchanged. Do not repaint the full figure.\nPreserve the approved delicate Japanese galgame linework and colors. Exactly one character on the existing plain white background, no extra people, panels, text or watermark. Output RGB PNG; actual background removal is a separate Replicate step. The character must remain the same person.",
       "tool": null,
       "model": null,
-      "sourceFile": null,
+      "sourceFile": "demo/.generated/art/expression-candidates/rin-tired.png",
       "review": null,
       "styleRevision": "heroine-summer-v7",
       "actingDirection": "眼皮微垂，嘴角放松，目光疲倦；不加夸张黑眼圈。",
@@ -693,13 +742,18 @@
         "background_type": "rgba",
         "format": "png",
         "expressionContinuity": "For expression-only outputs compare alignment, preserve the base body and alpha; accept only the reviewed changed face region. Never scale or crop variants independently."
-      }
+      },
+      "preparedFile": "demo/assets/characters/rin/tired.png",
+      "reviewNotes": "2026-09-09: face/detail or full-pose review; original model alpha retained; full-frame manifest replacement. See character-staging-assets.json.",
+      "preparationRecord": "demo/.agents/character-staging-assets.json",
+      "predictionId": "cjm4z6qg7xrmr0d0g91aywzyar",
+      "quality": "low"
     },
     {
       "id": "rin-relieved",
       "type": "sprite",
       "description": "神代凛常服／relieved",
-      "status": "planned",
+      "status": "reviewed",
       "batch": 2,
       "usedBy": [],
       "dependsOn": [
@@ -712,7 +766,7 @@
       "prompt": "Use case: identity-preserve. Input image1 is the edit target for rin ONLY. Change facial expression ONLY. Brow tension releases, eyes soften with a faint relieved smile and slight remaining tiredness. Keep head angle, facial anatomy, eye color, hair, all body pixels, pose, clothing, outline, framing and lighting unchanged. Do not repaint the full figure.\nPreserve the approved delicate Japanese galgame linework and colors. Exactly one character on the existing plain white background, no extra people, panels, text or watermark. Output RGB PNG; actual background removal is a separate Replicate step. The character must remain the same person.",
       "tool": null,
       "model": null,
-      "sourceFile": null,
+      "sourceFile": "demo/.generated/art/expression-candidates/rin-relieved.png",
       "review": null,
       "styleRevision": "heroine-summer-v7",
       "actingDirection": "眉间松开，眼神回暖，嘴角有很浅的笑；仍留一点疲倦。",
@@ -731,13 +785,18 @@
         "background_type": "rgba",
         "format": "png",
         "expressionContinuity": "For expression-only outputs compare alignment, preserve the base body and alpha; accept only the reviewed changed face region. Never scale or crop variants independently."
-      }
+      },
+      "preparedFile": "demo/assets/characters/rin/relieved.png",
+      "reviewNotes": "2026-09-09: face/detail or full-pose review; original model alpha retained; full-frame manifest replacement. See character-staging-assets.json.",
+      "preparationRecord": "demo/.agents/character-staging-assets.json",
+      "predictionId": "r128cbvzj5rmw0d0g91t1ehz9w",
+      "quality": "low"
     },
     {
       "id": "rin-blush",
       "type": "sprite",
       "description": "神代凛常服／blush",
-      "status": "planned",
+      "status": "reviewed",
       "batch": 2,
       "usedBy": [],
       "dependsOn": [
@@ -750,7 +809,7 @@
       "prompt": "Use case: identity-preserve. Input image1 is the edit target for rin ONLY. Change facial expression ONLY. Subtle warm cheek blush, shy sideways gaze and a barely suppressed small smile; adult restraint, no chibi icons. Keep head angle, facial anatomy, eye color, hair, all body pixels, pose, clothing, outline, framing and lighting unchanged. Do not repaint the full figure.\nPreserve the approved delicate Japanese galgame linework and colors. Exactly one character on the existing plain white background, no extra people, panels, text or watermark. Output RGB PNG; actual background removal is a separate Replicate step. The character must remain the same person.",
       "tool": null,
       "model": null,
-      "sourceFile": null,
+      "sourceFile": "demo/.generated/art/expression-candidates/rin-blush.png",
       "review": null,
       "styleRevision": "heroine-summer-v7",
       "actingDirection": "脸颊微红，视线稍躲开，笑意没完全藏住；不画成幼态害羞表情。",
@@ -769,7 +828,12 @@
         "background_type": "rgba",
         "format": "png",
         "expressionContinuity": "For expression-only outputs compare alignment, preserve the base body and alpha; accept only the reviewed changed face region. Never scale or crop variants independently."
-      }
+      },
+      "preparedFile": "demo/assets/characters/rin/blush.png",
+      "reviewNotes": "2026-09-09: face/detail or full-pose review; original model alpha retained; full-frame manifest replacement. See character-staging-assets.json.",
+      "preparationRecord": "demo/.agents/character-staging-assets.json",
+      "predictionId": "3waq6qbyt1rmr0d0g91v9qw2vg",
+      "quality": "low"
     },
     {
       "id": "rin-rain-neutral",
@@ -896,7 +960,7 @@
       "id": "mara-neutral",
       "type": "sprite",
       "description": "Mara常服／neutral",
-      "status": "reviewed",
+      "status": "integrated",
       "batch": 2,
       "usedBy": [],
       "dependsOn": [
@@ -947,7 +1011,7 @@
       "id": "mara-smile",
       "type": "sprite",
       "description": "Mara常服／smile",
-      "status": "planned",
+      "status": "integrated",
       "batch": 2,
       "usedBy": [],
       "dependsOn": [
@@ -960,7 +1024,7 @@
       "prompt": "Use case: identity-preserve. Input image1 is the edit target for mara ONLY. Change facial expression ONLY. A warm brighter smile, gently curved outer eye corners, lips lightly parted; affectionate and composed. Keep head angle, facial anatomy, eye color, hair, all body pixels, pose, clothing, outline, framing and lighting unchanged. Do not repaint the full figure.\nPreserve the approved delicate Japanese galgame linework and colors. Exactly one character on the existing plain white background, no extra people, panels, text or watermark. Output RGB PNG; actual background removal is a separate Replicate step. The character must remain the same person.",
       "tool": null,
       "model": null,
-      "sourceFile": null,
+      "sourceFile": "demo/.generated/art/expression-candidates/mara-smile.png",
       "review": null,
       "styleRevision": "heroine-summer-v7",
       "actingDirection": "温柔地笑开，眼尾弯一点，嘴唇轻启；比常态更明快。",
@@ -979,15 +1043,31 @@
         "background_type": "rgba",
         "format": "png",
         "expressionContinuity": "For expression-only outputs compare alignment, preserve the base body and alpha; accept only the reviewed changed face region. Never scale or crop variants independently."
-      }
+      },
+      "preparedFile": "demo/assets/characters/mara/smile.png",
+      "reviewNotes": "2026-09-09: face/detail or full-pose review; original model alpha retained; full-frame manifest replacement. See character-staging-assets.json.",
+      "preparationRecord": "demo/.agents/character-staging-assets.json",
+      "predictionId": "xjpwxg7pbdrmt0d0g8qtyncevc",
+      "quality": "high"
     },
     {
       "id": "mara-serious",
       "type": "sprite",
       "description": "Mara常服／serious",
-      "status": "planned",
+      "status": "integrated",
       "batch": 2,
-      "usedBy": [],
+      "usedBy": [
+        "chapter-05-inspection",
+        "prologue-return-line",
+        "chapter-07",
+        "chapter-03",
+        "chapter-06",
+        "chapter-01",
+        "prologue-restoration",
+        "chapter-05",
+        "chapter-04",
+        "epilogue"
+      ],
       "dependsOn": [
         "mara-neutral"
       ],
@@ -995,11 +1075,11 @@
       "stagingPath": "demo/.generated/art/drafts/mara-serious.png",
       "aspectRatio": "2:3",
       "requiresAlpha": true,
-      "prompt": "Use case: identity-preserve. Input image1 is the edit target for mara ONLY. Change facial expression ONLY. Smile fades, gaze meets the viewer directly, steady brows and closed lips; earnest and direct, not cold. Keep head angle, facial anatomy, eye color, hair, all body pixels, pose, clothing, outline, framing and lighting unchanged. Do not repaint the full figure.\nPreserve the approved delicate Japanese galgame linework and colors. Exactly one character on the existing plain white background, no extra people, panels, text or watermark. Output RGB PNG; actual background removal is a separate Replicate step. The character must remain the same person.",
-      "tool": null,
-      "model": null,
-      "sourceFile": null,
-      "review": null,
+      "prompt": "Use case: identity-preserve. Precisely refine this existing Japanese anime visual novel face crop. Character is mara, an adult woman aged24-25. Improve ONLY eyes and lashes: delicate crisp tapered eyelash linework, coherent pupils in both eyes, finely drawn amber with subtle gold reflections irises, restrained subtle iris gradients and consistent small catchlights. Keep the SAME eye outline, iris size, eye angle, gaze, expression and exact position. This is a quality refinement, NOT a new facial expression. Preserve all hair strands, head angle, ears, eyebrows, mouth, cheeks and background exactly. Maintain clean Japanese bishoujo galgame cel style, no realistic eyes, heavy makeup, glitter, enlarged eyes, western illustration, changed age or extra pupils. Output the exact same locked1024x1024 face crop; do not zoom or recenter. Preserve focused unsmiling expression; no smiling or open mouth.",
+      "tool": "replicate-cli",
+      "model": "openai/gpt-image-2.5-flare",
+      "sourceFile": "demo/.generated/art/flare/mara-serious-output/j6srpmgzrnrmy0d0gqmr2ygjdg-output-0-0.png",
+      "review": "2026-09-09 Flare重绘；详见heroine-flare-review.json。",
       "styleRevision": "heroine-summer-v7",
       "actingDirection": "笑意收起，直视对方，眉形稳住；认真而直接。",
       "generationMode": "edit",
@@ -1017,13 +1097,31 @@
         "background_type": "rgba",
         "format": "png",
         "expressionContinuity": "For expression-only outputs compare alignment, preserve the base body and alpha; accept only the reviewed changed face region. Never scale or crop variants independently."
+      },
+      "preparedFile": "demo/assets/characters/mara/serious.png",
+      "reviewNotes": "2026-09-09: face/detail or full-pose review; original model alpha retained; full-frame manifest replacement. See character-staging-assets.json.",
+      "preparationRecord": "demo/.agents/character-staging-assets.json",
+      "predictionId": "kwv5c094a9rmy0d0g8s8j9jkcg",
+      "quality": "medium",
+      "revisionHistory": [
+        {
+          "model": null,
+          "quality": "high",
+          "sourceFile": "demo/.generated/art/expression-candidates/mara-serious.png",
+          "preparedFile": "demo/assets/characters/mara/serious.png",
+          "status": "integrated"
+        }
+      ],
+      "generation": {
+        "predictionId": "j6srpmgzrnrmy0d0gqmr2ygjdg",
+        "quality": "medium"
       }
     },
     {
       "id": "mara-hesitant",
       "type": "sprite",
       "description": "Mara常服／hesitant",
-      "status": "planned",
+      "status": "integrated",
       "batch": 2,
       "usedBy": [],
       "dependsOn": [
@@ -1036,7 +1134,7 @@
       "prompt": "Use case: identity-preserve. Input image1 is the edit target for mara ONLY. Change facial expression ONLY. A slight sideways uncertain gaze, gently pressed lips and paused smile; vulnerable hesitation, not a knowing mentor. Keep head angle, facial anatomy, eye color, hair, all body pixels, pose, clothing, outline, framing and lighting unchanged. Do not repaint the full figure.\nPreserve the approved delicate Japanese galgame linework and colors. Exactly one character on the existing plain white background, no extra people, panels, text or watermark. Output RGB PNG; actual background removal is a separate Replicate step. The character must remain the same person.",
       "tool": null,
       "model": null,
-      "sourceFile": null,
+      "sourceFile": "demo/.generated/art/expression-candidates/mara-hesitant.png",
       "review": null,
       "styleRevision": "heroine-summer-v7",
       "actingDirection": "眼神稍偏，嘴唇轻抿，笑意停下来；有她自己的迟疑。",
@@ -1055,13 +1153,18 @@
         "background_type": "rgba",
         "format": "png",
         "expressionContinuity": "For expression-only outputs compare alignment, preserve the base body and alpha; accept only the reviewed changed face region. Never scale or crop variants independently."
-      }
+      },
+      "preparedFile": "demo/assets/characters/mara/hesitant.png",
+      "reviewNotes": "2026-09-09: face/detail or full-pose review; original model alpha retained; full-frame manifest replacement. See character-staging-assets.json.",
+      "preparationRecord": "demo/.agents/character-staging-assets.json",
+      "predictionId": "vhb35xm1h1rmr0d0g91tbm85rc",
+      "quality": "low"
     },
     {
       "id": "mara-annoyed",
       "type": "sprite",
       "description": "Mara常服／annoyed",
-      "status": "planned",
+      "status": "integrated",
       "batch": 2,
       "usedBy": [],
       "dependsOn": [
@@ -1074,7 +1177,7 @@
       "prompt": "Use case: identity-preserve. Input image1 is the edit target for mara ONLY. Change facial expression ONLY. Direct questioning gaze, lowered drawn brows and a firm closed mouth; clearly upset, no smile or comic rage marks. Keep head angle, facial anatomy, eye color, hair, all body pixels, pose, clothing, outline, framing and lighting unchanged. Do not repaint the full figure.\nPreserve the approved delicate Japanese galgame linework and colors. Exactly one character on the existing plain white background, no extra people, panels, text or watermark. Output RGB PNG; actual background removal is a separate Replicate step. The character must remain the same person.",
       "tool": null,
       "model": null,
-      "sourceFile": null,
+      "sourceFile": "demo/.generated/art/expression-candidates/mara-annoyed.png",
       "review": null,
       "styleRevision": "heroine-summer-v7",
       "actingDirection": "直视对方，眉头压低，嘴角绷紧；生气时不再带笑。",
@@ -1093,15 +1196,24 @@
         "background_type": "rgba",
         "format": "png",
         "expressionContinuity": "For expression-only outputs compare alignment, preserve the base body and alpha; accept only the reviewed changed face region. Never scale or crop variants independently."
-      }
+      },
+      "preparedFile": "demo/assets/characters/mara/annoyed.png",
+      "reviewNotes": "2026-09-09: face/detail or full-pose review; original model alpha retained; full-frame manifest replacement. See character-staging-assets.json.",
+      "preparationRecord": "demo/.agents/character-staging-assets.json",
+      "predictionId": "evhp4e0c9xrmw0d0g928vcdx44",
+      "quality": "low"
     },
     {
       "id": "mara-afraid",
       "type": "sprite",
       "description": "Mara常服／afraid",
-      "status": "planned",
+      "status": "integrated",
       "batch": 2,
-      "usedBy": [],
+      "usedBy": [
+        "prologue-return-line",
+        "chapter-06",
+        "chapter-04"
+      ],
       "dependsOn": [
         "mara-neutral"
       ],
@@ -1109,11 +1221,11 @@
       "stagingPath": "demo/.generated/art/drafts/mara-afraid.png",
       "aspectRatio": "2:3",
       "requiresAlpha": true,
-      "prompt": "Use case: identity-preserve. Input image1 is the edit target for mara ONLY. Change facial expression ONLY. Subtly widened eyes, raised inner brows and lightly parted lips; visibly afraid, not serene or reassuring. Keep head angle, facial anatomy, eye color, hair, all body pixels, pose, clothing, outline, framing and lighting unchanged. Do not repaint the full figure.\nPreserve the approved delicate Japanese galgame linework and colors. Exactly one character on the existing plain white background, no extra people, panels, text or watermark. Output RGB PNG; actual background removal is a separate Replicate step. The character must remain the same person.",
-      "tool": null,
-      "model": null,
-      "sourceFile": null,
-      "review": null,
+      "prompt": "Use case: identity-preserve. Precisely refine this existing Japanese anime visual novel face crop. Character is mara, an adult woman aged24-25. Improve ONLY eyes and lashes: delicate crisp tapered eyelash linework, coherent pupils in both eyes, finely drawn amber with subtle gold reflections irises, restrained subtle iris gradients and consistent small catchlights. Keep the SAME eye outline, iris size, eye angle, gaze, expression and exact position. This is a quality refinement, NOT a new facial expression. Preserve all hair strands, head angle, ears, eyebrows, mouth, cheeks and background exactly. Maintain clean Japanese bishoujo galgame cel style, no realistic eyes, heavy makeup, glitter, enlarged eyes, western illustration, changed age or extra pupils. Output the exact same locked1024x1024 face crop; do not zoom or recenter. Preserve frightened tense brows and uncertain mouth; do not make her smile or give a vacant doll stare.",
+      "tool": "replicate-cli",
+      "model": "openai/gpt-image-2.5-flare",
+      "sourceFile": "demo/.generated/art/flare/mara-afraid-output/1w6r578rydrmr0d0gqms6h4cf4-output-0-0.png",
+      "review": "2026-09-09 Flare重绘；详见heroine-flare-review.json。",
       "styleRevision": "heroine-summer-v7",
       "actingDirection": "眼睛略睁大，眉心抬起，嘴唇微张；温柔之外也会害怕。",
       "generationMode": "edit",
@@ -1131,13 +1243,31 @@
         "background_type": "rgba",
         "format": "png",
         "expressionContinuity": "For expression-only outputs compare alignment, preserve the base body and alpha; accept only the reviewed changed face region. Never scale or crop variants independently."
+      },
+      "preparedFile": "demo/assets/characters/mara/afraid.png",
+      "reviewNotes": "2026-09-09: face/detail or full-pose review; original model alpha retained; full-frame manifest replacement. See character-staging-assets.json.",
+      "preparationRecord": "demo/.agents/character-staging-assets.json",
+      "predictionId": "n4d7f7hx4nrmr0d0g8b96fy9a4",
+      "quality": "medium",
+      "revisionHistory": [
+        {
+          "model": null,
+          "quality": "high",
+          "sourceFile": "demo/.generated/art/expression-candidates/mara-afraid.png",
+          "preparedFile": "demo/assets/characters/mara/afraid.png",
+          "status": "integrated"
+        }
+      ],
+      "generation": {
+        "predictionId": "1w6r578rydrmr0d0gqms6h4cf4",
+        "quality": "medium"
       }
     },
     {
       "id": "mara-tired",
       "type": "sprite",
       "description": "Mara常服／tired",
-      "status": "planned",
+      "status": "integrated",
       "batch": 2,
       "usedBy": [],
       "dependsOn": [
@@ -1150,7 +1280,7 @@
       "prompt": "Use case: identity-preserve. Input image1 is the edit target for mara ONLY. Change facial expression ONLY. Heavy eyelids and quiet tired gaze, naturally closed lips without a forced smile; retain youthful adult face. Keep head angle, facial anatomy, eye color, hair, all body pixels, pose, clothing, outline, framing and lighting unchanged. Do not repaint the full figure.\nPreserve the approved delicate Japanese galgame linework and colors. Exactly one character on the existing plain white background, no extra people, panels, text or watermark. Output RGB PNG; actual background removal is a separate Replicate step. The character must remain the same person.",
       "tool": null,
       "model": null,
-      "sourceFile": null,
+      "sourceFile": "demo/.generated/art/expression-candidates/mara-tired.png",
       "review": null,
       "styleRevision": "heroine-summer-v7",
       "actingDirection": "眼皮略沉，神情安静，嘴唇自然合着；不勉强保持笑脸。",
@@ -1169,13 +1299,18 @@
         "background_type": "rgba",
         "format": "png",
         "expressionContinuity": "For expression-only outputs compare alignment, preserve the base body and alpha; accept only the reviewed changed face region. Never scale or crop variants independently."
-      }
+      },
+      "preparedFile": "demo/assets/characters/mara/tired.png",
+      "reviewNotes": "2026-09-09: face/detail or full-pose review; original model alpha retained; full-frame manifest replacement. See character-staging-assets.json.",
+      "preparationRecord": "demo/.agents/character-staging-assets.json",
+      "predictionId": "napgz18bw1rmr0d0g9281g0gz8",
+      "quality": "low"
     },
     {
       "id": "mara-relieved",
       "type": "sprite",
       "description": "Mara常服／relieved",
-      "status": "planned",
+      "status": "integrated",
       "batch": 2,
       "usedBy": [],
       "dependsOn": [
@@ -1188,7 +1323,7 @@
       "prompt": "Use case: identity-preserve. Input image1 is the edit target for mara ONLY. Change facial expression ONLY. Gentle eyes soften after worry, mouth forms a small relieved smile; less broad than her bright smile. Keep head angle, facial anatomy, eye color, hair, all body pixels, pose, clothing, outline, framing and lighting unchanged. Do not repaint the full figure.\nPreserve the approved delicate Japanese galgame linework and colors. Exactly one character on the existing plain white background, no extra people, panels, text or watermark. Output RGB PNG; actual background removal is a separate Replicate step. The character must remain the same person.",
       "tool": null,
       "model": null,
-      "sourceFile": null,
+      "sourceFile": "demo/.generated/art/expression-candidates/mara-relieved.png",
       "review": null,
       "styleRevision": "heroine-summer-v7",
       "actingDirection": "眼睛柔下来，嘴角缓缓上扬；松口气后才露出笑。",
@@ -1207,13 +1342,18 @@
         "background_type": "rgba",
         "format": "png",
         "expressionContinuity": "For expression-only outputs compare alignment, preserve the base body and alpha; accept only the reviewed changed face region. Never scale or crop variants independently."
-      }
+      },
+      "preparedFile": "demo/assets/characters/mara/relieved.png",
+      "reviewNotes": "2026-09-09: face/detail or full-pose review; original model alpha retained; full-frame manifest replacement. See character-staging-assets.json.",
+      "preparationRecord": "demo/.agents/character-staging-assets.json",
+      "predictionId": "tx97600c7nrmy0d0g92aphk698",
+      "quality": "low"
     },
     {
       "id": "mara-blush",
       "type": "sprite",
       "description": "Mara常服／blush",
-      "status": "planned",
+      "status": "integrated",
       "batch": 2,
       "usedBy": [],
       "dependsOn": [
@@ -1226,7 +1366,7 @@
       "prompt": "Use case: identity-preserve. Input image1 is the edit target for mara ONLY. Change facial expression ONLY. Soft blush, briefly averted gaze and a small bashful smile; graceful young-adult composure with genuine fluster. Keep head angle, facial anatomy, eye color, hair, all body pixels, pose, clothing, outline, framing and lighting unchanged. Do not repaint the full figure.\nPreserve the approved delicate Japanese galgame linework and colors. Exactly one character on the existing plain white background, no extra people, panels, text or watermark. Output RGB PNG; actual background removal is a separate Replicate step. The character must remain the same person.",
       "tool": null,
       "model": null,
-      "sourceFile": null,
+      "sourceFile": "demo/.generated/art/expression-candidates/mara-blush.png",
       "review": null,
       "styleRevision": "heroine-summer-v7",
       "actingDirection": "脸颊泛红，眼神短暂避开，嘴角轻扬；成熟气质里带一点局促。",
@@ -1245,7 +1385,12 @@
         "background_type": "rgba",
         "format": "png",
         "expressionContinuity": "For expression-only outputs compare alignment, preserve the base body and alpha; accept only the reviewed changed face region. Never scale or crop variants independently."
-      }
+      },
+      "preparedFile": "demo/assets/characters/mara/blush.png",
+      "reviewNotes": "2026-09-09: face/detail or full-pose review; original model alpha retained; full-frame manifest replacement. See character-staging-assets.json.",
+      "preparationRecord": "demo/.agents/character-staging-assets.json",
+      "predictionId": "dd9qr2kg9drmw0d0g929715qjc",
+      "quality": "low"
     },
     {
       "id": "mara-rain-neutral",
@@ -1406,7 +1551,7 @@
       "id": "haruka-neutral",
       "type": "sprite",
       "description": "水野春香常服／neutral",
-      "status": "reviewed",
+      "status": "integrated",
       "batch": 3,
       "usedBy": [],
       "dependsOn": [
@@ -1445,7 +1590,7 @@
       "id": "haruka-smile",
       "type": "sprite",
       "description": "水野春香常服／smile",
-      "status": "planned",
+      "status": "integrated",
       "batch": 3,
       "usedBy": [],
       "dependsOn": [
@@ -1458,7 +1603,7 @@
       "prompt": "Use case: identity-preserve. Input image1 is the edit target for haruka ONLY. Change facial expression ONLY. Bright pleased eyes and an open small smile, earnest university-student enthusiasm. Keep head angle, facial anatomy, eye color, hair, all body pixels, pose, clothing, outline, framing and lighting unchanged. Do not repaint the full figure.\nPreserve the approved delicate Japanese galgame linework and colors. Exactly one character on the existing plain white background, no extra people, panels, text or watermark. Output RGB PNG; actual background removal is a separate Replicate step. The character must remain the same person.",
       "tool": null,
       "model": null,
-      "sourceFile": null,
+      "sourceFile": "demo/.generated/art/expression-candidates/haruka-smile.png",
       "review": null,
       "styleRevision": "distinct-cast-v3",
       "actingDirection": "眼睛亮起来，嘴角上扬，有得到肯定的开心。",
@@ -1477,13 +1622,18 @@
         "background_type": "rgba",
         "format": "png",
         "expressionContinuity": "For expression-only outputs compare alignment, preserve the base body and alpha; accept only the reviewed changed face region. Never scale or crop variants independently."
-      }
+      },
+      "preparedFile": "demo/assets/characters/haruka/smile.png",
+      "reviewNotes": "2026-09-09: face/detail or full-pose review; original model alpha retained; full-frame manifest replacement. See character-staging-assets.json.",
+      "preparationRecord": "demo/.agents/character-staging-assets.json",
+      "predictionId": "8thbh8wrknrmy0d0g929vq7sec",
+      "quality": "low"
     },
     {
       "id": "haruka-serious",
       "type": "sprite",
       "description": "水野春香常服／serious",
-      "status": "planned",
+      "status": "integrated",
       "batch": 3,
       "usedBy": [],
       "dependsOn": [
@@ -1496,7 +1646,7 @@
       "prompt": "Use case: identity-preserve. Input image1 is the edit target for haruka ONLY. Change facial expression ONLY. Intent attentive eyes, slightly gathered brows and closed lips; earnest concentration. Keep head angle, facial anatomy, eye color, hair, all body pixels, pose, clothing, outline, framing and lighting unchanged. Do not repaint the full figure.\nPreserve the approved delicate Japanese galgame linework and colors. Exactly one character on the existing plain white background, no extra people, panels, text or watermark. Output RGB PNG; actual background removal is a separate Replicate step. The character must remain the same person.",
       "tool": null,
       "model": null,
-      "sourceFile": null,
+      "sourceFile": "demo/.generated/art/expression-candidates/haruka-serious.png",
       "review": null,
       "styleRevision": "distinct-cast-v3",
       "actingDirection": "认真盯住对方，眉心微收，嘴唇合上。",
@@ -1515,13 +1665,18 @@
         "background_type": "rgba",
         "format": "png",
         "expressionContinuity": "For expression-only outputs compare alignment, preserve the base body and alpha; accept only the reviewed changed face region. Never scale or crop variants independently."
-      }
+      },
+      "preparedFile": "demo/assets/characters/haruka/serious.png",
+      "reviewNotes": "2026-09-09: face/detail or full-pose review; original model alpha retained; full-frame manifest replacement. See character-staging-assets.json.",
+      "preparationRecord": "demo/.agents/character-staging-assets.json",
+      "predictionId": "5kgnz0wrznrmr0d0g928j86rer",
+      "quality": "low"
     },
     {
       "id": "haruka-hesitant",
       "type": "sprite",
       "description": "水野春香常服／hesitant",
-      "status": "planned",
+      "status": "integrated",
       "batch": 3,
       "usedBy": [],
       "dependsOn": [
@@ -1534,7 +1689,7 @@
       "prompt": "Use case: identity-preserve. Input image1 is the edit target for haruka ONLY. Change facial expression ONLY. Raised inner brows, uncertain sideways gaze and gently pressed lips. Keep head angle, facial anatomy, eye color, hair, all body pixels, pose, clothing, outline, framing and lighting unchanged. Do not repaint the full figure.\nPreserve the approved delicate Japanese galgame linework and colors. Exactly one character on the existing plain white background, no extra people, panels, text or watermark. Output RGB PNG; actual background removal is a separate Replicate step. The character must remain the same person.",
       "tool": null,
       "model": null,
-      "sourceFile": null,
+      "sourceFile": "demo/.generated/art/expression-candidates/haruka-hesitant.png",
       "review": null,
       "styleRevision": "distinct-cast-v3",
       "actingDirection": "眉心抬起，目光游移，嘴唇轻抿。",
@@ -1553,7 +1708,12 @@
         "background_type": "rgba",
         "format": "png",
         "expressionContinuity": "For expression-only outputs compare alignment, preserve the base body and alpha; accept only the reviewed changed face region. Never scale or crop variants independently."
-      }
+      },
+      "preparedFile": "demo/assets/characters/haruka/hesitant.png",
+      "reviewNotes": "2026-09-09: face/detail or full-pose review; original model alpha retained; full-frame manifest replacement. See character-staging-assets.json.",
+      "preparationRecord": "demo/.agents/character-staging-assets.json",
+      "predictionId": "4svcrgs59srmr0d0g92sck64vc",
+      "quality": "low"
     },
     {
       "id": "mayu-reference",
@@ -1594,7 +1754,7 @@
       "id": "mayu-neutral",
       "type": "sprite",
       "description": "高桥真由常服／neutral",
-      "status": "reviewed",
+      "status": "integrated",
       "batch": 3,
       "usedBy": [],
       "dependsOn": [
@@ -1633,7 +1793,7 @@
       "id": "mayu-smile",
       "type": "sprite",
       "description": "高桥真由常服／smile",
-      "status": "planned",
+      "status": "integrated",
       "batch": 3,
       "usedBy": [],
       "dependsOn": [
@@ -1646,7 +1806,7 @@
       "prompt": "Use case: identity-preserve. Input image1 is the edit target for mayu ONLY. Change facial expression ONLY. A very slight closed-mouth smile and relaxed eyes; understated engineer expression. Keep head angle, facial anatomy, eye color, hair, all body pixels, pose, clothing, outline, framing and lighting unchanged. Do not repaint the full figure.\nPreserve the approved delicate Japanese galgame linework and colors. Exactly one character on the existing plain white background, no extra people, panels, text or watermark. Output RGB PNG; actual background removal is a separate Replicate step. The character must remain the same person.",
       "tool": null,
       "model": null,
-      "sourceFile": null,
+      "sourceFile": "demo/.generated/art/expression-candidates/mayu-smile.png",
       "review": null,
       "styleRevision": "distinct-cast-v3",
       "actingDirection": "嘴角略扬，眼神稍放松，笑幅很小。",
@@ -1665,13 +1825,18 @@
         "background_type": "rgba",
         "format": "png",
         "expressionContinuity": "For expression-only outputs compare alignment, preserve the base body and alpha; accept only the reviewed changed face region. Never scale or crop variants independently."
-      }
+      },
+      "preparedFile": "demo/assets/characters/mayu/smile.png",
+      "reviewNotes": "2026-09-09: face/detail or full-pose review; original model alpha retained; full-frame manifest replacement. See character-staging-assets.json.",
+      "preparationRecord": "demo/.agents/character-staging-assets.json",
+      "predictionId": "ah5b9d16w9rmr0d0g92r0z4apc",
+      "quality": "low"
     },
     {
       "id": "mayu-serious",
       "type": "sprite",
       "description": "高桥真由常服／serious",
-      "status": "planned",
+      "status": "integrated",
       "batch": 3,
       "usedBy": [],
       "dependsOn": [
@@ -1684,7 +1849,7 @@
       "prompt": "Use case: identity-preserve. Input image1 is the edit target for mayu ONLY. Change facial expression ONLY. Sharply focused eyes behind unchanged glasses, lightly knitted brows and straight closed mouth. Keep head angle, facial anatomy, eye color, hair, all body pixels, pose, clothing, outline, framing and lighting unchanged. Do not repaint the full figure.\nPreserve the approved delicate Japanese galgame linework and colors. Exactly one character on the existing plain white background, no extra people, panels, text or watermark. Output RGB PNG; actual background removal is a separate Replicate step. The character must remain the same person.",
       "tool": null,
       "model": null,
-      "sourceFile": null,
+      "sourceFile": "demo/.generated/art/expression-candidates/mayu-serious.png",
       "review": null,
       "styleRevision": "distinct-cast-v3",
       "actingDirection": "视线锐利集中，眉头略皱，嘴角平直。",
@@ -1703,13 +1868,18 @@
         "background_type": "rgba",
         "format": "png",
         "expressionContinuity": "For expression-only outputs compare alignment, preserve the base body and alpha; accept only the reviewed changed face region. Never scale or crop variants independently."
-      }
+      },
+      "preparedFile": "demo/assets/characters/mayu/serious.png",
+      "reviewNotes": "2026-09-09: face/detail or full-pose review; original model alpha retained; full-frame manifest replacement. See character-staging-assets.json.",
+      "preparationRecord": "demo/.agents/character-staging-assets.json",
+      "predictionId": "4p2kbn26phrmt0d0g92trc19vw",
+      "quality": "low"
     },
     {
       "id": "mayu-hesitant",
       "type": "sprite",
       "description": "高桥真由常服／hesitant",
-      "status": "planned",
+      "status": "integrated",
       "batch": 3,
       "usedBy": [],
       "dependsOn": [
@@ -1722,7 +1892,7 @@
       "prompt": "Use case: identity-preserve. Input image1 is the edit target for mayu ONLY. Change facial expression ONLY. Eyes shift slightly aside and lips part as if reconsidering an explanation, uneasy thoughtful brows. Keep head angle, facial anatomy, eye color, hair, all body pixels, pose, clothing, outline, framing and lighting unchanged. Do not repaint the full figure.\nPreserve the approved delicate Japanese galgame linework and colors. Exactly one character on the existing plain white background, no extra people, panels, text or watermark. Output RGB PNG; actual background removal is a separate Replicate step. The character must remain the same person.",
       "tool": null,
       "model": null,
-      "sourceFile": null,
+      "sourceFile": "demo/.generated/art/expression-candidates/mayu-hesitant.png",
       "review": null,
       "styleRevision": "distinct-cast-v3",
       "actingDirection": "目光偏开一点，嘴唇微张，像要修正刚才的话。",
@@ -1741,7 +1911,12 @@
         "background_type": "rgba",
         "format": "png",
         "expressionContinuity": "For expression-only outputs compare alignment, preserve the base body and alpha; accept only the reviewed changed face region. Never scale or crop variants independently."
-      }
+      },
+      "preparedFile": "demo/assets/characters/mayu/hesitant.png",
+      "reviewNotes": "2026-09-09: face/detail or full-pose review; original model alpha retained; full-frame manifest replacement. See character-staging-assets.json.",
+      "preparationRecord": "demo/.agents/character-staging-assets.json",
+      "predictionId": "vj01xjnhshrmy0d0g92sfec1yg",
+      "quality": "low"
     },
     {
       "id": "reiko-reference",
@@ -1782,7 +1957,7 @@
       "id": "reiko-neutral",
       "type": "sprite",
       "description": "森田礼子常服／neutral",
-      "status": "reviewed",
+      "status": "integrated",
       "batch": 3,
       "usedBy": [],
       "dependsOn": [
@@ -1821,7 +1996,7 @@
       "id": "reiko-smile",
       "type": "sprite",
       "description": "森田礼子常服／smile",
-      "status": "planned",
+      "status": "reviewed",
       "batch": 3,
       "usedBy": [],
       "dependsOn": [
@@ -1834,7 +2009,7 @@
       "prompt": "Use case: identity-preserve. Input image1 is the edit target for reiko ONLY. Change facial expression ONLY. Controlled courteous smile, gaze held on viewer, relaxed professional brows; no villainous smirk. Keep head angle, facial anatomy, eye color, hair, all body pixels, pose, clothing, outline, framing and lighting unchanged. Do not repaint the full figure.\nPreserve the approved delicate Japanese galgame linework and colors. Exactly one character on the existing plain white background, no extra people, panels, text or watermark. Output RGB PNG; actual background removal is a separate Replicate step. The character must remain the same person.",
       "tool": null,
       "model": null,
-      "sourceFile": null,
+      "sourceFile": "demo/.generated/art/expression-candidates/reiko-smile.png",
       "review": null,
       "styleRevision": "distinct-cast-v3",
       "actingDirection": "礼貌而克制地微笑，目光仍在对方身上。",
@@ -1853,13 +2028,18 @@
         "background_type": "rgba",
         "format": "png",
         "expressionContinuity": "For expression-only outputs compare alignment, preserve the base body and alpha; accept only the reviewed changed face region. Never scale or crop variants independently."
-      }
+      },
+      "preparedFile": "demo/assets/characters/reiko/smile.png",
+      "reviewNotes": "2026-09-09: face/detail or full-pose review; original model alpha retained; full-frame manifest replacement. See character-staging-assets.json.",
+      "preparationRecord": "demo/.agents/character-staging-assets.json",
+      "predictionId": "rb7aj0ekjsrmw0d0g92sk5ve0c",
+      "quality": "low"
     },
     {
       "id": "reiko-serious",
       "type": "sprite",
       "description": "森田礼子常服／serious",
-      "status": "planned",
+      "status": "integrated",
       "batch": 3,
       "usedBy": [],
       "dependsOn": [
@@ -1872,7 +2052,7 @@
       "prompt": "Use case: identity-preserve. Input image1 is the edit target for reiko ONLY. Change facial expression ONLY. Smile disappears, brows lower subtly and lips close firmly, composed under pressure. Keep head angle, facial anatomy, eye color, hair, all body pixels, pose, clothing, outline, framing and lighting unchanged. Do not repaint the full figure.\nPreserve the approved delicate Japanese galgame linework and colors. Exactly one character on the existing plain white background, no extra people, panels, text or watermark. Output RGB PNG; actual background removal is a separate Replicate step. The character must remain the same person.",
       "tool": null,
       "model": null,
-      "sourceFile": null,
+      "sourceFile": "demo/.generated/art/expression-candidates/reiko-serious.png",
       "review": null,
       "styleRevision": "distinct-cast-v3",
       "actingDirection": "笑意消失，眉头微压，嘴唇合紧。",
@@ -1891,13 +2071,18 @@
         "background_type": "rgba",
         "format": "png",
         "expressionContinuity": "For expression-only outputs compare alignment, preserve the base body and alpha; accept only the reviewed changed face region. Never scale or crop variants independently."
-      }
+      },
+      "preparedFile": "demo/assets/characters/reiko/serious.png",
+      "reviewNotes": "2026-09-09: face/detail or full-pose review; original model alpha retained; full-frame manifest replacement. See character-staging-assets.json.",
+      "preparationRecord": "demo/.agents/character-staging-assets.json",
+      "predictionId": "dst8acypthrmw0d0g92vegb09w",
+      "quality": "low"
     },
     {
       "id": "reiko-hesitant",
       "type": "sprite",
       "description": "森田礼子常服／hesitant",
-      "status": "planned",
+      "status": "integrated",
       "batch": 3,
       "usedBy": [],
       "dependsOn": [
@@ -1910,7 +2095,7 @@
       "prompt": "Use case: identity-preserve. Input image1 is the edit target for reiko ONLY. Change facial expression ONLY. Briefly averted eyes, slight brow tension and a restrained mouth as confidence falters. Keep head angle, facial anatomy, eye color, hair, all body pixels, pose, clothing, outline, framing and lighting unchanged. Do not repaint the full figure.\nPreserve the approved delicate Japanese galgame linework and colors. Exactly one character on the existing plain white background, no extra people, panels, text or watermark. Output RGB PNG; actual background removal is a separate Replicate step. The character must remain the same person.",
       "tool": null,
       "model": null,
-      "sourceFile": null,
+      "sourceFile": "demo/.generated/art/expression-candidates/reiko-hesitant.png",
       "review": null,
       "styleRevision": "distinct-cast-v3",
       "actingDirection": "目光短暂偏开，眉间微紧，嘴角收住。",
@@ -1929,7 +2114,12 @@
         "background_type": "rgba",
         "format": "png",
         "expressionContinuity": "For expression-only outputs compare alignment, preserve the base body and alpha; accept only the reviewed changed face region. Never scale or crop variants independently."
-      }
+      },
+      "preparedFile": "demo/assets/characters/reiko/hesitant.png",
+      "reviewNotes": "2026-09-09: face/detail or full-pose review; original model alpha retained; full-frame manifest replacement. See character-staging-assets.json.",
+      "preparationRecord": "demo/.agents/character-staging-assets.json",
+      "predictionId": "dhzr9e8gcxrmw0d0g939hbg1yw",
+      "quality": "low"
     },
     {
       "id": "yumi-reference",
@@ -1970,7 +2160,7 @@
       "id": "yumi-neutral",
       "type": "sprite",
       "description": "青木由美常服／neutral",
-      "status": "reviewed",
+      "status": "integrated",
       "batch": 3,
       "usedBy": [],
       "dependsOn": [
@@ -1983,7 +2173,7 @@
       "prompt": "Use case: identity-preserve. Use ONLY the reviewed distinct-cast-v3 reference of this exact character, never another cast member. Identity, height/build and canonical clothing: Yumi, a46-year-old community-radio editor,153cm, the shortest woman in the cast, notably FULLER SOFT BUILD with broad comfortable shoulders, rounded waist and full cheeks,6-head anime proportions. BROAD ROUND FACE, wide soft jaw, warm smiling crescent eyes and burgundy rounded-rectangular eyeglasses. Fluffy SHORT CURLY dark brown hair, clearly not a straight bob. Loose IVORY KNIT TOP with wide relaxed sleeves, navy CALF-LENGTH CULOTTES, comfortable flat shoes. Soft lived-in grown-up everyday style, optional sage cloth apron at breakroom only; no blazer, no tall slender mannequin body. Warm welcoming expression and one palm open low at waist; no exaggerated aging lines.\nAsset variant: yumi-neutral. Preserve this identity, face geometry, age, body shape and hairstyle. For a face-expression variant, change only the intended facial expression; keep pixel framing, body pose, clothes and lighting stable. Clean Japanese2D anime linework and cel shading, no realism. Output a complete-body standee with clean alpha; if gpt-image-2 is used, render a flat chroma background and extract alpha locally after review. Expression: attentive calm.",
       "tool": "replicate-cli",
       "model": "851-labs/background-remover",
-      "sourceFile": "demo/.generated/art/drafts/yumi-reference-distinct-v3.png",
+      "sourceFile": "demo/.generated/art/pose-candidates/yumi-reference-summer-v4.png",
       "review": {
         "result": "accepted-alpha",
         "notes": "Replicate直接处理原始RGB图；模型柔和alpha未做颜色阈值重建、腐蚀或手绘修补。已检查深浅背景上的发丝、手、眼白、衣裙和鞋。统一画布768×1536、脚底1488，并按身高等比排版；仅资产准备，未注册剧情出场。由美服装季节复核仍待后续，抠图通过不代表服装重设计已完成。"
@@ -2003,7 +2193,9 @@
         ],
         "sha256": "d9efab65622b87f621461dfe730427f78425680080ebe9c62ec02aa88a0ecc72"
       },
-      "predictionId": "53yfab8ybhrg80d0g7s9nreq9m"
+      "predictionId": "301htske5xrga0d0g978rjmztr",
+      "reviewNotes": "2026-09-09: face/detail or full-pose review; original model alpha retained; full-frame manifest replacement. See character-staging-assets.json.",
+      "preparationRecord": "demo/.agents/character-staging-assets.json"
     },
     {
       "id": "yumi-smile",
@@ -2047,7 +2239,7 @@
       "id": "yumi-serious",
       "type": "sprite",
       "description": "青木由美常服／serious",
-      "status": "planned",
+      "status": "integrated",
       "batch": 3,
       "usedBy": [],
       "dependsOn": [
@@ -2060,7 +2252,7 @@
       "prompt": "Use case: identity-preserve. Input image1 is the edit target for yumi ONLY. Change facial expression ONLY. Open steady eyes through unchanged glasses, smile stops, brows set with calm authority. Keep head angle, facial anatomy, eye color, hair, all body pixels, pose, clothing, outline, framing and lighting unchanged. Do not repaint the full figure.\nPreserve the approved delicate Japanese galgame linework and colors. Exactly one character on the existing plain white background, no extra people, panels, text or watermark. Output RGB PNG; actual background removal is a separate Replicate step. The character must remain the same person.",
       "tool": null,
       "model": null,
-      "sourceFile": null,
+      "sourceFile": "demo/.generated/art/expression-candidates/yumi-serious.png",
       "review": null,
       "styleRevision": "distinct-cast-v3",
       "actingDirection": "睁眼直视，笑意收住，眉间略压；能让人停下来听。",
@@ -2079,13 +2271,18 @@
         "background_type": "rgba",
         "format": "png",
         "expressionContinuity": "For expression-only outputs compare alignment, preserve the base body and alpha; accept only the reviewed changed face region. Never scale or crop variants independently."
-      }
+      },
+      "preparedFile": "demo/assets/characters/yumi/serious.png",
+      "reviewNotes": "2026-09-09: face/detail or full-pose review; original model alpha retained; full-frame manifest replacement. See character-staging-assets.json.",
+      "preparationRecord": "demo/.agents/character-staging-assets.json",
+      "predictionId": "tawy9kfqndrmr0d0gprsf679er",
+      "quality": "low"
     },
     {
       "id": "yumi-hesitant",
       "type": "sprite",
       "description": "青木由美常服／hesitant",
-      "status": "planned",
+      "status": "reviewed",
       "batch": 3,
       "usedBy": [],
       "dependsOn": [
@@ -2098,7 +2295,7 @@
       "prompt": "Use case: identity-preserve. Input image1 is the edit target for yumi ONLY. Change facial expression ONLY. Thoughtful uncertain eyes, gently raised inner brows and a paused smile. Keep head angle, facial anatomy, eye color, hair, all body pixels, pose, clothing, outline, framing and lighting unchanged. Do not repaint the full figure.\nPreserve the approved delicate Japanese galgame linework and colors. Exactly one character on the existing plain white background, no extra people, panels, text or watermark. Output RGB PNG; actual background removal is a separate Replicate step. The character must remain the same person.",
       "tool": null,
       "model": null,
-      "sourceFile": null,
+      "sourceFile": "demo/.generated/art/expression-candidates/yumi-hesitant.png",
       "review": null,
       "styleRevision": "distinct-cast-v3",
       "actingDirection": "眼神犹豫，眉心轻抬，嘴角收住。",
@@ -2117,7 +2314,12 @@
         "background_type": "rgba",
         "format": "png",
         "expressionContinuity": "For expression-only outputs compare alignment, preserve the base body and alpha; accept only the reviewed changed face region. Never scale or crop variants independently."
-      }
+      },
+      "preparedFile": "demo/assets/characters/yumi/hesitant.png",
+      "reviewNotes": "2026-09-09: face/detail or full-pose review; original model alpha retained; full-frame manifest replacement. See character-staging-assets.json.",
+      "preparationRecord": "demo/.agents/character-staging-assets.json",
+      "predictionId": "kqqyejqrn1rmy0d0gprvt48h20",
+      "quality": "low"
     },
     {
       "id": "radio-exterior-day",
@@ -4218,11 +4420,9 @@
       "id": "rin-pose-listening",
       "type": "sprite",
       "description": "rin／专心听对方说话",
-      "status": "planned",
+      "status": "reviewed",
       "batch": 7,
-      "usedBy": [
-        "warning-working-together"
-      ],
+      "usedBy": [],
       "dependsOn": [
         "rin-reference"
       ],
@@ -4230,19 +4430,37 @@
       "stagingPath": "demo/.generated/art/drafts/rin-pose-listening.png",
       "aspectRatio": "2:3",
       "requiresAlpha": true,
-      "quality": "low",
+      "quality": "medium",
       "styleRevision": "heroine-summer-v7",
-      "prompt": "Japanese 2D visual novel anime production art, delicate clean outlines, coherent cel shading and painted background, attractive adult characters, no photorealism or 3D. No text, labels, logos, watermark or image panels. Single coherent physically plausible scene. Use image1 as the ONLY identity and wardrobe reference for rin. Make exactly ONE full-body standing pose variant on pure white, preserve adult age, hairstyle, facial anatomy, costume, proportions and shoes. Body turned just a little toward conversation partner, both arms relaxed at sides, one hand loosely resting over the other in front of waist, attentive neutral face. No props. Entire head and both shoes inside frame with margin. Weight rests between feet, shoulders and hips naturally balanced. Two arms, two legs, exactly two hands, physically possible elbow and wrist orientation. Do not change clothing or lengthen legs. No panels, measurements, ground shadow or extra people."
+      "prompt": "Use case: identity-preserve. Precisely refine this existing Japanese anime visual novel face crop. Character is rin, an adult woman aged24-25. Improve ONLY eyes and lashes: delicate crisp tapered eyelash linework, coherent pupils in both eyes, finely drawn gray-brown with subtle warm reflections irises, restrained subtle iris gradients and consistent small catchlights. Keep the SAME eye outline, iris size, eye angle, gaze, expression and exact position. This is a quality refinement, NOT a new facial expression. Preserve all hair strands, head angle, ears, eyebrows, mouth, cheeks and background exactly. Maintain clean Japanese bishoujo galgame cel style, no realistic eyes, heavy makeup, glitter, enlarged eyes, western illustration, changed age or extra pupils. Output the exact same locked1024x1024 face crop; do not zoom or recenter.",
+      "preparedFile": "demo/assets/characters/rin/pose-listening.png",
+      "reviewNotes": "2026-09-09: face/detail or full-pose review; original model alpha retained; full-frame manifest replacement. See character-staging-assets.json.",
+      "preparationRecord": "demo/.agents/character-staging-assets.json",
+      "sourceFile": "demo/.generated/art/flare/rin-pose-listening-output/4f9zty90rsrmw0d0gqmsgpwkf8-output-0-0.png",
+      "predictionId": "sef68va4yxrga0d0g97baeds7c",
+      "revisionHistory": [
+        {
+          "quality": "low",
+          "sourceFile": "demo/.generated/art/pose-candidates/rin-pose-listening.png",
+          "preparedFile": "demo/assets/characters/rin/pose-listening.png",
+          "status": "reviewed"
+        }
+      ],
+      "tool": "replicate-cli",
+      "model": "openai/gpt-image-2.5-flare",
+      "generation": {
+        "predictionId": "4f9zty90rsrmw0d0gqmsgpwkf8",
+        "quality": "medium"
+      },
+      "review": "2026-09-09 Flare重绘；详见heroine-flare-review.json。"
     },
     {
       "id": "rin-pose-explaining",
       "type": "sprite",
       "description": "rin／解释时轻轻摊手",
-      "status": "planned",
+      "status": "reviewed",
       "batch": 7,
-      "usedBy": [
-        "investigation-records"
-      ],
+      "usedBy": [],
       "dependsOn": [
         "rin-reference"
       ],
@@ -4250,20 +4468,37 @@
       "stagingPath": "demo/.generated/art/drafts/rin-pose-explaining.png",
       "aspectRatio": "2:3",
       "requiresAlpha": true,
-      "quality": "low",
+      "quality": "medium",
       "styleRevision": "heroine-summer-v7",
-      "prompt": "Japanese 2D visual novel anime production art, delicate clean outlines, coherent cel shading and painted background, attractive adult characters, no photorealism or 3D. No text, labels, logos, watermark or image panels. Single coherent physically plausible scene. Use image1 as the ONLY identity and wardrobe reference for rin. Make exactly ONE full-body standing pose variant on pure white, preserve adult age, hairstyle, facial anatomy, costume, proportions and shoes. One forearm gently extended at waist level with open palm angled up, five relaxed fingers, other arm hanging naturally, composed conversational expression. Avoid pointing at viewer. Entire head and both shoes inside frame with margin. Weight rests between feet, shoulders and hips naturally balanced. Two arms, two legs, exactly two hands, physically possible elbow and wrist orientation. Do not change clothing or lengthen legs. No panels, measurements, ground shadow or extra people."
+      "prompt": "Use case: identity-preserve. Precisely refine this existing Japanese anime visual novel face crop. Character is rin, an adult woman aged24-25. Improve ONLY eyes and lashes: delicate crisp tapered eyelash linework, coherent pupils in both eyes, finely drawn gray-brown with subtle warm reflections irises, restrained subtle iris gradients and consistent small catchlights. Keep the SAME eye outline, iris size, eye angle, gaze, expression and exact position. This is a quality refinement, NOT a new facial expression. Preserve all hair strands, head angle, ears, eyebrows, mouth, cheeks and background exactly. Maintain clean Japanese bishoujo galgame cel style, no realistic eyes, heavy makeup, glitter, enlarged eyes, western illustration, changed age or extra pupils. Output the exact same locked1024x1024 face crop; do not zoom or recenter.",
+      "preparedFile": "demo/assets/characters/rin/pose-explaining.png",
+      "reviewNotes": "2026-09-09: face/detail or full-pose review; original model alpha retained; full-frame manifest replacement. See character-staging-assets.json.",
+      "preparationRecord": "demo/.agents/character-staging-assets.json",
+      "sourceFile": "demo/.generated/art/flare/rin-pose-explaining-output/h9sxdvs3gsrmy0d0gqms2xq7ng-output-0-0.png",
+      "predictionId": "1zcj47t2t9rga0d0g978bc2x3w",
+      "revisionHistory": [
+        {
+          "quality": "low",
+          "sourceFile": "demo/.generated/art/pose-candidates/rin-pose-explaining.png",
+          "preparedFile": "demo/assets/characters/rin/pose-explaining.png",
+          "status": "reviewed"
+        }
+      ],
+      "tool": "replicate-cli",
+      "model": "openai/gpt-image-2.5-flare",
+      "generation": {
+        "predictionId": "h9sxdvs3gsrmy0d0gqms2xq7ng",
+        "quality": "medium"
+      },
+      "review": "2026-09-09 Flare重绘；详见heroine-flare-review.json。"
     },
     {
       "id": "rin-pose-phone",
       "type": "sprite",
       "description": "rin／接工作电话",
-      "status": "planned",
+      "status": "reviewed",
       "batch": 7,
-      "usedBy": [
-        "warning-working-together",
-        "shutdown-mobile"
-      ],
+      "usedBy": [],
       "dependsOn": [
         "rin-reference"
       ],
@@ -4271,18 +4506,42 @@
       "stagingPath": "demo/.generated/art/drafts/rin-pose-phone.png",
       "aspectRatio": "2:3",
       "requiresAlpha": true,
-      "quality": "low",
+      "quality": "medium",
       "styleRevision": "heroine-summer-v7",
-      "prompt": "Japanese 2D visual novel anime production art, delicate clean outlines, coherent cel shading and painted background, attractive adult characters, no photorealism or 3D. No text, labels, logos, watermark or image panels. Single coherent physically plausible scene. Use image1 as the ONLY identity and wardrobe reference for rin. Make exactly ONE full-body standing pose variant on pure white, preserve adult age, hairstyle, facial anatomy, costume, proportions and shoes. One hand holding a small ordinary smartphone against own ear, fingers naturally gripping edges, other arm relaxed at side. Focused listening face. Phone supported by hand, no headset cables. Entire head and both shoes inside frame with margin. Weight rests between feet, shoulders and hips naturally balanced. Two arms, two legs, exactly two hands, physically possible elbow and wrist orientation. Do not change clothing or lengthen legs. No panels, measurements, ground shadow or extra people."
+      "prompt": "Use case: identity-preserve. Precisely refine this existing Japanese anime visual novel face crop. Character is rin, an adult woman aged24-25. Improve ONLY eyes and lashes: delicate crisp tapered eyelash linework, coherent pupils in both eyes, finely drawn gray-brown with subtle warm reflections irises, restrained subtle iris gradients and consistent small catchlights. Keep the SAME eye outline, iris size, eye angle, gaze, expression and exact position. This is a quality refinement, NOT a new facial expression. Preserve all hair strands, head angle, ears, eyebrows, mouth, cheeks and background exactly. Maintain clean Japanese bishoujo galgame cel style, no realistic eyes, heavy makeup, glitter, enlarged eyes, western illustration, changed age or extra pupils. Output the exact same locked1024x1024 face crop; do not zoom or recenter.",
+      "preparedFile": "demo/assets/characters/rin/pose-phone.png",
+      "reviewNotes": "2026-09-09: face/detail or full-pose review; original model alpha retained; full-frame manifest replacement. See character-staging-assets.json.",
+      "preparationRecord": "demo/.agents/character-staging-assets.json",
+      "sourceFile": "demo/.generated/art/flare/rin-pose-phone-output/4646szgxpsrmr0d0gqmrdkmr4r-output-0-0.png",
+      "predictionId": "mwrqjvt8rdrga0d0g979v9rjy4",
+      "revisionHistory": [
+        {
+          "quality": "low",
+          "sourceFile": "demo/.generated/art/pose-candidates/rin-pose-phone.png",
+          "preparedFile": "demo/assets/characters/rin/pose-phone.png",
+          "status": "reviewed"
+        }
+      ],
+      "tool": "replicate-cli",
+      "model": "openai/gpt-image-2.5-flare",
+      "generation": {
+        "predictionId": "4646szgxpsrmr0d0gqmrdkmr4r",
+        "quality": "medium"
+      },
+      "review": "2026-09-09 Flare重绘；详见heroine-flare-review.json。"
     },
     {
       "id": "mara-pose-listening",
       "type": "sprite",
       "description": "mara／专心听对方说话",
-      "status": "rejected",
+      "status": "integrated",
       "batch": 7,
       "usedBy": [
-        "warning-working-together"
+        "chapter-07",
+        "chapter-03",
+        "chapter-02",
+        "chapter-01",
+        "prologue-restoration"
       ],
       "dependsOn": [
         "mara-reference"
@@ -4291,19 +4550,40 @@
       "stagingPath": "demo/.generated/art/drafts/mara-pose-listening.png",
       "aspectRatio": "2:3",
       "requiresAlpha": true,
-      "quality": "low",
+      "quality": "medium",
       "styleRevision": "heroine-summer-v7",
-      "prompt": "Japanese 2D visual novel anime production art, delicate clean outlines, coherent cel shading and painted background, attractive adult characters, no photorealism or 3D. No text, labels, logos, watermark or image panels. Single coherent physically plausible scene. Use image1 as the ONLY identity and wardrobe reference for mara. Make exactly ONE full-body standing pose variant on pure white, preserve adult age, hairstyle, facial anatomy, costume, proportions and shoes. Body turned just a little toward conversation partner, both arms relaxed at sides, one hand loosely resting over the other in front of waist, attentive neutral face. No props. Entire head and both shoes inside frame with margin. Weight rests between feet, shoulders and hips naturally balanced. Two arms, two legs, exactly two hands, physically possible elbow and wrist orientation. Do not change clothing or lengthen legs. No panels, measurements, ground shadow or extra people.",
-      "review": "提供参照时误选了双人样图，返回人物是凛；改用Mara独立参照，重做low。"
+      "prompt": "Use case: identity-preserve. Polish this exact Japanese anime galgame face crop. The input is the approved 24-year-old Mara with amber eyes and ash-brown hair. Refine only eyes, eyelashes, iris and pupil drawing: clean delicate tapered upper eyelash lines, coherent rounded pupils in both eyes, richly drawn amber irises with restrained gold lower reflections and two small consistent catchlights. Preserve her gentle mature young-adult expression, relaxed eyelids, gaze, eye size, warm small smile, original face shape and ALL hair contours. Keep the same Japanese anime cel art, no photoreal texture or realistic eyeballs. Do not enlarge eyes, make her younger, add eyeliner makeup or excessive sparkles. The input is a locked close-up at1024x1024: do not zoom, recenter, rotate or draw a new head/body. Outside the eyes and brows, preserve the input exactly.",
+      "review": "2026-09-09 Flare重绘；详见heroine-flare-review.json。",
+      "preparedFile": "demo/assets/characters/mara/pose-listening.png",
+      "reviewNotes": "2026-09-09: face/detail or full-pose review; original model alpha retained; full-frame manifest replacement. See character-staging-assets.json.",
+      "preparationRecord": "demo/.agents/character-staging-assets.json",
+      "sourceFile": "demo/.generated/art/flare/mara-pose-listening-output/p51cre3wxhrmt0d0gqk89sb9jm-output-0-0.png",
+      "predictionId": "kdmessg9wxrga0d0g9aawr20k8",
+      "revisionHistory": [
+        {
+          "quality": "low",
+          "sourceFile": "demo/.generated/art/pose-candidates/mara-pose-listening-v2.png",
+          "preparedFile": "demo/assets/characters/mara/pose-listening.png",
+          "status": "integrated"
+        }
+      ],
+      "tool": "replicate-cli",
+      "model": "openai/gpt-image-2.5-flare",
+      "generation": {
+        "predictionId": "p51cre3wxhrmt0d0gqk89sb9jm",
+        "quality": "medium"
+      }
     },
     {
       "id": "mara-pose-explaining",
       "type": "sprite",
       "description": "mara／解释时轻轻摊手",
-      "status": "planned",
+      "status": "integrated",
       "batch": 7,
       "usedBy": [
-        "investigation-records"
+        "prologue-return-line",
+        "chapter-03",
+        "prologue-restoration"
       ],
       "dependsOn": [
         "mara-reference"
@@ -4312,19 +4592,40 @@
       "stagingPath": "demo/.generated/art/drafts/mara-pose-explaining.png",
       "aspectRatio": "2:3",
       "requiresAlpha": true,
-      "quality": "low",
+      "quality": "medium",
       "styleRevision": "heroine-summer-v7",
-      "prompt": "Japanese 2D visual novel anime production art, delicate clean outlines, coherent cel shading and painted background, attractive adult characters, no photorealism or 3D. No text, labels, logos, watermark or image panels. Single coherent physically plausible scene. Use image1 as the ONLY identity and wardrobe reference for mara. Make exactly ONE full-body standing pose variant on pure white, preserve adult age, hairstyle, facial anatomy, costume, proportions and shoes. One forearm gently extended at waist level with open palm angled up, five relaxed fingers, other arm hanging naturally, composed conversational expression. Avoid pointing at viewer. Entire head and both shoes inside frame with margin. Weight rests between feet, shoulders and hips naturally balanced. Two arms, two legs, exactly two hands, physically possible elbow and wrist orientation. Do not change clothing or lengthen legs. No panels, measurements, ground shadow or extra people."
+      "prompt": "Use case: identity-preserve. Precisely refine this existing Japanese anime visual novel face crop. Character is mara, an adult woman aged24-25. Improve ONLY eyes and lashes: delicate crisp tapered eyelash linework, coherent pupils in both eyes, finely drawn amber with subtle gold reflections irises, restrained subtle iris gradients and consistent small catchlights. Keep the SAME eye outline, iris size, eye angle, gaze, expression and exact position. This is a quality refinement, NOT a new facial expression. Preserve all hair strands, head angle, ears, eyebrows, mouth, cheeks and background exactly. Maintain clean Japanese bishoujo galgame cel style, no realistic eyes, heavy makeup, glitter, enlarged eyes, western illustration, changed age or extra pupils. Output the exact same locked1024x1024 face crop; do not zoom or recenter.",
+      "preparedFile": "demo/assets/characters/mara/pose-explaining.png",
+      "reviewNotes": "2026-09-09: face/detail or full-pose review; original model alpha retained; full-frame manifest replacement. See character-staging-assets.json.",
+      "preparationRecord": "demo/.agents/character-staging-assets.json",
+      "sourceFile": "demo/.generated/art/flare/mara-pose-explaining-output/1d52eb0r7nrmy0d0gqms6zmxrm-output-0-0.png",
+      "predictionId": "q6wz6gbc0srgc0d0g97ax1f15g",
+      "revisionHistory": [
+        {
+          "quality": "low",
+          "sourceFile": "demo/.generated/art/pose-candidates/mara-pose-explaining.png",
+          "preparedFile": "demo/assets/characters/mara/pose-explaining.png",
+          "status": "integrated"
+        }
+      ],
+      "tool": "replicate-cli",
+      "model": "openai/gpt-image-2.5-flare",
+      "generation": {
+        "predictionId": "1d52eb0r7nrmy0d0gqms6zmxrm",
+        "quality": "medium"
+      },
+      "review": "2026-09-09 Flare重绘；详见heroine-flare-review.json。"
     },
     {
       "id": "mara-pose-phone",
       "type": "sprite",
       "description": "mara／接工作电话",
-      "status": "planned",
+      "status": "integrated",
       "batch": 7,
       "usedBy": [
-        "warning-working-together",
-        "shutdown-mobile"
+        "chapter-02",
+        "chapter-01",
+        "chapter-04"
       ],
       "dependsOn": [
         "mara-reference"
@@ -4333,15 +4634,35 @@
       "stagingPath": "demo/.generated/art/drafts/mara-pose-phone.png",
       "aspectRatio": "2:3",
       "requiresAlpha": true,
-      "quality": "low",
+      "quality": "medium",
       "styleRevision": "heroine-summer-v7",
-      "prompt": "Japanese 2D visual novel anime production art, delicate clean outlines, coherent cel shading and painted background, attractive adult characters, no photorealism or 3D. No text, labels, logos, watermark or image panels. Single coherent physically plausible scene. Use image1 as the ONLY identity and wardrobe reference for mara. Make exactly ONE full-body standing pose variant on pure white, preserve adult age, hairstyle, facial anatomy, costume, proportions and shoes. One hand holding a small ordinary smartphone against own ear, fingers naturally gripping edges, other arm relaxed at side. Focused listening face. Phone supported by hand, no headset cables. Entire head and both shoes inside frame with margin. Weight rests between feet, shoulders and hips naturally balanced. Two arms, two legs, exactly two hands, physically possible elbow and wrist orientation. Do not change clothing or lengthen legs. No panels, measurements, ground shadow or extra people."
+      "prompt": "Use case: identity-preserve. Precisely refine this existing Japanese anime visual novel face crop. Character is mara, an adult woman aged24-25. Improve ONLY eyes and lashes: delicate crisp tapered eyelash linework, coherent pupils in both eyes, finely drawn amber with subtle gold reflections irises, restrained subtle iris gradients and consistent small catchlights. Keep the SAME eye outline, iris size, eye angle, gaze, expression and exact position. This is a quality refinement, NOT a new facial expression. Preserve all hair strands, head angle, ears, eyebrows, mouth, cheeks and background exactly. Maintain clean Japanese bishoujo galgame cel style, no realistic eyes, heavy makeup, glitter, enlarged eyes, western illustration, changed age or extra pupils. Output the exact same locked1024x1024 face crop; do not zoom or recenter.",
+      "preparedFile": "demo/assets/characters/mara/pose-phone.png",
+      "reviewNotes": "2026-09-09: face/detail or full-pose review; original model alpha retained; full-frame manifest replacement. See character-staging-assets.json.",
+      "preparationRecord": "demo/.agents/character-staging-assets.json",
+      "sourceFile": "demo/.generated/art/flare/mara-pose-phone-output/vdzq2hgthnrmr0d0gqms0md2yg-output-0-0.png",
+      "predictionId": "2rezy4kc99rge0d0g97by6s8q0",
+      "revisionHistory": [
+        {
+          "quality": "low",
+          "sourceFile": "demo/.generated/art/pose-candidates/mara-pose-phone.png",
+          "preparedFile": "demo/assets/characters/mara/pose-phone.png",
+          "status": "integrated"
+        }
+      ],
+      "tool": "replicate-cli",
+      "model": "openai/gpt-image-2.5-flare",
+      "generation": {
+        "predictionId": "vdzq2hgthnrmr0d0gqms0md2yg",
+        "quality": "medium"
+      },
+      "review": "2026-09-09 Flare重绘；详见heroine-flare-review.json。"
     },
     {
       "id": "yumi-reference-summer-v4",
       "type": "sprite",
       "description": "由美初夏短袖换装参考",
-      "status": "planned",
+      "status": "reviewed",
       "batch": 7,
       "usedBy": [],
       "dependsOn": [
@@ -4353,7 +4674,8 @@
       "requiresAlpha": false,
       "quality": "low",
       "prompt": "Edit the supplied Yumi identity reference ONLY. Japanese 2D visual novel style. Preserve this exact adult 46-year-old woman, short curly brown hair, burgundy glasses, broad round face, fuller soft build, navy calf-length culottes, shoes and same pose. CHANGE ONLY the top: lightweight plain ivory cotton summer blouse with round neckline and loose SHORT sleeves ending halfway from shoulder to elbow, smooth thin cotton drape, no knit ribbing, no sweater cuffs, no long sleeves. Keep full figure entirely within frame on plain white, unchanged height proportions. No text, labels, extra people or scenery. She is 153cm with a short mature fuller build, not a slender young heroine.",
-      "styleRevision": "distinct-cast-summer-v4"
+      "styleRevision": "distinct-cast-summer-v4",
+      "preparedFile": "demo/assets/characters/yumi/neutral.png"
     },
     {
       "id": "late-edit-v2",
@@ -5343,6 +5665,198 @@
         ],
         "sha256": "8df96466fc84792f60fe14c79aea42173c5872358b4728a2327b65be1eb0e816"
       }
+    },
+    {
+      "id": "mara-laugh-soft",
+      "type": "sprite",
+      "description": "laugh-soft",
+      "dependsOn": [
+        "mara-reference"
+      ],
+      "requiresAlpha": true,
+      "status": "integrated",
+      "tool": "replicate-cli",
+      "model": "openai/gpt-image-2.5-flare",
+      "quality": "medium",
+      "prompt": "Use case: identity-preserve. Asset type: Japanese anime visual novel character variant. Input image 1 is this same heroine’s approved neutral sprite, used for identity, palette, clothing, proportions and rendering style. Refined Japanese bishoujo galgame cel art, crisp colored outlines, flat colors and restrained two/three-tone shading. Exactly one adult woman. Preserve identity, hair silhouette and color, eye color, clothing seams, shoes, red wrist cord when present, body proportions and light direction. No photorealism, painterly skin, chibi anatomy, new costume, text, watermark, additional person or duplicated limb. Keep the exact supplied face crop. Do not bake any second person or location into the sprite.\nMara,24,172cm, long waist-length ash-brown hair, amber eyes, gentle oval face, yellow short puff-sleeve blouse, ivory knee skirt, flat Mary Jane shoes. Warm young onee-san presence; no increase in age or bust.\nChange: Eyes gently narrowed with a small open laughing mouth, cheeks slightly lifted. Preserve neutral body and all alpha; expression only. Not a huge gag face.\nThe input is a deliberately locked FACE CROP. Keep1024x1024 framing and all hair, ears and chin outlines exactly unchanged. Change facial expression only. Refine eyes with delicate tapered lines, defined pupils, subtle iris reflections and consistent small catchlights. Do not draw any body or change age. Do not zoom out.",
+      "destination": "demo/assets/characters/mara/laugh-soft.png",
+      "preparedFile": "demo/assets/characters/mara/laugh-soft.png",
+      "sourceFile": "demo/.generated/art/flare/mara-laugh-soft-output/s6x5vn4egnrmt0d0gqp9xabxxc-output-0-0.png",
+      "usedBy": [
+        "chapter-03"
+      ],
+      "generation": {
+        "predictionId": "s6x5vn4egnrmt0d0gqp9xabxxc",
+        "quality": "medium"
+      },
+      "review": "2026-09-09 Flare重绘；详见heroine-flare-review.json。"
+    },
+    {
+      "id": "mara-hurt-look-away",
+      "type": "sprite",
+      "description": "hurt-look-away",
+      "dependsOn": [
+        "mara-reference"
+      ],
+      "requiresAlpha": true,
+      "status": "integrated",
+      "tool": "replicate-cli",
+      "model": "openai/gpt-image-2.5-flare",
+      "quality": "medium",
+      "prompt": "Edit this exact1024x1024 cropped anime face of adult Mara. Keep every hair contour, face silhouette, ear, head size, head tilt and background pixel in place. Change ONLY her facial expression: she has just learned a person she trusts concealed her death warning. She is quietly hurt and upset, NOT smiling. Lips closed in a small clearly downward curve, inner eyebrows raised and drawn together, eyes slightly red-rimmed, both pupils looking away to her right instead of at viewer. No tears rolling down. No romantic blush or pleased look. Preserve her refined amber irises, delicate upper lashes, modest iris highlights and recognisable adult Japanese galgame face. Expression must visibly differ from neutral and romantic shy; keep mouth closed, no shouting. Do not zoom or add a body.",
+      "destination": "demo/assets/characters/mara/hurt-look-away.png",
+      "preparedFile": "demo/assets/characters/mara/hurt-look-away.png",
+      "sourceFile": "demo/.generated/art/flare/mara-hurt-look-away-v2-output/4rsfdbvhh5rmt0d0gqtb37tvxm-output-0-0.png",
+      "usedBy": [
+        "chapter-04"
+      ],
+      "generation": {
+        "predictionId": "4rsfdbvhh5rmt0d0gqtb37tvxm",
+        "quality": "medium"
+      },
+      "review": "2026-09-09 Flare重绘；详见heroine-flare-review.json。"
+    },
+    {
+      "id": "mara-shy-look-down",
+      "type": "sprite",
+      "description": "shy-look-down",
+      "dependsOn": [
+        "mara-reference"
+      ],
+      "requiresAlpha": true,
+      "status": "integrated",
+      "tool": "replicate-cli",
+      "model": "openai/gpt-image-2.5-flare",
+      "quality": "medium",
+      "prompt": "Use case: identity-preserve. Asset type: Japanese anime visual novel character variant. Input image 1 is this same heroine’s approved neutral sprite, used for identity, palette, clothing, proportions and rendering style. Refined Japanese bishoujo galgame cel art, crisp colored outlines, flat colors and restrained two/three-tone shading. Exactly one adult woman. Preserve identity, hair silhouette and color, eye color, clothing seams, shoes, red wrist cord when present, body proportions and light direction. No photorealism, painterly skin, chibi anatomy, new costume, text, watermark, additional person or duplicated limb. Keep the exact supplied face crop. Do not bake any second person or location into the sprite.\nMara,24,172cm, long waist-length ash-brown hair, amber eyes, gentle oval face, yellow short puff-sleeve blouse, ivory knee skirt, flat Mary Jane shoes. Warm young onee-san presence; no increase in age or bust.\nChange: Downcast eyes and a small shy smile, soft blush, eyebrows relaxed with slight uncertainty. Preserve head scale and outline, no dramatic head tilt; expression only.\nThe input is a deliberately locked FACE CROP. Keep1024x1024 framing and all hair, ears and chin outlines exactly unchanged. Change facial expression only. Refine eyes with delicate tapered lines, defined pupils, subtle iris reflections and consistent small catchlights. Do not draw any body or change age. Do not zoom out.",
+      "destination": "demo/assets/characters/mara/shy-look-down.png",
+      "preparedFile": "demo/assets/characters/mara/shy-look-down.png",
+      "sourceFile": "demo/.generated/art/flare/mara-shy-look-down-output/v36dfscd39rmw0d0gqpbtgxhrr-output-0-0.png",
+      "usedBy": [
+        "chapter-07"
+      ],
+      "generation": {
+        "predictionId": "v36dfscd39rmw0d0gqpbtgxhrr",
+        "quality": "medium"
+      },
+      "review": "2026-09-09 Flare重绘；详见heroine-flare-review.json。"
+    },
+    {
+      "id": "rin-quiet-smile",
+      "type": "sprite",
+      "description": "quiet-smile",
+      "dependsOn": [
+        "rin-reference"
+      ],
+      "requiresAlpha": true,
+      "status": "reviewed",
+      "tool": "replicate-cli",
+      "model": "openai/gpt-image-2.5-flare",
+      "quality": "medium",
+      "prompt": "Use case: identity-preserve. Asset type: Japanese anime visual novel character variant. Input image 1 is this same heroine’s approved neutral sprite, used for identity, palette, clothing, proportions and rendering style. Refined Japanese bishoujo galgame cel art, crisp colored outlines, flat colors and restrained two/three-tone shading. Exactly one adult woman. Preserve identity, hair silhouette and color, eye color, clothing seams, shoes, red wrist cord when present, body proportions and light direction. No photorealism, painterly skin, chibi anatomy, new costume, text, watermark, additional person or duplicated limb. Keep the exact supplied face crop. Do not bake any second person or location into the sprite.\nRin,25,163cm, cute adult oval face, short blue-black bob with teal strand, gray-brown eyes, mist-blue plain T-shirt, navy full-length straight trousers, white sneakers. Reserved and understated; no childlike proportions.\nChange: Soft small closed-mouth smile and steady forward gaze, light blush, still shy but resolved. Preserve exact neutral body and face silhouette. No smug grin.\nThe input is a deliberately locked FACE CROP. Keep1024x1024 framing and all hair, ears and chin outlines exactly unchanged. Change facial expression only. Refine eyes with delicate tapered lines, defined pupils, subtle iris reflections and consistent small catchlights. Do not draw any body or change age. Do not zoom out.",
+      "destination": "demo/assets/characters/rin/quiet-smile.png",
+      "preparedFile": "demo/assets/characters/rin/quiet-smile.png",
+      "sourceFile": "demo/.generated/art/flare/rin-quiet-smile-output/27rapn4jzxrmy0d0gqp8bz7d50-output-0-0.png",
+      "usedBy": [],
+      "generation": {
+        "predictionId": "27rapn4jzxrmy0d0gqp8bz7d50",
+        "quality": "medium"
+      },
+      "review": "2026-09-09 Flare重绘；详见heroine-flare-review.json。"
+    },
+    {
+      "id": "rin-teary-relief",
+      "type": "sprite",
+      "description": "teary-relief",
+      "dependsOn": [
+        "rin-reference"
+      ],
+      "requiresAlpha": true,
+      "status": "reviewed",
+      "tool": "replicate-cli",
+      "model": "openai/gpt-image-2.5-flare",
+      "quality": "medium",
+      "prompt": "Use case: identity-preserve. Asset type: Japanese anime visual novel character variant. Input image 1 is this same heroine’s approved neutral sprite, used for identity, palette, clothing, proportions and rendering style. Refined Japanese bishoujo galgame cel art, crisp colored outlines, flat colors and restrained two/three-tone shading. Exactly one adult woman. Preserve identity, hair silhouette and color, eye color, clothing seams, shoes, red wrist cord when present, body proportions and light direction. No photorealism, painterly skin, chibi anatomy, new costume, text, watermark, additional person or duplicated limb. Keep the exact supplied face crop. Do not bake any second person or location into the sprite.\nRin,25,163cm, cute adult oval face, short blue-black bob with teal strand, gray-brown eyes, mist-blue plain T-shirt, navy full-length straight trousers, white sneakers. Reserved and understated; no childlike proportions.\nChange: Quiet tears emerging from eyes, brows slightly drawn together, a trembling partly open mouth, no smile and no sobbing gag face. Tears must remain inside the reviewed face area, preserving body and outer alpha.\nThe input is a deliberately locked FACE CROP. Keep1024x1024 framing and all hair, ears and chin outlines exactly unchanged. Change facial expression only. Refine eyes with delicate tapered lines, defined pupils, subtle iris reflections and consistent small catchlights. Do not draw any body or change age. Do not zoom out.",
+      "destination": "demo/assets/characters/rin/teary-relief.png",
+      "preparedFile": "demo/assets/characters/rin/teary-relief.png",
+      "sourceFile": "demo/.generated/art/flare/rin-teary-relief-output/3jdadz4genrmy0d0gqpa8bfj04-output-0-0.png",
+      "usedBy": [],
+      "generation": {
+        "predictionId": "3jdadz4genrmy0d0gqpa8bfj04",
+        "quality": "medium"
+      },
+      "review": "2026-09-09 Flare重绘；详见heroine-flare-review.json。"
+    },
+    {
+      "id": "rin-eyes-closed-shy",
+      "type": "sprite",
+      "description": "eyes-closed-shy",
+      "dependsOn": [
+        "rin-reference"
+      ],
+      "requiresAlpha": true,
+      "status": "reviewed",
+      "tool": "replicate-cli",
+      "model": "openai/gpt-image-2.5-flare",
+      "quality": "medium",
+      "prompt": "Use case: identity-preserve. Asset type: Japanese anime visual novel character variant. Input image 1 is this same heroine’s approved neutral sprite, used for identity, palette, clothing, proportions and rendering style. Refined Japanese bishoujo galgame cel art, crisp colored outlines, flat colors and restrained two/three-tone shading. Exactly one adult woman. Preserve identity, hair silhouette and color, eye color, clothing seams, shoes, red wrist cord when present, body proportions and light direction. No photorealism, painterly skin, chibi anatomy, new costume, text, watermark, additional person or duplicated limb. Keep the exact supplied face crop. Do not bake any second person or location into the sprite.\nRin,25,163cm, cute adult oval face, short blue-black bob with teal strand, gray-brown eyes, mist-blue plain T-shirt, navy full-length straight trousers, white sneakers. Reserved and understated; no childlike proportions.\nChange: Eyes softly closed, light blush, lips relaxed and very slightly parted. No kiss partner, pursed cartoon lips or exaggerated sensuality. Preserve exact body and head framing.\nThe input is a deliberately locked FACE CROP. Keep1024x1024 framing and all hair, ears and chin outlines exactly unchanged. Change facial expression only. Refine eyes with delicate tapered lines, defined pupils, subtle iris reflections and consistent small catchlights. Do not draw any body or change age. Do not zoom out.",
+      "destination": "demo/assets/characters/rin/eyes-closed-shy.png",
+      "preparedFile": "demo/assets/characters/rin/eyes-closed-shy.png",
+      "sourceFile": "demo/.generated/art/flare/rin-eyes-closed-shy-output/0bkn0hmph1rmt0d0gqp9wxd6am-output-0-0.png",
+      "usedBy": [],
+      "generation": {
+        "predictionId": "0bkn0hmph1rmt0d0gqp9wxd6am",
+        "quality": "medium"
+      },
+      "review": "2026-09-09 Flare重绘；详见heroine-flare-review.json。"
+    },
+    {
+      "id": "mara-pose-offer-hand",
+      "type": "sprite",
+      "description": "pose-offer-hand",
+      "dependsOn": [
+        "mara-reference"
+      ],
+      "requiresAlpha": true,
+      "status": "integrated",
+      "tool": "replicate-cli",
+      "model": "openai/gpt-image-2.5-flare",
+      "quality": "medium",
+      "prompt": "Use case: identity-preserve. Asset type: Japanese anime visual novel character variant. Input image 1 is this same heroine’s approved neutral sprite, used for identity, palette, clothing, proportions and rendering style. Refined Japanese bishoujo galgame cel art, crisp colored outlines, flat colors and restrained two/three-tone shading. Exactly one adult woman. Preserve identity, hair silhouette and color, eye color, clothing seams, shoes, red wrist cord when present, body proportions and light direction. No photorealism, painterly skin, chibi anatomy, new costume, text, watermark, additional person or duplicated limb. Keep head and feet inside frame; simple plain background suitable for model-based removal. Do not bake any second person or location into the sprite.\nMara,24,172cm, long waist-length ash-brown hair, amber eyes, gentle oval face, yellow short puff-sleeve blouse, ivory knee skirt, flat Mary Jane shoes. Warm young onee-san presence; no increase in age or bust.\nChange: One empty open hand extended gently forward and slightly downward at natural waist level, fingers relaxed and separated, other arm at side. A bashful warm smile, shoulders relaxed, stable standing stance. No grasped invisible partner.\nKeep the exact approved fine eye drawing and face identity. Produce genuine transparent PNG alpha, no checkerboard, white fringe, ground shadow or chair. Full body standing with feet visible. Expression must be restrained, a gentle shy smile. The extended hand must have five anatomically correct fingers, natural wrist and elbow. No second person.",
+      "destination": "demo/assets/characters/mara/pose-offer-hand.png",
+      "preparedFile": "demo/assets/characters/mara/pose-offer-hand.png",
+      "sourceFile": "demo/.generated/art/flare/mara-pose-offer-hand-output/mhb1a5wh0hrmt0d0gqp85hsm9g-output-0-0.png",
+      "usedBy": [
+        "chapter-07"
+      ],
+      "generation": {
+        "predictionId": "mhb1a5wh0hrmt0d0gqp85hsm9g",
+        "quality": "medium"
+      },
+      "review": "2026-09-09 Flare重绘；详见heroine-flare-review.json。"
+    },
+    {
+      "id": "rin-pose-reach-hand",
+      "type": "sprite",
+      "description": "pose-reach-hand",
+      "dependsOn": [
+        "rin-reference"
+      ],
+      "requiresAlpha": true,
+      "status": "reviewed",
+      "tool": "replicate-cli",
+      "model": "openai/gpt-image-2.5-flare",
+      "quality": "medium",
+      "prompt": "Use case: identity-preserve. Asset type: Japanese anime visual novel character variant. Input image 1 is this same heroine’s approved neutral sprite, used for identity, palette, clothing, proportions and rendering style. Refined Japanese bishoujo galgame cel art, crisp colored outlines, flat colors and restrained two/three-tone shading. Exactly one adult woman. Preserve identity, hair silhouette and color, eye color, clothing seams, shoes, red wrist cord when present, body proportions and light direction. No photorealism, painterly skin, chibi anatomy, new costume, text, watermark, additional person or duplicated limb. Keep head and feet inside frame; simple plain background suitable for model-based removal. Do not bake any second person or location into the sprite.\nRin,25,163cm, cute adult oval face, short blue-black bob with teal strand, gray-brown eyes, mist-blue plain T-shirt, navy full-length straight trousers, white sneakers. Reserved and understated; no childlike proportions.\nChange: One empty hand reaching gently forward and slightly down, fingers naturally open, modest shy smile, relaxed shoulders, other hand at side. No invisible grasp, no extra hand. Complete body.\nKeep the exact approved fine eye drawing and face identity. Produce genuine transparent PNG alpha, no checkerboard, white fringe, ground shadow or chair. Full body standing with feet visible. Expression must be restrained, a gentle shy smile. The extended hand must have five anatomically correct fingers, natural wrist and elbow. No second person.",
+      "destination": "demo/assets/characters/rin/pose-reach-hand.png",
+      "preparedFile": "demo/assets/characters/rin/pose-reach-hand.png",
+      "sourceFile": "demo/.generated/art/flare/rin-pose-reach-hand-output/jncad7wnfhrmt0d0gqp8pqe6sr-output-0-0.png",
+      "usedBy": [],
+      "generation": {
+        "predictionId": "jncad7wnfhrmt0d0gqp8pqe6sr",
+        "quality": "medium"
+      },
+      "review": "2026-09-09 Flare重绘；详见heroine-flare-review.json。"
     }
   ],
   "characterDesigns": {
@@ -5677,5 +6191,34 @@
     "period": "June–November",
     "location": "fictional Aoba, Japan",
     "scienceFictionPremise": "fixed24-hour received-before-transmitted audio only"
+  },
+  "stagingReview": "demo/.agents/qs-staging-2026-09-09.md",
+  "nextHeroineVariants": {
+    "manifest": "demo/.agents/heroine-variants-next.json",
+    "requestedModel": "gpt-image-2.5-flare",
+    "generated": 8,
+    "integratedInQs": 4,
+    "remainingCompositionPlans": 4,
+    "status": "8 reviewed;4 need scene composition"
+  },
+  "wardrobeReview": {
+    "record": "demo/.agents/wardrobe-assets.json",
+    "plan": "demo/.agents/wardrobe.md",
+    "model": "openai/gpt-image-2.5-flare",
+    "quality": "medium",
+    "generationCalls": 13,
+    "newOutfits": 12,
+    "newSprites": 112,
+    "status": "verified-web",
+    "validation": "20 production story checks,18 authored visual checks,0 browser errors;193 Quack tests. Native scripts compile; native visual review not performed."
+  },
+  "actingExpansionReview": {
+    "record": "acting-expansion-assets.json",
+    "notes": "acting-expansion.md",
+    "model": "openai/gpt-image-2.5-flare",
+    "quality": "medium",
+    "generationCalls": 7,
+    "newSprites": 7,
+    "status": "integrated and verified:21 full regression cases,28 acting checks,final Yumi companion correction separately rechecked"
   }
 }

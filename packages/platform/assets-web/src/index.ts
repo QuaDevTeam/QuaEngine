@@ -38,6 +38,11 @@ export interface WebAssetsAdapterOptions {
   storage?: AssetStorage
 }
 
+/** Persistent byte storage shared by engine and renderer assets; no in-memory mirror. */
+export function createWebAssetStorage(options: Pick<WebAssetsAdapterOptions, 'databaseName' | 'databaseVersion'> = {}): AssetStorage {
+  return new IndexedDBAssetStorage(options.databaseName, options.databaseVersion) as unknown as AssetStorage
+}
+
 export interface WebAssetObjectUrlHandle {
   url: string
   revoke: () => void
@@ -47,7 +52,7 @@ export function createWebAssetsAdapter(options: WebAssetsAdapterOptions = {}): A
   const fetcher = options.fetcher || globalThis.fetch.bind(globalThis)
   return {
     name: 'web',
-    storage: options.storage || (new IndexedDBAssetStorage(options.databaseName, options.databaseVersion) as unknown as AssetStorage),
+    storage: options.storage || createWebAssetStorage(options),
     fetcher: {
       async fetchBytes(url, fetchOptions = {}): Promise<AssetFetchResult> {
         const response = await fetcher(url, {
@@ -356,37 +361,63 @@ function normalizeBundleList(bundles: WebAssetRuntimeConfig['initialBundles']): 
   return typeof bundles === 'string' ? [bundles] : [...bundles]
 }
 
+type IndexedAsset = StoredAsset & { lookupKeys: string[] }
+
 class IndexedDBAssetStorage extends Dexie {
-  assets!: Table<StoredAsset, string>
+  assets!: Table<IndexedAsset, string>
   bundles!: Table<StoredBundle, string>
 
-  constructor(databaseName = 'QuaAssetsDB', version = 2) {
+  constructor(databaseName = 'QuaAssetsDB', version = 3) {
     super(databaseName)
     this.version(version).stores({
-      assets: 'id, bundleName, logicalBundleName, bundleVersionKey, name, type, locale, hash, version, lastAccessed, createdAt',
+      assets: 'id, bundleName, logicalBundleName, bundleVersionKey, name, type, locale, hash, version, lastAccessed, createdAt, size, [lastAccessed+size], *lookupKeys',
       bundles: 'versionKey, name, logicalName, version, buildNumber, hash, lastUpdated, createdAt, active',
-    })
+    }).upgrade(transaction => transaction.table('assets').toCollection().modify(asset => {
+      asset.lookupKeys = assetLookupKeys(asset)
+    }))
   }
 
   async storeAsset(asset: StoredAsset): Promise<void> {
-    await this.assets.put({ ...asset, lastAccessed: Date.now() })
+    await this.assets.put({ ...asset, lookupKeys: assetLookupKeys(asset), lastAccessed: Date.now() })
   }
 
   async storeAssets(assets: StoredAsset[]): Promise<void> {
     const now = Date.now()
-    await this.assets.bulkPut(assets.map(asset => ({ ...asset, lastAccessed: now })))
+    // Bound IndexedDB structured-clone work; bulkPut of a whole QPK duplicates
+    // all of its bytes while the deserialized archive is still alive.
+    let batch: IndexedAsset[] = []
+    let bytes = 0
+    for (const asset of assets) {
+      if (batch.length && bytes + asset.data.byteLength > 8 * 1024 * 1024) {
+        await this.assets.bulkPut(batch)
+        batch = []
+        bytes = 0
+      }
+      batch.push({ ...asset, lookupKeys: assetLookupKeys(asset), lastAccessed: now })
+      bytes += asset.data.byteLength
+    }
+    if (batch.length) await this.assets.bulkPut(batch)
   }
 
   async getAsset(id: string): Promise<StoredAsset | undefined> {
     const asset = await this.assets.get(id)
     if (asset) {
-      await this.assets.put({ ...asset, lastAccessed: Date.now() })
+      await this.assets.put({ ...asset, lookupKeys: assetLookupKeys(asset), lastAccessed: Date.now() })
     }
     return asset
   }
 
   async findAssets(criteria: AssetFindCriteria): Promise<StoredAsset[]> {
-    return await this.assets
+    // Resolve canonical names AND path aliases through an index. A JS filter
+    // over all characters would deserialize the entire cast on every expression.
+    const collection = criteria.name
+      ? this.assets.where('lookupKeys').equals(criteria.name)
+      : criteria.bundleVersionKey
+      ? this.assets.where('bundleVersionKey').equals(criteria.bundleVersionKey)
+      : criteria.type
+        ? this.assets.where('type').equals(criteria.type)
+        : this.assets.toCollection()
+    return await collection
       .filter(asset =>
         (!criteria.bundleVersionKey || asset.bundleVersionKey === criteria.bundleVersionKey)
         && (!criteria.bundleName || matchesBundleCriteria(asset, criteria.bundleName))
@@ -473,8 +504,8 @@ class IndexedDBAssetStorage extends Dexie {
 
   async getDatabaseSize(): Promise<number> {
     let size = 0
-    await this.assets.each((asset) => {
-      size += asset.size
+    await this.assets.orderBy('size').eachKey(key => {
+      size += Number(key)
     })
     return size
   }
@@ -483,28 +514,35 @@ class IndexedDBAssetStorage extends Dexie {
     const currentSize = await this.getDatabaseSize()
     if (currentSize <= maxSize)
       return 0
-    const assets = await this.assets.orderBy('lastAccessed').toArray()
     let removedSize = 0
     const ids: string[] = []
-    for (const asset of assets) {
-      ids.push(asset.id)
-      removedSize += asset.size
-      if (currentSize - removedSize <= maxSize)
-        break
-    }
+    await this.assets.orderBy('[lastAccessed+size]').until(() => currentSize - removedSize <= maxSize).eachKey((key, cursor) => {
+      ids.push(String(cursor.primaryKey))
+      removedSize += Number((key as number[])[1])
+    })
     await this.assets.bulkDelete(ids)
     return ids.length
   }
 
   async getCacheStats() {
-    const assets = await this.assets.toArray()
-    const totalSize = assets.reduce((sum, asset) => sum + asset.size, 0)
+    let totalAssets = 0
+    let totalSize = 0
+    let oldest = Infinity
+    let newest = -Infinity
+    // Index keys carry the counters; statistics never deserialize image bytes.
+    await this.assets.orderBy('[lastAccessed+size]').eachKey(key => {
+      const [accessed, size] = key as number[]
+      totalAssets += 1
+      totalSize += size
+      oldest = Math.min(oldest, accessed)
+      newest = Math.max(newest, accessed)
+    })
     return {
-      totalAssets: assets.length,
+      totalAssets,
       totalBundles: await this.bundles.count(),
       totalSize,
-      oldestAsset: assets.length ? new Date(Math.min(...assets.map(asset => asset.lastAccessed))) : null,
-      newestAsset: assets.length ? new Date(Math.max(...assets.map(asset => asset.lastAccessed))) : null,
+      oldestAsset: totalAssets ? new Date(oldest) : null,
+      newestAsset: totalAssets ? new Date(newest) : null,
     }
   }
 
@@ -569,4 +607,13 @@ function toArrayBuffer(data: Uint8Array): ArrayBuffer {
   const buffer = new ArrayBuffer(data.byteLength)
   new Uint8Array(buffer).set(data)
   return buffer
+}
+
+function assetLookupKeys(asset: StoredAsset): string[] {
+  const names = new Set([asset.name])
+  if (asset.path) {
+    const parts = asset.path.split('/')
+    for (let index = 0; index < parts.length; index++) names.add(parts.slice(index).join('/'))
+  }
+  return [...names]
 }

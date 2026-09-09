@@ -1,10 +1,14 @@
 # 资产制作流程
 
+本轮换装见 [服装连续性](wardrobe.md) 与 [实际生成记录](wardrobe-assets.json)。新资源继续由 Quack 打入 QPK。发现并修正了嵌套背景在生产包中被登记为纯文件名的问题：资源记录的 name 与 manifest 键均保留类型目录内的路径，例如 `backgrounds/town-bus-rain.webp`，与 dev VFS 一致。素材扩展到145MB后，还触发了原有100MiB默认缓存的清理，广播台背景和旧表情被提前删去。demo生产入口现从构建清单的totalSize计算静态包缓存容量（至少256MiB或包体的两倍）；缓存上限不是预分配内存。Quack也不再将cg、ui目录误识别为语言代码。验收必须检查背景和人物图片真实解码，不能只以浏览器没有报错或包内存在文件判定成功。
+
 2026-09-08 用户已要求开始图片制作，覆盖此前暂停。当前完整队列为 [art-production.json](art-production.json)；[prologue-art.json](prologue-art.json)保留首批八项提示词。六人基础透明PNG、39张审核背景与6张CG/标题图已准备到assets并通过素材检查，尚未全部添加剧情出场；生成、拒稿与审阅状态以机器清单为准。
+
+最新补充：主角眼部10份修整、8份新增差分已由`openai/gpt-image-2.5-flare`以medium生成并审阅。现有47份角色PNG，详见[逐图来源](heroine-flare-review.json)。
 
 ## 当前执行状态
 
-用户已明确授权使用Replicate CLI的`openai/gpt-image-2`继续生图；2026-09-09已实际生成并下载灯塔等背景。使用Replicate已有登录配置，不向模型传Codex密钥。此前503仅属于原OpenAI兼容provider，不再视为制作阻塞。无需再次确认接口或模型。
+用户最新指定Replicate CLI的`openai/gpt-image-2.5-flare`；它已成功生成、编辑并输出原生透明PNG。此前使用`openai/gpt-image-2`的记录只作历史来源；2026-09-09已实际生成并下载灯塔等背景。使用Replicate已有登录配置，不向模型传Codex密钥。此前503仅属于原OpenAI兼容provider，不再视为制作阻塞。无需再次确认接口或模型。
 
 首张凛参考被用户否决为偏写实风格。旧批次已停止，旧图移到`.generated/art/rejected/semi-realistic`，不可继续作为参考。背景使用anime-cel-v2；人物v2再次因同脸、等高与年龄感过大被否决，已停止人物批次。两位主角现改用heroine-summer-v7，先做凛中性便服、Mara长发温柔御姐、172cm且比凛高9cm的同季节双人设计对照；配角保持distinct-cast-v3。每个身份由独立文字定义，只允许同一人的差分引用她自己的图；先检查脸型与身高对照，再制作差分。
 
@@ -29,7 +33,7 @@ pnpm --filter demo build
 pnpm --filter demo test:story
 ```
 
-先native编译，再清理其生成的native bootstrap后做Web构建，防止跨目标文件混入。现阶段只修改制作文件，不新增虚假的assets:generate命令、不改QS，不因清单调整重跑整套游戏回归。实际接入图片后再执行相关编译、QPK与浏览器验证。配乐、环境音和配音仍是独立待制作范围。
+先native编译，再清理其生成的native bootstrap后做Web构建，防止跨目标文件混入。制作清单的文档改动不需要整套回归，也不添加虚假的assets:generate命令。图片和演出已接入QS时，验证相关编译、QPK与实际浏览器读取。配乐、环境音和配音仍是独立待制作范围。
 
 ## Replicate人物抠图
 

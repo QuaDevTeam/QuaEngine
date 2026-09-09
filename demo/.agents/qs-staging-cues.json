@@ -1,0 +1,1786 @@
+[
+  {
+    "module": "chapter-01.qs",
+    "node": "chapter-01",
+    "directions": [
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/radio-archive-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mara', { expression: 'neutral', position: { x: 480, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@SetExpression('smile', 'mara')",
+      "@ShowCharacter('yumi', { expression: 'neutral', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@CharacterEnter('yumi', 'right', 280, { x: 960, y: 750, offset: 70, easing: 'easeOutCubic' }, true)",
+      "@ShowCharacter('mayu', { expression: 'neutral', position: { x: 1440, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@CharacterEnter('mayu', 'right', 280, { x: 1440, y: 750, offset: 70, easing: 'easeOutCubic' }, true)",
+      "@SetExpression('serious', 'mara')"
+    ]
+  },
+  {
+    "module": "chapter-01.qs",
+    "node": "verification-purpose",
+    "directions": [
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('reiko')",
+      "@SetBackground('backgrounds/radio-rented-room-day-anime-v4.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mayu', { expression: 'serious', position: { x: 480, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@ShowCharacter('mara', { expression: 'neutral', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@ShowCharacter('yumi', { expression: 'neutral', position: { x: 1440, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@SetExpression('hesitant', 'mara')",
+      "@SetExpression('hesitant', 'mayu')",
+      "@SetExpression('serious', 'yumi')",
+      "@SetExpression('neutral', 'mayu')",
+      "@SetExpression('serious', 'mara')",
+      "@SetExpression('pose-phone', 'mara')",
+      "@SetExpression('neutral', 'mara')"
+    ]
+  },
+  {
+    "module": "chapter-01.qs",
+    "node": "verification-lunch",
+    "directions": [
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/radio-breakroom-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mara', { expression: 'neutral', position: { x: 480, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@SetExpression('smile', 'mara')",
+      "@SetExpression('pose-listening', 'mara')",
+      "@AnimationTimeline(300, true)",
+      "@Key('character:mara', 'position.y', 0, 750, 'ease-in-out')",
+      "@Key('character:mara', 'position.y', 300, 785, 'ease-in-out')",
+      "@ShowCharacter('mayu', { expression: 'neutral', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@CharacterEnter('mayu', 'right', 280, { x: 960, y: 750, offset: 70, easing: 'easeOutCubic' }, true)",
+      "@ShowCharacter('yumi', { expression: 'neutral', position: { x: 1440, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@CharacterEnter('yumi', 'right', 280, { x: 1440, y: 750, offset: 70, easing: 'easeOutCubic' }, true)"
+    ]
+  },
+  {
+    "module": "chapter-01.qs",
+    "node": "verification-cup",
+    "directions": [
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/radio-monitor-night-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mara', { expression: 'neutral', position: { x: 700, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@ShowCharacter('mayu', { expression: 'serious', position: { x: 1220, y: 750, scale: 1, rotation: 0, anchor: 'center' } })"
+    ]
+  },
+  {
+    "module": "chapter-01.qs",
+    "node": "odd-photo-bell",
+    "directions": [
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/radio-monitor-night-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mara', { expression: 'hesitant', position: { x: 480, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@SetExpression('hesitant', 'mara')",
+      "@ShowCharacter('haruka', { expression: 'serious', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@CharacterEnter('haruka', 'right', 280, { x: 960, y: 750, offset: 70, easing: 'easeOutCubic' }, true)",
+      "@ShowCharacter('yumi', { expression: 'neutral', position: { x: 1440, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@CharacterEnter('yumi', 'right', 280, { x: 1440, y: 750, offset: 70, easing: 'easeOutCubic' }, true)"
+    ]
+  },
+  {
+    "module": "chapter-01.qs",
+    "node": "odd-photo-shutter",
+    "directions": [
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/town-street-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mara', { expression: 'neutral', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@SetBackground('backgrounds/radio-archive-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('yumi', { expression: 'neutral', position: { x: 700, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@ShowCharacter('mara', { expression: 'neutral', position: { x: 1220, y: 750, scale: 1, rotation: 0, anchor: 'center' } })"
+    ]
+  },
+  {
+    "module": "chapter-01.qs",
+    "node": "odd-photo-unpacking",
+    "directions": [
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/civic-exhibit-room.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mara', { expression: 'neutral', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })"
+    ]
+  },
+  {
+    "module": "chapter-01.qs",
+    "node": "odd-photo-broadcast",
+    "directions": [
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/civic-exhibit-room.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mara', { expression: 'neutral', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@SetBackground('backgrounds/radio-studio-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('yumi', { expression: 'neutral', position: { x: 700, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@ShowCharacter('mara', { expression: 'neutral', position: { x: 1220, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@SetBackground('backgrounds/radio-studio-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('yumi', { expression: 'neutral', position: { x: 700, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@ShowCharacter('mara', { expression: 'neutral', position: { x: 1220, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@HideCharacter('mara')",
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/radio-monitor-night-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })"
+    ]
+  },
+  {
+    "module": "chapter-01.qs",
+    "node": "verification-message",
+    "directions": [
+      "@HideCharacter('rin')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/radio-monitor-night-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mara', { expression: 'neutral', position: { x: 700, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@ShowCharacter('haruka', { expression: 'neutral', position: { x: 1220, y: 750, scale: 1, rotation: 0, anchor: 'center' } })"
+    ]
+  },
+  {
+    "module": "chapter-02.qs",
+    "node": "chapter-02",
+    "directions": [
+      "@HideCharacter('rin')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/radio-breakroom-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('haruka', { expression: 'neutral', position: { x: 480, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@ShowCharacter('mara', { expression: 'neutral', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@ShowCharacter('yumi', { expression: 'neutral', position: { x: 1440, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@CharacterEnter('yumi', 'right', 280, { x: 1440, y: 750, offset: 70, easing: 'easeOutCubic' }, true)"
+    ]
+  },
+  {
+    "module": "chapter-02.qs",
+    "node": "interview-market",
+    "directions": [
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/fish-market-day.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mara', { expression: 'neutral', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@SetExpression('smile', 'mara')"
+    ]
+  },
+  {
+    "module": "chapter-02.qs",
+    "node": "interview-return",
+    "directions": [
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/fish-market-day.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mara', { expression: 'neutral', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@SetExpression('pose-phone', 'mara')",
+      "@HideCharacter('rin')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/radio-studio-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('haruka', { expression: 'neutral', position: { x: 700, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@ShowCharacter('mara', { expression: 'neutral', position: { x: 1220, y: 750, scale: 1, rotation: 0, anchor: 'center' } })"
+    ]
+  },
+  {
+    "module": "chapter-02.qs",
+    "node": "interview-edit",
+    "directions": [
+      "@HideCharacter('rin')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/radio-edit-room-v2-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mara', { expression: 'neutral', position: { x: 480, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@ShowCharacter('haruka', { expression: 'neutral', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@SetExpression('pose-listening', 'mara')",
+      "@ShowCharacter('yumi', { expression: 'neutral', position: { x: 1440, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@CharacterEnter('yumi', 'right', 280, { x: 1440, y: 750, offset: 70, easing: 'easeOutCubic' }, true)"
+    ]
+  },
+  {
+    "module": "chapter-02.qs",
+    "node": "off-duty-haruka-street",
+    "directions": [
+      "@HideCharacter('rin')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/radio-archive-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('haruka', { expression: 'neutral', position: { x: 700, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@ShowCharacter('mara', { expression: 'neutral', position: { x: 1220, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@HideCharacter('rin')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/radio-archive-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('haruka', { expression: 'neutral', position: { x: 700, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@ShowCharacter('mara', { expression: 'neutral', position: { x: 1220, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@HideCharacter('mara')",
+      "@HideCharacter('rin')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/stationery-street-evening-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('haruka', { expression: 'neutral', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })"
+    ]
+  },
+  {
+    "module": "chapter-02.qs",
+    "node": "daily-market-reply",
+    "directions": [
+      "@HideCharacter('rin')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/radio-archive-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('haruka', { expression: 'neutral', position: { x: 480, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@ShowCharacter('mara', { expression: 'neutral', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@ShowCharacter('yumi', { expression: 'neutral', position: { x: 1440, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@CharacterEnter('yumi', 'right', 280, { x: 1440, y: 750, offset: 70, easing: 'easeOutCubic' }, true)"
+    ]
+  },
+  {
+    "module": "chapter-02.qs",
+    "node": "daily-four-servings",
+    "directions": [
+      "@HideCharacter('rin')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/grocery-day.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mara', { expression: 'neutral', position: { x: 480, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@ShowCharacter('haruka', { expression: 'neutral', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@SetExpression('smile', 'mara')",
+      "@ShowCharacter('yumi', { expression: 'neutral', position: { x: 1440, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@CharacterEnter('yumi', 'right', 280, { x: 1440, y: 750, offset: 70, easing: 'easeOutCubic' }, true)",
+      "@HideCharacter('rin')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@SetBackground('backgrounds/radio-breakroom-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('yumi', { expression: 'neutral', position: { x: 480, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@ShowCharacter('mara', { expression: 'neutral', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@ShowCharacter('haruka', { expression: 'neutral', position: { x: 1440, y: 750, scale: 1, rotation: 0, anchor: 'center' } })"
+    ]
+  },
+  {
+    "module": "chapter-02.qs",
+    "node": "interview-invitation",
+    "directions": [
+      "@HideCharacter('mara')",
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/rin-room-day.webp', { transition: { type: 'crossfade', duration: 320 } })"
+    ]
+  },
+  {
+    "module": "chapter-02.qs",
+    "node": "interview-harbor",
+    "directions": [
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/harbor-walk-evening.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mara', { expression: 'neutral', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@HideCharacter('mara')",
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/harbor-walk-evening.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@SetBackground('cg/shared-earbuds.webp', { transition: { type: 'crossfade', duration: 450 } })",
+      "@HideCharacter('mara')",
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/harbor-walk-evening.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/harbor-walk-evening.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mara', { expression: 'neutral', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/mara-apartment-door.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mara', { expression: 'neutral', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@HideCharacter('mara')",
+      "@ShowCharacter('mara', { expression: 'hesitant', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/harbor-walk-evening.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mara', { expression: 'neutral', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })"
+    ]
+  },
+  {
+    "module": "chapter-03.qs",
+    "node": "chapter-03",
+    "directions": [
+      "@HideCharacter('mara')",
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/relay-drain-inspection-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mayu', { expression: 'serious', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })"
+    ]
+  },
+  {
+    "module": "chapter-03.qs",
+    "node": "closeness-first-draft",
+    "directions": [
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/radio-archive-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mara', { expression: 'neutral', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@SetExpression('pose-listening', 'mara')",
+      "@SetExpression('laugh-soft', 'mara')",
+      "@SetExpression('smile', 'mara')"
+    ]
+  },
+  {
+    "module": "chapter-03.qs",
+    "node": "off-duty-yumi-shopping",
+    "directions": [
+      "@HideCharacter('mara')",
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@SetBackground('backgrounds/radio-archive-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('yumi', { expression: 'neutral', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@HideCharacter('mara')",
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@SetBackground('backgrounds/grocery-day.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('yumi', { expression: 'neutral', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })"
+    ]
+  },
+  {
+    "module": "chapter-03.qs",
+    "node": "odd-umbrella-notice",
+    "directions": [
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/radio-monitor-night-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mara', { expression: 'neutral', position: { x: 700, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@SetExpression('neutral', 'mara')",
+      "@ShowCharacter('haruka', { expression: 'serious', position: { x: 1220, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@CharacterEnter('haruka', 'right', 280, { x: 1220, y: 750, offset: 70, easing: 'easeOutCubic' }, true)"
+    ]
+  },
+  {
+    "module": "chapter-03.qs",
+    "node": "daily-laundry",
+    "directions": [
+      "@HideCharacter('mara')",
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/laundromat-evening-anime-v2.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mara', { expression: 'pose-drinks', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@CharacterEnter('mara', 'right', 280, { x: 960, y: 750, offset: 70, easing: 'easeOutCubic' }, true)",
+      "@SetExpression('smile', 'mara')",
+      "@SetExpression('annoyed', 'mara')",
+      "@AnimationTimeline(280, true)",
+      "@Key('character:mara', 'position.y', 0, 750, 'ease-in-out')",
+      "@Key('character:mara', 'position.y', 280, 785, 'ease-in-out')",
+      "@SetExpression('hesitant', 'mara')",
+      "@SetExpression('pose-listening', 'mara')",
+      "@SetExpression('smile', 'mara')",
+      "@CharacterExit('mara', 'right', 260, { x: 960, y: 785, offset: 90, opacityFrom: 1, opacityTo: 1, easing: 'ease-in-out' }, true)",
+      "@HideCharacter('mara')",
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@ClearBackground()"
+    ]
+  },
+  {
+    "module": "chapter-03.qs",
+    "node": "closeness-mobile-test",
+    "directions": [
+      "@HideCharacter('rin')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/new-studio-day.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('haruka', { expression: 'neutral', position: { x: 700, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@ShowCharacter('mara', { expression: 'neutral', position: { x: 1220, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@SetExpression('pose-explaining', 'mara')",
+      "@SetExpression('hesitant', 'haruka')",
+      "@SetExpression('pose-script', 'haruka')",
+      "@SetExpression('neutral', 'mara')",
+      "@SetExpression('pose-script-laugh', 'haruka')",
+      "@SetExpression('laugh-soft', 'mara')",
+      "@SetExpression('smile', 'haruka')",
+      "@SetExpression('neutral', 'mara')"
+    ]
+  },
+  {
+    "module": "chapter-03.qs",
+    "node": "odd-umbrella-desk",
+    "directions": [
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/civic-service-desk.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mara', { expression: 'neutral', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })"
+    ]
+  },
+  {
+    "module": "chapter-03.qs",
+    "node": "closeness-one-less-call",
+    "directions": [
+      "@HideCharacter('rin')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/radio-studio-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mara', { expression: 'neutral', position: { x: 700, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@ShowCharacter('haruka', { expression: 'neutral', position: { x: 1220, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@SetExpression('hesitant', 'haruka')",
+      "@SetExpression('hesitant', 'mara')",
+      "@AnimationTimeline(320, true)",
+      "@Key('character:mara', 'position.x', 0, 700, 'ease-in-out')",
+      "@Key('character:mara', 'position.x', 320, 640, 'ease-in-out')"
+    ]
+  },
+  {
+    "module": "chapter-03.qs",
+    "node": "odd-umbrella-two",
+    "directions": [
+      "@HideCharacter('mara')",
+      "@HideCharacter('rin')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/radio-studio-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('haruka', { expression: 'neutral', position: { x: 700, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@ShowCharacter('mara', { expression: 'neutral', position: { x: 1220, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@CharacterEnter('mara', 'right', 280, { x: 1220, y: 750, offset: 70, easing: 'easeOutCubic' }, true)",
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/civic-service-desk.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mara', { expression: 'neutral', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })"
+    ]
+  },
+  {
+    "module": "chapter-03.qs",
+    "node": "daily-record-shop",
+    "directions": [
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/radio-exterior-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mara', { expression: 'neutral', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@SetExpression('smile', 'mara')",
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/record-shop-day.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mara', { expression: 'smile', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })"
+    ]
+  },
+  {
+    "module": "chapter-03.qs",
+    "node": "odd-umbrella-owner",
+    "directions": [
+      "@HideCharacter('mara')",
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@ClearBackground()"
+    ]
+  },
+  {
+    "module": "chapter-03.qs",
+    "node": "off-duty-rin-morning",
+    "directions": [
+      "@HideCharacter('mara')",
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/rin-room-day.webp', { transition: { type: 'crossfade', duration: 320 } })"
+    ]
+  },
+  {
+    "module": "chapter-03.qs",
+    "node": "daily-beach-outing",
+    "directions": [
+      "@HideCharacter('mara')",
+      "@HideCharacter('rin')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/south-bay-day.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('haruka', { expression: 'leisure-neutral', position: { x: 480, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@SetExpression('leisure-smile', 'haruka')",
+      "@ShowCharacter('yumi', { expression: 'leisure-neutral', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@CharacterEnter('yumi', 'right', 280, { x: 960, y: 750, offset: 70, easing: 'easeOutCubic' }, true)",
+      "@ShowCharacter('mara', { expression: 'leisure-neutral', position: { x: 1440, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@CharacterEnter('mara', 'right', 280, { x: 1440, y: 750, offset: 70, easing: 'easeOutCubic' }, true)"
+    ]
+  },
+  {
+    "module": "chapter-03.qs",
+    "node": "closeness-lighthouse",
+    "directions": [
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/lighthouse-day.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mara', { expression: 'leisure-neutral', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@SetExpression('leisure-hesitant', 'mara')",
+      "@SetExpression('leisure-smile', 'mara')",
+      "@SetExpression('leisure-pose-listening', 'mara')",
+      "@SetExpression('leisure-blush', 'mara')",
+      "@AnimationTimeline(360, true)",
+      "@Key('character:mara', 'position.x', 0, 960, 'ease-in-out')",
+      "@Key('character:mara', 'position.x', 360, 900, 'ease-in-out')",
+      "@SetExpression('leisure-smile', 'mara')"
+    ]
+  },
+  {
+    "module": "chapter-03.qs",
+    "node": "closeness-closed-ticket",
+    "directions": [
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/radio-archive-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mara', { expression: 'neutral', position: { x: 480, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@ShowCharacter('haruka', { expression: 'neutral', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@CharacterEnter('haruka', 'right', 280, { x: 960, y: 750, offset: 70, easing: 'easeOutCubic' }, true)",
+      "@ShowCharacter('yumi', { expression: 'neutral', position: { x: 1440, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@CharacterEnter('yumi', 'right', 280, { x: 1440, y: 750, offset: 70, easing: 'easeOutCubic' }, true)",
+      "@SetExpression('serious', 'mara')",
+      "@HideCharacter('mara')",
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/radio-archive-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('reiko', { expression: 'neutral', position: { x: 700, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@ShowCharacter('mayu', { expression: 'serious', position: { x: 1220, y: 750, scale: 1, rotation: 0, anchor: 'center' } })"
+    ]
+  },
+  {
+    "module": "chapter-03.qs",
+    "node": "daily-small-kitchen",
+    "directions": [
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/radio-archive-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mara', { expression: 'neutral', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/rin-room-day.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mara', { expression: 'neutral', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@SetExpression('smile', 'mara')",
+      "@SetExpression('relieved', 'mara')"
+    ]
+  },
+  {
+    "module": "chapter-03.qs",
+    "node": "closeness-haruka-turn",
+    "directions": [
+      "@HideCharacter('rin')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/town-street-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('haruka', { expression: 'neutral', position: { x: 700, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@ShowCharacter('mara', { expression: 'neutral', position: { x: 1220, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@SetExpression('serious', 'haruka')",
+      "@AnimationTimeline(320, true)",
+      "@Key('character:mara', 'position.x', 0, 1220, 'ease-in-out')",
+      "@Key('character:mara', 'position.x', 320, 1320, 'ease-in-out')",
+      "@SetExpression('hesitant', 'mara')"
+    ]
+  },
+  {
+    "module": "chapter-03.qs",
+    "node": "closeness-editing",
+    "directions": [
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/radio-edit-room-v2-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mara', { expression: 'neutral', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@SetExpression('smile', 'mara')",
+      "@AnimationTimeline(360, true)",
+      "@Key('character:mara', 'position.x', 0, 960, 'ease-in-out')",
+      "@Key('character:mara', 'position.x', 360, 900, 'ease-in-out')",
+      "@SetExpression('hesitant', 'mara')",
+      "@SetExpression('neutral', 'mara')",
+      "@HideCharacter('mara')",
+      "@ClearBackground()"
+    ]
+  },
+  {
+    "module": "chapter-04.qs",
+    "node": "chapter-04",
+    "directions": [
+      "@HideCharacter('mara')",
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@SetBackground('backgrounds/radio-archive-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('yumi', { expression: 'neutral', position: { x: 480, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@SetExpression('serious', 'yumi')",
+      "@ShowCharacter('haruka', { expression: 'neutral', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@CharacterEnter('haruka', 'right', 280, { x: 960, y: 750, offset: 70, easing: 'easeOutCubic' }, true)",
+      "@SetExpression('hesitant', 'haruka')",
+      "@SetExpression('smile', 'haruka')",
+      "@ShowCharacter('mara', { expression: 'neutral', position: { x: 1440, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@CharacterEnter('mara', 'right', 280, { x: 1440, y: 750, offset: 70, easing: 'easeOutCubic' }, true)",
+      "@SetExpression('pose-phone', 'mara')",
+      "@SetExpression('neutral', 'mara')",
+      "@SetExpression('smile', 'mara')",
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/aoba-diner-evening.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mara', { expression: 'neutral', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@SetExpression('annoyed', 'mara')",
+      "@SetExpression('smile', 'mara')",
+      "@HideCharacter('mara')",
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@ClearBackground()",
+      "@HideCharacter('mara')",
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/radio-monitor-night-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })"
+    ]
+  },
+  {
+    "module": "chapter-04.qs",
+    "node": "warning-reception",
+    "directions": [
+      "@HideCharacter('mara')",
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/radio-monitor-night-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mara', { expression: 'neutral', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@CharacterEnter('mara', 'right', 280, { x: 960, y: 750, offset: 70, easing: 'easeOutCubic' }, true)",
+      "@SetExpression('neutral', 'mara')"
+    ]
+  },
+  {
+    "module": "chapter-04.qs",
+    "node": "warning-fragments",
+    "directions": [
+      "@HideCharacter('mara')",
+      "@HideCharacter('rin')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/radio-monitor-night-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('haruka', { expression: 'serious', position: { x: 480, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@ShowCharacter('yumi', { expression: 'serious', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@CharacterEnter('yumi', 'right', 280, { x: 960, y: 750, offset: 70, easing: 'easeOutCubic' }, true)",
+      "@ShowCharacter('mara', { expression: 'neutral', position: { x: 1440, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@CharacterEnter('mara', 'right', 280, { x: 1440, y: 750, offset: 70, easing: 'easeOutCubic' }, true)",
+      "@SetExpression('serious', 'mara')"
+    ]
+  },
+  {
+    "module": "chapter-04.qs",
+    "node": "warning-report",
+    "directions": [
+      "@HideCharacter('mara')",
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@SetBackground('backgrounds/radio-archive-night-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('yumi', { expression: 'serious', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@SetBackground('backgrounds/radio-archive-night-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mara', { expression: 'hesitant', position: { x: 1220, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@ShowCharacter('yumi', { expression: 'serious', position: { x: 700, y: 750, scale: 1, rotation: 0, anchor: 'center' } })"
+    ]
+  },
+  {
+    "module": "chapter-04.qs",
+    "node": "warning-night",
+    "directions": [
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@ClearBackground()",
+      "@ShowCharacter('mara', { expression: 'hesitant', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@SetExpression('hesitant', 'mara')",
+      "@HideCharacter('mara')",
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@ClearBackground()"
+    ]
+  },
+  {
+    "module": "chapter-04.qs",
+    "node": "warning-disclosure",
+    "directions": [
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/radio-archive-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mara', { expression: 'pose-phone', position: { x: 700, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@SetExpression('pose-phone', 'mara')",
+      "@ShowCharacter('yumi', { expression: 'serious', position: { x: 1220, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@CharacterEnter('yumi', 'right', 280, { x: 1220, y: 750, offset: 70, easing: 'easeOutCubic' }, true)",
+      "@HideCharacter('yumi')",
+      "@SetExpression('serious', 'mara')",
+      "@SetExpression('afraid', 'mara')",
+      "@AnimationTimeline(260, true)",
+      "@Key('character:mara', 'position.y', 0, 750, 'ease-in-out')",
+      "@Key('character:mara', 'position.y', 90, 739, 'ease-in-out')",
+      "@Key('character:mara', 'position.y', 260, 750, 'ease-in-out')",
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/radio-archive-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mara', { expression: 'afraid', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@SetExpression('hesitant', 'mara')",
+      "@SetExpression('hurt-look-away', 'mara')",
+      "@SetExpression('annoyed', 'mara')",
+      "@SetExpression('tired', 'mara')",
+      "@AnimationTimeline(420, true)",
+      "@Key('character:mara', 'position.x', 0, 960, 'ease-in-out')",
+      "@Key('character:mara', 'position.x', 420, 1060, 'ease-in-out')"
+    ]
+  },
+  {
+    "module": "chapter-04.qs",
+    "node": "warning-working-together",
+    "directions": [
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/radio-archive-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mara', { expression: 'tired', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@SetExpression('afraid', 'mara')",
+      "@SetExpression('annoyed', 'mara')",
+      "@SetExpression('serious', 'mara')",
+      "@SetExpression('pose-phone', 'mara')"
+    ]
+  },
+  {
+    "module": "chapter-05-inspection.qs",
+    "node": "chapter-05-inspection",
+    "directions": [
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@SetBackground('backgrounds/radio-breakroom-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('yumi', { expression: 'serious', position: { x: 700, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@ShowCharacter('mara', { expression: 'tired', position: { x: 1220, y: 750, scale: 1, rotation: 0, anchor: 'center' } })"
+    ]
+  },
+  {
+    "module": "chapter-05-inspection.qs",
+    "node": "investigation-local-schedule",
+    "directions": [
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@SetBackground('backgrounds/radio-archive-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('reiko', { expression: 'work-alt-serious', position: { x: 480, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@ShowCharacter('mara', { expression: 'serious', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@ShowCharacter('yumi', { expression: 'serious', position: { x: 1440, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@SetExpression('work-alt-uneasy', 'reiko')",
+      "@SetExpression('work-alt-hesitant', 'reiko')"
+    ]
+  },
+  {
+    "module": "chapter-05-inspection.qs",
+    "node": "investigation-deliberate-omission",
+    "directions": [
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@SetBackground('backgrounds/radio-archive-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mara', { expression: 'serious', position: { x: 480, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@ShowCharacter('reiko', { expression: 'work-alt-hesitant', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@ShowCharacter('yumi', { expression: 'serious', position: { x: 1440, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@SetExpression('work-alt-hesitant', 'reiko')",
+      "@HideCharacter('reiko')",
+      "@ShowCharacter('haruka', { expression: 'serious', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })"
+    ]
+  },
+  {
+    "module": "chapter-05-inspection.qs",
+    "node": "investigation-provenance",
+    "directions": [
+      "@HideCharacter('mara')",
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@SetBackground('backgrounds/radio-archive-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('yumi', { expression: 'serious', position: { x: 480, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@ShowCharacter('reiko', { expression: 'work-alt-serious', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@ShowCharacter('haruka', { expression: 'serious', position: { x: 1440, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@CharacterEnter('haruka', 'right', 280, { x: 1440, y: 750, offset: 70, easing: 'easeOutCubic' }, true)"
+    ]
+  },
+  {
+    "module": "chapter-05.qs",
+    "node": "chapter-05",
+    "directions": [
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@SetBackground('backgrounds/radio-archive-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('yumi', { expression: 'serious', position: { x: 700, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@ShowCharacter('mara', { expression: 'serious', position: { x: 1220, y: 750, scale: 1, rotation: 0, anchor: 'center' } })"
+    ]
+  },
+  {
+    "module": "chapter-05.qs",
+    "node": "investigation-old-alarm",
+    "directions": [
+      "@HideCharacter('rin')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/radio-archive-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('haruka', { expression: 'serious', position: { x: 480, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@ShowCharacter('mara', { expression: 'serious', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@ShowCharacter('yumi', { expression: 'serious', position: { x: 1440, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@CharacterEnter('yumi', 'right', 280, { x: 1440, y: 750, offset: 70, easing: 'easeOutCubic' }, true)"
+    ]
+  },
+  {
+    "module": "chapter-05.qs",
+    "node": "investigation-records",
+    "directions": [
+      "@HideCharacter('mara')",
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@ClearBackground()",
+      "@SetBackground(scope.pick('investigate-office', 'backgrounds/company-office-day.webp', 'backgrounds/radio-archive-day-anime-v3.webp'))",
+      "@ShowCharacter(scope.pick('investigate-office', 'mara', 'haruka'), { expression: 'neutral', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })"
+    ]
+  },
+  {
+    "module": "chapter-05.qs",
+    "node": "investigation-admission",
+    "directions": [
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@SetBackground('backgrounds/radio-archive-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('yumi', { expression: 'serious', position: { x: 480, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@ShowCharacter('mara', { expression: 'serious', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@ShowCharacter('reiko', { expression: 'work-alt-neutral', position: { x: 1440, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@CharacterEnter('reiko', 'right', 280, { x: 1440, y: 750, offset: 70, easing: 'easeOutCubic' }, true)",
+      "@SetExpression('work-alt-serious', 'reiko')"
+    ]
+  },
+  {
+    "module": "chapter-05.qs",
+    "node": "investigation-resident-call",
+    "directions": [
+      "@HideCharacter('rin')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/radio-archive-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('haruka', { expression: 'serious', position: { x: 480, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@ShowCharacter('reiko', { expression: 'work-alt-serious', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@ShowCharacter('mara', { expression: 'serious', position: { x: 1440, y: 750, scale: 1, rotation: 0, anchor: 'center' } })"
+    ]
+  },
+  {
+    "module": "chapter-05.qs",
+    "node": "investigation-handoff-choice",
+    "directions": [
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@SetBackground('backgrounds/radio-breakroom-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('yumi', { expression: 'serious', position: { x: 700, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@ShowCharacter('mara', { expression: 'tired', position: { x: 1220, y: 750, scale: 1, rotation: 0, anchor: 'center' } })"
+    ]
+  },
+  {
+    "module": "chapter-06.qs",
+    "node": "chapter-06",
+    "directions": [
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/radio-archive-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mara', { expression: 'tired', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })"
+    ]
+  },
+  {
+    "module": "chapter-06.qs",
+    "node": "shutdown-plan",
+    "directions": [
+      "@HideCharacter('mara')",
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@SetBackground('backgrounds/radio-archive-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('yumi', { expression: 'serious', position: { x: 700, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@ShowCharacter('reiko', { expression: 'work-alt-serious', position: { x: 1220, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@SetExpression('work-alt-hesitant', 'reiko')"
+    ]
+  },
+  {
+    "module": "chapter-06.qs",
+    "node": "shutdown-mobile",
+    "directions": [
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@SetBackground('backgrounds/radio-archive-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mara', { expression: 'serious', position: { x: 700, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@ShowCharacter('yumi', { expression: 'serious', position: { x: 1220, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@SetExpression('pose-equipment-worried', 'mara')",
+      "@SetExpression('pose-equipment-soft', 'mara')",
+      "@CharacterExit('mara', 'right', 260, { x: 700, y: 750, offset: 90, opacityFrom: 1, opacityTo: 1, easing: 'ease-in-out' }, true)",
+      "@HideCharacter('mara')",
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/radio-mobile-rain-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })"
+    ]
+  },
+  {
+    "module": "chapter-06.qs",
+    "node": "shutdown-weather-copy",
+    "directions": [
+      "@HideCharacter('mara')",
+      "@HideCharacter('rin')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/radio-archive-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('haruka', { expression: 'serious', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })"
+    ]
+  },
+  {
+    "module": "chapter-06.qs",
+    "node": "shutdown-complete",
+    "directions": [
+      "@HideCharacter('mara')",
+      "@HideCharacter('rin')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/radio-archive-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('haruka', { expression: 'serious', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@SetBackground('backgrounds/radio-studio-night-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mara', { expression: 'tired', position: { x: 700, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@ShowCharacter('yumi', { expression: 'neutral', position: { x: 1220, y: 750, scale: 1, rotation: 0, anchor: 'center' } })"
+    ]
+  },
+  {
+    "module": "chapter-06.qs",
+    "node": "shutdown-dinner",
+    "directions": [
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/radio-breakroom-night-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mara', { expression: 'tired', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@SetExpression('smile', 'mara')",
+      "@SetExpression('serious', 'mara')",
+      "@SetExpression('hesitant', 'mara')",
+      "@SetExpression('afraid', 'mara')",
+      "@SetExpression('relieved', 'mara')",
+      "@AnimationTimeline(350, true)",
+      "@Key('character:mara', 'position.x', 0, 960, 'ease-in-out')",
+      "@Key('character:mara', 'position.x', 350, 920, 'ease-in-out')",
+      "@AnimationTimeline(420, true)",
+      "@Key('character:mara', 'position.x', 0, 920, 'ease-in-out')",
+      "@Key('character:mara', 'position.x', 420, 900, 'ease-in-out')"
+    ]
+  },
+  {
+    "module": "chapter-06.qs",
+    "node": "shutdown-eight",
+    "directions": [
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/radio-monitor-night-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mara', { expression: 'relieved', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })"
+    ]
+  },
+  {
+    "module": "chapter-07.qs",
+    "node": "chapter-07",
+    "directions": [
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/radio-studio-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mara', { expression: 'neutral', position: { x: 480, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@SetExpression('smile', 'mara')",
+      "@ShowCharacter('mayu', { expression: 'neutral', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@CharacterEnter('mayu', 'right', 280, { x: 960, y: 750, offset: 70, easing: 'easeOutCubic' }, true)",
+      "@ShowCharacter('haruka', { expression: 'neutral', position: { x: 1440, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@CharacterEnter('haruka', 'right', 280, { x: 1440, y: 750, offset: 70, easing: 'easeOutCubic' }, true)"
+    ]
+  },
+  {
+    "module": "chapter-07.qs",
+    "node": "daily-next-day-shopping",
+    "directions": [
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/radio-archive-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mara', { expression: 'neutral', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })"
+    ]
+  },
+  {
+    "module": "chapter-07.qs",
+    "node": "dating-record",
+    "directions": [
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/radio-breakroom-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mara', { expression: 'serious', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@SetExpression('pose-listening', 'mara')"
+    ]
+  },
+  {
+    "module": "chapter-07.qs",
+    "node": "dating-reply",
+    "directions": [
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/radio-breakroom-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mara', { expression: 'hesitant', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@SetExpression('smile', 'mara')",
+      "@HideCharacter('mara')",
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@ClearBackground()"
+    ]
+  },
+  {
+    "module": "chapter-07.qs",
+    "node": "daily-harbor-cruise",
+    "directions": [
+      "@HideCharacter('mara')",
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/tour-pier-day.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@HideCharacter('mara')",
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/tour-pier-day.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@HideCharacter('mara')",
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@ClearBackground()"
+    ]
+  },
+  {
+    "module": "chapter-07.qs",
+    "node": "daily-returning-the-book",
+    "directions": [
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/record-shop-day.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mara', { expression: 'leisure-neutral', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })"
+    ]
+  },
+  {
+    "module": "chapter-07.qs",
+    "node": "daily-cafe-afternoon",
+    "directions": [
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/cafe-day.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mara', { expression: 'leisure-neutral', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@SetExpression('leisure-smile', 'mara')",
+      "@AnimationTimeline(300, true)",
+      "@Key('character:mara', 'position.y', 0, 750, 'ease-in-out')",
+      "@Key('character:mara', 'position.y', 300, 785, 'ease-in-out')",
+      "@SetExpression('leisure-hesitant', 'mara')",
+      "@SetExpression('leisure-annoyed', 'mara')",
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/town-street-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mara', { expression: 'leisure-smile', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@SetExpression('leisure-hesitant', 'mara')",
+      "@HideCharacter('mara')",
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/rin-room-day.webp', { transition: { type: 'crossfade', duration: 320 } })"
+    ]
+  },
+  {
+    "module": "chapter-07.qs",
+    "node": "dating-invitation",
+    "directions": [
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/lighthouse-day.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mara', { expression: 'date-smile', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@SetExpression('date-hesitant', 'mara')",
+      "@AnimationTimeline(300, true)",
+      "@Key('character:mara', 'position.y', 0, 750, 'ease-in-out')",
+      "@Key('character:mara', 'position.y', 300, 785, 'ease-in-out')",
+      "@SetExpression('date-blush', 'mara')"
+    ]
+  },
+  {
+    "module": "chapter-07.qs",
+    "node": "dating-confession",
+    "directions": [
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/lighthouse-day.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mara', { expression: 'date-hesitant', position: { x: 960, y: 785, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@SetExpression('date-shy-look-down', 'mara')",
+      "@SetExpression('date-blush', 'mara')",
+      "@AnimationTimeline(420, true)",
+      "@Key('character:mara', 'position.x', 0, 960, 'ease-in-out')",
+      "@Key('character:mara', 'position.x', 420, 900, 'ease-in-out')",
+      "@SetExpression('date-smile', 'mara')",
+      "@SetExpression('date-blush', 'mara')"
+    ]
+  },
+  {
+    "module": "chapter-07.qs",
+    "node": "dating-delivery",
+    "directions": [
+      "@HideCharacter('mara')",
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@SetBackground('backgrounds/radio-archive-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('yumi', { expression: 'neutral', position: { x: 700, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@ShowCharacter('mara', { expression: 'neutral', position: { x: 1220, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@CharacterEnter('mara', 'right', 280, { x: 1220, y: 750, offset: 70, easing: 'easeOutCubic' }, true)",
+      "@HideCharacter('yumi')",
+      "@SetExpression('pose-offer-hand', 'mara')",
+      "@SetExpression('smile', 'mara')"
+    ]
+  },
+  {
+    "module": "chapter-07.qs",
+    "node": "dating-final-copy",
+    "directions": [
+      "@HideCharacter('rin')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/radio-studio-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('haruka', { expression: 'neutral', position: { x: 700, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@ShowCharacter('mara', { expression: 'smile', position: { x: 1220, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@SetExpression('smile', 'haruka')",
+      "@SetExpression('blush', 'mara')"
+    ]
+  },
+  {
+    "module": "ending-handoff.qs",
+    "node": "ending-handoff",
+    "directions": [
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@SetBackground('backgrounds/radio-breakroom-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('yumi', { expression: 'neutral', position: { x: 700, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@ShowCharacter('mara', { expression: 'tired', position: { x: 1220, y: 750, scale: 1, rotation: 0, anchor: 'center' } })"
+    ]
+  },
+  {
+    "module": "ending-handoff.qs",
+    "node": "handoff-platform",
+    "directions": [
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/station-platform-day.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mara', { expression: 'hesitant', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@CharacterExit('mara', 'right', 260, { x: 960, y: 750, offset: 90, opacityFrom: 1, opacityTo: 1, easing: 'ease-in-out' }, true)",
+      "@HideCharacter('mara')",
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/station-platform-day.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@HideCharacter('mara')",
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@ClearBackground()"
+    ]
+  },
+  {
+    "module": "ending-handoff.qs",
+    "node": "handoff-followup",
+    "directions": [
+      "@HideCharacter('mara')",
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@ClearBackground()",
+      "@HideCharacter('mara')",
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')"
+    ]
+  },
+  {
+    "module": "epilogue.qs",
+    "node": "epilogue",
+    "directions": [
+      "@HideCharacter('rin')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/radio-studio-empty.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mara', { expression: 'neutral', position: { x: 480, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@ShowCharacter('haruka', { expression: 'neutral', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@SetExpression('neutral', 'mara')",
+      "@ShowCharacter('yumi', { expression: 'neutral', position: { x: 1440, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@CharacterEnter('yumi', 'right', 280, { x: 1440, y: 750, offset: 70, easing: 'easeOutCubic' }, true)"
+    ]
+  },
+  {
+    "module": "epilogue.qs",
+    "node": "epilogue-locking-up",
+    "directions": [
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@ClearBackground()",
+      "@ShowCharacter('yumi', { expression: 'neutral', position: { x: 700, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@ShowCharacter('mara', { expression: 'neutral', position: { x: 1220, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@SetExpression('serious', 'yumi')"
+    ]
+  },
+  {
+    "module": "epilogue.qs",
+    "node": "epilogue-july-meeting",
+    "directions": [
+      "@HideCharacter('mara')",
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@SetBackground('backgrounds/july-meeting-day.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('yumi', { expression: 'serious', position: { x: 700, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@ShowCharacter('mayu', { expression: 'work-alt-neutral', position: { x: 1220, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@CharacterEnter('mayu', 'right', 280, { x: 1220, y: 750, offset: 70, easing: 'easeOutCubic' }, true)",
+      "@SetExpression('work-alt-documents', 'mayu')",
+      "@SetExpression('work-alt-serious', 'mayu')"
+    ]
+  },
+  {
+    "module": "epilogue.qs",
+    "node": "epilogue-after-class",
+    "directions": [
+      "@HideCharacter('mara')",
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@ClearBackground()",
+      "@ShowCharacter('mara', { expression: 'autumn-smile', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@HideCharacter('mara')"
+    ]
+  },
+  {
+    "module": "epilogue.qs",
+    "node": "epilogue-phone",
+    "directions": [
+      "@HideCharacter('mara')",
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@ClearBackground()"
+    ]
+  },
+  {
+    "module": "epilogue.qs",
+    "node": "epilogue-final-report",
+    "directions": [
+      "@HideCharacter('mara')",
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@ClearBackground()",
+      "@ShowCharacter('mara', { expression: 'autumn-serious', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@HideCharacter('mara')",
+      "@HideCharacter('mara')",
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')"
+    ]
+  },
+  {
+    "module": "prologue-arrival.qs",
+    "node": "prologue-arrival",
+    "directions": [
+      "@HideCharacter('mara')",
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/town-bus-rain.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mara', { expression: 'rain-neutral', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@SetExpression('rain-smile', 'mara')"
+    ]
+  },
+  {
+    "module": "prologue-arrival.qs",
+    "node": "prologue-street",
+    "directions": [
+      "@HideCharacter('mara')",
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/town-street-rain-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mara', { expression: 'rain-neutral', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })"
+    ]
+  },
+  {
+    "module": "prologue-commission.qs",
+    "node": "prologue-commission",
+    "directions": [
+      "@HideCharacter('rin')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/radio-studio-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mara', { expression: 'neutral', position: { x: 480, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@ShowCharacter('haruka', { expression: 'neutral', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@SetExpression('hesitant', 'haruka')",
+      "@SetExpression('smile', 'mara')",
+      "@ShowCharacter('yumi', { expression: 'neutral', position: { x: 1440, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@CharacterEnter('yumi', 'right', 280, { x: 1440, y: 750, offset: 70, easing: 'easeOutCubic' }, true)"
+    ]
+  },
+  {
+    "module": "prologue-commission.qs",
+    "node": "prologue-rented-room",
+    "directions": [
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/radio-rented-room-day-anime-v4.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mara', { expression: 'neutral', position: { x: 700, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@ShowCharacter('mayu', { expression: 'neutral', position: { x: 1220, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@CharacterEnter('mayu', 'right', 280, { x: 1220, y: 750, offset: 70, easing: 'easeOutCubic' }, true)",
+      "@SetExpression('neutral', 'mayu')",
+      "@HideCharacter('mara')",
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/radio-archive-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })"
+    ]
+  },
+  {
+    "module": "prologue-commission.qs",
+    "node": "prologue-room",
+    "directions": [
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@SetBackground('backgrounds/radio-archive-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('yumi', { expression: 'neutral', position: { x: 700, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@ShowCharacter('mara', { expression: 'neutral', position: { x: 1220, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@SetExpression('smile', 'mara')",
+      "@CharacterExit('yumi', 'right', 260, { x: 700, y: 750, offset: 90, opacityFrom: 1, opacityTo: 1, easing: 'ease-in-out' }, true)",
+      "@HideCharacter('mara')",
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@ClearBackground()",
+      "@HideCharacter('mara')",
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/rin-room-day.webp', { transition: { type: 'crossfade', duration: 320 } })"
+    ]
+  },
+  {
+    "module": "prologue-restoration.qs",
+    "node": "prologue-restoration",
+    "directions": [
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/radio-archive-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mara', { expression: 'neutral', position: { x: 700, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@SetExpression('smile', 'mara')",
+      "@SetExpression('pose-listening', 'mara')",
+      "@SetExpression('serious', 'mara')",
+      "@SetExpression('smile', 'mara')",
+      "@SetExpression('neutral', 'mara')",
+      "@ShowCharacter('haruka', { expression: 'neutral', position: { x: 1220, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@CharacterEnter('haruka', 'right', 280, { x: 1220, y: 750, offset: 70, easing: 'easeOutCubic' }, true)"
+    ]
+  },
+  {
+    "module": "prologue-restoration.qs",
+    "node": "prologue-lunch",
+    "directions": [
+      "@HideCharacter('rin')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/radio-breakroom-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mara', { expression: 'neutral', position: { x: 480, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@ShowCharacter('haruka', { expression: 'neutral', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@AnimationTimeline(300, true)",
+      "@Key('character:mara', 'position.y', 0, 750, 'ease-in-out')",
+      "@Key('character:mara', 'position.y', 300, 785, 'ease-in-out')",
+      "@SetExpression('smile', 'mara')",
+      "@SetExpression('hesitant', 'mara')",
+      "@ShowCharacter('yumi', { expression: 'neutral', position: { x: 1440, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@CharacterEnter('yumi', 'right', 280, { x: 1440, y: 750, offset: 70, easing: 'easeOutCubic' }, true)",
+      "@SetExpression('smile', 'mara')"
+    ]
+  },
+  {
+    "module": "prologue-restoration.qs",
+    "node": "prologue-afternoon-shift",
+    "directions": [
+      "@HideCharacter('mara')",
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/radio-archive-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mara', { expression: 'neutral', position: { x: 480, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@CharacterEnter('mara', 'right', 280, { x: 480, y: 750, offset: 70, easing: 'easeOutCubic' }, true)",
+      "@SetExpression('pose-explaining', 'mara')",
+      "@SetExpression('neutral', 'mara')",
+      "@SetExpression('smile', 'mara')",
+      "@ShowCharacter('yumi', { expression: 'neutral', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@CharacterEnter('yumi', 'right', 280, { x: 960, y: 750, offset: 70, easing: 'easeOutCubic' }, true)",
+      "@ShowCharacter('haruka', { expression: 'neutral', position: { x: 1440, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@CharacterEnter('haruka', 'right', 280, { x: 1440, y: 750, offset: 70, easing: 'easeOutCubic' }, true)"
+    ]
+  },
+  {
+    "module": "prologue-restoration.qs",
+    "node": "prologue-research-reference",
+    "directions": [
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/radio-rented-room-day-anime-v4.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mara', { expression: 'neutral', position: { x: 700, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@SetExpression('neutral', 'mara')",
+      "@ShowCharacter('mayu', { expression: 'neutral', position: { x: 1220, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@CharacterEnter('mayu', 'right', 280, { x: 1220, y: 750, offset: 70, easing: 'easeOutCubic' }, true)",
+      "@SetExpression('smile', 'mayu')",
+      "@SetExpression('serious', 'mayu')"
+    ]
+  },
+  {
+    "module": "prologue-restoration.qs",
+    "node": "off-duty-first-evening",
+    "directions": [
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/radio-archive-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mara', { expression: 'neutral', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/radio-archive-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mara', { expression: 'neutral', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@HideCharacter('mara')",
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@ClearBackground()"
+    ]
+  },
+  {
+    "module": "prologue-return-line.qs",
+    "node": "prologue-workday",
+    "directions": [
+      "@HideCharacter('mara')",
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/radio-exterior-rain-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@HideCharacter('rin')",
+      "@HideCharacter('haruka')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/radio-archive-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mara', { expression: 'neutral', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@ShowCharacter('yumi', { expression: 'serious', position: { x: 1220, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@HideCharacter('rin')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/radio-breakroom-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mara', { expression: 'neutral', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@ShowCharacter('haruka', { expression: 'neutral', position: { x: 1400, y: 750, scale: 1, rotation: 0, anchor: 'center' } })"
+    ]
+  },
+  {
+    "module": "prologue-return-line.qs",
+    "node": "prologue-return-line",
+    "directions": [
+      "@HideCharacter('rin')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/radio-studio-night-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('haruka', { expression: 'neutral', position: { x: 480, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@ShowCharacter('mara', { expression: 'neutral', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@ShowCharacter('yumi', { expression: 'neutral', position: { x: 1440, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@CharacterEnter('yumi', 'right', 280, { x: 1440, y: 750, offset: 70, easing: 'easeOutCubic' }, true)",
+      "@SetExpression('pose-explaining', 'mara')",
+      "@SetExpression('smile', 'mara')"
+    ]
+  },
+  {
+    "module": "prologue-return-line.qs",
+    "node": "prologue-echo",
+    "directions": [
+      "@HideCharacter('rin')",
+      "@HideCharacter('mayu')",
+      "@HideCharacter('reiko')",
+      "@HideCharacter('yumi')",
+      "@SetBackground('backgrounds/radio-monitor-night-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })",
+      "@ShowCharacter('mara', { expression: 'neutral', position: { x: 700, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@ShowCharacter('haruka', { expression: 'serious', position: { x: 1220, y: 750, scale: 1, rotation: 0, anchor: 'center' } })",
+      "@SetExpression('hesitant', 'mara')",
+      "@SetExpression('serious', 'mara')",
+      "@SetExpression('afraid', 'mara')",
+      "@CharacterExit('mara', 'right', 260, { x: 700, y: 750, offset: 90, opacityFrom: 1, opacityTo: 1, easing: 'ease-in-out' }, true)",
+      "@ShowCharacter('mara', { expression: 'afraid', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })"
+    ]
+  }
+]

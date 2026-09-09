@@ -11,6 +11,7 @@ import { SettingsPlugin, type SettingsStorageAdapter } from '@quajs/plugin-setti
 import { StoryGraphPlugin } from '@quajs/story-graph'
 import { DEMO_SUPPORTED_LOCALES } from './config'
 import { registerDemoGallery } from './content/gallery'
+import { registerDemoCharacters } from './content/characters'
 import { registerDemoStoryGraph } from './content/story-tree'
 import { DemoStoryPlugin } from './story/prologue-state'
 import { shouldRecordDemoBacklog } from './story/backlog-policy'
@@ -22,6 +23,7 @@ export interface DemoEngineRuntimeOptions {
 }
 
 export async function createDemoEngineRuntime(options: DemoEngineRuntimeOptions) {
+  registerDemoCharacters()
   const engine = new QuaEngine(options.engine)
   const animation = new AnimationPlugin()
   const achievement = new AchievementPlugin({

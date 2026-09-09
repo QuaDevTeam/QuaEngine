@@ -146,3 +146,8 @@ See `docs/design/mobile-rendering-adaptation.md` and `docs/design/background-com
 `WebAudioRendererController` attempts to unlock audio automatically when the engine-owned audio projection contains a playing BGM, voice, SFX, or ambient track. If the browser allows playback and the `AudioContext` is already running, sources start immediately and `audio/unlocked` is emitted through the pipeline.
 
 Browser autoplay policy blocks are handled as normal Web runtime behavior, not engine audio errors. When autoplay is blocked, sources remain pending and start after the next configured user activation event. The default unlock events are `pointerdown`, `keydown`, `touchstart`, and `mousedown`; pass `autoUnlock: false` or a custom `unlockEvents` list to `createAudioWebRendererPlugin` or `WebAudioRendererController` when needed.
+## Image resource memory
+
+`WebAssetUrlHandle` shares in-flight reads and object URLs per QuaAssets/resource/revision. At most four byte reads run concurrently; obsolete queued work is skipped. Idle URLs expire within250ms and are limited to16 entries and32MiB of estimated encoded bytes plus RGBA image bytes. Visible references stay pinned. `revoke()` invalidates pending results; failed replacements release the previous URL. DOM unmount drops node references as well as resource handles.
+
+`getWebAssetMemoryStats(assets)` reports active/idle URLs, estimated bytes and active/queued reads. These are transient implementation statistics, not browser/GPU measured memory or a limit on visible media. Use persistent Web byte storage for large packages and mount/unmount QPK content through engine lifecycle APIs.

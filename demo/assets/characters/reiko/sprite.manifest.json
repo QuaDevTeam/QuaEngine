@@ -2,11 +2,72 @@
   "version": 1,
   "family": "reiko",
   "base": {
-    "asset": "reiko/neutral.png"
+    "asset": "reiko/neutral.png",
+    "opacity": 0
   },
   "expressions": {
+    "hesitant": {
+      "layers": [
+        {
+          "asset": "reiko/hesitant.png"
+        }
+      ]
+    },
     "neutral": {
-      "layers": []
+      "layers": [
+        {
+          "asset": "reiko/neutral.png"
+        }
+      ]
+    },
+    "serious": {
+      "layers": [
+        {
+          "asset": "reiko/serious.png"
+        }
+      ]
+    },
+    "smile": {
+      "layers": [
+        {
+          "asset": "reiko/smile.png"
+        }
+      ]
+    },
+    "work-alt-neutral": {
+      "layers": [
+        {
+          "asset": "reiko/outfits/work-alt/neutral.png"
+        }
+      ]
+    },
+    "work-alt-serious": {
+      "layers": [
+        {
+          "asset": "reiko/outfits/work-alt/serious.png"
+        }
+      ]
+    },
+    "work-alt-hesitant": {
+      "layers": [
+        {
+          "asset": "reiko/outfits/work-alt/hesitant.png"
+        }
+      ]
+    },
+    "work-alt-smile": {
+      "layers": [
+        {
+          "asset": "reiko/outfits/work-alt/smile.png"
+        }
+      ]
+    },
+    "work-alt-uneasy": {
+      "layers": [
+        {
+          "asset": "reiko/outfits/work-alt/uneasy.png"
+        }
+      ]
     }
   }
 }

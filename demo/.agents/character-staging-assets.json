@@ -1,0 +1,2207 @@
+{
+  "review": "2026-09-09: full pose contact sheet and expression face detail review; model alpha preserved",
+  "assets": [
+    {
+      "character": "rin",
+      "expression": "tired",
+      "source": "demo/.generated/art/expression-candidates/rin-tired.png",
+      "provenance": {
+        "assetId": "rin-tired",
+        "predictionId": "cjm4z6qg7xrmr0d0g91aywzyar",
+        "quality": "low",
+        "source": "demo/.generated/art/replicate/generated/rin-tired-face/cjm4z6qg7xrmr0d0g91aywzyar-output-0-0.png",
+        "baseCrop": [
+          256,
+          152,
+          512,
+          408
+        ],
+        "facePolygon": [
+          [
+            85,
+            108
+          ],
+          [
+            137,
+            93
+          ],
+          [
+            192,
+            106
+          ],
+          [
+            205,
+            146
+          ],
+          [
+            190,
+            179
+          ],
+          [
+            148,
+            207
+          ],
+          [
+            126,
+            211
+          ],
+          [
+            97,
+            187
+          ],
+          [
+            85,
+            156
+          ]
+        ],
+        "alignment": [
+          [
+            1.0007099311052576,
+            -2.001431748131014e-05,
+            0.137795807634929
+          ],
+          [
+            2.001431748131014e-05,
+            1.0007099311052576,
+            -0.08716126650992276
+          ]
+        ],
+        "stableMatches": 138,
+        "inliers": 123,
+        "scale": 1.000709931305402,
+        "angle": 0.0011459223954083633,
+        "alphaUnchanged": true,
+        "bodyUnchanged": true,
+        "status": "candidate-needs-visual-review"
+      }
+    },
+    {
+      "character": "rin",
+      "expression": "hesitant",
+      "source": "demo/.generated/art/expression-candidates/rin-hesitant.png",
+      "provenance": {
+        "assetId": "rin-hesitant",
+        "predictionId": "c1fs1vzdhsrmt0d0g918xfa06r",
+        "quality": "low",
+        "source": "demo/.generated/art/replicate/generated/rin-hesitant-face/c1fs1vzdhsrmt0d0g918xfa06r-output-0-0.png",
+        "baseCrop": [
+          256,
+          152,
+          512,
+          408
+        ],
+        "facePolygon": [
+          [
+            85,
+            108
+          ],
+          [
+            137,
+            93
+          ],
+          [
+            192,
+            106
+          ],
+          [
+            205,
+            146
+          ],
+          [
+            190,
+            179
+          ],
+          [
+            148,
+            207
+          ],
+          [
+            126,
+            211
+          ],
+          [
+            97,
+            187
+          ],
+          [
+            85,
+            156
+          ]
+        ],
+        "alignment": [
+          [
+            1.0017552335623676,
+            -0.00029015070107499215,
+            -0.5462642503089716
+          ],
+          [
+            0.00029015070107499215,
+            1.0017552335623676,
+            -1.5919292714818514
+          ]
+        ],
+        "stableMatches": 120,
+        "inliers": 106,
+        "scale": 1.0017552755823265,
+        "angle": 0.016595281534344287,
+        "alphaUnchanged": true,
+        "bodyUnchanged": true,
+        "status": "candidate-needs-visual-review"
+      }
+    },
+    {
+      "character": "rin",
+      "expression": "serious",
+      "source": "demo/.generated/art/expression-candidates/rin-serious.png",
+      "provenance": {
+        "assetId": "rin-serious",
+        "predictionId": "k8bedz7kpnrmy0d0g8qtmkkgmg",
+        "quality": "high",
+        "source": "demo/.generated/art/replicate/generated/rin-serious-face/k8bedz7kpnrmy0d0g8qtmkkgmg-output-0-0.png",
+        "baseCrop": [
+          256,
+          152,
+          512,
+          408
+        ],
+        "facePolygon": [
+          [
+            85,
+            108
+          ],
+          [
+            137,
+            93
+          ],
+          [
+            192,
+            106
+          ],
+          [
+            205,
+            146
+          ],
+          [
+            190,
+            179
+          ],
+          [
+            148,
+            207
+          ],
+          [
+            126,
+            211
+          ],
+          [
+            97,
+            187
+          ],
+          [
+            85,
+            156
+          ]
+        ],
+        "alignment": [
+          [
+            1.0193727529812948,
+            -0.0017729720157173637,
+            -11.685932370440089
+          ],
+          [
+            0.0017729720157173637,
+            1.0193727529812948,
+            13.045987483066678
+          ]
+        ],
+        "stableMatches": 94,
+        "inliers": 75,
+        "scale": 1.0193742948252287,
+        "angle": 0.09965315530088634,
+        "alphaUnchanged": true,
+        "bodyUnchanged": true,
+        "status": "candidate-needs-visual-review"
+      }
+    },
+    {
+      "character": "rin",
+      "expression": "annoyed",
+      "source": "demo/.generated/art/expression-candidates/rin-annoyed.png",
+      "provenance": {
+        "assetId": "rin-annoyed",
+        "predictionId": "7jpacjffz9rmt0d0g91bagyszg",
+        "quality": "low",
+        "source": "demo/.generated/art/replicate/generated/rin-annoyed-face/7jpacjffz9rmt0d0g91bagyszg-output-0-0.png",
+        "baseCrop": [
+          256,
+          152,
+          512,
+          408
+        ],
+        "facePolygon": [
+          [
+            85,
+            108
+          ],
+          [
+            137,
+            93
+          ],
+          [
+            192,
+            106
+          ],
+          [
+            205,
+            146
+          ],
+          [
+            190,
+            179
+          ],
+          [
+            148,
+            207
+          ],
+          [
+            126,
+            211
+          ],
+          [
+            97,
+            187
+          ],
+          [
+            85,
+            156
+          ]
+        ],
+        "alignment": [
+          [
+            1.0014708170257922,
+            -0.0005210135246338122,
+            -0.022036375082107644
+          ],
+          [
+            0.0005210135246338122,
+            1.0014708170257922,
+            -1.5471719100700874
+          ]
+        ],
+        "stableMatches": 188,
+        "inliers": 174,
+        "scale": 1.0014709525539922,
+        "angle": 0.029808031177771976,
+        "alphaUnchanged": true,
+        "bodyUnchanged": true,
+        "status": "candidate-needs-visual-review"
+      }
+    },
+    {
+      "character": "rin",
+      "expression": "smile",
+      "source": "demo/.generated/art/expression-candidates/rin-smile.png",
+      "provenance": {
+        "assetId": "rin-smile",
+        "predictionId": "4z47f8sv9drmt0d0g8ba0fs9h0",
+        "quality": "high",
+        "source": "demo/.generated/art/replicate/generated/rin-smile-face/4z47f8sv9drmt0d0g8ba0fs9h0-output-0-0.png",
+        "baseCrop": [
+          256,
+          152,
+          512,
+          408
+        ],
+        "facePolygon": [
+          [
+            85,
+            108
+          ],
+          [
+            137,
+            93
+          ],
+          [
+            192,
+            106
+          ],
+          [
+            205,
+            146
+          ],
+          [
+            190,
+            179
+          ],
+          [
+            148,
+            207
+          ],
+          [
+            126,
+            211
+          ],
+          [
+            97,
+            187
+          ],
+          [
+            85,
+            156
+          ]
+        ],
+        "alignment": [
+          [
+            1.0253809352152699,
+            -0.003367396088531185,
+            -9.175157970031371
+          ],
+          [
+            0.003367396088531185,
+            1.0253809352152699,
+            4.309281097469866
+          ]
+        ],
+        "stableMatches": 113,
+        "inliers": 86,
+        "scale": 1.0253864645387896,
+        "angle": 0.18816118341288762,
+        "alphaUnchanged": true,
+        "bodyUnchanged": true,
+        "status": "candidate-needs-visual-review"
+      }
+    },
+    {
+      "character": "rin",
+      "expression": "afraid",
+      "source": "demo/.generated/art/expression-candidates/rin-afraid.png",
+      "provenance": {
+        "assetId": "rin-afraid",
+        "predictionId": "exv0p17mpxrmr0d0g8qs2da4x8",
+        "quality": "high",
+        "source": "demo/.generated/art/replicate/generated/rin-afraid-face/exv0p17mpxrmr0d0g8qs2da4x8-output-0-0.png",
+        "baseCrop": [
+          256,
+          152,
+          512,
+          408
+        ],
+        "facePolygon": [
+          [
+            85,
+            108
+          ],
+          [
+            137,
+            93
+          ],
+          [
+            192,
+            106
+          ],
+          [
+            205,
+            146
+          ],
+          [
+            190,
+            179
+          ],
+          [
+            148,
+            207
+          ],
+          [
+            126,
+            211
+          ],
+          [
+            97,
+            187
+          ],
+          [
+            85,
+            156
+          ]
+        ],
+        "alignment": [
+          [
+            1.037439756815464,
+            -0.0003034074013719643,
+            -24.089319618950253
+          ],
+          [
+            0.0003034074013719643,
+            1.037439756815464,
+            19.64277654253632
+          ]
+        ],
+        "stableMatches": 97,
+        "inliers": 88,
+        "scale": 1.0374398011824013,
+        "angle": 0.016756600045270405,
+        "alphaUnchanged": true,
+        "bodyUnchanged": true,
+        "status": "candidate-needs-visual-review"
+      }
+    },
+    {
+      "character": "rin",
+      "expression": "relieved",
+      "source": "demo/.generated/art/expression-candidates/rin-relieved.png",
+      "provenance": {
+        "assetId": "rin-relieved",
+        "predictionId": "r128cbvzj5rmw0d0g91t1ehz9w",
+        "quality": "low",
+        "source": "demo/.generated/art/replicate/generated/rin-relieved-face/r128cbvzj5rmw0d0g91t1ehz9w-output-0-0.png",
+        "baseCrop": [
+          256,
+          152,
+          512,
+          408
+        ],
+        "facePolygon": [
+          [
+            85,
+            108
+          ],
+          [
+            137,
+            93
+          ],
+          [
+            192,
+            106
+          ],
+          [
+            205,
+            146
+          ],
+          [
+            190,
+            179
+          ],
+          [
+            148,
+            207
+          ],
+          [
+            126,
+            211
+          ],
+          [
+            97,
+            187
+          ],
+          [
+            85,
+            156
+          ]
+        ],
+        "alignment": [
+          [
+            1.0016602600200124,
+            4.7032541074257454e-05,
+            -0.6813870070159787
+          ],
+          [
+            -4.7032541074257454e-05,
+            1.0016602600200124,
+            -1.7120899888288792
+          ]
+        ],
+        "stableMatches": 147,
+        "inliers": 139,
+        "scale": 1.0016602611242091,
+        "angle": -0.0026902995046408154,
+        "alphaUnchanged": true,
+        "bodyUnchanged": true,
+        "status": "candidate-needs-visual-review"
+      }
+    },
+    {
+      "character": "rin",
+      "expression": "blush",
+      "source": "demo/.generated/art/expression-candidates/rin-blush.png",
+      "provenance": {
+        "assetId": "rin-blush",
+        "predictionId": "3waq6qbyt1rmr0d0g91v9qw2vg",
+        "quality": "low",
+        "source": "demo/.generated/art/replicate/generated/rin-blush-face/3waq6qbyt1rmr0d0g91v9qw2vg-output-0-0.png",
+        "baseCrop": [
+          256,
+          152,
+          512,
+          408
+        ],
+        "facePolygon": [
+          [
+            85,
+            108
+          ],
+          [
+            137,
+            93
+          ],
+          [
+            192,
+            106
+          ],
+          [
+            205,
+            146
+          ],
+          [
+            190,
+            179
+          ],
+          [
+            148,
+            207
+          ],
+          [
+            126,
+            211
+          ],
+          [
+            97,
+            187
+          ],
+          [
+            85,
+            156
+          ]
+        ],
+        "alignment": [
+          [
+            1.0006213154773356,
+            -0.0003302893752644781,
+            -0.18503677933392404
+          ],
+          [
+            0.0003302893752644781,
+            1.0006213154773356,
+            -0.946004368580845
+          ]
+        ],
+        "stableMatches": 253,
+        "inliers": 222,
+        "scale": 1.0006213699890008,
+        "angle": 0.01891243594420208,
+        "alphaUnchanged": true,
+        "bodyUnchanged": true,
+        "status": "candidate-needs-visual-review"
+      }
+    },
+    {
+      "character": "mara",
+      "expression": "tired",
+      "source": "demo/.generated/art/expression-candidates/mara-tired.png",
+      "provenance": {
+        "assetId": "mara-tired",
+        "predictionId": "napgz18bw1rmr0d0g9281g0gz8",
+        "quality": "low",
+        "source": "demo/.generated/art/replicate/generated/mara-tired-face/napgz18bw1rmr0d0g9281g0gz8-output-0-0.png",
+        "baseCrop": [
+          230,
+          70,
+          486,
+          326
+        ],
+        "facePolygon": [
+          [
+            69,
+            138
+          ],
+          [
+            100,
+            100
+          ],
+          [
+            144,
+            87
+          ],
+          [
+            169,
+            109
+          ],
+          [
+            176,
+            157
+          ],
+          [
+            161,
+            197
+          ],
+          [
+            135,
+            216
+          ],
+          [
+            112,
+            211
+          ],
+          [
+            82,
+            186
+          ]
+        ],
+        "alignment": [
+          [
+            0.9999869263670826,
+            0.0016085346071895144,
+            -0.8675015103013695
+          ],
+          [
+            -0.0016085346071895144,
+            0.9999869263670826,
+            1.4726588591889498
+          ]
+        ],
+        "stableMatches": 153,
+        "inliers": 142,
+        "scale": 0.9999882200749505,
+        "angle": -0.09216336961444149,
+        "alphaUnchanged": true,
+        "bodyUnchanged": true,
+        "status": "candidate-needs-visual-review"
+      }
+    },
+    {
+      "character": "mara",
+      "expression": "annoyed",
+      "source": "demo/.generated/art/expression-candidates/mara-annoyed.png",
+      "provenance": {
+        "assetId": "mara-annoyed",
+        "predictionId": "evhp4e0c9xrmw0d0g928vcdx44",
+        "quality": "low",
+        "source": "demo/.generated/art/replicate/generated/mara-annoyed-face/evhp4e0c9xrmw0d0g928vcdx44-output-0-0.png",
+        "baseCrop": [
+          230,
+          70,
+          486,
+          326
+        ],
+        "facePolygon": [
+          [
+            69,
+            138
+          ],
+          [
+            100,
+            100
+          ],
+          [
+            144,
+            87
+          ],
+          [
+            169,
+            109
+          ],
+          [
+            176,
+            157
+          ],
+          [
+            161,
+            197
+          ],
+          [
+            135,
+            216
+          ],
+          [
+            112,
+            211
+          ],
+          [
+            82,
+            186
+          ]
+        ],
+        "alignment": [
+          [
+            0.9996866164899848,
+            -1.924533021100665e-05,
+            0.277162451906511
+          ],
+          [
+            1.924533021100665e-05,
+            0.9996866164899848,
+            -0.3613934334438665
+          ]
+        ],
+        "stableMatches": 149,
+        "inliers": 138,
+        "scale": 0.9996866166752342,
+        "angle": 0.0011030218651538017,
+        "alphaUnchanged": true,
+        "bodyUnchanged": true,
+        "status": "candidate-needs-visual-review"
+      }
+    },
+    {
+      "character": "mara",
+      "expression": "serious",
+      "source": "demo/.generated/art/expression-candidates/mara-serious.png",
+      "provenance": {
+        "assetId": "mara-serious",
+        "predictionId": "kwv5c094a9rmy0d0g8s8j9jkcg",
+        "quality": "high",
+        "source": "demo/.generated/art/replicate/generated/mara-serious-face/kwv5c094a9rmy0d0g8s8j9jkcg-output-0-0.png",
+        "baseCrop": [
+          230,
+          70,
+          486,
+          326
+        ],
+        "facePolygon": [
+          [
+            69,
+            138
+          ],
+          [
+            100,
+            100
+          ],
+          [
+            144,
+            87
+          ],
+          [
+            169,
+            109
+          ],
+          [
+            176,
+            157
+          ],
+          [
+            161,
+            197
+          ],
+          [
+            135,
+            216
+          ],
+          [
+            112,
+            211
+          ],
+          [
+            82,
+            186
+          ]
+        ],
+        "alignment": [
+          [
+            0.9954560387963525,
+            -0.0020989714860206498,
+            1.7706977255669434
+          ],
+          [
+            0.0020989714860206498,
+            0.9954560387963525,
+            12.533424728140028
+          ]
+        ],
+        "stableMatches": 115,
+        "inliers": 96,
+        "scale": 0.9954582516898558,
+        "angle": 0.12081098968951974,
+        "alphaUnchanged": true,
+        "bodyUnchanged": true,
+        "status": "candidate-needs-visual-review"
+      }
+    },
+    {
+      "character": "mara",
+      "expression": "smile",
+      "source": "demo/.generated/art/expression-candidates/mara-smile.png",
+      "provenance": {
+        "assetId": "mara-smile",
+        "predictionId": "xjpwxg7pbdrmt0d0g8qtyncevc",
+        "quality": "high",
+        "source": "demo/.generated/art/replicate/generated/mara-smile-face/xjpwxg7pbdrmt0d0g8qtyncevc-output-0-0.png",
+        "baseCrop": [
+          230,
+          70,
+          486,
+          326
+        ],
+        "facePolygon": [
+          [
+            69,
+            138
+          ],
+          [
+            100,
+            100
+          ],
+          [
+            144,
+            87
+          ],
+          [
+            169,
+            109
+          ],
+          [
+            176,
+            157
+          ],
+          [
+            161,
+            197
+          ],
+          [
+            135,
+            216
+          ],
+          [
+            112,
+            211
+          ],
+          [
+            82,
+            186
+          ]
+        ],
+        "alignment": [
+          [
+            1.0146926775922938,
+            -0.001789527981129246,
+            0.09082165745083891
+          ],
+          [
+            0.001789527981129246,
+            1.0146926775922938,
+            63.65665792002654
+          ]
+        ],
+        "stableMatches": 77,
+        "inliers": 59,
+        "scale": 1.0146942556109273,
+        "angle": 0.1010476340276791,
+        "alphaUnchanged": true,
+        "bodyUnchanged": true,
+        "status": "candidate-needs-visual-review"
+      }
+    },
+    {
+      "character": "mara",
+      "expression": "relieved",
+      "source": "demo/.generated/art/expression-candidates/mara-relieved.png",
+      "provenance": {
+        "assetId": "mara-relieved",
+        "predictionId": "tx97600c7nrmy0d0g92aphk698",
+        "quality": "low",
+        "source": "demo/.generated/art/replicate/generated/mara-relieved-face/tx97600c7nrmy0d0g92aphk698-output-0-0.png",
+        "baseCrop": [
+          230,
+          70,
+          486,
+          326
+        ],
+        "facePolygon": [
+          [
+            69,
+            138
+          ],
+          [
+            100,
+            100
+          ],
+          [
+            144,
+            87
+          ],
+          [
+            169,
+            109
+          ],
+          [
+            176,
+            157
+          ],
+          [
+            161,
+            197
+          ],
+          [
+            135,
+            216
+          ],
+          [
+            112,
+            211
+          ],
+          [
+            82,
+            186
+          ]
+        ],
+        "alignment": [
+          [
+            1.0008715190857373,
+            0.0001202120916982353,
+            -0.2945256569323904
+          ],
+          [
+            -0.0001202120916982353,
+            1.0008715190857373,
+            -1.4147015261975913
+          ]
+        ],
+        "stableMatches": 164,
+        "inliers": 145,
+        "scale": 1.000871526304919,
+        "angle": -0.006881647980072653,
+        "alphaUnchanged": true,
+        "bodyUnchanged": true,
+        "status": "candidate-needs-visual-review"
+      }
+    },
+    {
+      "character": "mara",
+      "expression": "hesitant",
+      "source": "demo/.generated/art/expression-candidates/mara-hesitant.png",
+      "provenance": {
+        "assetId": "mara-hesitant",
+        "predictionId": "vhb35xm1h1rmr0d0g91tbm85rc",
+        "quality": "low",
+        "source": "demo/.generated/art/replicate/generated/mara-hesitant-face/vhb35xm1h1rmr0d0g91tbm85rc-output-0-0.png",
+        "baseCrop": [
+          230,
+          70,
+          486,
+          326
+        ],
+        "facePolygon": [
+          [
+            69,
+            138
+          ],
+          [
+            100,
+            100
+          ],
+          [
+            144,
+            87
+          ],
+          [
+            169,
+            109
+          ],
+          [
+            176,
+            157
+          ],
+          [
+            161,
+            197
+          ],
+          [
+            135,
+            216
+          ],
+          [
+            112,
+            211
+          ],
+          [
+            82,
+            186
+          ]
+        ],
+        "alignment": [
+          [
+            1.0011374792307095,
+            -0.00012564995632120354,
+            -0.5988371725779077
+          ],
+          [
+            0.00012564995632120354,
+            1.0011374792307095,
+            -1.23353230714006
+          ]
+        ],
+        "stableMatches": 231,
+        "inliers": 191,
+        "scale": 1.0011374871156962,
+        "angle": 0.007191032505285187,
+        "alphaUnchanged": true,
+        "bodyUnchanged": true,
+        "status": "candidate-needs-visual-review"
+      }
+    },
+    {
+      "character": "mara",
+      "expression": "blush",
+      "source": "demo/.generated/art/expression-candidates/mara-blush.png",
+      "provenance": {
+        "assetId": "mara-blush",
+        "predictionId": "dd9qr2kg9drmw0d0g929715qjc",
+        "quality": "low",
+        "source": "demo/.generated/art/replicate/generated/mara-blush-face/dd9qr2kg9drmw0d0g929715qjc-output-0-0.png",
+        "baseCrop": [
+          230,
+          70,
+          486,
+          326
+        ],
+        "facePolygon": [
+          [
+            69,
+            138
+          ],
+          [
+            100,
+            100
+          ],
+          [
+            144,
+            87
+          ],
+          [
+            169,
+            109
+          ],
+          [
+            176,
+            157
+          ],
+          [
+            161,
+            197
+          ],
+          [
+            135,
+            216
+          ],
+          [
+            112,
+            211
+          ],
+          [
+            82,
+            186
+          ]
+        ],
+        "alignment": [
+          [
+            1.0015687113448626,
+            2.246834810203323e-05,
+            0.09437367925024201
+          ],
+          [
+            -2.246834810203323e-05,
+            1.0015687113448626,
+            -1.0890301680520313
+          ]
+        ],
+        "stableMatches": 147,
+        "inliers": 131,
+        "scale": 1.0015687115968805,
+        "angle": -0.0012853252144156358,
+        "alphaUnchanged": true,
+        "bodyUnchanged": true,
+        "status": "candidate-needs-visual-review"
+      }
+    },
+    {
+      "character": "mara",
+      "expression": "afraid",
+      "source": "demo/.generated/art/expression-candidates/mara-afraid.png",
+      "provenance": {
+        "assetId": "mara-afraid",
+        "predictionId": "n4d7f7hx4nrmr0d0g8b96fy9a4",
+        "quality": "high",
+        "source": "demo/.generated/art/replicate/generated/mara-afraid-face/n4d7f7hx4nrmr0d0g8b96fy9a4-output-0-0.png",
+        "baseCrop": [
+          230,
+          70,
+          486,
+          326
+        ],
+        "facePolygon": [
+          [
+            69,
+            138
+          ],
+          [
+            100,
+            100
+          ],
+          [
+            144,
+            87
+          ],
+          [
+            169,
+            109
+          ],
+          [
+            176,
+            157
+          ],
+          [
+            161,
+            197
+          ],
+          [
+            135,
+            216
+          ],
+          [
+            112,
+            211
+          ],
+          [
+            82,
+            186
+          ]
+        ],
+        "alignment": [
+          [
+            1.0081954883306499,
+            -0.002260600868838944,
+            -2.0600334224667356
+          ],
+          [
+            0.002260600868838944,
+            1.0081954883306499,
+            9.05268373130457
+          ]
+        ],
+        "stableMatches": 82,
+        "inliers": 58,
+        "scale": 1.0081980227150644,
+        "angle": 0.1284697991471078,
+        "alphaUnchanged": true,
+        "bodyUnchanged": true,
+        "status": "candidate-needs-visual-review"
+      }
+    },
+    {
+      "character": "mayu",
+      "expression": "hesitant",
+      "source": "demo/.generated/art/expression-candidates/mayu-hesitant.png",
+      "provenance": {
+        "assetId": "mayu-hesitant",
+        "predictionId": "vj01xjnhshrmy0d0g92sfec1yg",
+        "quality": "low",
+        "source": "demo/.generated/art/replicate/generated/mayu-hesitant-face/vj01xjnhshrmy0d0g92sfec1yg-output-0-0.png",
+        "baseCrop": [
+          258,
+          70,
+          514,
+          326
+        ],
+        "facePolygon": [
+          [
+            64,
+            104
+          ],
+          [
+            103,
+            70
+          ],
+          [
+            130,
+            73
+          ],
+          [
+            153,
+            114
+          ],
+          [
+            151,
+            157
+          ],
+          [
+            136,
+            183
+          ],
+          [
+            114,
+            198
+          ],
+          [
+            89,
+            181
+          ],
+          [
+            70,
+            155
+          ]
+        ],
+        "alignment": [
+          [
+            1.0017683693140633,
+            -0.0003589182162581715,
+            -0.48775767549437654
+          ],
+          [
+            0.0003589182162581715,
+            1.0017683693140633,
+            -2.12580256586021
+          ]
+        ],
+        "stableMatches": 94,
+        "inliers": 91,
+        "scale": 1.0017684336115027,
+        "angle": 0.020528196668954238,
+        "alphaUnchanged": true,
+        "bodyUnchanged": true,
+        "status": "candidate-needs-visual-review"
+      }
+    },
+    {
+      "character": "mayu",
+      "expression": "serious",
+      "source": "demo/.generated/art/expression-candidates/mayu-serious.png",
+      "provenance": {
+        "assetId": "mayu-serious",
+        "predictionId": "4p2kbn26phrmt0d0g92trc19vw",
+        "quality": "low",
+        "source": "demo/.generated/art/replicate/generated/mayu-serious-face/4p2kbn26phrmt0d0g92trc19vw-output-0-0.png",
+        "baseCrop": [
+          258,
+          70,
+          514,
+          326
+        ],
+        "facePolygon": [
+          [
+            64,
+            104
+          ],
+          [
+            103,
+            70
+          ],
+          [
+            130,
+            73
+          ],
+          [
+            153,
+            114
+          ],
+          [
+            151,
+            157
+          ],
+          [
+            136,
+            183
+          ],
+          [
+            114,
+            198
+          ],
+          [
+            89,
+            181
+          ],
+          [
+            70,
+            155
+          ]
+        ],
+        "alignment": [
+          [
+            1.0018665589370768,
+            -0.000557306018274173,
+            -0.2485144074004347
+          ],
+          [
+            0.000557306018274173,
+            1.0018665589370768,
+            -1.8306727128322733
+          ]
+        ],
+        "stableMatches": 81,
+        "inliers": 76,
+        "scale": 1.0018667139427366,
+        "angle": 0.03187178887844074,
+        "alphaUnchanged": true,
+        "bodyUnchanged": true,
+        "status": "candidate-needs-visual-review"
+      }
+    },
+    {
+      "character": "mayu",
+      "expression": "smile",
+      "source": "demo/.generated/art/expression-candidates/mayu-smile.png",
+      "provenance": {
+        "assetId": "mayu-smile",
+        "predictionId": "ah5b9d16w9rmr0d0g92r0z4apc",
+        "quality": "low",
+        "source": "demo/.generated/art/replicate/generated/mayu-smile-face/ah5b9d16w9rmr0d0g92r0z4apc-output-0-0.png",
+        "baseCrop": [
+          258,
+          70,
+          514,
+          326
+        ],
+        "facePolygon": [
+          [
+            64,
+            104
+          ],
+          [
+            103,
+            70
+          ],
+          [
+            130,
+            73
+          ],
+          [
+            153,
+            114
+          ],
+          [
+            151,
+            157
+          ],
+          [
+            136,
+            183
+          ],
+          [
+            114,
+            198
+          ],
+          [
+            89,
+            181
+          ],
+          [
+            70,
+            155
+          ]
+        ],
+        "alignment": [
+          [
+            1.0035229701984096,
+            -0.0004829384924303733,
+            0.963720866538118
+          ],
+          [
+            0.0004829384924303733,
+            1.0035229701984096,
+            -0.21514979810237397
+          ]
+        ],
+        "stableMatches": 69,
+        "inliers": 60,
+        "scale": 1.0035230864038085,
+        "angle": 0.027573195697849807,
+        "alphaUnchanged": true,
+        "bodyUnchanged": true,
+        "status": "candidate-needs-visual-review"
+      }
+    },
+    {
+      "character": "reiko",
+      "expression": "serious",
+      "source": "demo/.generated/art/expression-candidates/reiko-serious.png",
+      "provenance": {
+        "assetId": "reiko-serious",
+        "predictionId": "dst8acypthrmw0d0g92vegb09w",
+        "quality": "low",
+        "source": "demo/.generated/art/replicate/generated/reiko-serious-face/dst8acypthrmw0d0g92vegb09w-output-0-0.png",
+        "baseCrop": [
+          260,
+          100,
+          516,
+          356
+        ],
+        "facePolygon": [
+          [
+            60,
+            119
+          ],
+          [
+            100,
+            86
+          ],
+          [
+            140,
+            86
+          ],
+          [
+            159,
+            119
+          ],
+          [
+            151,
+            170
+          ],
+          [
+            129,
+            196
+          ],
+          [
+            102,
+            210
+          ],
+          [
+            83,
+            198
+          ],
+          [
+            65,
+            161
+          ]
+        ],
+        "alignment": [
+          [
+            0.9984477052538069,
+            0.0015002205730821382,
+            0.34009387132862823
+          ],
+          [
+            -0.0015002205730821382,
+            0.9984477052538069,
+            1.1977001890593648
+          ]
+        ],
+        "stableMatches": 74,
+        "inliers": 66,
+        "scale": 0.9984488323336157,
+        "angle": -0.08608987935695632,
+        "alphaUnchanged": true,
+        "bodyUnchanged": true,
+        "status": "candidate-needs-visual-review"
+      }
+    },
+    {
+      "character": "reiko",
+      "expression": "smile",
+      "source": "demo/.generated/art/expression-candidates/reiko-smile.png",
+      "provenance": {
+        "assetId": "reiko-smile",
+        "predictionId": "rb7aj0ekjsrmw0d0g92sk5ve0c",
+        "quality": "low",
+        "source": "demo/.generated/art/replicate/generated/reiko-smile-face/rb7aj0ekjsrmw0d0g92sk5ve0c-output-0-0.png",
+        "baseCrop": [
+          260,
+          100,
+          516,
+          356
+        ],
+        "facePolygon": [
+          [
+            60,
+            119
+          ],
+          [
+            100,
+            86
+          ],
+          [
+            140,
+            86
+          ],
+          [
+            159,
+            119
+          ],
+          [
+            151,
+            170
+          ],
+          [
+            129,
+            196
+          ],
+          [
+            102,
+            210
+          ],
+          [
+            83,
+            198
+          ],
+          [
+            65,
+            161
+          ]
+        ],
+        "alignment": [
+          [
+            1.0000431859697836,
+            0.00017027836189151277,
+            -0.1840131471603625
+          ],
+          [
+            -0.00017027836189151277,
+            1.0000431859697836,
+            -0.224849828118428
+          ]
+        ],
+        "stableMatches": 101,
+        "inliers": 92,
+        "scale": 1.0000432004665176,
+        "angle": -0.009755810070381118,
+        "alphaUnchanged": true,
+        "bodyUnchanged": true,
+        "status": "candidate-needs-visual-review"
+      }
+    },
+    {
+      "character": "reiko",
+      "expression": "hesitant",
+      "source": "demo/.generated/art/expression-candidates/reiko-hesitant.png",
+      "provenance": {
+        "assetId": "reiko-hesitant",
+        "predictionId": "dhzr9e8gcxrmw0d0g939hbg1yw",
+        "quality": "low",
+        "source": "demo/.generated/art/replicate/generated/reiko-hesitant-face/dhzr9e8gcxrmw0d0g939hbg1yw-output-0-0.png",
+        "baseCrop": [
+          260,
+          100,
+          516,
+          356
+        ],
+        "facePolygon": [
+          [
+            60,
+            119
+          ],
+          [
+            100,
+            86
+          ],
+          [
+            140,
+            86
+          ],
+          [
+            159,
+            119
+          ],
+          [
+            151,
+            170
+          ],
+          [
+            129,
+            196
+          ],
+          [
+            102,
+            210
+          ],
+          [
+            83,
+            198
+          ],
+          [
+            65,
+            161
+          ]
+        ],
+        "alignment": [
+          [
+            0.9996298820103948,
+            0.00024060628406018779,
+            0.06218283291764549
+          ],
+          [
+            -0.00024060628406018779,
+            0.9996298820103948,
+            -0.5720713799723635
+          ]
+        ],
+        "stableMatches": 101,
+        "inliers": 87,
+        "scale": 0.9996299109668036,
+        "angle": -0.013790828568497423,
+        "alphaUnchanged": true,
+        "bodyUnchanged": true,
+        "status": "candidate-needs-visual-review"
+      }
+    },
+    {
+      "character": "rin",
+      "expression": "pose-listening",
+      "source": "demo/.generated/art/pose-candidates/rin-pose-listening.png",
+      "provenance": {
+        "assetId": "rin-pose-listening",
+        "character": "rin",
+        "heightCm": 163,
+        "footY": 1488,
+        "canvas": [
+          768,
+          1536
+        ],
+        "source": "demo/.generated/art/replicate/cutouts/rin-pose-listening/sef68va4yxrga0d0g97baeds7c-output-0.png",
+        "bounds": [
+          317,
+          34,
+          656,
+          1484
+        ],
+        "scale": 0.9252051506600499,
+        "predictionId": "sef68va4yxrga0d0g97baeds7c",
+        "alpha": "model soft alpha retained",
+        "status": "candidate-needs-visual-review"
+      }
+    },
+    {
+      "character": "rin",
+      "expression": "pose-explaining",
+      "source": "demo/.generated/art/pose-candidates/rin-pose-explaining.png",
+      "provenance": {
+        "assetId": "rin-pose-explaining",
+        "character": "rin",
+        "heightCm": 163,
+        "footY": 1488,
+        "canvas": [
+          768,
+          1536
+        ],
+        "source": "demo/.generated/art/replicate/cutouts/rin-pose-explaining/1zcj47t2t9rga0d0g978bc2x3w-output-0.png",
+        "bounds": [
+          131,
+          56,
+          719,
+          1480
+        ],
+        "scale": 0.9422899048625794,
+        "predictionId": "1zcj47t2t9rga0d0g978bc2x3w",
+        "alpha": "model soft alpha retained",
+        "status": "candidate-needs-visual-review"
+      }
+    },
+    {
+      "character": "rin",
+      "expression": "pose-phone",
+      "source": "demo/.generated/art/pose-candidates/rin-pose-phone.png",
+      "provenance": {
+        "assetId": "rin-pose-phone",
+        "character": "rin",
+        "heightCm": 163,
+        "footY": 1488,
+        "canvas": [
+          768,
+          1536
+        ],
+        "source": "demo/.generated/art/replicate/cutouts/rin-pose-phone/mwrqjvt8rdrga0d0g979v9rjy4-output-0.png",
+        "bounds": [
+          338,
+          36,
+          698,
+          1482
+        ],
+        "scale": 0.9277931370954627,
+        "predictionId": "mwrqjvt8rdrga0d0g979v9rjy4",
+        "alpha": "model soft alpha retained",
+        "status": "candidate-needs-visual-review"
+      }
+    },
+    {
+      "character": "mara",
+      "expression": "pose-listening",
+      "source": "demo/.generated/art/pose-candidates/mara-pose-listening-v2.png",
+      "provenance": {
+        "assetId": "mara-pose-listening-v2",
+        "character": "mara",
+        "heightCm": 172,
+        "footY": 1488,
+        "canvas": [
+          768,
+          1536
+        ],
+        "source": "demo/.generated/art/replicate/cutouts/mara-pose-listening-v2/kdmessg9wxrga0d0g9aawr20k8-output-0.png",
+        "bounds": [
+          266,
+          38,
+          760,
+          1512
+        ],
+        "scale": 0.9602194787379973,
+        "predictionId": "kdmessg9wxrga0d0g9aawr20k8",
+        "alpha": "model soft alpha retained",
+        "status": "candidate-needs-visual-review"
+      }
+    },
+    {
+      "character": "mara",
+      "expression": "pose-explaining",
+      "source": "demo/.generated/art/pose-candidates/mara-pose-explaining.png",
+      "provenance": {
+        "assetId": "mara-pose-explaining",
+        "character": "mara",
+        "heightCm": 172,
+        "footY": 1488,
+        "canvas": [
+          768,
+          1536
+        ],
+        "source": "demo/.generated/art/replicate/cutouts/mara-pose-explaining/q6wz6gbc0srgc0d0g97ax1f15g-output-0.png",
+        "bounds": [
+          300,
+          21,
+          888,
+          1476
+        ],
+        "scale": 0.9728978457261988,
+        "predictionId": "q6wz6gbc0srgc0d0g97ax1f15g",
+        "alpha": "model soft alpha retained",
+        "status": "candidate-needs-visual-review"
+      }
+    },
+    {
+      "character": "mara",
+      "expression": "pose-phone",
+      "source": "demo/.generated/art/pose-candidates/mara-pose-phone.png",
+      "provenance": {
+        "assetId": "mara-pose-phone",
+        "character": "mara",
+        "heightCm": 172,
+        "footY": 1488,
+        "canvas": [
+          768,
+          1536
+        ],
+        "source": "demo/.generated/art/replicate/cutouts/mara-pose-phone/2rezy4kc99rge0d0g97by6s8q0-output-0.png",
+        "bounds": [
+          295,
+          28,
+          746,
+          1511
+        ],
+        "scale": 0.9543285616905249,
+        "predictionId": "2rezy4kc99rge0d0g97by6s8q0",
+        "alpha": "model soft alpha retained",
+        "status": "candidate-needs-visual-review"
+      }
+    },
+    {
+      "character": "yumi",
+      "expression": "neutral",
+      "source": "demo/.generated/art/pose-candidates/yumi-reference-summer-v4.png",
+      "provenance": {
+        "assetId": "yumi-reference-summer-v4",
+        "character": "yumi",
+        "heightCm": 153,
+        "footY": 1488,
+        "canvas": [
+          768,
+          1536
+        ],
+        "source": "demo/.generated/art/replicate/cutouts/yumi-reference-summer-v4/301htske5xrga0d0g978rjmztr-output-0.png",
+        "bounds": [
+          205,
+          2,
+          767,
+          1519
+        ],
+        "scale": 0.829679438513859,
+        "predictionId": "301htske5xrga0d0g978rjmztr",
+        "alpha": "model soft alpha retained",
+        "status": "candidate-needs-visual-review"
+      }
+    },
+    {
+      "character": "haruka",
+      "expression": "smile",
+      "source": "demo/.generated/art/expression-candidates/haruka-smile.png",
+      "provenance": {
+        "assetId": "haruka-smile",
+        "predictionId": "8thbh8wrknrmy0d0g929vq7sec",
+        "quality": "low",
+        "source": "demo/.generated/art/replicate/generated/haruka-smile-face/8thbh8wrknrmy0d0g929vq7sec-output-0-0.png",
+        "baseCrop": [
+          244,
+          186,
+          500,
+          442
+        ],
+        "facePolygon": [
+          [
+            81,
+            143
+          ],
+          [
+            103,
+            129
+          ],
+          [
+            139,
+            97
+          ],
+          [
+            171,
+            103
+          ],
+          [
+            179,
+            123
+          ],
+          [
+            178,
+            163
+          ],
+          [
+            164,
+            188
+          ],
+          [
+            141,
+            207
+          ],
+          [
+            119,
+            197
+          ],
+          [
+            100,
+            178
+          ]
+        ],
+        "alignment": [
+          [
+            1.0012099344592755,
+            0.0007427397618284979,
+            -0.5215048677001023
+          ],
+          [
+            -0.0007427397618284979,
+            1.0012099344592755,
+            0.21353979299618267
+          ]
+        ],
+        "stableMatches": 87,
+        "inliers": 77,
+        "scale": 1.00121020995708,
+        "angle": -0.042504418262415196,
+        "alphaUnchanged": true,
+        "bodyUnchanged": true,
+        "status": "candidate-needs-visual-review"
+      }
+    },
+    {
+      "character": "haruka",
+      "expression": "serious",
+      "source": "demo/.generated/art/expression-candidates/haruka-serious.png",
+      "provenance": {
+        "assetId": "haruka-serious",
+        "predictionId": "5kgnz0wrznrmr0d0g928j86rer",
+        "quality": "low",
+        "source": "demo/.generated/art/replicate/generated/haruka-serious-face/5kgnz0wrznrmr0d0g928j86rer-output-0-0.png",
+        "baseCrop": [
+          244,
+          186,
+          500,
+          442
+        ],
+        "facePolygon": [
+          [
+            81,
+            143
+          ],
+          [
+            103,
+            129
+          ],
+          [
+            139,
+            97
+          ],
+          [
+            171,
+            103
+          ],
+          [
+            179,
+            123
+          ],
+          [
+            178,
+            163
+          ],
+          [
+            164,
+            188
+          ],
+          [
+            141,
+            207
+          ],
+          [
+            119,
+            197
+          ],
+          [
+            100,
+            178
+          ]
+        ],
+        "alignment": [
+          [
+            1.0006862992219294,
+            0.0008093537211402475,
+            0.3871440809286928
+          ],
+          [
+            -0.0008093537211402475,
+            1.0006862992219294,
+            0.04170215378394206
+          ]
+        ],
+        "stableMatches": 85,
+        "inliers": 76,
+        "scale": 1.0006866265239716,
+        "angle": -0.046340738630066734,
+        "alphaUnchanged": true,
+        "bodyUnchanged": true,
+        "status": "candidate-needs-visual-review"
+      }
+    },
+    {
+      "character": "haruka",
+      "expression": "hesitant",
+      "source": "demo/.generated/art/expression-candidates/haruka-hesitant.png",
+      "provenance": {
+        "assetId": "haruka-hesitant",
+        "predictionId": "4svcrgs59srmr0d0g92sck64vc",
+        "quality": "low",
+        "source": "demo/.generated/art/replicate/generated/haruka-hesitant-face/4svcrgs59srmr0d0g92sck64vc-output-0-0.png",
+        "baseCrop": [
+          244,
+          186,
+          500,
+          442
+        ],
+        "facePolygon": [
+          [
+            81,
+            143
+          ],
+          [
+            103,
+            129
+          ],
+          [
+            139,
+            97
+          ],
+          [
+            171,
+            103
+          ],
+          [
+            179,
+            123
+          ],
+          [
+            178,
+            163
+          ],
+          [
+            164,
+            188
+          ],
+          [
+            141,
+            207
+          ],
+          [
+            119,
+            197
+          ],
+          [
+            100,
+            178
+          ]
+        ],
+        "alignment": [
+          [
+            0.9985157608414846,
+            0.00025562852011353155,
+            1.7726570736661873
+          ],
+          [
+            -0.00025562852011353155,
+            0.9985157608414846,
+            1.4690691077905504
+          ]
+        ],
+        "stableMatches": 84,
+        "inliers": 72,
+        "scale": 0.9985157935630209,
+        "angle": -0.014668206131628682,
+        "alphaUnchanged": true,
+        "bodyUnchanged": true,
+        "status": "candidate-needs-visual-review"
+      }
+    },
+    {
+      "character": "yumi",
+      "expression": "serious",
+      "source": "demo/.generated/art/expression-candidates/yumi-serious.png",
+      "provenance": {
+        "assetId": "yumi-serious",
+        "predictionId": "tawy9kfqndrmr0d0gprsf679er",
+        "quality": "low",
+        "source": "demo/.generated/art/replicate/generated/yumi-serious-face/tawy9kfqndrmr0d0gprsf679er-output-0-0.png",
+        "baseCrop": [
+          266,
+          220,
+          522,
+          476
+        ],
+        "facePolygon": [
+          [
+            74,
+            148
+          ],
+          [
+            100,
+            131
+          ],
+          [
+            124,
+            94
+          ],
+          [
+            152,
+            101
+          ],
+          [
+            176,
+            128
+          ],
+          [
+            185,
+            165
+          ],
+          [
+            174,
+            195
+          ],
+          [
+            140,
+            216
+          ],
+          [
+            106,
+            210
+          ],
+          [
+            84,
+            189
+          ]
+        ],
+        "alignment": [
+          [
+            1.000296583603277,
+            -0.0007103079803099555,
+            0.3726843060916766
+          ],
+          [
+            0.0007103079803099555,
+            1.000296583603277,
+            -0.6996974650921701
+          ]
+        ],
+        "stableMatches": 142,
+        "inliers": 116,
+        "scale": 1.000296835797162,
+        "angle": 0.040685575911081344,
+        "alphaUnchanged": true,
+        "bodyUnchanged": true,
+        "status": "candidate-needs-visual-review"
+      }
+    },
+    {
+      "character": "yumi",
+      "expression": "hesitant",
+      "source": "demo/.generated/art/expression-candidates/yumi-hesitant.png",
+      "provenance": {
+        "assetId": "yumi-hesitant",
+        "predictionId": "kqqyejqrn1rmy0d0gprvt48h20",
+        "quality": "low",
+        "source": "demo/.generated/art/replicate/generated/yumi-hesitant-face/kqqyejqrn1rmy0d0gprvt48h20-output-0-0.png",
+        "baseCrop": [
+          266,
+          220,
+          522,
+          476
+        ],
+        "facePolygon": [
+          [
+            74,
+            148
+          ],
+          [
+            100,
+            131
+          ],
+          [
+            124,
+            94
+          ],
+          [
+            152,
+            101
+          ],
+          [
+            176,
+            128
+          ],
+          [
+            185,
+            165
+          ],
+          [
+            174,
+            195
+          ],
+          [
+            140,
+            216
+          ],
+          [
+            106,
+            210
+          ],
+          [
+            84,
+            189
+          ]
+        ],
+        "alignment": [
+          [
+            1.0007909084621733,
+            -0.0004434023642983427,
+            0.3278708637194247
+          ],
+          [
+            0.0004434023642983427,
+            1.0007909084621733,
+            -0.6377772266202646
+          ]
+        ],
+        "stableMatches": 158,
+        "inliers": 130,
+        "scale": 1.0007910066873098,
+        "angle": 0.025385005222677257,
+        "alphaUnchanged": true,
+        "bodyUnchanged": true,
+        "status": "candidate-needs-visual-review"
+      }
+    }
+  ],
+  "latestRefinement": "demo/.agents/heroine-flare-review.json",
+  "note": "本文件记录上一轮39份素材；Flare修整10份并新增8份的当前版本见latestRefinement，现有47份。"
+}

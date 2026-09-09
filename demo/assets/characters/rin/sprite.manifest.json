@@ -2,11 +2,457 @@
   "version": 1,
   "family": "rin",
   "base": {
-    "asset": "rin/neutral.png"
+    "asset": "rin/neutral.png",
+    "opacity": 0
   },
   "expressions": {
+    "afraid": {
+      "layers": [
+        {
+          "asset": "rin/afraid.png"
+        }
+      ]
+    },
+    "annoyed": {
+      "layers": [
+        {
+          "asset": "rin/annoyed.png"
+        }
+      ]
+    },
+    "blush": {
+      "layers": [
+        {
+          "asset": "rin/blush.png"
+        }
+      ]
+    },
+    "hesitant": {
+      "layers": [
+        {
+          "asset": "rin/hesitant.png"
+        }
+      ]
+    },
     "neutral": {
-      "layers": []
+      "layers": [
+        {
+          "asset": "rin/neutral.png"
+        }
+      ]
+    },
+    "pose-explaining": {
+      "layers": [
+        {
+          "asset": "rin/pose-explaining.png"
+        }
+      ]
+    },
+    "pose-listening": {
+      "layers": [
+        {
+          "asset": "rin/pose-listening.png"
+        }
+      ]
+    },
+    "pose-phone": {
+      "layers": [
+        {
+          "asset": "rin/pose-phone.png"
+        }
+      ]
+    },
+    "relieved": {
+      "layers": [
+        {
+          "asset": "rin/relieved.png"
+        }
+      ]
+    },
+    "serious": {
+      "layers": [
+        {
+          "asset": "rin/serious.png"
+        }
+      ]
+    },
+    "smile": {
+      "layers": [
+        {
+          "asset": "rin/smile.png"
+        }
+      ]
+    },
+    "tired": {
+      "layers": [
+        {
+          "asset": "rin/tired.png"
+        }
+      ]
+    },
+    "quiet-smile": {
+      "layers": [
+        {
+          "asset": "rin/quiet-smile.png"
+        }
+      ]
+    },
+    "teary-relief": {
+      "layers": [
+        {
+          "asset": "rin/teary-relief.png"
+        }
+      ]
+    },
+    "eyes-closed-shy": {
+      "layers": [
+        {
+          "asset": "rin/eyes-closed-shy.png"
+        }
+      ]
+    },
+    "pose-reach-hand": {
+      "layers": [
+        {
+          "asset": "rin/pose-reach-hand.png"
+        }
+      ]
+    },
+    "leisure-neutral": {
+      "layers": [
+        {
+          "asset": "rin/outfits/leisure/neutral.png"
+        }
+      ]
+    },
+    "leisure-serious": {
+      "layers": [
+        {
+          "asset": "rin/outfits/leisure/serious.png"
+        }
+      ]
+    },
+    "leisure-annoyed": {
+      "layers": [
+        {
+          "asset": "rin/outfits/leisure/annoyed.png"
+        }
+      ]
+    },
+    "leisure-blush": {
+      "layers": [
+        {
+          "asset": "rin/outfits/leisure/blush.png"
+        }
+      ]
+    },
+    "leisure-relieved": {
+      "layers": [
+        {
+          "asset": "rin/outfits/leisure/relieved.png"
+        }
+      ]
+    },
+    "leisure-eyes-closed-shy": {
+      "layers": [
+        {
+          "asset": "rin/outfits/leisure/eyes-closed-shy.png"
+        }
+      ]
+    },
+    "leisure-hesitant": {
+      "layers": [
+        {
+          "asset": "rin/outfits/leisure/hesitant.png"
+        }
+      ]
+    },
+    "leisure-teary-relief": {
+      "layers": [
+        {
+          "asset": "rin/outfits/leisure/teary-relief.png"
+        }
+      ]
+    },
+    "leisure-tired": {
+      "layers": [
+        {
+          "asset": "rin/outfits/leisure/tired.png"
+        }
+      ]
+    },
+    "leisure-afraid": {
+      "layers": [
+        {
+          "asset": "rin/outfits/leisure/afraid.png"
+        }
+      ]
+    },
+    "leisure-quiet-smile": {
+      "layers": [
+        {
+          "asset": "rin/outfits/leisure/quiet-smile.png"
+        }
+      ]
+    },
+    "leisure-smile": {
+      "layers": [
+        {
+          "asset": "rin/outfits/leisure/smile.png"
+        }
+      ]
+    },
+    "date-neutral": {
+      "layers": [
+        {
+          "asset": "rin/outfits/date/neutral.png"
+        }
+      ]
+    },
+    "date-serious": {
+      "layers": [
+        {
+          "asset": "rin/outfits/date/serious.png"
+        }
+      ]
+    },
+    "date-annoyed": {
+      "layers": [
+        {
+          "asset": "rin/outfits/date/annoyed.png"
+        }
+      ]
+    },
+    "date-blush": {
+      "layers": [
+        {
+          "asset": "rin/outfits/date/blush.png"
+        }
+      ]
+    },
+    "date-relieved": {
+      "layers": [
+        {
+          "asset": "rin/outfits/date/relieved.png"
+        }
+      ]
+    },
+    "date-eyes-closed-shy": {
+      "layers": [
+        {
+          "asset": "rin/outfits/date/eyes-closed-shy.png"
+        }
+      ]
+    },
+    "date-hesitant": {
+      "layers": [
+        {
+          "asset": "rin/outfits/date/hesitant.png"
+        }
+      ]
+    },
+    "date-teary-relief": {
+      "layers": [
+        {
+          "asset": "rin/outfits/date/teary-relief.png"
+        }
+      ]
+    },
+    "date-tired": {
+      "layers": [
+        {
+          "asset": "rin/outfits/date/tired.png"
+        }
+      ]
+    },
+    "date-afraid": {
+      "layers": [
+        {
+          "asset": "rin/outfits/date/afraid.png"
+        }
+      ]
+    },
+    "date-quiet-smile": {
+      "layers": [
+        {
+          "asset": "rin/outfits/date/quiet-smile.png"
+        }
+      ]
+    },
+    "date-smile": {
+      "layers": [
+        {
+          "asset": "rin/outfits/date/smile.png"
+        }
+      ]
+    },
+    "rain-neutral": {
+      "layers": [
+        {
+          "asset": "rin/outfits/rain/neutral.png"
+        }
+      ]
+    },
+    "rain-serious": {
+      "layers": [
+        {
+          "asset": "rin/outfits/rain/serious.png"
+        }
+      ]
+    },
+    "rain-annoyed": {
+      "layers": [
+        {
+          "asset": "rin/outfits/rain/annoyed.png"
+        }
+      ]
+    },
+    "rain-blush": {
+      "layers": [
+        {
+          "asset": "rin/outfits/rain/blush.png"
+        }
+      ]
+    },
+    "rain-relieved": {
+      "layers": [
+        {
+          "asset": "rin/outfits/rain/relieved.png"
+        }
+      ]
+    },
+    "rain-eyes-closed-shy": {
+      "layers": [
+        {
+          "asset": "rin/outfits/rain/eyes-closed-shy.png"
+        }
+      ]
+    },
+    "rain-hesitant": {
+      "layers": [
+        {
+          "asset": "rin/outfits/rain/hesitant.png"
+        }
+      ]
+    },
+    "rain-teary-relief": {
+      "layers": [
+        {
+          "asset": "rin/outfits/rain/teary-relief.png"
+        }
+      ]
+    },
+    "rain-tired": {
+      "layers": [
+        {
+          "asset": "rin/outfits/rain/tired.png"
+        }
+      ]
+    },
+    "rain-afraid": {
+      "layers": [
+        {
+          "asset": "rin/outfits/rain/afraid.png"
+        }
+      ]
+    },
+    "rain-quiet-smile": {
+      "layers": [
+        {
+          "asset": "rin/outfits/rain/quiet-smile.png"
+        }
+      ]
+    },
+    "rain-smile": {
+      "layers": [
+        {
+          "asset": "rin/outfits/rain/smile.png"
+        }
+      ]
+    },
+    "autumn-neutral": {
+      "layers": [
+        {
+          "asset": "rin/outfits/autumn/neutral.png"
+        }
+      ]
+    },
+    "autumn-serious": {
+      "layers": [
+        {
+          "asset": "rin/outfits/autumn/serious.png"
+        }
+      ]
+    },
+    "autumn-annoyed": {
+      "layers": [
+        {
+          "asset": "rin/outfits/autumn/annoyed.png"
+        }
+      ]
+    },
+    "autumn-blush": {
+      "layers": [
+        {
+          "asset": "rin/outfits/autumn/blush.png"
+        }
+      ]
+    },
+    "autumn-relieved": {
+      "layers": [
+        {
+          "asset": "rin/outfits/autumn/relieved.png"
+        }
+      ]
+    },
+    "autumn-eyes-closed-shy": {
+      "layers": [
+        {
+          "asset": "rin/outfits/autumn/eyes-closed-shy.png"
+        }
+      ]
+    },
+    "autumn-hesitant": {
+      "layers": [
+        {
+          "asset": "rin/outfits/autumn/hesitant.png"
+        }
+      ]
+    },
+    "autumn-teary-relief": {
+      "layers": [
+        {
+          "asset": "rin/outfits/autumn/teary-relief.png"
+        }
+      ]
+    },
+    "autumn-tired": {
+      "layers": [
+        {
+          "asset": "rin/outfits/autumn/tired.png"
+        }
+      ]
+    },
+    "autumn-afraid": {
+      "layers": [
+        {
+          "asset": "rin/outfits/autumn/afraid.png"
+        }
+      ]
+    },
+    "autumn-quiet-smile": {
+      "layers": [
+        {
+          "asset": "rin/outfits/autumn/quiet-smile.png"
+        }
+      ]
+    },
+    "autumn-smile": {
+      "layers": [
+        {
+          "asset": "rin/outfits/autumn/smile.png"
+        }
+      ]
     }
   }
 }

@@ -1,0 +1,338 @@
+{
+  "date": "2026-09-09",
+  "status": "8-reviewed-4-composition-plans",
+  "requestedModel": "gpt-image-2.5-flare",
+  "modelCheck": {
+    "openai/gpt-image-2.5": "Replicate returned 404 Model not found",
+    "searchCandidate": "google/nano-banana (Gemini 2.5); not selected by user",
+    "confirmed": "Replicate models get and readme confirmed openai/gpt-image-2.5-flare; medium edit succeeded."
+  },
+  "scope": "本轮每人新增4份（3表情、1伸手动作），现有各16份。另4份复杂姿势仍为待构图计划。",
+  "pipeline": [
+    "确认完整模型ID并读取真实input schema",
+    "每位先制作一张低或中档动作样片，用本人的已审参考保持身份",
+    "逐张验脸型、四肢、手指、服装、头部尺度和剧情道具",
+    "脸部编辑保留原alpha；换姿势用已批准Replicate removebg模型，不手工阈值抠图",
+    "共同基准线等比装入768×1536；坐姿单独与场景座面核对",
+    "浅深底和实际场景审阅通过后登记素材、接QS并测读档"
+  ],
+  "assets": [
+    {
+      "id": "mara-laugh-soft",
+      "character": "mara",
+      "expression": "laugh-soft",
+      "type": "expression",
+      "description": "忍不住笑出声",
+      "status": "integrated",
+      "requestedModel": "gpt-image-2.5-flare",
+      "resolvedModel": "openai/gpt-image-2.5-flare",
+      "reference": "demo/assets/characters/mara/neutral.png",
+      "destination": "demo/assets/characters/mara/laugh-soft.png",
+      "prompt": "Use case: identity-preserve. Asset type: Japanese anime visual novel character variant. Input image 1 is this same heroine’s approved neutral sprite, used for identity, palette, clothing, proportions and rendering style. Refined Japanese bishoujo galgame cel art, crisp colored outlines, flat colors and restrained two/three-tone shading. Exactly one adult woman. Preserve identity, hair silhouette and color, eye color, clothing seams, shoes, red wrist cord when present, body proportions and light direction. No photorealism, painterly skin, chibi anatomy, new costume, text, watermark, additional person or duplicated limb. Keep head and feet inside frame; simple plain background suitable for model-based removal. Do not bake any second person or location into the sprite.\nMara,24,172cm, long waist-length ash-brown hair, amber eyes, gentle oval face, yellow short puff-sleeve blouse, ivory knee skirt, flat Mary Jane shoes. Warm young onee-san presence; no increase in age or bust.\nChange: Eyes gently narrowed with a small open laughing mouth, cheeks slightly lifted. Preserve neutral body and all alpha; expression only. Not a huge gag face.",
+      "qualityPreference": [
+        "low",
+        "medium"
+      ],
+      "highOnlyAfterFailedReview": true,
+      "candidateCue": {
+        "module": "chapter-03.qs",
+        "node": "closeness-first-draft",
+        "anchor": "Mara 听到这里笑出来。",
+        "staging": "试听袜子那段；下一轮认真讨论前回普通表情。"
+      },
+      "integrated": true,
+      "generated": true,
+      "predictionId": "s6x5vn4egnrmt0d0gqp9xabxxc"
+    },
+    {
+      "id": "mara-hurt-look-away",
+      "character": "mara",
+      "expression": "hurt-look-away",
+      "type": "expression",
+      "description": "受伤、避开目光",
+      "status": "integrated",
+      "requestedModel": "gpt-image-2.5-flare",
+      "resolvedModel": "openai/gpt-image-2.5-flare",
+      "reference": "demo/assets/characters/mara/neutral.png",
+      "destination": "demo/assets/characters/mara/hurt-look-away.png",
+      "prompt": "Use case: identity-preserve. Asset type: Japanese anime visual novel character variant. Input image 1 is this same heroine’s approved neutral sprite, used for identity, palette, clothing, proportions and rendering style. Refined Japanese bishoujo galgame cel art, crisp colored outlines, flat colors and restrained two/three-tone shading. Exactly one adult woman. Preserve identity, hair silhouette and color, eye color, clothing seams, shoes, red wrist cord when present, body proportions and light direction. No photorealism, painterly skin, chibi anatomy, new costume, text, watermark, additional person or duplicated limb. Keep head and feet inside frame; simple plain background suitable for model-based removal. Do not bake any second person or location into the sprite.\nMara,24,172cm, long waist-length ash-brown hair, amber eyes, gentle oval face, yellow short puff-sleeve blouse, ivory knee skirt, flat Mary Jane shoes. Warm young onee-san presence; no increase in age or bust.\nChange: Eyes slightly red-rimmed and glossy without flowing tears, lower lip tense, gaze a little away from viewer. Restrained hurt, not rage or a smile. Preserve neutral head silhouette and body.",
+      "qualityPreference": [
+        "low",
+        "medium"
+      ],
+      "highOnlyAfterFailedReview": true,
+      "candidateCue": {
+        "module": "chapter-04.qs",
+        "node": "warning-disclosure",
+        "anchor": "她的眼睛很红，没哭",
+        "staging": "听完死讯后的余怒；不能提前用于她尚不知情时。袖口动作需另配外搭，当前只备面部。"
+      },
+      "integrated": true,
+      "generated": true,
+      "predictionId": "4rsfdbvhh5rmt0d0gqtb37tvxm"
+    },
+    {
+      "id": "mara-shy-look-down",
+      "character": "mara",
+      "expression": "shy-look-down",
+      "type": "expression",
+      "description": "告白前垂眼害羞",
+      "status": "integrated",
+      "requestedModel": "gpt-image-2.5-flare",
+      "resolvedModel": "openai/gpt-image-2.5-flare",
+      "reference": "demo/assets/characters/mara/neutral.png",
+      "destination": "demo/assets/characters/mara/shy-look-down.png",
+      "prompt": "Use case: identity-preserve. Asset type: Japanese anime visual novel character variant. Input image 1 is this same heroine’s approved neutral sprite, used for identity, palette, clothing, proportions and rendering style. Refined Japanese bishoujo galgame cel art, crisp colored outlines, flat colors and restrained two/three-tone shading. Exactly one adult woman. Preserve identity, hair silhouette and color, eye color, clothing seams, shoes, red wrist cord when present, body proportions and light direction. No photorealism, painterly skin, chibi anatomy, new costume, text, watermark, additional person or duplicated limb. Keep head and feet inside frame; simple plain background suitable for model-based removal. Do not bake any second person or location into the sprite.\nMara,24,172cm, long waist-length ash-brown hair, amber eyes, gentle oval face, yellow short puff-sleeve blouse, ivory knee skirt, flat Mary Jane shoes. Warm young onee-san presence; no increase in age or bust.\nChange: Downcast eyes and a small shy smile, soft blush, eyebrows relaxed with slight uncertainty. Preserve head scale and outline, no dramatic head tilt; expression only.",
+      "qualityPreference": [
+        "low",
+        "medium"
+      ],
+      "highOnlyAfterFailedReview": true,
+      "candidateCue": {
+        "module": "chapter-07.qs",
+        "node": "dating-confession",
+        "anchor": "她低下头，用拇指蹭了蹭衬衫下摆的扣子。",
+        "staging": "凛告白后的短暂低头；抬眼回答时恢复现有blush。"
+      },
+      "integrated": true,
+      "generated": true,
+      "predictionId": "v36dfscd39rmw0d0gqpbtgxhrr"
+    },
+    {
+      "id": "mara-pose-offer-hand",
+      "character": "mara",
+      "expression": "pose-offer-hand",
+      "type": "pose",
+      "description": "试着伸手邀请牵手",
+      "status": "integrated",
+      "requestedModel": "gpt-image-2.5-flare",
+      "resolvedModel": "openai/gpt-image-2.5-flare",
+      "reference": "demo/assets/characters/mara/neutral.png",
+      "destination": "demo/assets/characters/mara/pose-offer-hand.png",
+      "prompt": "Use case: identity-preserve. Asset type: Japanese anime visual novel character variant. Input image 1 is this same heroine’s approved neutral sprite, used for identity, palette, clothing, proportions and rendering style. Refined Japanese bishoujo galgame cel art, crisp colored outlines, flat colors and restrained two/three-tone shading. Exactly one adult woman. Preserve identity, hair silhouette and color, eye color, clothing seams, shoes, red wrist cord when present, body proportions and light direction. No photorealism, painterly skin, chibi anatomy, new costume, text, watermark, additional person or duplicated limb. Keep head and feet inside frame; simple plain background suitable for model-based removal. Do not bake any second person or location into the sprite.\nMara,24,172cm, long waist-length ash-brown hair, amber eyes, gentle oval face, yellow short puff-sleeve blouse, ivory knee skirt, flat Mary Jane shoes. Warm young onee-san presence; no increase in age or bust.\nChange: One empty open hand extended gently forward and slightly downward at natural waist level, fingers relaxed and separated, other arm at side. A bashful warm smile, shoulders relaxed, stable standing stance. No grasped invisible partner.",
+      "qualityPreference": [
+        "low",
+        "medium"
+      ],
+      "highOnlyAfterFailedReview": true,
+      "candidateCue": {
+        "module": "chapter-07.qs",
+        "node": "dating-delivery",
+        "anchor": "她伸出手，又看了一眼还在屋里的由美。",
+        "staging": "由美在场时的犹豫，牵住后结束伸手姿势。"
+      },
+      "integrated": true,
+      "generated": true,
+      "predictionId": "mhb1a5wh0hrmt0d0gqp85hsm9g"
+    },
+    {
+      "id": "mara-pose-seated-listen",
+      "character": "mara",
+      "expression": "pose-seated-listen",
+      "type": "pose",
+      "description": "真实坐姿、认真听",
+      "status": "planned-composition-required",
+      "requestedModel": "gpt-image-2.5-flare",
+      "resolvedModel": "openai/gpt-image-2.5-flare",
+      "reference": "demo/assets/characters/mara/neutral.png",
+      "destination": "demo/assets/characters/mara/pose-seated-listen.png",
+      "prompt": "Use case: identity-preserve. Asset type: Japanese anime visual novel character variant. Input image 1 is this same heroine’s approved neutral sprite, used for identity, palette, clothing, proportions and rendering style. Refined Japanese bishoujo galgame cel art, crisp colored outlines, flat colors and restrained two/three-tone shading. Exactly one adult woman. Preserve identity, hair silhouette and color, eye color, clothing seams, shoes, red wrist cord when present, body proportions and light direction. No photorealism, painterly skin, chibi anatomy, new costume, text, watermark, additional person or duplicated limb. Keep head and feet inside frame; simple plain background suitable for model-based removal. Do not bake any second person or location into the sprite.\nMara,24,172cm, long waist-length ash-brown hair, amber eyes, gentle oval face, yellow short puff-sleeve blouse, ivory knee skirt, flat Mary Jane shoes. Warm young onee-san presence; no increase in age or bust.\nChange: An anatomically seated woman in a modest knee skirt, pelvis and thighs resting on a horizontal seat plane, knees together and lower legs natural, feet grounded, hands relaxed on her own lap. A reserved attentive face. Three-quarter view with consistent head scale. Plain scene; seat alignment must be reviewed with actual lighthouse bench before integration. Do not make a standing body appear seated by lowering it.",
+      "qualityPreference": [
+        "low",
+        "medium"
+      ],
+      "highOnlyAfterFailedReview": true,
+      "candidateCue": {
+        "module": "chapter-07.qs",
+        "node": "dating-invitation",
+        "anchor": "长椅上的水已经干了。她在一边坐下",
+        "staging": "先以灯塔长椅为唯一验收构图；不直接复用到不同高度椅子。座椅遮挡、接触阴影和机位不合则重做。 当前lighthouse-day是全景，未给出可直接对齐的近景座面；先补长椅近景背景或完整坐姿CG，再接入，不能把坐姿悬放在栏杆前。"
+      },
+      "integrated": false
+    },
+    {
+      "id": "mara-pose-hold-hand-close",
+      "character": "mara",
+      "expression": "pose-hold-hand-close",
+      "type": "pose",
+      "description": "双手收拢、仍未缓过来",
+      "status": "planned-composition-required",
+      "requestedModel": "gpt-image-2.5-flare",
+      "resolvedModel": "openai/gpt-image-2.5-flare",
+      "reference": "demo/assets/characters/mara/neutral.png",
+      "destination": "demo/assets/characters/mara/pose-hold-hand-close.png",
+      "prompt": "Use case: identity-preserve. Asset type: Japanese anime visual novel character variant. Input image 1 is this same heroine’s approved neutral sprite, used for identity, palette, clothing, proportions and rendering style. Refined Japanese bishoujo galgame cel art, crisp colored outlines, flat colors and restrained two/three-tone shading. Exactly one adult woman. Preserve identity, hair silhouette and color, eye color, clothing seams, shoes, red wrist cord when present, body proportions and light direction. No photorealism, painterly skin, chibi anatomy, new costume, text, watermark, additional person or duplicated limb. Keep head and feet inside frame; simple plain background suitable for model-based removal. Do not bake any second person or location into the sprite.\nMara,24,172cm, long waist-length ash-brown hair, amber eyes, gentle oval face, yellow short puff-sleeve blouse, ivory knee skirt, flat Mary Jane shoes. Warm young onee-san presence; no increase in age or bust.\nChange: Seated upper-body acting reference, both forearms reaching a short natural distance in front of torso, one hand resting lightly above the other with space for a partner hand. Shaky restrained relief, no broad smile. Correct wrists, five fingers per hand, no fused hands. Keep full figure visible for review.",
+      "qualityPreference": [
+        "low",
+        "medium"
+      ],
+      "highOnlyAfterFailedReview": true,
+      "candidateCue": {
+        "module": "chapter-06.qs",
+        "node": "shutdown-dinner",
+        "anchor": "她又用另一只手覆住我的手背。",
+        "staging": "需配凛第一人称手部插图后才接此拍；单人PNG不冒充已经完成双人接触。"
+      },
+      "integrated": false
+    },
+    {
+      "id": "rin-quiet-smile",
+      "character": "rin",
+      "expression": "quiet-smile",
+      "type": "expression",
+      "description": "鼓起勇气、目光坚定",
+      "status": "reviewed",
+      "requestedModel": "gpt-image-2.5-flare",
+      "resolvedModel": "openai/gpt-image-2.5-flare",
+      "reference": "demo/assets/characters/rin/neutral.png",
+      "destination": "demo/assets/characters/rin/quiet-smile.png",
+      "prompt": "Use case: identity-preserve. Asset type: Japanese anime visual novel character variant. Input image 1 is this same heroine’s approved neutral sprite, used for identity, palette, clothing, proportions and rendering style. Refined Japanese bishoujo galgame cel art, crisp colored outlines, flat colors and restrained two/three-tone shading. Exactly one adult woman. Preserve identity, hair silhouette and color, eye color, clothing seams, shoes, red wrist cord when present, body proportions and light direction. No photorealism, painterly skin, chibi anatomy, new costume, text, watermark, additional person or duplicated limb. Keep head and feet inside frame; simple plain background suitable for model-based removal. Do not bake any second person or location into the sprite.\nRin,25,163cm, cute adult oval face, short blue-black bob with teal strand, gray-brown eyes, mist-blue plain T-shirt, navy full-length straight trousers, white sneakers. Reserved and understated; no childlike proportions.\nChange: Soft small closed-mouth smile and steady forward gaze, light blush, still shy but resolved. Preserve exact neutral body and face silhouette. No smug grin.",
+      "qualityPreference": [
+        "low",
+        "medium"
+      ],
+      "highOnlyAfterFailedReview": true,
+      "candidateCue": {
+        "module": "chapter-07.qs",
+        "node": "dating-confession",
+        "anchor": "神代凛: 我喜欢你，Mara。想和你交往。",
+        "staging": "凛的CG表情参考；主视角保留现有文字，不弹出本人正面立绘。"
+      },
+      "integrated": false,
+      "generated": true,
+      "predictionId": "27rapn4jzxrmy0d0gqp8bz7d50"
+    },
+    {
+      "id": "rin-teary-relief",
+      "character": "rin",
+      "expression": "teary-relief",
+      "type": "expression",
+      "description": "终于落泪",
+      "status": "reviewed",
+      "requestedModel": "gpt-image-2.5-flare",
+      "resolvedModel": "openai/gpt-image-2.5-flare",
+      "reference": "demo/assets/characters/rin/neutral.png",
+      "destination": "demo/assets/characters/rin/teary-relief.png",
+      "prompt": "Use case: identity-preserve. Asset type: Japanese anime visual novel character variant. Input image 1 is this same heroine’s approved neutral sprite, used for identity, palette, clothing, proportions and rendering style. Refined Japanese bishoujo galgame cel art, crisp colored outlines, flat colors and restrained two/three-tone shading. Exactly one adult woman. Preserve identity, hair silhouette and color, eye color, clothing seams, shoes, red wrist cord when present, body proportions and light direction. No photorealism, painterly skin, chibi anatomy, new costume, text, watermark, additional person or duplicated limb. Keep head and feet inside frame; simple plain background suitable for model-based removal. Do not bake any second person or location into the sprite.\nRin,25,163cm, cute adult oval face, short blue-black bob with teal strand, gray-brown eyes, mist-blue plain T-shirt, navy full-length straight trousers, white sneakers. Reserved and understated; no childlike proportions.\nChange: Quiet tears emerging from eyes, brows slightly drawn together, a trembling partly open mouth, no smile and no sobbing gag face. Tears must remain inside the reviewed face area, preserving body and outer alpha.",
+      "qualityPreference": [
+        "low",
+        "medium"
+      ],
+      "highOnlyAfterFailedReview": true,
+      "candidateCue": {
+        "module": "chapter-06.qs",
+        "node": "shutdown-dinner",
+        "anchor": "开口时眼泪却掉了下来。",
+        "staging": "19:12后才用于双人CG的身份参考，危机解除前不是喜极而泣。"
+      },
+      "integrated": false,
+      "generated": true,
+      "predictionId": "3jdadz4genrmy0d0gqpa8bfj04"
+    },
+    {
+      "id": "rin-eyes-closed-shy",
+      "character": "rin",
+      "expression": "eyes-closed-shy",
+      "type": "expression",
+      "description": "闭眼、带着紧张的亲近",
+      "status": "reviewed",
+      "requestedModel": "gpt-image-2.5-flare",
+      "resolvedModel": "openai/gpt-image-2.5-flare",
+      "reference": "demo/assets/characters/rin/neutral.png",
+      "destination": "demo/assets/characters/rin/eyes-closed-shy.png",
+      "prompt": "Use case: identity-preserve. Asset type: Japanese anime visual novel character variant. Input image 1 is this same heroine’s approved neutral sprite, used for identity, palette, clothing, proportions and rendering style. Refined Japanese bishoujo galgame cel art, crisp colored outlines, flat colors and restrained two/three-tone shading. Exactly one adult woman. Preserve identity, hair silhouette and color, eye color, clothing seams, shoes, red wrist cord when present, body proportions and light direction. No photorealism, painterly skin, chibi anatomy, new costume, text, watermark, additional person or duplicated limb. Keep head and feet inside frame; simple plain background suitable for model-based removal. Do not bake any second person or location into the sprite.\nRin,25,163cm, cute adult oval face, short blue-black bob with teal strand, gray-brown eyes, mist-blue plain T-shirt, navy full-length straight trousers, white sneakers. Reserved and understated; no childlike proportions.\nChange: Eyes softly closed, light blush, lips relaxed and very slightly parted. No kiss partner, pursed cartoon lips or exaggerated sensuality. Preserve exact body and head framing.",
+      "qualityPreference": [
+        "low",
+        "medium"
+      ],
+      "highOnlyAfterFailedReview": true,
+      "candidateCue": {
+        "module": "chapter-07.qs",
+        "node": "dating-confession",
+        "anchor": "这一次闭上了眼睛，手指攥住她的衣角。",
+        "staging": "第二次亲吻参考；第一次原文明确没有闭眼，不得调换。"
+      },
+      "integrated": false,
+      "generated": true,
+      "predictionId": "0bkn0hmph1rmt0d0gqp9wxd6am"
+    },
+    {
+      "id": "rin-pose-thinking",
+      "character": "rin",
+      "expression": "pose-thinking",
+      "type": "pose",
+      "description": "犹豫、整理思路",
+      "status": "planned-composition-required",
+      "requestedModel": "gpt-image-2.5-flare",
+      "resolvedModel": "openai/gpt-image-2.5-flare",
+      "reference": "demo/assets/characters/rin/neutral.png",
+      "destination": "demo/assets/characters/rin/pose-thinking.png",
+      "prompt": "Use case: identity-preserve. Asset type: Japanese anime visual novel character variant. Input image 1 is this same heroine’s approved neutral sprite, used for identity, palette, clothing, proportions and rendering style. Refined Japanese bishoujo galgame cel art, crisp colored outlines, flat colors and restrained two/three-tone shading. Exactly one adult woman. Preserve identity, hair silhouette and color, eye color, clothing seams, shoes, red wrist cord when present, body proportions and light direction. No photorealism, painterly skin, chibi anatomy, new costume, text, watermark, additional person or duplicated limb. Keep head and feet inside frame; simple plain background suitable for model-based removal. Do not bake any second person or location into the sprite.\nRin,25,163cm, cute adult oval face, short blue-black bob with teal strand, gray-brown eyes, mist-blue plain T-shirt, navy full-length straight trousers, white sneakers. Reserved and understated; no childlike proportions.\nChange: A reserved adult woman with one hand loosely resting against her own opposite forearm near waist, head subtly angled toward an off-frame work surface, thoughtful downcast gaze, shoulders slightly tense. No floating keyboard or screen. Keep stable full-body standing reference.",
+      "qualityPreference": [
+        "low",
+        "medium"
+      ],
+      "highOnlyAfterFailedReview": true,
+      "candidateCue": {
+        "module": "chapter-03.qs",
+        "node": "closeness-first-draft",
+        "anchor": "我盯着那片空白，忍住了撤销的念头。",
+        "staging": "人物动作库/工作CG参考；此处实际坐着，不直接接入这张站姿。"
+      },
+      "integrated": false
+    },
+    {
+      "id": "rin-pose-write-note",
+      "character": "rin",
+      "expression": "pose-write-note",
+      "type": "pose",
+      "description": "低头记写、自然握笔",
+      "status": "planned-composition-required",
+      "requestedModel": "gpt-image-2.5-flare",
+      "resolvedModel": "openai/gpt-image-2.5-flare",
+      "reference": "demo/assets/characters/rin/neutral.png",
+      "destination": "demo/assets/characters/rin/pose-write-note.png",
+      "prompt": "Use case: identity-preserve. Asset type: Japanese anime visual novel character variant. Input image 1 is this same heroine’s approved neutral sprite, used for identity, palette, clothing, proportions and rendering style. Refined Japanese bishoujo galgame cel art, crisp colored outlines, flat colors and restrained two/three-tone shading. Exactly one adult woman. Preserve identity, hair silhouette and color, eye color, clothing seams, shoes, red wrist cord when present, body proportions and light direction. No photorealism, painterly skin, chibi anatomy, new costume, text, watermark, additional person or duplicated limb. Keep head and feet inside frame; simple plain background suitable for model-based removal. Do not bake any second person or location into the sprite.\nRin,25,163cm, cute adult oval face, short blue-black bob with teal strand, gray-brown eyes, mist-blue plain T-shirt, navy full-length straight trousers, white sneakers. Reserved and understated; no childlike proportions.\nChange: Holding a plain small blank card supported flat in one hand and a normal wooden pencil in the other, a natural tripod grip, pencil tip in contact with card, gaze focused on card. Relaxed body, no illegible drawn text. Full figure with hands fully visible.",
+      "qualityPreference": [
+        "low",
+        "medium"
+      ],
+      "highOnlyAfterFailedReview": true,
+      "candidateCue": {
+        "module": "chapter-03.qs",
+        "node": "closeness-lighthouse",
+        "anchor": "我在左上角添了两笔",
+        "staging": "灯塔画海鸥的姿势参考；实际落图需坐姿及共用纸张构图，不能新增独立笔记本。"
+      },
+      "integrated": false
+    },
+    {
+      "id": "rin-pose-reach-hand",
+      "character": "rin",
+      "expression": "pose-reach-hand",
+      "type": "pose",
+      "description": "主动伸手回应",
+      "status": "reviewed",
+      "requestedModel": "gpt-image-2.5-flare",
+      "resolvedModel": "openai/gpt-image-2.5-flare",
+      "reference": "demo/assets/characters/rin/neutral.png",
+      "destination": "demo/assets/characters/rin/pose-reach-hand.png",
+      "prompt": "Use case: identity-preserve. Asset type: Japanese anime visual novel character variant. Input image 1 is this same heroine’s approved neutral sprite, used for identity, palette, clothing, proportions and rendering style. Refined Japanese bishoujo galgame cel art, crisp colored outlines, flat colors and restrained two/three-tone shading. Exactly one adult woman. Preserve identity, hair silhouette and color, eye color, clothing seams, shoes, red wrist cord when present, body proportions and light direction. No photorealism, painterly skin, chibi anatomy, new costume, text, watermark, additional person or duplicated limb. Keep head and feet inside frame; simple plain background suitable for model-based removal. Do not bake any second person or location into the sprite.\nRin,25,163cm, cute adult oval face, short blue-black bob with teal strand, gray-brown eyes, mist-blue plain T-shirt, navy full-length straight trousers, white sneakers. Reserved and understated; no childlike proportions.\nChange: One empty hand reaching gently forward and slightly down, fingers naturally open, modest shy smile, relaxed shoulders, other hand at side. No invisible grasp, no extra hand. Complete body.",
+      "qualityPreference": [
+        "low",
+        "medium"
+      ],
+      "highOnlyAfterFailedReview": true,
+      "candidateCue": {
+        "module": "chapter-07.qs",
+        "node": "dating-delivery",
+        "anchor": "最后我先牵住 Mara。",
+        "staging": "凛主动回应Mara的双人CG参考；先接前景手部或CG，保持凛限知主视角。"
+      },
+      "integrated": false,
+      "generated": true,
+      "predictionId": "jncad7wnfhrmt0d0gqp8pqe6sr"
+    }
+  ],
+  "resolvedModel": "openai/gpt-image-2.5-flare"
+}
