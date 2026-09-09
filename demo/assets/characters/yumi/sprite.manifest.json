@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "family": "yumi",
+  "base": {
+    "asset": "yumi/neutral.png"
+  },
+  "expressions": {
+    "neutral": {
+      "layers": []
+    }
+  }
+}

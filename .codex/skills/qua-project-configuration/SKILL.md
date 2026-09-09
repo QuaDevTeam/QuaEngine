@@ -53,6 +53,12 @@ import { quaProject, quaWebRuntime } from 'virtual:qua-project'
 
 Startup should evaluate `quaWebRuntime` with `evaluateWebPlatformSupport`; unsupported devices should render `mountUnsupportedPlatformUi` before engine startup. If PWA is enabled and a service worker URL is present, register it through `createPwaWebRendererPlugin`.
 
+## Brand icon sources
+
+The repository brand kit lives in `assets/brand/` and uses a generated anime portrait. The demo declares `public/icon.png` and `public/favicon.png`; the Vue starter declares `assets/app/icon.png` and `assets/app/favicon.png`. Keep both manifest paths and any explicit HTML favicon link in sync with these binary assets. Preserve PNG bytes during scaffolding; do not pass them through text placeholder rendering.
+
+Use the source portrait to export app/tab sizes, rather than redrawing the character at each size. Brand usage and source/prompt records are documented in `assets/brand/README.md`. Starter icons are development placeholders; generated projects must replace reserved QuaEngine artwork before shipping their own product. Brand exports do not belong in engine state or a runtime content injection path.
+
 ## Validation
 
 Prefer targeted checks after changes:

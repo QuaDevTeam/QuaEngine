@@ -12,8 +12,8 @@ home:
   startUrl: /
   scope: /
 icons:
-  source: public/favicon.svg
-  favicon: public/favicon.svg
+  source: public/icon.png
+  favicon: public/favicon.png
 targets:
   web:
     enabled: true
@@ -39,7 +39,7 @@ targets:
       bundleId: dev.quajs.demo.callmetomorrow
       version: 0.1.0
       buildNumber: '1'
-      icon: public/favicon.svg
+      icon: public/icon.png
     build:
       cargoFeatures:
         - native-window

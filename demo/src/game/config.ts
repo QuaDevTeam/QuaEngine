@@ -1,6 +1,6 @@
 export const GAME_TITLE = '明天，请再一次呼唤我'
 export const GAME_ENGLISH_TITLE = 'CALL ME AGAIN TOMORROW'
-export const GAME_SUBTITLE = '青叶 · 2047'
+export const GAME_SUBTITLE = '青叶 · 2019'
 export const SAVE_LOAD_SLOT_COUNT = 9
 export const DEMO_TITLE_REQUEST_EVENT = 'ui/title_request'
 

@@ -82,9 +82,9 @@ try {
   await page.locator('.vn-settings-close').click()
   pass('fresh title, locked spoiler-free chapters, empty load slots, readable settings with read-only skip default')
 
-  await button('从头开始').click(); await waitLine('2047 年')
+  await button('从头开始').click(); await waitLine('2019 年')
   await page.keyboard.press('Escape'); await snapshot('menu'); await button('继续阅读').click(); await advance()
-  assert(!(await line.textContent()).includes('2047 年'))
+  assert(!(await line.textContent()).includes('2019 年'))
   pass('closing the reading menu resumes live dialogue')
   await readNormallyUntil(() => button('先看看档案目录').isVisible(), [
     '五月底，由美从市立图书馆拿到我们公司的联系方式',
@@ -252,7 +252,7 @@ try {
   await waitLine('我们的话还没有说完')
   await snapshot('ending-handoff')
   pass('early handoff preserves the safety response and ends with continued contact')
-  await button('返回标题').click(); await button('从头开始').click(); await waitLine('2047 年')
+  await button('返回标题').click(); await button('从头开始').click(); await waitLine('2019 年')
   await skipTo('先听一段居民留言'); await waitLine('先听听吧')
   await skipTo('先核对节目的原始录音'); await waitLine('先听原始录音吧')
   pass('new game resets decisions while preserving manual saves and chapter access')

@@ -1,116 +1,315 @@
 {
   "schemaVersion": 1,
   "title": "明天，请再一次呼唤我",
-  "generationStatus": "deferred-by-user",
-  "note": "用户已明确要求所有图片生成后续统一制作。当前不生成、不询问备用方式；提示词与依赖保留供后续使用。所有路径仍为 planned，不注册为运行资产。角色参考通过审阅后再派生透明立绘与差分。",
+  "generationStatus": "base-cutouts-prepared-generation-provider-unavailable",
+  "note": "最新主角规格heroine-summer-v7：凛163cm、T恤长裤；Mara172cm、及腰长发与温柔御姐气质，身高差9cm。",
   "assets": [
     {
       "id": "rin-reference",
       "type": "character-reference",
       "description": "神代凛常服参考",
-      "status": "planned",
+      "status": "reviewed",
+      "batch": 1,
+      "usedBy": [],
       "dependsOn": [],
-      "destination": "demo/assets/characters/rin/reference.png",
-      "prompt": "Use case: illustration-story. Asset type: character-reference. Adult woman age 25, slim mature proportions, natural skin, gray-brown eyes, dark blue-black asymmetrical short bob with a teal lock on one side. Mist-blue lightweight open shirt jacket, ivory cotton top, charcoal cropped straight trousers, light gray waterproof sneakers, navy crossbody recording bag. Relaxed reserved standing pose, full body head to soles, both hands anatomically correct. Plain neutral background. Style: Commercial Japanese visual novel anime illustration, clean confident linework, soft painted shading, cohesive early summer rainy seaside town palette: warm ivory, muted blue, sage, natural wood. Adult proportions. No text, logos, watermark, interface, neon cyberpunk, glowing clothing or weapons.",
-      "tool": null,
-      "model": null,
-      "sourceFile": null,
-      "review": null
+      "destination": "demo/.generated/art/references/rin-reference-summer-v7.png",
+      "stagingPath": "demo/.generated/art/references/rin-reference-summer-v7.png",
+      "aspectRatio": "2:3",
+      "requiresAlpha": false,
+      "prompt": "Beautiful polished JAPANESE BISHOUJO GALGAME heroine character art. Appealing, cute, feminine young-adult heroine design, consistent refined anime style. Delicate clean colored lineart, luminous clear eyes with carefully drawn irises, gentle blush, elegant grouped hair highlights, clean cel colors with subtle soft gradients in cheeks and cloth. Fresh light summer palette. Both are young adults aged24-25. Rin163cm has cute6.4-head proportions; Mara172cm has graceful6.8-head proportions and a gentle mature onee-san presence. Mara is9cm taller on the same ground, not a full head taller, with similar physical head size. Distinct faces and temperaments; Rin remains an adult, never childlike. Their June rainy-season clothes are equally lightweight summer cotton, no wool, heavy cardigans, cargo pants, military details, baggy joggers, blazer or school uniform. No photoreal skin, semi-real fashion illustration, chibi proportions, sexualized pose, exaggerated cleavage, dull gray wash, text or watermark.\nCharacter: Rin,25-year-old young adult woman,163cm, balanced slender feminine6.4-head anime proportions. Fresh, pretty and adorably reserved, not an older businesswoman. Soft small oval face with a short rounded chin, large clear gray-brown almond eyes with subtly lifted outer corners, lively eye highlights, relaxed eyebrows and a little warm blush, gentle shy smile. Soft dark blue-black asymmetrical short bob with one teal strand and side fringe. Plain mist-blue lightweight cotton CREW-NECK SHORT-SLEEVE T-SHIRT, relaxed tidy fit with ordinary straight sleeves, no logo, collar or frills; dark navy lightweight STRAIGHT-LEG FULL-LENGTH CASUAL TROUSERS with ordinary pockets, hems at the shoes; white low-top sneakers. Understated gender-neutral early-summer casual styling. Keep her cute soft face and slim shoulders. Hands naturally relaxed by trousers, gaze meeting viewer with quiet interest.\nVariant: rin-reference. Keep this same individual identity across variants. No other character face reference.\nComposition: exactly ONE full-body woman, alone on plain white, head and soles visible with margin, no insets or text.",
+      "tool": "replicate-cli + Pillow layout",
+      "model": "851-labs/background-remover",
+      "sourceFile": "demo/.generated/art/review/heroine-pair-summer-v7.png",
+      "review": {
+        "result": "user-approved-identity",
+        "notes": "用户已确认v7双人造型；单人参考由原图的Replicate抠图等比排版得到，不重新生成人脸。"
+      },
+      "parameters": {
+        "size": "1024x1536",
+        "quality": "high",
+        "output_format": "png"
+      },
+      "styleRevision": "heroine-summer-v7",
+      "previousAttempts": [
+        {
+          "result": "rejected-by-user",
+          "reason": "偏写实插画，不符合日本二次元galgame风格",
+          "file": "demo/.generated/art/rejected/semi-realistic/drafts-rin-reference.png",
+          "review": {
+            "result": "accepted-reference",
+            "notes": "成年体态、灰褐眼、非对称短发青色束、雾蓝衬衫与九分裤一致；多视角参考页，不能直接作立绘。",
+            "sha256": "260658c450fbcb21f3250b19d7487e5511ac5293e6c928183d6a95fd3339f4f5",
+            "size": [
+              1024,
+              1536
+            ]
+          }
+        },
+        {
+          "result": "rejected-by-user",
+          "reason": "脸、身高体态与服装轮廓过于相似，主角年龄感过大",
+          "sourceFile": "demo/.generated/art/drafts/rin-reference-anime-v2.png"
+        },
+        {
+          "sourceFile": "demo/.generated/art/drafts/rin-reference-distinct-v3-cardigan.png",
+          "result": "rejected-by-user",
+          "reason": "年龄感不相仿、季节不统一；凛成熟，Mara幼态和男孩子气；主角美观可爱度不足",
+          "fileMetadata": {
+            "size": [
+              1024,
+              1536
+            ],
+            "sha256": "20dd2f9490e9ff531b2c11fc0f79fc0eed41bc303161e27a8c96c355aad8ea78"
+          },
+          "editPromptFile": "demo/.generated/art/prompts/rin-reference-distinct-v3-short-cardigan.txt"
+        }
+      ],
+      "fileMetadata": {
+        "size": [
+          768,
+          1536
+        ],
+        "sha256": "4ec55ad4aca38e6f21943d9aac686e8c957f614dec55d4abb21d905b8f616ac1"
+      },
+      "derivedFile": "demo/.generated/art/references/rin-reference-summer-v7.png",
+      "modelVersion": "a029dff38972b5fda4ec5d75d7d1cd25aeff621d2cf4946a41055d7db66b80bc"
     },
     {
       "id": "mara-reference",
       "type": "character-reference",
       "description": "Mara 常服参考",
-      "status": "planned",
+      "status": "reviewed",
+      "batch": 1,
+      "usedBy": [],
       "dependsOn": [],
-      "destination": "demo/assets/characters/mara/reference.png",
-      "prompt": "Use case: illustration-story. Asset type: character-reference. Adult woman age 24, natural healthy skin, amber eyes, ash-brown short bob. Cream yellow short sleeve utility shirt over ivory top, navy ankle-length loose trousers, white-soled deck sneakers, thin red cord bracelet, simple staff clip, small removable blue-gray work headset. Warm approachable expression, grounded relaxed posture, full body head to soles. Plain neutral background. Style: Commercial Japanese visual novel anime illustration, clean confident linework, soft painted shading, cohesive early summer rainy seaside town palette: warm ivory, muted blue, sage, natural wood. Adult proportions. No text, logos, watermark, interface, neon cyberpunk, glowing clothing or weapons.",
-      "tool": null,
-      "model": null,
-      "sourceFile": null,
-      "review": null
+      "destination": "demo/.generated/art/references/mara-reference-summer-v7.png",
+      "stagingPath": "demo/.generated/art/references/mara-reference-summer-v7.png",
+      "aspectRatio": "2:3",
+      "requiresAlpha": false,
+      "prompt": "Beautiful polished JAPANESE BISHOUJO GALGAME heroine character art. Appealing, cute, feminine young-adult heroine design, consistent refined anime style. Delicate clean colored lineart, luminous clear eyes with carefully drawn irises, gentle blush, elegant grouped hair highlights, clean cel colors with subtle soft gradients in cheeks and cloth. Fresh light summer palette. Both are young adults aged24-25. Rin163cm has cute6.4-head proportions; Mara172cm has graceful6.8-head proportions and a gentle mature onee-san presence. Mara is9cm taller on the same ground, not a full head taller, with similar physical head size. Distinct faces and temperaments; Rin remains an adult, never childlike. Their June rainy-season clothes are equally lightweight summer cotton, no wool, heavy cardigans, cargo pants, military details, baggy joggers, blazer or school uniform. No photoreal skin, semi-real fashion illustration, chibi proportions, sexualized pose, exaggerated cleavage, dull gray wash, text or watermark.\nCharacter: Mara,24-year-old young adult woman,172cm, tall graceful balanced feminine6.8-head anime proportions. Gentle warm ONEE-SAN aura, more mature and composed in appearance than Rin while still youthful and charming. Soft slightly elongated oval face, gently defined rounded chin; warm amber almond eyes with relaxed upper lids, tender attentive gaze and a subtle affectionate closed-mouth smile. Not stern, matronly or childlike. LONG ASH-BROWN HAIR reaching her WAIST, loose with soft waves through the lower lengths, side-swept fringe and face-framing strands. Butter-yellow lightweight cotton short-sleeve blouse with small round collar and mild puff sleeves, ivory flared knee-length skirt, pale Mary-Jane flat walking shoes, thin red wrist cord and tiny removable blue-gray earpiece. Relaxed elegant shoulders and natural posture, one palm softly open at waist. She is 9cm taller than Rin163cm, a moderate height difference on the same ground, similar physical head size; no high heels, platforms, exaggerated bust or cleavage.\nVariant: mara-reference. Keep this same individual identity across variants. No other character face reference.\nComposition: exactly ONE full-body woman, alone on plain white, head and soles visible with margin, no insets or text.",
+      "tool": "replicate-cli + Pillow layout",
+      "model": "851-labs/background-remover",
+      "sourceFile": "demo/.generated/art/review/heroine-pair-summer-v7.png",
+      "review": {
+        "result": "user-approved-identity",
+        "notes": "用户已确认v7双人造型；单人参考由原图的Replicate抠图等比排版得到，不重新生成人脸。"
+      },
+      "styleRevision": "heroine-summer-v7",
+      "parameters": {
+        "size": "1024x1536",
+        "quality": "high",
+        "output_format": "png"
+      },
+      "previousAttempts": [
+        {
+          "result": "rejected-by-user",
+          "reason": "脸、身高体态与服装轮廓过于相似，主角年龄感过大",
+          "sourceFile": "demo/.generated/art/drafts/mara-reference-anime-v2.png"
+        },
+        {
+          "sourceFile": "demo/.generated/art/drafts/mara-reference-distinct-v3.png",
+          "result": "rejected-by-user",
+          "reason": "年龄感不相仿、季节不统一；凛成熟，Mara幼态和男孩子气；主角美观可爱度不足",
+          "fileMetadata": {
+            "size": [
+              1024,
+              1536
+            ],
+            "sha256": "535519d60935ae5362a6a9d03d359282ec72b265cce5a4a999ac14ead03197a8"
+          }
+        }
+      ],
+      "fileMetadata": {
+        "size": [
+          768,
+          1536
+        ],
+        "sha256": "6680702fad5acc50141769effdcafdacf37114dc43cb017300c4f0d7f2268b8d"
+      },
+      "derivedFile": "demo/.generated/art/references/mara-reference-summer-v7.png",
+      "modelVersion": "a029dff38972b5fda4ec5d75d7d1cd25aeff621d2cf4946a41055d7db66b80bc"
     },
     {
       "id": "town-bus-rain",
       "type": "background",
       "description": "雨中巴士站",
-      "status": "planned",
+      "status": "draft",
+      "batch": 2,
+      "usedBy": [
+        "prologue-arrival"
+      ],
       "dependsOn": [],
       "destination": "demo/assets/images/backgrounds/town-bus-rain.webp",
-      "prompt": "Use case: illustration-story. Asset type: background. Empty bus stop on an ordinary small Japanese coastal shopping street in June 2047 after midday, rain on translucent shelter, wet concrete, low-rise shops, distant sliver of gray blue sea between buildings. A simple electronic bus display without readable text, no holograms. Eye level wide framing, foreground room for two standees, lower dialogue area uncluttered. Landscape 16:9. Style: Commercial Japanese visual novel anime illustration, clean confident linework, soft painted shading, cohesive early summer rainy seaside town palette: warm ivory, muted blue, sage, natural wood. Adult proportions. No text, logos, watermark, interface, neon cyberpunk, glowing clothing or weapons.",
-      "tool": null,
-      "model": null,
-      "sourceFile": null,
-      "review": null
+      "stagingPath": "demo/.generated/art/drafts/town-bus-rain.png",
+      "aspectRatio": "16:9",
+      "requiresAlpha": false,
+      "prompt": "VISUAL STYLE LOCK: unmistakable Japanese 2D bishoujo galgame / anime production art. Crisp economical colored ink outlines; flat clean local colors; two or three sharply separated cel-shading tones; clearly drawn large anime eyes with simple bright iris highlights, tiny stylized nose, small line mouth. Simplified hair clumps with graphic highlight shapes, not individually rendered strands. Adult anime character design, not chibi, no school uniform. Luminous coherent pastel colors with readable saturation. NO semi-realism, realistic facial anatomy, skin pores, photographic skin or fabric texture, fashion editorial rendering, 3D, oil painting, watercolor sketch, gray-brown wash, cinematic photorealism or glossy volumetric skin. Backgrounds must be hand-drawn Japanese anime background art with simplified shapes and selective detail, not photographs or realistic architecture renders.\nUse case: illustration-story. Asset type: background. Empty bus stop on an ordinary small Japanese coastal shopping street in June 2019 after midday, rain on translucent shelter, wet concrete, low-rise shops, distant sliver of gray blue sea between buildings. A simple electronic bus display without readable text, no holograms. Eye level wide framing, foreground room for two standees, lower dialogue area uncluttered. Landscape 16:9. Style:  No text, logos, watermark, interface, neon cyberpunk, glowing clothing or weapons. No neon cyberpunk, holograms, fantasy costume, logos, watermarks, text or UI.",
+      "tool": "imagegen-cli",
+      "model": "gpt-image-2",
+      "sourceFile": "demo/.generated/art/drafts/town-bus-rain-anime-v2.png",
+      "review": null,
+      "styleRevision": "anime-cel-v2",
+      "parameters": {
+        "size": "2048x1152",
+        "quality": "high",
+        "output_format": "png"
+      },
+      "fileMetadata": {
+        "size": [
+          1672,
+          941
+        ],
+        "sha256": "841d9ccc78bc47a54e92414ff58d1c20745447084989c746bcd8b64a4d4e9996"
+      }
     },
     {
       "id": "town-street-rain",
       "type": "background",
       "description": "商店街",
       "status": "planned",
+      "batch": 2,
+      "usedBy": [
+        "prologue-street"
+      ],
       "dependsOn": [
         "town-bus-rain"
       ],
       "destination": "demo/assets/images/backgrounds/town-street-rain.webp",
-      "prompt": "Use case: illustration-story. Asset type: background. Same town and architecture as town-bus-rain reference. Eye-level view beneath connected shopping street awnings, cozy small bakery, rolled shop curtain, wet pavement, distant gray blue sea at end of street. A small practical delivery cart parked by a doorway. No prominent people, signage without legible text. Landscape 16:9. Style: Commercial Japanese visual novel anime illustration, clean confident linework, soft painted shading, cohesive early summer rainy seaside town palette: warm ivory, muted blue, sage, natural wood. Adult proportions. No text, logos, watermark, interface, neon cyberpunk, glowing clothing or weapons.",
+      "stagingPath": "demo/.generated/art/drafts/town-street-rain.png",
+      "aspectRatio": "16:9",
+      "requiresAlpha": false,
+      "prompt": "VISUAL STYLE LOCK: unmistakable Japanese 2D bishoujo galgame / anime production art. Crisp economical colored ink outlines; flat clean local colors; two or three sharply separated cel-shading tones; clearly drawn large anime eyes with simple bright iris highlights, tiny stylized nose, small line mouth. Simplified hair clumps with graphic highlight shapes, not individually rendered strands. Adult anime character design, not chibi, no school uniform. Luminous coherent pastel colors with readable saturation. NO semi-realism, realistic facial anatomy, skin pores, photographic skin or fabric texture, fashion editorial rendering, 3D, oil painting, watercolor sketch, gray-brown wash, cinematic photorealism or glossy volumetric skin. Backgrounds must be hand-drawn Japanese anime background art with simplified shapes and selective detail, not photographs or realistic architecture renders.\nUse case: illustration-story. Asset type: background. Same town and architecture as town-bus-rain reference. Eye-level view beneath connected shopping street awnings, cozy small bakery, rolled shop curtain, wet pavement, distant gray blue sea at end of street. A small practical delivery cart parked by a doorway. No prominent people, signage without legible text. Landscape 16:9. Style:  No text, logos, watermark, interface, neon cyberpunk, glowing clothing or weapons. No neon cyberpunk, holograms, fantasy costume, logos, watermarks, text or UI.",
       "tool": null,
       "model": null,
       "sourceFile": null,
-      "review": null
+      "review": null,
+      "styleRevision": "anime-cel-v2"
     },
     {
       "id": "radio-studio-day",
       "type": "background",
       "description": "海岸台播音室白天",
-      "status": "planned",
+      "status": "reviewed",
+      "batch": 2,
+      "usedBy": [
+        "prologue-commission",
+        "prologue-afternoon-shift"
+      ],
       "dependsOn": [],
       "destination": "demo/assets/images/backgrounds/radio-studio-day.webp",
-      "prompt": "Use case: illustration-story. Asset type: background. Small lived-in community radio studio in an old two-story seaside building. Eye-level view: wood desk with modest mixing console in center-left, glass microphone booth at left rear, rainy window on right with white mug bearing a simple blue whale on coaster, door to corridor at rear center. Worn acoustic panels, papers and moving boxes, warm lighting, restrained near-future ordinary equipment, two simple audio level displays without readable text. Room for standees, uncluttered lower quarter. Landscape 16:9. Style: Commercial Japanese visual novel anime illustration, clean confident linework, soft painted shading, cohesive early summer rainy seaside town palette: warm ivory, muted blue, sage, natural wood. Adult proportions. No text, logos, watermark, interface, neon cyberpunk, glowing clothing or weapons.",
-      "tool": null,
-      "model": null,
-      "sourceFile": null,
-      "review": null
+      "stagingPath": "demo/.generated/art/drafts/radio-studio-day.png",
+      "aspectRatio": "16:9",
+      "requiresAlpha": false,
+      "prompt": "VISUAL STYLE LOCK: unmistakable Japanese 2D bishoujo galgame / anime production art. Crisp economical colored ink outlines; flat clean local colors; two or three sharply separated cel-shading tones; clearly drawn large anime eyes with simple bright iris highlights, tiny stylized nose, small line mouth. Simplified hair clumps with graphic highlight shapes, not individually rendered strands. Adult anime character design, not chibi, no school uniform. Luminous coherent pastel colors with readable saturation. NO semi-realism, realistic facial anatomy, skin pores, photographic skin or fabric texture, fashion editorial rendering, 3D, oil painting, watercolor sketch, gray-brown wash, cinematic photorealism or glossy volumetric skin. Backgrounds must be hand-drawn Japanese anime background art with simplified shapes and selective detail, not photographs or realistic architecture renders.\nUse case: illustration-story. Asset type: background. Small lived-in community radio studio in an old two-story seaside building. Eye-level view: wood desk with modest mixing console in center-left, glass microphone booth at left rear, rainy window on right with white mug bearing a simple blue whale on coaster, door to corridor at rear center. Worn acoustic panels, papers and moving boxes, warm lighting, restrained near-future ordinary equipment, two simple audio level displays without readable text. Room for standees, uncluttered lower quarter. Landscape 16:9. Style:  No text, logos, watermark, interface, neon cyberpunk, glowing clothing or weapons. No neon cyberpunk, holograms, fantasy costume, logos, watermarks, text or UI.",
+      "tool": "imagegen-cli",
+      "model": "gpt-image-2",
+      "sourceFile": "demo/.generated/art/drafts/radio-studio-day-anime-v2.png",
+      "review": {
+        "reviewer": "assistant",
+        "result": "accepted-anime-background",
+        "notes": "动画背景画；玻璃隔间、后门、右侧雨窗与鲸鱼杯可辨。尚未接入运行。",
+        "size": [
+          1672,
+          941
+        ],
+        "sha256": "4ce5a0ac2ba786d1c5831f9a10c079ffd3eed65960f938d83827ec7f3ca35c67"
+      },
+      "styleRevision": "anime-cel-v2",
+      "parameters": {
+        "size": "2048x1152",
+        "quality": "high",
+        "output_format": "png"
+      }
     },
     {
       "id": "radio-studio-night",
       "type": "background-variant",
       "description": "海岸台播音室雨夜",
       "status": "planned",
+      "batch": 2,
+      "usedBy": [
+        "prologue-echo",
+        "warning-reception"
+      ],
       "dependsOn": [
         "radio-studio-day"
       ],
       "destination": "demo/assets/images/backgrounds/radio-studio-night.webp",
-      "prompt": "Use case: illustration-story. Asset type: background-variant. Lighting variation of radio-studio-day reference. Preserve exactly the same camera, desk, booth, doorway, window, mixer and whale mug placement. Rainy blue evening outside, warm overhead lights inside, calm ordinary workplace, no horror lighting. No new people or objects, no text. Landscape 16:9. Style: Commercial Japanese visual novel anime illustration, clean confident linework, soft painted shading, cohesive early summer rainy seaside town palette: warm ivory, muted blue, sage, natural wood. Adult proportions. No text, logos, watermark, interface, neon cyberpunk, glowing clothing or weapons.",
+      "stagingPath": "demo/.generated/art/drafts/radio-studio-night.png",
+      "aspectRatio": "16:9",
+      "requiresAlpha": false,
+      "prompt": "VISUAL STYLE LOCK: unmistakable Japanese 2D bishoujo galgame / anime production art. Crisp economical colored ink outlines; flat clean local colors; two or three sharply separated cel-shading tones; clearly drawn large anime eyes with simple bright iris highlights, tiny stylized nose, small line mouth. Simplified hair clumps with graphic highlight shapes, not individually rendered strands. Adult anime character design, not chibi, no school uniform. Luminous coherent pastel colors with readable saturation. NO semi-realism, realistic facial anatomy, skin pores, photographic skin or fabric texture, fashion editorial rendering, 3D, oil painting, watercolor sketch, gray-brown wash, cinematic photorealism or glossy volumetric skin. Backgrounds must be hand-drawn Japanese anime background art with simplified shapes and selective detail, not photographs or realistic architecture renders.\nUse case: illustration-story. Asset type: background-variant. Lighting variation of radio-studio-day reference. Preserve exactly the same camera, desk, booth, doorway, window, mixer and whale mug placement. Rainy blue evening outside, warm overhead lights inside, calm ordinary workplace, no horror lighting. No new people or objects, no text. Landscape 16:9. Style:  No text, logos, watermark, interface, neon cyberpunk, glowing clothing or weapons. No neon cyberpunk, holograms, fantasy costume, logos, watermarks, text or UI.",
       "tool": null,
       "model": null,
       "sourceFile": null,
-      "review": null
+      "review": null,
+      "styleRevision": "anime-cel-v2"
     },
     {
       "id": "radio-archive-day",
       "type": "background",
       "description": "资料室",
-      "status": "planned",
+      "status": "draft",
+      "batch": 2,
+      "usedBy": [
+        "prologue-restoration"
+      ],
       "dependsOn": [],
       "destination": "demo/assets/images/backgrounds/radio-archive-day.webp",
-      "prompt": "Use case: illustration-story. Asset type: background. Small archive room adjacent to the same community radio studio. Open wooden shelves of tapes and old hard drives, neatly labeled cardboard boxes without readable writing, small desk for two people with workstation, wired headphones and external drive, portable dehumidifier near door, narrow window showing wet gray-green trees. Cozy daylight and warm desk lamp, no characters, standing room in foreground, clear lower quarter. Landscape 16:9. Style: Commercial Japanese visual novel anime illustration, clean confident linework, soft painted shading, cohesive early summer rainy seaside town palette: warm ivory, muted blue, sage, natural wood. Adult proportions. No text, logos, watermark, interface, neon cyberpunk, glowing clothing or weapons.",
-      "tool": null,
-      "model": null,
-      "sourceFile": null,
-      "review": null
+      "stagingPath": "demo/.generated/art/drafts/radio-archive-day.png",
+      "aspectRatio": "16:9",
+      "requiresAlpha": false,
+      "prompt": "VISUAL STYLE LOCK: unmistakable Japanese 2D bishoujo galgame / anime production art. Crisp economical colored ink outlines; flat clean local colors; two or three sharply separated cel-shading tones; clearly drawn large anime eyes with simple bright iris highlights, tiny stylized nose, small line mouth. Simplified hair clumps with graphic highlight shapes, not individually rendered strands. Adult anime character design, not chibi, no school uniform. Luminous coherent pastel colors with readable saturation. NO semi-realism, realistic facial anatomy, skin pores, photographic skin or fabric texture, fashion editorial rendering, 3D, oil painting, watercolor sketch, gray-brown wash, cinematic photorealism or glossy volumetric skin. Backgrounds must be hand-drawn Japanese anime background art with simplified shapes and selective detail, not photographs or realistic architecture renders.\nUse case: illustration-story. Asset type: background. Small archive room adjacent to the same community radio studio. Open wooden shelves of tapes and old hard drives, neatly labeled cardboard boxes without readable writing, small desk for two people with workstation, wired headphones and external drive, portable dehumidifier near door, narrow window showing wet gray-green trees. Cozy daylight and warm desk lamp, no characters, standing room in foreground, clear lower quarter. Landscape 16:9. Style:  No text, logos, watermark, interface, neon cyberpunk, glowing clothing or weapons. No neon cyberpunk, holograms, fantasy costume, logos, watermarks, text or UI.",
+      "tool": "imagegen-cli",
+      "model": "gpt-image-2",
+      "sourceFile": "demo/.generated/art/drafts/radio-archive-day-anime-v2.png",
+      "review": null,
+      "styleRevision": "anime-cel-v2",
+      "parameters": {
+        "size": "2048x1152",
+        "quality": "high",
+        "output_format": "png"
+      },
+      "fileMetadata": {
+        "size": [
+          1672,
+          941
+        ],
+        "sha256": "bbd5c48e817037f15633fa4e030df25d550d59e442133c465fe4297471e19a3c"
+      }
     },
     {
       "id": "radio-breakroom-day",
       "type": "background",
       "description": "休息间",
-      "status": "planned",
+      "status": "draft",
+      "batch": 2,
+      "usedBy": [
+        "prologue-lunch"
+      ],
       "dependsOn": [],
       "destination": "demo/assets/images/backgrounds/radio-breakroom-day.webp",
-      "prompt": "Use case: illustration-story. Asset type: background. Small modest breakroom in same radio station building, pale wood lunch table, three closed food containers and a water jug, electric kettle on side counter, open doorway, rain-streaked window and a slightly damp towel on indoor drying rail. Warm everyday feeling, simple working adults interior, no people, no readable text, no futuristic excess. Landscape 16:9. Style: Commercial Japanese visual novel anime illustration, clean confident linework, soft painted shading, cohesive early summer rainy seaside town palette: warm ivory, muted blue, sage, natural wood. Adult proportions. No text, logos, watermark, interface, neon cyberpunk, glowing clothing or weapons.",
-      "tool": null,
-      "model": null,
-      "sourceFile": null,
-      "review": null
+      "stagingPath": "demo/.generated/art/drafts/radio-breakroom-day.png",
+      "aspectRatio": "16:9",
+      "requiresAlpha": false,
+      "prompt": "VISUAL STYLE LOCK: unmistakable Japanese 2D bishoujo galgame / anime production art. Crisp economical colored ink outlines; flat clean local colors; two or three sharply separated cel-shading tones; clearly drawn large anime eyes with simple bright iris highlights, tiny stylized nose, small line mouth. Simplified hair clumps with graphic highlight shapes, not individually rendered strands. Adult anime character design, not chibi, no school uniform. Luminous coherent pastel colors with readable saturation. NO semi-realism, realistic facial anatomy, skin pores, photographic skin or fabric texture, fashion editorial rendering, 3D, oil painting, watercolor sketch, gray-brown wash, cinematic photorealism or glossy volumetric skin. Backgrounds must be hand-drawn Japanese anime background art with simplified shapes and selective detail, not photographs or realistic architecture renders.\nUse case: illustration-story. Asset type: background. Small modest breakroom in same radio station building, pale wood lunch table, three closed food containers and a water jug, electric kettle on side counter, open doorway, rain-streaked window and a slightly damp towel on indoor drying rail. Warm everyday feeling, simple working adults interior, no people, no readable text, no futuristic excess. Landscape 16:9. Style:  No text, logos, watermark, interface, neon cyberpunk, glowing clothing or weapons. No neon cyberpunk, holograms, fantasy costume, logos, watermarks, text or UI.",
+      "tool": "imagegen-cli",
+      "model": "gpt-image-2",
+      "sourceFile": "demo/.generated/art/drafts/radio-breakroom-day-anime-v2.png",
+      "review": null,
+      "styleRevision": "anime-cel-v2",
+      "parameters": {
+        "size": "2048x1152",
+        "quality": "high",
+        "output_format": "png"
+      },
+      "fileMetadata": {
+        "size": [
+          1672,
+          941
+        ],
+        "sha256": "ffcd3a061815986be91ede051ef966c6a5e9350974c5b503bc54ef2ff6b5c913"
+      }
     }
   ]
 }
