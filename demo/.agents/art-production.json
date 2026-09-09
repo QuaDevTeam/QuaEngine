@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "title": "明天，请再一次呼唤我",
-  "updatedAt": "2026-09-09",
+  "updatedAt": "2026-09-10",
   "generationStatus": "in-progress",
   "authorization": "用户已要求开始补齐全部缺失美术，覆盖此前暂停要求；名称和已定服装不需再次审批。 用户进一步明确允许全员多套服装，主角优先；旧单套限制不适用。",
   "execution": {
@@ -13,11 +13,12 @@
     "credentials": "Replicate saved profile; no OpenAI key passed",
     "endpointConfiguration": "Replicate official model endpoint",
     "lastGenerationAttempt": {
-      "assetId": "mara-hurt-look-away",
+      "assetId": "laundromat-evening-anime-v2",
       "tool": "replicate-cli",
       "model": "openai/gpt-image-2.5-flare",
+      "quality": "medium",
       "result": "success",
-      "predictionId": "4rsfdbvhh5rmt0d0gqtb37tvxm"
+      "predictionId": "gt2e1vnkcxrmy0d0gvhsa1yw8g"
     },
     "lastModelListAttempt": {
       "httpStatus": 403
@@ -5603,8 +5604,8 @@
     {
       "id": "laundromat-evening-anime-v2",
       "type": "background-variant",
-      "description": "自助洗衣房椅子修正版",
-      "status": "reviewed",
+      "description": "自助洗衣房墙角设备摆放修正版",
+      "status": "integrated",
       "batch": 11,
       "usedBy": [
         "daily-laundry"
@@ -5616,22 +5617,41 @@
       "stagingPath": "demo/.generated/art/drafts/laundromat-evening-anime-v2.png",
       "aspectRatio": "16:9",
       "requiresAlpha": false,
-      "quality": "low",
+      "quality": "medium",
       "replaces": "laundromat-evening",
-      "prompt": "Japanese 2D anime visual novel background, preserve the laundromat camera and washing machines from the reference. Redraw the seating so the central wooden bench and right foreground bench are physically correct: flat seat boards supported by visible pairs of legs, legs touch the floor, no fused or floating geometry, consistent perspective. Rainy evening through the glass, ordinary 2019 Japanese neighborhood laundromat, clean cel shading and crisp outlines, no photorealism, no readable text or watermark.",
+      "prompt": "Use case: precise-object-edit. Asset: background for a Japanese 2D anime visual novel, 16:9. Edit target: the supplied laundromat background. Correct the impossible corner washing machines. Replace the narrow yellow stacked machines protruding from the back-left structural pillar with an ordinary uninterrupted cream wall and teal lower wall panel. All remaining yellow front-loading machines form ONE straight row along the LEFT wall only, their fronts facing the same central aisle with consistent single-point perspective. Each appliance is a real rectangular cabinet with full depth, flush alignment and a floor-supported base. The row ends BEFORE the structural pillar, with clearance for every circular door to open. No appliances on the pillar or its side face, no overlapping or intersecting cabinets, no floating machines, no narrow sideways drums. Preserve the room identity and camera: warm ceiling fluorescent lights, teal wainscoting, yellow machines on left, simple wooden waiting benches on back and right, right glass windows and entrance, rainy blue evening on an ordinary 2019 Japanese coastal residential street, practical coin changer on the back wall, tiled floor. Keep the center aisle open for character sprites; there are no people in the background. Hand-painted Japanese anime game background, clean intentional linework, flat shaded color shapes and restrained painterly detail. No photograph, no 3D rendering, no cinematic realism, no readable invented signage, no logos, no watermark. Physically plausible walls and straight floor joints. Keep warm indoor / cool outdoor lighting gentle and legible.",
       "tool": "replicate-cli",
-      "model": "openai/gpt-image-2",
-      "sourceFile": "demo/.generated/art/replicate/generated/laundromat-evening-anime-v2/dhk33zxd41rmt0d0ga3vdxv9sw-output-0-0.png",
+      "model": "openai/gpt-image-2.5-flare",
+      "sourceFile": "demo/.generated/art/laundromat-flare/output/gt2e1vnkcxrmy0d0gvhsa1yw8g-output-0-0.png",
       "preparedFile": "demo/assets/images/backgrounds/laundromat-evening-anime-v2.webp",
-      "review": "已检查实际图像：日系动画背景画，场景用途、画面比例和站位留白符合当前制作要求；待QS演出接入。",
+      "review": "已查看生成原图：墙角堆叠机器移除，黄色机柜沿左墙同向排列；保留长椅、玻璃窗、2019年雨夜街景与中间站位空间。当前QS沿用此已替换路径。",
       "generation": {
-        "predictionId": "dhk33zxd41rmt0d0ga3vdxv9sw",
+        "predictionId": "gt2e1vnkcxrmy0d0gvhsa1yw8g",
         "actualDimensions": [
           2048,
           1152
         ],
-        "sha256": "b871e5d978dc2e450e2e754cc882d258daf5ac7e330eaf453acec8233e2fe100"
-      }
+        "sha256": "98e8135fba885fbf5e59861aa955a66f72f2c477bf6e9cc3eebca8a57562bac4",
+        "preparedSha256": "66083180b407e8f12c230d91ec73f15c6b6cb3af3a1cedfac5d3fb3a11d932ac"
+      },
+      "revisionHistory": [
+        {
+          "description": "自助洗衣房椅子修正版",
+          "quality": "low",
+          "prompt": "Japanese 2D anime visual novel background, preserve the laundromat camera and washing machines from the reference. Redraw the seating so the central wooden bench and right foreground bench are physically correct: flat seat boards supported by visible pairs of legs, legs touch the floor, no fused or floating geometry, consistent perspective. Rainy evening through the glass, ordinary 2019 Japanese neighborhood laundromat, clean cel shading and crisp outlines, no photorealism, no readable text or watermark.",
+          "model": "openai/gpt-image-2",
+          "sourceFile": "demo/.generated/art/replicate/generated/laundromat-evening-anime-v2/dhk33zxd41rmt0d0ga3vdxv9sw-output-0-0.png",
+          "review": "已检查实际图像：日系动画背景画，场景用途、画面比例和站位留白符合当前制作要求；待QS演出接入。",
+          "generation": {
+            "predictionId": "dhk33zxd41rmt0d0ga3vdxv9sw",
+            "actualDimensions": [
+              2048,
+              1152
+            ],
+            "sha256": "b871e5d978dc2e450e2e754cc882d258daf5ac7e330eaf453acec8233e2fe100"
+          }
+        }
+      ]
     },
     {
       "id": "title-menu-background-anime-v1",

@@ -311,8 +311,23 @@ export interface ViewBackgroundLayerProjection {
   metadata?: Readonly<Record<string, unknown>>
 }
 
+/** Authored 2D subject grading; no inferred geometry, normals or game state. */
+export interface CharacterLightingProjection {
+  /** sRGB channel multipliers; 1 is unchanged. Web clamps each to [0, 1.5]. */
+  ambient?: readonly [number, number, number]
+  /** Broad painted shade across each composed sprite, masked by its original alpha. */
+  shade?: {
+    color: readonly [number, number, number]
+    /** Normalized sprite-box coordinates, independent of stage pixels and DPR. */
+    from: readonly [number, number]
+    to: readonly [number, number]
+  }
+}
+
 export interface ViewBackgroundProjection {
   mode: BackgroundMode
+  /** Scene-authored character material; absent means the original sprite colors. */
+  characterLighting?: Readonly<CharacterLightingProjection>
   assetName?: string
   fit?: BackgroundFit
   origin?: string

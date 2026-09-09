@@ -173,7 +173,7 @@ Mara: 你连每根线都要写好名字。
 @HideCharacter('mayu')
 @HideCharacter('reiko')
 @HideCharacter('yumi')
-@SetBackground('backgrounds/radio-monitor-night-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })
+@SetBackground('backgrounds/radio-monitor-night-anime-v3.webp', { characterLighting: { ambient: [0.93, 0.96, 1.02], shade: { color: [0.88, 0.92, 1], from: [0.2, 0], to: [0.8, 1] } }, transition: { type: 'crossfade', duration: 320 } })
 @ShowCharacter('mara', { expression: 'neutral', position: { x: 700, y: 750, scale: 1, rotation: 0, anchor: 'center' } })
 @ShowCharacter('haruka', { expression: 'serious', position: { x: 1220, y: 750, scale: 1, rotation: 0, anchor: 'center' } })
 墙上的钟走到八点。

@@ -190,7 +190,7 @@ Mara 靠过来，呼吸轻轻落在凛的肩边。凛抬手扶住她的背。直
 @HideCharacter('mayu')
 @HideCharacter('reiko')
 @HideCharacter('yumi')
-@SetBackground('backgrounds/radio-monitor-night-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })
+@SetBackground('backgrounds/radio-monitor-night-anime-v3.webp', { characterLighting: { ambient: [0.93, 0.96, 1.02], shade: { color: [0.88, 0.92, 1], from: [0.2, 0], to: [0.8, 1] } }, transition: { type: 'crossfade', duration: 320 } })
 @ShowCharacter('mara', { expression: 'relieved', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })
 二十点，公众节目准时开始。
 水野春香（公开广播）: 这里是海岸台。今晚先为您带来青叶市的降雨与道路信息。

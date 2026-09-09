@@ -82,7 +82,7 @@ Mara: 它又不用自己淋雨。
 @HideCharacter('mayu')
 @HideCharacter('reiko')
 @HideCharacter('yumi')
-@SetBackground('backgrounds/town-street-rain-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })
+@SetBackground('backgrounds/town-street-rain-anime-v3.webp', { characterLighting: { ambient: [0.94, 0.97, 1.02], shade: { color: [0.92, 0.95, 1], from: [0.6, 0], to: [0.2, 1] } }, transition: { type: 'crossfade', duration: 320 } })
 @ShowCharacter('mara', { expression: 'rain-neutral', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })
 商店街的遮雨棚把雨声压低了。烤鱼的味道从一家小店的门帘后面飘出来。
 刚才的巴士从内陆车站一路下坡，过了医院和市民中心，才开进这一片窄街。路上看见的海，到了屋檐底下反而找不到了。

@@ -220,7 +220,7 @@ Mara翻到下周，找到十九号那个空格，指给凛看。凛将笔帽扣�
 @HideCharacter('haruka')
 @HideCharacter('reiko')
 @HideCharacter('yumi')
-@SetBackground('backgrounds/radio-monitor-night-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })
+@SetBackground('backgrounds/radio-monitor-night-anime-v3.webp', { characterLighting: { ambient: [0.93, 0.96, 1.02], shade: { color: [0.88, 0.92, 1], from: [0.2, 0], to: [0.8, 1] } }, transition: { type: 'crossfade', duration: 320 } })
 @ShowCharacter('mara', { expression: 'neutral', position: { x: 700, y: 750, scale: 1, rotation: 0, anchor: 'center' } })
 @ShowCharacter('mayu', { expression: 'serious', position: { x: 1220, y: 750, scale: 1, rotation: 0, anchor: 'center' } })
 晚上八点，春香按照正式通知播报港口改道。副话筒已经关闭。
@@ -238,7 +238,7 @@ Mara: 那我今天也不用为了对上它，非把杯子弄丢一次。
 @HideCharacter('mayu')
 @HideCharacter('reiko')
 @HideCharacter('yumi')
-@SetBackground('backgrounds/radio-monitor-night-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })
+@SetBackground('backgrounds/radio-monitor-night-anime-v3.webp', { characterLighting: { ambient: [0.93, 0.96, 1.02], shade: { color: [0.88, 0.92, 1], from: [0.2, 0], to: [0.8, 1] } }, transition: { type: 'crossfade', duration: 320 } })
 @ShowCharacter('mara', { expression: 'hesitant', position: { x: 480, y: 750, scale: 1, rotation: 0, anchor: 'center' } })
 杯子收走以后，凛打开今晚刚保存的返回，从头回放。
 港口消息后面并不是另一条通知。先有一下轻响，像金属碰到玻璃，紧跟着又响了两声，最后一声低下去，留着一点颤。
@@ -465,7 +465,7 @@ Mara: 是我说的。那留她讲相机吧。
 @HideCharacter('mayu')
 @HideCharacter('reiko')
 @HideCharacter('yumi')
-@SetBackground('backgrounds/radio-monitor-night-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })
+@SetBackground('backgrounds/radio-monitor-night-anime-v3.webp', { characterLighting: { ambient: [0.93, 0.96, 1.02], shade: { color: [0.88, 0.92, 1], from: [0.2, 0], to: [0.8, 1] } }, transition: { type: 'crossfade', duration: 320 } })
 晚上播出的介绍写清楚了录制地点：市民中心的展品整理室。旧店没有重新开门，木门也没有突然装回去。
 春香念到“明天起”时，凛不自觉往前坐了一点。
 后半句是“在市民中心一楼展出”。昨晚的窗口停在那三个字后面，剩下的并不是一句催人回照相馆的话。
@@ -485,7 +485,7 @@ Mara: 这回你先选馅。
 @HideCharacter('mayu')
 @HideCharacter('reiko')
 @HideCharacter('yumi')
-@SetBackground('backgrounds/radio-monitor-night-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })
+@SetBackground('backgrounds/radio-monitor-night-anime-v3.webp', { characterLighting: { ambient: [0.93, 0.96, 1.02], shade: { color: [0.88, 0.92, 1], from: [0.2, 0], to: [0.8, 1] } }, transition: { type: 'crossfade', duration: 320 } })
 @ShowCharacter('mara', { expression: 'neutral', position: { x: 700, y: 750, scale: 1, rotation: 0, anchor: 'center' } })
 @ShowCharacter('haruka', { expression: 'neutral', position: { x: 1220, y: 750, scale: 1, rotation: 0, anchor: 'center' } })
 七点五十五分留下的节目单截图还开着。凛记了时间，春香也把它留在公共编辑记录里，让别人能查。

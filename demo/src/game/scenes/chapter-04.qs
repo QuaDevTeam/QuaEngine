@@ -149,7 +149,7 @@ Mara: 差一点的也给我看。
 @HideCharacter('mayu')
 @HideCharacter('reiko')
 @HideCharacter('yumi')
-@SetBackground('backgrounds/radio-monitor-night-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })
+@SetBackground('backgrounds/radio-monitor-night-anime-v3.webp', { characterLighting: { ambient: [0.93, 0.96, 1.02], shade: { color: [0.88, 0.92, 1], from: [0.2, 0], to: [0.8, 1] } }, transition: { type: 'crossfade', duration: 320 } })
 研究值班员正在登记一只刚换上的备用监听盒。原来那只要提前送去新址，他按标签载入通道表，放了一段测试音，两边都响了。
 研究值班员: 研究机仍然各路留原始记录。今晚这只只给你们监听，有问题叫我，别直接拿它那份覆盖原件。
 凛把新编号记在工作表旁边，等他收好工具，才戴上耳机。
@@ -161,7 +161,7 @@ Mara: 差一点的也给我看。
 @HideCharacter('mayu')
 @HideCharacter('reiko')
 @HideCharacter('yumi')
-@SetBackground('backgrounds/radio-monitor-night-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })
+@SetBackground('backgrounds/radio-monitor-night-anime-v3.webp', { characterLighting: { ambient: [0.93, 0.96, 1.02], shade: { color: [0.88, 0.92, 1], from: [0.2, 0], to: [0.8, 1] } }, transition: { type: 'crossfade', duration: 320 } })
 二十点整，返回输入亮了。
 正式输出里是由美下午录好的防雨提醒。凛顺手按下录制，另一条轨却只有断断续续的低响。
 左边耳罩里像有人很快吸了一口气。沙沙声盖住了后面两个音，末尾只剩一点模糊的人声，像隔着一堵墙。
@@ -204,7 +204,7 @@ Mara: 我也没叫。你听见什么了？
 @HideCharacter('mayu')
 @HideCharacter('reiko')
 @HideCharacter('yumi')
-@SetBackground('backgrounds/radio-monitor-night-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })
+@SetBackground('backgrounds/radio-monitor-night-anime-v3.webp', { characterLighting: { ambient: [0.93, 0.96, 1.02], shade: { color: [0.88, 0.92, 1], from: [0.2, 0], to: [0.8, 1] } }, transition: { type: 'crossfade', duration: 320 } })
 @ShowCharacter('haruka', { expression: 'serious', position: { x: 480, y: 750, scale: 1, rotation: 0, anchor: 'center' } })
 二十点十二分。
 春香接过正式节目的值班，凛把返回副本的左右声道分开，轮流听。左边的一段在右边几乎看不见，合在一起时，人的声音反而更小。
@@ -267,7 +267,7 @@ Mara: 那让我一起看。
 @HideCharacter('haruka')
 @HideCharacter('mayu')
 @HideCharacter('reiko')
-@SetBackground('backgrounds/radio-archive-night-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })
+@SetBackground('backgrounds/radio-archive-night-anime-v3.webp', { characterLighting: { ambient: [1, 0.94, 0.86], shade: { color: [0.82, 0.88, 0.97], from: [0.3, 0], to: [0.7, 1] } }, transition: { type: 'crossfade', duration: 320 } })
 @ShowCharacter('yumi', { expression: 'serious', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })
 二十一点零五分，真由与值班员检查完了独立记录机保存的各路原始录音。
 监听和预览沿用了同一份旧通道表。有些通道反向叠在一起，人声被抵掉，另一些根本没选进来；研究机各路分开保存的记录没有丢。真由把核对后导出的录音交给她们，没有另找声音拼补听不清的字。凛请他们将每条原始声轨、旧通道表和处理说明一起留下。
@@ -308,7 +308,7 @@ Mara 的包带终于不再滑了。她试着背到肩上，问真由怎么说。
 @HideCharacter('haruka')
 @HideCharacter('mayu')
 @HideCharacter('reiko')
-@SetBackground('backgrounds/radio-archive-night-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })
+@SetBackground('backgrounds/radio-archive-night-anime-v3.webp', { characterLighting: { ambient: [1, 0.94, 0.86], shade: { color: [0.82, 0.88, 0.97], from: [0.3, 0], to: [0.7, 1] } }, transition: { type: 'crossfade', duration: 320 } })
 @ShowCharacter('mara', { expression: 'hesitant', position: { x: 1220, y: 750, scale: 1, rotation: 0, anchor: 'center' } })
 @ShowCharacter('yumi', { expression: 'serious', position: { x: 700, y: 750, scale: 1, rotation: 0, anchor: 'center' } })
 Mara: 我知道。我已经把单撤了。我问今晚的录音。
