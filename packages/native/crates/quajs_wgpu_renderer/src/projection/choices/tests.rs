@@ -92,6 +92,7 @@ fn skips_hidden_or_empty_choices() {
     assert!(build_choice_commands(
         &layout,
         &ChoiceSetProjection {
+            chrome: None,
             motion: Default::default(),
             visible: false,
             choices: vec![ChoiceProjection::new("a", "A")],
@@ -203,6 +204,7 @@ fn skips_choice_panel_when_all_choice_ids_are_unsafe() {
 fn appends_choice_commands_and_preserves_package_provenance() {
     let mut graph = RenderGraph::new(test_layout());
     let choices = ChoiceSetProjection {
+        chrome: None,
         motion: Default::default(),
         provenance: provenance("runtime.choices", ["base"]),
         choices: vec![ChoiceProjection {
@@ -236,6 +238,7 @@ fn appends_choice_commands_and_preserves_package_provenance() {
 fn skips_unsafe_package_provenance_on_direct_projection() {
     let mut graph = RenderGraph::new(test_layout());
     let choices = ChoiceSetProjection {
+        chrome: None,
         motion: Default::default(),
         provenance: provenance("runtime.choices?rev=1", ["base", "runtime/ui"]),
         choices: vec![ChoiceProjection {
@@ -285,5 +288,35 @@ fn provenance<const N: usize>(owner: &str, required: [&str; N]) -> PackageProven
             .into_iter()
             .map(ToString::to_string)
             .collect::<BTreeSet<_>>(),
+    }
+}
+
+#[test]
+fn product_choice_chrome_preserves_motion_anchor_and_selection_intent() {
+    let mut choices = ChoiceSetProjection::new(vec![
+        ChoiceProjection::new("catalog-first", "先看看档案目录"),
+        ChoiceProjection::new("listen-first", "先听一段居民留言"),
+    ]);
+    choices.chrome = Some(
+        serde_json::from_value(serde_json::json!({
+            "width":1040,"fontSize":26,"lineHeight":44.2,"paddingX":40,"paddingY":22,"gap":14,
+            "fillColor":"#f5f3eb","textColor":"#29453f","borderColor":"#42796e"
+        }))
+        .unwrap(),
+    );
+    let commands = build_choice_commands(&test_layout(), &choices);
+    assert_eq!(commands[0].id, "choices:panel");
+    assert_eq!(commands[0].bounds.width, 1040.0);
+    assert_eq!(commands[1].id, "choice:catalog-first");
+    assert!(commands[1].bounds.y + commands[1].bounds.height < commands[2].bounds.y);
+    if let DrawCommandParams::UiButton(params) = &commands[1].params {
+        assert_eq!(
+            params.intent.as_ref().unwrap().choice_id.as_deref(),
+            Some("catalog-first")
+        );
+        assert_eq!(params.font_size, 26.0);
+        assert_eq!(params.text_color, "#29453f");
+    } else {
+        panic!("expected choice button")
     }
 }

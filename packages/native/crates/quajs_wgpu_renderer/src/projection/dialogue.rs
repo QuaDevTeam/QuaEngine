@@ -1,4 +1,5 @@
 pub mod builder;
+pub mod chrome;
 mod inline;
 pub mod layout;
 pub mod rich_text;

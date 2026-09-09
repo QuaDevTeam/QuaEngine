@@ -22,6 +22,8 @@ pub struct RealWgpuSurfaceTargetBootstrapRequest<'a> {
     pub backend_config: WgpuNativeRenderBackendConfig,
     pub power_preference: wgpu::PowerPreference,
     pub force_fallback_adapter: bool,
+    /// Opt-in 4x geometric coverage; 1x avoids extra attachment memory.
+    pub msaa_samples: u32,
     pub device_descriptor: wgpu::DeviceDescriptor<'a>,
 }
 
@@ -33,6 +35,7 @@ impl<'a> RealWgpuSurfaceTargetBootstrapRequest<'a> {
             backend_config,
             power_preference: wgpu::PowerPreference::HighPerformance,
             force_fallback_adapter: false,
+            msaa_samples: 1,
             device_descriptor: wgpu::DeviceDescriptor::default(),
         }
     }
@@ -87,6 +90,12 @@ pub async fn create_real_wgpu_surface_target(
     let surface_config =
         configure_wgpu_surface_for_native_renderer(surface, &adapter, &device, &surface_request)
             .map_err(surface_config_error)?;
+    let sample_count = super::target::supported_sample_count(
+        request.msaa_samples,
+        adapter
+            .get_texture_format_features(surface_config.config.format.remove_srgb_suffix())
+            .flags,
+    );
     let target = RealWgpuNativeRenderRuntimeTarget::new(
         device,
         queue,
@@ -96,6 +105,12 @@ pub async fn create_real_wgpu_surface_target(
             height: surface_config.config.height,
             depth_or_array_layers: 1,
         },
+    )
+    .with_msaa_samples(sample_count);
+    log::info!(
+        "Native renderer MSAA: requested {}, active {}",
+        request.msaa_samples,
+        target.sample_count()
     );
 
     Ok(RealWgpuSurfaceTargetBootstrap {

@@ -8,7 +8,15 @@ pub(super) fn media_vertex_rect(
     primitive: &WgpuNativeRenderPrimitive,
     texture_size: Option<(u32, u32)>,
 ) -> WgpuFloatRect {
-    let base = WgpuFloatRect::from(primitive.physical_bounds);
+    let base = primitive
+        .geometry_bounds
+        .map(|rect| WgpuFloatRect {
+            x: rect.x as f32,
+            y: rect.y as f32,
+            width: rect.width as f32,
+            height: rect.height as f32,
+        })
+        .unwrap_or_else(|| WgpuFloatRect::from(primitive.physical_bounds));
     match &primitive.kind {
         WgpuNativeRenderPrimitiveKind::Image {
             fit,
@@ -33,6 +41,15 @@ pub(super) fn media_vertex_rect(
             *source,
             *fit,
             *origin,
+            texture_size,
+        )
+        .unwrap_or(base),
+        WgpuNativeRenderPrimitiveKind::Character { .. } => fit_media_rect(
+            base,
+            primitive.logical_bounds,
+            primitive.logical_bounds,
+            MediaFit::Contain,
+            MediaOrigin::default(),
             texture_size,
         )
         .unwrap_or(base),

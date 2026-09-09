@@ -1,480 +1,59 @@
-@use '../../game/styles/ui-theme' as shared;
-// ─── Design tokens ───────────────────────────────────────────────────────────
-
-$text-primary:   rgba(255, 250, 242, 0.92);
-$text-secondary: rgba(247, 242, 234, 0.58);
-$text-accent:    rgba(235, 204, 144, 0.78);
-$text-highlight: #ffe8b3;
-$text-cyan:      #d8f8ff;
-$text-dark:      #080a0f;
-$shadow-text:    0 2px 10px rgba(0, 0, 0, 0.76);
-$shadow-text-lg: 0 2px 18px rgba(0, 0, 0, 0.70);
-
-$bg-dark:            rgba(7, 8, 12, 0.96);
-$bg-button:          rgba(9, 12, 18, 0.88);
-$bg-button-hover:    rgba(20, 54, 66, 0.82);
-$bg-button-active:   rgba(14, 42, 54, 0.88);
-$bg-button-gold:     rgba(255, 238, 198, 0.90);
-$bg-button-gold-act: rgba(236, 210, 158, 0.94);
-$bg-overlay:         rgba(1, 2, 5, 0.78);
-
-$border-gold:       rgba(245, 226, 190, 0.24);
-$border-gold-panel: rgba(245, 226, 190, 0.34);
-$border-gold-title: rgba(255, 226, 166, 0.88);
-$border-cyan:       rgba(129, 229, 255, 0.72);
-$border-cyan-act:   rgba(129, 229, 255, 0.50);
-
-$font-sans:  "Noto Sans";
-$font-serif: "Noto Serif";
-
-$t-spring: 160ms cubic-bezier(0.19, 1, 0.22, 1);
-$t-ease:   160ms ease;
-
-// ─── Mixins ───────────────────────────────────────────────────────────────────
-
-@mixin hover-cyan {
-  background-color: $bg-button-hover;
-  border-color: $border-cyan;
-  color: $text-cyan;
-}
-
-@mixin active-cyan {
-  background-color: $bg-button-active;
-  border-color: $border-cyan-act;
-  color: rgba(216, 248, 255, 0.80);
-}
-
-@mixin panel-surface {
-  background-color: $bg-dark;
-  background-image: linear-gradient(180deg, rgba(20, 22, 30, 0.96) 0%, rgba(6, 7, 11, 0.97) 100%);
-  border-color: $border-gold-panel;
-  border-width: 1px;
-  border-radius: 2px;
-  box-shadow: 0 32px 120px rgba(0, 0, 0, 0.72);
-}
-
-@mixin action-button-base {
-  background-color: rgba(9, 12, 18, 0.82);
-  background-image: linear-gradient(90deg, rgba(9, 12, 18, 0.90) 0%, rgba(23, 27, 37, 0.66) 100%);
-  border-color: $border-gold;
-  border-width: 1px;
-  color: rgba(255, 250, 242, 0.90);
-  font-family: $font-sans;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 1.2px;
-  padding: 0 16px 0 18px;
-  text-align: left;
-  transition: transform $t-ease, background-color $t-ease, border-color $t-ease, color $t-ease;
-}
-
-// ─── App shell ────────────────────────────────────────────────────────────────
+// Product skin in logical stage pixels. No legacy dark/gold overrides.
+$paper: #f5f3eb;
+$sheet: #fffdf7;
+$ink: #29453f;
+$muted: #61736b;
+$sea: #42796e;
+$line: #c7d2c5;
 
 Stack.native-app { left: 0; top: 0; width: 1920px; height: 1080px; overflow: hidden; }
+Stack.title-surface, Backdrop.title-input-blocker, Image.title-background, Box.title-linear-scrim, Box.title-radial-scrim,
+Backdrop.system-backdrop { left: 0; top: 0; width: 1920px; height: 1080px; }
+Image.title-background { object-fit: cover; }
+Box.title-linear-scrim { background-image: linear-gradient(90deg, rgba(16,39,54,0.58) 0%, rgba(16,39,54,0.04) 100%); }
+Box.title-radial-scrim { background-color: transparent; }
+Text.main-menu-title { left: 154px; top: 224px; width: 1600px; height: 114px; font-family: "Noto Serif"; font-size: 76px; font-weight: 400; line-height: 114px; color: #fffdf7; }
+Text.main-menu-subtitle { left: 154px; top: 350px; width: 1000px; height: 24px; font-family: "Noto Sans"; font-size: 15px; line-height: 24px; color: #e3ebe2; }
+Column.main-menu-actions { left: 154px; top: 438px; width: 430px; height: 340px; row-gap: 4px; }
+Button.main-menu-action { width: 430px; height: 64px; padding: 12px 24px; color: #fffdf7; font-family: "Noto Sans"; font-size: 25px; line-height: 38px; text-align: left; border-bottom-width: 1px; border-bottom-color: #c7d2c5; background-color: rgba(16,39,54,0.12); }
+Button.main-menu-action:hover, Button.main-menu-action:focus-visible { background-color: rgba(245,243,235,0.18); }
+Button.main-menu-action:disabled { opacity: 0.42; }
 
-// Full-screen layers
-Stack.shell-vignette,
-Stack.title-surface,
-Stack.main-menu,
-Stack.game-hud,
-Stack.system-overlay { left: 0; top: 0; width: 1920px; height: 1080px; }
-
-Backdrop.system-backdrop,
-Backdrop.title-input-blocker { left: 0; top: 0; width: 1920px; height: 1080px; }
-
-Box.shell-vignette-radial,
-Box.shell-vignette-linear,
-Box.title-linear-scrim,
-Box.title-radial-scrim { left: 0; top: 0; width: 1920px; height: 1080px; }
-
-Box.title-background { left: -29px; top: -16px; width: 1978px; height: 1112px; }
-
-Box.shell-vignette-radial {
-  background-image: radial-gradient(ellipse at center, transparent 46%, rgba(0, 0, 0, 0.34) 100%);
-  pointer-events: none;
-  z-index: 2;
+Panel.quick-menu { background-color: transparent; }
+Button.quick-menu-action { background-color: transparent; color: $ink; font-family: "Noto Sans"; font-size: 20px; line-height: 28px; padding: 8px 12px; text-align: center; border-radius: 3px; }
+Button.quick-menu-action.is-active { background-color: $sea; color: $sheet; }
+Button.quick-menu-action:hover, Button.quick-menu-action:focus-visible { background-color: #e3ebe2; color: $ink; }
+Backdrop.system-backdrop { background-color: rgba(24,59,52,0.5); }
+Panel.game-menu-panel, Panel.confirm-panel, Panel.save-panel, Panel.list-panel, Panel.settings-panel {
+  background-color: $paper; border-color: $line; border-width: 1px; border-radius: 4px; box-shadow: 0 18px 64px rgba(16,46,41,0.15);
 }
-
-Box.shell-vignette-linear {
-  background-image: linear-gradient(180deg, rgba(5, 5, 7, 0.24) 0%, transparent 18%, transparent 72%, rgba(5, 5, 7, 0.34) 100%);
-  pointer-events: none;
-  z-index: 3;
+Text.panel-title { color: $ink; font-family: "Noto Serif"; font-size: 42px; line-height: 62px; font-weight: 400; }
+Text.panel-subtitle, Text.panel-eyebrow { color: $muted; font-family: "Noto Sans"; font-size: 20px; line-height: 30px; }
+Text.confirm-description { color: $ink; font-family: "Noto Sans"; font-size: 23px; line-height: 40px; white-space: pre-wrap; }
+Panel.parity-divider { background-color: $line; }
+Column.game-menu-actions { row-gap: 10px; }
+Button.panel-action, Button.panel-close, Button.confirm-cancel, Button.confirm-accept, Button.save-tab, Button.chapter-action {
+  background-color: $sheet; border-color: $line; border-width: 1px; border-radius: 3px; color: $ink;
+  font-family: "Noto Sans"; font-size: 24px; line-height: 34px; padding: 12px 24px; text-align: left;
 }
-
-// ─── Title surface ────────────────────────────────────────────────────────────
-
-Backdrop.title-input-blocker { background-color: #030407; z-index: -1; }
-Box.title-background       { background-color: #182830; }
-
-Box.title-linear-scrim {
-  background-image: linear-gradient(90deg, rgba(4, 5, 8, 0.94) 0%, rgba(4, 5, 8, 0.34) 50%, rgba(4, 5, 8, 0.84) 100%);
-}
-Box.title-radial-scrim {
-  background-image: radial-gradient(circle at 52% 40%, rgba(11, 19, 30, 0.24) 0%, rgba(3, 4, 7, 0.78) 64%);
-}
-
-// ─── Main menu ────────────────────────────────────────────────────────────────
-
-Text.main-menu-title {
-  left: 130px; top: 292px; width: 1100px; height: 112px;
-  color: #fffaf0;
-  font-family: $font-serif;
-  font-size: 76px;
-  font-weight: 700;
-  line-height: 99px;
-  text-shadow: $shadow-text-lg;
-}
-
-Text.main-menu-subtitle {
-  left: 130px; top: 424px; width: 520px; height: 28px;
-  color: $text-accent;
-  font-family: $font-sans;
-  font-size: 12px;
-  letter-spacing: 2.16px;
-  text-shadow: $shadow-text-lg;
-}
-
-Column.main-menu-actions { left: 130px; top: 483px; width: 360px; height: 276px; row-gap: 9px; }
-
-Button.main-menu-action { width: 360px; height: 48px;
-  background-color: $bg-button;
-  background-image: linear-gradient(90deg, rgba(9, 12, 18, 0.94) 0%, rgba(22, 26, 36, 0.74) 100%);
-  border-color: $border-gold;
-  border-width: 1px;
-  box-shadow: 0 14px 38px rgba(0, 0, 0, 0.26);
-  color: $text-primary;
-  font-family: $font-sans;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 1.56px;
-  padding: 0 18px 7px 20px;
-  text-align: left;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.52);
-  transition: transform $t-spring, background-color $t-ease, color $t-ease, border-color $t-ease, box-shadow $t-ease;
-}
-
-Button.main-menu-action:hover,
-Button.main-menu-action:focus,
-Button.main-menu-action:focus-visible {
-  background-color: rgba(18, 18, 23, 0.92);
-  background-image: linear-gradient(90deg, rgba(34, 29, 22, 0.96) 0%, rgba(27, 29, 36, 0.78) 100%);
-  color: $text-highlight;
-  translate: 3px 0;
-}
-
-Button.main-menu-action:active {
-  background-color: rgba(14, 17, 26, 0.96);
-  background-image: linear-gradient(90deg, rgba(28, 24, 17, 0.98) 0%, rgba(22, 24, 31, 0.86) 100%);
-  color: rgba(255, 224, 160, 0.80);
-  translate: 5px 0;
-}
-
-// ─── Game HUD ─────────────────────────────────────────────────────────────────
-
-// GameHud resolves the strip and button bounds from the engine layout's safe
-// area. Keep geometry in that projection so base and hover use the same anchor.
-Panel.quick-menu {
-  padding: 5px 9px;
-  border-color: rgba(245, 226, 190, 0.22);
-  border-width: 1px;
-  background-image: linear-gradient(180deg, rgba(12, 15, 22, 0.58) 0%, rgba(5, 6, 10, 0.42) 100%);
-  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.42);
-}
-
-// Text-style toolbar buttons like the Web demo: transparent fill, hairline
-// underline, small uppercase labels — no boxed button chrome.
-Button.quick-menu-action { height: 28px;
-  background-color: transparent;
-  border-bottom-color: rgba(235, 204, 144, 0.42);
-  border-bottom-width: 1px;
-  color: rgba(247, 242, 234, 0.82);
-  font-family: $font-sans;
-  font-size: 11px;
-  letter-spacing: 0.9px;
-  padding: 5px 7px 4px;
-  text-align: left;
-  text-transform: uppercase;
-}
-Button.quick-menu-action.is-active {
-  border-bottom-color: rgba(129, 229, 255, 0.86);
-  color: $text-cyan;
-  text-shadow: 0 0 18px rgba(80, 206, 255, 0.62);
-}
-Button.quick-menu-action:hover,
-Button.quick-menu-action:focus-visible {
-  background-color: transparent;
-  border-bottom-color: rgba(255, 226, 166, 0.90);
-  color: $text-highlight;
-  text-shadow: 0 0 14px rgba(255, 194, 86, 0.54);
-}
-Button.quick-menu-action:active {
-  background-color: transparent;
-  border-bottom-color: rgba(255, 226, 166, 0.90);
-  color: rgba(255, 232, 179, 0.80);
-}
-
-// ─── System overlays ──────────────────────────────────────────────────────────
-
-Backdrop.system-backdrop { background-color: $bg-overlay; }
-
-// ─ Panel positioning via ID selectors (panels share visual class, not position) ─
-// All left/top values are stage-absolute logical coordinates: the native
-// surface model does not accumulate parent offsets, so panel children must
-// include the panel origin in their own coordinates.
-
-// Vertically centred like the Web game menu; height hugs the content
-// (42px top pad + title/subtitle + 6×46 actions + 5×8 gaps + 42px bottom pad).
-#native-game-menu-panel    { left: 730px; top: 280px; width: 460px; height: 520px; }
-#native-game-menu-title    { left: 770px; top: 322px; width: 300px; height: 54px; }
-#native-game-menu-subtitle { left: 770px; top: 384px; width: 380px; height: 26px; }
-#native-game-menu-actions  { left: 770px; top: 442px; width: 380px; height: 316px; }
-
-#native-game-over-panel       { left: 650px; top: 270px; width: 620px; height: 450px; }
-#native-game-over-title       { left: 704px; top: 316px; width: 512px; height: 60px; }
-#native-game-over-subtitle    { left: 704px; top: 388px; width: 512px; height: 28px; }
-#native-game-over-description { left: 704px; top: 446px; width: 512px; height: 116px; }
-#native-game-over-actions     { left: 704px; top: 624px; width: 512px; height: 48px; }
-
-#native-save-load-panel   { left: 360px; top: 160px; width: 1200px; height: 760px; }
-#native-save-load-eyebrow { left: 410px; top: 206px; width: 400px;  height: 24px; }
-#native-save-load-title   { left: 410px; top: 242px; width: 700px;  height: 58px; }
-#native-save-load-list    { left: 410px; top: 340px; width: 1100px; height: 480px; }
-#native-save-load-close   { left: 1280px; top: 840px; width: 180px; height: 44px; }
-
-#native-story-tree-panel   { left: 260px; top: 160px; width: 1400px; height: 760px; }
-#native-story-tree-eyebrow { left: 310px; top: 206px; width: 400px;  height: 24px; }
-#native-story-tree-title   { left: 310px; top: 242px; width: 700px;  height: 58px; }
-#native-story-tree-list    { left: 310px; top: 340px; width: 1300px; height: 470px; }
-#native-story-tree-close   { left: 1430px; top: 830px; width: 180px; height: 44px; }
-
-#native-title-confirm-panel       { left: 700px; top: 300px; width: 520px; height: 390px; }
-#native-title-confirm-title       { left: 746px; top: 344px; width: 428px; height: 56px; }
-#native-title-confirm-subtitle    { left: 746px; top: 410px; width: 428px; height: 28px; }
-#native-title-confirm-description { left: 746px; top: 466px; width: 428px; height: 92px; }
-#native-title-confirm-actions     { left: 746px; top: 594px; width: 428px; height: 48px; }
-
-#native-backlog-panel   { left: 260px; top: 120px; width: 1400px; height: 840px; }
-#native-backlog-eyebrow { left: 310px; top: 166px; width: 400px;  height: 24px; }
-#native-backlog-title   { left: 310px; top: 202px; width: 700px;  height: 58px; }
-#native-backlog-scroll  { left: 310px; top: 300px; width: 1300px; height: 570px; }
-#native-backlog-list    { left: 310px; top: 300px; width: 1300px; }
-#native-backlog-close   { left: 1430px; top: 880px; width: 180px; height: 44px; }
-
-#native-gallery-panel  { left: 260px; top: 120px; width: 1400px; height: 840px; }
-#native-gallery-eyebrow { left: 310px; top: 166px; width: 400px;  height: 24px; }
-#native-gallery-title  { left: 310px; top: 202px; width: 700px;  height: 58px; }
-#native-gallery-grid   { left: 310px; top: 300px; width: 1300px; height: 560px; }
-#native-gallery-close  { left: 1430px; top: 880px; width: 180px; height: 44px; }
-
-#native-settings-panel   { left: 620px; top: 120px; width: 680px; height: 840px; }
-#native-settings-title   { left: 660px; top: 160px; width: 600px; height: 54px; }
-#native-settings-list    { left: 660px; top: 240px; width: 600px; height: 600px; }
-#native-settings-actions { left: 660px; top: 880px; width: 600px; height: 48px; }
-
-Panel.game-menu-panel,
-Panel.confirm-panel,
-Panel.list-panel,
-Panel.settings-panel { @include panel-surface; }
-
-Text.panel-eyebrow {
-  color: #9ddff0;
-  font-family: $font-sans;
-  font-size: 13px;
-  letter-spacing: 2px;
-}
-Text.panel-title {
-  color: #fff8ea;
-  font-family: $font-sans;
-  font-size: 38px;
-  font-weight: 700;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.60);
-}
-Text.panel-subtitle {
-  color: $text-secondary;
-  font-family: $font-sans;
-  font-size: 11px;
-  letter-spacing: 1px;
-}
-
-Column.game-menu-actions { row-gap: 8px; }
-
-Button.panel-action,
-Button.panel-close,
-Button.confirm-cancel,
-Button.confirm-accept { @include action-button-base; }
-
-Button.panel-action:hover, Button.panel-action:focus-visible,
-Button.panel-close:hover,  Button.panel-close:focus-visible,
-Button.confirm-cancel:hover, Button.confirm-cancel:focus-visible { @include hover-cyan; translate: 2px 0; }
-
-Button.panel-action:active,
-Button.panel-close:active,
-Button.confirm-cancel:active { @include active-cyan; translate: 3px 0; }
-
-Button.title-action,
-Button.confirm-accept {
-  background-color: $bg-button-gold;
-  background-image: linear-gradient(90deg, rgba(255, 238, 198, 0.95) 0%, rgba(236, 198, 116, 0.82) 100%);
-  border-color: $border-gold-title;
-  color: $text-dark;
-}
-Button.title-action:active,
-Button.confirm-accept:active {
-  background-color: $bg-button-gold-act;
-  background-image: linear-gradient(90deg, rgba(236, 210, 158, 0.98) 0%, rgba(210, 170, 88, 0.88) 100%);
-  border-color: rgba(220, 196, 130, 0.88);
-  color: rgba(8, 10, 15, 0.78);
-}
-
-// ─── List panels ─────────────────────────────────────────────────────────────
-
-Text.confirm-description,
-Button.list-line,
-Text.list-line {
-  color: rgba(255, 250, 242, 0.86);
-  font-family: $font-sans;
-  font-size: 14px;
-  line-height: 20px;
-}
-
-// Story-tree text items (read-only list rows, narrower than save/load buttons)
-Text.list-line { width: 1300px; height: 42px; }
-
-Button.list-line { width: 1100px; height: 70px;
-  background-color: rgba(20, 24, 33, 0.90);
-  background-image: linear-gradient(180deg, rgba(20, 24, 33, 0.90) 0%, rgba(7, 8, 12, 0.92) 100%);
-  border-color: rgba(245, 226, 190, 0.20);
-  border-width: 1px;
-  padding: 14px 18px;
-  text-align: left;
-  white-space: pre-line;
-}
-Button.list-line:hover, Button.list-line:focus-visible { @include hover-cyan; }
-Button.list-line:active { @include active-cyan; }
-
-Row.confirm-actions    { align-items: center; column-gap: 28px; }
-Column.list-content    { row-gap: 10px; overflow: hidden; }
-Column.game-menu-actions { row-gap: 8px; }
-
-Button.confirm-cancel  { width: 200px; height: 46px; text-align: center; }
-Button.confirm-accept  { width: 200px; height: 46px; text-align: center; }
-Button.panel-close     { width: 180px; height: 44px; text-align: center; }
-Button.panel-action    { width: 380px; height: 46px; }
-
-// ─── Backlog ──────────────────────────────────────────────────────────────────
-
-Scroll.backlog-scroll { overflow: hidden; }
-
-Text.backlog-line {
-  color: rgba(255, 250, 242, 0.82);
-  font-family: $font-sans;
-  font-size: 14px;
-  line-height: 22px;
-  padding: 8px 0;
-}
-
-// ─── Gallery ──────────────────────────────────────────────────────────────────
-
-Grid.gallery-grid { column-gap: 16px; row-gap: 16px; }
-
-Button.gallery-item {
-  width: 307px;
-  height: 200px;
-  background-color: rgba(12, 14, 20, 0.88);
-  border-color: $border-gold;
-  border-width: 1px;
-  overflow: hidden;
-}
-Button.gallery-item:hover, Button.gallery-item:focus-visible { border-color: $border-cyan; }
-
-Image.gallery-thumb { left: 0; top: 0; width: 307px; height: 200px; object-fit: cover; }
-
-// ─── Settings ─────────────────────────────────────────────────────────────────
-
-Column.settings-list { row-gap: 4px; }
-
-Row.settings-row {
-  width: 600px;
-  height: 52px;
-  align-items: center;
-  // bottom-only separator via inset shadow (QSS border-width is single-value only)
-  box-shadow: inset 0 -1px 0 rgba(245, 226, 190, 0.12);
-  padding: 0 4px;
-}
-
-Text.settings-label {
-  width: 240px;
-  height: 24px;
-  color: $text-primary;
-  font-family: $font-sans;
-  font-size: 12px;
-  letter-spacing: 0.8px;
-}
-
-Slider.settings-slider {
-  width: 320px;
-  height: 28px;
-}
-
-Switch.settings-switch {
-  width: 52px;
-  height: 28px;
-}
-
-Divider.settings-divider {
-  left: 660px;
-  top: 856px;
-  width: 600px;
-  height: 1px;
-  background-color: rgba(245, 226, 190, 0.18);
-}
-
-Row.settings-actions {
-  align-items: center;
-  column-gap: 16px;
-}
-
-
-// Shared product skin. Geometry is supplied by the platform-neutral model.
-Panel.quick-menu { @include shared.toolbar; }
-Button.quick-menu-action { @include shared.toolbar-action; }
-Panel.game-menu-panel, Panel.confirm-panel, Panel.save-panel { @include shared.panel; }
-Button.panel-action { @include shared.action; }
-Text.panel-title { line-height: 38px; }
-Text.panel-subtitle { line-height: 16px; }
-Panel.parity-divider { background-color: rgba(245, 226, 190, 0.18); }
-Button.parity-close { background-color: rgba(255,248,234,0.9); color: #0d0d12; font-family: "Noto Sans"; font-size: 28px; line-height: 34px; text-align: center; }
-Button.save-tab { @include shared.action; text-align: center; padding: 0; border-radius: 0; }
-Button.save-tab.is-active { background-color: rgba(245,226,190,0.12); background-image: linear-gradient(0deg, transparent 0%, transparent 100%); }
-Panel.save-card { @include shared.slot; }
-Text.save-index { color: #ffe3a0; font-family: "Noto Sans"; font-size: 11px; line-height: 16px; text-align: center; }
-Panel.save-index-box { border-color: rgba(255,226,166,0.36); border-width: 1px; }
-Text.save-name { color: #fff8ea; font-family: "Noto Sans"; font-size: 14px; line-height: 20px; text-overflow: ellipsis; white-space: nowrap; }
-Text.save-meta { color: rgba(247,242,234,0.55); font-family: "Noto Sans"; font-size: 10px; line-height: 14px; text-overflow: ellipsis; white-space: nowrap; }
-Panel.save-card.is-disabled { opacity: 0.48; }
-Text.confirm-description { font-family: "Noto Sans"; font-size: 15px; line-height: 24px; white-space: pre-wrap; color: rgba(247,242,234,0.8); }
-Button.parity-close { @include shared.close; }
-Button.save-tab { @include shared.tab; }
-Button.save-tab.is-active { @include shared.tab-active; }
-Panel.save-tabs { background-color: rgba(255,255,255,0.03); border-color: rgba(245,226,190,0.22); border-width: 1px; }
-Button.panel-action:hover, Button.panel-action:focus-visible,
-Button.quick-menu-action:hover, Button.quick-menu-action:focus-visible { @include shared.action-hover; translate: 0 0; }
-Panel.save-card:hover, Panel.save-card:focus-visible { @include shared.slot-hover; }
-Panel.save-card.is-disabled:hover { @include shared.slot; }
-Row.confirm-actions { column-gap: 8px; }
-#native-game-menu-backdrop, #native-save-load-backdrop { background-color: rgba(3,4,7,0.62); }
-Button.panel-action:hover, Button.panel-action:focus-visible { @include shared.menu-hover; translate: 2px 0; }
-
-// Call Me Again Tomorrow: text-first title and chapter controls.
-Box.title-background { background-color: #edf0e9; }
-Box.title-linear-scrim { background-image: linear-gradient(115deg, #f3f1e8 0%, #dbe6df 100%); }
-Box.title-radial-scrim { background-image: linear-gradient(0deg, transparent 0%, transparent 100%); }
-Text.main-menu-title { top: 220px; width: 1320px; height: 130px; color: #193841; font-weight: 400; text-shadow: none; }
-Text.main-menu-subtitle { top: 360px; width: 950px; font-size: 16px; color: #52726f; text-shadow: none; }
-Column.main-menu-actions { top: 430px; width: 410px; height: 340px; row-gap: 8px; }
-Button.main-menu-action { width: 410px; height: 60px; font-size: 22px; font-weight: 400; color: #254850; background-color: transparent; background-image: linear-gradient(0deg, transparent 0%, transparent 100%); border-color: #bdcdc5; box-shadow: none; text-shadow: none; padding: 0 28px; }
-Button.main-menu-action:hover, Button.main-menu-action:focus-visible { color: #142e36; background-color: #d7e2d9; background-image: linear-gradient(0deg, transparent 0%, transparent 100%); border-color: #8ba8a1; }
-Button.main-menu-action:disabled { opacity: 0.36; }
-Button.chapter-action { height: 52px; width: 820px; font-size: 20px; color: #e7efe9; background-color: #203d46; padding: 10px 18px; text-align: left; }
-Button.chapter-action:disabled { opacity: 0.42; }
-Column.list-content { row-gap: 8px; }
+Button.panel-action:hover, Button.panel-close:hover, Button.confirm-cancel:hover, Button.save-tab:hover, Button.chapter-action:hover { background-color: #e3ebe2; border-color: $sea; }
+Button.confirm-accept, Button.save-tab.is-active, #native-game-menu-close { background-color: $sea; color: $sheet; border-color: $sea; }
+Button.parity-close { background-color: transparent; color: $muted; font-family: "Noto Sans"; font-size: 28px; line-height: 42px; text-align: center; }
+Button.parity-close:hover { background-color: #e3ebe2; }
+Button.save-tab { font-size: 20px; text-align: center; padding: 8px 14px; }
+Panel.save-card { background-color: $sheet; border-color: $line; border-width: 1px; border-radius: 3px; }
+Panel.save-card:hover { background-color: #e3ebe2; border-color: $sea; }
+Panel.save-card.is-disabled { opacity: 0.60; }
+Text.save-index { color: $sea; font-family: "Noto Serif"; font-size: 36px; line-height: 54px; text-align: center; }
+Text.save-name { color: $ink; font-family: "Noto Sans"; font-size: 21px; line-height: 32px; white-space: nowrap; text-overflow: ellipsis; }
+Text.save-meta { color: $muted; font-family: "Noto Sans"; font-size: 15px; line-height: 24px; white-space: nowrap; text-overflow: ellipsis; }
+Row.confirm-actions { column-gap: 14px; }
+Button.confirm-accept, Button.confirm-cancel { text-align: center; font-size: 21px; }
+Button.chapter-action { font-family: "Noto Serif"; font-size: 28px; line-height: 44px; border-width: 0; border-bottom-width: 1px; border-bottom-color: $line; background-color: transparent; }
+Button.chapter-action:disabled { opacity: 0.5; font-family: "Noto Sans"; font-size: 23px; }
+#native-game-over-panel { left: 560px; top: 300px; width: 800px; height: 480px; }
+#native-game-over-title { left: 604px; top: 334px; width: 712px; height: 72px; }
+#native-game-over-subtitle { left: 604px; top: 418px; width: 712px; height: 36px; }
+#native-game-over-description { left: 604px; top: 468px; width: 712px; height: 124px; }
+#native-game-over-actions { left: 760px; top: 662px; width: 540px; height: 64px; }
+#native-game-over-close, #native-game-over-title-action { width: 260px; height: 64px; }

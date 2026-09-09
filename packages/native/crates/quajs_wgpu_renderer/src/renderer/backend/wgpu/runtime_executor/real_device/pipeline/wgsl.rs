@@ -336,6 +336,9 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         // levels contain neighboring frames, so sample its clamped base level.
         sample = textureSampleLevel(texture_source, texture_sampler, clamp(input.uv, input.effect2.xy, input.effect2.zw), 0.0);
     }
+    // Texture filtering operates on premultiplied pixels. Color filters and
+    // this pipeline's straight-alpha blend operate on the recovered RGB.
+    sample = vec4<f32>(sample.rgb / max(sample.a, 0.000001), sample.a);
     if (input.effect1.x > 0.5) {
         var rgb = sample.rgb;
         // effect0: [brightness, saturation, contrast, grayscale]

@@ -179,11 +179,7 @@ fn character_commands(
                 flip_horizontal,
                 nine_slice: None,
             },
-            fit: if is_base {
-                MediaFit::Fill
-            } else {
-                MediaFit::Contain
-            },
+            fit: MediaFit::Contain,
             origin: MediaOrigin::default(),
             source: bounds,
             rotation_degrees: rotation_degrees

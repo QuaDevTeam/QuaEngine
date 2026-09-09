@@ -267,11 +267,12 @@ where
         host: H,
         backend_config: WgpuNativeRenderBackendConfig,
     ) -> Result<Self, NativeProductWindowError> {
-        let bootstrap_request = RealWgpuSurfaceTargetBootstrapRequest::new(
+        let mut bootstrap_request = RealWgpuSurfaceTargetBootstrapRequest::new(
             physical_size.width,
             physical_size.height,
             backend_config.clone(),
         );
+        bootstrap_request.msaa_samples = configured_msaa_samples();
         let bootstrap = pollster::block_on(create_real_wgpu_surface_target(
             instance,
             &surface,
@@ -474,11 +475,12 @@ where
         &mut self,
         physical_size: NativeProductWindowPhysicalSize,
     ) -> Result<NativeProductWindowResizeReport, NativeProductWindowError> {
-        let bootstrap_request = RealWgpuSurfaceTargetBootstrapRequest::new(
+        let mut bootstrap_request = RealWgpuSurfaceTargetBootstrapRequest::new(
             physical_size.width,
             physical_size.height,
             self.backend_config.clone(),
         );
+        bootstrap_request.msaa_samples = configured_msaa_samples();
         let bootstrap = pollster::block_on(create_real_wgpu_surface_target(
             &self.instance,
             &self.surface,
@@ -798,5 +800,14 @@ mod tests {
             error.present_failure().map(|failure| failure.kind()),
             Some(NativeProductWindowPresentFailureKind::Timeout)
         );
+    }
+}
+
+// Local graphics startup option, not narrative state or a package capability.
+// Keep 1x by default: each active composition target needs an extra 4x surface.
+fn configured_msaa_samples() -> u32 {
+    match std::env::var("QUA_NATIVE_MSAA").as_deref() {
+        Ok("4") => 4,
+        _ => 1,
     }
 }

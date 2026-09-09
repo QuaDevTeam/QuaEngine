@@ -230,6 +230,32 @@ impl JsonProjectionValidator {
 
     fn validate_choices(&mut self, choices: &ChoiceSetProjection) {
         self.validate_provenance("view.choices.provenance", &choices.provenance);
+        if let Some(chrome) = &choices.chrome {
+            for (name, value, minimum) in [
+                ("width", chrome.width, 1.0),
+                ("fontSize", chrome.font_size, 1.0),
+                ("lineHeight", chrome.line_height, 1.0),
+                ("paddingX", chrome.padding_x, 0.0),
+                ("paddingY", chrome.padding_y, 0.0),
+                ("gap", chrome.gap, 0.0),
+            ] {
+                if !value.is_finite() || !(minimum..=4096.0).contains(&value) {
+                    self.errors.push(NativeRendererJsonValidationError {
+                        path: format!("view.choices.chrome.{name}"),
+                        asset_name: value.to_string(),
+                        reason: "chrome lengths must be finite, bounded logical pixels".into(),
+                    });
+                }
+            }
+            for (name, color) in [
+                ("fillColor", &chrome.fill_color),
+                ("textColor", &chrome.text_color),
+                ("borderColor", &chrome.border_color),
+            ] {
+                self.validate_color_literal(&format!("view.choices.chrome.{name}"), color);
+            }
+        }
+
         let mut choice_ids = BTreeSet::new();
         for (index, choice) in choices.choices.iter().enumerate() {
             self.validate_choice(

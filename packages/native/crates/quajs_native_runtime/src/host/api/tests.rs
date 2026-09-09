@@ -157,3 +157,27 @@ fn host_info() -> NativeHostInfo {
         .arch("arm64")
         .build()
 }
+
+#[test]
+fn host_clones_share_immutable_assets_but_keep_storage_and_reads_independent() {
+    let mut host = InMemoryNativeHostApi::new(host_info()).with_asset("base.qpk", vec![7; 1024]);
+    host.write_storage("save", vec![1]).unwrap();
+    let mut clone = host.clone();
+    assert!(Arc::ptr_eq(
+        &host.assets["base.qpk"],
+        &clone.assets["base.qpk"]
+    ));
+    clone.write_storage("save", vec![2]).unwrap();
+    assert_eq!(host.read_storage("save").unwrap(), Some(vec![1]));
+    let request = NativeAssetReadRequest {
+        url: "base.qpk".into(),
+        bundle_name: None,
+        asset_id: None,
+    };
+    let mut read = clone.read_asset_bytes(&request).unwrap();
+    read[0] = 9;
+    assert_eq!(host.read_asset_bytes(&request).unwrap()[0], 7);
+    clone = clone.with_asset("base.qpk", vec![3]);
+    assert_eq!(clone.read_asset_bytes(&request).unwrap(), vec![3]);
+    assert_eq!(host.read_asset_bytes(&request).unwrap().len(), 1024);
+}

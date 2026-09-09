@@ -8,6 +8,35 @@ use super::JsonProjectionValidator;
 
 impl JsonProjectionValidator {
     pub(super) fn validate_dialogue(&mut self, dialogue: &DialogueProjection) {
+        if let Some(chrome) = &dialogue.chrome {
+            for (name, value) in [
+                ("minHeight", chrome.min_height),
+                ("paddingX", chrome.padding_x),
+                ("paddingTop", chrome.padding_top),
+                ("paddingBottom", chrome.padding_bottom),
+                ("speakerGap", chrome.speaker_gap),
+            ] {
+                if !value.is_finite() || !(0.0..=4096.0).contains(&value) {
+                    self.errors.push(NativeRendererJsonValidationError {
+                        path: format!("view.dialogue.chrome.{name}"),
+                        asset_name: value.to_string(),
+                        reason: "chrome lengths must be finite logical pixels in 0..4096".into(),
+                    });
+                }
+            }
+            for (name, color) in [
+                ("fillColor", &chrome.fill_color),
+                ("borderColor", &chrome.border_color),
+                ("accentColor", &chrome.accent_color),
+            ] {
+                self.validate_color_literal(&format!("view.dialogue.chrome.{name}"), color);
+            }
+            self.validate_rich_text_style("view.dialogue.chrome.textStyle", &chrome.text_style);
+            self.validate_rich_text_style(
+                "view.dialogue.chrome.speakerStyle",
+                &chrome.speaker_style,
+            );
+        }
         if let Some(avatar) = &dialogue.avatar {
             self.validate_dialogue_avatar(avatar);
         }

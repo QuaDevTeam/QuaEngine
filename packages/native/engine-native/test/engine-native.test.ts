@@ -14,6 +14,35 @@ import {
 } from './fixtures'
 
 describe('@quajs/engine-native', () => {
+  it('bounds unload and cleanup error history while delivering every cleanup event', async () => {
+    let revision = 0
+    const host = {
+      ...createHost(),
+      releaseQuickJsPackageNamespaces: vi.fn(async () => {
+        const current = ++revision
+        if (current > 128)
+          throw new Error(`cleanup ${current}`)
+        return [{ id: `module:${current}`, packageId: 'runtime.test', bundleName: 'runtime.test',
+          assetName: 'scripts/test.js', kind: 'script' as const, moduleBytes: 1, codeBytes: 1, revision: current }]
+      }),
+    }
+    const pipeline = createTestPipeline()
+    let errors = 0
+    pipeline.on(RenderToLogicEvents.RENDER_ERROR, () => { errors++ })
+    const plugin = new NativeHostPlugin({ host })
+    await plugin.init({ pipeline } as any)
+    for (let i = 0; i < 256; i++) {
+      await emitLogicToRender(pipeline, LogicToRenderEvents.RUNTIME_PACKAGE_UNLOAD, { packageId: 'runtime.test' })
+    }
+    expect(host.releaseQuickJsPackageNamespaces).toHaveBeenCalledTimes(256)
+    expect(errors).toBe(128)
+    expect(plugin.getReleasedQuickJsPackageNamespaces()).toHaveLength(64)
+    expect(plugin.getReleasedQuickJsPackageNamespaces()[0].revision).toBe(65)
+    expect(plugin.getQuickJsCleanupErrors()).toHaveLength(64)
+    expect(plugin.getQuickJsCleanupErrors()[0].message).toBe('cleanup 193')
+    plugin.destroy()
+  })
+
   it('reads native renderer version and capabilities from the Rust host API', async () => {
     const hostInfo = createHostInfo('0.2.0')
     const host = createHost(hostInfo)

@@ -14,7 +14,7 @@ impl WgpuNativeRenderPrimitive {
         operation: &WgpuNativeRenderExecutionOperation,
         scissor: Option<WgpuPhysicalRect>,
         bound_resource_ids: Option<Vec<ResourceId>>,
-        physical_scale: f64,
+        viewport: &crate::render_graph::RenderViewport,
     ) -> Option<Self> {
         match operation {
             WgpuNativeRenderExecutionOperation::Draw {
@@ -32,7 +32,7 @@ impl WgpuNativeRenderPrimitive {
                 *physical_bounds,
                 scissor,
                 bound_resource_ids,
-                physical_scale,
+                viewport,
             )),
             WgpuNativeRenderExecutionOperation::SkipDraw {
                 command_id,
@@ -63,7 +63,7 @@ impl WgpuNativeRenderPrimitive {
         physical_bounds: WgpuPhysicalRect,
         scissor: Option<WgpuPhysicalRect>,
         bound_resource_ids: Option<Vec<ResourceId>>,
-        physical_scale: f64,
+        viewport: &crate::render_graph::RenderViewport,
     ) -> Self {
         Self {
             command_id: command_id.to_string(),
@@ -73,9 +73,23 @@ impl WgpuNativeRenderPrimitive {
                 draw_kind,
                 &metadata.params,
                 metadata.bounds,
-                physical_scale,
+                viewport.physical_scale,
             ),
             logical_bounds: metadata.bounds,
+            geometry_bounds: matches!(
+                metadata.params,
+                DrawCommandParams::Image(_)
+                    | DrawCommandParams::Character(_)
+                    | DrawCommandParams::Video(_)
+            )
+            .then_some(LogicalRect {
+                x: viewport.viewport_x * viewport.device_pixel_ratio
+                    + metadata.bounds.x * viewport.physical_scale,
+                y: viewport.viewport_y * viewport.device_pixel_ratio
+                    + metadata.bounds.y * viewport.physical_scale,
+                width: metadata.bounds.width * viewport.physical_scale,
+                height: metadata.bounds.height * viewport.physical_scale,
+            }),
             physical_bounds,
             scissor,
             opacity: metadata.opacity,
@@ -112,6 +126,7 @@ impl WgpuNativeRenderPrimitive {
                 missing_resource_ids: missing_resource_ids.clone(),
             },
             logical_bounds: metadata.bounds,
+            geometry_bounds: None,
             physical_bounds,
             scissor: None,
             opacity: metadata.opacity,

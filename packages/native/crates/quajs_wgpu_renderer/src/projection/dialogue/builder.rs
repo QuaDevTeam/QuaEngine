@@ -43,6 +43,10 @@ pub fn build_dialogue_commands_with_measurement(
         return Vec::new();
     }
 
+    if let Some(chrome) = &dialogue.chrome {
+        return super::chrome::build(layout, dialogue, chrome, measure);
+    }
+
     let fallback_speaker = dialogue
         .character_name
         .as_ref()
@@ -486,7 +490,7 @@ pub(super) fn text_command(
         }))
 }
 
-fn avatar_command(
+pub(super) fn avatar_command(
     panel: crate::render_graph::LogicalRect,
     size: f64,
     avatar: &DialogueAvatarProjection,

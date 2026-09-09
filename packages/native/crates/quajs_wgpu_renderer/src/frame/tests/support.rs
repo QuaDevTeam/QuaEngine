@@ -24,6 +24,7 @@ pub(super) fn view_with_background_character_and_choices() -> ViewProjection {
             ..CharacterProjection::new("yuki", "Yuki")
         }],
         choices: Some(ChoiceSetProjection {
+            chrome: None,
             motion: Default::default(),
             visible: true,
             provenance: provenance("runtime.choices", ["base"]),

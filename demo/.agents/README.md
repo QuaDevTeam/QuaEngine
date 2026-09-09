@@ -44,6 +44,10 @@ Web 资源生命周期审查见 [Web 内存与加载卸载约定](web-memory.md)
 
 本轮人物环境光与洗衣房重绘见 [渲染修订](environment-lighting.md)。
 
+Native人物压扁修复、字体/GPU资源控制及实测内存见 [原生比例与内存检查](native-memory-and-proportions.md)。
+
+后续整体检查见 [Native泄漏复核](native-leak-review.md)，包含本轮修复、系统工具结果和仍需处理的动态脚本句柄生命周期。
+
 ## 阅读顺序与职责
 
 按最新悬疑方向扩写时，先读 [故事入口与悬疑递进](narrative-foundation.md)：两人为何相遇、研究为何存在、为何收到死亡通报、以及凛从怀疑到隐瞒和救人的心理链。第四章现跨六月二十二日晚至二十三日08:45；次晨既有维护回电触发揭露，替代上一轮当晚立即共享的设计。世界观另附可融入序章的开场短段。主线仍为89场、114,500字预算，当前QS已经接入这条因果链，分场篇幅仍在扩写。
@@ -81,3 +85,7 @@ Web 资源生命周期审查见 [Web 内存与加载卸载约定](web-memory.md)
 [人物抠图交付](character-cutouts.md)：六人透明PNG、模型对比、固定版本、复现步骤与已验证的Replicate生图路径。
 
 2026-09-09 [对白与叙述润色](line-polish-2026-09-09.md)：12份QS、70行原文的实际修改及验证范围，不以段落润色代替全稿文学验收。
+
+- [人物透明边缘与原生抗锯齿](alpha-edges-and-native-aa.md)：透明采样修正、可选4× MSAA、显存边界与Metal实机验证。
+
+- [Native demo UI synchronization](native-ui-sync.md): current native dialogue/menu fixes, real product validation and remaining Web/native differences.

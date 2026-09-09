@@ -88,6 +88,7 @@ fn package_aware_view() -> ViewProjection {
             ..Default::default()
         }),
         choices: Some(ChoiceSetProjection {
+            chrome: None,
             motion: Default::default(),
             visible: true,
             provenance: PackageProvenance {

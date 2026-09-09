@@ -5613,6 +5613,29 @@ mod tests {
         assert_eq!(missing.code, QuickJsEvaluationErrorCode::MissingRunHandle);
     }
 
+    #[test]
+    fn repeated_factory_handles_remain_namespace_owned_until_explicit_release() {
+        let mut evaluator = RquickJsModuleEvaluator::new().unwrap();
+        let response = evaluator.evaluate_module(&request_for_code(
+            "scripts/repeated.js",
+            "export default function opening() { const retained = new Uint8Array(1024); return [{ uuid: 'intro.1', run() { return retained.length; } }]; }",
+        )).unwrap();
+        let module_namespace_id = response.module_namespace_id.unwrap();
+        // Documents the lifetime boundary, not an assertion that factory churn
+        // is leak-free. Old Rust handles remain roots until namespace release.
+        for expected in 1..=128 {
+            evaluator.call_game_step_factory(&QuickJsGameStepFactoryCallRequest {
+                module_namespace_id: module_namespace_id.clone(), export_name: "default".into(), scope_json: None,
+            }).unwrap();
+            assert_eq!(evaluator.step_run_handle_count(), expected);
+        }
+        evaluator.release_module_namespace(&module_namespace_id);
+        assert_eq!(evaluator.namespace_count(), 0);
+        assert_eq!(evaluator.step_run_handle_count(), 0);
+        assert_eq!(evaluator.step_resume_handle_count(), 0);
+        assert_eq!(evaluator.pipeline_listener_handle_count(), 0);
+    }
+
     fn exported_string(
         evaluator: &RquickJsModuleEvaluator,
         module_namespace_id: &str,

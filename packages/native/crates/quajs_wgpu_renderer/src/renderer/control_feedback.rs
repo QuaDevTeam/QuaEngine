@@ -62,7 +62,14 @@ pub(super) fn apply_control_feedback(
                 let is_open = controls.open_select_command_id() == Some(command.id.as_str());
                 changed |= replace_select_chevron(frame, chevron_command_id, is_open);
                 if is_open {
-                    append_select_menu(frame, &command, &control, selected_index, hovered_command_id, &mut appended);
+                    append_select_menu(
+                        frame,
+                        &command,
+                        &control,
+                        selected_index,
+                        hovered_command_id,
+                        &mut appended,
+                    );
                     changed = true;
                 }
             }
@@ -72,39 +79,16 @@ pub(super) fn apply_control_feedback(
                 value_command_id,
             } => {
                 let active = selected_index > 0;
-                if let Some(track) = find_command_mut(frame, track_command_id) {
-                    if let DrawCommandParams::Panel(params) = &mut track.params {
-                        params.fill_color = if active {
-                            "rgba(129,229,255,0.16)"
-                        } else {
-                            "rgba(255,255,255,0.06)"
-                        }
-                        .to_string();
-                        params.border.color = Some(
-                            if active {
-                                "rgba(129,229,255,0.48)"
-                            } else {
-                                "rgba(245,226,190,0.24)"
-                            }
-                            .to_string(),
-                        );
-                    }
-                    changed = true;
-                }
+                // Product-authored track/thumb colors come from the projection.
+                // Optimistic feedback moves the thumb and label only; the next
+                // engine projection resolves the selected state styling.
+                let _ = track_command_id;
                 if let Some(thumb) = find_command_mut(frame, thumb_command_id) {
                     thumb.bounds.x = if active {
                         command.bounds.x + command.bounds.width - thumb.bounds.width - 4.0
                     } else {
                         command.bounds.x + 4.0
                     };
-                    if let DrawCommandParams::Panel(params) = &mut thumb.params {
-                        params.fill_color = if active {
-                            "#81e5ff"
-                        } else {
-                            "rgba(247,242,234,0.78)"
-                        }
-                        .to_string();
-                    }
                     changed = true;
                 }
                 changed |= replace_text(frame, value_command_id, &selected.label);
@@ -158,17 +142,23 @@ fn append_select_menu(
         panel.params = DrawCommandParams::Panel(PanelDrawParams {
             role: "ui-select-option".to_string(),
             corner_radius: 0.0,
-            fill_color: if hovered_command_id == Some(format!("{}::option:{}", command.id, index).as_str()) {
-                "#24404a"
-            } else if index == selected_index {
-                "#1a2932"
-            } else {
-                "#090c12"
-            }
-            .to_string(),
+            fill_color: match &command.params {
+                DrawCommandParams::Panel(params) => params.fill_color.clone(),
+                _ => "transparent".into(),
+            },
             border: crate::render_graph::BorderDrawParams {
-                color: Some("rgba(245,226,190,0.22)".to_string()),
-                width: 0.0,
+                color: value_command.and_then(|value| match &value.params {
+                    DrawCommandParams::Text(params) => Some(params.color.clone()),
+                    _ => None,
+                }),
+                width: if index == selected_index
+                    || hovered_command_id
+                        == Some(format!("{}::option:{}", command.id, index).as_str())
+                {
+                    1.0
+                } else {
+                    0.0
+                },
             },
             padding: Default::default(),
             rotation_degrees: 0.0,

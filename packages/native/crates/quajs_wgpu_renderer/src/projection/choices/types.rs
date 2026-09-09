@@ -7,6 +7,8 @@ use crate::projection::defaults::default_true;
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ChoiceSetProjection {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub chrome: Option<ChoiceChromeProjection>,
     #[serde(flatten)]
     pub motion: crate::projection::motion::MotionProjection,
     #[serde(default = "default_true")]
@@ -20,6 +22,7 @@ pub struct ChoiceSetProjection {
 impl ChoiceSetProjection {
     pub fn new(choices: Vec<ChoiceProjection>) -> Self {
         Self {
+            chrome: None,
             motion: Default::default(),
             visible: true,
             choices,
@@ -51,4 +54,18 @@ impl ChoiceProjection {
             provenance: PackageProvenance::default(),
         }
     }
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChoiceChromeProjection {
+    pub width: f64,
+    pub font_size: f64,
+    pub line_height: f64,
+    pub padding_x: f64,
+    pub padding_y: f64,
+    pub gap: f64,
+    pub fill_color: String,
+    pub text_color: String,
+    pub border_color: String,
 }

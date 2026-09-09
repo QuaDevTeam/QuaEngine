@@ -141,6 +141,8 @@ pub struct DialogueAvatarProjection {
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DialogueProjection {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub chrome: Option<super::chrome::DialogueChromeProjection>,
     #[serde(flatten)]
     pub motion: crate::projection::motion::MotionProjection,
     #[serde(default = "default_true")]
@@ -180,6 +182,7 @@ pub struct DialogueProjection {
 impl DialogueProjection {
     pub fn say(text: impl Into<RichTextContent>) -> Self {
         Self {
+            chrome: None,
             motion: Default::default(),
             visible: true,
             character_id: None,

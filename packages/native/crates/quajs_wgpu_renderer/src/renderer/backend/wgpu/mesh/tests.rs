@@ -68,6 +68,7 @@ fn primitive(
         pipeline,
         draw_kind,
         kind,
+        geometry_bounds: None,
         logical_bounds: LogicalRect {
             x: 10.0,
             y: 20.0,

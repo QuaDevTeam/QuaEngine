@@ -35,11 +35,11 @@ fn source_pixel(position: vec2<f32>) -> vec4<f32> {
                mix(textureLoad(source, a + vec2(0,1), 0), textureLoad(source, a + vec2(1,1), 0), weight.x), weight.y);
 }
 
-// Convert each straight-alpha texel to mask coverage before interpolation.
+// Uploaded RGB is premultiplied; luminance already includes alpha.
 // Transparent RGB must contribute nothing, including in luminance mode.
 fn mask_texel(point: vec2<i32>, level: i32) -> f32 {
     let texel = textureLoad(mask_texture, clamp(point, vec2(0), vec2<i32>(textureDimensions(mask_texture, level)) - 1), level);
-    if (style.mask_mode > 0.5) { return texel.a * dot(texel.rgb, vec3(0.2126, 0.7152, 0.0722)); }
+    if (style.mask_mode > 0.5) { return dot(texel.rgb, vec3(0.2126, 0.7152, 0.0722)); }
     return texel.a;
 }
 fn mask_sample(uv: vec2<f32>, level: i32) -> f32 {
