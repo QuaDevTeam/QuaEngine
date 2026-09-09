@@ -3759,6 +3759,7 @@ function cloneViewProjection(view: QuaViewProjection): QuaViewProjection {
     background: view.background
       ? {
           ...view.background,
+          ...(view.background.characterLighting ? { characterLighting: cloneUnknownValue(view.background.characterLighting) as typeof view.background.characterLighting } : {}),
           transition: view.background.transition ? { ...view.background.transition } : undefined,
           video: view.background.video
             ? {

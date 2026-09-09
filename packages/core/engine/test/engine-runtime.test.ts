@@ -219,6 +219,10 @@ describe('quaEngine runtime architecture', () => {
     const engine = createEngine()
     await engine.init()
     await engine.showDialogue({ text: 'Authoritative' })
+    await engine.setBackgroundProjection({
+      mode: 'image', assetName: 'room.webp',
+      characterLighting: { ambient: [1, 0.9, 0.8], shade: { color: [0.8, 0.9, 1], from: [0, 0], to: [1, 1] } },
+    })
     await engine.setPluginProjection('audio', audioProjection({
       revision: 1,
       voices: [{ id: 'voice-1', kind: 'voice', assetKey: 'voice.ogg', state: 'playing' }],
@@ -226,11 +230,15 @@ describe('quaEngine runtime architecture', () => {
 
     const projected = engine.getViewState() as any
     projected.dialogue.text = 'Mutated outside engine'
+    projected.background.characterLighting.ambient[0] = 0
+    projected.background.characterLighting.shade.to[0] = 0
     projected.characters.push({ id: 'Injected', name: 'Injected', visible: true })
     projected.plugins.audio.voices.push({ id: 'external', kind: 'voice', assetKey: 'external.ogg', state: 'playing' })
 
     const next = engine.getViewState()
     expect(next.dialogue.text).toBe('Authoritative')
+    expect(next.background?.characterLighting?.ambient).toEqual([1, 0.9, 0.8])
+    expect(next.background?.characterLighting?.shade?.to).toEqual([1, 1])
     expect(next.characters).toEqual([])
     expect((next.plugins.audio as any).voices).toEqual([
       { id: 'voice-1', kind: 'voice', assetKey: 'voice.ogg', state: 'playing' },

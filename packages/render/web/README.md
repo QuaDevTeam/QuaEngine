@@ -151,3 +151,10 @@ Browser autoplay policy blocks are handled as normal Web runtime behavior, not e
 `WebAssetUrlHandle` shares in-flight reads and object URLs per QuaAssets/resource/revision. At most four byte reads run concurrently; obsolete queued work is skipped. Idle URLs expire within250ms and are limited to16 entries and32MiB of estimated encoded bytes plus RGBA image bytes. Visible references stay pinned. `revoke()` invalidates pending results; failed replacements release the previous URL. DOM unmount drops node references as well as resource handles.
 
 `getWebAssetMemoryStats(assets)` reports active/idle URLs, estimated bytes and active/queued reads. These are transient implementation statistics, not browser/GPU measured memory or a limit on visible media. Use persistent Web byte storage for large packages and mount/unmount QPK content through engine lifecycle APIs.
+
+
+### Authored character lighting
+
+The character plugin projects `view.background.characterLighting` as an optional, per-character SVG material. `ambient` contains sRGB channel multipliers; `shade.color` is the far-end multiplier of a gradient from `shade.from` to `shade.to`, in normalized sprite-box coordinates. It grades the composed sprite and restores source alpha once. Absent/identity profiles use no filter. No PNG copies, object URLs, normal maps or rendering loops are created; browser/GPU filter surfaces are additional transient memory, outside the asset URL cache budget.
+
+Author the profile with `@quajs/plugin-background` options. Do not infer it from an asset name or scene ID in a renderer. `characterLightingSvg` and `createCharacterLightingSvgElement`, exported from `./plugins/character`, share implementation with the Vue adapter. React/Svelte DOM plugins reuse Web. Native/Cocos currently render the original colors. This is 2D color/shade grading, not depth lighting or AO. See `demo/.agents/environment-lighting.md` for the reviewed profiles and boundaries.

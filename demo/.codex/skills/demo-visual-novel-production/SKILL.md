@@ -5,6 +5,10 @@ description: Develop the Call Me Again Tomorrow visual novel demo from its archi
 
 # 明天，请再一次呼唤我 Demo Production
 
+## Environment lighting and laundromat correction
+
+Read `demo/.agents/environment-lighting.md`. The laundromat path now contains a reviewed medium `openai/gpt-image-2.5-flare` edit removing the impossible corner appliances; preserve the single left-wall row and benches. Prompt and prediction provenance are archived. Four scene types now author `characterLighting` in14background cues. Do not infer light from filenames at runtime or repaint every expression PNG. Web/Vue use shared alpha-preserving material projection; Native/Cocos currently use original colors. Check real pixels, sprite-resource reuse, refresh/save restoration, scene reset and browser GPU overhead separately from URL cache stats. Initial QPK loading remains a separate memory/latency concern.
+
 ## Third-person narration
 
 The player identifies with Rin, but narration is third-person limited, centered on the information she has. Read `demo/.agents/third-person-review.md` and `writing-guide.md`. Use named/clear third-person subjects in narration; keep each speaker’s first person in dialogue, recorded speech and messages. Convert implicit monologues and resolve pronoun switches, not just 我→凛. Give incomplete reactions a concrete action and context. Do not enter Mara’s private thoughts or reveal unobserved source-branch facts. Camera POV and prose person are independent: Rin may be staged when the scene calls for it, never automatically because she speaks. Existing scene staging is retained in this prose pass. Update prose-based regression anchors while preserving scene, branch, save/load and image assertions. This supersedes historical first-person instructions below.

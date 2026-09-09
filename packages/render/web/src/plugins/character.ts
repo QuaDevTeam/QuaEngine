@@ -5,6 +5,10 @@ import { characterProjectionVars, projectCharacters, resolveCharacterPositionAnc
 import { defineWebRendererPlugin } from './core'
 import { applyStyleVars, assignData } from './shared'
 import { updateSpriteLayerAnimations } from './sprite'
+import { characterLightingSvg, createCharacterLightingId, createCharacterLightingSvgElement } from './character-lighting'
+
+export { characterLightingSvg, createCharacterLightingId, createCharacterLightingSvgElement } from './character-lighting'
+export type { CharacterLightingSvgNode } from './character-lighting'
 
 export interface CharacterTransitionOptions {
   enabled?: boolean
@@ -131,6 +135,16 @@ function renderCharacterRoot(
   assignData(root, 'data-character-layer', character.layer)
   root.setAttribute('aria-hidden', 'true')
   applyStyleVars(root, characterProjectionVars(character))
+
+  if (character.sprite && character.visible) {
+    const id = createCharacterLightingId()
+    const lighting = characterLightingSvg(id, context.view.background?.characterLighting)
+    if (lighting) {
+      root.append(createCharacterLightingSvgElement(context.document, lighting))
+      root.style.filter = `url(#${id})`
+      root.setAttribute('data-character-lighting', 'graded')
+    }
+  }
 
   if (character.sprite) {
     const sprite = options.renderSprite?.(context, character)

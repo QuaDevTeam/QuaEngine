@@ -1,11 +1,11 @@
 import type { ViewCharacterProjection } from '@quajs/render-core'
-import type { CharacterPresencePhase, CharacterTransitionConfig } from '@quajs/renderer-web/plugins/character'
+import type { CharacterLightingSvgNode, CharacterPresencePhase, CharacterTransitionConfig } from '@quajs/renderer-web/plugins/character'
 import { resolveSpriteReference } from '@quajs/plugin-sprite/contracts'
 import { characterProjectionVars, projectCharacter, resolveCharacterPositionAnchor, runtimePackageCandidatesFromMetadata } from '@quajs/renderer-web'
-import { resolveCharacterTransitionOptions } from '@quajs/renderer-web/plugins/character'
+import { characterLightingSvg, createCharacterLightingId, resolveCharacterTransitionOptions } from '@quajs/renderer-web/plugins/character'
 import { computed, defineComponent, h, onBeforeUnmount, ref, watch } from 'vue'
 import { useProjectionProps } from '../../components/projection'
-import { useAnimationClock, useAnimations, useCharacters, useRendererActions } from '../../composables'
+import { useAnimationClock, useAnimations, useBackground, useCharacters, useRendererActions } from '../../composables'
 import { QuaSprite } from '../sprite'
 
 export interface CharacterVueRendererLayerOptions {
@@ -32,6 +32,11 @@ export const QuaCharacter = defineComponent({
     },
   },
   setup(props: any) {
+    const background = useBackground()
+    const lightingId = createCharacterLightingId()
+    const lighting = computed(() => props.character.sprite && props.character.visible
+      ? characterLightingSvg(lightingId, background.value?.characterLighting)
+      : undefined)
     const className = computed(() => ['qua-character', props.character.visible ? 'is-visible' : 'is-hidden'])
     const spriteReference = computed(() => resolveSpriteReference(props.character.sprite))
     const sharedAttrs = () => ({
@@ -48,12 +53,14 @@ export const QuaCharacter = defineComponent({
       'data-sprite-family': spriteReference.value?.family,
       'data-sprite': spriteReference.value?.asset ?? props.character.sprite,
       'data-sprite-expression': props.character.expression || '',
-      'style': characterProjectionVars(props.character),
+      'style': { ...characterProjectionVars(props.character), filter: lighting.value ? `url(#${lightingId})` : undefined },
+      'data-character-lighting': lighting.value ? 'graded' : undefined,
       'aria-hidden': 'true',
     })
 
     return () => h('div', sharedAttrs(), props.character.sprite
       ? [
+          ...(lighting.value ? [renderLightingNode(lighting.value)] : []),
           h(QuaSprite, {
             alt: props.character.name,
             sprite: props.character.sprite,
@@ -65,6 +72,10 @@ export const QuaCharacter = defineComponent({
       : undefined)
   },
 })
+
+function renderLightingNode(node: CharacterLightingSvgNode): ReturnType<typeof h> {
+  return h(node.tag, node.attrs, node.children?.map(renderLightingNode))
+}
 
 export const QuaCharacterLayer = defineComponent({
   name: 'QuaCharacterLayer',

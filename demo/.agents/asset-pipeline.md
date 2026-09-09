@@ -38,3 +38,6 @@ pnpm --filter demo test:story
 ## Replicate人物抠图
 
 用户已确认v7造型并指定用Replicate修复抠图。当前采用851-labs/background-remover的soft alpha，原始RGB输入，不继承旧手工mask。流程、固定版本和审阅结果见[人物抠图交付](character-cutouts.md)。本地仅拆分人物、裁切留边与等比排版；禁止重新用RGB阈值、腐蚀或手绘补洞破坏模型边缘。后续表情应从合格身份图派生。
+
+
+2026-09-10：洗衣房墙角机器由Flare medium重绘，继续使用已接入的`laundromat-evening-anime-v2.webp`路径；`art-production.json`已保存新旧来源，最终提示词见`laundromat-flare-prompt.txt`。人物环境光采用运行时alpha蒙版着色，不生成重复的带光照立绘。实现及GPU内存边界见`environment-lighting.md`。

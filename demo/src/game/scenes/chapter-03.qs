@@ -130,7 +130,7 @@ Mara: 好。这次让我自己按结束。
 @HideCharacter('mayu')
 @HideCharacter('reiko')
 @HideCharacter('yumi')
-@SetBackground('backgrounds/radio-monitor-night-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })
+@SetBackground('backgrounds/radio-monitor-night-anime-v3.webp', { characterLighting: { ambient: [0.93, 0.96, 1.02], shade: { color: [0.88, 0.92, 1], from: [0.2, 0], to: [0.8, 1] } }, transition: { type: 'crossfade', duration: 320 } })
 @ShowCharacter('mara', { expression: 'neutral', position: { x: 700, y: 750, scale: 1, rotation: 0, anchor: 'center' } })
 六月十七日，晚上八点。
 七点四十分回台后，凛先打开核对记录表，赶在八点前去隔壁确认当天的监听。Mara 已经把明早要用的播出箱放到门边，箱上横着一把收好的蓝伞。
@@ -179,7 +179,7 @@ Mara: 贴条够了。真有人急着用，叫我一下。
 @HideCharacter('mayu')
 @HideCharacter('reiko')
 @HideCharacter('yumi')
-@SetBackground('backgrounds/laundromat-evening-anime-v2.webp', { transition: { type: 'crossfade', duration: 320 } })
+@SetBackground('backgrounds/laundromat-evening-anime-v2.webp', { characterLighting: { ambient: [1.02, 0.98, 0.92], shade: { color: [0.90, 0.94, 1], from: [0.2, 0], to: [0.8, 1] } }, transition: { type: 'crossfade', duration: 320 } })
 六月十七日，晚上八点半。
 找到Mara在简图上标的路口时，凛看见洗衣店的灯还亮着，就挂在门上方。
 凛收好 Mara 画的简图，将洗衣袋放到空篮子里。住处那面墙总是潮的，晾衣架稍挪近一点，袖子就贴上去。今晚出门前，她索性把那几件半干不干的也装进了袋里。

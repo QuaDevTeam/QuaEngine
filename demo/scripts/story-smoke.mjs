@@ -9,7 +9,12 @@ const url = process.env.QUA_STORY_URL || 'http://localhost:4178/'
 const output = process.env.QUA_STORY_OUTPUT
   ? resolve(process.env.QUA_STORY_OUTPUT)
   : resolve(dirname(fileURLToPath(import.meta.url)), '../.generated/qa/story')
-const browser = await chromium.launch({ channel: process.env.QUA_PROLOGUE_BROWSER || 'chrome', args: ['--no-proxy-server'] })
+const browser = await chromium.launch({
+  ...(process.env.QUA_STORY_CHROMIUM
+    ? { executablePath: process.env.QUA_STORY_CHROMIUM }
+    : { channel: process.env.QUA_PROLOGUE_BROWSER || 'chrome' }),
+  args: ['--no-proxy-server'],
+})
 const context = await browser.newContext({ viewport: { width: 1280, height: 720 } })
 const page = await context.newPage()
 page.setDefaultTimeout(20_000)
@@ -43,6 +48,9 @@ page.on('pageerror', error => errors.push(error.message))
 page.on('console', message => { if (message.type() === 'error') errors.push(message.text()) })
 page.on('request', request => requests.push(request.url()))
 const button = name => page.getByRole('button', { name, exact: true })
+// Cold QPK ingestion includes IndexedDB writes; keep interaction checks at 20s,
+// but wait for application readiness separately on slow disks.
+const readyTitle = () => button('从头开始').waitFor({ timeout: 60_000 })
 const line = page.locator('.qua-dialogue-text')
 const waitLine = text => page.waitForFunction(text => document.querySelector('.qua-dialogue-text')?.textContent?.includes(text), text)
 const stageCast = () => page.locator('.qua-character[data-character-visible="true"]:not([data-character-presence="exit"])').evaluateAll(elements => elements.map(el => ({
@@ -81,6 +89,7 @@ const actingChecks = new Map([
   ['看完再做饭。不想边切东西边听。', { id: 'mara', expression: 'autumn-serious' }],
 ])
 const checkedActing = new Set()
+const lightingChecks = []
 const checkActing = async text => {
   for (const [fragment, expected] of actingChecks) {
     if (!text.includes(fragment) || checkedActing.has(fragment)) continue
@@ -111,11 +120,44 @@ const checkActing = async text => {
     for (const [id, expression] of Object.entries(expected.companions || {})) {
       assert.equal(cast.find(c => c.id === id)?.expression, expression, `${fragment}: companion outfit`)
     }
+    if (expected.expression === 'pose-drinks') {
+      const heroine = page.locator('.qua-character[data-character-id="mara"]')
+      const material = () => heroine.locator('feColorMatrix').getAttribute('values')
+      assert.equal(await heroine.getAttribute('data-character-lighting'), 'graded')
+      const before = await material()
+      assert(before?.startsWith('1.02 0 0 0 0'))
+      assert.equal(await heroine.locator('feComposite').getAttribute('in2'), 'SourceAlpha')
+      const sourceUrls = await heroine.locator('img').evaluateAll(images => images.map(image => image.src))
+      await snapshot('lighting-laundry-after')
+      const filter = await heroine.evaluate(el => el.style.filter)
+      try {
+        await heroine.evaluate(el => { el.style.filter = 'none' })
+        await snapshot('lighting-laundry-before')
+      } finally {
+        await heroine.evaluate((el, value) => { el.style.filter = value }, filter)
+      }
+      assert.deepEqual(await heroine.locator('img').evaluateAll(images => images.map(image => image.src)), sourceUrls)
+      lightingChecks.push('scene grading reuses the original sprite images')
+      await menu(); await button('保存进度').click()
+      await page.locator('[data-save-slot-id="slot-7"]').click()
+      await page.locator('[data-save-slot-id="slot-7"].is-filled').waitFor()
+      await page.reload(); await readyTitle(); await button('读取存档').click()
+      await page.locator('[data-save-slot-id="slot-7"]').click()
+      await waitLine(fragment); await page.waitForTimeout(450)
+      assert.equal(await material(), before, 'fresh-page load restores authored lighting')
+      assert.deepEqual(await stageCast(), cast)
+      await heroine.locator('.qua-sprite-layer--expression').first().evaluate(el => el.decode())
+      lightingChecks.push('lighting, costume and pose survive fresh-page save/load')
+    }
+    if (expected.expression === 'pose-script') {
+      assert.equal(await page.locator('.qua-character[data-character-lighting="graded"]').count(), 0)
+      lightingChecks.push('the next unlit scene removes its character filters')
+    }
     if (expected.wardrobeSave) {
       await menu(); await button('保存进度').click()
       await page.locator('[data-save-slot-id="slot-2"]').click()
       await page.locator('[data-save-slot-id="slot-2"].is-filled').waitFor()
-      await page.reload(); await button('读取存档').click()
+      await page.reload(); await readyTitle(); await button('读取存档').click()
       await page.locator('[data-save-slot-id="slot-2"]').click()
       await waitLine(fragment); await page.waitForTimeout(450)
       assert.deepEqual(await stageCast(), cast, 'fresh-page save/load retains every outfit, expression and stage position')
@@ -176,7 +218,7 @@ const title = async () => {
 try {
   await mkdir(output, { recursive: true })
   await page.goto(url)
-  await button('从头开始').waitFor()
+  await readyTitle()
   assert(await button('继续阅读').isDisabled())
   await page.evaluate(() => document.fonts.ready)
   await snapshot('title')
@@ -216,12 +258,12 @@ try {
   await page.locator('[data-save-slot-id="slot-1"]').click(); await snapshot('overwrite-confirm'); await button('取消').click()
   await page.locator('[data-save-slot-id="slot-1"]').click(); await button('覆盖保存').click()
   await page.locator('.qua-confirm-overlay').waitFor({ state: 'detached' })
-  await page.reload(); await button('读取存档').click(); await page.locator('[data-save-slot-id="slot-1"]').click()
+  await page.reload(); await readyTitle(); await button('读取存档').click(); await page.locator('[data-save-slot-id="slot-1"]').click()
   await waitLine('先看目录吧')
   assert.deepEqual(await stageCast(), savedCast, 'fresh-page load restores character expressions and logical positions')
   await advance(); await waitLine('这话听着很可靠')
   pass('manual save, overwrite confirmation and fresh-page load preserve branch and playback')
-  await title(); await page.reload(); await button('继续阅读').click(); await waitLine('这话听着很可靠')
+  await title(); await page.reload(); await readyTitle(); await button('继续阅读').click(); await waitLine('这话听着很可靠')
   await advance(); assert(!(await line.textContent()).includes('这话听着很可靠'))
   pass('returning to title saves a continuation point that survives refresh')
   await page.mouse.move(640, 360); await page.mouse.wheel(0, -120); await page.locator('.qua-backlog-panel').waitFor()
@@ -396,8 +438,10 @@ try {
   assert(!requests.some(request => request.includes('/@qua-assets/')))
   assert.deepEqual([...checkedActing].sort(), [...actingChecks.keys()].sort(), 'all authored acting checks were reached in normal reading')
   pass('character expressions, offscreen voices and fresh-page staging restoration use actual QPK images')
+  assert.equal(lightingChecks.length, 3)
+  pass('authored lighting reuses sprites, survives save/load and resets in the next scene')
   pass('production QPK loads without browser errors or development VFS requests')
-  await writeFile(resolve(output, 'results.json'), JSON.stringify({ url, results, errors, actingChecks: [...checkedActing], memorySamples }, null, 2))
+  await writeFile(resolve(output, 'results.json'), JSON.stringify({ url, results, errors, actingChecks: [...checkedActing], lightingChecks, memorySamples }, null, 2))
   await rm(resolve(output, 'failure.json'), { force: true }); await rm(resolve(output, 'failure.png'), { force: true })
 } catch (error) {
   // A browser disconnect must not replace the original failure with a failed
