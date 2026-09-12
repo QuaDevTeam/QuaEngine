@@ -2,6 +2,7 @@ import type { QuaStoryTreeNode } from '@quajs/renderer-vue/plugins/ui'
 import type { StoryChapterSelectProjection } from '@quajs/story-graph'
 import { parseChapterIndex } from './scene'
 import { h } from 'vue'
+import { demoChapterLabel } from '../ui-presentation'
 
 export function projectDemoStoryTreeNodes(
   projection: StoryChapterSelectProjection,
@@ -34,8 +35,7 @@ export function projectDemoStoryTreeNodes(
 }
 
 export function renderDemoChapter({ node }: { node: QuaStoryTreeNode }) {
-  const index = parseChapterIndex(node.chapter || '')
-  const chapter = index === 0 ? '序章' : index === 8 ? '尾声' : `第${'一二三四五六七'[index - 1] || index}章`
+  const chapter = demoChapterLabel(node.chapter || '')
   return [
     h('span', { class: 'qua-story-tree__chapter' }, chapter),
     h('span', { class: 'qua-story-tree__body' }, [

@@ -17,9 +17,9 @@ export const DEMO_TITLE_CONFIRM = {
 
 export const DEMO_UI_METRICS = {
   toolbarWidth: 420, toolbarHeight: 46, toolbarGap: 8,
-  menuWidth: 700, menuHeight: 620,
+  menuWidth: 700, menuHeight: 615.6,
   saveWidth: 1360, saveHeight: 820,
-  confirmWidth: 800, confirmHeight: 380,
+  confirmWidth: 800, confirmHeight: 342.7,
   backdropTop: 42,
 } as const
 
@@ -63,3 +63,15 @@ export const DEMO_GAME_ACTIONS = [
   { id: 'load', label: '读取存档' }, { id: 'settings', label: '设置' },
   { id: 'title', label: '返回标题' },
 ] as const
+
+/** Shared chapter label and timestamp formatting, including QuickJS without Intl. */
+export function demoChapterLabel(chapter: string) {
+  const index = Number(chapter)
+  return index === 0 ? '序章' : index === 8 ? '尾声' : `第${'一二三四五六七'[index - 1] || index}章`
+}
+export function demoSaveTimestamp(timestamp: string | number | Date) {
+  const date = timestamp instanceof Date ? timestamp : new Date(timestamp)
+  if (!Number.isFinite(date.getTime())) return ''
+  const two = (n: number) => String(n).padStart(2, '0')
+  return `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()} ${two(date.getHours())}:${two(date.getMinutes())}:${two(date.getSeconds())}`
+}

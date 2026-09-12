@@ -39,6 +39,15 @@ export function installNativeQuickJsPipelineBridge(
     }) as never,
   ))
 
+  // Transient native UI navigation uses the existing pipeline and host bridge.
+  // It never writes scroll positions into the engine/store projection.
+  const scrollListener: Parameters<NativePipeline['on']>[1] = context => {
+    try { bridge.emit('native-ui/scroll', context.event.payload) }
+    catch (error) { options.onError?.(error, 'native-ui/scroll') }
+  }
+  pipeline.on('native-ui/scroll', scrollListener)
+  disposers.push(() => pipeline.off('native-ui/scroll', scrollListener))
+
   if (options.initialView !== undefined) {
     bridge.emit(LogicToRenderEvents.VIEW_UPDATE, { view: options.initialView })
   }

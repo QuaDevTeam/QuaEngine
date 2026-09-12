@@ -20,6 +20,7 @@ import { parseNativeRendererIntentPayload, type NativeRendererIntent } from '@qu
 import { GAME_ENGLISH_TITLE, GAME_TITLE, SAVE_LOAD_SLOT_COUNT } from '../../game/config'
 import { DEMO_GALLERY_CATALOG_ID } from '../../game/content/gallery'
 import { STORY_TREE_NODES } from '../../game/content/story-tree'
+import { demoChapterLabel } from '../../game/ui-presentation'
 import { createDemoEngineRuntime } from '../../game/runtime-shared'
 import { DEMO_STORY_REQUEST, DEMO_LIBRARY_PLUGIN_ID, type StoryLibrary } from '../../game/story/prologue-state'
 import type { HudPatch } from '../../game/types'
@@ -150,7 +151,9 @@ export async function createDemoNativeSession(): Promise<DemoNativeSession> {
           : 'AVAILABLE'
       return {
         id: node.nodeId,
-        label: state === 'LOCKED' ? '未读章节' : node.title || '未读章节',
+        label: node.spoilerHidden ? '尚未阅读' : node.title || '未读章节',
+        chapter, description: node.spoilerHidden ? undefined : node.summary,
+        current: state === 'CURRENT', unlocked: node.unlocked,
         disabled: node.entryLocked,
       }
     })
@@ -164,7 +167,7 @@ export async function createDemoNativeSession(): Promise<DemoNativeSession> {
       currentChapterIndex = nextChapterIndex
     }
     void refreshAppSurface({
-      gameMenuSubtitle: STORY_TREE_NODES.find(node => node.chapter === currentChapter)?.title || '',
+      gameMenuSubtitle: `${demoChapterLabel(currentChapter)} · ${STORY_TREE_NODES.find(node => node.chapter === currentChapter)?.title || ''}`,
     }).catch(error => recordError(error, 'hud:update'))
   }
 
@@ -218,7 +221,7 @@ export async function createDemoNativeSession(): Promise<DemoNativeSession> {
     await runtime.backlog.setVisible(true, {
       ...DEMO_OVERLAY_PLACEMENTS.backlog,
       source: 'quick-menu',
-      scene: createUiScene('game:backlog', 'overlay', 'game-modal', DEMO_OVERLAY_PLACEMENTS.backlog),
+      scene: createUiScene('game:backlog', 'overlay', 'game-modal', { ...DEMO_OVERLAY_PLACEMENTS.backlog, hideDialogue: true, defaultChrome: false }),
     })
   }
 
@@ -275,7 +278,9 @@ export async function createDemoNativeSession(): Promise<DemoNativeSession> {
         await refreshAppSurface({ screen: 'save-confirm', pendingSaveSlotId: slotId })
         return
       }
-      await runtime.engine.saveToSlot(slotId)
+      // This product renders text-only save cards. Native has no thumbnail
+      // capture adapter here, so do not wait for an unused preview response.
+      await runtime.engine.saveToSlot(slotId, {}, { preview: { mode: 'disabled' } })
       await openSaveLoad('save')
       return
     }
@@ -500,7 +505,7 @@ function createEmptySaveSlotItems() {
 function createStoryTreeItems() {
   return STORY_TREE_NODES.map(node => ({
     id: node.id,
-    label: `CH ${node.chapter}  ${node.title} / ${node.description}`,
+    label: '尚未阅读', chapter: node.chapter, disabled: true, unlocked: false,
   }))
 }
 

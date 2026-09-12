@@ -509,3 +509,47 @@ fn hover_only_outer_shadow_stays_behind_the_surface_and_opacity_replaces_base_st
         0.4
     );
 }
+
+#[test]
+fn dashed_border_emits_bounded_gaps_without_changing_hit_intent() {
+    let node = UiSurfaceNodeProjection::new(
+        "slot",
+        UiSurfaceNodeKind::Panel,
+        rect(10.0, 20.0, 120.0, 60.0),
+    )
+    .with_intent(UiIntentProjection::new("save"))
+    .with_style(UiSurfaceResolvedStyle {
+        border_style: Some(UiSurfaceBorderStyleProjection::Dashed),
+        border_width: Some(2.0),
+        border_color: Some("#42796e".into()),
+        ..Default::default()
+    });
+    let commands = build_ui_commands(
+        &test_layout(),
+        &UiProjection::new(vec![UiOverlayProjection {
+            surface: Some(UiOverlaySurfaceProjection::new("slots").with_root(node)),
+            ..UiOverlayProjection::new("slots")
+        }]),
+    );
+    let edges: Vec<_> = commands
+        .iter()
+        .filter(|c| c.id.contains(":dash-"))
+        .collect();
+    assert_eq!(edges.len(), 30);
+    let top: Vec<_> = edges
+        .iter()
+        .filter(|c| c.id.contains("border-top"))
+        .collect();
+    assert!(top
+        .windows(2)
+        .all(|pair| pair[0].bounds.x + pair[0].bounds.width < pair[1].bounds.x));
+    assert!(edges.iter().all(|c| c.bounds.x >= 10.0
+        && c.bounds.y >= 20.0
+        && c.bounds.x + c.bounds.width <= 130.0
+        && c.bounds.y + c.bounds.height <= 80.0));
+    let slot = commands.iter().find(|c| c.id == "ui:slots:slot").unwrap();
+    assert_eq!(slot.bounds.width, 120.0);
+    assert!(
+        matches!(&slot.params, DrawCommandParams::Panel(p) if p.intent.is_some() && p.border.width == 0.0)
+    );
+}

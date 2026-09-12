@@ -16,7 +16,9 @@
 .game-root[data-system-overlay="main"] .qua-stage-scene,
 .game-root[data-system-overlay="main"] .qua-stage-plane { visibility: hidden; opacity: 0 !important; pointer-events: none; }
 .game-root[data-system-overlay] .qua-stage-overlay { pointer-events: none; }
-.demo-system-layer { position: absolute; inset: 0; z-index: 45; pointer-events: auto; }
+// Fade the scrim/panel, not an ancestor opacity layer: retained opacity animation
+// creates a backdrop root and prevents Chromium from blurring the scene.
+.demo-system-layer { animation: none; position: absolute; inset: 0; z-index: 45; pointer-events: auto; }
 .game-root[data-system-overlay] :is(.qua-overlay-layer, .qua-settings-layer, .qua-backlog-layer) {
   display: grid; place-items: center; overflow: hidden; padding: 54px;
 }

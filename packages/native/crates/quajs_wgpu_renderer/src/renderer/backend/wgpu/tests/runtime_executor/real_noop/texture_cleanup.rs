@@ -109,7 +109,7 @@ fn repeated_scene_textures_return_to_zero_after_frame_cleanup() {
             .backend_mut()
             .release_decoded_textures_for_frame_update(&update);
         assert_eq!(cleanup.released_resource_ids.len(), 1);
-        renderer.submit_latest_frame().unwrap();
+        renderer.render_frame().unwrap();
         assert_eq!(renderer.backend().decoded_texture_resource_count(), 0);
     }
 }

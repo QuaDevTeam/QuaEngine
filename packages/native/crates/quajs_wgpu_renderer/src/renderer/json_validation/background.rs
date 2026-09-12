@@ -16,6 +16,16 @@ use super::JsonProjectionValidator;
 impl JsonProjectionValidator {
     pub(super) fn validate_background(&mut self, background: &BackgroundProjection) {
         self.validate_provenance("view.background.provenance", &background.provenance);
+        if background
+            .character_lighting
+            .as_ref()
+            .is_some_and(|l| !l.is_valid())
+        {
+            self.errors.push(NativeRendererJsonValidationError {
+                path: "view.background.characterLighting".into(), asset_name: String::new(),
+                reason: "character lighting requires finite ambient channels in [0, 1.5] and shade channels/coordinates in [0, 1]".into(),
+            });
+        }
         if let Some(asset_type) = &background.asset_type {
             self.validate_asset_type("view.background.assetType", asset_type);
         }

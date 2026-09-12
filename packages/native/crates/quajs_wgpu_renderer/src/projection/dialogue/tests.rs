@@ -646,7 +646,7 @@ fn product_chrome_keeps_full_line_layout_during_reveal_and_reserves_footer() {
         serde_json::from_value(serde_json::json!({
             "minHeight":250,"paddingX":52,"paddingTop":30,"paddingBottom":76,"speakerGap":14,
             "fillColor":"#f5f3eb","borderColor":"#c7d2c5","accentColor":"#42796e",
-            "textStyle":{"fontSize":30,"lineHeight":54,"color":"#29453f"},
+            "textStyle":{"fontSize":30,"lineHeight":54,"letterSpacing":1.05,"color":"#29453f"},
             "speakerStyle":{"fontSize":25,"lineHeight":38,"color":"#42796e"}
         }))
         .unwrap(),
@@ -670,6 +670,7 @@ fn product_chrome_keeps_full_line_layout_during_reveal_and_reserves_footer() {
     if let DrawCommandParams::Text(params) = &command(&partial, "dialogue:text").params {
         assert_eq!(params.text, "风");
         assert_eq!(params.font_size, 30.0);
+        assert_eq!(params.letter_spacing, 1.05);
     } else {
         panic!("expected native inline text")
     }

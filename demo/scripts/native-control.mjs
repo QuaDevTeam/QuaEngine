@@ -147,7 +147,7 @@ async function main() {
       case 'wait': {
         const id = args[0]
         if (!id) throw new Error('wait requires a command id')
-        const timeoutMs = args[1] ? Number(args[1]) : undefined
+        const timeoutMs = args[1] ? Number(args[1]) : 25_000
         await client.call('Qua.waitForCommand', { id, timeoutMs })
         console.log(`"${id}" is visible`)
         break

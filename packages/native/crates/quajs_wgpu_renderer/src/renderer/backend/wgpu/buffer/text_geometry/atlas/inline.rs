@@ -37,6 +37,7 @@ fn resolve_style<'a>(
     style.font_size = inline.font_size;
     style.font_weight = inline.font_weight.clone();
     style.line_height = inline.line_height;
+    style.letter_spacing = inline.letter_spacing;
     style.align = inline.align;
     let atlas = select_layout(&style, atlases)?;
     if inline.normal_line_height {

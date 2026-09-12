@@ -192,6 +192,7 @@ fn inline_style(
 ) -> InlineTextStyle {
     let font_size = resolve_font_size(style, fallback_font_size);
     InlineTextStyle {
+        letter_spacing: style.letter_spacing.unwrap_or(0.0),
         normal_line_height: super::typography::normal_line_height(style),
         align: resolve_text_align(style),
         font_family: resolve_font_family(style),

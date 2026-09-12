@@ -13,6 +13,7 @@ use super::pipeline::{
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct WgpuNativeRenderRuntimePlan {
+    pub backdrop_blur_radii: std::collections::BTreeMap<String, f64>,
     pub composite_groups:
         std::collections::BTreeMap<String, Vec<crate::render_graph::DrawCompositeGroup>>,
     pub revision: u64,

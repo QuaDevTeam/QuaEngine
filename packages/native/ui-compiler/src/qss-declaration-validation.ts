@@ -169,7 +169,7 @@ function validateNativeWgpuDeclarationValue(declaration: NativeQssDeclaration): 
     case 'border-style':
       return parseNativeQssBorderStyle(value)
         ? undefined
-        : 'border-style supports solid or none.'
+        : 'border-style supports solid, dashed or none.'
     case 'box-sizing':
       return parseNativeQssBoxSizing(value)
         ? undefined

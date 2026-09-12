@@ -91,6 +91,7 @@ export type NativeQssObjectFitValue
 export type NativeQssBorderStyleValue
   = | 'none'
     | 'solid'
+    | 'dashed'
 
 export type NativeQssBoxSizingValue
   = | 'border-box'

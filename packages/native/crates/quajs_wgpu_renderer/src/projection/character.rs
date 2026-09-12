@@ -1,6 +1,7 @@
 pub(crate) mod animation;
 pub mod builder;
 pub mod layout;
+pub mod lighting;
 pub mod types;
 
 pub use builder::{append_character_commands, build_character_commands};

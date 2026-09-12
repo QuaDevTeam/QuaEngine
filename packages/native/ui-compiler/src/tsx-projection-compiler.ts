@@ -349,7 +349,7 @@ function surfaceNodeFromQuiNode(
     return surfaceNodesFromQuiChildren(node.children, ancestors, qssDocs, provenance, state, parentBounds)
 
   const astAdapter = makeAstAdapter(node)
-  const resolvedStyle = resolveStyleForNode({ node: astAdapter, ancestors }, qssDocs)
+  const resolvedStyle = resolveStyleForNode({ node: astAdapter, ancestors, disabled: node.props.disabled === true }, qssDocs)
   const untransformedBounds = boundsFromQuiNode(node.props, resolvedStyle.bounds, parentBounds)
   const bounds = applyResolvedTransform(untransformedBounds, resolvedStyle.layout?.transform)
 
@@ -373,10 +373,10 @@ function surfaceNodeFromQuiNode(
   const image = node.kind === 'Image' ? imageFromQuiProps(props) : undefined
   const video = node.kind === 'Video' ? videoFromQuiProps(props) : undefined
   // Button uses onClick, Backdrop uses onDismiss; accept either
-  const intent = resolvedStyle.interactive === false || !canProjectNativeUiIntent(node.kind)
+  const intent = props.disabled === true || resolvedStyle.interactive === false || !canProjectNativeUiIntent(node.kind)
     ? undefined
     : intentFromAction(props.onClick ?? props.onDismiss)
-  const control = controlFromQuiProps(node.kind, props)
+  const control = props.disabled === true ? undefined : controlFromQuiProps(node.kind, props)
   // Explicit id wins, then the JSX key, then a per-compile counter — two
   // idless same-kind siblings must never share a fallback id, because the
   // Rust facade rejects duplicate ids within a frame.

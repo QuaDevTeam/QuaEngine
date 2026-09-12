@@ -62,6 +62,13 @@ pub(crate) fn append_view_commands_with_measurement(
     }
 
     append_character_commands(graph, &view.characters);
+    crate::projection::character::lighting::apply_character_lighting(
+        graph,
+        &view.characters,
+        view.background
+            .as_ref()
+            .and_then(|b| b.character_lighting.as_ref()),
+    );
 
     if let Some(dialogue) = &view.dialogue {
         graph.extend(build_dialogue_commands_with_measurement(

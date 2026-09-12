@@ -36,6 +36,7 @@ impl WgpuNativeRenderRuntimePlan {
 
         Self {
             composite_groups: Default::default(),
+            backdrop_blur_radii: Default::default(),
             revision: device_plan.revision,
             previous_revision: cache_plan.previous_revision,
             operation_count,

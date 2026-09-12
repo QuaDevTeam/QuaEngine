@@ -232,10 +232,53 @@ mod scroll {
     }
 
     #[test]
+    fn pipeline_scroll_edges_do_not_write_player_state_and_reset_on_close() {
+        let mut rt = runtime_with_scroll_overlay(400.0, 300.0, 800.0);
+        let original = rt.base_frame.clone();
+        assert!(rt
+            .apply_pipeline_event(
+                "native-ui/scroll",
+                r#"{"elementId":"panel","nodeId":"scroll-root","edge":"end"}"#
+            )
+            .unwrap());
+        assert_eq!(
+            rt.scroll_offsets.get("panel/scroll-root"),
+            Some(&(0.0, 500.0))
+        );
+        assert_eq!(rt.base_frame, original);
+        assert!(!rt
+            .apply_pipeline_event(
+                "native-ui/scroll",
+                r#"{"elementId":"other","nodeId":"scroll-root","edge":"start"}"#
+            )
+            .unwrap());
+        assert!(rt.scroll_at_logical(200.0, 150.0, 0.0, -50.0));
+        assert_eq!(
+            rt.scroll_offsets.get("panel/scroll-root"),
+            Some(&(0.0, 450.0))
+        );
+        rt.apply_pipeline_event("view/update", r#"{"view":{"ui":{"overlays":[]}}}"#)
+            .unwrap();
+        assert!(rt.scroll_offsets.is_empty());
+    }
+
+    #[test]
+    fn wheel_starts_at_the_authored_initial_offset() {
+        let mut rt = runtime_with_scroll_overlay(400.0, 300.0, 800.0);
+        rt.base_frame["view"]["ui"]["overlays"][0]["surface"]["root"]["scrollOffsetY"] =
+            serde_json::json!(500);
+        assert!(rt.scroll_at_logical(200.0, 150.0, 0.0, -50.0));
+        assert_eq!(
+            rt.scroll_offsets.get("panel/scroll-root"),
+            Some(&(0.0, 450.0))
+        );
+    }
+
+    #[test]
     fn scroll_down_moves_offset_and_clears_cache() {
         let mut rt = runtime_with_scroll_overlay(400.0, 300.0, 800.0);
         // Hit the scroll node, scroll 50 px down.
-        let moved = rt.scroll_at_client(200.0, 150.0, 0.0, 50.0);
+        let moved = rt.scroll_at_logical(200.0, 150.0, 0.0, 50.0);
         assert!(moved, "should find scroll node and move");
         // A fresh projection must include the updated offset.
         let frame = rt.project_now().unwrap();
@@ -243,14 +286,18 @@ mod scroll {
         // The offset is stored in renderer-local state and is applied to the
         // projected view. Check that the cache was cleared so the next call
         // actually projects rather than returning the stale cached string.
-        assert!(!frame.json.is_empty());
+        assert_eq!(
+            v.pointer("/view/ui/overlays/0/surface/root/scrollOffsetY")
+                .and_then(serde_json::Value::as_f64),
+            Some(50.0)
+        );
     }
 
     #[test]
     fn scroll_is_clamped_to_zero_at_top() {
         let mut rt = runtime_with_scroll_overlay(400.0, 300.0, 800.0);
         // Scroll up when already at the top — should return false (no change).
-        let moved = rt.scroll_at_client(200.0, 150.0, 0.0, -50.0);
+        let moved = rt.scroll_at_logical(200.0, 150.0, 0.0, -50.0);
         assert!(!moved, "scrolling up past top should be a no-op");
     }
 
@@ -259,10 +306,10 @@ mod scroll {
         let mut rt = runtime_with_scroll_overlay(400.0, 300.0, 800.0);
         // max_scroll_y = content_h - viewport_h = 500.
         // Scroll 10000 px — must clamp to 500.
-        let moved = rt.scroll_at_client(200.0, 150.0, 0.0, 10_000.0);
+        let moved = rt.scroll_at_logical(200.0, 150.0, 0.0, 10_000.0);
         assert!(moved);
         // Scroll another 1 px — already at max, no movement.
-        let moved_again = rt.scroll_at_client(200.0, 150.0, 0.0, 1.0);
+        let moved_again = rt.scroll_at_logical(200.0, 150.0, 0.0, 1.0);
         assert!(!moved_again, "second scroll past max should be a no-op");
     }
 
@@ -270,14 +317,14 @@ mod scroll {
     fn miss_outside_scroll_node_bounds_returns_false() {
         let mut rt = runtime_with_scroll_overlay(400.0, 300.0, 800.0);
         // Hit outside the viewport.
-        let moved = rt.scroll_at_client(999.0, 999.0, 0.0, 50.0);
+        let moved = rt.scroll_at_logical(999.0, 999.0, 0.0, 50.0);
         assert!(!moved, "hit outside viewport should not scroll");
     }
 
     #[test]
     fn zero_delta_is_a_no_op() {
         let mut rt = runtime_with_scroll_overlay(400.0, 300.0, 800.0);
-        assert!(!rt.scroll_at_client(200.0, 150.0, 0.0, 0.0));
+        assert!(!rt.scroll_at_logical(200.0, 150.0, 0.0, 0.0));
     }
 
     #[test]
@@ -301,7 +348,7 @@ mod scroll {
             }
         }"#;
         let mut rt = NativeRendererProjectionRuntime::from_frame_json(frame).unwrap();
-        assert!(!rt.scroll_at_client(200.0, 150.0, 0.0, 50.0));
+        assert!(!rt.scroll_at_logical(200.0, 150.0, 0.0, 50.0));
     }
 
     #[test]
@@ -345,12 +392,12 @@ mod scroll {
         }"#;
         let mut rt = NativeRendererProjectionRuntime::from_frame_json(frame).unwrap();
         // Hit inside inner scroll (200,200 is inside both outer [0,600] and inner [100,400]).
-        let moved = rt.scroll_at_client(200.0, 200.0, 0.0, 50.0);
+        let moved = rt.scroll_at_logical(200.0, 200.0, 0.0, 50.0);
         assert!(moved);
         // The key written must be for the inner scroll node.
         // We can't inspect scroll_offsets directly, but we can verify that
         // a second scroll with a hit outside the inner rect falls back to the outer.
-        let moved_outer = rt.scroll_at_client(50.0, 50.0, 0.0, 50.0);
+        let moved_outer = rt.scroll_at_logical(50.0, 50.0, 0.0, 50.0);
         assert!(
             moved_outer,
             "hit outside inner but inside outer should scroll outer"

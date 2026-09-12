@@ -113,6 +113,7 @@ pub(crate) fn inherit(parent: &RichTextStyle, child: &RichTextStyle) -> RichText
     RichTextStyle {
         font_size: Some(size.into()),
         line_height: height,
+        letter_spacing: child.letter_spacing.or(parent.letter_spacing),
         color: child.color.clone().or_else(|| parent.color.clone()),
         font_family: child
             .font_family

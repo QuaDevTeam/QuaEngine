@@ -201,6 +201,7 @@ pub struct InlineTextRun {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct InlineTextStyle {
+    pub letter_spacing: f64,
     pub normal_line_height: bool,
     pub align: TextAlign,
     pub font_family: Vec<String>,

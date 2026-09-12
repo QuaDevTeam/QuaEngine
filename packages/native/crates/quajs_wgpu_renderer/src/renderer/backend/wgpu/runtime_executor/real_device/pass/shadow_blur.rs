@@ -11,7 +11,8 @@ struct AlphaTarget {
 /// Reusable renderer-only scratch. Large sigmas are downsampled first so both
 /// Gaussian passes have at most 97 adjacent taps, without sparse-grid bands.
 #[derive(Clone, Debug)]
-pub(super) struct ShadowBlur {
+pub(in super::super) struct ShadowBlur {
+    color: bool,
     layout: wgpu::BindGroupLayout,
     pipeline: wgpu::RenderPipeline,
     sampler: wgpu::Sampler,
@@ -19,7 +20,7 @@ pub(super) struct ShadowBlur {
 }
 
 impl ShadowBlur {
-    pub(super) fn new(target: &RealWgpuNativeRenderRuntimeTarget) -> Self {
+    pub(in super::super) fn new(target: &RealWgpuNativeRenderRuntimeTarget) -> Self {
         let device = target.device();
         let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("qua-native::shadow-blur-layout"),
@@ -93,6 +94,7 @@ impl ShadowBlur {
             ..Default::default()
         });
         Self {
+            color: false,
             layout,
             pipeline,
             sampler,
@@ -100,17 +102,24 @@ impl ShadowBlur {
         }
     }
 
-    pub(super) fn clear(&mut self) {
+    pub(in super::super) fn new_color(target: &RealWgpuNativeRenderRuntimeTarget) -> Self {
+        Self {
+            color: true,
+            ..Self::new(target)
+        }
+    }
+
+    pub(in super::super) fn clear(&mut self) {
         self.targets.clear();
     }
-    pub(super) fn byte_len(&self) -> usize {
+    pub(in super::super) fn byte_len(&self) -> usize {
         self.targets
             .iter()
             .map(|t| t.texture.size().width as usize * t.texture.size().height as usize * 4)
             .sum()
     }
 
-    pub(super) fn render(
+    pub(in super::super) fn render(
         &mut self,
         target: &RealWgpuNativeRenderRuntimeTarget,
         source: &wgpu::TextureView,
@@ -203,7 +212,7 @@ impl ShadowBlur {
             direction[0],
             direction[1],
             sigma,
-            0.0,
+            if self.color { 1.0 } else { 0.0 },
             0.0,
             0.0,
         ];

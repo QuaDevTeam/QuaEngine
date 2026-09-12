@@ -99,7 +99,7 @@ impl RealWgpuNativeRenderRuntimeDevice {
             &mut encoder.encoder,
             pass,
             self.compositor.as_mut(),
-            &mut self.backdrop_texture,
+            &mut self.backdrop_resources,
             None,
         );
         self.active_encoder = Some(encoder);

@@ -10,13 +10,14 @@ import {
 } from '@quajs/quack/project'
 import { spawn } from 'node:child_process'
 import { readFileSync, watch } from 'node:fs'
-import { readFile, rm } from 'node:fs/promises'
+import { readFile, rm, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const DEMO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const REPO_ROOT = resolve(DEMO_ROOT, '..')
 const CAPTURE_PATH = resolve(DEMO_ROOT, 'dist/native/dev/e2e-final.png')
+const CHECKPOINT_DIR = resolve(DEMO_ROOT, 'dist/native/dev/e2e-checkpoints')
 const QUICKJS_APP_ASSET = 'assets/scripts/native-app.mjs'
 const GENERATED_QUICKJS_APP_WATCH_PATH = 'scripts/native-app.mjs'
 const ASSET_INDEX_PATH = resolve(DEMO_ROOT, 'dist/assets/index.json')
@@ -130,6 +131,7 @@ async function rebuildAndLaunch() {
     nativeOutput = ''
     if (e2e) {
       await rm(CAPTURE_PATH, { force: true })
+      await rm(CHECKPOINT_DIR, { recursive: true, force: true })
     }
     nativeWindow = spawn('cargo', cargoArgs(), {
       cwd: REPO_ROOT,
@@ -148,6 +150,7 @@ async function rebuildAndLaunch() {
           ? {
               QUA_NATIVE_RENDERER_WINDOW_CAPTURE_PATH: CAPTURE_PATH,
               QUA_NATIVE_RENDERER_WINDOW_DEMO_E2E: '1',
+              QUA_NATIVE_RENDERER_WINDOW_DEMO_E2E_CAPTURE_DIR: CHECKPOINT_DIR,
             }
           : {
               QUA_NATIVE_RENDERER_WINDOW_DEV: '1',
@@ -415,6 +418,49 @@ async function validateNativeE2eOutput(output) {
   if (e2eReport.skipUsed !== true) {
     failures.push('the real HUD skip control was not exercised')
   }
+  if (e2eReport.skipStopped !== true || !['toggle', 'unread'].includes(e2eReport.skipStopReason)) {
+    failures.push('the HUD skip toggle did not return to normal reading')
+  }
+  const expectedCheckpoints = [
+    'title-menu', 'story-main', 'story-mara', 'story-street', 'story-studio', 'story-team',
+    'story-choice', 'story-branch', 'game-menu', 'title-confirmation', 'title-return',
+    'settings', 'settings-return', 'chapters', 'chapters-return',
+  ]
+  const checkpoints = e2eReport.visualCheckpoints ?? []
+  const expectedScenes = {
+    'story-main': ['backgrounds/town-bus-rain.webp', []],
+    'story-mara': ['backgrounds/town-bus-rain.webp', ['mara']],
+    'story-street': ['backgrounds/town-street-rain-anime-v3.webp', ['mara']],
+    'story-studio': ['backgrounds/radio-studio-day-anime-v3.webp', ['mara', 'haruka']],
+    'story-team': ['backgrounds/radio-studio-day-anime-v3.webp', ['mara', 'haruka', 'yumi']],
+    'story-choice': ['backgrounds/radio-studio-day-anime-v3.webp', ['mara', 'haruka', 'yumi']],
+    'story-branch': ['backgrounds/radio-studio-day-anime-v3.webp', ['mara', 'haruka', 'yumi']],
+  }
+  if (JSON.stringify(checkpoints.map(checkpoint => checkpoint.name)) !== JSON.stringify(expectedCheckpoints)) {
+    failures.push('the real GPU visual checkpoints are incomplete or out of order')
+  }
+  for (const checkpoint of checkpoints) {
+    if (!expectedCheckpoints.includes(checkpoint.name) || checkpoint.file !== `${checkpoint.name}.png`) {
+      failures.push('invalid visual checkpoint identity')
+      continue
+    }
+    if (!(checkpoint.brightFraction >= 0.25 && checkpoint.meanLuma >= 20 && checkpoint.lumaStddev >= 8)) {
+      failures.push(`${checkpoint.name}: black or blank scene pixels`)
+    }
+    if (checkpoint.name.startsWith('story-') && (!checkpoint.sceneRegion || !checkpoint.background || !checkpoint.dialogue)) {
+      failures.push(`${checkpoint.name}: scene acceptance did not inspect the background above the dialogue box`)
+    }
+    const expectedScene = expectedScenes[checkpoint.name]
+    if (expectedScene && (checkpoint.background !== expectedScene[0]
+      || JSON.stringify([...checkpoint.characters].sort()) !== JSON.stringify([...expectedScene[1]].sort()))) {
+      failures.push(`${checkpoint.name}: the authored background or cast did not reach the checkpoint`)
+    }
+    const bytes = await readFile(resolve(CHECKPOINT_DIR, checkpoint.file)).catch(() => undefined)
+    if (!bytes || bytes.length <= 24 || !bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
+      || bytes.readUInt32BE(16) !== report.physicalWidth || bytes.readUInt32BE(20) !== report.physicalHeight) {
+      failures.push(`${checkpoint.name}: missing or invalid GPU capture artifact`)
+    }
+  }
   if (e2eReport.selectedChoiceId !== 'catalog-first') {
     failures.push(`the story choice was not selected through native input (${e2eReport.selectedChoiceId || 'none'})`)
   }
@@ -498,7 +544,10 @@ async function validateNativeE2eOutput(output) {
   if (failures.length > 0) {
     throw new Error(`Native demo E2E failed: ${failures.join('; ')}.`)
   }
-  console.log(`Native demo E2E validated ${e2eReport.dialogueLineCount} dialogue lines, choice ${e2eReport.selectedChoiceId}, settings, chapters, ${report.passCount} WGPU pass(es), and a ${report.frameCaptureWidth}x${report.frameCaptureHeight} PNG readback.`)
+  await writeFile(resolve(CHECKPOINT_DIR, 'report.json'), JSON.stringify({ flow: e2eReport, window: report }, null, 2))
+  const escape = value => String(value ?? '').replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character])
+  await writeFile(resolve(CHECKPOINT_DIR, 'review.html'), `<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>Native smoke 场景验收</title><style>body{margin:32px;background:#162021;color:#e8efed;font:16px system-ui}main{max-width:1200px;margin:auto}figure{margin:24px 0 48px}img{width:100%;display:block;border-radius:8px}figcaption{line-height:1.7;margin:12px 0;color:#b8ccca}h2{font-size:20px}code{font-size:14px}</style><main><h1>Native smoke 场景验收</h1><p>${e2eReport.dialogueLineCount} 条完整对白身份 · ${checkpoints.length} 个真实 WGPU 截图检查点。场景像素检查避开底部对白框，拒绝黑屏与纯色空白画面。</p>${checkpoints.map(checkpoint => `<figure><h2>${escape(checkpoint.name)}</h2><img loading="lazy" src="${escape(checkpoint.file)}"><figcaption>${escape(checkpoint.dialogue || checkpoint.name)}<br><code>${escape(checkpoint.background || 'UI')} · ${escape(checkpoint.characters.join(', '))}</code><br>亮像素比例 ${(checkpoint.brightFraction * 100).toFixed(1)}% · 平均亮度 ${checkpoint.meanLuma.toFixed(1)} · 亮度标准差 ${checkpoint.lumaStddev.toFixed(1)}</figcaption></figure>`).join('')}</main></html>`)
+  console.log(`Native demo E2E validated ${e2eReport.dialogueLineCount} complete dialogue identities, ${checkpoints.length} visual checkpoints, choice ${e2eReport.selectedChoiceId}, settings, chapters, ${report.passCount} WGPU pass(es), and a ${report.frameCaptureWidth}x${report.frameCaptureHeight} PNG readback.`)
 }
 
 for (const signal of ['SIGINT', 'SIGTERM']) {

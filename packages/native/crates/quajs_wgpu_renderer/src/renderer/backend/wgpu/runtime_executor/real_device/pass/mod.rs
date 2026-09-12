@@ -1,6 +1,6 @@
 mod lookup;
 mod materialize;
-mod shadow_blur;
+pub(super) mod shadow_blur;
 mod types;
 mod validation;
 

@@ -148,9 +148,9 @@ const qssAcceptanceCases: Record<string, QssAcceptanceCase> = {
     expected: { style: { borderRadius: 8 } },
   },
   'border-style': {
-    validDeclarations: ['border-style: none'],
-    invalidDeclaration: 'border-style: dashed',
-    expected: { style: { borderStyle: 'none' } },
+    validDeclarations: ['border-style: dashed'],
+    invalidDeclaration: 'border-style: dotted',
+    expected: { style: { borderStyle: 'dashed' } },
   },
   'border-width': {
     validDeclarations: ['border-width: 2px'],

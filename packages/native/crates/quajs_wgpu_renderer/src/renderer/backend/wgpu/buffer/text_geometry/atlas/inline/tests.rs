@@ -42,6 +42,7 @@ fn run(text: &str, size: f64) -> InlineTextRun {
         text: text.into(),
         visible_bytes: text.len(),
         style: InlineTextStyle {
+            letter_spacing: 0.0,
             normal_line_height: false,
             font_family: vec!["test".into()],
             font_size: size,

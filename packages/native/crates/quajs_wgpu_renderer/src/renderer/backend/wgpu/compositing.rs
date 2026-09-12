@@ -38,6 +38,18 @@ impl WgpuNativeRenderRuntimePlan {
             .passes
             .first()
             .map_or(1.0, |p| p.viewport.physical_scale);
+        self.backdrop_blur_radii = submission
+            .passes
+            .iter()
+            .flat_map(|p| &p.batches)
+            .flat_map(|b| &b.commands)
+            .filter_map(|c| match &c.command.params {
+                crate::render_graph::DrawCommandParams::BackdropBlur(p) => {
+                    Some((c.command.id.clone(), p.blur_radius * scale))
+                }
+                _ => None,
+            })
+            .collect();
         for operation in &self.operations {
             if let WgpuNativeRenderRuntimeOperation::DrawIndexed { command_id, .. } = operation {
                 if let Some(groups) = lookup(&groups, command_id) {
@@ -61,6 +73,12 @@ impl WgpuNativeRenderRuntimePlan {
                                     ty * scale + oy - b * ox - d * oy,
                                 ];
                                 g.blur_radius *= scale;
+                                if let Some(lighting) = &mut g.character_lighting {
+                                    lighting.bounds.x = lighting.bounds.x * scale + ox;
+                                    lighting.bounds.y = lighting.bounds.y * scale + oy;
+                                    lighting.bounds.width *= scale;
+                                    lighting.bounds.height *= scale;
+                                }
                                 if let Some(shadow) = &mut g.drop_shadow {
                                     shadow.sigma *= scale;
                                     shadow.offset = shadow.offset.map(|n| n * scale);

@@ -9,6 +9,16 @@ use super::JsonProjectionValidator;
 impl JsonProjectionValidator {
     pub(super) fn validate_dialogue(&mut self, dialogue: &DialogueProjection) {
         if let Some(chrome) = &dialogue.chrome {
+            if let Some(image) = &chrome.background_image {
+                self.validate_asset_type(
+                    "view.dialogue.chrome.backgroundImage.assetType",
+                    &image.asset_type,
+                );
+                self.validate_asset_reference(
+                    "view.dialogue.chrome.backgroundImage.assetName",
+                    &image.asset_name,
+                );
+            }
             for (name, value) in [
                 ("minHeight", chrome.min_height),
                 ("paddingX", chrome.padding_x),
