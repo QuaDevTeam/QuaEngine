@@ -20,6 +20,7 @@ export function TitleSurface({ view }: { view: NativeAppView }) {
       <Image id="native-title-background" class="title-background" src="ui/title-menu-background.webp" />
       <Box id="native-title-linear-scrim" class="title-linear-scrim" />
       <Box id="native-title-radial-scrim" class="title-radial-scrim" />
+      <Box id="native-title-frame" class="title-frame" />
     </Stack>
   )
 }

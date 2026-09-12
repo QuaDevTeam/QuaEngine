@@ -45,7 +45,7 @@ impl RealWgpuNativeRenderRuntimeDevice {
         self.uniforms = self.uniforms.resized(&self.target);
         self.frame_target = RealRuntimeFrameTarget::new(&self.target);
         self.compositor = None;
-        self.backdrop_texture = None;
+        self.backdrop_resources = Default::default();
 
         let mut pipelines_cleared = 0;
         let mut bind_groups_cleared = 0;

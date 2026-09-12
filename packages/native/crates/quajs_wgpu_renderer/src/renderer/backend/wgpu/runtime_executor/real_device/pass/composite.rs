@@ -138,7 +138,7 @@ impl Compositor {
         encoder: &mut wgpu::CommandEncoder,
         mut pass: RealRuntimePass,
         depth: usize,
-        backdrop: &mut Option<wgpu::Texture>,
+        backdrop: &mut super::super::resources::backdrop::BackdropResources,
         backdrop_root: Option<(&str, &RealRuntimeFrameTarget)>,
     ) -> Result<(), WgpuNativeRenderRuntimeError> {
         let draws = std::mem::take(&mut pass.draws);
@@ -262,7 +262,7 @@ impl Compositor {
         source: &RealRuntimeFrameTarget,
         encoder: &mut wgpu::CommandEncoder,
         group: &DrawCompositeGroup,
-        scratch: &mut Option<wgpu::Texture>,
+        scratch: &mut super::super::resources::backdrop::BackdropResources,
         decoded_textures: &BTreeMap<String, RealRuntimeDecodedTexture>,
     ) {
         let captured;
@@ -304,6 +304,7 @@ impl Compositor {
             .and_then(|s| crate::renderer::backend::wgpu::mesh::parse_color_literal(&s.color))
             .map_or([0.0; 4], |c| c.to_gpu_rgba());
         let inverse = inverse_transform(group.transform);
+        let lighting = group.character_lighting.as_ref();
         let values = [
             group.opacity,
             group.blur_radius as f32,
@@ -345,6 +346,23 @@ impl Compositor {
             inverse[3],
             inverse[4],
             inverse[5],
+            lighting.is_some() as u32 as f32,
+            lighting.map_or(1.0, |l| l.ambient[0]),
+            lighting.map_or(1.0, |l| l.ambient[1]),
+            lighting.map_or(1.0, |l| l.ambient[2]),
+            lighting.map_or(1.0, |l| l.shade_color[0]),
+            lighting.map_or(1.0, |l| l.shade_color[1]),
+            lighting.map_or(1.0, |l| l.shade_color[2]),
+            lighting.map_or(0.0, |l| l.from[0]),
+            lighting.map_or(0.0, |l| l.from[1]),
+            lighting.map_or(1.0, |l| l.to[0]),
+            lighting.map_or(1.0, |l| l.to[1]),
+            lighting.map_or(0.0, |l| l.bounds.x as f32),
+            lighting.map_or(0.0, |l| l.bounds.y as f32),
+            lighting.map_or(1.0, |l| l.bounds.width as f32),
+            lighting.map_or(1.0, |l| l.bounds.height as f32),
+            lighting.map_or(1.0, |l| l.rotation_radians.cos()),
+            lighting.map_or(0.0, |l| l.rotation_radians.sin()),
         ];
         let bytes: Vec<u8> = values.into_iter().flat_map(f32::to_le_bytes).collect();
         let uniform = target

@@ -126,5 +126,35 @@ pub(in crate::projection::ui::surface) fn surface_border_edge_commands(
             let command = apply_provenance(command, &overlay.provenance);
             Some(apply_provenance(command, &node.provenance))
         })
+        .flat_map(|command| {
+            if node.style.border_style
+                != Some(crate::projection::ui::UiSurfaceBorderStyleProjection::Dashed)
+            {
+                return vec![command];
+            }
+            let horizontal = command.id.ends_with("-top") || command.id.ends_with("-bottom");
+            let (length, thickness) = if horizontal {
+                (command.bounds.width, command.bounds.height)
+            } else {
+                (command.bounds.height, command.bounds.width)
+            };
+            // Bound transient command growth for untrusted surface dimensions.
+            let count = ((length / (6.0 * thickness)).ceil() as usize).clamp(1, 512);
+            let step = length / count as f64;
+            (0..count)
+                .map(|index| {
+                    let mut dash = command.clone();
+                    dash.id = format!("{}:dash-{index}", command.id);
+                    if horizontal {
+                        dash.bounds.x += index as f64 * step;
+                        dash.bounds.width = step * 0.5;
+                    } else {
+                        dash.bounds.y += index as f64 * step;
+                        dash.bounds.height = step * 0.5;
+                    }
+                    dash
+                })
+                .collect()
+        })
         .collect()
 }

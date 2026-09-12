@@ -6,6 +6,7 @@ import {
   drainNativeRendererIntentsToPipeline,
   emitNativeRendererIntentToPipeline,
   installNativeQuickJsRendererIntentBridge,
+  installNativeQuickJsPipelineBridge,
   NativeHostPlugin,
 } from '../src'
 
@@ -1153,4 +1154,18 @@ describe('@quajs/engine-native renderer intents', () => {
       }),
     ])
   })
+})
+
+
+it('forwards transient scroll navigation through the existing pipeline and disposes the listener', async () => {
+  const pipeline = createTestPipeline()
+  const bridge = { emit: vi.fn() }
+  const dispose = installNativeQuickJsPipelineBridge(bridge, pipeline as any)
+  const payload = { elementId: 'backlog', nodeId: 'backlog-scroll', edge: 'end' }
+  await pipeline.emit('native-ui/scroll', payload)
+  expect(bridge.emit).toHaveBeenCalledWith('native-ui/scroll', payload)
+  dispose()
+  bridge.emit.mockClear()
+  await pipeline.emit('native-ui/scroll', { ...payload, edge: 'start' })
+  expect(bridge.emit).not.toHaveBeenCalled()
 })

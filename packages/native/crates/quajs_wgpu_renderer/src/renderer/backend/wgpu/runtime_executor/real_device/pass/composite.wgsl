@@ -11,6 +11,11 @@ struct CompositeStyle {
     shadow_enabled: f32, shadow_sigma: f32, shadow_x: f32, shadow_y: f32,
     shadow_r: f32, shadow_g: f32, shadow_b: f32, shadow_a: f32,
     inverse_a: f32, inverse_b: f32, inverse_c: f32, inverse_d: f32, inverse_x: f32, inverse_y: f32,
+    light_enabled: f32, ambient_r: f32, ambient_g: f32, ambient_b: f32,
+    shade_r: f32, shade_g: f32, shade_b: f32,
+    shade_from_x: f32, shade_from_y: f32, shade_to_x: f32, shade_to_y: f32,
+    light_x: f32, light_y: f32, light_width: f32, light_height: f32,
+    light_cos: f32, light_sin: f32,
 }
 @group(0) @binding(1) var<uniform> style: CompositeStyle;
 @group(0) @binding(2) var backdrop: texture_2d<f32>;
@@ -106,6 +111,21 @@ fn filtered_pixel(position: vec2<f32>) -> vec4<f32> {
         dot(rgb, vec3(0.272, 0.534, 0.131))
     ), style.sepia), vec3(0.0), vec3(1.0));
     rgb = mix(rgb, 1.0 - rgb, style.invert);
+    if (style.light_enabled > 0.5) {
+        let size = max(vec2(style.light_width, style.light_height), vec2(0.000001));
+        let center = vec2(style.light_x, style.light_y) + size * 0.5;
+        let delta = position - center;
+        let local = vec2(delta.x * style.light_cos + delta.y * style.light_sin,
+                         delta.y * style.light_cos - delta.x * style.light_sin) / size + 0.5;
+        let shade_start = vec2(style.shade_from_x, style.shade_from_y);
+        let direction = vec2(style.shade_to_x, style.shade_to_y) - shade_start;
+        let length_squared = dot(direction, direction);
+        // SVG's degenerate gradient uses its final stop.
+        var t = 1.0;
+        if (length_squared > 0.00000001) { t = clamp(dot(local - shade_start, direction) / length_squared, 0.0, 1.0); }
+        rgb = clamp(rgb * vec3(style.ambient_r, style.ambient_g, style.ambient_b), vec3(0.0), vec3(1.0));
+        rgb *= mix(vec3(1.0), vec3(style.shade_r, style.shade_g, style.shade_b), t);
+    }
     return vec4(rgb * pixel.a, pixel.a);
 }
 

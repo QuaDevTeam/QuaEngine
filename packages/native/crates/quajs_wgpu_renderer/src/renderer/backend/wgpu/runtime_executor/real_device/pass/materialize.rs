@@ -25,7 +25,7 @@ pub(in crate::renderer::backend::wgpu::runtime_executor::real_device) fn materia
     encoder: &mut wgpu::CommandEncoder,
     pass: RealRuntimePass,
     compositor: Option<&mut super::composite::Compositor>,
-    backdrop: &mut Option<wgpu::Texture>,
+    backdrop: &mut super::super::resources::backdrop::BackdropResources,
     backdrop_root: Option<(&str, &RealRuntimeFrameTarget)>,
 ) -> Result<(), WgpuNativeRenderRuntimeError> {
     if let Some(compositor) =
@@ -76,6 +76,7 @@ pub(in crate::renderer::backend::wgpu::runtime_executor::real_device) fn materia
                 backdrop,
                 encoder,
                 &pipeline.get_bind_group_layout(1),
+                &remaining[0].command_id,
             ));
             1
         } else {

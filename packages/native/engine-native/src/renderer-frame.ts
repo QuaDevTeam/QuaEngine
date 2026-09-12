@@ -6,8 +6,10 @@ import type {
   ViewChoiceProjection,
   ViewDialogueProjection,
   ViewEffectProjection,
+  ViewUiProjection,
 } from '@quajs/render-core'
 import {
+  viewAllowsDialogueChrome,
   projectAudioProjection,
   projectBackground,
   projectCharacters,
@@ -49,6 +51,7 @@ export type NativeRendererEngineViewProjection = Readonly<JsonRecord & {
   background?: unknown
   characters?: readonly unknown[]
   dialogue?: unknown
+  flowControl?: unknown
   effects?: readonly unknown[]
   choices?: readonly unknown[]
   ui?: unknown
@@ -106,11 +109,18 @@ export function createNativeRendererViewProjection(
   const background = projectNativeBackground(view.background, animations, now)
   const characters = projectNativeCharacters(view.characters, animations, now)
   const dialogue = projectNativeDialogue(view.dialogue, plugins?.dialogue, animations, now)
+  const dialogueProjection = createNativeDialogueProjection(dialogue)
   const effects = projectNativeEffects(view.effects, animations, now)
   const choices = projectNativeChoices(view.choices, plugins?.choices, animations, now)
   const ui = projectNativeUi(view.ui, animations, now)
   const motion = projectStageMotion({ ...view, plugins: plugins ?? {}, animations } as unknown as QuaViewProjection, now)
   const featureOverlays = createNativeRendererFeatureSurfaceOverlays(view, options.featureSurfaces)
+  const sourceUi = asRecord(view.ui)
+  const chromeUi = {
+    visible: sourceUi?.visible !== false,
+    overlays: { ...asRecord(sourceUi?.overlays), ...Object.fromEntries(featureOverlays.map(overlay => [overlay.elementId, overlay])) },
+  } as unknown as ViewUiProjection
+  if (dialogueProjection && !viewAllowsDialogueChrome({ ui: chromeUi })) dialogueProjection.visible = false
   const audio = animations.length > 0
     ? projectAudioProjection<Record<string, unknown>>({ ...view, plugins: plugins ?? {} } as unknown as Readonly<QuaViewProjection>, now)
     : plugins?.audio
@@ -123,7 +133,8 @@ export function createNativeRendererViewProjection(
     characters: Array.isArray(characters)
       ? characters.map(character => createNativeCharacterProjection(character, animations, now)).filter(isJsonRecord)
       : undefined,
-    dialogue: createNativeDialogueProjection(dialogue),
+    dialogue: dialogueProjection,
+    flowControl: cloneJsonValue(view.flowControl),
     effects: effects.length > 0
       ? effects.map(createNativeEffectProjection).filter(isJsonRecord)
       : undefined,
@@ -708,11 +719,30 @@ function createNativeBackgroundProjection(background: unknown): JsonRecord | und
     rotation: finiteNumber(record.rotation),
     opacity: finiteNumber(record.opacity),
     composition: createNativeBackgroundCompositionProjection(record.composition),
+    characterLighting: createNativeCharacterLightingProjection(record.characterLighting),
     layers: Array.isArray(record.layers)
       ? record.layers.map(createNativeBackgroundLayerProjection).filter(isJsonRecord)
       : [],
     video: createNativeBackgroundVideoProjection(record.video),
     provenance: createPackageProvenance(record),
+  })
+}
+
+function createNativeCharacterLightingProjection(value: unknown): JsonRecord | undefined {
+  const lighting = asRecord(value)
+  if (!lighting) return undefined
+  const bounded = (value: unknown, fallback: number, max = 1) =>
+    Math.min(max, Math.max(0, finiteNumber(value) ?? fallback))
+  const tuple = (value: unknown, defaults: number[], max = 1) =>
+    defaults.map((fallback, index) => bounded(Array.isArray(value) ? value[index] : undefined, fallback, max))
+  const shade = asRecord(lighting.shade)
+  return omitUndefined({
+    ambient: tuple(lighting.ambient, [1, 1, 1], 1.5),
+    shade: shade ? {
+      color: tuple(shade.color, [1, 1, 1]),
+      from: tuple(shade.from, [0, 0]),
+      to: tuple(shade.to, [1, 1]),
+    } : undefined,
   })
 }
 

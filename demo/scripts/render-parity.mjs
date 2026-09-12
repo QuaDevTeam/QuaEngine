@@ -1,98 +1,86 @@
-/** Capture the same demo screens from running Web and native dev apps.
- * Start pnpm --filter demo dev:web and pnpm dev:native first, at the title.
- * PNGs and measured bounds go to demo/dist/native/parity (never a fake parity pass).
+/** Real manuscript/input path: unlit sprite → rain lighting → long transcript
+ * → save/overwrite/load → restored lighting. Run HUD parity first or start at title.
  */
+import assert from 'node:assert/strict'
 import { chromium } from 'playwright'
-import { execFile } from 'node:child_process'
-import { promisify } from 'node:util'
 import { mkdir, writeFile } from 'node:fs/promises'
-import { dirname, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
-const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const output = resolve(root, 'dist/native/parity')
-const exec = promisify(execFile)
-const native = async (...args) => (await exec(process.execPath,
-  [resolve(root, 'scripts/native-control.mjs'), ...args], { maxBuffer: 16 * 1024 * 1024 })).stdout
-const browser = await chromium.launch({ headless: true, ...(process.env.QUA_PARITY_CHROMIUM
-  ? { executablePath: process.env.QUA_PARITY_CHROMIUM }
-  : { channel: process.env.QUA_PARITY_BROWSER || 'chrome' }) })
-const page = await browser.newPage({ viewport: { width: 960, height: 540 }, deviceScaleFactor: 2 })
-const report = { viewport: { width: 960, height: 540, deviceScaleFactor: 2 }, screens: {} }
+import { resolve } from 'node:path'
+const output = resolve('demo/dist/native/story-parity')
 await mkdir(output, { recursive: true })
-async function capture(name, selectors) {
-  // Let font loads, presence fades and native atlas uploads settle on both targets.
-  await page.evaluate(() => document.fonts.ready)
-  await page.waitForTimeout(1000)
+const ws = new WebSocket(`ws://${process.env.QUA_NATIVE_RENDERER_CONTROL || '127.0.0.1:4789'}/devtools/page/qua-native`)
+await new Promise((resolve, reject) => { ws.addEventListener('open', resolve, { once: true }); ws.addEventListener('error', reject, { once: true }) })
+let seq = 0; const pending = new Map()
+ws.addEventListener('message', ({ data }) => { const m = JSON.parse(data); const p = pending.get(m.id); if (p) { pending.delete(m.id); clearTimeout(p.timer); m.error ? p.reject(new Error(m.error.message)) : p.resolve(m.result) } })
+function native(method, params = {}) { return new Promise((resolve, reject) => { const id = ++seq; const timer = setTimeout(() => { pending.delete(id); reject(new Error(`${method} timed out`)) }, 30000); pending.set(id, { resolve, reject, timer }); ws.send(JSON.stringify({ id, method, params, sessionId: 'qua-native-session' })) }) }
+const commands = async () => (await native('Qua.listCommands')).commands
+const click = async (x, y) => { await native('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y, button: 'none' }); await new Promise(r => setTimeout(r, 60)); await native('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1 }); await new Promise(r => setTimeout(r, 60)); await native('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1 }) }
+async function clickId(id) { const c = (await commands()).find(c => c.id === id); assert(c, `Missing ${id}`); await click((c.bounds.x + c.bounds.width / 2) / 2, (c.bounds.y + c.bounds.height / 2) / 2) }
+// The graph can contain a panel before its enter transition is hit-testable.
+const wait = async id => { await native('Qua.waitForCommand', { id, timeoutMs: 25000 }); await new Promise(r => setTimeout(r, 400)) }
+const shell = id => `ui:native-app-shell:native-${id}`
+const browser = await chromium.launch({ ...(process.env.QUA_PARITY_CHROMIUM ? { executablePath: process.env.QUA_PARITY_CHROMIUM } : { channel: 'chrome' }) })
+const page = await browser.newPage({ viewport: { width: 960, height: 540 }, deviceScaleFactor: 2 })
+const report = { screens: {}, reached: [] }
+async function capture(name) {
+  await page.mouse.move(5, 5); await native('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 5, y: 5, button: 'none' })
+  await page.evaluate(() => document.fonts.ready); await page.waitForTimeout(1500)
   await page.screenshot({ path: resolve(output, `web-${name}.png`) })
-  await native('capture', resolve(output, `native-${name}.png`))
-  const web = await page.evaluate(selectors => Object.fromEntries(selectors.map(selector => [selector,
-    [...document.querySelectorAll(selector)].map(element => {
-      const rect = element.getBoundingClientRect()
-      const style = getComputedStyle(element)
-      return { text: element.textContent, x: rect.x, y: rect.y, width: rect.width, height: rect.height,
-        font: style.font, color: style.color, background: style.background }
-    }),
-  ])), selectors)
-  const commands = JSON.parse(await native('commands', '--json'))
-  const pairs = {
-    settings: [['.qua-settings-panel', 'ui:settings:settings-panel']],
-    gallery: [['.qua-gallery-panel', 'ui:gallery:gallery-panel'], ['.qua-gallery-entry-card', 'ui:gallery:gallery-entry-0']],
-    dialogue: [['.qua-dialogue-box', 'dialogue:panel']],
-  }[name] || []
-  const geometry = pairs.map(([selector, id]) => {
-    const actual = commands.find(command => command.id === id)?.bounds
-    const expected = web[selector]?.[0]
-    if (!actual || !expected) throw new Error(`Missing parity geometry: ${selector} / ${id}`)
-    const differences = Object.fromEntries(['x', 'y', 'width', 'height'].map(key => [key,
-      Math.abs(actual[key] / 2 - expected[key]),
-    ]))
-    return { selector, id, differences, passed: Object.values(differences).every(value => value <= 2) }
-  })
-  report.screens[name] = { web, native: commands, geometry }
-  await writeFile(resolve(output, 'measurements.json'), JSON.stringify(report, null, 2))
+  const { data } = await native('Page.captureScreenshot', { format: 'png' }); await writeFile(resolve(output, `native-${name}.png`), Buffer.from(data, 'base64'))
+  const web = await page.evaluate(() => [...document.querySelectorAll('.qua-dialogue-text,.qua-character,.qua-backlog-entry,.qua-backlog-entry-text,.qua-confirm-overlay,.qua-save-slot-button')].map(e => { const r = e.getBoundingClientRect(); return { class: e.className, text: e.textContent, bounds: { x: r.x * 2, y: r.y * 2, width: r.width * 2, height: r.height * 2 } } }))
+  report.screens[name] = { web, native: await commands() }
+  await writeFile(resolve(output, 'measurements.json'), JSON.stringify(report, null, 2)); console.log(`Captured ${name}`)
 }
+async function reach(text) {
+  const step = async target => {
+    const trace = []
+    const read = async () => target === 'web' ? await page.locator('.qua-dialogue-text').textContent() : (await commands()).find(c => c.id === 'dialogue:text')?.text || ''
+    for (let i = 0; i < 240; i++) {
+      let current = await read()
+      if (trace.at(-1) !== current) trace.push(current)
+      for (let poll = 0; current && text.startsWith(current) && poll < 100; poll++) {
+        if (current === text) return
+        await page.waitForTimeout(100)
+        current = await read()
+      }
+      if (target === 'web') await page.keyboard.press('Space'); else await click(100, 200)
+      await page.waitForTimeout(350)
+    }
+    await writeFile(resolve(output, `${target}-trace.json`), JSON.stringify(trace, null, 2))
+    throw new Error(`${target} failed to reach ${text}`)
+  }
+  await Promise.all([step('web'), step('native')])
+  await page.waitForTimeout(2500)
+  const nativeText = (await commands()).find(c => c.id === 'dialogue:text')?.text
+  assert.equal(nativeText, text); assert.equal(await page.locator('.qua-dialogue-text').textContent(), text)
+  report.reached.push(text)
+}
+async function menu() { await page.waitForTimeout(700); await page.locator('.vn-quick-menu button').filter({ hasText: /^菜单$/ }).click(); await clickId(shell('game-hud-menu')); await wait(shell('game-menu-save')) }
 try {
-  await native('ping')
-  await page.goto(process.env.QUA_PARITY_WEB_URL || 'http://127.0.0.1:5173')
-  await page.getByRole('button', { name: 'CONFIG', exact: true }).waitFor()
-  await page.locator('.vn-main-menu__title').waitFor()
-  await capture('title', ['.vn-main-menu__title', '.vn-main-menu__actions button'])
-  await page.getByRole('button', { name: 'CONFIG', exact: true }).click()
-  await native('clickCommand', 'ui:native-app-shell:native-main-menu-config')
-  await native('wait', 'ui:settings:settings-close')
-  await capture('settings', ['.qua-settings-panel', '.vn-settings-title', '.qua-settings-field', '.vn-settings-select'])
-  await page.locator('.vn-settings-close').click()
-  await native('clickCommand', 'ui:settings:settings-close')
-  await native('wait', 'ui:native-app-shell:native-main-menu-gallery')
-  await page.getByRole('button', { name: 'GALLERY', exact: true }).click()
-  await native('clickCommand', 'ui:native-app-shell:native-main-menu-gallery')
-  await native('wait', 'ui:gallery:gallery-close')
-  await capture('gallery', ['.qua-gallery-panel', '.qua-gallery-entry-card', '.qua-gallery-entry-title'])
-  await page.locator('.qua-gallery-entry-card').first().click()
-  await native('clickCommand', 'ui:gallery:gallery-entry-0')
-  await native('wait', 'ui:gallery:gallery-lightbox-close')
-  await capture('gallery-preview', ['.qua-gallery-lightbox-media', '.qua-gallery-lightbox-close'])
-  await page.locator('.qua-gallery-lightbox-close').click()
-  await native('clickCommand', 'ui:gallery:gallery-lightbox-close')
-  await page.locator('.qua-gallery-close').click()
-  await native('clickCommand', 'ui:gallery:gallery-close')
-  await native('wait', 'ui:native-app-shell:native-main-menu-start')
-  await page.waitForTimeout(400)
-  await page.getByRole('button', { name: 'START', exact: true }).click()
-  await native('clickCommand', 'ui:native-app-shell:native-main-menu-start')
-  await page.locator('.qua-dialogue-text').waitFor()
-  await native('wait', 'dialogue:text')
-  await page.waitForTimeout(2000)
-  await capture('dialogue', ['.qua-dialogue-box', '.qua-dialogue-speaker', '.qua-dialogue-text'])
-  await writeFile(resolve(output, 'review.html'), `<!doctype html><meta charset="utf-8">
-<title>Web / Native render comparison</title>
-<style>body{font:16px system-ui;background:#101218;color:#eee;margin:24px}section{margin:28px 0}.compare{position:relative;width:min(100%,1200px)}img{display:block;width:100%}.native{position:absolute;inset:0;clip-path:inset(0 50% 0 0)}input{width:min(100%,1200px)}a{color:#9ce}</style>
-<h1>Web / Native</h1><p>Drag each divider to compare the same screen. Native is on the left; Web is on the right. Geometry checks cover panel bounds, not pixel equality.</p>
-${Object.keys(report.screens).map(name => `<section><h2>${name}</h2><div class="compare"><img src="web-${name}.png" alt="Web ${name}"><img class="native" src="native-${name}.png" alt="Native ${name}"></div><input aria-label="Compare ${name}" type="range" min="0" max="100" value="50" oninput="this.previousElementSibling.lastElementChild.style.clipPath='inset(0 '+(100-this.value)+'% 0 0)' "></section>`).join('')}`)
-  const failures = Object.values(report.screens).flatMap(screen => screen.geometry).filter(check => !check.passed)
-  if (failures.length) throw new Error(`Panel geometry differs by over 2 CSS pixels: ${JSON.stringify(failures)}`)
-  console.log(`Captured Web/native visual review artifacts; panel geometry checks passed: ${output}`)
-}
-finally {
-  await browser.close()
-}
+  await page.goto(process.env.QUA_PARITY_WEB_URL || 'http://127.0.0.1:5173'); await page.getByRole('button', { name: '从头开始', exact: true }).click()
+  if ((await commands()).some(c => c.id === shell('main-menu-start'))) await clickId(shell('main-menu-start'))
+  await wait('dialogue:text'); await page.locator('.qua-dialogue-text').waitFor()
+  await reach('神代小姐？'); await capture('unlit-character')
+  const street = '商店街的遮雨棚把雨声压低了。烤鱼的味道从一家小店的门帘后面飘出来。'
+  await reach(street); await capture('rain-lighting')
+  await page.locator('.vn-quick-menu button').filter({ hasText: /^记录$/ }).click(); await clickId(shell('game-hud-log')); await wait('ui:backlog:backlog-close')
+  await capture('backlog-latest')
+  await page.getByRole('button', { name: '最早记录', exact: true }).click(); await clickId('ui:backlog:backlog-earliest'); await capture('backlog-earliest')
+  assert((report.screens['backlog-earliest'].native.find(c => c.id === 'ui:backlog:backlog-entry-0-body')?.bounds.y || 9999) < 300, 'Earliest transcript navigation failed')
+  await page.getByRole('button', { name: '最近记录', exact: true }).click(); await clickId('ui:backlog:backlog-latest'); await capture('backlog-latest-again')
+  await page.locator('.qua-backlog-close').click(); await clickId('ui:backlog:backlog-close'); await wait(shell('game-hud-menu'))
+  await menu(); await page.locator('.qua-menu-action--save').click(); await clickId(shell('game-menu-save')); await wait('ui:native-app-shell:slot-9')
+  await page.locator('[data-save-slot-id="slot-9"]').click(); await clickId('ui:native-app-shell:slot-9'); await page.waitForTimeout(1800)
+  assert.notEqual((await commands()).find(c => c.id === 'ui:native-app-shell:slot-9-name')?.text, '空存档', 'Save must complete before testing overwrite')
+  await capture('saved-rain-lighting')
+  await page.locator('[data-save-slot-id="slot-9"]').click(); await clickId('ui:native-app-shell:slot-9'); await wait(shell('save-confirm-accept')); await capture('overwrite-confirm')
+  await page.locator('.qua-confirm-action--cancel').click(); await clickId(shell('save-confirm-cancel')); await page.waitForTimeout(600)
+  await page.locator('.qua-save-load-panel .qua-ui-panel-close').click(); await clickId(shell('save-load-close')); await wait(shell('game-hud-menu'))
+  await page.keyboard.press('Space'); await click(100, 200); await page.waitForTimeout(500)
+  await menu(); await page.locator('.qua-menu-action--load').click(); await clickId(shell('game-menu-load')); await wait('ui:native-app-shell:slot-9')
+  await page.locator('[data-save-slot-id="slot-9"]').click(); await clickId('ui:native-app-shell:slot-9'); await wait('dialogue:text'); await page.waitForTimeout(2500)
+  await capture('loaded-rain-lighting')
+  assert.equal((await commands()).find(c => c.id === 'dialogue:text')?.text, street)
+  assert.equal(await page.locator('.qua-dialogue-text').textContent(), street)
+  await writeFile(resolve(output, 'review.html'), `<!doctype html><meta charset="utf-8"><title>Story Web / Native</title><style>body{background:#152420;color:white;font:16px sans-serif;margin:24px}.pair{position:relative;max-width:1200px}img{width:100%;display:block}.native{position:absolute;inset:0;clip-path:inset(0 50% 0 0)}input{width:min(100%,1200px)}</style><h1>Native 左 / Web 右</h1>${Object.keys(report.screens).map(name => `<h2>${name}</h2><div class="pair"><img src="web-${name}.png"><img class="native" src="native-${name}.png"></div><input type="range" value="50" oninput="this.previousElementSibling.lastElementChild.style.clipPath='inset(0 '+(100-this.value)+'% 0 0)'"></input>`).join('')}`)
+  console.log('PASS: real story lighting, transcript navigation, save/overwrite/load; screenshots require visual review')
+} finally { await browser.close(); ws.close(); setTimeout(() => process.exit(process.exitCode || 0), 500).unref() }

@@ -23,6 +23,8 @@ export interface NativeRendererFeatureSurfaceOverlay {
   overlayStack?: string
   stackPriority?: number
   zIndex?: number
+  /** Scene/chrome policy remains owned by the feature projection. */
+  scene?: unknown
   surface: {
     key: string
     root?: unknown
@@ -68,12 +70,12 @@ export function createNativeRendererFeatureSurfaceOverlays(
       projection,
       ...layout,
     })
-    if (Array.isArray(result)) {
-      overlays.push(...result as readonly NativeRendererFeatureSurfaceOverlay[])
-    }
-    else if (result) {
-      overlays.push(result as NativeRendererFeatureSurfaceOverlay)
-    }
+    const scene = recordValue(projection.ui)?.scene
+    const append = (overlay: NativeRendererFeatureSurfaceOverlay) => overlays.push({
+      ...overlay, ...(scene && !overlay.scene ? { scene } : {}),
+    })
+    if (Array.isArray(result)) result.forEach(append)
+    else if (result) append(result as NativeRendererFeatureSurfaceOverlay)
   }
 
   return overlays

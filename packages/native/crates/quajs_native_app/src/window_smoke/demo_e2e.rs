@@ -8,6 +8,12 @@ use serde::Serialize;
 use super::error::NativeWindowSmokeError;
 use super::input::NativeWindowSmokeInputState;
 
+mod visual;
+use visual::{
+    dialogue_revealed, dialogue_signature, projection_settled, visible_characters,
+    VisualCheckpoints,
+};
+
 const DEMO_E2E_MAX_DURATION: Duration = Duration::from_secs(8 * 60);
 const DEMO_E2E_STALL_TIMEOUT: Duration = Duration::from_secs(30);
 
@@ -33,6 +39,9 @@ pub(super) struct NativeDemoE2eReport {
     dialogue_line_count: usize,
     dialogue_advance_count: usize,
     skip_used: bool,
+    skip_stopped: bool,
+    skip_stop_reason: Option<String>,
+    visual_checkpoints: Vec<visual::VisualCheckpoint>,
     selected_choice_id: Option<String>,
     settings_visited: bool,
     chapters_visited: bool,
@@ -76,10 +85,15 @@ pub(super) struct NativeDemoE2eState {
     dialogue_signature: Option<String>,
     choice_dialogue_signature: Option<String>,
     dialogue_click_phase: DialogueClickPhase,
+    dialogue_observed_at: Option<Instant>,
     dialogue_line_count: usize,
     dialogue_advance_count: usize,
     skip_started: bool,
     skip_stop_requested: bool,
+    skip_stopped: bool,
+    skip_start_revision: u64,
+    skip_stop_reason: Option<String>,
+    visuals: VisualCheckpoints,
     selected_choice_id: Option<String>,
     settings_visited: bool,
     chapters_visited: bool,
@@ -119,6 +133,17 @@ impl NativeDemoE2eState {
         if self.is_awaiting_final_frame() {
             self.final_frame_presented = true;
         }
+    }
+
+    pub(super) fn has_pending_capture(&self) -> bool {
+        self.visuals.has_pending_capture()
+    }
+
+    pub(super) fn capture_checkpoint(
+        &mut self,
+        capture: &quajs_wgpu_renderer::renderer::RealWgpuEncodedFrameCapture,
+    ) -> Result<(), NativeWindowSmokeError> {
+        self.visuals.capture(capture)
     }
 
     pub(super) fn tick<B, A, V, F>(
@@ -168,33 +193,76 @@ impl NativeDemoE2eState {
             )));
         }
 
+        let frame: serde_json::Value = serde_json::from_str(frame_json).map_err(|error| {
+            NativeWindowSmokeError::new(format!("Invalid E2E projection: {error}"))
+        })?;
+
         match self.step {
             NativeDemoE2eStep::AwaitTitle => {
-                if self.click(renderer, host, input, TITLE_START)? {
+                if command_visible(renderer, TITLE_START)
+                    && self.checkpoint(renderer, &frame, "title-menu")
+                    && self.click(renderer, host, input, TITLE_START)?
+                {
                     self.record_step("title-menu");
                     self.step = NativeDemoE2eStep::AwaitFirstDialogue;
                 }
             }
             NativeDemoE2eStep::AwaitFirstDialogue => {
                 if command_visible(renderer, DIALOGUE_PANEL) {
-                    if let Some(signature) = dialogue_signature(frame_json) {
+                    if let Some(signature) = dialogue_signature(&frame) {
                         self.observe_dialogue(signature);
-                        self.record_step("story-main");
-                        self.step = NativeDemoE2eStep::AdvanceToChoice;
+                        if self.checkpoint(renderer, &frame, "story-main") {
+                            self.record_step("story-main");
+                            self.step = NativeDemoE2eStep::AdvanceToChoice;
+                        }
                     }
                 }
             }
             NativeDemoE2eStep::AdvanceToChoice => {
-                self.observe_dialogue_frame(frame_json);
-                if command_visible(renderer, FIRST_STORY_CHOICE) {
-                    if self.skip_started && flow_control_is_skip(frame_json) {
-                        if !self.skip_stop_requested
-                            && self.click(renderer, host, input, GAME_HUD_SKIP)?
-                        {
+                self.observe_dialogue_frame(&frame);
+                // Exercise skip as a bounded toggle, then continue through real
+                // complete lines so the visual checkpoints cannot be skipped.
+                if self.skip_started && !self.skip_stopped {
+                    if !self.skip_stop_requested && flow_control_is_skip(&frame) {
+                        if self.click(renderer, host, input, GAME_HUD_SKIP)? {
                             self.skip_stop_requested = true;
-                            self.last_progress_at = Some(Instant::now());
+                            self.last_progress_at = Some(now);
                         }
-                    } else {
+                    } else if self.skip_stop_requested && !flow_control_is_skip(&frame) {
+                        self.skip_stopped = true;
+                        self.skip_stop_reason = Some("toggle".into());
+                        self.last_progress_at = Some(now);
+                    } else if frame
+                        .pointer("/view/flowControl/revision")
+                        .and_then(serde_json::Value::as_u64)
+                        .is_some_and(|revision| revision > self.skip_start_revision)
+                        && frame
+                            .pointer("/view/flowControl/mode")
+                            .and_then(serde_json::Value::as_str)
+                            == Some("normal")
+                        && frame
+                            .pointer("/view/flowControl/skipMode")
+                            .and_then(serde_json::Value::as_str)
+                            == Some("read")
+                    {
+                        // New games stop read-only skip immediately at unread
+                        // text. Require the engine's updated revision as proof.
+                        self.skip_stopped = true;
+                        self.skip_stop_reason = Some("unread".into());
+                        self.last_progress_at = Some(now);
+                    }
+                    return Ok(());
+                }
+                if !projection_settled(&frame) {
+                    return Ok(());
+                }
+                if let Some(name) = story_checkpoint(&frame) {
+                    if !self.visuals.contains(name) && !self.checkpoint(renderer, &frame, name) {
+                        return Ok(());
+                    }
+                }
+                if command_visible(renderer, FIRST_STORY_CHOICE) {
+                    if self.checkpoint(renderer, &frame, "story-choice") {
                         self.record_step("story-choice");
                         self.choice_dialogue_signature = self.dialogue_signature.clone();
                         if self.click(renderer, host, input, FIRST_STORY_CHOICE)? {
@@ -207,24 +275,31 @@ impl NativeDemoE2eState {
                     && self.dialogue_advance_count >= 1
                 {
                     if self.click(renderer, host, input, GAME_HUD_SKIP)? {
+                        self.skip_start_revision = frame
+                            .pointer("/view/flowControl/revision")
+                            .and_then(serde_json::Value::as_u64)
+                            .unwrap_or(0);
                         self.skip_started = true;
                         self.last_progress_at = Some(Instant::now());
                     }
-                } else if !flow_control_is_skip(frame_json) {
-                    self.advance_dialogue(renderer, host, input)?;
+                } else if !flow_control_is_skip(&frame) {
+                    self.advance_dialogue(renderer, host, input, &frame)?;
                 }
             }
             NativeDemoE2eStep::AwaitChoiceBranch => {
-                let next_signature = dialogue_signature(frame_json);
+                let next_signature = dialogue_signature(&frame);
                 let branch_visible = command_visible(renderer, DIALOGUE_PANEL)
+                    && !command_visible(renderer, FIRST_STORY_CHOICE)
                     && next_signature.is_some()
                     && next_signature != self.choice_dialogue_signature;
                 if branch_visible {
                     if let Some(signature) = next_signature {
                         self.observe_dialogue(signature);
                     }
-                    self.record_step("story-branch");
-                    self.step = NativeDemoE2eStep::OpenGameMenu;
+                    if self.checkpoint(renderer, &frame, "story-branch") {
+                        self.record_step("story-branch");
+                        self.step = NativeDemoE2eStep::OpenGameMenu;
+                    }
                 }
             }
             NativeDemoE2eStep::OpenGameMenu => {
@@ -233,7 +308,9 @@ impl NativeDemoE2eState {
                 }
             }
             NativeDemoE2eStep::AwaitGameMenu => {
-                if command_visible(renderer, GAME_MENU_TITLE) {
+                if command_visible(renderer, GAME_MENU_TITLE)
+                    && self.checkpoint(renderer, &frame, "game-menu")
+                {
                     self.record_step("game-menu");
                     if self.click(renderer, host, input, GAME_MENU_TITLE)? {
                         self.step = NativeDemoE2eStep::AwaitTitleConfirmation;
@@ -241,7 +318,9 @@ impl NativeDemoE2eState {
                 }
             }
             NativeDemoE2eStep::AwaitTitleConfirmation => {
-                if command_visible(renderer, TITLE_CONFIRM) {
+                if command_visible(renderer, TITLE_CONFIRM)
+                    && self.checkpoint(renderer, &frame, "title-confirmation")
+                {
                     self.record_step("title-confirmation");
                     if self.click(renderer, host, input, TITLE_CONFIRM)? {
                         self.step = NativeDemoE2eStep::AwaitReturnedTitle;
@@ -249,7 +328,9 @@ impl NativeDemoE2eState {
                 }
             }
             NativeDemoE2eStep::AwaitReturnedTitle => {
-                if command_visible(renderer, TITLE_START) && command_visible(renderer, TITLE_CONFIG)
+                if command_visible(renderer, TITLE_START)
+                    && command_visible(renderer, TITLE_CONFIG)
+                    && self.checkpoint(renderer, &frame, "title-return")
                 {
                     self.record_step("title-return");
                     if self.click(renderer, host, input, TITLE_CONFIG)? {
@@ -258,7 +339,9 @@ impl NativeDemoE2eState {
                 }
             }
             NativeDemoE2eStep::AwaitSettings => {
-                if command_visible(renderer, SETTINGS_CLOSE) {
+                if command_visible(renderer, SETTINGS_CLOSE)
+                    && self.checkpoint(renderer, &frame, "settings")
+                {
                     self.settings_visited = true;
                     self.settings_topmost = topmost_ui_overlay_element_id(renderer).as_deref()
                         == Some(SETTINGS_ELEMENT_ID);
@@ -271,6 +354,7 @@ impl NativeDemoE2eState {
             NativeDemoE2eStep::AwaitTitleAfterSettings => {
                 if command_visible(renderer, TITLE_START)
                     && command_visible(renderer, TITLE_CHAPTERS)
+                    && self.checkpoint(renderer, &frame, "settings-return")
                 {
                     self.record_step("settings-return");
                     if self.click(renderer, host, input, TITLE_CHAPTERS)? {
@@ -279,7 +363,9 @@ impl NativeDemoE2eState {
                 }
             }
             NativeDemoE2eStep::AwaitChapters => {
-                if command_visible(renderer, CHAPTERS_CLOSE) {
+                if command_visible(renderer, CHAPTERS_CLOSE)
+                    && self.checkpoint(renderer, &frame, "chapters")
+                {
                     self.chapters_visited = true;
                     self.chapters_topmost = topmost_ui_overlay_element_id(renderer).as_deref()
                         == Some(CHAPTERS_ELEMENT_ID);
@@ -290,7 +376,9 @@ impl NativeDemoE2eState {
                 }
             }
             NativeDemoE2eStep::AwaitFinalTitle => {
-                if command_visible(renderer, TITLE_START) {
+                if command_visible(renderer, TITLE_START)
+                    && self.checkpoint(renderer, &frame, "chapters-return")
+                {
                     self.record_step("chapters-return");
                     self.finish()?;
                 }
@@ -305,17 +393,25 @@ impl NativeDemoE2eState {
         renderer: &mut NativeRenderer<B, A, V, F>,
         host: &mut InMemoryNativeHostApi,
         input: &mut NativeWindowSmokeInputState,
+        frame: &serde_json::Value,
     ) -> Result<(), NativeWindowSmokeError>
     where
         B: NativeRenderBackend,
     {
         match self.dialogue_click_phase {
             DialogueClickPhase::Reveal => {
-                if self.click_dialogue_area(renderer, host, input)? {
+                if dialogue_revealed(frame) || self.click_dialogue_area(renderer, host, input)? {
                     self.dialogue_click_phase = DialogueClickPhase::Advance;
                 }
             }
             DialogueClickPhase::Advance => {
+                if !dialogue_revealed(frame)
+                    || self
+                        .dialogue_observed_at
+                        .is_none_or(|at| at.elapsed() < Duration::from_millis(250))
+                {
+                    return Ok(());
+                }
                 if self.click_dialogue_area(renderer, host, input)? {
                     self.dialogue_advance_count = self.dialogue_advance_count.saturating_add(1);
                     self.dialogue_click_phase = DialogueClickPhase::AwaitProjectionChange;
@@ -326,8 +422,8 @@ impl NativeDemoE2eState {
         Ok(())
     }
 
-    fn observe_dialogue_frame(&mut self, frame_json: &str) {
-        let Some(signature) = dialogue_signature(frame_json) else {
+    fn observe_dialogue_frame(&mut self, frame: &serde_json::Value) {
+        let Some(signature) = dialogue_signature(frame) else {
             return;
         };
         if self.dialogue_signature.as_deref() != Some(signature.as_str()) {
@@ -342,6 +438,7 @@ impl NativeDemoE2eState {
         self.dialogue_signature = Some(signature);
         self.dialogue_line_count = self.dialogue_line_count.saturating_add(1);
         self.dialogue_click_phase = DialogueClickPhase::Reveal;
+        self.dialogue_observed_at = Some(Instant::now());
         self.last_progress_at = Some(Instant::now());
     }
 
@@ -375,6 +472,9 @@ impl NativeDemoE2eState {
             dialogue_line_count: self.dialogue_line_count,
             dialogue_advance_count: self.dialogue_advance_count,
             skip_used: self.skip_started,
+            skip_stopped: self.skip_stopped,
+            skip_stop_reason: self.skip_stop_reason.clone(),
+            visual_checkpoints: self.visuals.completed.clone(),
             selected_choice_id: self.selected_choice_id.clone(),
             settings_visited: self.settings_visited,
             chapters_visited: self.chapters_visited,
@@ -389,6 +489,21 @@ impl NativeDemoE2eState {
         println!("Qua native demo e2e json: {json}");
         self.report_emitted = true;
         Ok(())
+    }
+
+    fn checkpoint<B, A, V, F>(
+        &mut self,
+        renderer: &NativeRenderer<B, A, V, F>,
+        frame: &serde_json::Value,
+        name: &str,
+    ) -> bool
+    where
+        B: NativeRenderBackend,
+    {
+        let Some(rendered) = renderer.state().frame() else {
+            return false;
+        };
+        self.visuals.ready(name, frame, rendered.graph.layout)
     }
     fn click<B, A, V, F>(
         &self,
@@ -469,35 +584,30 @@ where
     })
 }
 
-fn dialogue_signature(frame_json: &str) -> Option<String> {
-    let frame = serde_json::from_str::<serde_json::Value>(frame_json).ok()?;
-    let dialogue = frame.pointer("/view/dialogue")?;
-    let text = dialogue.get("text")?;
-    let text = text
-        .as_str()
-        .map(str::to_string)
-        .unwrap_or_else(|| text.to_string());
-    if text.is_empty() || text == "null" {
-        return None;
-    }
-    let speaker = dialogue
-        .get("speaker")
+fn flow_control_is_skip(frame: &serde_json::Value) -> bool {
+    frame
+        .pointer("/view/flowControl/mode")
         .and_then(serde_json::Value::as_str)
-        .unwrap_or_default();
-    Some(format!("{speaker}\n{text}"))
+        == Some("skip")
 }
 
-fn flow_control_is_skip(frame_json: &str) -> bool {
-    serde_json::from_str::<serde_json::Value>(frame_json)
-        .ok()
-        .and_then(|frame| {
-            frame
-                .pointer("/view/flowControl/mode")
-                .and_then(serde_json::Value::as_str)
-                .map(str::to_string)
-        })
-        .as_deref()
-        == Some("skip")
+fn story_checkpoint(frame: &serde_json::Value) -> Option<&'static str> {
+    let background = frame.pointer("/view/background/assetName")?.as_str()?;
+    let characters = visible_characters(frame);
+    let has = |id: &str| characters.iter().any(|character| character == id);
+    match background {
+        "backgrounds/town-bus-rain.webp" if has("mara") => Some("story-mara"),
+        "backgrounds/town-street-rain-anime-v3.webp" if has("mara") => Some("story-street"),
+        "backgrounds/radio-studio-day-anime-v3.webp"
+            if has("mara") && has("haruka") && has("yumi") =>
+        {
+            Some("story-team")
+        }
+        "backgrounds/radio-studio-day-anime-v3.webp" if has("mara") && has("haruka") => {
+            Some("story-studio")
+        }
+        _ => None,
+    }
 }
 
 #[cfg(test)]

@@ -6,11 +6,17 @@ use super::super::RealWgpuNativeRenderRuntimeTarget;
 pub(in super::super) fn capture_backdrop(
     target: &RealWgpuNativeRenderRuntimeTarget,
     source: &RealRuntimeFrameTarget,
-    scratch: &mut Option<wgpu::Texture>,
+    scratch: &mut BackdropResources,
     encoder: &mut wgpu::CommandEncoder,
     layout: &wgpu::BindGroupLayout,
+    command_id: &str,
 ) -> wgpu::BindGroup {
     let view = capture_backdrop_view(target, source, scratch, encoder);
+    let sigma = scratch.radii.get(command_id).copied().unwrap_or(0.0);
+    let view = scratch
+        .blur
+        .get_or_insert_with(|| super::super::pass::shadow_blur::ShadowBlur::new_color(target))
+        .render(target, &view, encoder, sigma);
     let sampler = target.device().create_sampler(&wgpu::SamplerDescriptor {
         mag_filter: wgpu::FilterMode::Linear,
         min_filter: wgpu::FilterMode::Linear,
@@ -39,16 +45,17 @@ pub(in super::super) fn capture_backdrop(
 pub(in super::super) fn capture_backdrop_view(
     target: &RealWgpuNativeRenderRuntimeTarget,
     source: &RealRuntimeFrameTarget,
-    scratch: &mut Option<wgpu::Texture>,
+    scratch: &mut BackdropResources,
     encoder: &mut wgpu::CommandEncoder,
 ) -> wgpu::TextureView {
     let extent = source.extent();
     let format = source.color_format();
     if scratch
+        .capture
         .as_ref()
         .is_none_or(|t| t.size() != extent || t.format() != format)
     {
-        *scratch = Some(target.device().create_texture(&wgpu::TextureDescriptor {
+        scratch.capture = Some(target.device().create_texture(&wgpu::TextureDescriptor {
             label: Some("qua-native::backdrop-capture"),
             size: extent,
             mip_level_count: 1,
@@ -59,7 +66,7 @@ pub(in super::super) fn capture_backdrop_view(
             view_formats: &[],
         }));
     }
-    let texture = scratch.as_ref().unwrap();
+    let texture = scratch.capture.as_ref().unwrap();
     encoder.copy_texture_to_texture(
         source.texture().as_image_copy(),
         texture.as_image_copy(),
@@ -67,4 +74,19 @@ pub(in super::super) fn capture_backdrop_view(
     );
     let view = texture.create_view(&Default::default());
     view
+}
+
+#[derive(Clone, Debug, Default)]
+pub(in super::super) struct BackdropResources {
+    capture: Option<wgpu::Texture>,
+    blur: Option<super::super::pass::shadow_blur::ShadowBlur>,
+    pub radii: std::collections::BTreeMap<String, f64>,
+}
+impl BackdropResources {
+    pub fn byte_len(&self) -> usize {
+        self.capture
+            .as_ref()
+            .map_or(0, |t| t.width() as usize * t.height() as usize * 4)
+            + self.blur.as_ref().map_or(0, |b| b.byte_len())
+    }
 }

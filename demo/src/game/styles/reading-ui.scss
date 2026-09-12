@@ -30,7 +30,12 @@
 .vn-chapter-arrow { position: absolute; right: 16px; top: 50%; width: 9px; height: 9px; border-top: 1px solid var(--vn-sea); border-right: 1px solid var(--vn-sea); transform: translateY(-50%) rotate(45deg); }
 
 // Static procedural grain, embedded in the stylesheet; no downloaded image or animation.
-.game-root :is(.vn-title-surface, .vn-story-tree, .qua-menu-overlay, .qua-save-load-panel, .qua-settings-panel, .qua-confirm-overlay, .qua-backlog-panel, .qua-dialogue-box) {
+.game-root :is(.vn-story-tree, .qua-menu-overlay, .qua-save-load-panel, .qua-settings-panel, .qua-confirm-overlay, .qua-backlog-panel, .qua-dialogue-box) {
   background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22240%22%20height%3D%22240%22%3E%3Cfilter%20id%3D%22grain%22%3E%3CfeTurbulence%20type%3D%22fractalNoise%22%20baseFrequency%3D%22.78%22%20numOctaves%3D%223%22%20seed%3D%2211%22%20stitchTiles%3D%22stitch%22%2F%3E%3CfeColorMatrix%20type%3D%22saturate%22%20values%3D%220%22%2F%3E%3CfeComponentTransfer%3E%3CfeFuncA%20type%3D%22linear%22%20slope%3D%22.09%22%2F%3E%3C%2FfeComponentTransfer%3E%3C%2Ffilter%3E%3Cpath%20fill%3D%22%23fff%22%20filter%3D%22url%28%23grain%29%22%20d%3D%22M0%200h240v240H0z%22%2F%3E%3C%2Fsvg%3E");
   background-size: 240px 240px;
 }
+
+.game-root[data-title-surface="true"] .vn-main-menu__title,
+.game-root[data-title-surface="true"] .vn-main-menu__actions button { color: #fffdf7; }
+.game-root[data-title-surface="true"] .vn-main-menu__english-title,
+.game-root[data-title-surface="true"] .vn-main-menu__hint { color: #e3ebe2; }

@@ -64,7 +64,7 @@ fn renders_shared_compiled_qui_qss_fixture_through_wgpu_backend_plans() {
         .expect("expected title text quad");
     assert!(matches!(
         &title.paint,
-        WgpuNativeRenderPaint::TextPlaceholder { text, .. } if text == "Compiled Menu"
+        WgpuNativeRenderPaint::TextPlaceholder { text, .. } if text == "Native smoke preview"
     ));
 
     let settings = mesh_plan
@@ -75,7 +75,7 @@ fn renders_shared_compiled_qui_qss_fixture_through_wgpu_backend_plans() {
         .expect("expected settings button quad");
     assert!(matches!(
         &settings.text_overlay,
-        Some(WgpuNativeRenderTextOverlay { text, .. }) if text == "Settings"
+        Some(WgpuNativeRenderTextOverlay { text, .. }) if text == "打开设置"
     ));
 
     let runtime_plan = renderer

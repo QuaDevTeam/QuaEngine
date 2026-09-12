@@ -70,6 +70,7 @@ pub enum UiSurfaceObjectFitProjection {
 pub enum UiSurfaceBorderStyleProjection {
     None,
     Solid,
+    Dashed,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]

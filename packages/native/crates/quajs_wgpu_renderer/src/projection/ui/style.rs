@@ -156,7 +156,8 @@ pub struct ResolvedBorderEdges {
 /// switches the node from the single shader border to per-edge draw commands.
 /// `border-style: none` suppresses every edge.
 pub fn resolve_border_edges(style: &UiSurfaceResolvedStyle) -> Option<ResolvedBorderEdges> {
-    let has_per_side = style.border_top_width.is_some()
+    let has_per_side = style.border_style == Some(UiSurfaceBorderStyleProjection::Dashed)
+        || style.border_top_width.is_some()
         || style.border_right_width.is_some()
         || style.border_bottom_width.is_some()
         || style.border_left_width.is_some()

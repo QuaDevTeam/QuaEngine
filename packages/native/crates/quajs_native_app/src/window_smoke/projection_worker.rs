@@ -193,7 +193,7 @@ impl NativeProjectionWorker {
         let Ok(mut runtime) = self.runtime.lock() else {
             return false;
         };
-        let scrolled = runtime.scroll_at_client(client_x, client_y, delta_x, delta_y);
+        let scrolled = runtime.scroll_at_logical(client_x, client_y, delta_x, delta_y);
         drop(runtime);
         if scrolled {
             self.request_tick();

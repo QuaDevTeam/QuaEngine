@@ -100,6 +100,9 @@ pub enum BackgroundFit {
 pub struct BackgroundProjection {
     pub mode: BackgroundMode,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub character_lighting:
+        Option<crate::projection::character::lighting::CharacterLightingProjection>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub asset_name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub asset_type: Option<String>,
@@ -135,6 +138,7 @@ impl Default for BackgroundProjection {
     fn default() -> Self {
         Self {
             mode: BackgroundMode::Image,
+            character_lighting: None,
             asset_name: None,
             asset_type: None,
             fit: BackgroundFit::Cover,

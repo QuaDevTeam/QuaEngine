@@ -26,6 +26,13 @@ export interface NativeDemoAppListItem {
   disabled?: boolean
 }
 
+export interface NativeDemoChapterItem extends NativeDemoAppListItem {
+  chapter: string
+  description?: string
+  current?: boolean
+  unlocked?: boolean
+}
+
 export interface NativeDemoAppSettingItem {
   id: string
   label: string
@@ -51,7 +58,7 @@ export interface NativeDemoAppSurfaceState {
   saveSlotItems: readonly SaveSlotProjection[]
   screen: NativeDemoAppScreen
   skipActive: boolean
-  storyTreeItems: readonly NativeDemoAppListItem[]
+  storyTreeItems: readonly NativeDemoChapterItem[]
   title: string
   titleSurface: boolean
   /** Gallery image items (id = asset name). */

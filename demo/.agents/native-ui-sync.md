@@ -1,3 +1,5 @@
+> Current pixel and interaction evidence: [2026-09-12 Web/Native parity review](native-renderer-parity-2026-09-12.md). The notes below describe the earlier migration.
+
 # Native demo UI synchronization — 2026-09-10
 
 ## Confirmed problem

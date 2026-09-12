@@ -42,6 +42,10 @@ mod events;
 pub(super) struct NativeWindowSmokeApp {
     frame_source: String,
     window: Option<Arc<Window>>,
+    #[cfg(target_os = "macos")]
+    window_modifiers: winit::keyboard::ModifiersState,
+    #[cfg(target_os = "macos")]
+    window_drag_pending_release: bool,
     product_shell: Option<NativeProductAppShell<NativeProductWindowInMemoryLoop>>,
     input: NativeWindowSmokeInputState,
     texture_metrics: NativeWindowSmokeTextureMetrics,
@@ -52,8 +56,8 @@ pub(super) struct NativeWindowSmokeApp {
     /// nothing has changed on a static screen.
     frame_composer: NativeWindowFrameComposer,
     /// Owns the target render cadence. Continuous windows park in
-    /// `ControlFlow::WaitUntil(pacer.next_deadline())` between frames; finite
-    /// smoke and E2E runs bypass pacing so CI is not slowed down.
+    /// `ControlFlow::WaitUntil(pacer.next_deadline())` between frames. Product
+    /// E2E uses the same cadence; only finite GPU fixture audits bypass pacing.
     pacer: NativeProductFramePacer,
     /// Whether this run enforces the frame deadline at all.
     pacing_enabled: bool,
@@ -91,12 +95,16 @@ pub(super) struct NativeWindowSmokeApp {
 impl NativeWindowSmokeApp {
     pub(super) fn new(frame_source: String, event_loop_proxy: EventLoopProxy<()>) -> Self {
         let target_fps_env_override = load_window_target_fps_override();
-        // Only the continuous dev/product window paces. Finite smoke runs and
-        // the E2E flow render as fast as they can so CI stays quick.
-        let pacing_enabled = native_window_dev_enabled() && !native_window_demo_e2e_enabled();
+        // Exercise the product at its normal cadence. Unbounded E2E redraws
+        // compete with resource loading and hide the player's actual timing.
+        let pacing_enabled = native_window_dev_enabled() || native_window_demo_e2e_enabled();
         Self {
             frame_source,
             window: None,
+            #[cfg(target_os = "macos")]
+            window_modifiers: winit::keyboard::ModifiersState::empty(),
+            #[cfg(target_os = "macos")]
+            window_drag_pending_release: false,
             product_shell: None,
             input: NativeWindowSmokeInputState::default(),
             texture_metrics: NativeWindowSmokeTextureMetrics::default(),
@@ -145,6 +153,9 @@ impl NativeWindowSmokeApp {
 
         let mut attributes = Window::default_attributes()
             .with_title(native_window_title())
+            // macOS game windows present only the authored stage, without the
+            // system titlebar or traffic-light buttons.
+            .with_decorations(!cfg!(target_os = "macos"))
             .with_inner_size(LogicalSize::new(960.0, 540.0));
         if let Some(size) = load_window_capture_size() {
             attributes = attributes.with_inner_size(size);
@@ -375,6 +386,7 @@ impl NativeWindowSmokeApp {
             .take()
             .map(|control| std::rc::Rc::new(std::cell::RefCell::new(control)));
         let control_for_input = control.clone();
+        let demo_e2e = std::cell::RefCell::new(&mut self.demo_e2e);
         let product_frame_result = product_shell
             .window_loop_mut()
             .render_projection_json_frame(
@@ -383,8 +395,8 @@ impl NativeWindowSmokeApp {
                     if let Some(control) = &control_for_input {
                         control.borrow_mut().drain(renderer, host, &mut self.input)?;
                     }
-                    if self.demo_e2e.is_running() {
-                        self.demo_e2e
+                    if demo_e2e.borrow().is_running() {
+                        demo_e2e.borrow_mut()
                             .tick(renderer, host, &mut self.input, &frame_json)
                     } else if native_window_dev_enabled() {
                         Ok(())
@@ -394,6 +406,12 @@ impl NativeWindowSmokeApp {
                     }
                 },
                 |runtime| {
+                    if demo_e2e.borrow().has_pending_capture() {
+                        let capture = runtime.capture_frame_png().map_err(|error| {
+                            NativeWindowSmokeError::new(format!("Failed to capture E2E checkpoint: {error}."))
+                        })?;
+                        demo_e2e.borrow_mut().capture_checkpoint(&capture)?;
+                    }
                     let has_pending_captures = control
                         .as_ref()
                         .is_some_and(|control| control.borrow().has_pending_captures());
@@ -423,6 +441,7 @@ impl NativeWindowSmokeApp {
                     Ok::<(), NativeWindowSmokeError>(())
                 },
             );
+        drop(demo_e2e);
         self.product_shell = Some(product_shell);
         // The input closure holds its own Rc clone; drop it before the unwrap.
         drop(control_for_input);
@@ -619,7 +638,28 @@ impl NativeWindowSmokeApp {
         };
         #[cfg(feature = "quickjs-rquickjs")]
         if let Some(worker) = self.projection_worker.as_ref() {
-            return worker.scroll_at(point.client_x, point.client_y, delta_x, delta_y);
+            let Some(frame) = self
+                .product_shell
+                .as_ref()
+                .and_then(|shell| shell.window_loop().runtime().renderer().state().frame())
+            else {
+                return false;
+            };
+            let layout = &frame.graph.layout;
+            let logical = quajs_wgpu_renderer::stage_layout::client_point_to_stage_logical(
+                layout,
+                point,
+                Default::default(),
+            );
+            if !logical.inside_stage {
+                return false;
+            }
+            return worker.scroll_at(
+                logical.x,
+                logical.y,
+                delta_x / layout.scale,
+                delta_y / layout.scale,
+            );
         }
         false
     }

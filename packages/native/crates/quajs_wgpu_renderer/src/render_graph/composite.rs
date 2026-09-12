@@ -96,6 +96,7 @@ pub struct CompositeDropShadow {
 /// its complete subtree. Blend is evaluated against its parent's backdrop.
 #[derive(Clone, Debug, PartialEq)]
 pub struct DrawCompositeGroup {
+    pub character_lighting: Option<CompositeCharacterLighting>,
     /// Local logical affine transform [a,b,c,d,tx,ty], applied after compositing.
     pub transform: [f64; 6],
     pub blur_radius: f64,
@@ -116,6 +117,7 @@ pub struct DrawCompositeGroup {
 impl Default for DrawCompositeGroup {
     fn default() -> Self {
         Self {
+            character_lighting: None,
             transform: [1.0, 0.0, 0.0, 1.0, 0.0, 0.0],
             blur_radius: 0.0,
             id: String::new(),
@@ -132,4 +134,16 @@ impl Default for DrawCompositeGroup {
             mask_rotation: 0.0,
         }
     }
+}
+
+/// Grading of the composed sprite. Bounds are the full unclipped sprite box;
+/// normalized shading coordinates rotate with the character, not the viewport.
+#[derive(Clone, Debug, PartialEq)]
+pub struct CompositeCharacterLighting {
+    pub ambient: [f32; 3],
+    pub shade_color: [f32; 3],
+    pub from: [f32; 2],
+    pub to: [f32; 2],
+    pub bounds: LogicalRect,
+    pub rotation_radians: f32,
 }

@@ -431,7 +431,7 @@ Button {
   box-sizing: padding-box;
   border-radius: calc(4px);
   border-color: ../native.dll;
-  border-style: dashed;
+  border-style: dotted;
   color: rgb(300, 0, 0);
   display: block;
   font-style: oblique;
@@ -510,7 +510,7 @@ Button {
   box-sizing: padding-box;
   border-radius: calc(4px);
   border-color: ../native.dll;
-  border-style: dashed;
+  border-style: dotted;
   color: rgb(300, 0, 0);
   display: block;
   font-style: oblique;
@@ -615,7 +615,7 @@ Button {
       }),
       expect.objectContaining({
         code: 'QSS_INVALID_VALUE',
-        message: expect.stringContaining('border-style supports solid or none'),
+        message: expect.stringContaining('border-style supports solid, dashed or none'),
       }),
       expect.objectContaining({
         code: 'QSS_INVALID_VALUE',

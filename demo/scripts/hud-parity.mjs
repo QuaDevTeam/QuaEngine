@@ -7,7 +7,7 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 const output = resolve('demo/dist/native/hud-parity')
 const exec = promisify(execFile)
-const native = async (...args) => (await exec(process.execPath, ['demo/scripts/native-control.mjs', ...args], { maxBuffer: 16 * 1024 * 1024 })).stdout
+const native = async (...args) => (await exec(process.execPath, ['demo/scripts/native-control.mjs', ...args], { maxBuffer: 16 * 1024 * 1024, timeout: 35000, killSignal: 'SIGKILL' })).stdout
 const browser = await chromium.launch({ ...(process.env.QUA_PARITY_CHROMIUM
   ? { executablePath: process.env.QUA_PARITY_CHROMIUM }
   : { channel: process.env.QUA_PARITY_BROWSER || 'chrome' }) })
@@ -82,6 +82,15 @@ async function verifyToolbar() {
 }
 async function run() {
   await page.goto(process.env.QUA_PARITY_WEB_URL || 'http://127.0.0.1:5173')
+  await page.getByRole('button', { name: '从头开始', exact: true }).waitFor()
+  await capture('title', ['.vn-main-menu__title', '.vn-main-menu__actions button', '.vn-main-menu__hint'])
+  await page.getByRole('button', { name: '章节选择', exact: true }).click()
+  await click('native-main-menu-story-tree')
+  await native('wait', 'ui:native-app-shell:native-story-tree-close')
+  await capture('chapters', ['.qua-story-tree__panel', '.qua-story-tree__node', '.qua-story-tree__chapter', '.qua-story-tree__node-title'])
+  await page.locator('.qua-story-tree__close').click()
+  await click('native-story-tree-close')
+  await native('wait', 'ui:native-app-shell:native-main-menu-start')
   await page.getByRole('button', { name: '从头开始', exact: true }).click()
   await click('native-main-menu-start')
   await page.locator('.qua-dialogue-text').waitFor()
@@ -94,7 +103,7 @@ async function run() {
   await page.locator('.vn-quick-menu button').filter({ hasText: /^记录$/ }).click()
   await click('native-game-hud-log')
   await native('wait', 'ui:backlog:backlog-close')
-  await capture('backlog', ['.qua-backlog-panel', '.qua-backlog-header', '.qua-backlog-entry'])
+  await capture('backlog', ['.qua-backlog-panel', '.qua-backlog-header', '.qua-backlog-entry', '.qua-backlog-entry-text', '.qua-backlog-list', '.vn-backlog-footer'])
   await page.locator('.qua-backlog-close').click()
   await native('clickCommand', 'ui:backlog:backlog-close')
   await nativeReturnToGame()
@@ -131,6 +140,7 @@ async function run() {
   await nativeReturnToGame()
   const checks = []
   for (const [screen, selector, id] of [
+    ['chapters', '.qua-story-tree__panel', 'ui:native-app-shell:native-story-tree-panel'],
     ['toolbar', '.vn-quick-menu', 'ui:native-app-shell:native-quick-menu'],
     ['menu', '.qua-menu-overlay', 'ui:native-app-shell:native-game-menu-panel'],
     ['save', '.qua-save-load-panel', 'ui:native-app-shell:native-save-load-panel'],
@@ -143,16 +153,7 @@ async function run() {
     const command = screens[screen].native.find(command => command.id === id)
     assert(web && command, `Missing ${screen} panel`)
     const error = Math.max(...['x', 'y', 'width', 'height'].map(key => Math.abs(web[key] * 2 - command.bounds[key])))
-    // Native keeps single-column settings and fixed-height menu/confirm panels;
-    // Web wraps these to content. Compare exact authored fixed surfaces, then
-    // assert readable centred bounds for the deliberate platform reflow.
-    const fixed = ['toolbar', 'save', 'load', 'backlog'].includes(screen)
-    const bounds = command.bounds
-    const centred = Math.abs(bounds.x + bounds.width / 2 - 960) < 1
-      && Math.abs(bounds.y + bounds.height / 2 - 540) < 1
-      && bounds.width >= 700 && bounds.height >= 300
-      && bounds.x >= 0 && bounds.y >= 0 && bounds.x + bounds.width <= 1920 && bounds.y + bounds.height <= 1080
-    checks.push({ screen, maxLogicalPixelError: error, layout: fixed ? 'shared-fixed' : 'native-content-layout', passed: fixed ? error <= 3 : centred })
+    checks.push({ screen, maxLogicalPixelError: error, passed: error <= 3 })
   }
   const expectedMenu = ['继续阅读', '保存进度', '读取存档', '设置', '返回标题']
   assert.deepEqual(screens.menu.web['.qua-menu-action'].map(item => item.text.trim().toUpperCase()), expectedMenu)
@@ -171,6 +172,6 @@ async function run() {
 <style>body{background:#151820;color:white;font:16px sans-serif;margin:24px}section{margin:24px 0}.compare{position:relative;width:min(100%,1200px)}img{width:100%;display:block}.native{position:absolute;inset:0;clip-path:inset(0 50% 0 0)}input{width:min(100%,1200px)}</style>
 <h1>HUD 与工具栏面板：Native 左 / Web 右</h1>${Object.keys(screens).map(name => `<section><h2>${name}</h2><div class="compare"><img src="web-${name}.png"><img class="native" src="native-${name}.png"></div><input type="range" value="50" oninput="this.previousElementSibling.lastElementChild.style.clipPath='inset(0 '+(100-this.value)+'% 0 0)'"></section>`).join('')}`)
   assert(checks.every(check => check.passed), `HUD geometry mismatch: ${JSON.stringify(checks)}`)
-  console.log('PASS: fixed panel parity, native content bounds, menu order and nine-slot grids; hover captures saved')
+  console.log('PASS: Web/native panel geometry, chapter layout, menu order and nine-slot grids; hover captures saved')
 }
 try { await run() } finally { await browser.close() }

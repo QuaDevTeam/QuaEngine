@@ -50,7 +50,6 @@ export function NativeApp({ view }: { view: NativeAppView }) {
     <Stack id="native-app-root" class="native-app">
       <ShellVignette />
       {view.titleSurface && <TitleSurface view={view} />}
-      {!view.titleSurface && view.screen !== 'game' && <GameHud view={view} />}
       {Screen && <Screen view={view} />}
     </Stack>
   )

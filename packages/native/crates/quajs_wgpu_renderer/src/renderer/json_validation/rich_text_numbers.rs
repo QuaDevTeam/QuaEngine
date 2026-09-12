@@ -6,6 +6,18 @@ pub(super) fn invalid_native_json_rich_text_style_number_reason(
 ) -> Option<(&'static str, String, String)> {
     validate_optional_text_value("fontSize", style.font_size.as_ref(), false)
         .or_else(|| validate_optional_text_value("lineHeight", style.line_height.as_ref(), true))
+        .or_else(|| {
+            style
+                .letter_spacing
+                .filter(|v| !v.is_finite() || !(0.0..=4096.0).contains(v))
+                .map(|v| {
+                    (
+                        "letterSpacing",
+                        v.to_string(),
+                        "letter spacing must be finite logical pixels in 0..4096".into(),
+                    )
+                })
+        })
 }
 
 fn validate_optional_text_value(

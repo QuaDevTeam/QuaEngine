@@ -166,6 +166,10 @@ impl ApplicationHandler for NativeWindowSmokeApp {
                     return;
                 }
                 if !focused {
+                    #[cfg(target_os = "macos")]
+                    {
+                        self.window_modifiers = winit::keyboard::ModifiersState::empty();
+                    }
                     if let Err(error) = self.cancel_window_ime_composition() {
                         self.fail_and_exit(event_loop, error);
                         return;
@@ -181,12 +185,39 @@ impl ApplicationHandler for NativeWindowSmokeApp {
                     self.fail_and_exit(event_loop, error);
                 }
             }
+            #[cfg(target_os = "macos")]
+            WindowEvent::ModifiersChanged(modifiers) => {
+                self.window_modifiers = modifiers.state();
+            }
             WindowEvent::Ime(event) => {
                 if let Err(error) = self.dispatch_window_ime_event(&event) {
                     self.fail_and_exit(event_loop, error);
                 }
             }
             WindowEvent::MouseInput { state, button, .. } => {
+                // Keep borderless macOS windows movable without reserving a
+                // strip of the logical stage or stealing ordinary game clicks.
+                #[cfg(target_os = "macos")]
+                if button == winit::event::MouseButton::Left {
+                    if state == winit::event::ElementState::Released
+                        && std::mem::take(&mut self.window_drag_pending_release)
+                    {
+                        return;
+                    }
+                    if state == winit::event::ElementState::Pressed {
+                        // AppKit may consume the previous drag's release itself.
+                        self.window_drag_pending_release = self.window_modifiers.alt_key();
+                        if self.window_drag_pending_release {
+                            if let Some(window) = self.window.clone() {
+                                self.cancel_window_pointer_interaction();
+                                if let Err(error) = window.drag_window() {
+                                    log::warn!("Failed to drag native window: {error}");
+                                }
+                            }
+                            return;
+                        }
+                    }
+                }
                 self.last_input_at = Some(std::time::Instant::now());
                 let phase = pointer_phase_from_element_state(state);
                 let button = pointer_button_from_winit(button);

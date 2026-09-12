@@ -16,6 +16,7 @@ impl WgpuNativeRenderRuntimeDevice for RealWgpuNativeRenderRuntimeDevice {
         plan: &WgpuNativeRenderRuntimePlan,
     ) -> Result<(), WgpuNativeRenderRuntimeError> {
         self.composite_groups = plan.composite_groups.clone();
+        self.backdrop_resources.radii = plan.backdrop_blur_radii.clone();
         let has_blend = self
             .composite_groups
             .values()
@@ -39,7 +40,7 @@ impl WgpuNativeRenderRuntimeDevice for RealWgpuNativeRenderRuntimeDevice {
             if resource_ids.iter().any(|id| id == "system:backdrop-capture"))
             });
         if !has_backdrop {
-            self.backdrop_texture = None;
+            self.backdrop_resources = Default::default();
         }
         let depth = self
             .composite_groups
@@ -130,7 +131,7 @@ fn transient_target_bytes(
     let textures = (depth as u64)
         .saturating_add(1)
         .saturating_mul(attachments)
-        .saturating_add(u64::from(backdrop) + 2 * u64::from(blurred_shadow));
+        .saturating_add(3 * u64::from(backdrop) + 2 * u64::from(blurred_shadow));
     textures
         .saturating_mul(u64::from(width))
         .saturating_mul(u64::from(height))
@@ -145,11 +146,11 @@ mod memory_budget_tests {
     fn counts_resolve_msaa_and_auxiliary_targets() {
         assert_eq!(
             transient_target_bytes(2, true, true, 1920, 1080, 1),
-            6 * 1920 * 1080 * 4
+            8 * 1920 * 1080 * 4
         );
         assert_eq!(
             transient_target_bytes(2, true, true, 1920, 1080, 4),
-            18 * 1920 * 1080 * 4
+            20 * 1920 * 1080 * 4
         );
         assert!(transient_target_bytes(2, false, false, 3840, 2160, 4) > 256 * 1024 * 1024);
         assert_eq!(

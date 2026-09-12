@@ -1,5 +1,8 @@
 import type { NativeRendererFeatureSurfaceEntry, NativeRendererFeatureSurfaceOverlay } from '@quajs/engine-native'
 import type { NativeUiSurfaceNodeProjection, NativeUiSurfaceRect } from '@quajs/native-ui-compiler'
+import { layoutDemoSettings } from './settings-skin'
+import { layoutDemoBacklog } from './backlog-skin'
+import type { BacklogEntry } from '@quajs/plugin-backlog'
 
 const labels: Record<string, string> = {
   locale: '语言', textSpeedCps: '文字显示速度', autoAdvanceDelayMs: '自动阅读间隔',
@@ -19,7 +22,12 @@ const translations: Record<string, string> = {
 
 /** Restyle resolved plugin surfaces; keep all controls, package refs and pipeline intents. */
 export function withDemoFeatureSkin(entry: NativeRendererFeatureSurfaceEntry): NativeRendererFeatureSurfaceEntry {
-  return { ...entry, createOverlays(context) {
+  return { ...entry,
+    intentActions: [...(entry.intentActions || []), ...(entry.pluginId === 'backlog' ? [{
+      action: 'demo-backlog-scroll', event: 'native-ui/scroll',
+      createPayload: (payload: Readonly<Record<string, unknown>>) => ({ elementId: 'backlog', nodeId: payload.nodeId, edge: payload.edge }),
+    }] : [])],
+    createOverlays(context) {
     const result = entry.createOverlays(context)
     if (!result) return result
     const skin = (overlay: NativeRendererFeatureSurfaceOverlay) => {
@@ -43,7 +51,7 @@ export function withDemoFeatureSkin(entry: NativeRendererFeatureSurfaceEntry): N
         if (style.borderColor) style.borderColor = '#c7d2c5'
         if (style.backgroundColor && style.backgroundColor !== 'transparent') style.backgroundColor = '#fffdf7'
         if (node.id.endsWith('-panel')) style.backgroundColor = '#f5f3eb'
-        if (node.kind === 'Backdrop') { style.backgroundColor = '#183b34'; style.opacity = 0.5 }
+        if (node.kind === 'Backdrop') { style.backgroundColor = '#183b344d'; style.opacity = 1; style.backdropFilter = { blurRadius: 12 } }
         if (/divider|slider-track/.test(node.id)) style.backgroundColor = '#c7d2c5'
         if (/slider-(progress|thumb)$|chevron/.test(node.id)) style.backgroundColor = '#42796e'
         if (/switch-track/.test(node.id)) { style.backgroundColor = '#dce7db'; style.borderColor = '#42796e' }
@@ -79,7 +87,8 @@ export function withDemoFeatureSkin(entry: NativeRendererFeatureSurfaceEntry): N
         node.children = source.children?.map(visit)
         return node
       }
-      return { ...overlay, surface: { ...overlay.surface, root: visit(overlay.surface.root as unknown as NativeUiSurfaceNodeProjection) } }
+      const root = visit(overlay.surface.root as unknown as NativeUiSurfaceNodeProjection)
+      return { ...overlay, surface: { ...overlay.surface, root: settings ? layoutDemoSettings(root, context.logicalWidth, context.logicalHeight) : entry.pluginId === 'backlog' ? layoutDemoBacklog(root, context.projection.entries as unknown as readonly BacklogEntry[], context.logicalWidth, context.logicalHeight) : root } }
     }
     return Array.isArray(result) ? result.map(skin) : skin(result as NativeRendererFeatureSurfaceOverlay)
   } }

@@ -12,7 +12,10 @@ import { splitTopLevel } from './source'
 export interface NativeQuiProjectionStyleContext {
   ancestors: readonly NativeQuiAstNode[]
   node: NativeQuiAstNode
+  disabled?: boolean
 }
+
+type SelectorPseudoState = NativeQssInteractivePseudoState | 'disabled'
 
 interface SelectorSegment {
   classes: string[]
@@ -22,7 +25,7 @@ interface SelectorSegment {
 
 interface SelectorChain {
   direct: boolean[]
-  pseudoState?: NativeQssInteractivePseudoState
+  pseudoState?: SelectorPseudoState
   segments: SelectorSegment[]
   specificity: number
 }
@@ -38,10 +41,10 @@ export function resolveStyleForNode(
   qssDocuments: readonly NativeQssDocument[],
 ): NativeQssResolvedNodeStyle {
   const rules = qssDocuments.flatMap(document => document.rules)
-  const baseMatched = matchingRules(context, rules)
+  const baseMatched = [...matchingRules(context, rules), ...(context.disabled ? matchingRules(context, rules, 'disabled') : [])].sort(compareMatchedRules)
   const resolved = resolveNativeQssDeclarations(baseMatched.flatMap(item => item.rule.declarations))
 
-  for (const state of NATIVE_INTERACTIVE_PSEUDO_STATES) {
+  for (const state of context.disabled ? [] : NATIVE_INTERACTIVE_PSEUDO_STATES) {
     const stateMatched = matchingRules(context, rules, state)
     if (stateMatched.length === 0)
       continue
@@ -72,7 +75,7 @@ const NATIVE_INTERACTIVE_PSEUDO_STATES: readonly NativeQssInteractivePseudoState
 function matchingRules(
   context: NativeQuiProjectionStyleContext,
   rules: readonly NativeQssRule[],
-  pseudoState?: NativeQssInteractivePseudoState,
+  pseudoState?: SelectorPseudoState,
 ): MatchedRule[] {
   return rules
     .flatMap((rule, order): MatchedRule[] => matchingSpecificities(context, rule, pseudoState)
@@ -87,7 +90,7 @@ function compareMatchedRules(left: MatchedRule, right: MatchedRule): number {
 function matchingSpecificities(
   context: NativeQuiProjectionStyleContext,
   rule: NativeQssRule,
-  pseudoState?: NativeQssInteractivePseudoState,
+  pseudoState?: SelectorPseudoState,
 ): number[] {
   return splitTopLevel(rule.selector, ',')
     .map(item => parseSelectorChain(item.text.trim()))
@@ -101,8 +104,8 @@ function parseSelectorChain(selector: string): SelectorChain | undefined {
   if (!selector || selector.includes('::') || selector.includes('['))
     return undefined
 
-  const pseudoMatch = /:(hover|active|focus-visible|focus)$/.exec(selector)
-  const pseudoState = pseudoMatch?.[1] as NativeQssInteractivePseudoState | undefined
+  const pseudoMatch = /:(hover|active|focus-visible|focus|disabled)$/.exec(selector)
+  const pseudoState = pseudoMatch?.[1] as SelectorPseudoState | undefined
   const selectorWithoutPseudo = pseudoMatch
     ? selector.slice(0, -pseudoMatch[0].length)
     : selector

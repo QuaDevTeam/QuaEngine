@@ -51,44 +51,11 @@ fn vs_main(input: VertexInput) -> VertexOutput {
     return output;
 }
 
-// Bilinear-safe single-axis Gaussian: 5-tap kernel with weights
-//   [0.0625, 0.25, 0.375, 0.25, 0.0625]  (σ ≈ 0.85 · radius)
-// Two passes (horizontal + vertical) give a full 2-D Gaussian approximation.
-fn gaussian5(
-    tex: texture_2d<f32>,
-    smp: sampler,
-    uv: vec2<f32>,
-    step: vec2<f32>,
-) -> vec4<f32> {
-    var c = vec4<f32>(0.0);
-    c += textureSample(tex, smp, uv - step * 2.0) * 0.0625;
-    c += textureSample(tex, smp, uv - step)       * 0.25;
-    c += textureSample(tex, smp, uv)               * 0.375;
-    c += textureSample(tex, smp, uv + step)       * 0.25;
-    c += textureSample(tex, smp, uv + step * 2.0) * 0.0625;
-    return c;
-}
-
 @fragment
 fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
-    // Derive backdrop UVs from screen-space fragment position so this command
-    // always reads the pixel directly behind it regardless of the vertex UVs.
+    // The preceding two-pass Gaussian supplies a dense, premultiplied blur.
     let screen_uv = input.position.xy / max(frame.target_size, vec2<f32>(1.0));
-
-    let radius = max(input.effect0.x, 0.0);
-    let tex_size = vec2<f32>(textureDimensions(backdrop_texture));
-    // CSS filter blur uses sigma = radius. This binomial kernel has unit
-    // variance, so adjacent taps are one sigma apart.
-    let step_x = vec2<f32>(radius / max(tex_size.x, 1.0), 0.0);
-    let step_y = vec2<f32>(0.0, radius / max(tex_size.y, 1.0));
-
-    // Two-pass separable Gaussian via manual horizontal then vertical taps.
-    var blurred = vec4<f32>(0.0);
-    blurred += gaussian5(backdrop_texture, backdrop_sampler, screen_uv - step_y * 2.0, step_x) * 0.0625;
-    blurred += gaussian5(backdrop_texture, backdrop_sampler, screen_uv - step_y,       step_x) * 0.25;
-    blurred += gaussian5(backdrop_texture, backdrop_sampler, screen_uv,                step_x) * 0.375;
-    blurred += gaussian5(backdrop_texture, backdrop_sampler, screen_uv + step_y,       step_x) * 0.25;
-    blurred += gaussian5(backdrop_texture, backdrop_sampler, screen_uv + step_y * 2.0, step_x) * 0.0625;
+    let blurred = textureSample(backdrop_texture, backdrop_sampler, screen_uv);
 
     // Modulate by the command opacity (stored in vertex color.a) so presence
     // transitions work the same way they do for other Safe-plane draws.

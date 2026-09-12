@@ -2,7 +2,7 @@ import { defineComponent, h } from 'vue'
 import { useQuaRenderer, useRendererActions } from '@quajs/renderer-vue'
 import { QuaConfirmOverlay, QuaMenuOverlay, QuaOverlayLayer, QuaSaveLoadPanel } from '@quajs/renderer-vue/plugins/ui'
 import { RenderToLogicEvents, isFilledSaveSlot, type SaveSlotProjection } from '@quajs/render-core'
-import { DEMO_TITLE_CONFIRM, DEMO_GAME_ACTIONS } from '../ui-presentation'
+import { DEMO_TITLE_CONFIRM, DEMO_GAME_ACTIONS, demoSaveTimestamp } from '../ui-presentation'
 import { DEMO_TITLE_REQUEST_EVENT, SAVE_LOAD_SLOT_COUNT } from '../config'
 import { STORY_TREE_NODES } from '../content/story-tree'
 import { createUiScene, DEMO_OVERLAY_PLACEMENTS } from './scene'
@@ -70,7 +70,7 @@ export const DemoSystemPanels = defineComponent({
               h('span', { class: 'qua-save-slot-index' }, String(index + 1).padStart(2, '0')),
               h('span', { class: 'demo-slot-copy' }, [
                 h('strong', filled ? chapter?.title || '阅读进度' : '空存档'),
-                h('small', filled && slot.timestamp ? new Date(slot.timestamp).toLocaleString('zh-CN', { hour12: false }) : mode === 'save' ? '点击保存' : ''),
+                h('small', filled && slot.timestamp ? demoSaveTimestamp(slot.timestamp) : mode === 'save' ? '点击保存' : ''),
               ]),
             ])])
           })),

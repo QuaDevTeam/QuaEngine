@@ -16,6 +16,8 @@ pub struct DialogueChromeProjection {
     pub padding_bottom: f64,
     pub speaker_gap: f64,
     pub fill_color: String,
+    #[serde(default)]
+    pub background_image: Option<crate::projection::ui::UiSurfaceImageProjection>,
     pub border_color: String,
     pub accent_color: String,
     pub text_style: RichTextStyle,
@@ -150,6 +152,41 @@ pub(super) fn build(
             false,
         ),
     ];
+    if let Some(image) = &chrome.background_image {
+        commands.insert(
+            1,
+            apply_provenance(
+                DrawCommand::new(
+                    "dialogue:background-image",
+                    RenderPlane::Safe,
+                    DrawCommandKind::Image,
+                    panel,
+                )
+                .clip_bounds([panel])
+                .resource(crate::resources::ResourceId::new(format!(
+                    "{}:{}",
+                    image.asset_type, image.asset_name
+                )))
+                .params(DrawCommandParams::Image(ImageDrawParams {
+                    asset_type: image.asset_type.clone(),
+                    asset_name: image.asset_name.clone(),
+                    fit: MediaFit::None,
+                    origin: MediaOrigin { x: 0.0, y: 0.0 },
+                    source: panel,
+                    sampling: Default::default(),
+                    rotation_degrees: 0.0,
+                    brightness: 1.0,
+                    saturation: 1.0,
+                    contrast: 1.0,
+                    grayscale: 0.0,
+                    sepia: 0.0,
+                    hue_rotate_radians: 0.0,
+                    invert: 0.0,
+                })),
+                &dialogue.provenance,
+            ),
+        );
+    }
     if chrome.padding_bottom >= 32.0 {
         commands.push(panel_cmd(
             "dialogue:footer-rule",

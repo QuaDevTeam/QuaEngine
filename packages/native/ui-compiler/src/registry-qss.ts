@@ -178,6 +178,7 @@ export const nativeQssProperties: readonly NativeQssPropertyDefinition[] = [
   property('background-repeat', 'p2', false, 'Background image repeat mode planned for native style IR.'),
   property('border-style', 'p1', true, 'Limited native border style subset for rectangular surfaces.', [
     value('solid', 'Render the border using border-width and border-color.'),
+    value('dashed', 'Render bounded dash segments using the authored border widths and colors.'),
     value('none', 'Suppress the border regardless of border-width and border-color.'),
   ]),
   property('visibility', 'p1', true, 'Node visibility emitted as resolved native UI projection metadata.', [

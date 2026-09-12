@@ -70,7 +70,8 @@ fn real_noop_composites_nested_opacity_and_reuses_bounded_targets() {
             .backend()
             .runtime_snapshot()
             .resident_compositor_texture_byte_len,
-        3 * 320 * 180 * 4
+        // Two opacity layers, one backdrop capture, and two Gaussian passes.
+        5 * 320 * 180 * 4
     );
     renderer
         .prepare_and_render_json_str(&glass.to_string())

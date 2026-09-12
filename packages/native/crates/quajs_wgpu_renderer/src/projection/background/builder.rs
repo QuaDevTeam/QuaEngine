@@ -411,6 +411,7 @@ fn composition_group(
         .cloned()
         .unwrap_or_default();
     DrawCompositeGroup {
+        character_lighting: None,
         transform: [1.0, 0.0, 0.0, 1.0, 0.0, 0.0],
         id: id.to_string(),
         z_index,

@@ -67,6 +67,9 @@ pub struct RichTextStyle {
     pub font_weight: Option<FontWeightProjection>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub line_height: Option<RichTextMetric>,
+    /// Logical glyph spacing, inherited by document blocks and spans.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub letter_spacing: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub text_align: Option<String>,
 }

@@ -1,7 +1,35 @@
 import { describe, expect, it } from 'vitest'
-import { createNativeRendererJsonFrameInput } from '../src'
+import { createNativeRendererJsonFrameInput, createNativeRendererViewProjection } from '../src'
 
 describe('native renderer frame serialization', () => {
+  it('preserves engine-owned flow mode and policy across the native frame boundary', () => {
+    const flowControl = { revision: 3, mode: 'skip', skipMode: 'read', policy: { skippable: true }, stopAtChoices: true }
+    const frame = createNativeRendererJsonFrameInput({ flowControl })
+    expect(frame.view.flowControl).toEqual(flowControl)
+    flowControl.mode = 'normal'
+    flowControl.policy.skippable = false
+    expect(frame.view.flowControl).toMatchObject({ mode: 'skip', policy: { skippable: true } })
+    expect(createNativeRendererJsonFrameInput({ flowControl }).view.flowControl).toMatchObject({ mode: 'normal' })
+  })
+  it('preserves scene lighting without aliasing and clears it on an unlit background', () => {
+    const lighting = { ambient: [1.02, 0.98, 0.92], shade: { color: [0.9, 0.94, 1], from: [0.2, 0], to: [0.8, 1] } }
+    const view = { background: { mode: 'image', assetName: 'room.png', characterLighting: lighting } }
+    const frame = createNativeRendererJsonFrameInput(view)
+    expect(frame.view.background).toMatchObject({ characterLighting: lighting })
+    lighting.ambient[0] = 0
+    lighting.shade.from[0] = 1
+    expect(frame.view.background).toMatchObject({ characterLighting: { ambient: [1.02, 0.98, 0.92], shade: { from: [0.2, 0] } } })
+    expect(createNativeRendererJsonFrameInput({ background: { mode: 'image', assetName: 'day.png' } }).view.background)
+      .not.toHaveProperty('characterLighting')
+  })
+
+  it('uses the same bounded lighting defaults as the Web material', () => {
+    expect(createNativeRendererJsonFrameInput({ background: { mode: 'image', characterLighting: {
+      ambient: [-1, 9, Number.NaN], shade: { color: [9, -1], from: [-2, 4], to: [Number.NaN] },
+    } } }).view.background).toMatchObject({ characterLighting: {
+      ambient: [0, 1.5, 1], shade: { color: [1, 0, 1], from: [0, 1], to: [1, 1] },
+    } })
+  })
   it('preserves stage, camera, dialogue, choice and rich-span timeline results', () => {
     const track = (target: string, property: string) => ({ target, property, keyframes: [{ at: 0, value: 0 }, { at: 1000, value: 100 }] })
     const frame = createNativeRendererJsonFrameInput({
@@ -519,4 +547,23 @@ describe('native renderer frame serialization', () => {
       },
     })
   })
+})
+
+
+it('projects scene dialogue visibility without mutating the engine dialogue', () => {
+  const dialogue = { visible: true, text: 'Keep this checkpoint text', mode: 'narration' }
+  const overlay = { visible: true, elementId: 'backlog', scene: { id: 'backlog', presentation: 'overlay', overlay: { hideDialogue: true } } }
+  const hidden = createNativeRendererViewProjection({ dialogue, ui: { overlays: { backlog: overlay } } })
+  expect(hidden.dialogue).toMatchObject({ visible: false, text: dialogue.text })
+  expect(dialogue.visible).toBe(true)
+  expect(createNativeRendererViewProjection({ dialogue, ui: { overlays: {} } }).dialogue).toMatchObject({ visible: true })
+})
+
+
+it('preserves feature scene policy when generating a native surface from plugin state', () => {
+  const scene = { id: 'backlog', presentation: 'overlay', overlay: { hideDialogue: true } }
+  const view = { dialogue: { visible: true, text: 'Unchanged story' }, plugins: { backlog: { visible: true, ui: { scene } } } }
+  const result = createNativeRendererViewProjection(view, { featureSurfaces: [{ pluginId: 'backlog', createOverlays: () => ({ elementId: 'backlog', visible: true, surface: { key: 'test' } }) }] })
+  expect(result.dialogue).toMatchObject({ visible: false, text: 'Unchanged story' })
+  expect(view.dialogue.visible).toBe(true)
 })

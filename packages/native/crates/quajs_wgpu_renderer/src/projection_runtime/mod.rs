@@ -190,6 +190,7 @@ impl NativeRendererProjectionRuntime {
         self.received_at = Instant::now();
         self.received_epoch_ms = current_epoch_ms();
         self.cached_static_projection_json = None;
+        self.prune_scroll_offsets();
         self.sync_dialogue(self.received_epoch_ms);
         self.sync_presence(self.received_epoch_ms);
         Ok(())
@@ -211,10 +212,12 @@ impl NativeRendererProjectionRuntime {
                 self.received_at = Instant::now();
                 self.received_epoch_ms = current_epoch_ms();
                 self.cached_static_projection_json = None;
+                self.prune_scroll_offsets();
                 self.sync_dialogue(self.received_epoch_ms);
                 self.sync_presence(self.received_epoch_ms);
                 Ok(true)
             }
+            "native-ui/scroll" => Ok(self.scroll_to_edge(&payload)),
             "scene/change" => {
                 // Discard per-overlay scroll positions from the previous scene; they
                 // are renderer-local state keyed by elementId/nodeId, which may not
@@ -513,13 +516,13 @@ impl NativeRendererProjectionRuntime {
     }
 
     /// Scrolls the innermost scroll container in the current overlay tree that
-    /// contains the given client-coordinate point.  `client_x`/`client_y` are
-    /// in CSS logical pixels relative to the surface origin.  Returns `true`
+    /// contains the given point in engine logical stage units. Deltas use the
+    /// same units; the window adapter converts from client pixels.  Returns `true`
     /// when a scroll node was found and its offset actually changed.
-    pub fn scroll_at_client(
+    pub fn scroll_at_logical(
         &mut self,
-        client_x: f64,
-        client_y: f64,
+        logical_x: f64,
+        logical_y: f64,
         delta_x: f64,
         delta_y: f64,
     ) -> bool {
@@ -544,22 +547,65 @@ impl NativeRendererProjectionRuntime {
                 .unwrap_or("");
             if let Some(surface) = overlay.get("surface") {
                 if let Some(root) = surface.get("root") {
-                    find_scroll_node(root, client_x, client_y, element_id, 0.0, 0.0, &mut best);
+                    find_scroll_node(root, logical_x, logical_y, element_id, 0.0, 0.0, &mut best);
                 }
             }
         }
-        let Some((key, _json_cur_x, _json_cur_y, max_x, max_y)) = best else {
+        let Some((key, json_cur_x, json_cur_y, max_x, max_y)) = best else {
             return false;
         };
         // The authoritative current offset lives in `self.scroll_offsets`, not
         // in the base-frame JSON (which never has scrollOffsetX/Y written back).
-        let (cur_x, cur_y) = self.scroll_offsets.get(&key).copied().unwrap_or((0.0, 0.0));
+        let (cur_x, cur_y) = self
+            .scroll_offsets
+            .get(&key)
+            .copied()
+            .unwrap_or((json_cur_x, json_cur_y));
         let new_x = (cur_x + delta_x).clamp(0.0, max_x.max(0.0));
         let new_y = (cur_y + delta_y).clamp(0.0, max_y.max(0.0));
         if (new_x - cur_x).abs() < 0.01 && (new_y - cur_y).abs() < 0.01 {
             return false;
         }
         self.scroll_offsets.insert(key, (new_x, new_y));
+        self.cached_static_projection_json = None;
+        true
+    }
+
+    fn prune_scroll_offsets(&mut self) {
+        let mut keys = std::collections::BTreeSet::new();
+        visit_scroll_nodes(&self.base_frame, &mut |element, node| {
+            keys.insert(format!("{element}/{}", node["id"].as_str().unwrap_or("")));
+        });
+        self.scroll_offsets.retain(|key, _| keys.contains(key));
+    }
+
+    fn scroll_to_edge(&mut self, payload: &Value) -> bool {
+        let (Some(element), Some(node_id), Some(edge)) = (
+            payload["elementId"].as_str(),
+            payload["nodeId"].as_str(),
+            payload["edge"].as_str(),
+        ) else {
+            return false;
+        };
+        if !matches!(edge, "start" | "end") {
+            return false;
+        }
+        let mut target = None;
+        visit_scroll_nodes(&self.base_frame, &mut |owner, node| {
+            if owner == element && node["id"].as_str() == Some(node_id) {
+                let bounds = &node["bounds"];
+                let max_y = (children_max_bottom(node, 0.0)
+                    - bounds["y"].as_f64().unwrap_or(0.0)
+                    - bounds["height"].as_f64().unwrap_or(0.0))
+                .max(0.0);
+                target = Some(if edge == "end" { max_y } else { 0.0 });
+            }
+        });
+        let Some(y) = target else {
+            return false;
+        };
+        self.scroll_offsets
+            .insert(format!("{element}/{node_id}"), (0.0, y));
         self.cached_static_projection_json = None;
         true
     }
@@ -1183,3 +1229,30 @@ pub(crate) fn numeric_record(value: &Value) -> bool {
 
 #[cfg(test)]
 mod tests;
+
+fn visit_scroll_nodes(frame: &Value, visit: &mut impl FnMut(&str, &Value)) {
+    fn walk(node: &Value, element: &str, visit: &mut impl FnMut(&str, &Value)) {
+        if node["visible"].as_bool() == Some(false) {
+            return;
+        }
+        if node["kind"].as_str() == Some("Scroll") {
+            visit(element, node);
+        }
+        if let Some(children) = node["children"].as_array() {
+            for child in children {
+                walk(child, element, visit);
+            }
+        }
+    }
+    if let Some(overlays) = frame.pointer("/view/ui/overlays").and_then(Value::as_array) {
+        for overlay in overlays {
+            if overlay["visible"].as_bool() != Some(false) {
+                walk(
+                    &overlay["surface"]["root"],
+                    overlay["elementId"].as_str().unwrap_or(""),
+                    visit,
+                );
+            }
+        }
+    }
+}

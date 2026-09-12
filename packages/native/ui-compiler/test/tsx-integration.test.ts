@@ -221,3 +221,23 @@ Box.anchored { right: 10px; bottom: 20px; width: 50px; height: 30px; }
     expect(projected?.video?.objectFit).toBeUndefined()
   })
 })
+
+
+describe('disabled native controls', () => {
+  const qss = analyzeQssSource(`Button { color: white; opacity: 1; }
+    Button:disabled { color: gray; opacity: 0.42; }
+    Button:hover { color: red; }`)
+  it('keeps the disabled label but removes activation and interactive variants', () => {
+    const result = compileQuiTsxProjection(Button({ id: 'continue', disabled: true, children: 'Continue', onClick: ui.open('continue') }), { qss })
+    expect(result.root?.text).toBe('Continue')
+    expect(result.root?.intent).toBeUndefined()
+    expect(result.root?.style).toMatchObject({ color: 'gray', opacity: 0.42 })
+    expect(result.root?.stateStyles).toBeUndefined()
+  })
+  it('restores activation and normal/hover styles from a fresh enabled projection', () => {
+    const result = compileQuiTsxProjection(Button({ id: 'continue', disabled: false, children: 'Continue', onClick: ui.open('continue') }), { qss })
+    expect(result.root?.intent?.action).toBe('open')
+    expect(result.root?.style).toMatchObject({ color: 'white', opacity: 1 })
+    expect(result.root?.stateStyles?.hover?.style.color).toBe('red')
+  })
+})

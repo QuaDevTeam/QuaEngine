@@ -464,7 +464,11 @@ pub(super) fn text_command(
             font_size: resolve_font_size(style, fallback_font_size),
             font_style: FontStyleDrawParam::Normal,
             font_weight,
-            letter_spacing: 0.0,
+            letter_spacing: style
+                .letter_spacing
+                .filter(|v| v.is_finite())
+                .unwrap_or(0.0)
+                .clamp(0.0, 4096.0),
             line_height: resolve_line_height(
                 style,
                 resolve_font_size(style, fallback_font_size),
