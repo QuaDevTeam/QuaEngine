@@ -1,0 +1,44 @@
+import { resolve } from 'node:path'
+import { defineConfig } from 'vite'
+import dts from 'vite-plugin-dts'
+
+const UI_JSX_SRC = resolve(import.meta.dirname, '../ui-jsx/src/index.ts')
+
+export default defineConfig({
+  plugins: [
+    dts({
+      include: ['src/**/*'],
+      exclude: ['src/**/*.test.ts', 'src/**/*.spec.ts'],
+      outDir: 'dist',
+      insertTypesEntry: true,
+      rollupTypes: true,
+    }),
+  ],
+  build: {
+    lib: {
+      entry: resolve(import.meta.dirname, 'src/index.ts'),
+      name: 'nativeUiCompiler',
+      fileName: 'index',
+      formats: ['es'],
+    },
+    target: 'node20',
+    minify: false,
+    sourcemap: true,
+    rollupOptions: {
+      external: ['@quajs/native-contracts', '@quajs/native-ui', 'sass-embedded'],
+      output: { globals: {} },
+    },
+  },
+  resolve: {
+    alias: {
+      '@': resolve(import.meta.dirname, 'src'),
+    },
+  },
+  // vitest-specific: resolve @quajs/native-ui from source so tests don't
+  // require a pre-built dist.
+  test: {
+    alias: {
+      '@quajs/native-ui': UI_JSX_SRC,
+    },
+  },
+})

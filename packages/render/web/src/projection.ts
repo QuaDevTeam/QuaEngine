@@ -199,7 +199,7 @@ export function projectAudioProjection<T = unknown>(
     }
   }
 
-  for (const collection of ['voices', 'sfx', 'ambients']) {
+  for (const collection of ['bgmOutgoing', 'voices', 'sfx', 'ambients']) {
     const tracks = projected[collection]
     if (!Array.isArray(tracks))
       continue

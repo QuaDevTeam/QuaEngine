@@ -43,6 +43,7 @@ describe('@quajs/plugin-audio', () => {
       sfx: { gainDb: 0 },
       ambient: { gainDb: 0 },
     })
+    expect(projection.bgmOutgoing).toEqual([])
     expect(projection.sfx).toEqual([])
     expect(projection.ambients).toEqual([])
   })
@@ -270,6 +271,53 @@ describe('@quajs/plugin-audio', () => {
       delayMs: 750,
       playAt: 1_700_000_000_750,
     }))
+  })
+
+  it('keeps outgoing BGM projected while crossfading to the next track', async () => {
+    const engine = createEngine()
+    engine.use(new AudioPlugin())
+    await engine.init()
+
+    await playBGMWithEngine(engine, 'bgm/old', {
+      contentPackageId: 'runtime.audio.old',
+    })
+    await playBGMWithEngine(engine, 'bgm/new', {
+      contentPackageId: 'runtime.audio.new',
+      crossfadeMs: 600,
+    })
+
+    let projection = engine.getViewState().plugins[AUDIO_PLUGIN_ID] as any
+    expect(projection.bgm).toEqual(expect.objectContaining({
+      assetKey: 'bgm/new',
+      state: 'playing',
+      fadeInMs: 600,
+      crossfadeMs: 600,
+      contentPackageId: 'runtime.audio.new',
+    }))
+    expect(projection.bgm.id).not.toBe('bgm')
+    expect(projection.bgmOutgoing).toEqual([
+      expect.objectContaining({
+        id: 'bgm',
+        assetKey: 'bgm/old',
+        state: 'stopping',
+        fadeOutMs: 600,
+        crossfadeMs: 600,
+        contentPackageId: 'runtime.audio.old',
+      }),
+    ])
+    expect(projection.requiredRuntimePackages).toEqual(['runtime.audio.new', 'runtime.audio.old'])
+
+    await emitAudioRenderToLogic(engine.getPipeline(), AudioRenderToLogicEvents.ENDED, {
+      channel: 'bgm',
+      id: 'bgm',
+      assetKey: 'bgm/old',
+      reason: 'stopped',
+    })
+
+    projection = engine.getViewState().plugins[AUDIO_PLUGIN_ID] as any
+    expect(projection.bgm).toEqual(expect.objectContaining({ assetKey: 'bgm/new' }))
+    expect(projection.bgmOutgoing).toEqual([])
+    expect(projection.requiredRuntimePackages).toEqual(['runtime.audio.new'])
   })
 
   it('rejects invalid delayed audio playback options', async () => {

@@ -1,0 +1,89 @@
+{
+  "layout": { "preset": "landscape" },
+  "container": {
+    "width": 256,
+    "height": 144,
+    "devicePixelRatio": 1
+  },
+  "view": {
+    "ui": {
+      "visible": true,
+      "overlays": [
+        {
+          "elementId": "box-shadow-lab",
+          "visible": true,
+          "renderMode": "render-only",
+          "interactive": false,
+          "overlayStack": "screen",
+          "zIndex": 20,
+          "surface": {
+            "key": "native/test/box-shadow-lab",
+            "root": {
+              "id": "background",
+              "kind": "Box",
+              "bounds": { "x": 0, "y": 0, "width": 1920, "height": 1080 },
+              "visible": true,
+              "style": { "backgroundColor": "#20252b" },
+              "children": [
+                {
+                  "id": "hard-control",
+                  "kind": "Box",
+                  "bounds": { "x": 220, "y": 360, "width": 360, "height": 300 },
+                  "visible": true,
+                  "style": {
+                    "backgroundColor": "#f8f8f8",
+                    "borderRadius": 48,
+                    "boxShadow": {
+                      "offsetX": 0,
+                      "offsetY": 0,
+                      "blurRadius": 0,
+                      "spreadRadius": 18,
+                      "color": "rgba(255,76,76,1)",
+                      "inset": false
+                    }
+                  }
+                },
+                {
+                  "id": "soft-outer",
+                  "kind": "Box",
+                  "bounds": { "x": 780, "y": 360, "width": 360, "height": 300 },
+                  "visible": true,
+                  "style": {
+                    "backgroundColor": "#f8f8f8",
+                    "borderRadius": 48,
+                    "boxShadow": {
+                      "offsetX": 0,
+                      "offsetY": 0,
+                      "blurRadius": 80,
+                      "spreadRadius": 0,
+                      "color": "rgba(255,194,86,1)",
+                      "inset": false
+                    }
+                  }
+                },
+                {
+                  "id": "soft-inset",
+                  "kind": "Box",
+                  "bounds": { "x": 1340, "y": 360, "width": 360, "height": 300 },
+                  "visible": true,
+                  "style": {
+                    "backgroundColor": "#f8f8f8",
+                    "borderRadius": 48,
+                    "boxShadow": {
+                      "offsetX": 0,
+                      "offsetY": 0,
+                      "blurRadius": 64,
+                      "spreadRadius": 0,
+                      "color": "rgba(34,211,238,0.95)",
+                      "inset": true
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  }
+}

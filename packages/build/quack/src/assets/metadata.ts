@@ -630,8 +630,8 @@ function createStableAssetName(asset: AssetInfo): string {
   if (normalizedName.includes('/')) {
     return normalizedName
   }
-  if (asset.type === 'characters' && relativePath.startsWith('characters/')) {
-    return relativePath.slice('characters/'.length)
+  if (relativePath.startsWith(`${asset.type}/`)) {
+    return relativePath.slice(asset.type.length + 1)
   }
   if (relativePath.startsWith('ui/')) {
     return relativePath

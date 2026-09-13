@@ -15,6 +15,7 @@ import {
   LogicToRenderEvents,
   onLogicToRender,
   onRenderToLogic,
+  projectAudioProjection,
   RendererPluginHost,
   RenderToLogicEvents,
   resolveActiveUiSceneProjection,
@@ -33,6 +34,49 @@ import {
 } from '../src'
 
 describe('render-core event contracts', () => {
+  it('projects animation tracks onto outgoing BGM projections', () => {
+    const projected = projectAudioProjection<any>({
+      plugins: {
+        audio: {
+          buses: {},
+          bgmOutgoing: [
+            {
+              id: 'bgm-old',
+              kind: 'bgm',
+              assetKey: 'bgm/old.ogg',
+              state: 'stopping',
+              gainDb: -80,
+            },
+          ],
+          voices: [],
+          sfx: [],
+          ambients: [],
+        },
+      },
+      animations: [
+        {
+          id: 'fade-old-bgm',
+          state: 'running',
+          startedAt: 0,
+          duration: 1000,
+          playbackRate: 1,
+          resolvedTracks: [
+            {
+              target: 'audioTrack:bgm-old',
+              property: 'gainDb',
+              keyframes: [
+                { at: 0, value: -80 },
+                { at: 1000, value: -12 },
+              ],
+            },
+          ],
+        },
+      ],
+    } as any, 1000)
+
+    expect(projected?.bgmOutgoing[0].gainDb).toBe(-12)
+  })
+
   it('normalizes project layout presets for aspect-interval rendering', () => {
     expect(createViewLayoutProjection('landscape')).toEqual(expect.objectContaining({
       orientation: 'landscape',
@@ -365,6 +409,30 @@ describe('render-core event contracts', () => {
       command: 'advance',
       device: 'keyboard',
       source: 'keyboard:Enter',
+    })])
+  })
+
+  it('dispatches renderer text input projection events through @quajs/pipeline', async () => {
+    const pipeline = new Pipeline()
+    const textInputs: unknown[] = []
+    onRenderToLogic(pipeline, RenderToLogicEvents.USER_TEXT_INPUT, payload => textInputs.push(payload))
+
+    await emitRenderToLogic(pipeline, RenderToLogicEvents.USER_TEXT_INPUT, {
+      phase: 'preedit',
+      source: 'ime',
+      text: '候補',
+      cursorStart: 0,
+      cursorEnd: 1,
+      timestamp: 456,
+      metadata: { textByteCount: 6 },
+    })
+
+    expect(textInputs).toEqual([expect.objectContaining({
+      phase: 'preedit',
+      source: 'ime',
+      text: '候補',
+      cursorStart: 0,
+      cursorEnd: 1,
     })])
   })
 

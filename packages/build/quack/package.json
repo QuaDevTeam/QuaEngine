@@ -63,6 +63,7 @@
     "@quajs/utils": "workspace:*"
   },
   "dependencies": {
+    "@quajs/native-contracts": "workspace:*",
     "@quajs/script-compiler": "workspace:*",
     "commander": "catalog:",
     "glob": "catalog:",

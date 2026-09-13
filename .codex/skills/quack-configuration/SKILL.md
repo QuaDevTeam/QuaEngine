@@ -26,6 +26,10 @@ Config may be single-bundle or workspace mode. Do not mix loose runtime content 
 
 ## Single Bundle Config
 
+Nested asset records must retain their path relative to the type directory in both manifest keys and `name`, matching dev VFS lookups: `images/backgrounds/room.webp` is `images` + `backgrounds/room.webp`; `images/cg/room.webp` is a distinct asset. Flattening a record's name to its basename makes correctly authored background/audio/script references fail after packaging even when bytes exist in the QPK. Explicit plugin-assigned path names and locale normalization remain respected. Verify actual production image decode as well as the presence of bundle bytes.
+
+`cg` and `ui` are asset directories, not language codes; locale detection must retain these path segments. A real locale above them (e.g. `locales/ja/images/cg/scene.webp`) still identifies a Japanese variant. For a product that keeps its mounted static QPK in MemoryAssetStorage, budget cache capacity from the emitted manifest's uncompressed totalSize; the default100MiB can otherwise evict source images immediately after a large bundle loads.
+
 `QuackConfig` supports:
 
 - `source`: source asset directory.
@@ -59,6 +63,12 @@ export default defineConfig({
   },
 })
 ```
+
+`QuackConfig.plugins`, `defineConfig({ plugins })`, `QuackBundler.addPlugin`, and CLI `--plugin` are ordinary Quack asset-bundling plugin paths. They must not include Web, Cocos, or native target core adapters such as `@quajs/renderer-web`, `@quajs/renderer-cocos`, `@quajs/engine-native`, or their subentries. Target bootstrap is selected through target-core resolver metadata and validated through target bundle manifests, not through Quack plugin lists.
+
+When checking loaded plugin objects, Quack must inspect the plugin `name` plus optional source metadata fields such as `specifier` and `packageName` before registration. A business-looking plugin name must not mask a Web, Cocos, or native target core adapter in metadata produced by CLI loading, generated resolvers, or third-party plugin factories. Normalize target-core references from bare subentries, `npm:` specifiers, `?query` / `#hash` suffixes, Windows/backslash paths, `node_modules` paths, and pnpm `.pnpm` store paths before classifying package roots.
+
+Generated plugin resolvers and shared presets must not first build a Web/Cocos/native target-core union and filter it by target afterward. Even if the final manifest appears single-target, the prefiltered union is a blocker because inactive core adapters have entered the ordinary plugin graph. Web, Cocos, and native packagers must select exactly one target-core resolver before resolving ordinary Quack plugins.
 
 ## Workspace Config
 
@@ -114,7 +124,11 @@ import {
 } from '@quajs/quack/project'
 ```
 
-The manifest owns project identity (`name`, `bundleId`, `version`), home metadata, icons, Web/Cocos targets, Web device support, PWA settings, and Cocos sync/build options. `version` falls back to `package.json`, Web defaults to enabled with desktop/pad/phone enabled, PWA defaults to disabled, and Cocos is enabled only when `targets.cocos` exists and is not disabled.
+The manifest owns project identity (`name`, `bundleId`, `version`), home metadata, icons, Web/Cocos/native targets, Web device support, PWA settings, Cocos sync/build options, and native packaging intent. `version` falls back to `package.json`, Web defaults to enabled with desktop/pad/phone enabled, PWA defaults to disabled, and Cocos/native are enabled only when their target blocks exist and are not disabled.
+
+`createQuaProjectNativeArtifactPlans` expands normalized native project metadata into concrete `platform` × `profile` artifact plans with `artifactDir` isolated as `outputDir/profile/version-buildNumber/platform`. Native packagers should consume these plans before writing debug/release outputs or target-bundle manifests. After a Web, Cocos, or native post-bundle dependency graph is known, use `emitQuaTargetBundleManifest` with the active `expectedTarget` to validate before writing `target-bundle-manifest.json`. Post-bundle dependency references must be normalized from bundle paths, `node_modules`, pnpm `.pnpm` store paths, and query/hash-suffixed specifiers before target-core checks. Native packagers can use `emitQuaProjectNativeTargetBundleManifest` as a thin helper that creates the native manifest from the native artifact plan and then delegates to the shared emitter.
+
+Native target manifests created through `createQuaProjectNativeTargetBundleManifest` automatically append a `projectGraphs` post-bundle graph named `native.<profile>.<platform>.post-bundle`, built from the provided dependencies, renderer entries, and Runtime QPK executable/renderer references. Callers may pass additional `projectGraphs` for project templates, startup shells, debug/release shells, smoke runners, installers, updaters, or dev servers, but those non-`post-bundle` graphs must stay platform-neutral and must not declare any target core adapter, including native active core.
 
 Quack workspace loading automatically merges manifest-derived `assetTargets` into each workspace bundle unless `projectConfig: false` is set. CLI helpers are:
 
@@ -125,7 +139,7 @@ quack project sync --target web|cocos|all
 quack project build --target cocos --platform android --all
 ```
 
-`quack project doctor` loads the manifest and reports Web device support, favicon/PWA icon readiness, PWA service worker caveats, Cocos platform configuration, Cocos project directory presence, icon sources, and hybrid asset output hints. Treat `error` results as blockers and `warning` results as things to resolve or explicitly accept before packaging.
+`quack project doctor` loads the manifest and reports Web device support, favicon/PWA icon readiness, PWA service worker caveats, Cocos platform configuration, Cocos project directory presence, icon sources, hybrid asset output hints, and native platform/profile/icon/output metadata. Treat `error` results as blockers and `warning` results as things to resolve or explicitly accept before packaging.
 
 `quack project sync --target cocos` writes importable Creator build config JSON under `<projectDir>/qua-build/<platform>.build.json` and copies configured Cocos icon assets into `<projectDir>/assets/qua-app-icons/`. Use Creator command-line `configPath` with these files; do not edit Creator last-build cache.
 
@@ -305,3 +319,8 @@ quack extract ./dist/game.qpk ./extracted
 - Are Cocos hybrid/static assets described through target metadata instead of renderer-side loose caches?
 - Are encryption and signing separate and appropriate for the environment?
 - If a Quack config option, runtime manifest field, or bundler behavior changed, was this skill updated in the same change?
+
+
+## Vite static bundle output
+
+The Vite integration captures the finished Quack artifact through `postBundle` and emits its bytes through Vite, so `emptyOutDir` cannot remove the only bundle. Production `asset-manifest.json.bundleFile` names the emitted versioned QPK/ZIP at the output root. Clients should resolve that name relative to their deployment base and use `createWebAssetRuntime`; `createViteDevAssetRuntime` requires the development server and is not a production loader. Verify the named file exists after a complete Vite build.

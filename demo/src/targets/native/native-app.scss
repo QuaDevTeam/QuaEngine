@@ -1,0 +1,91 @@
+// Product skin in logical stage pixels. No legacy dark/gold overrides.
+$paper: #f5f3eb;
+$sheet: #fffdf7;
+$ink: #29453f;
+$muted: #61736b;
+$sea: #42796e;
+$line: #c7d2c5;
+
+Stack.native-app { left: 0; top: 0; width: 1920px; height: 1080px; overflow: hidden; }
+Stack.title-surface, Backdrop.title-input-blocker, Image.title-background, Box.title-linear-scrim, Box.title-radial-scrim,
+Backdrop.system-backdrop { left: 0; top: 0; width: 1920px; height: 1080px; }
+Image.title-background { object-fit: cover; }
+Box.title-linear-scrim { background-image: linear-gradient(90deg, rgba(16,39,54,0.58) 0%, rgba(16,39,54,0.28) 34%, rgba(16,39,54,0.04) 64%); }
+Box.title-radial-scrim { background-color: transparent; }
+Text.main-menu-title { left: 154px; top: 239.5px; width: 1600px; height: 114px; font-family: "Noto Serif"; font-size: 76px; font-weight: 400; line-height: 114px; letter-spacing: 3.04px; color: #fffdf7; }
+Text.main-menu-subtitle { left: 154px; top: 365.5px; width: 1000px; height: 24px; font-family: "Noto Sans"; font-size: 15px; line-height: 21px; letter-spacing: 1.8px; color: #e3ebe2; }
+Column.main-menu-actions { left: 154px; top: 450.5px; width: 430px; height: 336px; row-gap: 4px; }
+Button.main-menu-action { width: 430px; height: 64px; padding: 12px 24px; color: #fffdf7; font-family: "Noto Sans"; font-size: 25px; line-height: 38px; text-align: left; border-bottom-width: 1px; border-bottom-color: #c7d2c5; background-color: transparent; letter-spacing: 0.75px; }
+Button.main-menu-action:hover, Button.main-menu-action:focus-visible { background-color: rgba(245,243,235,0.18); }
+Button.main-menu-action:disabled { opacity: 0.42; }
+
+Panel.quick-menu { background-color: transparent; }
+Button.quick-menu-action { background-color: transparent; color: $ink; font-family: "Noto Sans"; font-size: 20px; line-height: 28px; padding: 8px 12px; text-align: center; border-radius: 3px; }
+Button.quick-menu-action.is-active { background-color: $sea; color: $sheet; }
+Button.quick-menu-action:hover, Button.quick-menu-action:focus-visible { background-color: #e3ebe2; color: $ink; }
+Backdrop.system-backdrop { background-color: #183b344d; backdrop-filter: blur(12px); }
+Panel.game-menu-panel, Panel.confirm-panel, Panel.save-panel, Panel.list-panel, Panel.settings-panel {
+  background-color: $paper; border-color: $line; border-width: 1px; border-radius: 4px; box-shadow: 0 18px 64px rgba(16,46,41,0.15);
+}
+Text.panel-title { color: $ink; font-family: "Noto Serif"; font-size: 40px; line-height: 54px; font-weight: 500; letter-spacing: 0.8px; }
+Text.panel-subtitle, Text.panel-eyebrow { color: $muted; font-family: "Noto Sans"; font-size: 18px; line-height: 30.6px; }
+Text.confirm-description { color: $ink; font-family: "Noto Sans"; font-size: 23px; line-height: 40px; white-space: pre-wrap; }
+Panel.parity-divider { background-color: $line; }
+Column.game-menu-actions { row-gap: 10px; }
+Button.panel-action, Button.panel-close, Button.confirm-cancel, Button.confirm-accept, Button.save-tab, Button.chapter-action {
+  background-color: $sheet; border-color: $line; border-width: 1px; border-radius: 3px; color: $ink;
+  font-family: "Noto Sans"; font-size: 24px; line-height: 34px; padding: 12px 24px; text-align: left;
+}
+Button.panel-action:hover, Button.panel-close:hover, Button.confirm-cancel:hover, Button.save-tab:hover, Button.chapter-action:hover { background-color: #e3ebe2; border-color: $sea; }
+Button.confirm-accept, Button.save-tab.is-active, #native-game-menu-close { background-color: $sea; color: $sheet; border-color: $sea; }
+Button.parity-close { background-color: transparent; color: $muted; font-family: "Noto Sans"; font-size: 28px; line-height: 42px; text-align: center; }
+Button.parity-close:hover { background-color: #e3ebe2; }
+Button.save-tab { font-size: 20px; text-align: center; padding: 8px 14px; }
+Panel.save-card { background-color: $sheet; border-color: $line; border-width: 1px; border-radius: 3px; }
+Panel.save-card:hover { background-color: #e3ebe2; border-color: $sea; }
+Panel.save-card.is-disabled { opacity: 0.60; }
+Text.save-index { color: $sea; font-family: "Noto Serif"; font-size: 36px; line-height: 54px; text-align: center; }
+Text.save-name { color: $ink; font-family: "Noto Sans"; font-size: 21px; line-height: 33.6px; font-weight: 500; white-space: nowrap; text-overflow: ellipsis; }
+Text.save-meta { color: $muted; font-family: "Noto Sans"; font-size: 15px; line-height: 24px; white-space: nowrap; text-overflow: ellipsis; }
+Row.confirm-actions { column-gap: 14px; }
+Button.confirm-accept, Button.confirm-cancel { text-align: center; font-size: 21px; }
+Button.chapter-action { font-family: "Noto Serif"; font-size: 28px; line-height: 44px; border-width: 0; border-bottom-width: 1px; border-bottom-color: $line; background-color: transparent; }
+Button.chapter-action:disabled { opacity: 0.5; font-family: "Noto Sans"; font-size: 23px; }
+#native-game-over-panel { left: 560px; top: 300px; width: 800px; height: 480px; }
+#native-game-over-title { left: 604px; top: 334px; width: 712px; height: 72px; }
+#native-game-over-subtitle { left: 604px; top: 418px; width: 712px; height: 36px; }
+#native-game-over-description { left: 604px; top: 468px; width: 712px; height: 124px; }
+#native-game-over-actions { left: 760px; top: 662px; width: 540px; height: 64px; }
+#native-game-over-close, #native-game-over-title-action { width: 260px; height: 64px; }
+
+#native-game-menu-title-action { margin-top: 12px; border-color: transparent; font-size: 20px; color: $muted; background-color: transparent; }
+#native-game-menu-close:hover, Button.confirm-accept:hover { background-color: #345f57; color: $sheet; }
+Panel.save-card.is-empty { background-color: transparent; border-style: dashed; }
+
+Text.main-menu-hint { left: 154px; top: 816.5px; width: 1612px; height: 24px; font-family: "Noto Sans"; font-size: 16px; line-height: 24px; letter-spacing: 0.64px; color: #e3ebe2; }
+Backdrop.chapter-paper { left: 0; top: 0; width: 1920px; height: 1080px; background-color: $paper; }
+Text.chapter-title { font-family: "Noto Serif"; font-size: 46px; line-height: 66px; color: $ink; }
+Text.chapter-subtitle { font-family: "Noto Sans"; font-size: 20px; line-height: 34px; color: $muted; }
+Panel.chapter-row { border-bottom-width: 1px; border-bottom-color: $line; }
+Panel.chapter-row:hover { background-color: #e3ebe280; }
+Panel.chapter-row.is-current { background-color: #e3ebe24d; border-left-width: 3px; border-left-color: $sea; }
+Text.chapter-number { font-family: "Noto Sans"; font-size: 22px; line-height: 32px; color: $sea; }
+Text.chapter-number.is-locked { color: $muted; }
+Text.chapter-name { font-family: "Noto Serif"; font-size: 29px; line-height: 43.5px; font-weight: 500; color: $ink; }
+Text.chapter-name.is-locked { font-family: "Noto Sans"; font-size: 23px; line-height: 34.5px; color: #819088; }
+Text.chapter-description { font-family: "Noto Sans"; font-size: 19px; line-height: 28.5px; color: $muted; }
+Text.chapter-status { font-family: "Noto Sans"; font-size: 16px; line-height: 24px; color: $sea; }
+Button.chapter-close { font-family: "Noto Sans"; font-size: 22px; line-height: 32px; color: $ink; border-width: 1px; border-color: $line; border-radius: 3px; text-align: center; }
+Button.chapter-close:hover { background-color: #e3ebe2; border-color: $sea; }
+
+Box.title-frame { left: 96px; top: 70px; width: 1728px; height: 940px; border-top-width: 1px; border-bottom-width: 1px; border-top-color: $line; border-bottom-color: $line; }
+Panel.main-menu-chevron { border-top-width: 1px; border-right-width: 1px; border-top-color: $sea; border-right-color: $sea; transform: rotate(45deg); }
+
+Panel.game-menu-panel, Panel.confirm-panel, Panel.save-panel, Backdrop.chapter-paper {
+  background-image: asset("ui/paper-grain.png"); background-size: none; background-position: left top;
+}
+
+Button.parity-close { border-width: 1px; border-color: $line; border-radius: 3px; font-size: 30px; line-height: 45px; color: $ink; }
+#native-game-menu-title-action { background-color: $sheet; }
+#native-title-confirm-backdrop, #native-save-confirm-backdrop { background-color: #183b3480; }
+Text.confirm-description { line-height: 43.7px; }

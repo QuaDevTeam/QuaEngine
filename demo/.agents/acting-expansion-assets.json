@@ -1,0 +1,509 @@
+{
+  "date": "2026-09-09",
+  "model": "openai/gpt-image-2.5-flare",
+  "quality": "medium",
+  "generationCalls": 8,
+  "newSprites": 7,
+  "totalCastSprites": 166,
+  "records": [
+    {
+      "id": "mara-pose-drinks",
+      "source": "demo/.generated/art/acting/candidates/mara-pose-drinks.png",
+      "prompt": "Use case: precise-object-edit. Edit target: the supplied transparent Japanese anime visual novel full-body sprite of Mara. Preserve her face, long ash-brown hair, pale yellow puff-sleeve blouse, ivory skirt, Mary Jane shoes, body proportions, pose, canvas, lighting and transparent alpha. Change ONLY the drink and the hand that holds it: show ONE ordinary 330 ml slim aluminum drink can, about the natural height of her palm, held upright in her right hand with fingers wrapping around the lower half and thumb visible on the side. The can must be narrow, physically supported, at lower chest height; no second can, no oversized can, no floating object, no fingers through the can. Keep her left hand holding the soft canvas laundry tote. No logos or readable text. Refined Japanese 2D anime cel shading, precise hands and eyes, no scenery, no ground shadow, no watermark.",
+      "quality": "medium",
+      "model": "openai/gpt-image-2.5-flare",
+      "final": "demo/assets/characters/mara/pose-drinks.png",
+      "expression": "pose-drinks",
+      "predictionId": "8r2twa3fxnrmy0d0gsgb80rs0c",
+      "status": "reviewed-integrated",
+      "preparation": {
+        "assetId": "mara-pose-drinks-corrected",
+        "character": "mara",
+        "heightCm": 172,
+        "footY": 1488,
+        "canvas": [
+          768,
+          1536
+        ],
+        "source": "demo/.generated/art/acting/generated/mara-pose-drinks-corrected/8r2twa3fxnrmy0d0gsgb80rs0c-output-0-0.png",
+        "bounds": [
+          222,
+          29,
+          807,
+          1515
+        ],
+        "scale": 0.9523809523809523,
+        "predictionId": "8r2twa3fxnrmy0d0gsgb80rs0c",
+        "model": "openai/gpt-image-2.5-flare",
+        "alpha": "model soft alpha retained",
+        "status": "candidate-needs-visual-review"
+      },
+      "review": "Replaced prior two-can draft after physical-size review. One can is palm-sized and supported by naturally wrapped fingers; tote remains in opposite hand. Transparent alpha and 768x1536 foot line verified.",
+      "sha256": "b927ec70b64c6d6727b87a4b0dc93758129380632421f7c58c03d07a8403b12b",
+      "qsUsage": [
+        {
+          "module": "chapter-03.qs",
+          "node": "daily-laundry",
+          "line": 200,
+          "direction": "@ShowCharacter('mara', { expression: 'pose-drinks', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })"
+        }
+      ],
+      "generationResult": "demo/.generated/art/acting/mara-pose-drinks-corrected-complete.json",
+      "generatedImage": "demo/.generated/art/acting/generated/mara-pose-drinks-corrected/8r2twa3fxnrmy0d0gsgb80rs0c-output-0-0.png",
+      "correctionPredictionId": "8r2twa3fxnrmy0d0gsgb80rs0c",
+      "previousRejectedDraft": {
+        "id": "mara-pose-drinks",
+        "source": "demo/assets/characters/mara/neutral.png",
+        "prompt": "Use case: identity-preserve. Asset type: Japanese anime galgame transparent full-body character pose. Input image 1 is the edit target and sole identity, outfit, proportion and line-art reference. Change ONLY acting posture and facial expression as requested. Preserve her recognizable face, eye size, hairstyle, costume design, fabric colors, physical head size and slenderness. Clean detailed Japanese 2D anime drawing, refined eyes, crisp fine outlines and simple soft cel shading matching the reference. One woman only, no scenery, no ground shadow, genuine transparent alpha. Whole head, hair, fingers and shoes visible, upright portrait canvas, no crop, no text, logo, watermark or extra limbs. Mara, 24-year-old woman, 172 cm, warm young-adult onee-san charm. Her exact original pale yellow puff sleeve blouse, ivory knee skirt, cream Mary Jane flats, red wrist cord. Arriving at a laundromat with a pleased, playful gentle smile: her left hand holds the two handles of one soft plain canvas laundry tote at her left side; her right hand holds TWO small unopened slim drink cans together side by side, raised at lower chest height. Both cans supported by palm and curled fingers, neither floating. No books, no phone. Match the reference face and delicately drawn amber eyes. Body remains upright, feet same as reference.",
+        "quality": "medium",
+        "model": "openai/gpt-image-2.5-flare",
+        "final": "demo/assets/characters/mara/pose-drinks.png",
+        "expression": "pose-drinks",
+        "predictionId": "ng41gr1mnnrmw0d0gs0vkv8c4r",
+        "status": "rejected-by-user: can size and holding physics",
+        "preparation": {
+          "assetId": "mara-pose-drinks",
+          "character": "mara",
+          "heightCm": 172,
+          "footY": 1488,
+          "canvas": [
+            768,
+            1536
+          ],
+          "source": "demo/.generated/art/acting/generated/mara-pose-drinks/ng41gr1mnnrmw0d0gs0vkv8c4r-output-0-0.png",
+          "bounds": [
+            234,
+            13,
+            808,
+            1522
+          ],
+          "scale": 0.9377093101138647,
+          "predictionId": "ng41gr1mnnrmw0d0gs0vkv8c4r",
+          "model": "openai/gpt-image-2.5-flare",
+          "alpha": "model soft alpha retained",
+          "status": "candidate-needs-visual-review"
+        },
+        "review": "Reviewed full-body and face/hand crops on light and dark backgrounds; eyes, finger placement, prop support, original outfit and character silhouette accepted."
+      }
+    },
+    {
+      "id": "mara-pose-equipment-worried",
+      "source": "demo/assets/characters/mara/neutral.png",
+      "prompt": "Use case: identity-preserve. Asset type: Japanese anime galgame transparent full-body character pose. Input image 1 is the edit target and sole identity, outfit, proportion and line-art reference. Change ONLY acting posture and facial expression as requested. Preserve her recognizable face, eye size, hairstyle, costume design, fabric colors, physical head size and slenderness. Clean detailed Japanese 2D anime drawing, refined eyes, crisp fine outlines and simple soft cel shading matching the reference. One woman only, no scenery, no ground shadow, genuine transparent alpha. Whole head, hair, fingers and shoes visible, upright portrait canvas, no crop, no text, logo, watermark or extra limbs. Mara, 24-year-old woman, 172 cm. Preserve exact original pale yellow puff sleeve blouse, ivory knee skirt, cream Mary Jane flats, red wrist cord. Standing before leaving the room on an ordinary broadcast job: hold a compact charcoal padded equipment shoulder bag at waist level in BOTH hands, fingers holding its carrying handle, shoulder strap hanging slack against bag. Natural slightly hunched shoulders, brows slightly raised inward, parted lips, worried but composed amber eyes looking toward viewer. She is frightened but trying to speak clearly. No heroic pose, no smile, no tears. Upright full body, feet same as reference.",
+      "quality": "medium",
+      "model": "openai/gpt-image-2.5-flare",
+      "final": "demo/assets/characters/mara/pose-equipment-worried.png",
+      "expression": "pose-equipment-worried",
+      "predictionId": "hz675g9ranrmy0d0gs0sw58z88",
+      "status": "reviewed-integrated",
+      "preparation": {
+        "assetId": "mara-pose-equipment-worried",
+        "character": "mara",
+        "heightCm": 172,
+        "footY": 1488,
+        "canvas": [
+          768,
+          1536
+        ],
+        "source": "demo/.generated/art/acting/generated/mara-pose-equipment-worried/hz675g9ranrmy0d0gs0sw58z88-output-0-0.png",
+        "bounds": [
+          244,
+          25,
+          753,
+          1526
+        ],
+        "scale": 0.9427609427609428,
+        "predictionId": "hz675g9ranrmy0d0gs0sw58z88",
+        "model": "openai/gpt-image-2.5-flare",
+        "alpha": "model soft alpha retained",
+        "status": "candidate-needs-visual-review"
+      },
+      "review": "Reviewed full-body and face/hand crops on light and dark backgrounds; eyes, finger placement, prop support, original outfit and character silhouette accepted.",
+      "sha256": "7b1e84c07e3e8c16fc61b63a36d321daffd1fecf2d09c07ab7c60f53bf7a9cc2",
+      "qsUsage": [
+        {
+          "module": "chapter-06.qs",
+          "node": "shutdown-mobile",
+          "line": 59,
+          "direction": "@SetExpression('pose-equipment-worried', 'mara')"
+        }
+      ],
+      "generationResult": "demo/.generated/art/acting/mara-pose-equipment-worried-complete.json",
+      "generatedImage": "demo/.generated/art/acting/generated/mara-pose-equipment-worried/hz675g9ranrmy0d0gs0sw58z88-output-0-0.png"
+    },
+    {
+      "id": "haruka-pose-script",
+      "source": "demo/assets/characters/haruka/neutral.png",
+      "prompt": "Use case: identity-preserve. Asset type: Japanese anime galgame transparent full-body character pose. Input image 1 is the edit target and sole identity, outfit, proportion and line-art reference. Change ONLY acting posture and facial expression as requested. Preserve her recognizable face, eye size, hairstyle, costume design, fabric colors, physical head size and slenderness. Clean detailed Japanese 2D anime drawing, refined eyes, crisp fine outlines and simple soft cel shading matching the reference. One woman only, no scenery, no ground shadow, genuine transparent alpha. Whole head, hair, fingers and shoes visible, upright portrait canvas, no crop, no text, logo, watermark or extra limbs. Haruka, 20-year-old university student, 158 cm. Preserve heart-shaped face, round thin glasses, brown low ponytail, pale green shirt, white inner top, navy pinafore skirt, short navy rainboots. Reading a broadcast script: both hands hold a few plain A4 paper sheets by their lower side edges at upper waist height, head tipped slightly down, eyes tracking the paper through glasses, mouth slightly open as if reading carefully. Earnest and a little tense. No notebook, no pen, no microphone, no text to render, just subtle indistinct gray lines on paper. Feet same as reference.",
+      "quality": "medium",
+      "model": "openai/gpt-image-2.5-flare",
+      "final": "demo/assets/characters/haruka/pose-script.png",
+      "expression": "pose-script",
+      "predictionId": "245bbq9mx5rmw0d0gs0tga96wg",
+      "status": "reviewed-integrated",
+      "preparation": {
+        "assetId": "haruka-pose-script",
+        "character": "haruka",
+        "heightCm": 158,
+        "footY": 1488,
+        "canvas": [
+          768,
+          1536
+        ],
+        "source": "demo/.generated/art/acting/generated/haruka-pose-script/245bbq9mx5rmw0d0gs0tga96wg-output-0-0.png",
+        "bounds": [
+          274,
+          16,
+          743,
+          1522
+        ],
+        "scale": 0.8631184641798033,
+        "predictionId": "245bbq9mx5rmw0d0gs0tga96wg",
+        "model": "openai/gpt-image-2.5-flare",
+        "alpha": "model soft alpha retained",
+        "status": "candidate-needs-visual-review"
+      },
+      "review": "Reviewed full-body and face/hand crops on light and dark backgrounds; eyes, finger placement, prop support, original outfit and character silhouette accepted.",
+      "sha256": "d790617412fe2366417ca20c2b5a14cd43adf0aa1dc7d48a3f82a6a9b90de9e6",
+      "qsUsage": [
+        {
+          "module": "chapter-03.qs",
+          "node": "closeness-mobile-test",
+          "line": 289,
+          "direction": "@SetExpression('pose-script', 'haruka')"
+        }
+      ],
+      "generationResult": "demo/.generated/art/acting/haruka-pose-script-complete.json",
+      "generatedImage": "demo/.generated/art/acting/generated/haruka-pose-script/245bbq9mx5rmw0d0gs0tga96wg-output-0-0.png"
+    },
+    {
+      "id": "reiko-work-alt-uneasy",
+      "source": "demo/assets/characters/reiko/outfits/work-alt/neutral.png",
+      "prompt": "Use case: identity-preserve. Asset type: Japanese anime galgame transparent full-body character pose. Input image 1 is the edit target and sole identity, outfit, proportion and line-art reference. Change ONLY acting posture and facial expression as requested. Preserve her recognizable face, eye size, hairstyle, costume design, fabric colors, physical head size and slenderness. Clean detailed Japanese 2D anime drawing, refined eyes, crisp fine outlines and simple soft cel shading matching the reference. One woman only, no scenery, no ground shadow, genuine transparent alpha. Whole head, hair, fingers and shoes visible, upright portrait canvas, no crop, no text, logo, watermark or extra limbs. Reiko, 39-year-old professional woman,167 cm, exact sharp diamond-shaped face, narrow upturned eyes, dark swept-back tied hair, navy blazer, ivory blouse, tailored gray full-length trousers, black low heels. A restrained moment admitting an uncomfortable fact: forearms held closer to torso, one hand lightly grips the other wrist just below waist, shoulders slightly tense, head slightly lowered but eyes glancing toward listener, lips pressed in a small straight line. Not a villain smirk, no tears, no blushing, no exaggerated cartoon fear. Empty hands, no objects. Same feet and adult identity.",
+      "quality": "medium",
+      "model": "openai/gpt-image-2.5-flare",
+      "final": "demo/assets/characters/reiko/outfits/work-alt/uneasy.png",
+      "expression": "work-alt-uneasy",
+      "predictionId": "04g9ns9qv9rmt0d0gs0rem30rw",
+      "status": "reviewed-integrated",
+      "preparation": {
+        "assetId": "reiko-work-alt-uneasy",
+        "character": "reiko",
+        "heightCm": 167,
+        "footY": 1488,
+        "canvas": [
+          768,
+          1536
+        ],
+        "source": "demo/.generated/art/acting/generated/reiko-work-alt-uneasy/04g9ns9qv9rmt0d0gs0rem30rw-output-0-0.png",
+        "bounds": [
+          337,
+          21,
+          653,
+          1527
+        ],
+        "scale": 0.9122834399875136,
+        "predictionId": "04g9ns9qv9rmt0d0gs0rem30rw",
+        "model": "openai/gpt-image-2.5-flare",
+        "alpha": "model soft alpha retained",
+        "status": "candidate-needs-visual-review"
+      },
+      "review": "Reviewed full-body and face/hand crops on light and dark backgrounds; eyes, finger placement, prop support, original outfit and character silhouette accepted.",
+      "sha256": "2e286fd927abaaac0f2ce6771cbc3d68d42a1f71ace5813dcfac2efb40c2ce9d",
+      "qsUsage": [
+        {
+          "module": "chapter-05-inspection.qs",
+          "node": "investigation-local-schedule",
+          "line": 59,
+          "direction": "@SetExpression('work-alt-uneasy', 'reiko')"
+        }
+      ],
+      "generationResult": "demo/.generated/art/acting/reiko-work-alt-uneasy-complete.json",
+      "generatedImage": "demo/.generated/art/acting/generated/reiko-work-alt-uneasy/04g9ns9qv9rmt0d0gs0rem30rw-output-0-0.png"
+    },
+    {
+      "id": "mayu-work-alt-documents",
+      "source": "demo/assets/characters/mayu/outfits/work-alt/neutral.png",
+      "prompt": "Use case: identity-preserve. Asset type: Japanese anime galgame transparent full-body character pose. Input image 1 is the edit target and sole identity, outfit, proportion and line-art reference. Change ONLY acting posture and facial expression as requested. Preserve her recognizable face, eye size, hairstyle, costume design, fabric colors, physical head size and slenderness. Clean detailed Japanese 2D anime drawing, refined eyes, crisp fine outlines and simple soft cel shading matching the reference. One woman only, no scenery, no ground shadow, genuine transparent alpha. Whole head, hair, fingers and shoes visible, upright portrait canvas, no crop, no text, logo, watermark or extra limbs. Mayu,32-year-old female engineer,171 cm, lean long rectangular face, straight black hair and narrow rectangular glasses. Preserve light gray rolled forearm work shirt, navy inner T-shirt, charcoal full-length work trousers, black practical shoes. Standing in a hallway explaining a technical report with a sober accountable expression. Hold an OPEN thin charcoal folder at upper waist level in left hand; right index finger rests on a specific line of a white page inside folder, remaining fingers naturally curled. Look toward listener rather than grinning. No readable text, only light gray report lines. Folder is supported physically, no extra sheets floating. Exact face and clothes, same feet.",
+      "quality": "medium",
+      "model": "openai/gpt-image-2.5-flare",
+      "final": "demo/assets/characters/mayu/outfits/work-alt/documents.png",
+      "expression": "work-alt-documents",
+      "predictionId": "nykytv1x0srmw0d0gs0r4tpsng",
+      "status": "reviewed-integrated",
+      "preparation": {
+        "assetId": "mayu-work-alt-documents",
+        "character": "mayu",
+        "heightCm": 171,
+        "footY": 1488,
+        "canvas": [
+          768,
+          1536
+        ],
+        "source": "demo/.generated/art/acting/generated/mayu-work-alt-documents/nykytv1x0srmw0d0gs0r4tpsng-output-0-0.png",
+        "bounds": [
+          304,
+          19,
+          781,
+          1518
+        ],
+        "scale": 0.9385438065517728,
+        "predictionId": "nykytv1x0srmw0d0gs0r4tpsng",
+        "model": "openai/gpt-image-2.5-flare",
+        "alpha": "model soft alpha retained",
+        "status": "candidate-needs-visual-review"
+      },
+      "review": "Reviewed full-body and face/hand crops on light and dark backgrounds; eyes, finger placement, prop support, original outfit and character silhouette accepted.",
+      "sha256": "98e0cbd358bab4d2fa6736f1d1e00a85f92a37465ccc0dd06204db7a845d076d",
+      "qsUsage": [
+        {
+          "module": "epilogue.qs",
+          "node": "epilogue-july-meeting",
+          "line": 150,
+          "direction": "@SetExpression('work-alt-documents', 'mayu')"
+        }
+      ],
+      "generationResult": "demo/.generated/art/acting/mayu-work-alt-documents-complete.json",
+      "generatedImage": "demo/.generated/art/acting/generated/mayu-work-alt-documents/nykytv1x0srmw0d0gs0r4tpsng-output-0-0.png"
+    },
+    {
+      "id": "mara-pose-equipment-soft",
+      "source": "demo/.generated/art/acting/candidates/mara-pose-equipment-worried.png",
+      "baseCrop": [
+        240,
+        80,
+        496,
+        336
+      ],
+      "prompt": "Use case: identity-preserve. Edit target: the provided EXACT face crop of a Japanese anime visual novel character. Change ONLY eyes, eyebrows and mouth within the face for this expression: Her worry eases slightly into a small tentative CLOSED mouth smile, eyebrows relax but she remains a little tired. Keep the amber eyes open and their exact shape, warm restrained expression, not full relief or a big grin. Preserve identity, face outline, head angle, glasses if present, eye iris design, skin color, nose, hair strokes, neck and clothing PIXEL ALIGNED. Absolutely no reframing, rotation, zoom or restyling. Same delicately drawn Japanese 2D anime style. Opaque white background retained. No text.",
+      "model": "openai/gpt-image-2.5-flare",
+      "quality": "medium",
+      "final": "demo/assets/characters/mara/pose-equipment-soft.png",
+      "expression": "pose-equipment-soft",
+      "predictionId": "35h0kvw1jhrmy0d0gs1sxc99s4",
+      "status": "reviewed-integrated",
+      "preparation": {
+        "assetId": "mara-pose-equipment-soft",
+        "predictionId": "35h0kvw1jhrmy0d0gs1sxc99s4",
+        "quality": "medium",
+        "source": "demo/.generated/art/acting/generated/mara-pose-equipment-soft/35h0kvw1jhrmy0d0gs1sxc99s4-output-0-0.png",
+        "sourceSprite": "demo/.generated/art/acting/candidates/mara-pose-equipment-worried.png",
+        "model": "openai/gpt-image-2.5-flare",
+        "baseCrop": [
+          240,
+          80,
+          496,
+          336
+        ],
+        "facePolygons": [
+          [
+            [
+              81,
+              143
+            ],
+            [
+              110,
+              120
+            ],
+            [
+              131,
+              91
+            ],
+            [
+              166,
+              92
+            ],
+            [
+              184,
+              115
+            ],
+            [
+              181,
+              172
+            ],
+            [
+              162,
+              193
+            ],
+            [
+              146,
+              205
+            ],
+            [
+              116,
+              193
+            ],
+            [
+              95,
+              172
+            ]
+          ]
+        ],
+        "alignment": [
+          [
+            1.0001121510506052,
+            -0.0001626909978505736,
+            -0.3926621002463093
+          ],
+          [
+            0.0001626909978505736,
+            1.0001121510506052,
+            -0.01993235684568118
+          ]
+        ],
+        "stableMatches": 417,
+        "inliers": 398,
+        "scale": 1.0001121642833015,
+        "angle": 0.009320462159763242,
+        "alphaUnchanged": true,
+        "bodyUnchanged": true,
+        "status": "candidate-needs-visual-review",
+        "interiorMinimumAlpha": 250
+      },
+      "review": "Face close-ups accepted; same body/props and byte-identical alpha. Haruka interior mask narrowed away from jaw edge; no matte threshold relaxation.",
+      "sha256": "3fd0ec7f0c58bc7027e015a1b4a7962b9586d2db2c1be37f32a92de6b691ec12",
+      "qsUsage": [
+        {
+          "module": "chapter-06.qs",
+          "node": "shutdown-mobile",
+          "line": 66,
+          "direction": "@SetExpression('pose-equipment-soft', 'mara')"
+        }
+      ],
+      "generationResult": "demo/.generated/art/acting/mara-pose-equipment-soft-complete.json",
+      "generatedImage": "demo/.generated/art/acting/generated/mara-pose-equipment-soft/35h0kvw1jhrmy0d0gs1sxc99s4-output-0-0.png"
+    },
+    {
+      "id": "haruka-pose-script-laugh",
+      "source": "demo/.generated/art/acting/candidates/haruka-pose-script.png",
+      "baseCrop": [
+        250,
+        195,
+        506,
+        451
+      ],
+      "prompt": "Use case: identity-preserve. Edit target: the provided EXACT face crop of a Japanese anime visual novel character. Change ONLY eyes, eyebrows and mouth within the face for this expression: She has just made a harmless reading mistake and cannot help laughing at herself: eyes gently narrowed in a small smile behind the EXACT same round glasses, brows relaxed, mouth in a small open sheepish laugh, a little warm blush. Natural understated amusement, not shouting, not chibi. Preserve identity, face outline, head angle, glasses if present, eye iris design, skin color, nose, hair strokes, neck and clothing PIXEL ALIGNED. Absolutely no reframing, rotation, zoom or restyling. Same delicately drawn Japanese 2D anime style. Opaque white background retained. No text.",
+      "model": "openai/gpt-image-2.5-flare",
+      "quality": "medium",
+      "final": "demo/assets/characters/haruka/pose-script-laugh.png",
+      "expression": "pose-script-laugh",
+      "predictionId": "fmb7svvyjsrmy0d0gs1t673n94",
+      "status": "reviewed-integrated",
+      "preparation": {
+        "assetId": "haruka-pose-script-laugh",
+        "predictionId": "fmb7svvyjsrmy0d0gs1t673n94",
+        "quality": "medium",
+        "source": "demo/.generated/art/acting/generated/haruka-pose-script-laugh/fmb7svvyjsrmy0d0gs1t673n94-output-0-0.png",
+        "sourceSprite": "demo/.generated/art/acting/candidates/haruka-pose-script.png",
+        "model": "openai/gpt-image-2.5-flare",
+        "baseCrop": [
+          250,
+          195,
+          506,
+          451
+        ],
+        "facePolygons": [
+          [
+            [
+              70,
+              149
+            ],
+            [
+              76,
+              130
+            ],
+            [
+              97,
+              138
+            ],
+            [
+              137,
+              103
+            ],
+            [
+              160,
+              112
+            ],
+            [
+              166,
+              146
+            ],
+            [
+              163,
+              173
+            ],
+            [
+              140,
+              201
+            ],
+            [
+              118,
+              198
+            ],
+            [
+              90,
+              179
+            ]
+          ]
+        ],
+        "alignment": [
+          [
+            0.9997444570459522,
+            -0.00019569174978185618,
+            -0.19012388795100335
+          ],
+          [
+            0.00019569174978185618,
+            0.9997444570459522,
+            0.5407845337914372
+          ]
+        ],
+        "stableMatches": 336,
+        "inliers": 309,
+        "scale": 0.9997444761984767,
+        "angle": 0.011215177164333947,
+        "alphaUnchanged": true,
+        "bodyUnchanged": true,
+        "status": "candidate-needs-visual-review",
+        "interiorMinimumAlpha": 230
+      },
+      "review": "Face close-ups accepted; same body/props and byte-identical alpha. Haruka interior mask narrowed away from jaw edge; no matte threshold relaxation.",
+      "sha256": "87315783ce2cc05d30015e28bf7b6fa953573f24bb5bd70d0b4709b1fd70bcbd",
+      "qsUsage": [
+        {
+          "module": "chapter-03.qs",
+          "node": "closeness-mobile-test",
+          "line": 294,
+          "direction": "@SetExpression('pose-script-laugh', 'haruka')"
+        }
+      ],
+      "generationResult": "demo/.generated/art/acting/haruka-pose-script-laugh-complete.json",
+      "generatedImage": "demo/.generated/art/acting/generated/haruka-pose-script-laugh/fmb7svvyjsrmy0d0gs1t673n94-output-0-0.png"
+    }
+  ],
+  "validation": {
+    "typecheck": "passed",
+    "nativeQuickJS": "passed on final QS,445 modules; actual native rendering not reviewed",
+    "webBuild": "passed on final QS;250 QPK assets,149.18MiB reported content",
+    "storyRegression": "passed:21 cases,28 acting/image checks,errors=[]; .generated/qa/acting/results.json. This complete run precedes only the final one-line Yumi companion expression correction.",
+    "staticAssetAudit": "324 authored ShowCharacter/SetExpression references resolve; all 166 PNGs are RGBA 768x1536",
+    "diffCheck": "passed",
+    "previousAttempt": "13 checks passed before unexpected browser/page closure. Error screenshot failed after closure and masked original cause; no claim of a completed regression. Hardened diagnostics and rerunning in a separate output directory.",
+    "visualReview": "Actual Web screenshots reviewed for all7 new sprites and prop resets; final serious Yumi screenshot accepted.",
+    "finalCompanionCheck": "passed on rebuilt final QS: normal reading from preservation choice through chapter06; worried/soft bag poses, serious Yumi, confirmed shutdown, errors=[]; .generated/qa/acting-final-companion-recheck/results.json",
+    "targetedHarnessRetry": "First isolated attempt accidentally enabled skip after the last choice; corrected it to disable skip only when active. Final normal-reading rerun passed. No product change resulted from this harness retry.",
+    "correctedAssetRegression": "Passed:21 production cases,28 acting/image checks,errors=[]; .generated/qa/web-memory/results.json. Includes single-can artwork/prose and persistent storage, shared reads and URL memory budgets. Final index-key statistics refinement additionally passed8 storage tests and final-build cold startup / three scene-title cycles / refresh-resume; .generated/qa/web-memory-final-check.json."
+  },
+  "proseChange": "Current source has35 more CJK than the pre-acting manuscript snapshot; current complete routes91103–91192 depending on ending/choices. Drink handover now matches one visible can and a second can taken from the tote. Branches and timeline unchanged.",
+  "correction": {
+    "asset": "mara-pose-drinks",
+    "reason": "two cans were visibly oversized and not held naturally",
+    "replacement": "one palm-sized 330ml slim can, upright, fingers wrapped around lower half, tote in opposite hand",
+    "model": "openai/gpt-image-2.5-flare",
+    "quality": "medium",
+    "predictionId": "8r2twa3fxnrmy0d0gsgb80rs0c",
+    "visualReview": "passed on dark and light backgrounds",
+    "status": "integrated and verified in rebuilt production QPK",
+    "prose": "Mara holds one can on arrival. After handing it to Rin, she takes her own second can from the tote."
+  }
+}

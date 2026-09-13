@@ -1,0 +1,379 @@
+use crate::projection::safety::{is_safe_native_opacity, MAX_NATIVE_UI_STYLE_LOGICAL_VALUE};
+use crate::projection::ui::{
+    UiSurfaceBackgroundPositionProjection, UiSurfaceEdgeInsetsProjection, UiSurfaceResolvedStyle,
+    UiSurfaceShadowProjection,
+};
+
+pub(super) fn invalid_native_json_ui_node_opacity_reason(value: f32) -> Option<String> {
+    if !is_safe_native_opacity(value) {
+        return Some("UI surface node opacity must be finite and between 0 and 1".to_string());
+    }
+    None
+}
+
+pub(super) fn invalid_native_json_ui_style_number_reason(
+    style: &UiSurfaceResolvedStyle,
+) -> Option<(&'static str, String, String)> {
+    validate_optional_opacity("opacity", style.opacity)
+        .or_else(|| validate_background_position(style.background_position))
+        .or_else(|| validate_object_position(style.object_position))
+        .or_else(|| validate_gradient(style.background_gradient.as_ref()))
+        .or_else(|| validate_filter(style.filter))
+        .or_else(|| {
+            validate_optional_logical_value(
+                "backdropFilter.blurRadius",
+                style.backdrop_filter.map(|f| f.blur_radius),
+            )
+        })
+        .or_else(|| validate_optional_logical_value("borderRadius", style.border_radius))
+        .or_else(|| validate_optional_logical_value("borderWidth", style.border_width))
+        .or_else(|| validate_optional_logical_value("borderTopWidth", style.border_top_width))
+        .or_else(|| validate_optional_logical_value("borderRightWidth", style.border_right_width))
+        .or_else(|| validate_optional_logical_value("borderBottomWidth", style.border_bottom_width))
+        .or_else(|| validate_optional_logical_value("borderLeftWidth", style.border_left_width))
+        .or_else(|| validate_optional_logical_value("fontSize", style.font_size))
+        .or_else(|| validate_optional_logical_value("letterSpacing", style.letter_spacing))
+        .or_else(|| validate_optional_logical_value("lineHeight", style.line_height))
+        .or_else(|| validate_box_shadow(style.box_shadow.as_ref()))
+        .or_else(|| validate_text_shadow(style.text_shadow.as_ref()))
+        .or_else(|| validate_padding(style.padding))
+}
+
+fn validate_gradient(
+    gradient: Option<&crate::projection::ui::UiSurfaceGradientProjection>,
+) -> Option<(&'static str, String, String)> {
+    let gradient = gradient?;
+    match gradient.kind {
+        crate::projection::ui::UiSurfaceGradientKindProjection::Linear => {
+            let angle = gradient.angle_degrees?;
+            if !angle.is_finite() || angle.abs() > 360_000.0 {
+                return Some((
+                    "backgroundGradient.angleDegrees",
+                    angle.to_string(),
+                    "UI linear gradient angle must be finite and bounded".to_string(),
+                ));
+            }
+        }
+        crate::projection::ui::UiSurfaceGradientKindProjection::Radial => {
+            for (field, value) in [
+                ("backgroundGradient.centerX", gradient.center_x?),
+                ("backgroundGradient.centerY", gradient.center_y?),
+            ] {
+                if !value.is_finite() || !(0.0..=1.0).contains(&value) {
+                    return Some((
+                        field,
+                        value.to_string(),
+                        "UI radial gradient center must be finite and normalized to 0..=1"
+                            .to_string(),
+                    ));
+                }
+            }
+            let radius = gradient.radius?;
+            if !radius.is_finite() || radius <= 0.0 || radius > 2.0 {
+                return Some((
+                    "backgroundGradient.radius",
+                    radius.to_string(),
+                    "UI radial gradient radius must be finite, positive, and at most 2".to_string(),
+                ));
+            }
+        }
+    }
+    validate_gradient_stops(gradient)
+}
+
+fn validate_gradient_stops(
+    gradient: &crate::projection::ui::UiSurfaceGradientProjection,
+) -> Option<(&'static str, String, String)> {
+    if !(2..=8).contains(&gradient.stops.len()) {
+        return Some((
+            "backgroundGradient.stops",
+            gradient.stops.len().to_string(),
+            "UI gradients require between 2 and 8 color stops".to_string(),
+        ));
+    }
+
+    let mut previous_position = None;
+    for stop in &gradient.stops {
+        if !stop.position.is_finite() || !(0.0..=1.0).contains(&stop.position) {
+            return Some((
+                "backgroundGradient.stops",
+                stop.position.to_string(),
+                "UI gradient stop positions must be finite and normalized to 0..=1".to_string(),
+            ));
+        }
+        if previous_position.is_some_and(|previous| stop.position <= previous) {
+            return Some((
+                "backgroundGradient.stops",
+                stop.position.to_string(),
+                "UI gradient stop positions must be strictly increasing".to_string(),
+            ));
+        }
+        previous_position = Some(stop.position);
+    }
+
+    None
+}
+
+fn validate_filter(
+    filter: Option<crate::projection::ui::UiSurfaceFilterProjection>,
+) -> Option<(&'static str, String, String)> {
+    let filter = filter?;
+    for (field, value, range) in [
+        ("filter.brightness", filter.brightness, 0.0..=8.0),
+        ("filter.saturate", filter.saturate, 0.0..=8.0),
+        ("filter.blur", filter.blur, 0.0..=4096.0),
+        ("filter.contrast", filter.contrast, 0.0..=8.0),
+        ("filter.grayscale", filter.grayscale, 0.0..=1.0),
+        ("filter.sepia", filter.sepia, 0.0..=1.0),
+        ("filter.invert", filter.invert, 0.0..=1.0),
+    ] {
+        if !value.is_finite() || !range.contains(&value) {
+            return Some((
+                field,
+                value.to_string(),
+                "UI image filter values must be finite and between 0 and 8".to_string(),
+            ));
+        }
+    }
+    if !filter.hue_rotate.is_finite() || filter.hue_rotate.abs() > 360_000.0 {
+        return Some((
+            "filter.hueRotate",
+            filter.hue_rotate.to_string(),
+            "UI image hue rotation must be finite and bounded".to_string(),
+        ));
+    }
+    None
+}
+
+fn validate_box_shadow(
+    shadow: Option<&UiSurfaceShadowProjection>,
+) -> Option<(&'static str, String, String)> {
+    let shadow = shadow?;
+    validate_coordinate_value("boxShadow", shadow.offset_x)
+        .or_else(|| validate_coordinate_value("boxShadow", shadow.offset_y))
+        .or_else(|| validate_logical_value("boxShadow", shadow.blur_radius))
+        .or_else(|| validate_coordinate_value("boxShadow", shadow.spread_radius))
+}
+
+fn validate_text_shadow(
+    shadow: Option<&UiSurfaceShadowProjection>,
+) -> Option<(&'static str, String, String)> {
+    let shadow = shadow?;
+    validate_coordinate_value("textShadow", shadow.offset_x)
+        .or_else(|| validate_coordinate_value("textShadow", shadow.offset_y))
+        .or_else(|| validate_logical_value("textShadow", shadow.blur_radius))
+        .or_else(|| {
+            (shadow.spread_radius != 0.0).then(|| {
+                (
+                    "textShadow",
+                    shadow.spread_radius.to_string(),
+                    "UI text shadows do not support spreadRadius".to_string(),
+                )
+            })
+        })
+        .or_else(|| {
+            shadow.inset.then(|| {
+                (
+                    "textShadow",
+                    "true".to_string(),
+                    "UI text shadows do not support inset".to_string(),
+                )
+            })
+        })
+}
+
+fn validate_coordinate_value(
+    field: &'static str,
+    value: f64,
+) -> Option<(&'static str, String, String)> {
+    if !value.is_finite() || value.abs() > MAX_NATIVE_UI_STYLE_LOGICAL_VALUE {
+        return Some((
+            field,
+            value.to_string(),
+            "UI surface shadow offsets must be finite and within native renderer logical limits"
+                .to_string(),
+        ));
+    }
+    None
+}
+
+fn validate_optional_opacity(
+    field: &'static str,
+    value: Option<f32>,
+) -> Option<(&'static str, String, String)> {
+    let value = value?;
+    invalid_native_json_ui_node_opacity_reason(value)
+        .map(|reason| (field, value.to_string(), reason))
+}
+
+fn validate_background_position(
+    value: Option<UiSurfaceBackgroundPositionProjection>,
+) -> Option<(&'static str, String, String)> {
+    let position = value?;
+    validate_normalized_value("backgroundPosition.x", position.x)
+        .or_else(|| validate_normalized_value("backgroundPosition.y", position.y))
+}
+
+fn validate_object_position(
+    value: Option<UiSurfaceBackgroundPositionProjection>,
+) -> Option<(&'static str, String, String)> {
+    let position = value?;
+    validate_normalized_value("objectPosition.x", position.x)
+        .or_else(|| validate_normalized_value("objectPosition.y", position.y))
+}
+
+fn validate_padding(
+    value: Option<UiSurfaceEdgeInsetsProjection>,
+) -> Option<(&'static str, String, String)> {
+    let padding = value?;
+    validate_logical_value("padding.top", padding.top)
+        .or_else(|| validate_logical_value("padding.right", padding.right))
+        .or_else(|| validate_logical_value("padding.bottom", padding.bottom))
+        .or_else(|| validate_logical_value("padding.left", padding.left))
+}
+
+fn validate_optional_logical_value(
+    field: &'static str,
+    value: Option<f64>,
+) -> Option<(&'static str, String, String)> {
+    validate_logical_value(field, value?)
+}
+
+fn validate_logical_value(
+    field: &'static str,
+    value: f64,
+) -> Option<(&'static str, String, String)> {
+    if !value.is_finite() {
+        return Some((
+            field,
+            value.to_string(),
+            "UI surface style numeric values must be finite logical values".to_string(),
+        ));
+    }
+    if value < 0.0 {
+        return Some((
+            field,
+            value.to_string(),
+            "UI surface style numeric values must not be negative".to_string(),
+        ));
+    }
+    if value > MAX_NATIVE_UI_STYLE_LOGICAL_VALUE {
+        return Some((
+            field,
+            value.to_string(),
+            "UI surface style numeric values exceed native renderer logical limits".to_string(),
+        ));
+    }
+    None
+}
+
+fn validate_normalized_value(
+    field: &'static str,
+    value: f64,
+) -> Option<(&'static str, String, String)> {
+    if !value.is_finite() || !(0.0..=1.0).contains(&value) {
+        return Some((
+            field,
+            value.to_string(),
+            "UI surface style background positions must be finite normalized values between 0 and 1"
+                .to_string(),
+        ));
+    }
+    None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn node_opacity_accepts_only_finite_normalized_values() {
+        assert_eq!(invalid_native_json_ui_node_opacity_reason(0.0), None);
+        assert_eq!(invalid_native_json_ui_node_opacity_reason(1.0), None);
+
+        assert!(invalid_native_json_ui_node_opacity_reason(f32::NAN)
+            .unwrap()
+            .contains("finite"));
+        assert!(invalid_native_json_ui_node_opacity_reason(-0.01)
+            .unwrap()
+            .contains("between 0 and 1"));
+        assert!(invalid_native_json_ui_node_opacity_reason(1.01)
+            .unwrap()
+            .contains("between 0 and 1"));
+    }
+
+    #[test]
+    fn style_numbers_accept_finite_values_at_native_limits() {
+        let style = UiSurfaceResolvedStyle {
+            opacity: Some(0.5),
+            background_position: Some(UiSurfaceBackgroundPositionProjection { x: 0.0, y: 1.0 }),
+            object_position: Some(UiSurfaceBackgroundPositionProjection { x: 0.25, y: 0.75 }),
+            border_radius: Some(MAX_NATIVE_UI_STYLE_LOGICAL_VALUE),
+            border_width: Some(0.0),
+            font_size: Some(28.0),
+            letter_spacing: Some(0.0),
+            line_height: Some(MAX_NATIVE_UI_STYLE_LOGICAL_VALUE),
+            padding: Some(UiSurfaceEdgeInsetsProjection {
+                top: 0.0,
+                right: 1.0,
+                bottom: MAX_NATIVE_UI_STYLE_LOGICAL_VALUE,
+                left: 2.0,
+            }),
+            ..UiSurfaceResolvedStyle::default()
+        };
+
+        assert_eq!(invalid_native_json_ui_style_number_reason(&style), None);
+    }
+
+    #[test]
+    fn style_numbers_reject_unsafe_values() {
+        let opacity = invalid_native_json_ui_style_number_reason(&UiSurfaceResolvedStyle {
+            opacity: Some(f32::NAN),
+            ..UiSurfaceResolvedStyle::default()
+        })
+        .unwrap();
+        assert_eq!(opacity.0, "opacity");
+        assert!(opacity.2.contains("finite"));
+
+        let background_position =
+            invalid_native_json_ui_style_number_reason(&UiSurfaceResolvedStyle {
+                background_position: Some(UiSurfaceBackgroundPositionProjection {
+                    x: 1.01,
+                    y: 0.0,
+                }),
+                ..UiSurfaceResolvedStyle::default()
+            })
+            .unwrap();
+        assert_eq!(background_position.0, "backgroundPosition.x");
+        assert!(background_position.2.contains("normalized"));
+
+        let object_position = invalid_native_json_ui_style_number_reason(&UiSurfaceResolvedStyle {
+            object_position: Some(UiSurfaceBackgroundPositionProjection { x: 0.0, y: -0.01 }),
+            ..UiSurfaceResolvedStyle::default()
+        })
+        .unwrap();
+        assert_eq!(object_position.0, "objectPosition.y");
+        assert!(object_position.2.contains("normalized"));
+
+        let border_width = invalid_native_json_ui_style_number_reason(&UiSurfaceResolvedStyle {
+            border_width: Some(-1.0),
+            ..UiSurfaceResolvedStyle::default()
+        })
+        .unwrap();
+        assert_eq!(border_width.0, "borderWidth");
+        assert!(border_width.2.contains("must not be negative"));
+
+        let padding = invalid_native_json_ui_style_number_reason(&UiSurfaceResolvedStyle {
+            padding: Some(UiSurfaceEdgeInsetsProjection {
+                top: 0.0,
+                right: 0.0,
+                bottom: 0.0,
+                left: MAX_NATIVE_UI_STYLE_LOGICAL_VALUE + 1.0,
+            }),
+            ..UiSurfaceResolvedStyle::default()
+        })
+        .unwrap();
+        assert_eq!(padding.0, "padding.left");
+        assert!(padding.2.contains("logical limits"));
+    }
+}

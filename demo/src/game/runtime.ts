@@ -1,30 +1,33 @@
 import { MemoryAssetStorage } from '@quajs/assets'
-import { createViteDevAssetRuntime, createWebAssetsAdapter } from '@quajs/assets-web'
-import { QuaEngine, UiOverlayPlugin } from '@quajs/engine'
-import { AnimationPlugin } from '@quajs/plugin-animation'
-import { AudioPlugin } from '@quajs/plugin-audio'
-import { BacklogPlugin } from '@quajs/plugin-backlog'
-import { BackgroundPlugin } from '@quajs/plugin-background'
-import { FontsPlugin } from '@quajs/plugin-fonts'
-import { GalleryPlugin } from '@quajs/plugin-gallery'
-import { SettingsPlugin } from '@quajs/plugin-settings'
+import { createViteDevAssetRuntime, createWebAssetRuntime, createWebAssetStorage, createWebAssetsAdapter } from '@quajs/assets-web'
 import {
   createWebRuntimeModuleLoader,
   createWebRuntimeRendererPluginLoader,
   createWebRuntimeTrustPolicy,
 } from '@quajs/security-web'
-import { StoryGraphPlugin } from '@quajs/story-graph'
 import { createWebStoreStorage } from '@quajs/store-web'
-import { DEMO_SUPPORTED_LOCALES, TRUSTED_RUNTIME_KEYS } from './config'
-import { registerDemoGallery } from './content/gallery'
-import { registerDemoStoryGraph } from './content/story-tree'
+import { createDemoSettingsStorage } from './settings-storage'
+import { TRUSTED_RUNTIME_KEYS } from './config'
+import { createDemoEngineRuntime } from './runtime-shared'
 
 export async function createDemoRuntime() {
-  const assets = await createViteDevAssetRuntime({
+  const storage = import.meta.env.PROD
+    ? createWebAssetStorage({ databaseName: 'call-me-tomorrow-assets' })
+    : new MemoryAssetStorage()
+  const web = { databaseName: 'call-me-tomorrow-assets', storage }
+  const productionBundle = import.meta.env.PROD ? await loadProductionBundle() : undefined
+  const assets = import.meta.env.DEV ? await createViteDevAssetRuntime({
     hmr: import.meta.hot,
-    web: {
-      databaseName: 'demo-assets',
-    },
+    manifestUrl: `${import.meta.env.BASE_URL}@qua-assets/manifest.json`,
+    assetBaseUrl: `${import.meta.env.BASE_URL}@qua-assets`,
+    web,
+  }) : await createWebAssetRuntime({
+    web,
+    endpoint: import.meta.env.BASE_URL,
+    initialBundles: productionBundle!.bundleFile,
+    // Persistent byte-store quota, NOT a resident-memory budget. Images are read
+    // from IndexedDB on demand; never evict the only copy of a mounted QPK.
+    cacheSize: Math.max(256 * 1024 * 1024, productionBundle!.totalSize * 2),
   })
   const trustPolicy = createWebRuntimeTrustPolicy({
     keys: TRUSTED_RUNTIME_KEYS,
@@ -42,70 +45,42 @@ export async function createDemoRuntime() {
     moduleUrlMode: 'same-origin-with-blob-fallback',
   })
 
-  const engine = new QuaEngine({
-    layout: 'landscape',
-    assets: {
-      adapter: createWebAssetsAdapter({
-        databaseName: 'demo-engine-assets',
-        storage: new MemoryAssetStorage(),
-      }),
-      provider: assets.getProvider(),
-      locale: 'default',
-      enableCache: false,
-    },
-    store: {
-      storage: createWebStoreStorage({
-        dbName: 'demo-saves',
-      }),
-    },
-    flowControl: {
-      skipMode: 'all',
-      timings: {
-        autoAdvanceDelayMs: 2000,
+  const { audio, engine, gallery, storyGraph } = await createDemoEngineRuntime({
+    engine: {
+      layout: 'landscape',
+      assets: {
+        adapter: createWebAssetsAdapter({
+          databaseName: 'call-me-tomorrow-engine-assets',
+          storage,
+        }),
+        provider: assets.getProvider(),
+        locale: 'default',
+        enableCache: false,
       },
-    },
-    dialogue: {
-      typewriter: {
-        enabled: true,
-        charactersPerSecond: 36,
-        revealOnAdvance: true,
+      store: {
+        storage: createWebStoreStorage({
+          dbName: 'call-me-tomorrow-saves',
+        }),
       },
-    },
-    runtimeModuleLoader,
-    trustPolicy,
-  })
-
-  const audio = new AudioPlugin()
-  const storyGraph = new StoryGraphPlugin()
-  const gallery = new GalleryPlugin({ profileId: 'demo' })
-
-  engine
-    .use(new BackgroundPlugin())
-    .use(new AnimationPlugin())
-    .use(audio)
-    .use(new BacklogPlugin())
-    .use(storyGraph)
-    .use(gallery)
-    .use(new SettingsPlugin({
-      builtin: {
-        developer: {
-          defaultLocale: 'zh-cn',
-          supportedLocales: DEMO_SUPPORTED_LOCALES,
-          systemLocale: typeof navigator !== 'undefined' ? navigator.language : undefined,
-        },
-        player: {
-          textSpeedCps: 36,
+      flowControl: {
+        skipMode: 'read',
+        timings: {
           autoAdvanceDelayMs: 2000,
-          skipMode: 'all',
         },
       },
-    }))
-    .use(new FontsPlugin())
-    .use(new UiOverlayPlugin())
-
-  await engine.init()
-  await registerDemoGallery(gallery)
-  await registerDemoStoryGraph(storyGraph)
+      dialogue: {
+        typewriter: {
+          enabled: true,
+          charactersPerSecond: 36,
+          revealOnAdvance: true,
+        },
+      },
+      runtimeModuleLoader,
+      trustPolicy,
+    },
+    settingsStorage: createDemoSettingsStorage(window.localStorage),
+    systemLocale: typeof navigator !== 'undefined' ? navigator.language : undefined,
+  })
 
   return {
     assets,
@@ -115,4 +90,17 @@ export async function createDemoRuntime() {
     runtimePluginLoader,
     storyGraph,
   }
+}
+
+async function loadProductionBundle(): Promise<{ bundleFile: string, totalSize: number }> {
+  const response = await fetch(`${import.meta.env.BASE_URL}asset-manifest.json`)
+  if (!response.ok) throw new Error(`Asset manifest request failed: ${response.status}`)
+  const manifest: { bundleFile?: string, totalSize?: number } = await response.json()
+  if (!manifest.bundleFile || !/^[a-zA-Z0-9._-]+\.(qpk|zip)$/.test(manifest.bundleFile)) {
+    throw new Error('Build manifest does not declare a static asset bundle.')
+  }
+  if (!Number.isSafeInteger(manifest.totalSize) || manifest.totalSize! <= 0) {
+    throw new Error('Build manifest does not declare a positive static asset size.')
+  }
+  return { bundleFile: manifest.bundleFile, totalSize: manifest.totalSize! }
 }

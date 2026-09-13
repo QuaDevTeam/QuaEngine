@@ -1,0 +1,7 @@
+# Web asset memory implementation notes
+
+Shared byte storage is created by `createWebAssetStorage` in `@quajs/assets-web`. Its IndexedDB lookupKeys index preserves name/path/suffix queries without scanning unrelated payloads. The cache schema version defaults to3; the index backfill concerns reproducible asset cache metadata only, never player saves. Store writes are chunked to8MiB (an oversized asset is a single batch); statistics/eviction read numeric index keys without deserializing image payloads.
+
+`@quajs/renderer-web` owns URL sharing, read deduplication and a4-read queue per QuaAssets. Idle URL retention is at most250ms and bounded by16URLs/32MiB estimated encoded+RGBA bytes. Active refs remain pinned. `getWebAssetMemoryStats` exposes implementation-resource counts, not authoritative game state and not browser/GPU measured memory. Revoke invalidates stale pending results; failed replacements release old URLs. DOM unmount drops nodes as well as handles. Framework adapters must reuse these APIs.
+
+Validate renderer-web and assets-web tests/typecheck/build; asset storage tests use fake-indexeddb. Run affected Vue integration tests and real production QPK decoding. Initial QPK download/parse still materializes the whole bundle; do not claim the URL idle budget caps startup or visible-image memory. Respect RuntimeContentManager unload guards and split large content using Quack-built QPKs, not loose resources.

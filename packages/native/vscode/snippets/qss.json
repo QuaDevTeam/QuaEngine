@@ -1,0 +1,51 @@
+{
+  "Component rule": {
+    "prefix": "rule",
+    "body": [
+      "${1:Button} {",
+      "  ${2:color}: ${3:#ffffff};",
+      "}"
+    ],
+    "description": "Create a native QSS component rule."
+  },
+  "Pseudo state": {
+    "prefix": "hover",
+    "body": [
+      "${1:Button}:hover {",
+      "  background-color: ${2:#2f6feb};",
+      "}"
+    ],
+    "description": "Create a native QSS pseudo-state rule."
+  },
+  "Style part": {
+    "prefix": "part",
+    "body": [
+      "${1:Panel}::part(${2:header}) {",
+      "  ${3:color}: ${4:#ffffff};",
+      "}"
+    ],
+    "description": "Create a native QSS style part rule."
+  },
+  "Media query": {
+    "prefix": "media",
+    "body": [
+      "@media (${1:orientation: portrait}) {",
+      "  ${2:Panel} {",
+      "    ${3:font-size}: ${4:28px};",
+      "  }",
+      "}"
+    ],
+    "description": "Create a supported native QSS media query."
+  },
+  "Supports gate": {
+    "prefix": "supports",
+    "body": [
+      "@supports renderer(${1:wgpu}) {",
+      "  ${2:Image} {",
+      "    object-fit: ${3:cover};",
+      "  }",
+      "}"
+    ],
+    "description": "Create a native QSS renderer support gate."
+  }
+}

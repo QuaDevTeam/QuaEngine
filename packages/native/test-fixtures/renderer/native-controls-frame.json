@@ -1,0 +1,74 @@
+{
+  "layout": { "preset": "landscape" },
+  "container": { "width": 1600, "height": 1000, "devicePixelRatio": 2 },
+  "view": {
+    "ui": {
+      "visible": true,
+      "overlays": [
+        {
+          "elementId": "settings",
+          "surface": {
+            "key": "plugin-settings/native",
+            "root": {
+              "id": "root",
+              "kind": "Fragment",
+              "bounds": { "x": 0, "y": 0, "width": 1920, "height": 1080 },
+              "visible": true,
+              "children": [
+                {
+                  "id": "range",
+                  "kind": "Box",
+                  "bounds": { "x": 240, "y": 180, "width": 520, "height": 48 },
+                  "visible": true,
+                  "control": {
+                    "kind": "range",
+                    "selectedIndex": 1,
+                    "parts": {
+                      "progress": "range-progress",
+                      "thumb": "range-thumb",
+                      "thumbHalo": "range-halo",
+                      "value": "range-value"
+                    },
+                    "options": [
+                      { "label": "10 cps", "intent": { "event": "ui/intent", "action": "settings-update", "metadata": { "patchJson": "{\"speed\":10}" } } },
+                      { "label": "20 cps", "intent": { "event": "ui/intent", "action": "settings-update", "metadata": { "patchJson": "{\"speed\":20}" } } },
+                      { "label": "30 cps", "intent": { "event": "ui/intent", "action": "settings-update", "metadata": { "patchJson": "{\"speed\":30}" } } }
+                    ]
+                  },
+                  "style": { "backgroundColor": "transparent" },
+                  "children": [
+                    { "id": "range-track", "kind": "Box", "bounds": { "x": 240, "y": 202, "width": 520, "height": 4 }, "visible": true, "style": { "backgroundColor": "#c89c4a" } },
+                    { "id": "range-progress", "kind": "Box", "bounds": { "x": 240, "y": 202, "width": 260, "height": 4 }, "visible": true, "style": { "backgroundColor": "#81e5ff" } },
+                    { "id": "range-halo", "kind": "Box", "bounds": { "x": 490, "y": 194, "width": 20, "height": 20 }, "visible": true, "style": { "backgroundColor": "rgba(242,206,119,0.16)" } },
+                    { "id": "range-thumb", "kind": "Box", "bounds": { "x": 494, "y": 198, "width": 12, "height": 12 }, "visible": true, "style": { "backgroundColor": "#f2ce77" } }
+                  ]
+                },
+                { "id": "range-value", "kind": "Text", "bounds": { "x": 780, "y": 188, "width": 120, "height": 28 }, "visible": true, "text": "20 cps", "style": { "color": "#ffffff", "fontSize": 18 } },
+                {
+                  "id": "select",
+                  "kind": "Panel",
+                  "bounds": { "x": 240, "y": 300, "width": 360, "height": 48 },
+                  "visible": true,
+                  "control": {
+                    "kind": "select",
+                    "selectedIndex": 0,
+                    "parts": { "chevron": "select-chevron", "value": "select-value" },
+                    "options": [
+                      { "label": "Read text", "intent": { "event": "ui/intent", "action": "settings-update", "metadata": { "patchJson": "{\"skipMode\":\"read\"}" } } },
+                      { "label": "All text", "intent": { "event": "ui/intent", "action": "settings-update", "metadata": { "patchJson": "{\"skipMode\":\"all\"}" } } }
+                    ]
+                  },
+                  "style": { "backgroundColor": "#0b0d12", "borderColor": "#665b46", "borderWidth": 1 },
+                  "children": [
+                    { "id": "select-value", "kind": "Text", "bounds": { "x": 252, "y": 310, "width": 290, "height": 28 }, "visible": true, "text": "Read text", "style": { "color": "#ffffff", "fontSize": 18 } },
+                    { "id": "select-chevron", "kind": "Text", "bounds": { "x": 560, "y": 310, "width": 24, "height": 28 }, "visible": true, "text": "⌄", "style": { "color": "#ffffff", "fontSize": 18, "textAlign": "center" } }
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  }
+}

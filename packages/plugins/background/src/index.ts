@@ -405,6 +405,7 @@ function normalizeLayer(layer: BackgroundLayerInput | Readonly<ViewBackgroundLay
 function normalizeBackground(background: Readonly<ViewBackgroundProjection>): ViewBackgroundProjection {
   return {
     ...background,
+    ...(background.characterLighting ? { characterLighting: cloneUnknownValue(background.characterLighting) as typeof background.characterLighting } : {}),
     transition: background.transition ? { ...background.transition } : undefined,
     video: background.video
       ? {
@@ -597,6 +598,7 @@ async function replaceBackgroundWithTransition(
   await engine.setBackgroundProjection(normalizeBackground({
     mode: 'layered',
     layers: tempLayers,
+    characterLighting: next.characterLighting,
     metadata: {
       transition: {
         type: transition.type,

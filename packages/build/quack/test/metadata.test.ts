@@ -6,6 +6,25 @@ describe('metadataGenerator', () => {
   let metadataGenerator: MetadataGenerator
   let mockAssets: AssetInfo[]
 
+  it('preserves type-relative nested names for runtime lookup, matching dev VFS', () => {
+    const generator = new MetadataGenerator()
+    const assets = ['images/backgrounds/room.png', 'images/cg/room.png', 'audio/bgm/theme.ogg', 'scripts/scenes/opening.js'].map((relativePath, index) => ({
+      name: relativePath.split('/').at(-1)!,
+      type: relativePath.split('/')[0] as AssetInfo['type'],
+      path: `/test/${relativePath}`, relativePath,
+      size: 100, hash: `hash-${index}`, mtime: 1, locales: ['default'],
+    }))
+    const manifest = generator.generateManifest(assets, 'nested-assets', {
+      format: 'qpk', compression: { algorithm: 'none' },
+      encryption: { enabled: false, algorithm: 'none' },
+    })
+    for (const asset of assets) {
+      const name = asset.relativePath.slice(asset.type.length + 1)
+      expect(manifest.assets[asset.type]?.[name]?.name).toBe(name)
+    }
+    expect(manifest.assets.images?.['backgrounds/room.png']?.name).not.toBe(manifest.assets.images?.['cg/room.png']?.name)
+  })
+
   beforeEach(() => {
     metadataGenerator = new MetadataGenerator()
 

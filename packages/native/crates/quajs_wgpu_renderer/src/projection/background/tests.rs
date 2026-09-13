@@ -1,0 +1,913 @@
+use std::collections::BTreeSet;
+
+use super::*;
+use crate::projection::background::layout::media_origin;
+use crate::projection::common::PackageProvenance;
+use crate::render_graph::{
+    DrawCommandKind, DrawCommandParams, MediaFit, MediaOrigin, RenderGraph, RenderPlane,
+};
+use crate::resources::ResourceId;
+use crate::stage_layout::{
+    resolve_stage_layout, ResolvedStageLayout, StageContainerInput, ViewLayoutInput,
+    ViewLayoutOrientation,
+};
+use crate::video::{
+    VideoBackendFrameResource, VideoBackendFrameResourceMap, BACKGROUND_VIDEO_STREAM_ID,
+};
+
+#[test]
+fn builds_main_image_background_command() {
+    let layout = test_layout();
+    let background = BackgroundProjection {
+        asset_name: Some("bg/school.png".to_string()),
+        rotation: 12.5,
+        provenance: provenance("base", []),
+        ..Default::default()
+    };
+
+    let commands = build_background_commands(&layout, &background);
+
+    assert_eq!(commands.len(), 1);
+    let command = &commands[0];
+    assert_eq!(command.id, "background:main");
+    assert_eq!(command.plane, RenderPlane::Scene);
+    assert_eq!(command.kind, DrawCommandKind::Image);
+    assert_eq!(command.bounds.width, 1920.0);
+    assert_eq!(command.bounds.height, 1080.0);
+    assert_eq!(
+        command.resource_ids,
+        vec![ResourceId::from("images:bg/school.png")]
+    );
+    assert_eq!(command.owner_package_id.as_deref(), Some("base"));
+
+    match &command.params {
+        DrawCommandParams::Image(params) => {
+            assert_eq!(params.asset_type, "images");
+            assert_eq!(params.asset_name, "bg/school.png");
+            assert_eq!(params.fit, MediaFit::Cover);
+            assert_eq!(params.rotation_degrees, 12.5);
+        }
+        _ => panic!("expected image draw params"),
+    }
+}
+
+#[test]
+fn projects_drop_shadow_on_source_subtree_with_group_opacity_and_provenance() {
+    let layout = test_layout();
+    let background = BackgroundProjection {
+        asset_name: Some("bg/school.png".into()),
+        opacity: 0.6,
+        provenance: provenance("runtime.bg", ["base"]),
+        composition: Some(BackgroundCompositionProjection {
+            filter: Some(BackgroundFilterProjection {
+                drop_shadow: Some("12px 18px 24px rgba(0, 0, 0, 0.55)".into()),
+                ..Default::default()
+            }),
+            ..Default::default()
+        }),
+        ..Default::default()
+    };
+    let commands = build_background_commands(&layout, &background);
+    assert_eq!(
+        commands.len(),
+        1,
+        "a drop shadow must not synthesize a rectangular sibling"
+    );
+    let command = &commands[0];
+    assert_eq!(command.kind, DrawCommandKind::Image);
+    assert_eq!(command.opacity, 1.0);
+    assert_eq!(command.owner_package_id.as_deref(), Some("runtime.bg"));
+    assert!(command.required_package_ids.contains("base"));
+    let group = &command.composite_groups[0];
+    assert_eq!(group.opacity, 0.6);
+    let shadow = group.drop_shadow.as_ref().unwrap();
+    assert_eq!(shadow.offset, [12.0, 18.0]);
+    assert_eq!(shadow.sigma, 24.0);
+    assert_eq!(shadow.color, "rgba(0, 0, 0, 0.55)");
+}
+
+#[test]
+fn applies_background_filters_after_subtree_rendering() {
+    let layout = test_layout();
+    let background = BackgroundProjection {
+        asset_name: Some("bg/filtered.png".to_string()),
+        composition: Some(BackgroundCompositionProjection {
+            blend_mode: Some("screen".to_string()),
+            isolation: true,
+            filter: Some(BackgroundFilterProjection {
+                brightness: 1.2,
+                saturate: 0.8,
+                contrast: 1.1,
+                hue_rotate: 90.0,
+                ..Default::default()
+            }),
+            mask: Some(BackgroundMaskProjection {
+                asset_name: Some("masks/vignette.png".to_string()),
+                ..Default::default()
+            }),
+        }),
+        ..Default::default()
+    };
+
+    let commands = build_background_commands(&layout, &background);
+    let DrawCommandParams::Image(params) = &commands[0].params else {
+        panic!("expected image draw params")
+    };
+    assert_eq!(params.brightness, 1.0);
+    assert_eq!(params.saturation, 1.0);
+    assert_eq!(params.contrast, 1.0);
+    assert_eq!(params.hue_rotate_radians, 0.0);
+    assert!(commands[0]
+        .resource_ids
+        .contains(&ResourceId::from("images:masks/vignette.png")));
+    let group = &commands[0].composite_groups[0];
+    assert_eq!(
+        group.blend_mode,
+        crate::render_graph::CompositeBlendMode::Screen
+    );
+    assert_eq!(group.color_filter.brightness, 1.2);
+    assert_eq!(group.color_filter.saturation, 0.8);
+    assert_eq!(group.color_filter.contrast, 1.1);
+    assert!((group.color_filter.hue_rotate_radians - std::f32::consts::FRAC_PI_2).abs() < 1e-6);
+    assert_eq!(
+        group.mask_resource_id.as_deref(),
+        Some("images:masks/vignette.png")
+    );
+}
+
+#[test]
+fn builds_visible_layered_background_commands_in_scene_plane() {
+    let layout = test_layout();
+    let background = BackgroundProjection {
+        mode: BackgroundMode::Layered,
+        layers: vec![
+            BackgroundLayerProjection {
+                fit: BackgroundFit::Contain,
+                z_index: 20,
+                opacity: 0.7,
+                provenance: provenance("runtime.light", ["base"]),
+                ..BackgroundLayerProjection::new("light", "layers/light.webp")
+            },
+            BackgroundLayerProjection {
+                visible: false,
+                ..BackgroundLayerProjection::new("hidden", "layers/hidden.webp")
+            },
+            BackgroundLayerProjection {
+                origin: Some("left top".to_string()),
+                width: Some(640.0),
+                height: Some(360.0),
+                x: 50.0,
+                y: 60.0,
+                rotation: -8.0,
+                z_index: -5,
+                ..BackgroundLayerProjection::new("sky", "layers/sky.webp")
+            },
+            BackgroundLayerProjection {
+                origin: Some("25% 75%".to_string()),
+                z_index: 5,
+                ..BackgroundLayerProjection::new("mist", "layers/mist.webp")
+            },
+        ],
+        ..Default::default()
+    };
+
+    let mut graph = RenderGraph::new(layout);
+    append_background_commands(&mut graph, &background);
+    let ids: Vec<_> = graph
+        .commands()
+        .iter()
+        .map(|command| command.id.as_str())
+        .collect();
+
+    assert_eq!(
+        ids,
+        vec![
+            "background:layer:sky",
+            "background:layer:mist",
+            "background:layer:light"
+        ]
+    );
+    assert_eq!(graph.commands()[0].bounds.x, 50.0);
+    assert_eq!(graph.commands()[0].bounds.width, 640.0);
+    match &graph.commands()[0].params {
+        DrawCommandParams::Image(params) => {
+            assert_eq!(params.rotation_degrees, -8.0);
+        }
+        _ => panic!("expected layer image params"),
+    }
+    match &graph.commands()[1].params {
+        DrawCommandParams::Image(params) => {
+            assert_eq!(params.origin.x, 0.25);
+            assert_eq!(params.origin.y, 0.75);
+        }
+        _ => panic!("expected layer image params"),
+    }
+    assert_eq!(graph.commands()[2].opacity, 0.7);
+    assert_eq!(
+        graph.commands()[2].owner_package_id.as_deref(),
+        Some("runtime.light")
+    );
+    assert!(graph.commands()[2].required_package_ids.contains("base"));
+    assert_eq!(
+        graph.summary().by_plane[&RenderPlane::Scene].command_count,
+        3
+    );
+}
+
+#[test]
+fn skips_empty_background_asset_names_on_direct_projection() {
+    let layout = test_layout();
+    let image_background = BackgroundProjection {
+        asset_name: Some("  ".to_string()),
+        ..Default::default()
+    };
+    assert!(build_background_commands(&layout, &image_background).is_empty());
+
+    let layered_background = BackgroundProjection {
+        mode: BackgroundMode::Layered,
+        layers: vec![
+            BackgroundLayerProjection::new("empty", ""),
+            BackgroundLayerProjection::new("whitespace", "  "),
+            BackgroundLayerProjection::new("valid", "layers/valid.png"),
+        ],
+        ..Default::default()
+    };
+    let commands = build_background_commands(&layout, &layered_background);
+    assert_eq!(commands.len(), 1);
+    assert_eq!(commands[0].id, "background:layer:valid");
+    assert_eq!(
+        commands[0].resource_ids,
+        vec![ResourceId::from("images:layers/valid.png")]
+    );
+
+    let missing_video = BackgroundProjection {
+        mode: BackgroundMode::Video,
+        video: Some(BackgroundVideoProjection::new("")),
+        ..Default::default()
+    };
+    assert!(build_background_commands(&layout, &missing_video).is_empty());
+}
+
+#[test]
+fn skips_unsafe_background_asset_names_on_direct_projection() {
+    let layout = test_layout();
+    let url_background = BackgroundProjection {
+        asset_name: Some("https://example.test/bg.png".to_string()),
+        ..Default::default()
+    };
+    assert!(build_background_commands(&layout, &url_background).is_empty());
+
+    let layered_background = BackgroundProjection {
+        mode: BackgroundMode::Layered,
+        layers: vec![
+            BackgroundLayerProjection::new("traversal", "../layers/escape.png"),
+            BackgroundLayerProjection::new("absolute", "/layers/absolute.png"),
+            BackgroundLayerProjection::new("backslash", "layers\\backslash.png"),
+            BackgroundLayerProjection::new("payload", "layers/native.dll?rev=1"),
+            BackgroundLayerProjection::new("valid", "layers/valid.png"),
+        ],
+        ..Default::default()
+    };
+    let commands = build_background_commands(&layout, &layered_background);
+    assert_eq!(commands.len(), 1);
+    assert_eq!(commands[0].id, "background:layer:valid");
+    assert_eq!(
+        commands[0].resource_ids,
+        vec![ResourceId::from("images:layers/valid.png")]
+    );
+
+    let unsafe_video = BackgroundProjection {
+        mode: BackgroundMode::Video,
+        video: Some(BackgroundVideoProjection::new("native/plugin.framework")),
+        ..Default::default()
+    };
+    assert!(build_background_commands(&layout, &unsafe_video).is_empty());
+}
+
+#[test]
+fn skips_unsafe_background_asset_types_on_direct_projection() {
+    let layout = test_layout();
+    let image_background = BackgroundProjection {
+        asset_name: Some("bg/school.png".to_string()),
+        asset_type: Some("images/native".to_string()),
+        ..Default::default()
+    };
+    assert!(build_background_commands(&layout, &image_background).is_empty());
+
+    let layered_background = BackgroundProjection {
+        mode: BackgroundMode::Layered,
+        layers: vec![
+            BackgroundLayerProjection {
+                asset_type: Some("../images".to_string()),
+                ..BackgroundLayerProjection::new("path", "layers/path.png")
+            },
+            BackgroundLayerProjection {
+                asset_type: Some("---".to_string()),
+                ..BackgroundLayerProjection::new("symbol", "layers/symbol.png")
+            },
+            BackgroundLayerProjection {
+                asset_type: Some("sprites-ui".to_string()),
+                ..BackgroundLayerProjection::new("valid", "layers/valid.png")
+            },
+        ],
+        ..Default::default()
+    };
+
+    let commands = build_background_commands(&layout, &layered_background);
+
+    assert_eq!(commands.len(), 1);
+    assert_eq!(commands[0].id, "background:layer:valid");
+    assert_eq!(
+        commands[0].resource_ids,
+        vec![ResourceId::from("sprites-ui:layers/valid.png")]
+    );
+}
+
+#[test]
+fn skips_layers_with_unsafe_projection_ids_on_direct_projection() {
+    let layout = test_layout();
+    let background = BackgroundProjection {
+        mode: BackgroundMode::Layered,
+        layers: vec![
+            BackgroundLayerProjection::new("safe.layer", "layers/safe.png"),
+            BackgroundLayerProjection::new("https://example.test/layer", "layers/url.png"),
+            BackgroundLayerProjection::new("native:layer", "layers/native.png"),
+            BackgroundLayerProjection::new("bad/layer", "layers/path.png"),
+            BackgroundLayerProjection::new("bad..layer", "layers/traversal.png"),
+            BackgroundLayerProjection::new("plugin.dll", "layers/payload.png"),
+        ],
+        ..Default::default()
+    };
+
+    let commands = build_background_commands(&layout, &background);
+
+    assert_eq!(commands.len(), 1);
+    assert_eq!(commands[0].id, "background:layer:safe.layer");
+    assert_eq!(
+        commands[0].resource_ids,
+        vec![ResourceId::from("images:layers/safe.png")]
+    );
+}
+
+#[test]
+fn skips_duplicate_layer_projection_ids_on_direct_projection() {
+    let layout = test_layout();
+    let background = BackgroundProjection {
+        mode: BackgroundMode::Layered,
+        layers: vec![
+            BackgroundLayerProjection::new("clouds", "layers/clouds-first.png"),
+            BackgroundLayerProjection::new("clouds", "layers/clouds-second.png"),
+            BackgroundLayerProjection::new("mist", "layers/mist.png"),
+        ],
+        ..Default::default()
+    };
+
+    let commands = build_background_commands(&layout, &background);
+
+    assert_eq!(
+        commands
+            .iter()
+            .map(|command| command.id.as_str())
+            .collect::<Vec<_>>(),
+        vec!["background:layer:clouds", "background:layer:mist"]
+    );
+    assert_eq!(
+        commands[0].resource_ids,
+        vec![ResourceId::from("images:layers/clouds-first.png")]
+    );
+}
+
+#[test]
+fn skips_backgrounds_with_unsafe_resolved_numbers_on_direct_projection() {
+    let layout = test_layout();
+
+    for background in [
+        BackgroundProjection {
+            asset_name: Some("bg/opacity.png".to_string()),
+            opacity: 1.01,
+            ..Default::default()
+        },
+        BackgroundProjection {
+            asset_name: Some("bg/scale.png".to_string()),
+            scale: 0.0,
+            ..Default::default()
+        },
+        BackgroundProjection {
+            asset_name: Some("bg/width.png".to_string()),
+            width: Some(-1.0),
+            ..Default::default()
+        },
+        BackgroundProjection {
+            asset_name: Some("bg/origin.png".to_string()),
+            origin: Some("120% 50%".to_string()),
+            ..Default::default()
+        },
+        BackgroundProjection {
+            asset_name: Some("bg/rotation.png".to_string()),
+            rotation: 360_001.0,
+            ..Default::default()
+        },
+    ] {
+        assert!(build_background_commands(&layout, &background).is_empty());
+    }
+
+    let layered_background = BackgroundProjection {
+        mode: BackgroundMode::Layered,
+        layers: vec![
+            BackgroundLayerProjection {
+                opacity: f32::NAN,
+                ..BackgroundLayerProjection::new("bad-opacity", "layers/opacity.png")
+            },
+            BackgroundLayerProjection {
+                z_index: 1_000_001,
+                ..BackgroundLayerProjection::new("bad-z", "layers/z.png")
+            },
+            BackgroundLayerProjection {
+                origin: Some("file:origin".to_string()),
+                ..BackgroundLayerProjection::new("bad-origin", "layers/origin.png")
+            },
+            BackgroundLayerProjection::new("valid", "layers/valid.png"),
+        ],
+        ..Default::default()
+    };
+
+    let commands = build_background_commands(&layout, &layered_background);
+
+    assert_eq!(commands.len(), 1);
+    assert_eq!(commands[0].id, "background:layer:valid");
+}
+
+#[test]
+fn skips_video_backgrounds_with_unsafe_resolved_numbers_on_direct_projection() {
+    let layout = test_layout();
+
+    for video in [
+        BackgroundVideoProjection {
+            opacity: -0.01,
+            ..BackgroundVideoProjection::new("movie/opening.mp4")
+        },
+        BackgroundVideoProjection {
+            origin: Some("../center".to_string()),
+            ..BackgroundVideoProjection::new("movie/opening.mp4")
+        },
+        BackgroundVideoProjection {
+            volume: Some(1.01),
+            ..BackgroundVideoProjection::new("movie/opening.mp4")
+        },
+        BackgroundVideoProjection {
+            playback_rate: Some(0.0),
+            ..BackgroundVideoProjection::new("movie/opening.mp4")
+        },
+    ] {
+        let background = BackgroundProjection {
+            mode: BackgroundMode::Video,
+            video: Some(video),
+            ..Default::default()
+        };
+        assert!(build_background_commands(&layout, &background).is_empty());
+    }
+}
+
+#[test]
+fn builds_video_fallback_command_with_poster_resource() {
+    let layout = test_layout();
+    let background = BackgroundProjection {
+        mode: BackgroundMode::Video,
+        video: Some(BackgroundVideoProjection {
+            looped: Some(false),
+            muted: Some(false),
+            volume: Some(0.5),
+            playback_rate: Some(1.25),
+            poster: Some("poster/day.jpg".to_string()),
+            provenance: provenance("runtime.video", ["base"]),
+            ..BackgroundVideoProjection::new("movie/opening.mp4")
+        }),
+        ..Default::default()
+    };
+
+    let commands = build_background_commands(&layout, &background);
+    let command = &commands[0];
+
+    assert_eq!(command.kind, DrawCommandKind::VideoFrame);
+    assert_eq!(
+        command.resource_ids,
+        vec![ResourceId::from("images:poster/day.jpg")]
+    );
+    assert_eq!(command.owner_package_id.as_deref(), Some("runtime.video"));
+    assert!(command.required_package_ids.contains("base"));
+
+    match &command.params {
+        DrawCommandParams::Video(params) => {
+            assert_eq!(params.asset_name, "movie/opening.mp4");
+            assert_eq!(params.frame_resource_id, None);
+            assert_eq!(params.poster_asset_name.as_deref(), Some("poster/day.jpg"));
+            assert_eq!(params.looped, Some(false));
+            assert_eq!(params.muted, Some(false));
+            assert_eq!(params.volume, Some(0.5));
+            assert_eq!(params.playback_rate, Some(1.25));
+            assert_eq!(
+                params.fallback_reason.as_deref(),
+                Some("native video decode backend is not active")
+            );
+        }
+        _ => panic!("expected video draw params"),
+    }
+}
+
+#[test]
+fn builds_video_frame_command_from_native_backend_resource() {
+    let layout = test_layout();
+    let background = BackgroundProjection {
+        mode: BackgroundMode::Video,
+        video: Some(BackgroundVideoProjection {
+            poster: Some("poster/day.jpg".to_string()),
+            provenance: provenance("runtime.video", ["base"]),
+            ..BackgroundVideoProjection::new("movie/opening.mp4")
+        }),
+        ..Default::default()
+    };
+    let frame_resource_id = ResourceId::from("video:texture-ring:video:movie/opening.mp4");
+    let frame_resources = VideoBackendFrameResourceMap::from([(
+        BACKGROUND_VIDEO_STREAM_ID.to_string(),
+        VideoBackendFrameResource {
+            stream_id: BACKGROUND_VIDEO_STREAM_ID.to_string(),
+            resource_id: frame_resource_id.clone(),
+        },
+    )]);
+
+    let commands = build_background_commands_with_video_frame_resources(
+        &layout,
+        &background,
+        &frame_resources,
+    );
+    let command = &commands[0];
+
+    assert_eq!(command.kind, DrawCommandKind::VideoFrame);
+    assert_eq!(command.resource_ids, vec![frame_resource_id.clone()]);
+    match &command.params {
+        DrawCommandParams::Video(params) => {
+            assert_eq!(params.asset_name, "movie/opening.mp4");
+            assert_eq!(params.frame_resource_id, Some(frame_resource_id));
+            assert_eq!(params.poster_asset_name.as_deref(), Some("poster/day.jpg"));
+            assert_eq!(params.fallback_reason, None);
+        }
+        _ => panic!("expected video draw params"),
+    }
+}
+
+#[test]
+fn skips_unsafe_package_provenance_on_direct_projection() {
+    let layout = test_layout();
+    let background = BackgroundProjection {
+        asset_name: Some("bg/school.png".to_string()),
+        provenance: provenance("runtime/background", ["base", "runtime.ui", "../bad"]),
+        ..Default::default()
+    };
+
+    let commands = build_background_commands(&layout, &background);
+    let command = &commands[0];
+
+    assert_eq!(command.owner_package_id, None);
+    assert!(command.required_package_ids.contains("base"));
+    assert!(command.required_package_ids.contains("runtime.ui"));
+    assert!(!command.required_package_ids.contains("../bad"));
+    assert!(!command.required_package_ids.contains("runtime/background"));
+}
+
+#[test]
+fn skips_empty_video_poster_resource_on_direct_projection() {
+    let layout = test_layout();
+    let background = BackgroundProjection {
+        mode: BackgroundMode::Video,
+        video: Some(BackgroundVideoProjection {
+            poster: Some("  ".to_string()),
+            ..BackgroundVideoProjection::new("movie/opening.mp4")
+        }),
+        ..Default::default()
+    };
+
+    let commands = build_background_commands(&layout, &background);
+    let command = &commands[0];
+
+    assert_eq!(command.kind, DrawCommandKind::VideoFrame);
+    assert!(command.resource_ids.is_empty());
+    match &command.params {
+        DrawCommandParams::Video(params) => {
+            assert_eq!(params.asset_name, "movie/opening.mp4");
+            assert_eq!(params.poster_asset_name, None);
+        }
+        _ => panic!("expected video draw params"),
+    }
+}
+
+#[test]
+fn skips_unsafe_video_poster_resource_on_direct_projection() {
+    let layout = test_layout();
+    let background = BackgroundProjection {
+        mode: BackgroundMode::Video,
+        video: Some(BackgroundVideoProjection {
+            poster: Some("../poster/escape.png".to_string()),
+            ..BackgroundVideoProjection::new("movie/opening.mp4")
+        }),
+        ..Default::default()
+    };
+
+    let commands = build_background_commands(&layout, &background);
+    let command = &commands[0];
+
+    assert_eq!(command.kind, DrawCommandKind::VideoFrame);
+    assert!(command.resource_ids.is_empty());
+    match &command.params {
+        DrawCommandParams::Video(params) => {
+            assert_eq!(params.asset_name, "movie/opening.mp4");
+            assert_eq!(params.poster_asset_name, None);
+        }
+        _ => panic!("expected video draw params"),
+    }
+}
+
+#[test]
+fn deserializes_background_rotation_from_camel_case_json() {
+    let background: BackgroundProjection = serde_json::from_str(
+        r#"
+        {
+          "mode": "layered",
+          "rotation": 24.5,
+          "layers": [
+            {
+              "id": "clouds",
+              "assetName": "layers/clouds.png",
+              "rotation": -16.25
+            }
+          ]
+        }
+        "#,
+    )
+    .expect("background projection JSON should parse");
+
+    assert_eq!(background.rotation, 24.5);
+    assert_eq!(background.layers[0].rotation, -16.25);
+}
+
+#[test]
+fn deserializes_background_composition_from_camel_case_json() {
+    let background: BackgroundProjection = serde_json::from_str(
+        r#"{
+          "mode":"image",
+          "assetName":"bg/filtered.png",
+          "composition":{
+            "blendMode":"screen",
+            "isolation":true,
+            "filter":{"brightness":1.2,"saturate":0.8,"hueRotate":90},
+            "mask":{"assetName":"masks/vignette.png","mode":"alpha"}
+          }
+        }"#,
+    )
+    .expect("background composition JSON should deserialize");
+    let composition = background.composition.expect("composition");
+    assert_eq!(composition.blend_mode.as_deref(), Some("screen"));
+    assert!(composition.isolation);
+    let filter = composition.filter.expect("filter");
+    assert_eq!(filter.brightness, 1.2);
+    assert_eq!(filter.saturate, 0.8);
+    assert_eq!(filter.contrast, 1.0);
+    assert_eq!(filter.hue_rotate, 90.0);
+    assert_eq!(
+        composition.mask.unwrap().asset_name.as_deref(),
+        Some("masks/vignette.png")
+    );
+}
+
+#[test]
+fn deserializes_video_playback_policy_from_engine_projection_json() {
+    let video: BackgroundVideoProjection = serde_json::from_str(
+        r#"
+        {
+          "assetName": "movie/opening.mp4",
+          "loop": false,
+          "muted": false,
+          "volume": 0.6,
+          "playbackRate": 1.25
+        }
+        "#,
+    )
+    .expect("video background projection JSON should parse");
+
+    assert_eq!(video.asset_name, "movie/opening.mp4");
+    assert_eq!(video.looped, Some(false));
+    assert_eq!(video.muted, Some(false));
+    assert_eq!(video.volume, Some(0.6));
+    assert_eq!(video.playback_rate, Some(1.25));
+}
+
+#[test]
+fn parses_media_origin_percentages_from_resolved_projection_strings() {
+    assert_eq!(media_origin(Some("25%")), MediaOrigin { x: 0.25, y: 0.5 });
+    assert_eq!(
+        media_origin(Some("25% 75%")),
+        MediaOrigin { x: 0.25, y: 0.75 }
+    );
+    assert_eq!(
+        media_origin(Some("top 25%")),
+        MediaOrigin { x: 0.25, y: 0.0 }
+    );
+    assert_eq!(
+        media_origin(Some("right 75%")),
+        MediaOrigin { x: 1.0, y: 0.75 }
+    );
+    assert_eq!(
+        media_origin(Some("left bottom")),
+        MediaOrigin { x: 0.0, y: 1.0 }
+    );
+    assert_eq!(
+        media_origin(Some("120% 50%")),
+        MediaOrigin { x: 0.5, y: 0.5 }
+    );
+}
+
+fn test_layout() -> ResolvedStageLayout {
+    resolve_stage_layout(
+        Some(ViewLayoutInput {
+            preset: Some(ViewLayoutOrientation::Landscape),
+            ..Default::default()
+        }),
+        StageContainerInput {
+            width: Some(1600.0),
+            height: Some(1000.0),
+            ..Default::default()
+        },
+    )
+}
+
+fn provenance<const N: usize>(owner: &str, required: [&str; N]) -> PackageProvenance {
+    PackageProvenance {
+        content_package_id: Some(owner.to_string()),
+        required_runtime_packages: required
+            .into_iter()
+            .map(ToString::to_string)
+            .collect::<BTreeSet<_>>(),
+    }
+}
+
+#[test]
+fn blurred_background_opacity_is_applied_only_once() {
+    let background = BackgroundProjection {
+        asset_name: Some("bg/school.png".into()),
+        opacity: 0.5,
+        composition: Some(BackgroundCompositionProjection {
+            filter: Some(BackgroundFilterProjection {
+                blur: 8.0,
+                ..Default::default()
+            }),
+            ..Default::default()
+        }),
+        ..Default::default()
+    };
+    let commands = build_background_commands(&test_layout(), &background);
+    assert_eq!(commands[0].opacity, 1.0);
+    assert_eq!(commands[0].composite_groups.len(), 1);
+    assert_eq!(commands[0].composite_groups[0].opacity, 0.5);
+    assert_eq!(commands[0].composite_groups[0].blur_radius, 8.0);
+}
+
+#[test]
+fn layered_background_is_an_atomic_filtered_group_with_layer_blending() {
+    let background = BackgroundProjection {
+        mode: BackgroundMode::Layered,
+        opacity: 0.5,
+        provenance: provenance("runtime.root", ["base"]),
+        composition: Some(BackgroundCompositionProjection {
+            isolation: true,
+            filter: Some(BackgroundFilterProjection {
+                grayscale: 0.8,
+                ..Default::default()
+            }),
+            ..Default::default()
+        }),
+        layers: vec![
+            BackgroundLayerProjection {
+                opacity: 0.6,
+                z_index: 20,
+                provenance: provenance("runtime.layer", ["runtime.dependency"]),
+                composition: Some(BackgroundCompositionProjection {
+                    blend_mode: Some("multiply".into()),
+                    ..Default::default()
+                }),
+                ..BackgroundLayerProjection::new("front", "front.png")
+            },
+            BackgroundLayerProjection::new("back", "back.png"),
+        ],
+        ..Default::default()
+    };
+    let mut graph = RenderGraph::new(test_layout());
+    append_background_commands(&mut graph, &background);
+    let back = &graph.commands()[0];
+    let front = &graph.commands()[1];
+    assert_eq!(front.owner_package_id.as_deref(), Some("runtime.layer"));
+    assert_eq!(
+        front.required_package_ids,
+        BTreeSet::from([
+            "runtime.root".into(),
+            "base".into(),
+            "runtime.dependency".into()
+        ])
+    );
+    assert_eq!(back.composite_groups[0], front.composite_groups[0]);
+    assert_eq!(front.composite_groups[0].opacity, 0.5);
+    assert_eq!(front.composite_groups[0].color_filter.grayscale, 0.8);
+    assert_eq!(front.composite_groups[1].opacity, 0.6);
+    assert_eq!(
+        front.composite_groups[1].blend_mode,
+        crate::render_graph::CompositeBlendMode::Multiply
+    );
+    assert_eq!(front.opacity, 1.0);
+}
+
+#[test]
+fn video_uses_outer_background_appearance_for_frames_and_posters() {
+    let background = BackgroundProjection {
+        mode: BackgroundMode::Video,
+        opacity: 0.4,
+        fit: BackgroundFit::Contain,
+        origin: Some("left top".into()),
+        composition: Some(BackgroundCompositionProjection {
+            filter: Some(BackgroundFilterProjection {
+                contrast: 1.3,
+                ..Default::default()
+            }),
+            ..Default::default()
+        }),
+        video: Some(BackgroundVideoProjection {
+            opacity: 0.7,
+            fit: BackgroundFit::Fill,
+            poster: Some("poster.png".into()),
+            ..BackgroundVideoProjection::new("movie.mp4")
+        }),
+        ..Default::default()
+    };
+    let commands = build_background_commands(&test_layout(), &background);
+    let command = &commands[0];
+    assert_eq!(command.opacity, 1.0);
+    assert_eq!(command.composite_groups[0].opacity, 0.4);
+    assert_eq!(command.composite_groups[0].color_filter.contrast, 1.3);
+    let DrawCommandParams::Video(params) = &command.params else {
+        panic!("video")
+    };
+    assert_eq!(params.fit, MediaFit::Contain);
+    assert_eq!(params.origin, MediaOrigin { x: 0.0, y: 0.0 });
+    assert_eq!(
+        command.resource_ids,
+        vec![ResourceId::from("images:poster.png")]
+    );
+}
+
+#[test]
+fn layered_root_and_child_masks_enter_resource_plan_with_package_dependencies() {
+    let background = BackgroundProjection {
+        mode: BackgroundMode::Layered,
+        provenance: provenance("runtime.root", ["base"]),
+        composition: Some(BackgroundCompositionProjection {
+            mask: Some(BackgroundMaskProjection {
+                asset_name: Some("masks/root.png".into()),
+                ..Default::default()
+            }),
+            ..Default::default()
+        }),
+        layers: vec![BackgroundLayerProjection {
+            provenance: provenance("runtime.layer", ["runtime.mask"]),
+            composition: Some(BackgroundCompositionProjection {
+                mask: Some(BackgroundMaskProjection {
+                    asset_name: Some("masks/layer.png".into()),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            }),
+            ..BackgroundLayerProjection::new("front", "front.png")
+        }],
+        ..Default::default()
+    };
+    let mut graph = RenderGraph::new(test_layout());
+    append_background_commands(&mut graph, &background);
+    let plan = crate::resources::plan_render_graph_resources(&graph);
+    assert_eq!(plan.requests.len(), 3);
+    for name in ["images:masks/root.png", "images:masks/layer.png"] {
+        let request = plan
+            .request(name)
+            .expect("mask requested independently of main texture");
+        assert_eq!(
+            request.package_ids(),
+            BTreeSet::from([
+                "runtime.root".into(),
+                "runtime.layer".into(),
+                "runtime.mask".into(),
+                "base".into()
+            ])
+        );
+    }
+    let commands = build_background_commands(&test_layout(), &background);
+    assert_eq!(commands[0].composite_groups.len(), 2);
+    assert_eq!(
+        commands[0].composite_groups[0].mask_bounds.unwrap().width,
+        1920.0
+    );
+}

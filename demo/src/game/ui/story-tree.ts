@@ -1,6 +1,8 @@
 import type { QuaStoryTreeNode } from '@quajs/renderer-vue/plugins/ui'
 import type { StoryChapterSelectProjection } from '@quajs/story-graph'
 import { parseChapterIndex } from './scene'
+import { h } from 'vue'
+import { demoChapterLabel } from '../ui-presentation'
 
 export function projectDemoStoryTreeNodes(
   projection: StoryChapterSelectProjection,
@@ -15,23 +17,34 @@ export function projectDemoStoryTreeNodes(
       ? 'locked'
       : node.current || chapterIndex === currentChapterIndex
         ? 'current'
-        : chapterIndex >= 0 && chapterIndex < currentChapterIndex
-          ? 'complete'
-          : 'available'
+        : 'available'
 
     return {
       id: node.nodeId,
       chapter,
-      title: node.title || 'Locked',
+      title: node.title || '未读章节',
       description: node.summary,
       state,
       disabled: node.entryLocked,
       entryLocked: node.entryLocked,
       spoilerHidden: node.spoilerHidden,
-      lockedLabel: node.spoilerHidden ? 'LOCKED' : undefined,
+      lockedLabel: node.spoilerHidden ? '未解锁' : undefined,
       className: `vn-story-tree-node--${state}`,
     }
   })
+}
+
+export function renderDemoChapter({ node }: { node: QuaStoryTreeNode }) {
+  const chapter = demoChapterLabel(node.chapter || '')
+  return [
+    h('span', { class: 'qua-story-tree__chapter' }, chapter),
+    h('span', { class: 'qua-story-tree__body' }, [
+      h('span', { class: 'qua-story-tree__node-title' }, node.spoilerHidden ? '尚未阅读' : node.title),
+      !node.spoilerHidden && node.description ? h('span', { class: 'qua-story-tree__node-description' }, node.description) : null,
+    ]),
+    node.state === 'current' ? h('span', { class: 'qua-story-tree__node-status' }, '上次读到') : null,
+    !node.entryLocked ? h('span', { class: 'vn-chapter-arrow', 'aria-hidden': 'true' }) : null,
+  ]
 }
 
 export function countUnlockedStoryTreeNodes(projection: StoryChapterSelectProjection): number {

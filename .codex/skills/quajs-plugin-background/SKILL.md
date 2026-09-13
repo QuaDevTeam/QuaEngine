@@ -124,6 +124,12 @@ Background animation targets include `background:main` and `backgroundLayer:<lay
 
 Background projections must preserve package provenance for runtime package assets. Unloading a runtime package clears background content that depends on the package unless engine teardown intentionally forces unload.
 
+## Native projection support
+
+Raster masks use QPK assets and share Web's cover / center / no-repeat defaults. Native supports alpha, luminance (including texture alpha), and raster match-source; contain/auto/px/percent sizes; keyword/px/percent positions and four-part pixel edge offsets; no-repeat/repeat/repeat-x/repeat-y/round/space and two-axis repeat values. Layered root and child masks compose independently and release with renderer resources. Unsupported CSS layout expressions produce native JSON diagnostics. An unresolved mask asset keeps the source visible, matching the Web renderer's absent URL behavior, and retains upload diagnostics. SVG masks, multiple masks, full layered-root transforms and MP4/WebM decoding remain incomplete. Validate rendered output with `node scripts/native-render-audit/background.mjs`; command projection tests do not establish visual parity.
+
+Native source-alpha drop shadows consume `filter.dropShadow: '12px 18px 24px rgba(0, 0, 0, 0.55)'` without a `drop-shadow()` wrapper. Two px offsets are required; blur sigma and a native hex/rgb/rgba/basic named color are optional. Shadow alpha comes from the rendered subtree, preserving transparent holes and overlapping layers. Group opacity/mask/blend apply to the resulting source plus shadow. Unsupported colors/units, unresolved currentColor, negative blur, spread and multiple shadows produce JSON diagnostics. Large-radius Gaussian sampling remains approximate; validate specific artwork against Web when fine blur detail matters.
+
 ## Validation
 
 ```bash
@@ -142,3 +148,10 @@ Run renderer package tests when projection contracts or renderer entries change.
 - Do decorators match package-local mappings and compiler lowering?
 - Are runtime package asset refs package-aware?
 - If background API, decorator, projection, or renderer behavior changed, was this skill updated?
+
+
+## Authored environment lighting
+
+`ViewBackgroundProjection.characterLighting` is optional engine-owned presentation data set through background options/QS. It has sRGB `ambient` RGB multipliers and an optional `shade` with RGB `color` and normalized sprite-box `from/to` coordinates. The background plugin deep-copies it, carries destination lighting during replacement transitions and removes it for unlit/cleared backgrounds; engine snapshots must deep-copy nested vectors. It is authored content, not an inferred renderer policy or player preference.
+
+Web's character subentry owns SVG matrix/gradient rendering and masks the final composed character once with SourceAlpha. Vue only converts shared descriptors to VNodes; DOM React/Svelte reuse Web. Identity profiles create no filter. Do not add duplicate PNG/Canvas caches, alpha-derived fake normals, scene-filename heuristics or another event bus. Source images keep normal QuaAssets ownership. GPU intermediate surfaces are real overhead outside URL budgets. Native/Cocos currently retain original sprite colors; do not claim parity. Validate transition reset, detached snapshots, real browser alpha edges and current-version save/load. See `demo/.agents/environment-lighting.md` and `demo/scripts/lighting-pixels.mjs`.

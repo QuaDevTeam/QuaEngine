@@ -229,7 +229,7 @@ export function easeProgress(progress: number, easing: string | undefined): numb
     case 'linear':
       return clamped
     case 'ease':
-      return cubicBezier(clamped, 0.25, 0.1, 0.25, 1)
+      return cssSpecCubicBezier(clamped, 0.25, 0.1, 0.25, 1)
     case 'ease-in':
     case 'easeIn':
       return clamped * clamped
@@ -271,14 +271,55 @@ function parseCubicBezier(easing: string | undefined, progress: number): number 
   const match = easing?.match(/^cubic-bezier\(([-\d.]+),\s*([-\d.]+),\s*([-\d.]+),\s*([-\d.]+)\)$/)
   if (!match)
     return undefined
-  return cubicBezier(progress, Number(match[1]), Number(match[2]), Number(match[3]), Number(match[4]))
+  return cssSpecCubicBezier(progress, Number(match[1]), Number(match[2]), Number(match[3]), Number(match[4]))
 }
 
-function cubicBezier(progress: number, _x1: number, y1: number, _x2: number, y2: number): number {
-  const inverse = 1 - progress
-  return 3 * inverse * inverse * progress * y1
-    + 3 * inverse * progress * progress * y2
-    + progress * progress * progress
+/** One axis of a cubic bezier anchored at (0,0) and (1,1). */
+function bezierAxis(t: number, p1: number, p2: number): number {
+  const inv = 1 - t
+  return 3 * inv * inv * t * p1 + 3 * inv * t * t * p2 + t * t * t
+}
+
+function bezierAxisDerivative(t: number, p1: number, p2: number): number {
+  const inv = 1 - t
+  return 3 * inv * inv * p1 + 6 * inv * t * (p2 - p1) + 3 * t * t * (1 - p2)
+}
+
+/**
+ * Finds the curve parameter whose x equals `x` using Newton-Raphson with
+ * bisection fallback — the WebKit UnitBezier algorithm.  CSS constrains
+ * x1 and x2 to [0,1] so x(t) is monotonic and bisection always converges.
+ */
+function solveBezierParameter(x: number, x1: number, x2: number): number {
+  let t = x
+  for (let i = 0; i < 8; i++) {
+    const error = bezierAxis(t, x1, x2) - x
+    if (Math.abs(error) < 1e-7)
+      return t
+    const derivative = bezierAxisDerivative(t, x1, x2)
+    if (Math.abs(derivative) < 1e-6)
+      break
+    t = Math.max(0, Math.min(1, t - error / derivative))
+  }
+  let lo = 0
+  let hi = 1
+  for (let i = 0; i < 32; i++) {
+    t = (lo + hi) * 0.5
+    if (bezierAxis(t, x1, x2) < x)
+      lo = t
+    else
+      hi = t
+  }
+  return t
+}
+
+/**
+ * CSS-spec cubic bezier: solves `t` from `x` with Newton-Raphson + bisection,
+ * then evaluates `y(t)`.  Matches the Rust `easing::css_bezier` implementation
+ * and the native WGPU renderer — both paths now produce the same curve.
+ */
+function cssSpecCubicBezier(progress: number, x1: number, y1: number, x2: number, y2: number): number {
+  return bezierAxis(solveBezierParameter(progress, x1, x2), y1, y2)
 }
 
 function interpolateColor(from: string, to: string, progress: number): string | undefined {

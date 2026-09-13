@@ -1,0 +1,469 @@
+import { describe, expect, it, vi } from 'vitest'
+import { createNativeRuntimeTrustPolicy } from '../../src'
+import { createHost, createHostInfo, createTrustContext } from '../fixtures'
+
+describe('@quajs/engine-native runtime trust policy guards', () => {
+  it('rejects native-code runtime packages through native trust policy', async () => {
+    const host = createHost()
+    const policy = createNativeRuntimeTrustPolicy(host, { allowUnsignedInDevelopment: true })
+
+    await expect(policy.verifyPackage!(createTrustContext({
+      scripts: [
+        { id: 'native', assetName: 'native/plugin.dylib' },
+      ],
+    }))).rejects.toThrow(/forbidden native payload/)
+  })
+
+  it('rejects unsafe runtime package asset references before native signature verification', async () => {
+    const host = {
+      ...createHost(),
+      verifySignature: vi.fn(async () => true),
+    }
+    const policy = createNativeRuntimeTrustPolicy(host)
+
+    await expect(policy.verifyPackage!(createTrustContext({
+      scripts: [
+        { id: 'remote', assetName: 'https://cdn.example.invalid/opening.js' },
+      ],
+      integrity: {
+        hash: 'abc123',
+        algorithm: 'sha256',
+      },
+      signature: {
+        value: 'base64:AQID',
+        algorithm: 'ed25519',
+        keyId: 'test-key',
+      },
+    }))).rejects.toThrow(/forbidden asset reference "https:\/\/cdn\.example\.invalid\/opening\.js"/)
+
+    expect(host.verifySignature).not.toHaveBeenCalled()
+  })
+
+  it('checks runtime package native renderer compatibility before native signature verification', async () => {
+    const host = {
+      ...createHost(),
+      verifySignature: vi.fn(async () => true),
+    }
+    const policy = createNativeRuntimeTrustPolicy(host, {
+      hostInfo: createHostInfo(),
+    })
+
+    await expect(policy.verifyPackage!(createTrustContext({
+      metadata: {
+        nativeRenderer: {
+          packageName: '@quajs/native-renderer',
+          versionRange: '^0.1.0',
+          capabilities: ['native-wgpu.audio@1'],
+          nativeCode: false,
+        },
+      },
+      integrity: {
+        hash: 'abc123',
+        algorithm: 'sha256',
+      },
+      signature: {
+        value: 'base64:AQID',
+        algorithm: 'ed25519',
+        keyId: 'test-key',
+      },
+    }))).rejects.toThrow(/Required native capability "native-wgpu\.audio@1" is not available/)
+
+    expect(host.getHostInfo).not.toHaveBeenCalled()
+    expect(host.verifySignature).not.toHaveBeenCalled()
+  })
+
+  it('checks target-scoped renderers.native compatibility metadata before native signature verification', async () => {
+    const host = {
+      ...createHost(),
+      verifySignature: vi.fn(async () => true),
+    }
+    const policy = createNativeRuntimeTrustPolicy(host, {
+      hostInfo: createHostInfo(),
+    })
+
+    await expect(policy.verifyPackage!(createTrustContext({
+      metadata: {
+        renderers: {
+          native: {
+            renderer: '@quajs/native-renderer',
+            version: '^0.1.0',
+            capabilityIds: ['native-wgpu.audio@1'],
+            nativeCode: false,
+          },
+        },
+      },
+      integrity: {
+        hash: 'abc123',
+        algorithm: 'sha256',
+      },
+      signature: {
+        value: 'base64:AQID',
+        algorithm: 'ed25519',
+        keyId: 'test-key',
+      },
+    }))).rejects.toThrow(/Required native capability "native-wgpu\.audio@1" is not available/)
+
+    expect(host.getHostInfo).not.toHaveBeenCalled()
+    expect(host.verifySignature).not.toHaveBeenCalled()
+  })
+
+  it('checks both package native compatibility metadata forms before native signature verification', async () => {
+    const host = {
+      ...createHost(),
+      verifySignature: vi.fn(async () => true),
+    }
+    const policy = createNativeRuntimeTrustPolicy(host, {
+      hostInfo: createHostInfo(),
+    })
+
+    await expect(policy.verifyPackage!(createTrustContext({
+      metadata: {
+        nativeRenderer: {
+          renderer: '@quajs/native-renderer',
+          qssFeatures: ['background-color'],
+          nativeCode: false,
+        },
+        renderers: {
+          native: {
+            renderer: '@quajs/native-renderer',
+            qssFeatures: ['flex-direction'],
+            nativeCode: false,
+          },
+        },
+      },
+      integrity: {
+        hash: 'abc123',
+        algorithm: 'sha256',
+      },
+      signature: {
+        value: 'base64:AQID',
+        algorithm: 'ed25519',
+        keyId: 'test-key',
+      },
+    }))).rejects.toThrow(/Required native QSS feature "flex-direction" is not available/)
+
+    expect(host.getHostInfo).not.toHaveBeenCalled()
+    expect(host.verifySignature).not.toHaveBeenCalled()
+  })
+
+  it('checks runtime plugin native renderer compatibility before native signature verification', async () => {
+    const host = {
+      ...createHost(),
+      verifySignature: vi.fn(async () => true),
+    }
+    const policy = createNativeRuntimeTrustPolicy(host, {
+      hostInfo: createHostInfo(),
+    })
+
+    await expect(policy.verifyPackage!(createTrustContext({
+      plugins: [
+        {
+          id: 'menu-ui',
+          assetName: 'plugins/menu-ui.js',
+          metadata: {
+            nativeRenderer: {
+              renderer: '@quajs/native-renderer',
+              qssFeatures: ['background-color', 'flex-direction'],
+              quiComponents: ['Panel', 'VirtualList'],
+              nativeCode: false,
+            },
+          },
+        },
+      ],
+      integrity: {
+        hash: 'abc123',
+        algorithm: 'sha256',
+      },
+      signature: {
+        value: 'base64:AQID',
+        algorithm: 'ed25519',
+        keyId: 'test-key',
+      },
+    }))).rejects.toThrow(/Required native QSS feature "flex-direction" is not available.*Required native QUI component "VirtualList" is not available/)
+
+    expect(host.getHostInfo).not.toHaveBeenCalled()
+    expect(host.verifySignature).not.toHaveBeenCalled()
+  })
+
+  it('checks runtime plugin target-scoped native renderer compatibility before native signature verification', async () => {
+    const host = {
+      ...createHost(),
+      verifySignature: vi.fn(async () => true),
+    }
+    const policy = createNativeRuntimeTrustPolicy(host, {
+      hostInfo: createHostInfo(),
+    })
+
+    await expect(policy.verifyPackage!(createTrustContext({
+      plugins: [
+        {
+          id: 'menu-ui',
+          assetName: 'plugins/menu-ui.js',
+          metadata: {
+            renderers: {
+              native: {
+                renderer: '@quajs/native-renderer',
+                assetKinds: ['qui', 'shader'],
+                nativeCode: false,
+              },
+            },
+          },
+        },
+      ],
+      integrity: {
+        hash: 'abc123',
+        algorithm: 'sha256',
+      },
+      signature: {
+        value: 'base64:AQID',
+        algorithm: 'ed25519',
+        keyId: 'test-key',
+      },
+    }))).rejects.toThrow(/Required native asset kind "shader" is not available/)
+
+    expect(host.getHostInfo).not.toHaveBeenCalled()
+    expect(host.verifySignature).not.toHaveBeenCalled()
+  })
+
+  it('checks both runtime plugin native compatibility metadata forms before native signature verification', async () => {
+    const host = {
+      ...createHost(),
+      verifySignature: vi.fn(async () => true),
+    }
+    const policy = createNativeRuntimeTrustPolicy(host, {
+      hostInfo: createHostInfo(),
+    })
+
+    await expect(policy.verifyPackage!(createTrustContext({
+      plugins: [
+        {
+          id: 'menu-ui',
+          assetName: 'plugins/menu-ui.js',
+          metadata: {
+            nativeRenderer: {
+              renderer: '@quajs/native-renderer',
+              assetKinds: ['qui'],
+              nativeCode: false,
+            },
+            renderers: {
+              native: {
+                renderer: '@quajs/native-renderer',
+                capabilityIds: ['native-wgpu.audio@1'],
+                nativeCode: false,
+              },
+            },
+          },
+        },
+      ],
+      integrity: {
+        hash: 'abc123',
+        algorithm: 'sha256',
+      },
+      signature: {
+        value: 'base64:AQID',
+        algorithm: 'ed25519',
+        keyId: 'test-key',
+      },
+    }))).rejects.toThrow(/Required native capability "native-wgpu\.audio@1" is not available/)
+
+    expect(host.getHostInfo).not.toHaveBeenCalled()
+    expect(host.verifySignature).not.toHaveBeenCalled()
+  })
+
+  it('checks runtime package native asset kind compatibility before native signature verification', async () => {
+    const host = {
+      ...createHost(),
+      verifySignature: vi.fn(async () => true),
+    }
+    const policy = createNativeRuntimeTrustPolicy(host, {
+      hostInfo: createHostInfo(),
+    })
+
+    await expect(policy.verifyPackage!(createTrustContext({
+      metadata: {
+        nativeRenderer: {
+          renderer: '@quajs/native-renderer',
+          version: '^0.1.0',
+          assetKinds: ['qui', 'shader'],
+          nativeCode: false,
+        },
+      },
+      integrity: {
+        hash: 'abc123',
+        algorithm: 'sha256',
+      },
+      signature: {
+        value: 'base64:AQID',
+        algorithm: 'ed25519',
+        keyId: 'test-key',
+      },
+    }))).rejects.toThrow(/Required native asset kind "shader" is not available/)
+
+    expect(host.getHostInfo).not.toHaveBeenCalled()
+    expect(host.verifySignature).not.toHaveBeenCalled()
+  })
+
+  it('allows missing optional native asset kinds before native signature verification', async () => {
+    const host = {
+      ...createHost(),
+      verifySignature: vi.fn(async () => true),
+    }
+    const policy = createNativeRuntimeTrustPolicy(host, {
+      hostInfo: createHostInfo(),
+    })
+
+    await expect(policy.verifyPackage!(createTrustContext({
+      metadata: {
+        nativeRenderer: {
+          renderer: '@quajs/native-renderer',
+          version: '^0.1.0',
+          optionalAssetKinds: ['qss', 'shader'],
+          nativeCode: false,
+        },
+      },
+      integrity: {
+        hash: 'abc123',
+        algorithm: 'sha256',
+      },
+      signature: {
+        value: 'base64:AQID',
+        algorithm: 'ed25519',
+        keyId: 'test-key',
+      },
+    }))).resolves.toBe(true)
+
+    expect(host.getHostInfo).not.toHaveBeenCalled()
+    expect(host.verifySignature).toHaveBeenCalledTimes(1)
+  })
+
+  it('checks runtime package native QSS and QUI compatibility before native signature verification', async () => {
+    const host = {
+      ...createHost(),
+      verifySignature: vi.fn(async () => true),
+    }
+    const policy = createNativeRuntimeTrustPolicy(host, {
+      hostInfo: createHostInfo(),
+    })
+
+    await expect(policy.verifyPackage!(createTrustContext({
+      metadata: {
+        nativeRenderer: {
+          renderer: '@quajs/native-renderer',
+          version: '^0.1.0',
+          capabilities: ['native-wgpu.ui.surface@1'],
+          qssFeatures: ['background-color', 'flex-direction'],
+          quiComponents: ['Panel', 'VirtualList'],
+          nativeCode: false,
+        },
+      },
+      integrity: {
+        hash: 'abc123',
+        algorithm: 'sha256',
+      },
+      signature: {
+        value: 'base64:AQID',
+        algorithm: 'ed25519',
+        keyId: 'test-key',
+      },
+    }))).rejects.toThrow(/Required native QSS feature "flex-direction" is not available.*Required native QUI component "VirtualList" is not available/)
+
+    expect(host.getHostInfo).not.toHaveBeenCalled()
+    expect(host.verifySignature).not.toHaveBeenCalled()
+  })
+
+  it('allows missing optional native QSS features and QUI components before native signature verification', async () => {
+    const host = {
+      ...createHost(),
+      verifySignature: vi.fn(async () => true),
+    }
+    const policy = createNativeRuntimeTrustPolicy(host, {
+      hostInfo: createHostInfo(),
+    })
+
+    await expect(policy.verifyPackage!(createTrustContext({
+      metadata: {
+        nativeRenderer: {
+          renderer: '@quajs/native-renderer',
+          version: '^0.1.0',
+          optionalQssFeatures: ['color', 'box-shadow'],
+          optionalQuiComponents: ['Panel', 'Drawer'],
+          nativeCode: false,
+        },
+      },
+      integrity: {
+        hash: 'abc123',
+        algorithm: 'sha256',
+      },
+      signature: {
+        value: 'base64:AQID',
+        algorithm: 'ed25519',
+        keyId: 'test-key',
+      },
+    }))).resolves.toBe(true)
+
+    expect(host.getHostInfo).not.toHaveBeenCalled()
+    expect(host.verifySignature).toHaveBeenCalledTimes(1)
+  })
+
+  it('rejects native renderer compatibility without nativeCode false before native signature verification', async () => {
+    const host = {
+      ...createHost(),
+      verifySignature: vi.fn(async () => true),
+    }
+    const policy = createNativeRuntimeTrustPolicy(host, {
+      hostInfo: createHostInfo(),
+    })
+
+    await expect(policy.verifyPackage!(createTrustContext({
+      metadata: {
+        renderers: {
+          native: {
+            renderer: '@quajs/native-renderer',
+            version: '^0.1.0',
+            capabilityIds: ['native-wgpu.ui.surface@1'],
+          },
+        },
+      },
+      integrity: {
+        hash: 'abc123',
+        algorithm: 'sha256',
+      },
+      signature: {
+        value: 'base64:AQID',
+        algorithm: 'ed25519',
+        keyId: 'test-key',
+      },
+    }))).rejects.toThrow(/must explicitly declare nativeCode: false/)
+
+    expect(host.getHostInfo).not.toHaveBeenCalled()
+    expect(host.verifySignature).not.toHaveBeenCalled()
+  })
+
+  it('rejects malformed native renderer compatibility before native signature verification', async () => {
+    const host = {
+      ...createHost(),
+      verifySignature: vi.fn(async () => true),
+    }
+    const policy = createNativeRuntimeTrustPolicy(host, {
+      hostInfo: createHostInfo(),
+    })
+
+    await expect(policy.verifyPackage!(createTrustContext({
+      metadata: {
+        nativeRenderer: '@quajs/native-renderer',
+      },
+      integrity: {
+        hash: 'abc123',
+        algorithm: 'sha256',
+      },
+      signature: {
+        value: 'base64:AQID',
+        algorithm: 'ed25519',
+        keyId: 'test-key',
+      },
+    }))).rejects.toThrow(/must explicitly declare nativeCode: false/)
+
+    expect(host.getHostInfo).not.toHaveBeenCalled()
+    expect(host.verifySignature).not.toHaveBeenCalled()
+  })
+})

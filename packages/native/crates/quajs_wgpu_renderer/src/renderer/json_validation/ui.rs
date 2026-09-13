@@ -1,0 +1,340 @@
+use std::collections::BTreeSet;
+
+use crate::projection::ui::{
+    UiIntentProjection, UiOverlaySurfaceProjection, UiProjection, UiSurfaceControlProjection,
+    UiSurfaceImageProjection, UiSurfaceNodeProjection, UiSurfaceResolvedStyle,
+};
+use crate::renderer::json_input::NativeRendererJsonValidationError;
+
+use super::ui_intent::validate_native_json_ui_intent_projection;
+use super::JsonProjectionValidator;
+
+impl JsonProjectionValidator {
+    pub(super) fn validate_ui(&mut self, ui: &UiProjection) {
+        self.validate_provenance("view.ui.provenance", &ui.provenance);
+        let mut overlay_element_ids = BTreeSet::new();
+        let mut scene_ids = BTreeSet::new();
+        for (overlay_index, overlay) in ui.overlays.iter().enumerate() {
+            let overlay_path = format!("view.ui.overlays[{overlay_index}].elementId");
+            self.validate_ui_dispatch_identifier(
+                &overlay_path,
+                &overlay.element_id,
+                "UI overlay element ids",
+            );
+            self.validate_unique_identifier(
+                &overlay_path,
+                &overlay.element_id,
+                &mut overlay_element_ids,
+                "UI overlay element ids",
+            );
+            self.validate_provenance(
+                &format!("view.ui.overlays[{overlay_index}].provenance"),
+                &overlay.provenance,
+            );
+            if let Some(overlay_stack) = &overlay.overlay_stack {
+                self.validate_ui_dispatch_identifier(
+                    &format!("view.ui.overlays[{overlay_index}].overlayStack"),
+                    overlay_stack,
+                    "UI overlay stack names",
+                );
+            }
+            if let Some(stack_priority) = overlay.stack_priority {
+                self.validate_stack_priority(
+                    &format!("view.ui.overlays[{overlay_index}].stackPriority"),
+                    stack_priority,
+                    "UI overlay stack priorities",
+                );
+            }
+            if let Some(z_index) = overlay.z_index {
+                self.validate_z_index(
+                    &format!("view.ui.overlays[{overlay_index}].zIndex"),
+                    z_index,
+                    "UI overlay zIndex",
+                );
+            }
+            if let Some(surface) = &overlay.surface {
+                self.validate_ui_surface(
+                    surface,
+                    &format!("view.ui.overlays[{overlay_index}].surface"),
+                );
+            }
+            if let Some(scene) = &overlay.scene {
+                let scene_id_path = format!("view.ui.overlays[{overlay_index}].scene.id");
+                self.validate_ui_dispatch_identifier(&scene_id_path, &scene.id, "UI scene ids");
+                self.validate_unique_identifier(
+                    &scene_id_path,
+                    &scene.id,
+                    &mut scene_ids,
+                    "UI scene ids",
+                );
+                if let Some(overlay_stack) = scene
+                    .overlay
+                    .as_ref()
+                    .and_then(|overlay| overlay.overlay_stack.as_ref())
+                {
+                    self.validate_ui_dispatch_identifier(
+                        &format!("view.ui.overlays[{overlay_index}].scene.overlay.overlayStack"),
+                        overlay_stack,
+                        "UI scene overlay stack names",
+                    );
+                }
+                if let Some(scene_overlay) = &scene.overlay {
+                    if let Some(stack_priority) = scene_overlay.stack_priority {
+                        self.validate_stack_priority(
+                            &format!(
+                                "view.ui.overlays[{overlay_index}].scene.overlay.stackPriority"
+                            ),
+                            stack_priority,
+                            "UI scene overlay stack priorities",
+                        );
+                    }
+                    if let Some(z_index) = scene_overlay.z_index {
+                        self.validate_z_index(
+                            &format!("view.ui.overlays[{overlay_index}].scene.overlay.zIndex"),
+                            z_index,
+                            "UI scene overlay zIndex",
+                        );
+                    }
+                }
+            }
+            if let Some(scene_surface) = overlay
+                .scene
+                .as_ref()
+                .and_then(|scene| scene.surface.as_ref())
+            {
+                self.validate_ui_surface(
+                    scene_surface,
+                    &format!("view.ui.overlays[{overlay_index}].scene.surface"),
+                );
+            }
+            if let Some(intent) = &overlay.intent {
+                self.validate_ui_intent(
+                    &format!("view.ui.overlays[{overlay_index}].intent"),
+                    intent,
+                );
+            }
+        }
+    }
+
+    fn validate_ui_surface(&mut self, surface: &UiOverlaySurfaceProjection, path: &str) {
+        self.validate_asset_reference(&format!("{path}.key"), &surface.key);
+        if let Some(root) = &surface.root {
+            let mut surface_node_ids = BTreeSet::new();
+            self.validate_ui_surface_node(root, &format!("{path}.root"), &mut surface_node_ids);
+        }
+    }
+
+    fn validate_ui_surface_node(
+        &mut self,
+        node: &UiSurfaceNodeProjection,
+        path: &str,
+        surface_node_ids: &mut BTreeSet<String>,
+    ) {
+        self.validate_ui_dispatch_identifier(
+            &format!("{path}.id"),
+            &node.id,
+            "UI surface node ids",
+        );
+        self.validate_unique_identifier(
+            &format!("{path}.id"),
+            &node.id,
+            surface_node_ids,
+            "UI surface node ids",
+        );
+        self.validate_ui_rect(&format!("{path}.bounds"), &node.bounds);
+        self.validate_ui_node_opacity(&format!("{path}.opacity"), node.opacity);
+        self.validate_scroll_offset(&format!("{path}.scrollOffsetX"), node.scroll_offset_x);
+        self.validate_scroll_offset(&format!("{path}.scrollOffsetY"), node.scroll_offset_y);
+        if let Some(text) = &node.text {
+            self.validate_ui_text(&format!("{path}.text"), text);
+        }
+        self.validate_z_index(
+            &format!("{path}.zIndex"),
+            node.z_index,
+            "UI surface node zIndex",
+        );
+        self.validate_provenance(&format!("{path}.provenance"), &node.provenance);
+        if let Some(image) = &node.image {
+            self.validate_ui_image(image, &format!("{path}.image"));
+        }
+        if let Some(background_image) = &node.style.background_image {
+            self.validate_ui_image(background_image, &format!("{path}.style.backgroundImage"));
+        }
+        if let Some(intent) = &node.intent {
+            self.validate_ui_intent(&format!("{path}.intent"), intent);
+        }
+        if let Some(control) = &node.control {
+            self.validate_ui_control(control, &format!("{path}.control"));
+        }
+        self.validate_ui_style(&format!("{path}.style"), &node.style);
+        for (state, state_style) in &node.state_styles {
+            let state_path = format!("{path}.stateStyles.{state:?}");
+            self.validate_ui_rect(&format!("{state_path}.bounds"), &state_style.bounds);
+            self.validate_ui_style(&format!("{state_path}.style"), &state_style.style);
+        }
+        for (index, transition) in node.transitions.iter().enumerate() {
+            if !transition.duration_ms.is_finite()
+                || !(0.0..=crate::projection::safety::MAX_NATIVE_UI_TRANSITION_DURATION_MS)
+                    .contains(&transition.duration_ms)
+            {
+                self.errors.push(NativeRendererJsonValidationError {
+                    path: format!("{path}.transitions[{index}].durationMs"),
+                    asset_name: transition.duration_ms.to_string(),
+                    reason:
+                        "native UI transition duration must be finite and between 0ms and 5000ms"
+                            .to_string(),
+                });
+            }
+        }
+        for (index, child) in node.children.iter().enumerate() {
+            self.validate_ui_surface_node(
+                child,
+                &format!("{path}.children[{index}]"),
+                surface_node_ids,
+            );
+        }
+    }
+
+    fn validate_ui_control(&mut self, control: &UiSurfaceControlProjection, path: &str) {
+        let (options, selected_index, part_ids) = match control {
+            UiSurfaceControlProjection::Range {
+                options,
+                parts,
+                selected_index,
+            } => (
+                options,
+                *selected_index,
+                vec![
+                    parts.progress.as_str(),
+                    parts.thumb.as_str(),
+                    parts.value.as_str(),
+                ]
+                .into_iter()
+                .chain(parts.thumb_halo.as_deref())
+                .collect::<Vec<_>>(),
+            ),
+            UiSurfaceControlProjection::Select {
+                options,
+                parts,
+                selected_index,
+            } => (
+                options,
+                *selected_index,
+                vec![parts.chevron.as_str(), parts.value.as_str()],
+            ),
+            UiSurfaceControlProjection::Switch {
+                options,
+                parts,
+                selected_index,
+            } => (
+                options,
+                *selected_index,
+                vec![
+                    parts.track.as_str(),
+                    parts.thumb.as_str(),
+                    parts.value.as_str(),
+                ],
+            ),
+        };
+
+        if options.is_empty() || options.len() > 512 || selected_index >= options.len() {
+            self.errors.push(NativeRendererJsonValidationError {
+                path: path.to_string(),
+                asset_name: String::new(),
+                reason: "native UI controls require 1..=512 options and an in-range selectedIndex"
+                    .to_string(),
+            });
+            return;
+        }
+        for (index, option) in options.iter().enumerate() {
+            self.validate_ui_text(&format!("{path}.options[{index}].label"), &option.label);
+            self.validate_ui_intent(&format!("{path}.options[{index}].intent"), &option.intent);
+        }
+        for (index, part_id) in part_ids.into_iter().enumerate() {
+            self.validate_ui_dispatch_identifier(
+                &format!("{path}.parts[{index}]"),
+                part_id,
+                "UI control part ids",
+            );
+        }
+    }
+
+    fn validate_ui_image(&mut self, image: &UiSurfaceImageProjection, path: &str) {
+        self.validate_asset_type(&format!("{path}.assetType"), &image.asset_type);
+        self.validate_asset_reference(&format!("{path}.assetName"), &image.asset_name);
+    }
+
+    fn validate_ui_intent(&mut self, path: &str, intent: &UiIntentProjection) {
+        self.errors
+            .extend(validate_native_json_ui_intent_projection(path, intent));
+    }
+
+    fn validate_ui_text(&mut self, path: &str, text: &str) {
+        self.validate_text_payload(path, text, "UI surface text");
+    }
+
+    fn validate_ui_style(&mut self, path: &str, style: &UiSurfaceResolvedStyle) {
+        if let Some(image) = &style.border_image {
+            self.validate_ui_image(&image.source, &format!("{path}.borderImage.source"));
+            let valid_edges = |edges: &crate::projection::ui::UiSurfaceEdgeInsetsProjection| {
+                [edges.top, edges.right, edges.bottom, edges.left]
+                    .into_iter()
+                    .all(|value| value.is_finite() && (0.0..=1_000_000.0).contains(&value))
+            };
+            if !valid_edges(&image.slice)
+                || image
+                    .width
+                    .as_ref()
+                    .is_some_and(|width| !valid_edges(width))
+                || image
+                    .repeat
+                    .as_deref()
+                    .is_some_and(|repeat| !matches!(repeat, "stretch" | "repeat"))
+            {
+                self.errors.push(super::NativeRendererJsonValidationError {
+                    path: format!("{path}.borderImage"),
+                    asset_name: String::new(),
+                    reason: "requires bounded non-negative slices/widths and stretch or repeat"
+                        .into(),
+                });
+            }
+        }
+        if let Some(background_color) = &style.background_color {
+            self.validate_color_literal(&format!("{path}.backgroundColor"), background_color);
+        }
+        if let Some(border_color) = &style.border_color {
+            self.validate_color_literal(&format!("{path}.borderColor"), border_color);
+        }
+        for (field, side_color) in [
+            ("borderTopColor", &style.border_top_color),
+            ("borderRightColor", &style.border_right_color),
+            ("borderBottomColor", &style.border_bottom_color),
+            ("borderLeftColor", &style.border_left_color),
+        ] {
+            if let Some(side_color) = side_color {
+                self.validate_color_literal(&format!("{path}.{field}"), side_color);
+            }
+        }
+        if let Some(color) = &style.color {
+            self.validate_color_literal(&format!("{path}.color"), color);
+        }
+        if let Some(gradient) = &style.background_gradient {
+            for (index, stop) in gradient.stops.iter().enumerate() {
+                self.validate_color_literal(
+                    &format!("{path}.backgroundGradient.stops[{index}].color"),
+                    &stop.color,
+                );
+            }
+        }
+        if let Some(shadow) = &style.box_shadow {
+            self.validate_color_literal(&format!("{path}.boxShadow.color"), &shadow.color);
+        }
+        if let Some(shadow) = &style.text_shadow {
+            self.validate_color_literal(&format!("{path}.textShadow.color"), &shadow.color);
+        }
+        if let Some(font_family) = &style.font_family {
+            self.validate_font_family(&format!("{path}.fontFamily"), font_family);
+        }
+        self.validate_ui_style_numbers(path, style);
+    }
+}

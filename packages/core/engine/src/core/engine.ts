@@ -110,7 +110,7 @@ import { PluginContextImpl } from '../plugins/core/context'
 import { getPluginRegistry } from '../plugins/core/registry'
 import { RuntimeContentManager } from '../runtime-content/manager'
 import { createRollbackConfig, isSerializedRollbackJournal, RollbackController } from './rollback'
-import { resolveGameSteps } from './script'
+import { resolveGameStepsAsync } from './script'
 import { assertSerializableSceneState, isChoiceTarget } from './story-targets'
 import { createInitialEngineState } from './types'
 
@@ -579,7 +579,7 @@ export class QuaEngine {
   async dialogue<TScope = GameStepScope>(steps: GameStepSource<TScope>, scope?: TScope): Promise<void> {
     this.assertInitialized()
     try {
-      const resolvedSteps = resolveGameSteps(steps, scope)
+      const resolvedSteps = await resolveGameStepsAsync(steps, scope)
       const navigationVersion = this.navigationVersion
       for (const step of resolvedSteps) {
         if (this.navigationVersion !== navigationVersion) {
@@ -1072,6 +1072,14 @@ export class QuaEngine {
   async setLayoutProjection(layout: ViewLayoutInput): Promise<void> {
     this.assertInitialized()
     this.store.commit('setLayout', createViewLayoutProjection(layout))
+    await this.emitViewUpdate()
+  }
+
+  async setRendererOptions(options: { targetFrameRate?: number }): Promise<void> {
+    this.assertInitialized()
+    this.store.commit('setRenderer', options.targetFrameRate != null
+      ? { targetFrameRate: Math.round(options.targetFrameRate) }
+      : undefined)
     await this.emitViewUpdate()
   }
 
@@ -3263,6 +3271,9 @@ function createEngineMutations() {
     setLayout(state: any, layout: ViewLayoutInput) {
       state.engine.view.layout = createViewLayoutProjection(layout)
     },
+    setRenderer(state: any, renderer: { targetFrameRate?: number } | undefined) {
+      state.engine.view.renderer = renderer ?? undefined
+    },
     setFlowControl(state: any, flowControl: ViewFlowControlProjection) {
       state.engine.view.flowControl = cloneFlowControlProjection(flowControl)
     },
@@ -3748,6 +3759,7 @@ function cloneViewProjection(view: QuaViewProjection): QuaViewProjection {
     background: view.background
       ? {
           ...view.background,
+          ...(view.background.characterLighting ? { characterLighting: cloneUnknownValue(view.background.characterLighting) as typeof view.background.characterLighting } : {}),
           transition: view.background.transition ? { ...view.background.transition } : undefined,
           video: view.background.video
             ? {
@@ -3804,6 +3816,7 @@ function cloneViewProjection(view: QuaViewProjection): QuaViewProjection {
       })),
     })),
     plugins: cloneUnknownRecord(view.plugins || {}),
+    renderer: view.renderer ? { ...view.renderer } : undefined,
   }
 }
 

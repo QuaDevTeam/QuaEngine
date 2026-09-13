@@ -18,14 +18,19 @@ Schema version `1` owns:
 - `icons.source`, `icons.favicon`, optional PWA icon entries, and optional Cocos icon metadata.
 - `targets.web`: enabled flag, layout, desktop/pad/phone support, PWA settings, blocking UI copy, and optional Web asset target.
 - `targets.cocos`: project directory, Creator version, platforms, layout/orientation, Quack asset target/hybrid settings, build options, and icons.
+- `targets.native`: native desktop packaging intent for `macos`, `windows`, and `linux`; enabled flag, profiles (`debug`/`release`), layout, outputDir, app bundleId/version/buildNumber/icon metadata, native asset target, and native build options.
 
-Defaults: `version` falls back to `package.json`, Web is enabled, Web devices default to all true, PWA is disabled, and Cocos is disabled unless configured and not explicitly disabled.
+Defaults: `version` falls back to `package.json`, Web is enabled, Web devices default to all true, PWA is disabled, and Cocos/native are disabled unless configured and not explicitly disabled. Native profiles default to both `debug` and `release` when native is enabled.
 
 ## Package Boundaries
 
-Use `@quajs/quack/project` to load, normalize, validate, create Web assets/manifests, merge Quack asset targets, and sync Cocos build files. Do not parse YAML/JSON in engine, renderers, or templates.
+Use `@quajs/quack/project` to load, normalize, validate, create Web assets/manifests, merge Quack asset targets, sync Cocos build files, derive native artifact plans, and emit validated target-bundle manifests. Do not parse YAML/JSON in engine, renderers, or templates.
 
-Use `doctorQuaProjectConfig` or `quack project doctor` to report target readiness. Doctor results include `info`, `warning`, and `error` issues for Web device support, local/external icon sources, PWA icon/service-worker caveats, Cocos project directory presence, configured platforms, and hybrid asset output. Errors should fail packaging; warnings should be fixed or intentionally accepted.
+Use `createQuaProjectNativeArtifactPlans` when native packaging needs the concrete output matrix. It expands `targets.native.platforms` and `targets.native.profiles` into deterministic plans whose `artifactDir` is isolated by `outputDir/profile/version-buildNumber/platform`. The sanitized `version-buildNumber` value is exposed as `versionSegment` on each plan so signing, release immutability checks, update metadata, and distribution manifests do not need to parse it back out of `artifactDir`.
+
+Use `emitQuaTargetBundleManifest` after Web, Cocos, or native bundling has collected post-bundle dependencies, renderer entries, runtime packages, and target metadata. It validates with the active `expectedTarget` before writing `target-bundle-manifest.json`, so cross-target core adapters or mismatched renderer entries fail before artifact startup metadata is emitted. Native packagers may use `emitQuaProjectNativeTargetBundleManifest` to create the native manifest from a native artifact plan before delegating to the shared emitter. Native release manifests are immutable per `versionSegment` and platform: if a release artifact already contains a different `target-bundle-manifest.json`, the emitter must refuse to overwrite it and require a new app version/buildNumber or an explicit cleanup. Debug manifests may be regenerated in place for local iteration.
+
+Use `doctorQuaProjectConfig` or `quack project doctor` to report target readiness. Doctor results include `info`, `warning`, and `error` issues for Web device support, local/external icon sources, PWA icon/service-worker caveats, Cocos project directory presence, configured platforms, hybrid asset output, and native platform/profile/icon/output metadata. Errors should fail packaging; warnings should be fixed or intentionally accepted.
 
 Engine core may receive only normalized project metadata:
 
@@ -47,6 +52,12 @@ import { quaProject, quaWebRuntime } from 'virtual:qua-project'
 ```
 
 Startup should evaluate `quaWebRuntime` with `evaluateWebPlatformSupport`; unsupported devices should render `mountUnsupportedPlatformUi` before engine startup. If PWA is enabled and a service worker URL is present, register it through `createPwaWebRendererPlugin`.
+
+## Brand icon sources
+
+The repository brand kit lives in `assets/brand/` and uses a generated anime portrait. The demo declares `public/icon.png` and `public/favicon.png`; the Vue starter declares `assets/app/icon.png` and `assets/app/favicon.png`. Keep both manifest paths and any explicit HTML favicon link in sync with these binary assets. Preserve PNG bytes during scaffolding; do not pass them through text placeholder rendering.
+
+Use the source portrait to export app/tab sizes, rather than redrawing the character at each size. Brand usage and source/prompt records are documented in `assets/brand/README.md`. Starter icons are development placeholders; generated projects must replace reserved QuaEngine artwork before shipping their own product. Brand exports do not belong in engine state or a runtime content injection path.
 
 ## Validation
 
@@ -70,4 +81,6 @@ Also run affected `typecheck` and `build` commands. If `@quajs/renderer-web type
 - Are Web device restrictions enforced before engine startup and represented only as renderer-local UI?
 - Is engine core still platform-neutral and receiving only normalized metadata/layout?
 - Do Cocos sync files use generated `configPath` JSON and copied icon assets instead of Creator volatile cache?
+- Do native artifact plans isolate debug/release outputs and release versions before packaging writes files?
+- Do native release manifest writes reject accidental overwrites of an existing version/platform artifact while debug remains regeneratable?
 - Are Quack workspace asset targets merged without losing explicit bundle target overrides?

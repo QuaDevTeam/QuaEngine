@@ -257,14 +257,15 @@ describe('@quajs/vite-plugin', () => {
         },
       }
 
-      const html = (plugin.transformIndexHtml as any).handler(
-        '<html><head><link rel="stylesheet" href="/assets/index.css"></head><body><script type="module" src="/assets/index.js"></script></body></html>',
-        { bundle },
-      )
-      ;(plugin.generateBundle as any).call({ emitFile: (file: any) => emitted.push(file) }, {}, bundle)
+      const htmlAsset = {
+        type: 'asset',
+        source: '<html><head><link rel="stylesheet" href="/assets/index.css"></head><body><script type="module" src="/assets/index.js"></script></body></html>',
+      }
+      Object.assign(bundle, { 'index.html': htmlAsset })
+      ;(plugin.generateBundle as any).handler.call({ emitFile: (file: any) => emitted.push(file) }, {}, bundle)
 
-      expect(html).toContain('integrity="sha384-')
-      expect(html).toContain('crossorigin="anonymous"')
+      expect(htmlAsset.source).toContain('integrity="sha384-')
+      expect(htmlAsset.source).toContain('crossorigin="anonymous"')
       const csp = emitted.find(file => file.fileName === 'qua-security/csp.txt')?.source
       expect(csp).toContain('script-src')
       expect(csp).toContain('sha384-')
@@ -277,7 +278,7 @@ describe('@quajs/vite-plugin', () => {
         csp: { mode: 'nonce', allowRuntimeBlobModules: true, trustedTypes: true },
       })
       const emitted: any[] = []
-      ;(plugin.generateBundle as any).call({ emitFile: (file: any) => emitted.push(file) }, {}, {})
+      ;(plugin.generateBundle as any).handler.call({ emitFile: (file: any) => emitted.push(file) }, {}, {})
 
       const csp = emitted.find(file => file.fileName === 'qua-security/csp.txt')?.source
       expect(csp).toContain('script-src')

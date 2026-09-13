@@ -1,0 +1,725 @@
+import type {
+  GameStep,
+  StepContext,
+  RuntimeLoadedMigrationModule,
+  RuntimeLoadedPluginModule,
+  RuntimeLoadedSceneModule,
+  RuntimeLoadedScriptModule,
+  RuntimeModuleLoadContext,
+  RuntimeModuleLoader,
+  RuntimePackagePluginManifest,
+  RuntimePackageSceneManifest,
+  RuntimePackageStoreMigrationManifest,
+  RuntimeScriptModuleRecord,
+} from '@quajs/engine'
+import type {
+  NativeQuickJsEvaluationRequest,
+  NativeQuickJsEvaluationResponse,
+  NativeQuickJsGameStepCommand,
+  NativeQuickJsGameStepDescriptor,
+  NativeQuickJsGameStepFactoryCallRequest,
+  NativeQuickJsGameStepFactoryCallResponse,
+  NativeQuickJsGameStepHelperCallRequest,
+  NativeQuickJsPipelineListenerDispatchRequest,
+  NativeQuickJsPipelineListenerDispatchResponse,
+  NativeQuickJsPipelineSubscriptionChange,
+  NativeQuickJsGameStepRunRequest,
+  NativeQuickJsGameStepRunResponse,
+  NativeQuickJsGameStepResumeRequest,
+  NativeQuickJsModuleExportCallRequest,
+  NativeQuickJsModuleExportCallResponse,
+  NativeQuickJsModuleNamespaceRecord,
+  NativeQuickJsModuleNamespaceSummary,
+  NativeQuickJsRuntimeModuleKind,
+  NativeQuickJsSandboxLimits,
+  QuaNativeHostApi,
+} from '@quajs/native-contracts'
+import {
+  assertNativeQuickJsEvaluationResponse,
+  assertNativeQuickJsEvaluationRequest,
+  assertNativeQuickJsGameStepCommand,
+  assertNativeQuickJsGameStepFactoryCallResponse,
+  assertNativeQuickJsGameStepHelperCallRequest,
+  assertNativeQuickJsPipelineListenerDispatchResponse,
+  assertNativeQuickJsGameStepRunResponse,
+  createNativeQuickJsPipelineListenerDispatchRequest,
+  createNativeQuickJsGameStepFactoryCallRequest,
+  createNativeQuickJsGameStepResumeRequest,
+  createNativeQuickJsGameStepRunRequest,
+  createNativeQuickJsModuleExportCallRequest,
+  createNativeQuickJsEvaluationRequest,
+  isForbiddenNativeAssetReference,
+  isForbiddenNativePayload,
+  parseNativeQuickJsModuleExportCallResponse,
+} from '@quajs/native-contracts'
+
+declare const TextDecoder: {
+  new(): { decode: (input: Uint8Array) => string }
+}
+
+export type NativeRuntimeModuleRecord
+  = | RuntimeScriptModuleRecord
+    | RuntimePackageSceneManifest
+    | RuntimePackagePluginManifest
+    | RuntimePackageStoreMigrationManifest
+
+interface NativeRuntimeModuleVariantRecord {
+  assetName?: string
+  module?: string
+  name?: string
+  path?: string
+  relativePath?: string
+}
+
+interface NativeRuntimeModuleRecordWithVariants {
+  variants?: Record<string, NativeRuntimeModuleVariantRecord>
+}
+
+interface NativeRuntimeModuleRecordWithNativeQuickJsMetadata {
+  metadata?: {
+    nativeQuickJs?: {
+      imports?: readonly (string | { assetName?: string, module?: string, path?: string, relativePath?: string })[]
+    }
+  }
+}
+
+export interface NativeRuntimeModuleEvaluationContext {
+  assetName: string
+  bundleName: string
+  bytes: Uint8Array
+  code: string
+  kind: NativeRuntimeModuleKind
+  packageId: string
+  request: NativeQuickJsEvaluationRequest
+  record: NativeRuntimeModuleRecord
+}
+
+export type NativeRuntimeModuleKind = 'script' | 'scene' | 'engine-plugin' | 'store-migration'
+
+export type NativeRuntimeModuleEvaluator = (
+  ctx: NativeRuntimeModuleEvaluationContext,
+) => unknown | Promise<unknown>
+
+export interface NativeRuntimeModuleLoaderOptions {
+  evaluator: NativeRuntimeModuleEvaluator
+  limits?: Partial<NativeQuickJsSandboxLimits>
+  moduleKinds?: readonly NativeRuntimeModuleKind[]
+}
+
+export type NativeQuickJsModuleNamespaceResolver = (
+  moduleNamespaceId: string,
+  ctx: NativeRuntimeModuleEvaluationContext,
+  response: NativeQuickJsEvaluationResponse,
+) => unknown | Promise<unknown>
+
+export type NativeQuickJsJsonExportFunction = (...args: readonly unknown[]) => Promise<unknown>
+
+export type NativeQuickJsGameStepFactoryFunction = (scope?: unknown) => Promise<GameStep[]>
+
+export type NativeQuickJsStepContextSerializer = (ctx: StepContext) => Record<string, unknown> | undefined
+
+export type NativeQuickJsStepCommandExecutor = (
+  ctx: StepContext,
+  command: NativeQuickJsGameStepCommand,
+) => Promise<void>
+
+export type NativeQuickJsHelperFunction = (
+  engine: StepContext['engine'],
+  ...args: readonly unknown[]
+) => unknown | Promise<unknown>
+
+export type NativeQuickJsHelperModuleRegistry = Readonly<Record<string, Readonly<Record<string, NativeQuickJsHelperFunction>>>>
+
+export type NativeQuickJsHelperCallExecutor = (
+  ctx: StepContext,
+  request: NativeQuickJsGameStepHelperCallRequest,
+) => Promise<unknown>
+
+export type NativeQuickJsPipelineListenerDispatcher = (
+  request: NativeQuickJsPipelineListenerDispatchRequest,
+) => Promise<NativeQuickJsPipelineListenerDispatchResponse>
+
+interface NativeQuickJsPipelineSubscriptionRecord {
+  event: string
+  listener: (context: any) => Promise<void>
+  moduleNamespaceId: string
+  pipeline: StepContext['pipeline']
+}
+
+export interface NativeQuickJsPipelineSubscriptionBridge {
+  apply(
+    ctx: StepContext,
+    changes: readonly NativeQuickJsPipelineSubscriptionChange[] | undefined,
+  ): void
+  releaseModuleNamespace(moduleNamespaceId: string): void
+  dispose(): void
+}
+
+export function createNativeHostQuickJsModuleEvaluator(
+  host: Pick<QuaNativeHostApi, 'evaluateQuickJsModule'>,
+  resolveModuleNamespace: NativeQuickJsModuleNamespaceResolver,
+): NativeRuntimeModuleEvaluator {
+  return async (ctx) => {
+    if (!host.evaluateQuickJsModule) {
+      throw new Error('Native host does not provide QuickJS module evaluation.')
+    }
+    assertNativeQuickJsEvaluationRequest(ctx.request)
+    const response = await host.evaluateQuickJsModule(ctx.request)
+    const moduleNamespaceId = assertNativeQuickJsEvaluationResponse(response)
+    return await resolveModuleNamespace(moduleNamespaceId, ctx, response)
+  }
+}
+
+export async function callNativeQuickJsModuleExport(
+  host: Pick<QuaNativeHostApi, 'callQuickJsModuleExport'>,
+  request: NativeQuickJsModuleExportCallRequest,
+): Promise<unknown> {
+  if (!host.callQuickJsModuleExport) {
+    throw new Error('Native host does not provide QuickJS module export calls.')
+  }
+  const response: NativeQuickJsModuleExportCallResponse = await host.callQuickJsModuleExport(request)
+  return parseNativeQuickJsModuleExportCallResponse(response)
+}
+
+export async function callNativeQuickJsGameStepFactory(
+  host: Pick<QuaNativeHostApi, 'callQuickJsGameStepFactory'>,
+  request: NativeQuickJsGameStepFactoryCallRequest,
+): Promise<NativeQuickJsGameStepDescriptor[]> {
+  if (!host.callQuickJsGameStepFactory) {
+    throw new Error('Native host does not provide QuickJS GameStep factory calls.')
+  }
+  const response: NativeQuickJsGameStepFactoryCallResponse = await host.callQuickJsGameStepFactory(request)
+  return assertNativeQuickJsGameStepFactoryCallResponse(response)
+}
+
+export async function callNativeQuickJsGameStepRun(
+  host: Pick<QuaNativeHostApi, 'callQuickJsGameStepRun'>,
+  request: NativeQuickJsGameStepRunRequest,
+): Promise<NativeQuickJsGameStepRunResponse> {
+  if (!host.callQuickJsGameStepRun) {
+    throw new Error('Native host does not provide QuickJS GameStep run calls.')
+  }
+  const response: NativeQuickJsGameStepRunResponse = await host.callQuickJsGameStepRun(request)
+  return assertNativeQuickJsGameStepRunResponse(response)
+}
+
+export async function callNativeQuickJsGameStepResume(
+  host: Pick<QuaNativeHostApi, 'resumeQuickJsGameStepRun'>,
+  request: NativeQuickJsGameStepResumeRequest,
+): Promise<NativeQuickJsGameStepRunResponse> {
+  if (!host.resumeQuickJsGameStepRun) {
+    throw new Error('Native host does not provide QuickJS GameStep continuation resume calls.')
+  }
+  const response: NativeQuickJsGameStepRunResponse = await host.resumeQuickJsGameStepRun(request)
+  return assertNativeQuickJsGameStepRunResponse(response)
+}
+
+export async function callNativeQuickJsPipelineListenerDispatch(
+  host: Pick<QuaNativeHostApi, 'dispatchQuickJsPipelineListener'>,
+  request: NativeQuickJsPipelineListenerDispatchRequest,
+): Promise<NativeQuickJsPipelineListenerDispatchResponse> {
+  if (!host.dispatchQuickJsPipelineListener) {
+    throw new Error('Native host does not provide QuickJS pipeline listener dispatch calls.')
+  }
+  const response: NativeQuickJsPipelineListenerDispatchResponse = await host.dispatchQuickJsPipelineListener(request)
+  return assertNativeQuickJsPipelineListenerDispatchResponse(response)
+}
+
+export function createNativeQuickJsJsonExportFunction(
+  host: Pick<QuaNativeHostApi, 'callQuickJsModuleExport'>,
+  moduleNamespaceId: string,
+  exportName: string,
+): NativeQuickJsJsonExportFunction {
+  return async (...args: readonly unknown[]) => {
+    return await callNativeQuickJsModuleExport(host, createNativeQuickJsModuleExportCallRequest({
+      moduleNamespaceId,
+      exportName,
+      args,
+    }))
+  }
+}
+
+export function createNativeHostQuickJsJsonModuleNamespaceResolver(
+  host: Pick<QuaNativeHostApi, 'callQuickJsModuleExport'>,
+): NativeQuickJsModuleNamespaceResolver {
+  return (moduleNamespaceId) => {
+    return new Proxy(Object.create(null), {
+      get(_target, property) {
+        if (property === Symbol.toStringTag)
+          return 'NativeQuickJsJsonModuleNamespace'
+        if (property === 'then')
+          return undefined
+        if (typeof property !== 'string')
+          return undefined
+        return createNativeQuickJsJsonExportFunction(host, moduleNamespaceId, property)
+      },
+      has(_target, property) {
+        return typeof property === 'string' && property !== 'then'
+      },
+    })
+  }
+}
+
+export interface CreateNativeHostQuickJsGameStepModuleNamespaceResolverOptions {
+  executeStepCommand?: NativeQuickJsStepCommandExecutor
+  executeHelperCall?: NativeQuickJsHelperCallExecutor
+  helperModules?: NativeQuickJsHelperModuleRegistry
+  pipelineSubscriptionBridge?: NativeQuickJsPipelineSubscriptionBridge
+  serializeStepContext?: NativeQuickJsStepContextSerializer
+}
+
+export function createNativeQuickJsGameStepFactoryFunction(
+  host: Pick<QuaNativeHostApi, 'callQuickJsGameStepFactory' | 'callQuickJsGameStepRun' | 'resumeQuickJsGameStepRun'>,
+  moduleNamespaceId: string,
+  exportName: string,
+  options: CreateNativeHostQuickJsGameStepModuleNamespaceResolverOptions = {},
+): NativeQuickJsGameStepFactoryFunction {
+  return async (scope?: unknown) => {
+    const descriptors = await callNativeQuickJsGameStepFactory(host, createNativeQuickJsGameStepFactoryCallRequest({
+      moduleNamespaceId,
+      exportName,
+      scope,
+    }))
+    return descriptors.map(descriptor => createNativeQuickJsGameStepProxy(host, descriptor, options))
+  }
+}
+
+export function createNativeHostQuickJsGameStepModuleNamespaceResolver(
+  host: Pick<QuaNativeHostApi, 'callQuickJsGameStepFactory' | 'callQuickJsGameStepRun' | 'resumeQuickJsGameStepRun'>,
+  options: CreateNativeHostQuickJsGameStepModuleNamespaceResolverOptions = {},
+): NativeQuickJsModuleNamespaceResolver {
+  return (moduleNamespaceId, ctx) => {
+    if (ctx.kind !== 'script') {
+      throw new Error(`Native QuickJS GameStep namespace resolver can only load script modules, not ${ctx.kind} modules.`)
+    }
+    return new Proxy(Object.create(null), {
+      get(_target, property) {
+        if (property === Symbol.toStringTag)
+          return 'NativeQuickJsGameStepModuleNamespace'
+        if (property === 'then')
+          return undefined
+        if (typeof property !== 'string')
+          return undefined
+        return createNativeQuickJsGameStepFactoryFunction(host, moduleNamespaceId, property, options)
+      },
+      has(_target, property) {
+        return typeof property === 'string' && property !== 'then'
+      },
+    })
+  }
+}
+
+function createNativeQuickJsGameStepProxy(
+  host: Pick<QuaNativeHostApi, 'callQuickJsGameStepRun' | 'resumeQuickJsGameStepRun'>,
+  descriptor: NativeQuickJsGameStepDescriptor,
+  options: CreateNativeHostQuickJsGameStepModuleNamespaceResolverOptions,
+): GameStep {
+  if (!descriptor.uuid || typeof descriptor.uuid !== 'string') {
+    throw new TypeError('Native QuickJS GameStep descriptor requires a uuid.')
+  }
+  if (!descriptor.runHandleId || typeof descriptor.runHandleId !== 'string') {
+    throw new TypeError(`Native QuickJS GameStep descriptor "${descriptor.uuid}" requires a runHandleId.`)
+  }
+  return {
+    uuid: descriptor.uuid,
+    ...(descriptor.metadataJson !== undefined ? { metadata: JSON.parse(descriptor.metadataJson) } : {}),
+    run: async (ctx) => {
+      let response = await callNativeQuickJsGameStepRun(host, createNativeQuickJsGameStepRunRequest({
+        runHandleId: descriptor.runHandleId,
+        ctx: (options.serializeStepContext || defaultNativeQuickJsStepContextSerializer)(ctx),
+      }))
+      const executeStepCommand = options.executeStepCommand || executeNativeQuickJsGameStepCommand
+      const executeHelperCall = options.executeHelperCall
+        || ((ctx, request) => executeNativeQuickJsGameStepHelperCall(ctx, request, options.helperModules))
+      const pipelineSubscriptions = options.pipelineSubscriptionBridge
+      while (true) {
+        for (const command of response.commands || []) {
+          await executeStepCommand(ctx, command)
+        }
+        if (response.pipelineSubscriptions?.length) {
+          if (!pipelineSubscriptions) {
+            throw new Error('Native QuickJS GameStep returned pipeline subscription changes, but no pipeline subscription bridge is installed.')
+          }
+          pipelineSubscriptions.apply(ctx, response.pipelineSubscriptions)
+        }
+        if (response.pendingWait) {
+          const payload = await ctx.engine.waitFor(response.pendingWait.event as never)
+          response = await callNativeQuickJsGameStepResume(host, createNativeQuickJsGameStepResumeRequest({
+            resumeHandleId: response.pendingWait.resumeHandleId,
+            payload,
+          }))
+          continue
+        }
+        if (response.pendingTranslation) {
+          const options = response.pendingTranslation.optionsJson === undefined
+            ? undefined
+            : JSON.parse(response.pendingTranslation.optionsJson)
+          const payload = await ctx.t(response.pendingTranslation.key, options)
+          response = await callNativeQuickJsGameStepResume(host, createNativeQuickJsGameStepResumeRequest({
+            resumeHandleId: response.pendingTranslation.resumeHandleId,
+            payload,
+          }))
+          continue
+        }
+        if (response.pendingPipelineEmit) {
+          const payload = response.pendingPipelineEmit.payloadJson === undefined
+            ? undefined
+            : JSON.parse(response.pendingPipelineEmit.payloadJson)
+          await ctx.pipeline.emit(response.pendingPipelineEmit.event, payload)
+          response = await callNativeQuickJsGameStepResume(host, createNativeQuickJsGameStepResumeRequest({
+            resumeHandleId: response.pendingPipelineEmit.resumeHandleId,
+          }))
+          continue
+        }
+        if (response.pendingHelperCall) {
+          const payload = await executeHelperCall(ctx, response.pendingHelperCall)
+          response = await callNativeQuickJsGameStepResume(host, createNativeQuickJsGameStepResumeRequest({
+            resumeHandleId: response.pendingHelperCall.resumeHandleId,
+            payload,
+          }))
+          continue
+        }
+        return
+      }
+    },
+  }
+}
+
+export function createNativeQuickJsPipelineSubscriptionBridge(
+  host: Pick<QuaNativeHostApi, 'dispatchQuickJsPipelineListener'>,
+  options: {
+    executeStepCommand?: NativeQuickJsStepCommandExecutor
+    serializePipelineContext?: (context: any) => Record<string, unknown>
+  } = {},
+): NativeQuickJsPipelineSubscriptionBridge {
+  const subscriptions = new Map<string, NativeQuickJsPipelineSubscriptionRecord>()
+  const executeStepCommand = options.executeStepCommand || executeNativeQuickJsGameStepCommand
+  const serializePipelineContext = options.serializePipelineContext || defaultNativeQuickJsPipelineContextSerializer
+
+  const unsubscribe = (subscriptionId: string): void => {
+    const existing = subscriptions.get(subscriptionId)
+    if (!existing)
+      return
+    existing.pipeline.off(existing.event, existing.listener as any)
+    subscriptions.delete(subscriptionId)
+  }
+
+  const applyChanges = (
+    ctx: StepContext,
+    changes: readonly NativeQuickJsPipelineSubscriptionChange[] | undefined,
+  ): void => {
+    if (!changes?.length)
+      return
+    for (const change of changes) {
+      unsubscribe(change.subscriptionId)
+      if (change.op === 'unsubscribe') {
+        continue
+      }
+      const listener = async (context: any) => {
+        const response = await callNativeQuickJsPipelineListenerDispatch(
+          host,
+          createNativeQuickJsPipelineListenerDispatchRequest({
+            subscriptionId: change.subscriptionId,
+            context: serializePipelineContext(context),
+          }),
+        )
+        for (const command of response.commands || []) {
+          await executeStepCommand(ctx, command)
+        }
+        applyChanges(ctx, response.pipelineSubscriptions)
+      }
+      subscriptions.set(change.subscriptionId, {
+        event: change.event,
+        listener,
+        moduleNamespaceId: change.moduleNamespaceId,
+        pipeline: ctx.pipeline,
+      })
+      ctx.pipeline.on(change.event, listener as any)
+    }
+  }
+
+  return {
+    apply(ctx, changes) {
+      applyChanges(ctx, changes)
+    },
+    releaseModuleNamespace(moduleNamespaceId) {
+      for (const [subscriptionId, record] of subscriptions) {
+        if (record.moduleNamespaceId === moduleNamespaceId) {
+          record.pipeline.off(record.event, record.listener as any)
+          subscriptions.delete(subscriptionId)
+        }
+      }
+    },
+    dispose() {
+      for (const record of subscriptions.values()) {
+        record.pipeline.off(record.event, record.listener as any)
+      }
+      subscriptions.clear()
+    },
+  }
+}
+
+export async function executeNativeQuickJsGameStepCommand(
+  ctx: StepContext,
+  command: NativeQuickJsGameStepCommand,
+): Promise<void> {
+  assertNativeQuickJsGameStepCommand(command)
+  const args = command.argsJson === undefined ? [] : JSON.parse(command.argsJson)
+  if (!Array.isArray(args)) {
+    throw new Error(`Native QuickJS GameStep command ${command.target}.${command.method} argsJson must be a JSON array.`)
+  }
+  const method = ctx.engine?.[command.method as keyof typeof ctx.engine]
+  if (typeof method !== 'function') {
+    throw new Error(`Native QuickJS GameStep command ${command.target}.${command.method} is not available on StepContext.`)
+  }
+  await (method as (...args: unknown[]) => unknown).apply(ctx.engine, args)
+}
+
+export function createNativeQuickJsHelperCallExecutor(
+  helperModules: NativeQuickJsHelperModuleRegistry,
+): NativeQuickJsHelperCallExecutor {
+  return (ctx, request) => executeNativeQuickJsGameStepHelperCall(ctx, request, helperModules)
+}
+
+export async function executeNativeQuickJsGameStepHelperCall(
+  ctx: StepContext,
+  request: NativeQuickJsGameStepHelperCallRequest,
+  helperModules: NativeQuickJsHelperModuleRegistry = {},
+): Promise<unknown> {
+  assertNativeQuickJsGameStepHelperCallRequest(request)
+  const helperModule = helperModules[request.module]
+  const helper = helperModule?.[request.exportName]
+  if (typeof helper !== 'function') {
+    throw new Error(`Native QuickJS helper ${request.module}.${request.exportName} is not registered in the host helper resolver.`)
+  }
+  const args = request.argsJson === undefined ? [] : JSON.parse(request.argsJson)
+  if (!Array.isArray(args)) {
+    throw new Error(`Native QuickJS helper ${request.module}.${request.exportName} argsJson must be a JSON array.`)
+  }
+  return await helper(ctx.engine, ...args)
+}
+
+function defaultNativeQuickJsStepContextSerializer(ctx: StepContext): Record<string, unknown> {
+  return {
+    stepId: ctx.stepId,
+    ...(ctx.previousStepId ? { previousStepId: ctx.previousStepId } : {}),
+  }
+}
+
+function defaultNativeQuickJsPipelineContextSerializer(context: any): Record<string, unknown> {
+  return {
+    event: {
+      type: context.event?.type,
+      payload: context.event?.payload,
+      timestamp: context.event?.timestamp,
+      id: context.event?.id,
+    },
+    handled: context.handled === true,
+    stopPropagation: context.stopPropagation === true,
+  }
+}
+
+export async function releaseNativeQuickJsModuleNamespace(
+  host: Pick<QuaNativeHostApi, 'releaseQuickJsModuleNamespace'>,
+  moduleNamespaceId: string,
+): Promise<NativeQuickJsModuleNamespaceRecord | undefined> {
+  return await host.releaseQuickJsModuleNamespace?.(moduleNamespaceId)
+}
+
+export async function releaseNativeQuickJsPackageNamespaces(
+  host: Pick<QuaNativeHostApi, 'releaseQuickJsPackageNamespaces'>,
+  packageId: string,
+): Promise<NativeQuickJsModuleNamespaceRecord[]> {
+  return await host.releaseQuickJsPackageNamespaces?.(packageId) || []
+}
+
+export async function getNativeQuickJsNamespaceSummary(
+  host: Pick<QuaNativeHostApi, 'getQuickJsNamespaceSummary'>,
+): Promise<NativeQuickJsModuleNamespaceSummary | undefined> {
+  return await host.getQuickJsNamespaceSummary?.()
+}
+
+export async function getNativeQuickJsPackageNamespaceSummary(
+  host: Pick<QuaNativeHostApi, 'getQuickJsPackageNamespaceSummary'>,
+  packageId: string,
+): Promise<NativeQuickJsModuleNamespaceSummary | undefined> {
+  return await host.getQuickJsPackageNamespaceSummary?.(packageId)
+}
+
+export function createNativeRuntimeModuleLoader(options: NativeRuntimeModuleLoaderOptions): RuntimeModuleLoader {
+  const enabledKinds = new Set<NativeRuntimeModuleKind>(
+    options.moduleKinds || ['script', 'scene', 'engine-plugin', 'store-migration'],
+  )
+  const loadModule = async <TLoaded>(
+    kind: NativeRuntimeModuleKind,
+    record: NativeRuntimeModuleRecord,
+    ctx: RuntimeModuleLoadContext,
+  ): Promise<TLoaded> => {
+    const assetName = getNativeRuntimeModuleAssetName(record, kind)
+    const asset = await ctx.assets.getAsset('scripts', assetName, {
+      bundleName: ctx.bundle.bundleName,
+      targetPackageId: ctx.package.id,
+      locale: ctx.locale,
+    })
+    const code = new TextDecoder().decode(asset.data)
+    const moduleGraph = await loadNativeQuickJsModuleGraph(record, kind, ctx)
+    const request = createNativeQuickJsEvaluationRequest({
+      assetName,
+      bundleName: ctx.bundle.bundleName,
+      bytes: asset.data,
+      code,
+      kind: toQuickJsRuntimeModuleKind(kind),
+      limits: options.limits,
+      moduleGraph,
+      packageId: ctx.package.id,
+    })
+    const loaded = await options.evaluator({
+      assetName,
+      bundleName: ctx.bundle.bundleName,
+      bytes: asset.data,
+      code,
+      kind,
+      packageId: ctx.package.id,
+      request,
+      record,
+    })
+    return normalizeLoadedNativeModule<TLoaded>(loaded, assetName, kind)
+  }
+
+  return {
+    ...(enabledKinds.has('engine-plugin')
+      ? { loadEnginePluginModule: (record, ctx) => loadModule<RuntimeLoadedPluginModule>('engine-plugin', record, ctx) }
+      : {}),
+    ...(enabledKinds.has('scene')
+      ? { loadSceneModule: (record, ctx) => loadModule<RuntimeLoadedSceneModule>('scene', record, ctx) }
+      : {}),
+    ...(enabledKinds.has('script')
+      ? { loadScriptModule: (record, ctx) => loadModule<RuntimeLoadedScriptModule>('script', record, ctx) }
+      : {}),
+    ...(enabledKinds.has('store-migration')
+      ? { loadStoreMigrationModule: (record, ctx) => loadModule<RuntimeLoadedMigrationModule>('store-migration', record, ctx) }
+      : {}),
+  }
+}
+
+async function loadNativeQuickJsModuleGraph(
+  record: NativeRuntimeModuleRecord,
+  kind: NativeRuntimeModuleKind,
+  ctx: RuntimeModuleLoadContext,
+): Promise<NativeQuickJsEvaluationRequest['moduleGraph']> {
+  const assetNames = getNativeQuickJsModuleGraphAssetNames(record, kind)
+  if (assetNames.length === 0) {
+    return undefined
+  }
+  const modules: NonNullable<NativeQuickJsEvaluationRequest['moduleGraph']> = []
+  const seen = new Set<string>()
+  for (const assetName of assetNames) {
+    if (seen.has(assetName))
+      continue
+    seen.add(assetName)
+    const asset = await ctx.assets.getAsset('scripts', assetName, {
+      bundleName: ctx.bundle.bundleName,
+      targetPackageId: ctx.package.id,
+      locale: ctx.locale,
+    })
+    modules.push({
+      assetName,
+      bundleName: ctx.bundle.bundleName,
+      packageId: ctx.package.id,
+      kind: toQuickJsRuntimeModuleKind(kind),
+      code: new TextDecoder().decode(asset.data),
+      bytes: Array.from(asset.data),
+    })
+  }
+  return modules
+}
+
+function getNativeQuickJsModuleGraphAssetNames(
+  record: NativeRuntimeModuleRecord,
+  kind: NativeRuntimeModuleKind,
+): string[] {
+  const imports = (record as NativeRuntimeModuleRecordWithNativeQuickJsMetadata).metadata?.nativeQuickJs?.imports || []
+  return imports.map((entry, index) => {
+    const assetName = typeof entry === 'string'
+      ? entry
+      : entry.assetName || entry.module || entry.path || entry.relativePath || ''
+    assertNativeRuntimeModuleAssetName(assetName, kind, `metadata.nativeQuickJs.imports.${index}`)
+    return assetName
+  })
+}
+
+function toQuickJsRuntimeModuleKind(kind: NativeRuntimeModuleKind): NativeQuickJsRuntimeModuleKind {
+  switch (kind) {
+    case 'engine-plugin':
+      return 'enginePlugin'
+    case 'store-migration':
+      return 'storeMigration'
+    case 'scene':
+    case 'script':
+      return kind
+  }
+}
+
+function getNativeRuntimeModuleAssetName(record: NativeRuntimeModuleRecord, kind: NativeRuntimeModuleKind): string {
+  if (!record.assetName) {
+    throw new Error(`Native runtime ${kind} module loading requires an assetName declared in the runtime package manifest.`)
+  }
+  assertNativeRuntimeModuleAssetName(record.assetName, kind, 'assetName')
+  assertNativeRuntimeModuleVariants(record, kind)
+  return record.assetName
+}
+
+function assertNativeRuntimeModuleVariants(record: NativeRuntimeModuleRecord, kind: NativeRuntimeModuleKind): void {
+  const variants = (record as NativeRuntimeModuleRecordWithVariants).variants
+  for (const [variantName, variant] of Object.entries(variants || {})) {
+    if (variant.assetName)
+      assertNativeRuntimeModuleAssetName(variant.assetName, kind, `variants.${variantName}.assetName`)
+    if (variant.module)
+      assertNativeRuntimeModuleAssetName(variant.module, kind, `variants.${variantName}.module`)
+    if (variant.name)
+      assertNativeRuntimeModuleAssetName(variant.name, kind, `variants.${variantName}.name`)
+    if (variant.path)
+      assertNativeRuntimeModuleAssetName(variant.path, kind, `variants.${variantName}.path`)
+    if (variant.relativePath)
+      assertNativeRuntimeModuleAssetName(variant.relativePath, kind, `variants.${variantName}.relativePath`)
+  }
+}
+
+function assertNativeRuntimeModuleAssetName(assetName: string, kind: NativeRuntimeModuleKind, field: string): void {
+  if (isForbiddenNativeModuleSpecifier(assetName)) {
+    throw new Error(`Native runtime ${kind} module ${field} "${assetName}" must be a package-relative script asset.`)
+  }
+  if (isForbiddenNativePayload(assetName)) {
+    throw new Error(`Native runtime ${kind} module ${field} "${assetName}" must not reference a native payload.`)
+  }
+  if (!isNativeScriptModuleAsset(assetName)) {
+    throw new Error(`Native runtime ${kind} module ${field} "${assetName}" must reference a JavaScript module asset.`)
+  }
+}
+
+function isForbiddenNativeModuleSpecifier(assetName: string): boolean {
+  return assetName.includes('\\') || isForbiddenNativeAssetReference(assetName)
+}
+
+function isNativeScriptModuleAsset(assetName: string): boolean {
+  const normalized = stripAssetReferenceSuffix(assetName).toLowerCase().split(/[\\/]/).pop() || ''
+  return normalized.endsWith('.js')
+    || normalized.endsWith('.mjs')
+    || normalized.endsWith('.cjs')
+}
+
+function stripAssetReferenceSuffix(assetName: string): string {
+  const suffixIndex = assetName.search(/[?#]/)
+  return suffixIndex >= 0 ? assetName.slice(0, suffixIndex) : assetName
+}
+
+function normalizeLoadedNativeModule<TLoaded>(
+  loaded: unknown,
+  assetName: string,
+  kind: NativeRuntimeModuleKind,
+): TLoaded {
+  if (!loaded || typeof loaded !== 'object') {
+    throw new TypeError(`Native runtime ${kind} module "${assetName}" did not evaluate to a module namespace object.`)
+  }
+  return loaded as TLoaded
+}

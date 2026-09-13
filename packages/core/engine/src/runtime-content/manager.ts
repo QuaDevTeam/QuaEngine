@@ -34,7 +34,7 @@ import type {
 } from '../core/types'
 import type { EnginePlugin } from '../plugins/core/types'
 import { assertCompatibleGameVersion, createLocaleFallbackChain, normalizeLocale } from '@quajs/assets'
-import { resolveGameSteps } from '../core/script'
+import { resolveGameStepsAsync } from '../core/script'
 
 interface LoadedRuntimePackage {
   bundle: DynamicBundleRecord
@@ -284,7 +284,7 @@ export class RuntimeContentManager {
     const scriptVariant = this.resolveScriptVariant(record, options.locale || this.engine.getAssets().getLocale())
     await this.ensureRuntimePackages(unique([record.packageId, scriptVariant.packageId]))
     const factory = await this.resolveScriptFactory(scriptVariant.record, scriptVariant.locale, scriptVariant.packageId)
-    const steps = resolveGameSteps(factory as any, scope)
+    const steps = await resolveGameStepsAsync(factory as any, scope)
     const requiredPackages = unique([
       record.packageId,
       scriptVariant.packageId,
@@ -327,7 +327,7 @@ export class RuntimeContentManager {
     const scriptVariant = this.resolveScriptVariant(record, options.locale || this.engine.getAssets().getLocale())
     await this.ensureRuntimePackages(unique([record.packageId, scriptVariant.packageId, ...(options.packageId ? [options.packageId] : [])]))
     const factory = await this.resolveScriptFactory(scriptVariant.record, scriptVariant.locale, scriptVariant.packageId)
-    const steps = this.sliceScriptSteps(resolveGameSteps(factory as any, options.scope), options)
+    const steps = this.sliceScriptSteps(await resolveGameStepsAsync(factory as any, options.scope), options)
     const requiredPackages = unique([
       record.packageId,
       scriptVariant.packageId,
@@ -409,7 +409,7 @@ export class RuntimeContentManager {
       throw new Error(`Rollback step "${entry.stepId}" requires script module "${moduleId}" version "${entry.source.scriptModuleVersion}", but "${scriptVariant.record.version}" is available.`)
     }
     const factory = await this.resolveScriptFactory(scriptVariant.record, scriptVariant.locale, scriptVariant.packageId)
-    const step = resolveGameSteps(factory as any).find(candidate => candidate.uuid === entry.stepId)
+    const step = (await resolveGameStepsAsync(factory as any)).find(candidate => candidate.uuid === entry.stepId)
     if (!step) {
       return undefined
     }

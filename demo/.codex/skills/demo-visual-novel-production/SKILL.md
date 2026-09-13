@@ -1,95 +1,274 @@
 ---
 name: demo-visual-novel-production
-description: Use when working on the QuaEngine demo visual novel, including generating or regenerating character standees, expression variants, event CGs, backgrounds, editing demo QuaScript scenes, staging characters, polishing UI, reviewing Chinese story text, and preparing demo assets for commit.
+description: Develop the Call Me Again Tomorrow visual novel demo from its archived world, mystery rules, characters, relationship arc, scene outline, and asset specifications, while preserving shared Web/native runtime boundaries.
 ---
 
-# QuaEngine Demo Visual Novel Production
+# 明天，请再一次呼唤我 Demo Production
 
-## First Steps
+## Environment lighting and laundromat correction
 
-- Work from `/Users/orchiliao/Projects/QuaEngine`.
-- Treat demo content, scripts, CGs, standees, backgrounds, UI art, and story text as copyrighted demo material, not MIT-licensed engine code.
-- Runtime-used demo resources under `demo/assets/**` must be committed. Scratch outputs under `demo/.generated/**` are ignored and should not be committed.
-- Before changing engine/renderer behavior for demo needs, follow QuaEngine guardrails: engine/store own authoritative state; renderer projects state and emits intents only.
+Read `demo/.agents/environment-lighting.md`. The laundromat path now contains a reviewed medium `openai/gpt-image-2.5-flare` edit removing the impossible corner appliances; preserve the single left-wall row and benches. Prompt and prediction provenance are archived. Four scene types now author `characterLighting` in14background cues. Do not infer light from filenames at runtime or repaint every expression PNG. Web/Vue use shared alpha-preserving material projection; Native uses the same material through WGPU character subtree compositing; Cocos currently uses original colors. Check real pixels, sprite-resource reuse, refresh/save restoration, scene reset and browser GPU overhead separately from URL cache stats. Initial QPK loading remains a separate memory/latency concern.
 
-## Asset Generation Commands
+## Third-person narration
 
-Use `demo/scripts/generate-assets.mjs`; do not hand-copy raw generated files into runtime assets without the script's cleanup/finalization pass.
+The player identifies with Rin, but narration is third-person limited, centered on the information she has. Read `demo/.agents/third-person-review.md` and `writing-guide.md`. Use named/clear third-person subjects in narration; keep each speaker’s first person in dialogue, recorded speech and messages. Convert implicit monologues and resolve pronoun switches, not just 我→凛. Give incomplete reactions a concrete action and context. Do not enter Mara’s private thoughts or reveal unobserved source-branch facts. Camera POV and prose person are independent: Rin may be staged when the scene calls for it, never automatically because she speaks. Existing scene staging is retained in this prose pass. Update prose-based regression anchors while preserving scene, branch, save/load and image assertions. This supersedes historical first-person instructions below.
 
-- List asset ids: `pnpm --filter demo assets:list`
-- Generate all missing assets: `pnpm --filter demo assets:generate`
-- Generate missing CGs only: `pnpm --filter demo assets:generate-cgs`
-- Generate missing character sprites only: `pnpm --filter demo assets:generate-characters`
-- Generate one CG: `pnpm --filter demo assets:generate -- --only cg --id oracle-choice-terminal`
-- Regenerate one CG: `pnpm --filter demo assets:generate -- --only cg --id oracle-choice-terminal --regenerate`
-- Generate one character variant: `pnpm --filter demo assets:generate -- --only character --id unit7:resolve`
-- Regenerate one character variant: `pnpm --filter demo assets:generate -- --only character --id unit7:resolve --regenerate`
-- Generate one background: `pnpm --filter demo assets:generate -- --only background --id core-room`
+## Third-person continuation review
 
-Compatible environment filters still exist: `BACKGROUND_FILTER`, `CG_FILTER`, `CHARACTER_FILTER`, `ASSET_FILTER`, `REGENERATE_BACKGROUNDS`, `REGENERATE_CGS`, `REGENERATE_CHARACTERS`, and `REGENERATE_ALL_ASSETS`.
+See `demo/.agents/third-person-continuation.md` and its edit log. A viewpoint conversion needs a second contextual read: identify the sender and recipient, track props and sitting/standing, distinguish a played recording from the current room, and attribute remote knowledge to speech/messages. A paper script edit must precede an actual audio edit before duration changes. Give banter a visible trigger; preserve voluntary confession without inventing an unanswered question. Re-read newly added actions too. Keep clear pronouns instead of replacing every 她 with a name. Initial third-person hashes/counts are historical snapshots, not current-file invariants.
 
-## Model Policy
+## Story-motivated acting expansion
 
-- Do not use Seedream for demo assets.
-- CGs default to `openai/gpt-image-2` with `CG_IMAGE_QUALITY=medium`; keep this lower-cost setting unless the user explicitly asks for higher quality.
-- CG generation must use `references` from existing character sprites when characters appear. The prompt must preserve hairstyle, outfit silhouette, colors, face impression, height relationship, and the established sci-fi VN world.
-- Character sprites use an anime-focused model plus remove-bg. Source images should be on a flat white or black studio background to avoid green edges and matte halos.
-- Character cutouts must pass cleanup, normalization, and validation. Final sprites should be 1024x1536 PNGs with transparent corners, clean alpha, full body, visible shoes, and consistent apparent scale.
+Read `demo/.agents/acting-expansion.md` and `acting-expansion-assets.json`. Seven additional medium Flare sprites cover Mara's laundry drinks and equipment-bag worry/softening, Haruka's script reading/laugh, Reiko's uneasy admission and Mayu's open report. Track prop custody at the exact QS beat: put drinks down before empty hands, retain the equipment bag while changing expressions and exiting, close/return the report pose when handing it over. Face-only changes on a held-prop pose must retain body and alpha byte-identically. Narrow a face-color mask when it touches a jaw edge; do not relax matte checks to make it pass.
 
-## Adding Or Updating Assets
+Prefer distinct observed actions over expression counts. Check local/remote status and costume prefix before adding any sprite. Seated reading, headphone listening, intimate hand contact and boat photography require scene-specific perspective/prop composition; never calibrate seated figures by standing height or claim a lowered standing sprite completes a seated action. Keep these plans separate from integrated assets. Validate actual decoded images and pose resets through normal-reading checks, and follow the current explicitly authored cast; do not infer presence from dialogue labels.
 
-- Add backgrounds to `backgrounds`, CGs to `cgs`, and standee variants to `characters` in `demo/scripts/generate-assets.mjs`.
-- For CGs with known characters, add `references: ['characters/<id>/<variant>.png']` entries. Do not generate character CGs without reference images unless the scene has no established character.
-- Keep runtime paths stable:
-  - Backgrounds: `demo/assets/images/backgrounds/*.jpg` or intentional UI background paths.
-  - CGs: `demo/assets/images/cg/*.webp`.
-  - Characters: `demo/assets/characters/<id>/<variant>.png`.
-- Delete unused raw proposals from `.generated`; keep only runtime-used assets in `demo/assets`.
+Review companions in the same screenshot: Yumi must not keep her everyday smile while Mara admits she is afraid. The story regression explicitly reads chapter06; fast-forward-only traversal does not exercise intermediate acting assertions. Use `QUA_STORY_OUTPUT` to isolate retry artifacts, and retain the original exception even if the browser has disconnected before a failure screenshot.
 
-## QuaScript And Staging
+## Web memory and asset lifecycle
 
-- Keep story and visual staging in `.qs` files. Use decorators/helpers such as `@SetBackground`, `@ShowCharacter`, `@MoveCharacter`, `@HideCharacter`, and imported TypeScript helpers instead of expanding QuaScript grammar.
-- Use logical landscape stage coordinates. Default reference is 1920x1080; important subjects should stay inside the safe area across 16:10 to 16:9.
-- Keep apparent standee sizes close. Height and body type can differ, but no character should feel accidentally giant or tiny.
-- Suggested positions:
-  - One person: `x: 960`, `y: 650`, scale near `1`.
-  - Two people: `x: 520` and `1240`, `y: 650`.
-  - Three people: `x: 420`, `760`, `1120`, `y: 650`, scale near `0.96`.
-  - Four people: `x: 330`, `700`, `1080`, `1480`, `y: 650`, scale near `0.9`.
-- Character entry/exit should at least fade; avoid sudden disappearances unless the script explicitly wants a shock cut.
-- For event CGs that contain characters, hide standees first, then set the CG as the current background with a fade. Restore the background and standees after returning to sprite-mode staging.
+Read `demo/.agents/web-memory.md` before adding image variants or preload work. Production now uses shared IndexedDB bytes through `createWebAssetStorage`; this supersedes the earlier whole-QPK MemoryAssetStorage workaround below. `cacheSize` is a disk-store threshold, not RAM. Renderer shared handles deduplicate and bound reads to4, and limit idle URLs to250ms/16entries/32MiB estimated encoded+RGBA bytes. Current active URLs remain pinned. Avoid secondary byte or decoded-image caches; test release on layer replacement, failed loading and unmount. Actual browser/GPU memory and initial whole-QPK parsing exceed the idle budget and must be reported separately. Runtime package unload remains engine-guarded.
 
-## Story Text Norms
+## Wardrobe continuity
 
-- Chinese narration should read like natural short-form VN prose: concise, specific, emotionally legible, and not slogan-like.
-- Keep system/ORACLE lines calm, precise, and safety-logic driven; avoid cartoon villain phrasing.
-- Keep character voices distinct:
-  - 神代澪: restrained, guilty, precise, observant.
-  - Tachibana Mara: dry, resistant, sharp, emotionally controlled until pressure breaks through.
-  - Unit-7: literal and procedural at first, gradually developing desire and self-ownership.
-  - ORACLE: polite, analytic, paternalistic, certain that control prevents harm.
-- When expanding routes, add concrete action, reaction, and consequence. Avoid abstract exposition that does not change the scene.
+The user explicitly permits multiple outfits for every character, especially the heroines. Read `demo/.agents/wardrobe.md` and `wardrobe-assets.json`; these supersede older single-outfit restrictions. This pass adds12outfits/112PNGs using13medium Flare generations. Each heroine now has5outfits including her original, and each supporting character2. Rin's new art remains available for explicitly authored staging and CG references. Do not auto-show her to display a costume.
 
-## Demo UI And Engine Boundary
+QS selects complete outfit/expression keys such as `leisure-smile` and `date-blush` in the existing manifest. Every subsequent expression cue in that outing must retain its outfit prefix. This keeps clothing in engine-owned expression/save state without a renderer wardrobe cache or speaker/date heuristic. Each PNG is still a mutually exclusive full-body layer over the invisible layout base. Do not silently fall back to another outfit when a pose is missing. The leisure listening pose was independently generated; the other new expressions reuse approved face interiors through `prepare-wardrobe-expressions.py`. Sparse landmark failures require explicit reviewed dense-hair alignment with correlation/deformation guards, then visual inspection; retain model alpha and unchanged clothing pixels.
 
-- Main menu, settings, save/load, log/backlog, story tree, and overlays are demo/plugin UI surfaces, not engine-core state owners.
-- If demo UI needs new capability, add engine/plugin projection or intent support first, then render it. Do not make renderer components decide narrative progress or persist game state.
-- Story tree entries that are locked or spoilery should be hidden or locked from engine-owned unlock/progress projection.
-- UI should be no-select where text selection is not useful. Buttons and menu overlays should animate smoothly and expose clear feedback for save/load/settings actions.
+Keep June19 beach→lighthouse and June26 cruise→shops→cafe costumes continuous; June27 date has a separate outfit. Remove the June26 outer layer in prose before showing the indoor blouse. Preserve the original Jun28 reaching-hand action and default costume. Rainwear appears outdoors, autumn layers in the Tokyo epilogue, never on remote voices. Review clothes mentioned in prose (buttons, pockets, sleeves, trousers) and any CG assigned to the same date. Extend normal-reading checks with outfit-specific acting and fresh-page save/load of the whole beach cast; compile both shared targets and inspect actual QPK sprite images.
 
-## Verification
+The wardrobe pass also exposed production asset failures: a145MiB static QPK exceeded the default100MiB memory-cache limit and evicted source images on load. `runtime.ts` derives capacity from emitted `totalSize` (at least256MiB or twice the pack size), without preallocating that amount. Keep type-relative QPK record names and do not treat `cg`/`ui` folders as language codes. Story checks wait for real image decode, including CG and backgrounds, rather than console-error absence alone.
 
-Run focused checks after script or demo changes:
+## Latest Flare refinement and Chinese continuation
 
-```sh
-pnpm --filter demo typecheck
-pnpm --filter demo build
-```
+Read `demo/.agents/flare-and-prose-2026-09-09.md`, `heroine-flare-review.json` and `natural-chinese-edits-2026-09-09.json`. The user resolved the exact model as **gpt-image-2.5-flare**. Replicate `openai/gpt-image-2.5-flare` is callable and succeeded; historical unresolved-model/gpt-image-2 defaults below no longer apply to new generation. This pass used19medium calls:10 eye repairs,8 new variants and1 rejected hurt-expression draft. Prefer low/medium, inspect before increasing quality. Flare supports native transparent output: preserve its alpha or the reviewed removebg model output; never rebuild a matte by color threshold.
 
-Before committing broader demo or engine changes, run:
+Heroine libraries now have16variants each (47total cast sprites). Mara's4 new expressions/pose are explicitly staged; Rin's4 are prepared references, without adding unplanned frontal sprites.4 complex composition plans remain. `prepare-expression-layers.py --jobs` supports explicit pose-source crops, interior polygons and provenance; use each pose's actual head coordinates. Reviewed eye-only soft alpha in Rin pose-listening reaches239 and stays byte-identical. Assert outer pixels unchanged and fail preparation when alignment/alpha guards fail. `prepare-pose-cutouts.py --jobs` accepts genuine model-transparent sources and uniformly calibrates height. Preserve pre-repair originals.
 
-```sh
-pnpm run ci
-```
+For Chinese, read a reply with surrounding narration and props. Replace uncommon regional terms (e.g.针车→缝纫机), ambiguous subjects and forced comparisons with familiar concrete language. Do not remove professional facts or flatten distinct personalities. The listening task found headphones faulty, ordinary signal data was delayed then retransmitted, and the landlady charges for trouser repair; retain those facts when updating test wording. Recount prose and refresh QS cues after changes. Current full route91,068–91,157CJK; handoff71,730–71,812.69edit records across12modules do not certify a flawless full manuscript.
 
-For visual changes, preview the running demo at `http://localhost:5173/` and check START, first story progression, CG fade, character sizing, and return from CG to sprite staging.
+## Current QS staging baseline
+
+The2026-09-09 staging integration supersedes older “no QS staging” notes below. Read `demo/.agents/qs-staging-2026-09-09.md`. All14QS modules now explicitly stage their93Node entries and selected within-scene beats. `content/characters.ts` registers identities/assets only; never auto-show a person because a dialogue label matched. Narration follows Rin in third person; phone/message/recorded voices stay offscreen. The two investigation alternatives must stage their actual local companion. Preserve the separate source-fire/current-safe timeline visually.
+
+Full-frame expressions/poses are mutually exclusive: the manifest base has opacity0 for layout, and one expression layer displays the chosen fullPNG. Do not overlay a second body on neutral, alias nonexistent expressions, stretch figures independently, or modify the model cutout alpha. The reviewed narrowed Haruka/Yumi face polygons permit their measured interior soft alpha while retaining it byte-for-byte; this is color editing, not matte reconstruction. Cast reference ground lines carry the height difference.
+
+Author entrances, exits, expression changes and small committed motion in QS at exact action beats. Use explicit character IDs and logical stage positions. Keep remote speakers offscreen, restore hands after phone/explaining poses, and clear actors before location/time/branch transitions. Prefer no sprite over missing rainwear or autumn outfits. Use short finite motion with a known final state; don't add per-line bounces or continuous breathing. For an exit followed by a cut, run the exit before clearing/changing the scene. The demo uses exit opacityTo1 with visiblefalse so a subsequent ShowCharacter does not inherit opacity0. Re-establish the complete position at scene entries.
+
+Validate actual QPK images in the normal-reading story regression, including offscreen dialogue, selected expression, alternate companion, and fresh-page save/load of position/expression. Run shared native QuickJS and Web builds, but report native visual verification separately. Keep `qs-staging-cues.json` as an audit snapshot of actual QS, not a runtime keyword-driven directing layer. Recount prose only when prose changed; stage decorators are not novel text.
+
+## Start here
+
+- This demo has never been publicly released. Follow `demo/AGENTS.md` and `.agents/development-rules.md`: breaking changes are explicitly authorized. Do not preserve old code, APIs, choices, step IDs or saves; do not add migration, compatibility aliases, dual implementations or revision-specific save databases. Rewrite directly for the approved design and update current-version tests. No compatibility approval or player-impact warning is needed.
+- Work from the actual repository root, not a hard-coded personal checkout path.
+- Read `demo/.agents/README.md`, then the linked documents relevant to the work. These are the versioned story baseline, including complete spoilers.
+- The story is an adult female ensemble, third-person limited narration centered on 神代凛, a slow explicit romance with Mara, and a 2019 coastal radio mystery. Preserve only the approved names and hair identities from previous designs; use the new character clothing and backgrounds.
+- Current runtime has 14 QS modules covering the prologue, seven chapters, epilogue and three endings. Read `demo/.agents/manuscript-status.md` and `manuscript-count.json` for current implementation and measured prose: complete routes are 90,205—90,288 CJK, early handoff 71,034—71,110. The 90k lower bound is reached; the 114.5k scene budget and final manuscript remain unfinished. `demo-story` owns saved choices and continuation; `demo-library` derives continuation/chapter access from actual saves. The user resumed art generation on2026-09-08; the active queue is `.agents/art-production.json`. Never register planned assets as integrated.
+- Demo story/art remains copyrighted demo material. Keep font and other resource licenses. Publish only integrated resources; scratch generations remain under ignored `.generated`.
+
+## Narrative
+
+- Latest suspense direction: read `narrative-foundation.md` before expanding. Establish Rin's contracted arrival, Mara's local job and their first meeting in the opening; show the research lease, ordinary reference work and monitoring goal in the prologue, then explain receiving before transmission after initial verification. Chapter 04 now has seven scenes: June22 fragmented monitoring is initially doubted, fire/location become intelligible at20:12 and trigger immediate reporting, a partial independently exported preview yields a name at20:35, and full original-channel verification yields the death report at21:05. Overnight withholding ends after the June23 08:05 routine maintenance callback. Rin must disclose and apologize herself; Yumi had required disclosure, never colluded. This supersedes earlier same-night-disclosure restrictions. Keep one death-warning reception, fixed 24-hour windows, and the revised 89-scene/114.5k main-route budget. This causal revision is now in QS; chapter expansion remains in progress.
+- For the next manuscript, use `scene-plan.md`, its ten chapter files, and `story-review.md`. They specify 89 main scenes (114.5k single-route CJK), three early-handoff scenes (3.6k), and 5.55k of additional mutually exclusive variants. These are final budgets, not achieved prose counts; consult the implementation status for actual coverage. Each scene needs an actual goal, resistance, response, information gain or relationship change, and a motivated exit; do not turn cards into a sequence of summaries.
+- The old injury-ending branch is deleted. `continue-inquiry` / `early-handoff` now follows a received safety report and confirmed handoff contacts; the facility still investigates and shuts down safely if Rin leaves. `external-preservation` / `formal-followup` both retain lawful copies and romance; source witnessing versus later formal retrieval changes investigation timing. The early title is 下一次见面. Keep QS, runtime groups, length audit and browser branch assertions aligned.
+- Apply the reviewed continuity fixes: June 20 erroneous closure of the June 17 inspection, June 22 dinner completed before the warning, source-branch June 23 first line alarm at 18:45 / arrival around 18:55 / smoke alarm at 19:00 / death confirmed at 19:12. In shutdown prose, distinguish cancelling a planned test from removing existing stored-energy and water-ingress risk. Rin cannot know source-branch facts not present in the recording or evidence.
+- Read `length-audit.md` before claiming narrative scope or planning expansion. Current full-ending prose is 90,205—90,288 CJK characters per playthrough; the single-route target is 90–120k, with a 114.5k chapter budget. Recount with `python3 demo/scripts/story-length.py` from the repo root and review its route assumptions whenever playback changes. Do not add shared endings together, count source metadata as prose, or claim 6–8 hours from chapter count/build tests. Expansion must develop actual scenes and character choices, not repeated exposition or forced delays.
+- Use `characters.md` for names, speech, clothing, work permissions, and motivation; `mystery-logic.md` and `timeline.md` for every future recording and causal claim.
+- Every echo has a receiving date, source date, real source speaker and channel, and explicit information available in that source branch. Do not mix mutable futures with a self-consistent time loop or make saved audio rewrite itself.
+- Follow `relationship-arc.md`: the heroines choose each other's company before danger, share information, repair the withholding conflict through actions, and explicitly become lovers. Romance scores do not control physical facts or rescue.
+- Follow `prologue.md` and `writing-guide.md`. Introduce the job, town, and people through everyday tasks before time theory. Keep narration speakerless; characters do not recite scenic descriptions or slogans.
+- Keep narrative and presentation in QuaScript with existing decorators. Stateful story logic belongs in engine/store-backed helpers, never renderer refs or private unsaved route counters.
+
+## Assets
+
+- Read `prompt-bible.md`, `asset-manifest.md`, `art-production.json`, and `asset-pipeline.md` before creating material. The old generator and `assets:generate` commands have been retired; implement the new manifest before reintroducing generation commands.
+- Establish new character reference images before expression variants and CGs; preserve adult proportions, hairstyle, clothes, hands, eyes, and readable acting.
+- Do not use Seedream. Follow the imagegen skill: built-in image generation by default; API/CLI only with explicit user selection. Inspect anime consistency and final cutouts. Do not substitute hand-drawn placeholders for requested raster images when generation is unavailable.
+- Background and CG composition is 16:9 on a 1920×1080 logical stage. Standees should have full bodies, clean alpha, consistent scale, and safe-area placement. Story evidence text must be rendered by UI, not hallucinated into imagery.
+- Static integrated content uses the Quack main QPK; incremental runtime content uses Runtime QPKs. No loose asset push path.
+
+## Runtime and validation
+
+- Production loads the emitted static QPK from `asset-manifest.json.bundleFile`; only development uses VFS. Verify actual browser loading and final-byte SRI, not just build exit status.
+- Web and native emit `demo/story/request` to the shared story plugin in `src/game/story/prologue-state.ts` and execute the same QuaScript. Preserve target isolation and existing menu/settings/save/load/backlog surfaces. Renderer remains a projection over engine/store and pipeline.
+- On load, finish hiding engine UI overlays before starting narrative continuation: their return checkpoints can otherwise cancel the new playback. Keep this ordering in the story plugin, not concurrent renderer callbacks. First visits unlock through story-graph `unlockOnVisit`; the story plugin can restore access from real chapter saves after a fresh launch. Never unlock from HUD refresh. Chapter replay must load a chapter-start snapshot, including choices, rather than jump forward with later evidence.
+- Against a production preview on port 4178, run `pnpm --filter demo test:story` (Playwright and Chrome required); `QUA_STORY_URL` overrides the URL. This tests three endings, all choice alternatives, fresh-page load, overwrite/cancel, title continuation, chapter replay, new game, backlog, settings persistence, responsive title controls and production QPK loading.
+- Run affected checks: `pnpm --filter demo typecheck`, `pnpm --filter demo build`, `pnpm --filter demo assets:build`, and `pnpm --filter demo exec vite build --config vite.native-quickjs.config.ts`.
+- For UI changes, inspect the Web title, START, dialogue progression, panels, and return to title. Check native compilation when changing shared content or native shell.
+- Full `pnpm native:e2e` must target the current story and reachable product UI: `catalog-first`, settings, and chapters. The current prologue/QPK has no audio cues/assets; validate silent backend lifecycle and cleanup, and add playback assertions when actual cues are authored. Do not restore deleted choices, gallery title entries or fake BGM just for a gate. See `demo/.agents/native-ui-sync.md` for tested scope; full route coverage remains the story regression.
+- Before committing broader demo/engine changes, run `pnpm run ci`. Never claim compilation proves story completeness or visual parity.
+
+## Product UI and save semantics
+
+- Continue loads `continue`; New Game resets this playthrough, leaving manual saves and chapter access intact. Returning to title saves a continuation point and stops playback. Loads stop auto/skip before restarting the saved step.
+- Chapters save `chapter-<nodeId>` at their first step. `demo-library` is derived from the actual save index; handlers recheck access. Do not infer completed branches merely from a chapter number.
+- `ui/system-panels.ts` skins official readonly menu/save projections using pipeline actions. Replace only the layer with id `overlay`: a global `overlay` slot is also used by the gallery preview and would duplicate menus.
+- Settings use an injected `SettingsStorageAdapter` in runtime-shared; the Web adapter is `settings-storage.ts`. Preferences must survive reload independently of story checkpoints. Do not replace persistence with renderer-local state.
+- UI strings and layouts should describe player actions and current chapters, not technical node ids or internal route flags. Hide unimplemented gallery/media entries until resources exist. Keep native scene/menu intents aligned and compile QSS using logical pixels and supported gradient syntax.
+
+- Web input uses the existing input plugin and `USER_INPUT_COMMAND` pipeline intents for Escape menu/cancel and wheel-up backlog. Do not advertise unbound shortcuts or install a parallel DOM key event bus. Native menu/cancel commands route through its existing logic session. Screenshot checks should wait for panel exit transitions, so old modal frames do not contaminate captures.
+
+## Web reading theme
+
+- Follow `demo/.agents/ui-design.md`: warm paper, sea-green ink and controls, Serif headings and Sans body; dialogue and HUD form one reading sheet. Use the explicit demo stylesheet over renderer structural CSS only, without re-importing default dark or chapter themes.
+- Keep Web style ownership in base/shell/dialogue/system-panels/reading-ui/motion; do not restore the deleted responsive, gallery or render-parity override layers. The engine fits the fixed logical stage at every viewport size.
+- Settings use two columns, with all current controls visible. Preserve real range/select/switch semantics, keyboard focus, aria-valuetext and plugin-owned persistent preferences. Decorative arrows must not add text to a button's accessible name.
+- Run `pnpm --filter demo test:ui` against the production preview for screenshots and checks of settings visibility, slider persistence, dialogue/HUD separation, active-mode accessibility and fitted-stage bounds on desktop/tablet/phone. `test:story` remains the navigation/save/three-ending regression.
+- This Web skin does not establish native visual parity. Native QSS and built-in native feature surfaces require their own theme work and actual native screenshots before claiming both targets match; shared story/navigation semantics remain unchanged.
+
+## Prose and UI editing
+
+- Apply the editing notes in `demo/.agents/writing-guide.md`: concrete third-person narration centered on Rin, character-specific conversation and pauses. Remove narrator commentary about symbolism, moral lessons or what the story deliberately does not do. Do not mechanically ban metaphors or make every line short.
+- Preserve the mystery's evidence, source knowledge, timing and informed choices. Rewrite procedural exposition into words these characters would use; do not erase the reasons an action is safe or unsafe.
+- Product panels use ordinary labels with only necessary operation consequences. Avoid repeated radio-brand eyebrows, taglines and ending plot recaps. Chapter cards use dates instead of promotional summaries.
+- Rewrite executable steps and IDs freely for the current manuscript; old saves are unsupported. For changed visible labels, update browser selectors without weakening branch/ending checks. Run native QuickJS compilation for shared QS/copy edits, then remove its generated bootstrap before the Web build.
+
+## Contents, transcript and paper finish
+
+- Web chapter review is a two-column contents page, ordered down the left then the right; use ordinary chapter labels including 序章/尾声. Whole unlocked rows select real chapter-start saves. Never infer chapter completion from its numeric position.
+- `ui/backlog.ts` is a product slot inside `QuaBacklogLayer`, reusing `QuaBacklogEntry`. Only DOM scrolling/focus belongs to this component: open at the most recent entry, retain earliest/latest navigation and keyboard scrolling. Entries, replay and rewind remain plugin-owned. Narration spans the text measure; speaker labels align beside speech; do not restore per-line table rules or duplicate choice summaries.
+- Paper texture uses quiet static procedural grain from an SVG embedded in CSS in `reading-ui.scss`, shared by contents, panels and dialogue; keep the title illustration background intact. Web uses the embedded SVG. Native uses the checked-in transparent QPK raster generated by `demo/scripts/build-native-paper.mjs`; do not add a DOM interception layer or moving grain.
+- Extend the existing Web regressions when changing these surfaces: check locked chapters, labels, chapter replay, history initial scroll, position buttons, keyboard navigation, panel containment and actual screenshots.
+- The linear demo configures the existing backlog `filter` in `runtime-shared.ts` through `story/backlog-policy.ts`: suppress only an adjacent entry with identical authored point and content, ignoring its regenerated record ID/time and absent versus undefined optional point fields. Preserve differing points, speakers, choices, voice and package provenance. Run `pnpm --filter demo test:backlog` and the real save/menu/browser regression; never hide duplicates only in renderer DOM.
+- Do not add a persistent work-name/subtitle plate to the Web or native story HUD. The former native `title-plate` component and styles are removed; keep the formal title on the title screen.
+- Web settings selects keep real native select behavior with `appearance: none` and a separate aria-hidden, pointer-transparent SVG chevron. Keep text padding clear of the icon, readable focus/disabled states and keyboard/touch operation. The option popup remains OS/browser-native; do not claim CSS themes it identically across platforms.
+- Before revising romance, audit dated beats and viewpoint against `relationship-arc.md`: June 16 invitation, June 19 name change, June 21 dinner message, June 22 withholding, June 23 mutual fear and repair, June 25 course acceptance, June 27 confession. Rin stays hesitant but can initiate; Mara can be angry, scared and shy, never a permanent counselor. Keep explicit mutual attraction without post-confession boundary speeches.
+
+## Current manuscript regression
+
+`demo/scripts/story-length.py` rejects mismatched QS/runtime choice IDs and retired interpolation flags before counting reachable routes. Its JSON snapshot is archived under `.agents/manuscript-count.json`; update the status page after prose changes. Do not add different complete endings together or include the early ending in the complete-route range.
+
+Fast-forward can omit intermediate dialogue paint. A MutationObserver over the dialogue DOM therefore cannot validate the skipped manuscript. The story smoke test uses normal click intents for the callback/disclosure and explicit mutual confession, checking their text in order; fast-forward remains suitable for branch, save/load and ending navigation. Preserve both checks without adding test-only narrative behavior or renderer-owned story state. Native QuickJS compilation and Web build must consume the final same QS; remove only the generated `assets/scripts/native-app.mjs` after native compilation before Web bundling.
+
+## Everyday pacing revision
+
+Read `.agents/daily-pacing-review.md` when expanding ordinary scenes. The seven daily scenes brought the previous plan to 65 cards / 96k. The subsequent minor mysteries brought it to 73 cards / 106k; the earlier prologue brought the plan to 77 cards / 110k; off-duty expansion then brought the historical plan to 81 cards / 110k; the current coherence revision has 89 main cards / 114.5k; use `.agents/minor-mysteries.md` and current scene cards. Use cooking, laundry, films/music and repairing ordinary contact to show personal preferences and imperfect household skills. Do not turn every activity into research, evidence or a lecture about relationships. Keep the June23 safety response tight; recovery outings belong after verified shutdown.
+
+Track physical and conversational continuity when inserting prose: Mara first enters Rin's short-term room June20; there is one chair and a bed edge; the June26 invitation now occurs face to face and must not be repeated as a newly sent text June27. The smoke test reads chapter07 normally through renewed everyday contact, deliberate invitation and mutual confession in order. The rest of its navigation and ending checks remain intact.
+
+## Independent minor mysteries before the death warning
+
+Two four-scene mysteries are integrated in chapters01/03: the closed photo shop bell (June13 reception, June14 unpacking/interview/broadcast) and two similar blue umbrellas (June17 reception, June18 comparison/broadcast, June19 ordinary collection message). Read `.agents/minor-mysteries.md`, `timeline.md` and the current 89-card/114.5k plan before editing. Use the existing daily windows; no new receiving times, supernatural door opening, duplicated object, or retroactive file changes. The photo interview was arranged before its echo; the umbrella description refers to another physical object. New low-stakes mysteries are authorized by the user and should establish their own facts and closures.
+
+Let investigation take more than a single conversation. Keep meals, laundry, travel, records/books and waiting between discovery and resolution. Residents have independent schedules and ownership of their objects. Verify narrative transitions, pre-reception causes, physical identity and public broadcast authorization. The current19-case production smoke suite normally reads both new mysteries as well as disclosure and romance, alongside all prior branches/save flows. This validates presentation order and navigation, not literary quality.
+
+## Prologue research tenancy and ordinary work
+
+The prologue now has eleven scene cards / 19k target and four existing QS modules. Four new nodes show June10 rental keys/inventory and Mayu's first meeting, June11 normal broadcast preparation and ordinary reference samples, and June12's workday before the first echo. See `.agents/prologue.md` for exact coverage and count. The research team rents an on-site temporary recording workstation, an equipment position and read-only public programme output; the East Embankment trial room and the company office are distinct places. Rental does not transfer broadcast editing or private interview ownership.
+
+June11 replays last month's delayed ordinary telemetry and previously broadcast files. It is not an extra temporal reception, a live weather observation or a proven operational warning service. The five-year goal and independent timestamp/content checking can appear early; the 24-hour source-branch explanation remains in chapter01. Mayu explicitly limits the demonstration, explains immediate operating boundaries, and admits the incomplete explanation after the unexpected June12 return. Rewrite chapter01 questions to build on what Rin already knows. Never place new artwork registrations or authoritative state in these prose scenes. The existing smoke route now normally reads from the resumed prologue through rental, work, reference samples, consent, the known public recording and first echo; preserve all earlier branch/save/mystery/romance checks.
+
+## Demo world and commission causality
+
+For current demo writing, read `demo/.agents/world-causality-review.md` (paths relative to repository root). Archive restoration is commissioned by the station with library cultural funding and station move budget: exhibit candidates, authorized family copies and reusable editorial archives. It is independent of the research lease. Rin was recommended through a previous library job, assessed samples and accepted the assignment; Yumi assigns Mara for local source and location knowledge and reallocates everyday duties. Broadcast is an independently logged, replaceable test source over existing local lines, not magic archive fuel. Sea-sound Technology is the company; East Embankment is a facility location.
+
+Keep the town routes and separate residences in worldbuilding. June16 Rin waits outside Mara's apartment after their harbor walk; June20 remains Mara's first entry into Rin's room. The death recording now names entrapment in ordinary maintenance space, unconscious rescue and severe smoke inhalation, with medical death confirmation at19:12; it does not provide a full electrical diagnosis or prove a locked door. Current site evidence, work orders and qualified inspection establish the risk path later. Retain the fixed single reception, source knowledge limits and consent/romance chronology. The current 89-card/114.5k budget uses 19k prologue, 12k chapter01, 11k chapter02, 19.5k chapter03, 10k chapter04, 12k chapter05, 11k chapter06, 13k chapter07 and 7k epilogue. Recount actual QS and run the shared native/Web compilation plus story regression after edits.
+
+## Demo work shifts and off-duty life
+
+Read `demo/.agents/work-and-off-duty.md` for the current dated roster and scene order. Normal day work is09:00–17:30 with meal breaks; specific evening checks use split shifts. Research staff preserve the fixed20:00–20:03 receptions and station staff rotate ordinary broadcasts; neither heroine must attend every night. June19/26/27 are full shared days off, June16 afternoon is off, June24 afternoon is recovery leave, June28 is morning acceptance only. June26 is Wednesday and27 Thursday, not a weekend.
+
+Four additional scene cards are integrated: June11 Rin with the landlord after work, June15 Haruka's home street and family stationery shop, June17 Yumi's shopping between Rin's split shifts, June19 Rin's solo library/bus morning. Show individual purposes and environments; do not turn residents into interview targets or append a mystery to every outing. The off-duty round had81 main cards plus2 early-handoff cards; the warning/aftermath round had86 plus3; the current coherence revision has89 plus3, a114.5k single-route budget and14 QS modules.
+
+June16's first personal invitation is now at Rin's lodging; its six-minute backup is her own project. June18 Rin hears an ordinary public web broadcast at home, and June19 the substitute editor forwards the service desk’s completed umbrella collection notice; no extra temporal reception or compulsory holiday office work. June20 noodles follow17:30 departure. June21's personal editing is17:45–18:45, so Rin cannot know that evening's future audio yet. June25 Rin submits her own application from home after work; June26 returns a privately borrowed record catalog, not station adapters. Maintain June19 name change, June20 first entry into Rin's room and June27 mutual confession. June23 remains an exceptional emergency, followed by actual rest.
+
+The current19-case production story suite normally reads the new off-duty scenes and revised home/phone transitions, preserving all three endings and save/navigation checks. Its click bound is2400 for the longer sections, not a bypass of expected prose order. Recount QS, update current status and validate native QuickJS→remove generated native bootstrap→Web build→story regression after further changes.
+
+## 2019 demo media logic
+
+Read `demo/.agents/contemporary-media.md` (repository-relative). The 2019 station distributes local programming through phones, connected cars and speakers with text/sources/corrections, alongside a limited FM service. Automation already handles routine transcription, scheduling and archives; show concrete local verification and individual listeners, not technological stagnation. The research lease buys a read-only output tap, space and independent logging/checking labor; existing wiring and cooperation make it economical, while another suitable source or documented network feed remains possible. Audio can carry encoded measurements; neither human voices nor old archives power the anomaly. Archive work selects problematic older digital and analog material for a funded exhibit, permitted family copies and editorial reuse. Separate enhancement from invented reconstruction, and let Rin and Mara verify names, dates and permissions through real tasks. These changes are in arrival, commission, restoration and chapter01; preserve prologue normal-reading assertions and refresh the count after edits.
+
+## Progressive warning, deliberate concealment and aftermath
+
+Read `demo/.agents/warning-and-aftermath.md` for the current integrated revision. A replacement monitor uses an obsolete channel table; local monitoring and preview inherit it, while independent raw channels remain intact. Distinguish the20:00–20:03 acquisition from20:12 identifiable fire/location,20:35 partial name/date and21:05 verified complete export. Each existing file is immutable; no generative word filling, extra temporal reception or signal becoming stronger near death. Report facility danger at20:12, share that clip with Mara, and treat Rin withholding later name/death details as her failure, not a necessary safety policy. July investigation closes the mundane channel-error question.
+
+June20 resident follow-up precedes June23 investigation: a permitted passage signature was merged into a false complaint-resolution reply, and lawful drain-cleaning footage was cropped to suggest interference. Full records disprove that allegation; Reiko knowingly approved misleading documents, selected footage and extended unrepaired test exceptions. Mayu acknowledges her own temporary-test approval and lack of reinspection; Yumi corrects her unverified forwarding. Source-branch fire results from unisolated electrical danger, obstructed drainage and defective fire separation, not intentional ignition. Current-branch inspection cannot certify unseen source events or prosecute a death that did not occur. Preserve timely professional isolation.
+
+The active plan is89 main cards/114.5k and3 handoff cards/3.6k (92 unique); chapter03 now19.5k, chapter07 now13k, epilogue7k, other totals unchanged. There remain14 QS modules and six choice groups. July residents' meeting and November final replies close accountability, corrective work, compensation and archive delivery, while September dating remains. Both complete evidence branches resolve their records; early handoff has the same public safety/accountability outcome and an open relationship. The chapter menu epilogue date spans June–November. Production regression now has19 cases, with new normal-reading checks of progressive understanding, allegation versus verified evidence, and later-life closure. Consult current manuscript status/count for measured prose and final validation.
+
+## Current demo coherence revision
+
+Read `demo/.agents/coherence-review.md` first for the latest integrated narrative baseline. All14 QS modules were reviewed for presence, knowledge, time and work continuity. Rin’s relocation-sound contract includes selected restoration/catalog work and the old-port feature mix/stems, with two paid field visits (June14/15). Mara handles recording/interviews, local sources and ordinary equipment liaison; Haruka handles introductions and everyday editing under Yumi, who commissions, schedules and approves. Limited source/interface checks are arranged work, not unlimited unpaid research. Mara’s June21 off-duty course sample is private; Haruka requests a20-second harbor excerpt June28 for the June30 feature.
+
+Ordinary traffic, weather, public reporting and existing station material do not require individual resident approval on each use. Keep private family transfers and private conversations out of public programs unless that use is agreed. The birthday submission was broadcast last June; its family copy and dated replay are distinct uses. Do not turn every dialogue into a permission exchange.
+
+June16 lunch establishes the four-person South Bay outing, confirmed June18. June19 Rin visits the library09:00–09:50, joins Mara/Haruka/Yumi at10:30, plays ball and shares lunch; Haruka/Yumi leave by13:20 bus for school work/dentist. The station has substitute coverage. Rin/Mara keep their prearranged14:00 lighthouse meeting and retrieve the stored ball afterward. The beach is now one compact node/card, with the other two1.5k budgets moved to the June26 cruise and cafe; there is no extra echo, recording assignment, swim rescue or early romantic name change.
+
+The pump cools research equipment. Noise shows operation, not an electrical diagnosis. Preserve June12 complaint call, June20 owner’s visit about22:30–23:40 noise, early-shift spouse, ineffective daytime inspection, passage signature and water-damaged tools; the full passage form arrives that evening. June21 independent nighttime measurement leads to June22 advice against additional tests after22:00. This does not pre-cancel the18:40 acceptance or20:00 reception. June22 fire warning triggers overnight closure/main disconnection and auxiliary investigation. June23 new evidence proves continued use of a withdrawn reply, cropped footage and approvals; it is not the first discovery of the complaint. July/November close sleep, drainage, independent checks, corrections and actual payments.
+
+Keep the normal-reading19-case story regression, including the single beach node through the lighthouse, June20 complaint, June26 cruise/cafe and June27 confession. Current scope is89 main cards/114.5k plus3 handoff cards/3.6k,92 unique cards; extra alternative budget5.55k. Actual complete-route prose90,205–90,288 has reached the90k lower bound but is not a finished literary manuscript. Recount and update status after QS changes; historical revision documents do not override this baseline.
+
+## Varied demo leisure scenes
+
+User correction: one June19 beach outing is enough. Keep `daily-beach-outing` as a condensed scene with gathering, a short ball game, lunch/photo and departure. Delete the separate beach-arrival/ball/lunch nodes and03-04f/g cards. Add `daily-harbor-cruise` and `daily-cafe-afternoon` in chapter07: June25 dinner invitation/booking; June26 10:30–11:10 public cruise around uninhabited White Island, lunch ashore, private shopping, cafe around14:20–15:30, then the existing street invitation for June27. No extra echo, water rescue, early confession or holiday work. This redistributes two1.5k budgets: chapter03 has19 cards/19.5k; chapter07 has10 cards/13k. Total89 main/114.5k plus3 handoff/3.6k remains. Keep normal-reading checks of each distinct outing into confession, and update counts; images remain deferred. See `demo/.agents/coherence-review.md` and current scene cards.
+
+## Demo literary polish
+
+The latest integrated prose pass is archived in `demo/.agents/prose-review.md`:79 passage edits across14 QS modules. Remove author explanations after already legible actions; do not mechanically ban “没有”, short replies, metaphors or reflective narration. Preserve Rin’s limited viewpoint and her self-justification while withholding the warning. Remote characters’ gestures cannot be narrated as observed; use audible pauses or received files. Differentiate professional voices by role and concrete tasks. Retain explicit mutual confession/consent, but give repeated intimate beats distinct reactions. Present aftermath accountability through the couple’s reading and questions without dropping compensation, correction, archive or source-branch limits. All nodes/choice IDs and chronology remain. Update existing normal-reading assertions when wording changes without weakening the evidence being checked; compile the same final QS for native/Web, run the19-case story regression, and refresh the measured-count archive.
+
+
+## Demo plain Chinese review
+
+Read `demo/.agents/plain-language-review.md` and `writing-guide.md` when revising demo prose. Use common Chinese collocations and explicit action/object phrases in dialogue, narration, choices and author-facing summaries. Distinguish checking a recording, inspecting a connector and confirming receipt instead of shortening every action to “核”. Use role-appropriate speech: private work can be “交作品”, contract dates can remain “交付日期”. Explain necessary technical conditions in context; retain both power-source isolation, remaining-energy disposal, local scheduled-test cancellation and independent site verification. Never replace these distinct facts with a vague “停了”. Check adjacent actions for causal sense, not only vocabulary. The audio verification choice now displays “先核对节目的原始录音”; its ID remains `verify-audio`. Update existing normal-reading assertions with wording changes, compile the same QS for native and Web, run the19-case production story regression, and refresh manuscript counts. Images remain deferred.
+
+
+## Demo paragraph and continuity review
+
+See `demo/.agents/narrative-flow-review.md`. Plain vocabulary alone does not make natural narrative: read adjacent replies, subject/object relationships, physical action order and Rin's knowledge together. Avoid narrator explanations that merely certify an already visible character arc. Keep necessary inner hesitation, source provenance and safety conditions. Track phones versus mouse input, handed objects, books already put away, and recorded versus directly visible actions. Original recordings permit remembered context only when Rin actually attended their creation; a future recording is not a person available for questions. Mara's June21 private course recording follows her existing admission and must not be relabeled as an admission application. Preserve explicit mutual confession and kiss consent without turning ordinary assistance into repeated formal permission dialogue. Check newly introduced prose for continuity before running final native/Web builds and the19-case production story regression; update manuscript measurements and current docs together.
+
+
+## Demo full-manuscript continuity pass
+
+Read `demo/.agents/full-read-review.md`. Audit source passages and alternate replies in context, including scene entry/exit, item custody, prior knowledge, dates inclusive of deadlines, first invitations and dialogue callbacks. Never give an unidentified recording a revealing speaker label; fragmented excerpts must preserve the full source's word order. Separate the fixed20:00–20:03 reception from later replay and discussion. After a local rewrite, recheck the adjacent actions: setting down a two-person equipment box precedes browsing books; lending a paper novel requires a separate reading source if its owner finishes it before return. Preserve Rin's limited viewpoint and the existing safety/romance rules. Update current narrative docs and measured counts with QS; an achieved length threshold does not prove scene-budget completion or literary quality.
+
+The existing normal-reading regression waits for two browser animation frames after each click so a revealed line can be painted before another advance. Preserve the expected prose and order assertions; do not drop a missed line to make a fast-click run pass. Rebuild and rerun after final QS edits, and keep failed-run diagnostics separate from the final result.
+
+## Resumed full-demo art production
+
+The2026-09-08 user request supersedes historical image deferrals. The full production manifest covers references, transparent sprites, room/weather variants, CGs and title art beyond the old eight-item prologue list. Each prompt has dependencies, candidate QS nodes, staging and final paths. Reference sheets remain in ignored `.generated/art`, outside shipping QPKs. Resolve dependencies to actual reviewed images before generating variants. Runtime insertion points must respect the exact action within a node, not merely its first line. In `closeness-editing`, Rin sets her packed bag down to stay while Mara edits; the room is the separate editing room at17:45. Do not illustrate this as Mara returning, an archive room or late night. The September Tokyo meal is in a diner, not the June coastal cafe. A remote inspection photo must not imply Rin entered the restricted site. Request a fallback only when the imagegen skill explicitly requires it; the new art request itself needs no renewed permission.
+
+## Explicit Japanese anime art correction
+
+The user rejected the first Rin image as semi-realistic. Use `anime-cel-v2` in the production manifest: simplified anime facial features, crisp outlines, flat color and two/three-tone cel shading, grouped hair highlights. Adult ages must not trigger realistic facial rendering. Stop old-style batches and quarantine their outputs in `.generated/art/rejected`; never feed the rejected Rin image into later edits. Generate the replacement reference from text as a single full-body anime figure, not a fashion-reference collage. Backgrounds must also read as Japanese animation art. API authentication and gpt-image-2 are now working; no renewed API/model approval is required.
+
+## Distinct cast redesign
+
+The user also rejected anime-cel-v2 characters for identical faces, equal model-like heights and overly mature heroines. `character-visual-design.md` and `art-production.json.characterDesigns` now define distinct face shapes, eye designs, body builds, heights and clothing silhouettes. Generate each identity independently from text; do not use one cast member as an image-edit base for another. Reserve identity references for that same person’s variants only. Use consistent ground line and proportional height in cast comparisons and later stage projections. Preserve current ages. The latest heroine-summer-v7 correction supersedes earlier equal-height/equal-proportion constraints. Keep story ages Rin25/Mara24, but Rin163cm has cute6.4-head proportions and Mara172cm has graceful6.8-head proportions with a warmer, more mature onee-san presence. On the same ground Mara is9cm taller; use similar physical head sizes and no platform shoes or stretched images. Rin keeps her cute face and blue-black bob, with a plain mist-blue crew-neck summer T-shirt, navy straight-leg full-length casual trousers and white sneakers. Mara has loose waist-length ash-brown hair, gentle elongated oval face, relaxed amber eyes and an affectionate composed smile; retain her yellow puff-sleeve summer blouse, ivory knee skirt and flats. This appearance does not rewrite her personality, job or romance arc. Mayu is now the tallest supporting role, not the tallest cast member. The v5 and v6 local image requests were stopped after user steering; latest172cm height supersedes185cm and the full-head difference. The v7 edit returned524; a gpt-image-2 text generation then succeeded and was assistant-reviewed. Use the current v7 proof and recorded design, not a claim of exact v4 face preservation. Confirmed output dimensions are1024×1536 despite a1536×1024 request; this is only a design proof. Inspect and calibrate individual sprites before expanding variants. QS trousers/cuffs remain unchanged in this design-only stage: at integration map actual dated travel/work outfits or revise each conflicting passage in context, preserving its emotional action; never claim wardrobe continuity is already complete. Reiko retains beige outerwear. The earlier instruction to use the first heroine reference across other identities is superseded.
+
+
+## Approved v7 identities and Replicate cutouts
+
+The user explicitly approved the v7 pair and then rejected the manual alpha extraction. Use the locally authenticated Replicate CLI and `851-labs/background-remover:a029dff38972b5fda4ec5d75d7d1cd25aeff621d2cf4946a41055d7db66b80bc` with threshold0 / rgba / png on original RGB artwork. It was compared with men1scus/birefnet; the selected output retains these fine anime hair strands more continuously. Never submit a damaged manual cutout as the source or reconstruct its matte with RGB thresholds, erosion or hand-painted holes. Preserve raw model output and prediction provenance. `demo/scripts/prepare-character-cutouts.py` only separates people and lays out retained soft alpha with uniform scale; its thresholds measure bounds and ownership, never replace alpha. Review dark/light backgrounds and close-ups before copying to assets. Six neutral PNGs and neutral-only manifests are prepared; no fake expression variants. Yumi wardrobe review remains separate. QPK packing passes, but no QS staging is integrated. The OpenAI-compatible image generation provider currently returns503 for generation and edits; Replicate removal success does not imply generation recovery. See `demo/.agents/character-cutouts.md`.
+
+
+## Replicate image generation continuation
+
+The user explicitly selected Replicate CLI with `openai/gpt-image-2`; live generation and downloads succeeded on2026-09-09. Use its saved authenticated profile and actual image inputs (JSON URI array), never an OpenAI key in Replicate model inputs. The CLI treats `--input-file input_images[]` as a literal key; construct a proper `input_images` JSON array instead. Keep requests, prediction IDs, raw PNGs and review records in `.generated/art/replicate`, and record reviewed shipping paths in `.agents/art-production.json`. Do not call direct-provider503 a global block. New rooms use references for materials/style only; day/night variants preserve exact room geometry. Check against concrete scene facts: Rin’s alley/room have no sea view, her desk is for sound work, and the rented equipment room is distinct from the studio. Full-body expression edits can reframe the sprite; edit a locked face crop and retain base body/alpha rather than shipping jittering standees. Only genuinely reviewed outputs go into assets; QPK packaging is separate from QS staging.
+
+## Contextual Chinese line editing
+
+Follow `demo/.agents/line-polish-2026-09-09.md` for the latest targeted passage edits. Revise a reply with its preceding question and subsequent action: splitting prepared curry is possible, but adding more curry roux changes salt concentration; a chair change affects seating, not monitor height. Follow props through every transfer (recorder, earbud, bottle, phone), and preserve any sound later reused as evidence or a callback. Read each complete rewritten sentence after replacements, including pronouns and repeated verbs. Narration should present what Rin perceives rather than certify that a scene follows the author rules. Record actual modules/lines edited and validation separately from full-manuscript or reader-response claims.
+
+## Native alpha edges and MSAA
+
+Read `demo/.agents/alpha-edges-and-native-aa.md` for the premultiplied native texture sampling fix and optional `QUA_NATIVE_MSAA=4` startup. Default1x bounds extra attachment memory; do not treat MSAA as automatic repair of visible matte contamination. Keep soft-alpha art unchanged. The native launcher handles both standalone pnpm and JS npm_execpath entries.
+
+
+## Current native product UI
+
+Native character clipping and memory findings are in `demo/.agents/native-memory-and-proportions.md`. Keep the640×1280 authored reference box: offstage sprites must be clipped without squeezing their full UVs. Validate actual WGPU characters and repeated panel/asset switches; record resident/peak memory and measurement duration rather than claiming a fixed budget from short runs. Keep full dialogue prewarm separate from title fonts, and leave MSAA opt-in.
+
+Read `demo/.agents/native-ui-sync.md`. Web CSS does not style native: update the product native DTO chrome, TSX/QSS screens and feature surface skin together. Preserve full-text layout throughout reveal, footer toolbar containment, character640×1280 reference sizing, Chinese actions and hidden locked chapter titles. Native control feedback must respect authored colors. Test actual WGPU/QPK pointer flows and capture settled dialogue, characters, settings, backlog and save/load; isolated renderer fixtures do not prove product parity. Keep settings controls and feature intents owned by their official plugins. Native settings use the same two-column product layout; all panel geometry must match Web. This supersedes earlier dark UI/stealth demo assumptions.
+
+
+## Web/native current-demo comparison
+
+Use `demo/.agents/native-renderer-parity-2026-09-12.md` for the current evidence and scope. Run `hud-parity.mjs` at the native title and `render-parity.mjs` at title or the first narration, with Web dev running. The latter follows real manuscript text to Mara's arrival and the rain-lit shopping street, then exercises chronological transcript navigation and saving/restoring the same story point. `compare-parity-images.mjs` reads completed Web/native capture pairs; inspect the slider review and geometry as well as pixel errors. Run full `pnpm native:e2e` after native changes.
+
+Keep product layout in native TSX/QSS and `settings-skin.ts`/`backlog-skin.ts`, reusing official preference controls and replay/rewind intents. The paper texture is a QPK asset derived from the Web procedural SVG. `Button.disabled` must remove activation, not only change opacity. Modal scrim opacity differs from ordinary panels and must be preserved. Web product layers must not retain an ancestor opacity animation (`animation-fill-mode: both`) around a backdrop-filter: it becomes a backdrop root and breaks scene blur. Animate the scrim and panel themselves.
+
+- Current native save cards show chapter/title/time only. Save with `preview: { mode: "disabled" }` until the product actually supplies and displays a native thumbnail capture adapter; otherwise the default capture request silently waits for a five-second timeout. Validate the slot becomes filled before testing overwrite.
+
+## Native smoke scene visibility
+
+`pnpm native:e2e` follows normal reading through the first choice and saves 15 actual WGPU checkpoints under `demo/dist/native/dev/e2e-checkpoints/`, with `review.html` and `report.json` after success. Wait for complete dialogue and settled scene/background/presence transitions. Count stable dialogue revisions and full `layoutText`, never typewriter prefixes. Exercise skip as a bounded HUD action, accepting the engine's immediate stop at unread text when `skipMode` is `read`; do not spam advance while skip is active. Scene pixel checks sample above the dialogue panel and validate current QPK background/cast, so a bright text box or final title cannot hide a black scene. Keep failed PNG/JSON evidence and the full title/settings/chapters return flow. Earlier E2E counts of hundreds of "lines" included reveal frames and must not be cited as unique-line coverage.

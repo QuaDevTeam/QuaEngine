@@ -34,6 +34,8 @@ description: QuaEngine architecture guardrails for renderer statelessness, dynam
 - For full details, read `docs/design/dynamic-runtime-qpk.md` when working on Runtime Package behavior.
 
 ### Renderer
+
+- For Web image/byte lifecycle changes, read `../quaassets-web-memory.md`. Keep shared IndexedDB byte storage and bounded URL/read resources in Web adapters, never in core/store. Resource statistics describe implementation allocations, not narrative state or a browser/GPU hard memory cap. Validate queued cancellation, active-reference pinning and actual production QPK decoding.
 - Treat the renderer as a projection canvas.
 - Consume pipeline events and engine view state.
 - Draw UI, animations, audio, and other effects from those inputs only.
@@ -54,11 +56,11 @@ description: QuaEngine architecture guardrails for renderer statelessness, dynam
 - For Cocos code changes, validate with `pnpm --filter @quajs/cocos-host test -- --run`, `pnpm --filter @quajs/cocos-host typecheck`, `pnpm --filter @quajs/cocos-host build`, `pnpm --filter @quajs/renderer-cocos test -- --run`, `pnpm --filter @quajs/renderer-cocos typecheck`, and `pnpm --filter @quajs/renderer-cocos build` unless the change is documentation-only.
 
 ### Stage layout and coordinates
-- Treat `QuaViewProjection.layout` as the engine-owned source of truth for orientation, base logical dimensions, aspect ratio, supported aspect interval, and scale mode.
+- Treat `QuaViewProjection.layout` as the engine-owned source of truth for orientation, base logical dimensions, fixed scene aspect ratio, content safe-area bounds, and scale mode.
 - QuaEngine renders into a logical stage first, then renderers scale that stage into their actual container. Renderer measurements, resolved stage layouts, CSS transforms, CSS env safe-area insets, DPR, physical pixel dimensions, and `ResizeObserver` handles are transient projection details only.
-- The logical stage coordinate system starts at the top-left of `.qua-stage`; positive `x` goes right and positive `y` goes down. The base logical height is `layout.height`, and logical width comes from the active stage aspect ratio.
-- Landscape authoring must account for the supported `16:10` to `16:9` interval. Portrait authoring is mobile-first with a `1080x2340` / `9:19.5` reference and a supported `9:21` to `9:16` interval. Important UI, choices, dialogue, and default subject staging should stay inside the safe area; full-stage backgrounds/effects may bleed beyond it.
-- Renderer layout resolution must use `activeAspect = clamp(containerWidth / containerHeight, layout.minAspectRatio, layout.maxAspectRatio)`, `scale = viewportHeight / layout.height`, `logicalHeight = layout.height`, and `logicalWidth = viewportWidth / scale`. Treat `layout.aspectRatio` as the preferred/reference ratio, not a fixed rendered ratio.
+- The logical stage coordinate system starts at the top-left of `.qua-stage`; positive `x` goes right and positive `y` goes down. The base logical height is `layout.height`, and logical width comes from the fixed `layout.aspectRatio`.
+- Landscape authoring uses a fixed `1920x1080` / `16:9` logical scene. Portrait authoring uses a fixed mobile-first `1080x2340` / `9:19.5` logical scene. Important UI, choices, dialogue, and default subject staging should stay inside the safe area; full-stage backgrounds/effects may use the full logical scene.
+- Renderer layout resolution must contain the fixed `layout.aspectRatio` inside the measured QuaEngine parent container, center the viewport, and use horizontal or vertical black bars for unmatched space. The renderer root must fill its parent, observe parent-driven size changes, and must not crop the scene or rewrite its logical width to match the container.
 - Device safe-area insets must be read as renderer-local CSS pixels, converted through the resolved viewport/scale into logical stage pixels, and intersected with the aspect safe area. DPR must not change DOM CSS layout; expose it only as projection metadata for physical-pixel renderers such as Canvas/WebGL/screenshot paths.
 - All new or refactored coordinate APIs should default to logical stage pixels. If an API uses percent, normalized ratios, anchors, asset-local pixels, UV coordinates, or CSS units, the unit must be explicit in its name/type/docs and converted at the projection boundary.
 - Animation tracks for position, camera/background offsets, size, and drawing transforms must interpolate in logical stage coordinates before renderer scaling. Do not animate measured CSS pixels when the value represents game projection state.
@@ -78,6 +80,16 @@ description: QuaEngine architecture guardrails for renderer statelessness, dynam
 - Renderer plugins may add projection layers and manage transient implementation resources, but they must not own authoritative game state, create a second eventbus, or decide narrative progression.
 - Render-only UI overlays and UI scenes use engine-owned `view.ui.overlays` projection. Overlay-level render-only surfaces set `renderMode: 'render-only'` plus serializable `surface.key`/`surface.props` on the overlay config; non-overlay UI scenes set the same fields on `overlay.scene` with `presentation: 'scene'`. Host renderers register `surface.key` to transient Web/Vue/React/Svelte/Cocos factories; missing registrations must warn and render an empty surface instead of falling back to default panel chrome. Runtime packages may select keys and props, but must not push loose renderer resources outside the QPK/runtime plugin flow.
 - Official renderers must not auto-import visual CSS. Provide semantic DOM, stable class names/data attributes, resource wiring, and explicit optional style entrypoints instead.
+
+### Target core isolation
+- Treat Web, Cocos, and Native core bootstrap plugins as mutually exclusive target roots, not ordinary game plugins.
+- Select the packaging target first, materialize exactly one target-core resolver, then resolve ordinary game/plugins and Runtime QPK metadata.
+- Do not create a shared all-target core preset, umbrella plugin array, generated resolver, or barrel export that imports Web, Cocos, and Native core adapters and filters them later.
+- Web artifacts may include only Web core adapters and renderer entries; Cocos artifacts may include only Cocos host/renderer adapters; Native artifacts may include only `@quajs/engine-native`, `@quajs/assets-native`, `@quajs/store-native`, native contracts metadata, and Rust native app/runtime/renderer metadata.
+- Ordinary plugin lists, shared presets, third-party shared entries, renderer entries, Runtime QPK executable dependencies, debug shells, installers, and updater manifests must not declare Web/Cocos/Native target core adapters outside the active target resolver.
+- Third-party plugins may declare multiple target entries, but the shared entry must remain platform-neutral, the active target entry must import only its own target adapters, and inactive target entries must not be eager imports.
+- Validate isolation before packaging and after bundling/tree-shaking. `target-bundle-manifest.json` must record one matching `targetCoreResolver`, selected core plugin family, selected adapters, renderer entries, and Runtime QPK dependency set.
+- Web and Cocos builds must reject native core leakage with the same severity that native builds reject Web/Cocos leakage.
 
 ### Package-local features
 - Keep feature implementations inside the owning package.
@@ -129,7 +141,7 @@ description: QuaEngine architecture guardrails for renderer statelessness, dynam
 
 - Ask who owns the state.
 - Ask whether coordinate-bearing APIs use logical stage coordinates or explicitly document another unit.
-- Ask whether coordinate-sensitive changes preserve the landscape `16:10` to `16:9` interval, the portrait `9:21` to `9:16` interval, and safe-area expectations.
+- Ask whether coordinate-sensitive changes preserve the fixed landscape/portrait scene ratios, parent-container resizing, both letterbox directions, and safe-area expectations.
 - Ask whether pointer/hit-test code converts client/screen coordinates into logical stage coordinates with shared renderer-web helpers.
 - Ask whether the change belongs in the package that defines the feature.
 - Ask whether Web runtime behavior belongs in `@quajs/renderer-web` before adding it to a framework renderer.
@@ -145,9 +157,30 @@ description: QuaEngine architecture guardrails for renderer statelessness, dynam
 - Ask whether store migrations are declared, idempotent, and non-destructive.
 - Ask whether dynamic JS/plugin loading is verified through trust policy and implemented through injected/platform loaders.
 - Ask whether user-facing feature, decorator, config, or manifest changes update the relevant project skill in `.codex/skills`.
+- Ask whether a target-specific capability has separate Web, Cocos, and Native entry declarations without mixing their core bootstrap plugins.
 - Reject any renderer logic that becomes authoritative.
 - Reject WebAudio autoplay handling that treats browser policy blocking as a game-state error or blocks renderer synchronization while waiting for permission.
 - Reject framework renderer changes that duplicate object URL, lifecycle, animation projection, or WebAudio runtime code already owned by `@quajs/renderer-web`.
 - Reject Cocos changes that import DOM/Web APIs, implement WebAudio autoplay policy, or add dynamic renderer plugin loading without an explicit dynamic QPK task.
 - Reject Runtime Package implementations that require a renderer cache or transient Web resource for save/load, replay, branching, or progression correctness.
+- Reject Web/Cocos/Native target core adapters in ordinary plugins, shared presets, Runtime QPK executable dependencies, inactive target entries, or post-bundle artifacts.
 - Reject any commit message that does not match `<type>(<component>): <description>`.
+
+## Cross-target UI presentation
+
+`@quajs/render-core` may expose stateless platform-neutral menu action and save-slot presentation helpers. These format existing readonly projections; they must not access resources, route events, own browsing/game state or import target runtimes. Product-specific UI geometry/theme/action labels belong in the app's shared presentation module. Web/native adapters consume that module and retain platform-local rendering and pipeline intent bindings. Test slot identity/provenance preservation and deterministic formatting when modifying shared helpers.
+
+## Native renderer resource bounds
+
+Renderer diagnostics must not retain unbounded per-frame command, mesh, buffer, or runtime plans. Keep only a small recent window needed for inspection and maintain cumulative counters separately. Resource and texture caches remain renderer-local and must release package-owned entries on unload/teardown. Pointer hit testing must use stable projected geometry even while hover paint transitions change visual bounds.
+
+
+## Production Web build integrity
+
+The Web security plugin hashes final JS/CSS in an ordered post `generateBundle` hook after Vite dynamic-import rewrites and HTML emission. Generate HTML SRI and CSP/security manifests from the same final bytes. Keep a real Vite build regression with dynamic imports and multiple HTML entries; do not disable SRI to hide drift.
+
+Quack-created static bundles must be emitted through Vite/Rollup, not only written to outDir during buildStart (emptyOutDir can remove them). `asset-manifest.json.bundleFile` is the emitted versioned bundle filename. Production applications load that QPK with a Web asset runtime; development alone uses the VFS endpoint. The Vite plugin's ES2022 library typing matches its supported Node 20 runtime and imported Error.cause APIs.
+
+## Web panel keyboard dismissal
+
+The shared Web input runtime permits `ui:cancel` and `ui:menu` keyboard bindings from focused non-editable controls and history lists. Other narrative bindings remain filtered inside interactive panels so Enter, Space and PageDown do not advance the story. Editable fields keep their existing keyboard handling. Keep this in the pipeline-backed input runtime; products must not add a second global keyboard bus just to make Escape close a panel.

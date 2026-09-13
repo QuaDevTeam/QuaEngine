@@ -1,0 +1,2410 @@
+{
+  "updatedAt": "2026-09-09",
+  "model": "openai/gpt-image-2.5-flare",
+  "quality": "medium",
+  "generationCalls": 13,
+  "newOutfits": 12,
+  "newSprites": 112,
+  "expressionKey": "<outfit>-<expression>",
+  "records": [
+    {
+      "id": "rin-leisure",
+      "character": "rin",
+      "outfit": "leisure",
+      "source": "demo/assets/characters/rin/neutral.png",
+      "prompt": "Use case: identity-preserve. Asset type: Japanese anime visual novel full-body standing character costume variant. Input image 1 is the approved character and edit target. Change ONLY the CLOTHES described below. Preserve EXACTLY the same face, refined eyes and lashes, hairstyle, hair color, head angle, body proportions, apparent adult age, hand pose and foot stance, crisp Japanese bishoujo game linework and soft cel shading. No realistic rendering, no 3D, no different person. Outfit: Off-duty June summer outfit: plain ivory short-sleeve crewneck T-shirt with relaxed neat fit tucked into muted sage green straight full-length cotton trousers with ordinary side pockets, white low-top sneakers. Neutral understated casual styling, not tomboy caricature, no skirt or frills. Keep the entire figure from hair top to soles with generous transparent margin, centered, same upright camera and neutral expression as input. Single figure only, genuinely transparent RGBA background, no shadow plane, no labels or text. Do not crop feet or hair, do not enlarge eyes, no duplicate limbs. The existing head should be copied faithfully, not redesigned.",
+      "quality": "medium",
+      "model": "openai/gpt-image-2.5-flare",
+      "status": "integrated-library",
+      "predictionId": "xta0e2gw3nrmr0d0grb99m3wp8",
+      "generatedImage": "demo/.generated/art/wardrobe/rin-leisure-output/xta0e2gw3nrmr0d0grb99m3wp8-output-0-0.png",
+      "preparation": {
+        "id": "rin-leisure",
+        "character": "rin",
+        "source": "demo/assets/characters/rin/neutral.png",
+        "candidate": "demo/.generated/art/wardrobe/candidates/rin-leisure.png",
+        "expressions": [
+          "neutral",
+          "serious",
+          "annoyed",
+          "blush",
+          "relieved",
+          "eyes-closed-shy",
+          "hesitant",
+          "teary-relief",
+          "tired",
+          "afraid",
+          "quiet-smile",
+          "smile"
+        ],
+        "outputDir": "demo/.generated/art/wardrobe/expressions",
+        "alignment": [
+          [
+            0.9451552389022319,
+            -0.015390719044299709,
+            21.377335124075753
+          ],
+          [
+            0.015390719044299709,
+            0.9451552389022319,
+            -10.150111676884404
+          ]
+        ],
+        "stableMatches": 59,
+        "inliers": 10,
+        "scale": 0.9452805402932166,
+        "angle": 0.9329105727472911,
+        "alphaUnchanged": true,
+        "outsideFaceUnchanged": true,
+        "status": "reviewed-for-integration",
+        "variants": [
+          {
+            "expression": "neutral",
+            "faceSource": "demo/assets/characters/rin/neutral.png",
+            "file": "demo/.generated/art/wardrobe/expressions/rin-leisure/neutral.png",
+            "sha256": "4319c11898c10699d2dfd9466cc0fe6635b3628d2739a005cf7523829ac96446"
+          },
+          {
+            "expression": "serious",
+            "faceSource": "demo/assets/characters/rin/serious.png",
+            "file": "demo/.generated/art/wardrobe/expressions/rin-leisure/serious.png",
+            "sha256": "8cb894b27dfb6d3e6de5dc5a45e86403cb69c70e871ea202e318ef02fd0218a8"
+          },
+          {
+            "expression": "annoyed",
+            "faceSource": "demo/assets/characters/rin/annoyed.png",
+            "file": "demo/.generated/art/wardrobe/expressions/rin-leisure/annoyed.png",
+            "sha256": "0be7bcd101c8e4085b342ac6108bde091c404943173b03b3739d8f085541a63f"
+          },
+          {
+            "expression": "blush",
+            "faceSource": "demo/assets/characters/rin/blush.png",
+            "file": "demo/.generated/art/wardrobe/expressions/rin-leisure/blush.png",
+            "sha256": "d7afb09ae70e7f04a789ea91eaaf86a8b72d4a9df059365540edc5bf494a881d"
+          },
+          {
+            "expression": "relieved",
+            "faceSource": "demo/assets/characters/rin/relieved.png",
+            "file": "demo/.generated/art/wardrobe/expressions/rin-leisure/relieved.png",
+            "sha256": "8eba89d6aaf85f150c0fb73ab03360fbe42f2b7f4fe55a286a88670d816f4b5c"
+          },
+          {
+            "expression": "eyes-closed-shy",
+            "faceSource": "demo/assets/characters/rin/eyes-closed-shy.png",
+            "file": "demo/.generated/art/wardrobe/expressions/rin-leisure/eyes-closed-shy.png",
+            "sha256": "ca8484fd2690077fe348f950a831e25c57b2d0fc6fb4f7ec05ae131eae712ce8"
+          },
+          {
+            "expression": "hesitant",
+            "faceSource": "demo/assets/characters/rin/hesitant.png",
+            "file": "demo/.generated/art/wardrobe/expressions/rin-leisure/hesitant.png",
+            "sha256": "497e059f71eff370c1482e9fba34b86d2e61ff67dda22c42d0240cad6696ca84"
+          },
+          {
+            "expression": "teary-relief",
+            "faceSource": "demo/assets/characters/rin/teary-relief.png",
+            "file": "demo/.generated/art/wardrobe/expressions/rin-leisure/teary-relief.png",
+            "sha256": "69c6f1c0a1415f1a76d101c3ca7e6646ca64f95a8875ce8e85eeaafb31895c08"
+          },
+          {
+            "expression": "tired",
+            "faceSource": "demo/assets/characters/rin/tired.png",
+            "file": "demo/.generated/art/wardrobe/expressions/rin-leisure/tired.png",
+            "sha256": "5a671a9b3223194fb29b3bd46542fa1f8878350074a6c94030ffd127e8435eb9"
+          },
+          {
+            "expression": "afraid",
+            "faceSource": "demo/assets/characters/rin/afraid.png",
+            "file": "demo/.generated/art/wardrobe/expressions/rin-leisure/afraid.png",
+            "sha256": "b3f23ba1cdd39eaf9ea472647aeb15cd2b43a182acdaf63414384db199d17e0b"
+          },
+          {
+            "expression": "quiet-smile",
+            "faceSource": "demo/assets/characters/rin/quiet-smile.png",
+            "file": "demo/.generated/art/wardrobe/expressions/rin-leisure/quiet-smile.png",
+            "sha256": "f13d6be7c3e14fd5de11b9bcc303632833325723f4954d01c021ee2641729dd4"
+          },
+          {
+            "expression": "smile",
+            "faceSource": "demo/assets/characters/rin/smile.png",
+            "file": "demo/.generated/art/wardrobe/expressions/rin-leisure/smile.png",
+            "sha256": "efa198f29ac41fd5769ab19309d6411fd6ae25602e05dce1f70ba40374c30aea"
+          }
+        ]
+      },
+      "variants": [
+        {
+          "expression": "neutral",
+          "faceSource": "demo/assets/characters/rin/neutral.png",
+          "file": "demo/assets/characters/rin/outfits/leisure/neutral.png",
+          "sha256": "4319c11898c10699d2dfd9466cc0fe6635b3628d2739a005cf7523829ac96446",
+          "qsUsage": []
+        },
+        {
+          "expression": "serious",
+          "faceSource": "demo/assets/characters/rin/serious.png",
+          "file": "demo/assets/characters/rin/outfits/leisure/serious.png",
+          "sha256": "8cb894b27dfb6d3e6de5dc5a45e86403cb69c70e871ea202e318ef02fd0218a8",
+          "qsUsage": []
+        },
+        {
+          "expression": "annoyed",
+          "faceSource": "demo/assets/characters/rin/annoyed.png",
+          "file": "demo/assets/characters/rin/outfits/leisure/annoyed.png",
+          "sha256": "0be7bcd101c8e4085b342ac6108bde091c404943173b03b3739d8f085541a63f",
+          "qsUsage": []
+        },
+        {
+          "expression": "blush",
+          "faceSource": "demo/assets/characters/rin/blush.png",
+          "file": "demo/assets/characters/rin/outfits/leisure/blush.png",
+          "sha256": "d7afb09ae70e7f04a789ea91eaaf86a8b72d4a9df059365540edc5bf494a881d",
+          "qsUsage": []
+        },
+        {
+          "expression": "relieved",
+          "faceSource": "demo/assets/characters/rin/relieved.png",
+          "file": "demo/assets/characters/rin/outfits/leisure/relieved.png",
+          "sha256": "8eba89d6aaf85f150c0fb73ab03360fbe42f2b7f4fe55a286a88670d816f4b5c",
+          "qsUsage": []
+        },
+        {
+          "expression": "eyes-closed-shy",
+          "faceSource": "demo/assets/characters/rin/eyes-closed-shy.png",
+          "file": "demo/assets/characters/rin/outfits/leisure/eyes-closed-shy.png",
+          "sha256": "ca8484fd2690077fe348f950a831e25c57b2d0fc6fb4f7ec05ae131eae712ce8",
+          "qsUsage": []
+        },
+        {
+          "expression": "hesitant",
+          "faceSource": "demo/assets/characters/rin/hesitant.png",
+          "file": "demo/assets/characters/rin/outfits/leisure/hesitant.png",
+          "sha256": "497e059f71eff370c1482e9fba34b86d2e61ff67dda22c42d0240cad6696ca84",
+          "qsUsage": []
+        },
+        {
+          "expression": "teary-relief",
+          "faceSource": "demo/assets/characters/rin/teary-relief.png",
+          "file": "demo/assets/characters/rin/outfits/leisure/teary-relief.png",
+          "sha256": "69c6f1c0a1415f1a76d101c3ca7e6646ca64f95a8875ce8e85eeaafb31895c08",
+          "qsUsage": []
+        },
+        {
+          "expression": "tired",
+          "faceSource": "demo/assets/characters/rin/tired.png",
+          "file": "demo/assets/characters/rin/outfits/leisure/tired.png",
+          "sha256": "5a671a9b3223194fb29b3bd46542fa1f8878350074a6c94030ffd127e8435eb9",
+          "qsUsage": []
+        },
+        {
+          "expression": "afraid",
+          "faceSource": "demo/assets/characters/rin/afraid.png",
+          "file": "demo/assets/characters/rin/outfits/leisure/afraid.png",
+          "sha256": "b3f23ba1cdd39eaf9ea472647aeb15cd2b43a182acdaf63414384db199d17e0b",
+          "qsUsage": []
+        },
+        {
+          "expression": "quiet-smile",
+          "faceSource": "demo/assets/characters/rin/quiet-smile.png",
+          "file": "demo/assets/characters/rin/outfits/leisure/quiet-smile.png",
+          "sha256": "f13d6be7c3e14fd5de11b9bcc303632833325723f4954d01c021ee2641729dd4",
+          "qsUsage": []
+        },
+        {
+          "expression": "smile",
+          "faceSource": "demo/assets/characters/rin/smile.png",
+          "file": "demo/assets/characters/rin/outfits/leisure/smile.png",
+          "sha256": "efa198f29ac41fd5769ab19309d6411fd6ae25602e05dce1f70ba40374c30aea",
+          "qsUsage": []
+        }
+      ],
+      "visualReview": "Full-body and face contact sheets reviewed; no visible double eyes, torn matte or costume/expression jumps.",
+      "staged": false
+    },
+    {
+      "id": "rin-date",
+      "character": "rin",
+      "outfit": "date",
+      "source": "demo/assets/characters/rin/neutral.png",
+      "prompt": "Use case: identity-preserve. Asset type: Japanese anime visual novel full-body standing character costume variant. Input image 1 is the approved character and edit target. Change ONLY the CLOTHES described below. Preserve EXACTLY the same face, refined eyes and lashes, hairstyle, hair color, head angle, body proportions, apparent adult age, hand pose and foot stance, crisp Japanese bishoujo game linework and soft cel shading. No realistic rendering, no 3D, no different person. Outfit: June afternoon date: plain off-white crewneck T-shirt under an unbuttoned very lightweight slate-blue short-sleeved overshirt, charcoal slim straight full-length trousers with side pockets, clean white sneakers. Slightly more carefully coordinated but still understated and gender-neutral. Not a suit, no skirt. Keep the entire figure from hair top to soles with generous transparent margin, centered, same upright camera and neutral expression as input. Single figure only, genuinely transparent RGBA background, no shadow plane, no labels or text. Do not crop feet or hair, do not enlarge eyes, no duplicate limbs. The existing head should be copied faithfully, not redesigned.",
+      "quality": "medium",
+      "model": "openai/gpt-image-2.5-flare",
+      "status": "integrated-library",
+      "predictionId": "fez113tdvxrmr0d0grbtmna554",
+      "generatedImage": "demo/.generated/art/wardrobe/rin-date-output/fez113tdvxrmr0d0grbtmna554-output-0-0.png",
+      "preparation": {
+        "id": "rin-date",
+        "character": "rin",
+        "source": "demo/assets/characters/rin/neutral.png",
+        "candidate": "demo/.generated/art/wardrobe/candidates/rin-date.png",
+        "expressions": [
+          "neutral",
+          "serious",
+          "annoyed",
+          "blush",
+          "relieved",
+          "eyes-closed-shy",
+          "hesitant",
+          "teary-relief",
+          "tired",
+          "afraid",
+          "quiet-smile",
+          "smile"
+        ],
+        "outputDir": "demo/.generated/art/wardrobe/expressions",
+        "alignmentMethod": "reviewed-masked-ecc",
+        "alignment": [
+          [
+            1.0002049207687378,
+            0.0018987063085660338,
+            -10.555813789367676
+          ],
+          [
+            -0.004415799397975206,
+            0.9823130965232849,
+            4.590177059173584
+          ]
+        ],
+        "stableMatches": 38,
+        "inliers": null,
+        "correlation": 0.9473378741083076,
+        "scale": 1.000206708908081,
+        "angle": -0.2529532015323639,
+        "alphaUnchanged": true,
+        "outsideFaceUnchanged": true,
+        "status": "reviewed-for-integration",
+        "variants": [
+          {
+            "expression": "neutral",
+            "faceSource": "demo/assets/characters/rin/neutral.png",
+            "file": "demo/.generated/art/wardrobe/expressions/rin-date/neutral.png",
+            "sha256": "560c6216adc9b7a87886926b87bee579752d898d6bc2610dc0074f0970b64187"
+          },
+          {
+            "expression": "serious",
+            "faceSource": "demo/assets/characters/rin/serious.png",
+            "file": "demo/.generated/art/wardrobe/expressions/rin-date/serious.png",
+            "sha256": "2dbc257efbe1347fe3bc616721a9850e105e695e832b23ac4fb0ff0c02ded84e"
+          },
+          {
+            "expression": "annoyed",
+            "faceSource": "demo/assets/characters/rin/annoyed.png",
+            "file": "demo/.generated/art/wardrobe/expressions/rin-date/annoyed.png",
+            "sha256": "ef758341aa884e99a29cb49d4da65761341d5d611af3fad15998f537d8701490"
+          },
+          {
+            "expression": "blush",
+            "faceSource": "demo/assets/characters/rin/blush.png",
+            "file": "demo/.generated/art/wardrobe/expressions/rin-date/blush.png",
+            "sha256": "72da7f0ad14a9ead8b0a8358aac9f562aa94251aa5ca487662984e09526b3c3d"
+          },
+          {
+            "expression": "relieved",
+            "faceSource": "demo/assets/characters/rin/relieved.png",
+            "file": "demo/.generated/art/wardrobe/expressions/rin-date/relieved.png",
+            "sha256": "dd929ca3430bafc3756fd3ac2bd9370940ccef67bf4da28288a6b7a54117eba4"
+          },
+          {
+            "expression": "eyes-closed-shy",
+            "faceSource": "demo/assets/characters/rin/eyes-closed-shy.png",
+            "file": "demo/.generated/art/wardrobe/expressions/rin-date/eyes-closed-shy.png",
+            "sha256": "5d2787f650dd49fb249018ca65bcb10e9dda2a689960cf610d48b5d90ac49884"
+          },
+          {
+            "expression": "hesitant",
+            "faceSource": "demo/assets/characters/rin/hesitant.png",
+            "file": "demo/.generated/art/wardrobe/expressions/rin-date/hesitant.png",
+            "sha256": "2fa8e303968ccaec3a08c0278a8d5caba8318740d7a35ba0bf5f952a2b478335"
+          },
+          {
+            "expression": "teary-relief",
+            "faceSource": "demo/assets/characters/rin/teary-relief.png",
+            "file": "demo/.generated/art/wardrobe/expressions/rin-date/teary-relief.png",
+            "sha256": "444567556ca56b92d6a505500400de260f30366d80bdd86c5605fa34e867f8af"
+          },
+          {
+            "expression": "tired",
+            "faceSource": "demo/assets/characters/rin/tired.png",
+            "file": "demo/.generated/art/wardrobe/expressions/rin-date/tired.png",
+            "sha256": "1702cc456706ec815d67da7fed5be0f560ba34c5f99dcdb5d8034b9ab6adfa2e"
+          },
+          {
+            "expression": "afraid",
+            "faceSource": "demo/assets/characters/rin/afraid.png",
+            "file": "demo/.generated/art/wardrobe/expressions/rin-date/afraid.png",
+            "sha256": "9ba109aa07a8c19f75a2a1f1f309ca578ef5d596ac4def80f3f2d60813dbdf01"
+          },
+          {
+            "expression": "quiet-smile",
+            "faceSource": "demo/assets/characters/rin/quiet-smile.png",
+            "file": "demo/.generated/art/wardrobe/expressions/rin-date/quiet-smile.png",
+            "sha256": "b77d0458875c9e7b038b2259cd3ae4d6ac38e2d8c471b9215758251078fc40d0"
+          },
+          {
+            "expression": "smile",
+            "faceSource": "demo/assets/characters/rin/smile.png",
+            "file": "demo/.generated/art/wardrobe/expressions/rin-date/smile.png",
+            "sha256": "0409961318ce6e6699b0e95d4c00290f2014741e49cbd105d39e4e257538fd8b"
+          }
+        ]
+      },
+      "variants": [
+        {
+          "expression": "neutral",
+          "faceSource": "demo/assets/characters/rin/neutral.png",
+          "file": "demo/assets/characters/rin/outfits/date/neutral.png",
+          "sha256": "560c6216adc9b7a87886926b87bee579752d898d6bc2610dc0074f0970b64187",
+          "qsUsage": []
+        },
+        {
+          "expression": "serious",
+          "faceSource": "demo/assets/characters/rin/serious.png",
+          "file": "demo/assets/characters/rin/outfits/date/serious.png",
+          "sha256": "2dbc257efbe1347fe3bc616721a9850e105e695e832b23ac4fb0ff0c02ded84e",
+          "qsUsage": []
+        },
+        {
+          "expression": "annoyed",
+          "faceSource": "demo/assets/characters/rin/annoyed.png",
+          "file": "demo/assets/characters/rin/outfits/date/annoyed.png",
+          "sha256": "ef758341aa884e99a29cb49d4da65761341d5d611af3fad15998f537d8701490",
+          "qsUsage": []
+        },
+        {
+          "expression": "blush",
+          "faceSource": "demo/assets/characters/rin/blush.png",
+          "file": "demo/assets/characters/rin/outfits/date/blush.png",
+          "sha256": "72da7f0ad14a9ead8b0a8358aac9f562aa94251aa5ca487662984e09526b3c3d",
+          "qsUsage": []
+        },
+        {
+          "expression": "relieved",
+          "faceSource": "demo/assets/characters/rin/relieved.png",
+          "file": "demo/assets/characters/rin/outfits/date/relieved.png",
+          "sha256": "dd929ca3430bafc3756fd3ac2bd9370940ccef67bf4da28288a6b7a54117eba4",
+          "qsUsage": []
+        },
+        {
+          "expression": "eyes-closed-shy",
+          "faceSource": "demo/assets/characters/rin/eyes-closed-shy.png",
+          "file": "demo/assets/characters/rin/outfits/date/eyes-closed-shy.png",
+          "sha256": "5d2787f650dd49fb249018ca65bcb10e9dda2a689960cf610d48b5d90ac49884",
+          "qsUsage": []
+        },
+        {
+          "expression": "hesitant",
+          "faceSource": "demo/assets/characters/rin/hesitant.png",
+          "file": "demo/assets/characters/rin/outfits/date/hesitant.png",
+          "sha256": "2fa8e303968ccaec3a08c0278a8d5caba8318740d7a35ba0bf5f952a2b478335",
+          "qsUsage": []
+        },
+        {
+          "expression": "teary-relief",
+          "faceSource": "demo/assets/characters/rin/teary-relief.png",
+          "file": "demo/assets/characters/rin/outfits/date/teary-relief.png",
+          "sha256": "444567556ca56b92d6a505500400de260f30366d80bdd86c5605fa34e867f8af",
+          "qsUsage": []
+        },
+        {
+          "expression": "tired",
+          "faceSource": "demo/assets/characters/rin/tired.png",
+          "file": "demo/assets/characters/rin/outfits/date/tired.png",
+          "sha256": "1702cc456706ec815d67da7fed5be0f560ba34c5f99dcdb5d8034b9ab6adfa2e",
+          "qsUsage": []
+        },
+        {
+          "expression": "afraid",
+          "faceSource": "demo/assets/characters/rin/afraid.png",
+          "file": "demo/assets/characters/rin/outfits/date/afraid.png",
+          "sha256": "9ba109aa07a8c19f75a2a1f1f309ca578ef5d596ac4def80f3f2d60813dbdf01",
+          "qsUsage": []
+        },
+        {
+          "expression": "quiet-smile",
+          "faceSource": "demo/assets/characters/rin/quiet-smile.png",
+          "file": "demo/assets/characters/rin/outfits/date/quiet-smile.png",
+          "sha256": "b77d0458875c9e7b038b2259cd3ae4d6ac38e2d8c471b9215758251078fc40d0",
+          "qsUsage": []
+        },
+        {
+          "expression": "smile",
+          "faceSource": "demo/assets/characters/rin/smile.png",
+          "file": "demo/assets/characters/rin/outfits/date/smile.png",
+          "sha256": "0409961318ce6e6699b0e95d4c00290f2014741e49cbd105d39e4e257538fd8b",
+          "qsUsage": []
+        }
+      ],
+      "visualReview": "Full-body and face contact sheets reviewed; no visible double eyes, torn matte or costume/expression jumps.",
+      "staged": false
+    },
+    {
+      "id": "rin-rain",
+      "character": "rin",
+      "outfit": "rain",
+      "source": "demo/assets/characters/rin/neutral.png",
+      "prompt": "Use case: identity-preserve. Asset type: Japanese anime visual novel full-body standing character costume variant. Input image 1 is the approved character and edit target. Change ONLY the CLOTHES described below. Preserve EXACTLY the same face, refined eyes and lashes, hairstyle, hair color, head angle, body proportions, apparent adult age, hand pose and foot stance, crisp Japanese bishoujo game linework and soft cel shading. No realistic rendering, no 3D, no different person. Outfit: June rain outerwear over the exact existing blue T-shirt and navy trousers: smoke-gray lightweight hooded rain jacket, hood lowered entirely behind the neck so hair is unchanged, open front, long sleeves, white sneakers. Fabric is opaque thin rainwear, no umbrella, no wet face. Keep the entire figure from hair top to soles with generous transparent margin, centered, same upright camera and neutral expression as input. Single figure only, genuinely transparent RGBA background, no shadow plane, no labels or text. Do not crop feet or hair, do not enlarge eyes, no duplicate limbs. The existing head should be copied faithfully, not redesigned.",
+      "quality": "medium",
+      "model": "openai/gpt-image-2.5-flare",
+      "status": "integrated-library",
+      "predictionId": "rk6r64jdnnrmw0d0grbt9591ew",
+      "generatedImage": "demo/.generated/art/wardrobe/rin-rain-output/rk6r64jdnnrmw0d0grbt9591ew-output-0-0.png",
+      "preparation": {
+        "id": "rin-rain",
+        "character": "rin",
+        "source": "demo/assets/characters/rin/neutral.png",
+        "candidate": "demo/.generated/art/wardrobe/candidates/rin-rain.png",
+        "expressions": [
+          "neutral",
+          "serious",
+          "annoyed",
+          "blush",
+          "relieved",
+          "eyes-closed-shy",
+          "hesitant",
+          "teary-relief",
+          "tired",
+          "afraid",
+          "quiet-smile",
+          "smile"
+        ],
+        "outputDir": "demo/.generated/art/wardrobe/expressions",
+        "alignmentMethod": "reviewed-masked-ecc",
+        "alignment": [
+          [
+            1.017629861831665,
+            0.0013266438618302345,
+            -10.27867603302002
+          ],
+          [
+            -0.007017279043793678,
+            0.9594686627388,
+            7.287685871124268
+          ]
+        ],
+        "stableMatches": 39,
+        "inliers": null,
+        "correlation": 0.8876536374596309,
+        "scale": 1.017630696296692,
+        "angle": -0.39508873224258423,
+        "alphaUnchanged": true,
+        "outsideFaceUnchanged": true,
+        "status": "reviewed-for-integration",
+        "variants": [
+          {
+            "expression": "neutral",
+            "faceSource": "demo/assets/characters/rin/neutral.png",
+            "file": "demo/.generated/art/wardrobe/expressions/rin-rain/neutral.png",
+            "sha256": "ab0fcf515928834bbdce1022f377eb69c1d1ce92fe9f2551cfb776864915e673"
+          },
+          {
+            "expression": "serious",
+            "faceSource": "demo/assets/characters/rin/serious.png",
+            "file": "demo/.generated/art/wardrobe/expressions/rin-rain/serious.png",
+            "sha256": "a7f6e2ab114aafb13b551bc456afff587fbaa39b22c11a149916fde3d6a808a0"
+          },
+          {
+            "expression": "annoyed",
+            "faceSource": "demo/assets/characters/rin/annoyed.png",
+            "file": "demo/.generated/art/wardrobe/expressions/rin-rain/annoyed.png",
+            "sha256": "348a382d9393f52b58eddbd60d1d7c80d50b81b71e00325ee58115dbb25883ac"
+          },
+          {
+            "expression": "blush",
+            "faceSource": "demo/assets/characters/rin/blush.png",
+            "file": "demo/.generated/art/wardrobe/expressions/rin-rain/blush.png",
+            "sha256": "96a5897c5b4a0ee04ec3b7a9389016a1af88f3512794a2d257b324d9a1c7b137"
+          },
+          {
+            "expression": "relieved",
+            "faceSource": "demo/assets/characters/rin/relieved.png",
+            "file": "demo/.generated/art/wardrobe/expressions/rin-rain/relieved.png",
+            "sha256": "0f6efe5b5ba84b472a1f23a4efcd06b4a306d004b71e70e3b9be42057d18fa8e"
+          },
+          {
+            "expression": "eyes-closed-shy",
+            "faceSource": "demo/assets/characters/rin/eyes-closed-shy.png",
+            "file": "demo/.generated/art/wardrobe/expressions/rin-rain/eyes-closed-shy.png",
+            "sha256": "cce1ce37846f9c98bc4941dc8973ebda373dcdf77a43661e14009297430314cc"
+          },
+          {
+            "expression": "hesitant",
+            "faceSource": "demo/assets/characters/rin/hesitant.png",
+            "file": "demo/.generated/art/wardrobe/expressions/rin-rain/hesitant.png",
+            "sha256": "ed28c85238b4e01fd1aa541cd2f120965f6adce52a2412b0b9c044fe3e1b66c0"
+          },
+          {
+            "expression": "teary-relief",
+            "faceSource": "demo/assets/characters/rin/teary-relief.png",
+            "file": "demo/.generated/art/wardrobe/expressions/rin-rain/teary-relief.png",
+            "sha256": "4d6be1639d1ff2554bc58bd723d838f6ee1aad229a57b518a464ccd3da409453"
+          },
+          {
+            "expression": "tired",
+            "faceSource": "demo/assets/characters/rin/tired.png",
+            "file": "demo/.generated/art/wardrobe/expressions/rin-rain/tired.png",
+            "sha256": "91bc783c36bca35f200380d03e91489d38b86a6d943c621c83086ab3b46185dc"
+          },
+          {
+            "expression": "afraid",
+            "faceSource": "demo/assets/characters/rin/afraid.png",
+            "file": "demo/.generated/art/wardrobe/expressions/rin-rain/afraid.png",
+            "sha256": "dcf9d173415ac2039b3bebb87d151488189ecc5f42c45de452ac9d93177cfb7a"
+          },
+          {
+            "expression": "quiet-smile",
+            "faceSource": "demo/assets/characters/rin/quiet-smile.png",
+            "file": "demo/.generated/art/wardrobe/expressions/rin-rain/quiet-smile.png",
+            "sha256": "36fe531b33ddc9c890876ae1de828d56ba43a950257b957c29bd230d7bee7a7a"
+          },
+          {
+            "expression": "smile",
+            "faceSource": "demo/assets/characters/rin/smile.png",
+            "file": "demo/.generated/art/wardrobe/expressions/rin-rain/smile.png",
+            "sha256": "df511536f21a6e4c0c4dc82c3e5e4d0a37a47386b9edf93739f5bab7efda351a"
+          }
+        ]
+      },
+      "variants": [
+        {
+          "expression": "neutral",
+          "faceSource": "demo/assets/characters/rin/neutral.png",
+          "file": "demo/assets/characters/rin/outfits/rain/neutral.png",
+          "sha256": "ab0fcf515928834bbdce1022f377eb69c1d1ce92fe9f2551cfb776864915e673",
+          "qsUsage": []
+        },
+        {
+          "expression": "serious",
+          "faceSource": "demo/assets/characters/rin/serious.png",
+          "file": "demo/assets/characters/rin/outfits/rain/serious.png",
+          "sha256": "a7f6e2ab114aafb13b551bc456afff587fbaa39b22c11a149916fde3d6a808a0",
+          "qsUsage": []
+        },
+        {
+          "expression": "annoyed",
+          "faceSource": "demo/assets/characters/rin/annoyed.png",
+          "file": "demo/assets/characters/rin/outfits/rain/annoyed.png",
+          "sha256": "348a382d9393f52b58eddbd60d1d7c80d50b81b71e00325ee58115dbb25883ac",
+          "qsUsage": []
+        },
+        {
+          "expression": "blush",
+          "faceSource": "demo/assets/characters/rin/blush.png",
+          "file": "demo/assets/characters/rin/outfits/rain/blush.png",
+          "sha256": "96a5897c5b4a0ee04ec3b7a9389016a1af88f3512794a2d257b324d9a1c7b137",
+          "qsUsage": []
+        },
+        {
+          "expression": "relieved",
+          "faceSource": "demo/assets/characters/rin/relieved.png",
+          "file": "demo/assets/characters/rin/outfits/rain/relieved.png",
+          "sha256": "0f6efe5b5ba84b472a1f23a4efcd06b4a306d004b71e70e3b9be42057d18fa8e",
+          "qsUsage": []
+        },
+        {
+          "expression": "eyes-closed-shy",
+          "faceSource": "demo/assets/characters/rin/eyes-closed-shy.png",
+          "file": "demo/assets/characters/rin/outfits/rain/eyes-closed-shy.png",
+          "sha256": "cce1ce37846f9c98bc4941dc8973ebda373dcdf77a43661e14009297430314cc",
+          "qsUsage": []
+        },
+        {
+          "expression": "hesitant",
+          "faceSource": "demo/assets/characters/rin/hesitant.png",
+          "file": "demo/assets/characters/rin/outfits/rain/hesitant.png",
+          "sha256": "ed28c85238b4e01fd1aa541cd2f120965f6adce52a2412b0b9c044fe3e1b66c0",
+          "qsUsage": []
+        },
+        {
+          "expression": "teary-relief",
+          "faceSource": "demo/assets/characters/rin/teary-relief.png",
+          "file": "demo/assets/characters/rin/outfits/rain/teary-relief.png",
+          "sha256": "4d6be1639d1ff2554bc58bd723d838f6ee1aad229a57b518a464ccd3da409453",
+          "qsUsage": []
+        },
+        {
+          "expression": "tired",
+          "faceSource": "demo/assets/characters/rin/tired.png",
+          "file": "demo/assets/characters/rin/outfits/rain/tired.png",
+          "sha256": "91bc783c36bca35f200380d03e91489d38b86a6d943c621c83086ab3b46185dc",
+          "qsUsage": []
+        },
+        {
+          "expression": "afraid",
+          "faceSource": "demo/assets/characters/rin/afraid.png",
+          "file": "demo/assets/characters/rin/outfits/rain/afraid.png",
+          "sha256": "dcf9d173415ac2039b3bebb87d151488189ecc5f42c45de452ac9d93177cfb7a",
+          "qsUsage": []
+        },
+        {
+          "expression": "quiet-smile",
+          "faceSource": "demo/assets/characters/rin/quiet-smile.png",
+          "file": "demo/assets/characters/rin/outfits/rain/quiet-smile.png",
+          "sha256": "36fe531b33ddc9c890876ae1de828d56ba43a950257b957c29bd230d7bee7a7a",
+          "qsUsage": []
+        },
+        {
+          "expression": "smile",
+          "faceSource": "demo/assets/characters/rin/smile.png",
+          "file": "demo/assets/characters/rin/outfits/rain/smile.png",
+          "sha256": "df511536f21a6e4c0c4dc82c3e5e4d0a37a47386b9edf93739f5bab7efda351a",
+          "qsUsage": []
+        }
+      ],
+      "visualReview": "Full-body and face contact sheets reviewed; no visible double eyes, torn matte or costume/expression jumps.",
+      "staged": false
+    },
+    {
+      "id": "rin-autumn",
+      "character": "rin",
+      "outfit": "autumn",
+      "source": "demo/assets/characters/rin/neutral.png",
+      "prompt": "Use case: identity-preserve. Asset type: Japanese anime visual novel full-body standing character costume variant. Input image 1 is the approved character and edit target. Change ONLY the CLOTHES described below. Preserve EXACTLY the same face, refined eyes and lashes, hairstyle, hair color, head angle, body proportions, apparent adult age, hand pose and foot stance, crisp Japanese bishoujo game linework and soft cel shading. No realistic rendering, no 3D, no different person. Outfit: Tokyo autumn indoor outfit: fine-gauge soft slate-blue long-sleeved crewneck sweatshirt with simple rib cuffs, charcoal straight full-length cotton trousers with ordinary pockets, white sneakers. Lightweight early-autumn outfit, no winter coat. Keep the entire figure from hair top to soles with generous transparent margin, centered, same upright camera and neutral expression as input. Single figure only, genuinely transparent RGBA background, no shadow plane, no labels or text. Do not crop feet or hair, do not enlarge eyes, no duplicate limbs. The existing head should be copied faithfully, not redesigned.",
+      "quality": "medium",
+      "model": "openai/gpt-image-2.5-flare",
+      "status": "integrated-library",
+      "predictionId": "k8sf1ktedhrmw0d0grbra220mc",
+      "generatedImage": "demo/.generated/art/wardrobe/rin-autumn-output/k8sf1ktedhrmw0d0grbra220mc-output-0-0.png",
+      "preparation": {
+        "id": "rin-autumn",
+        "character": "rin",
+        "source": "demo/assets/characters/rin/neutral.png",
+        "candidate": "demo/.generated/art/wardrobe/candidates/rin-autumn.png",
+        "expressions": [
+          "neutral",
+          "serious",
+          "annoyed",
+          "blush",
+          "relieved",
+          "eyes-closed-shy",
+          "hesitant",
+          "teary-relief",
+          "tired",
+          "afraid",
+          "quiet-smile",
+          "smile"
+        ],
+        "outputDir": "demo/.generated/art/wardrobe/expressions",
+        "alignment": [
+          [
+            0.9350513445046368,
+            -0.0015578674058645823,
+            15.735584498300662
+          ],
+          [
+            0.0015578674058645823,
+            0.9350513445046368,
+            -7.518005496078823
+          ]
+        ],
+        "stableMatches": 50,
+        "inliers": 9,
+        "scale": 0.9350526422671523,
+        "angle": 0.09545908396667929,
+        "alphaUnchanged": true,
+        "outsideFaceUnchanged": true,
+        "status": "reviewed-for-integration",
+        "variants": [
+          {
+            "expression": "neutral",
+            "faceSource": "demo/assets/characters/rin/neutral.png",
+            "file": "demo/.generated/art/wardrobe/expressions/rin-autumn/neutral.png",
+            "sha256": "d4be7f564a8a9af554d729f728c27e029f36799cb9d25964a5a50ba9210d2d77"
+          },
+          {
+            "expression": "serious",
+            "faceSource": "demo/assets/characters/rin/serious.png",
+            "file": "demo/.generated/art/wardrobe/expressions/rin-autumn/serious.png",
+            "sha256": "4dca2fd02d7c77007a934c6846f1155ca504e9906a6f2322722dd952dc0236c5"
+          },
+          {
+            "expression": "annoyed",
+            "faceSource": "demo/assets/characters/rin/annoyed.png",
+            "file": "demo/.generated/art/wardrobe/expressions/rin-autumn/annoyed.png",
+            "sha256": "b256c0f9e5605617238bcf408c91b5c008e737d5983e4b98c5952d63395273cd"
+          },
+          {
+            "expression": "blush",
+            "faceSource": "demo/assets/characters/rin/blush.png",
+            "file": "demo/.generated/art/wardrobe/expressions/rin-autumn/blush.png",
+            "sha256": "74f418e39f0a4b858b3bc9747fec2e6a2d17591cdedcd4e9a8235e43f5e78646"
+          },
+          {
+            "expression": "relieved",
+            "faceSource": "demo/assets/characters/rin/relieved.png",
+            "file": "demo/.generated/art/wardrobe/expressions/rin-autumn/relieved.png",
+            "sha256": "3c1f8b788ad777209e1de743e46a6f9b943680faa759961ad2089673281972b6"
+          },
+          {
+            "expression": "eyes-closed-shy",
+            "faceSource": "demo/assets/characters/rin/eyes-closed-shy.png",
+            "file": "demo/.generated/art/wardrobe/expressions/rin-autumn/eyes-closed-shy.png",
+            "sha256": "a95dca074fd9feb25bd0d2f8ee57c9d9891ee0c27ccc011a438295bc3f8c7dfb"
+          },
+          {
+            "expression": "hesitant",
+            "faceSource": "demo/assets/characters/rin/hesitant.png",
+            "file": "demo/.generated/art/wardrobe/expressions/rin-autumn/hesitant.png",
+            "sha256": "551add401b3b3f9ddf890f36b560621568e9842c7392464ae49090e6533f720a"
+          },
+          {
+            "expression": "teary-relief",
+            "faceSource": "demo/assets/characters/rin/teary-relief.png",
+            "file": "demo/.generated/art/wardrobe/expressions/rin-autumn/teary-relief.png",
+            "sha256": "e411280f59cba81b844de7393b0f0aa7f40b9ab6d389d89395ba3c64687bda0d"
+          },
+          {
+            "expression": "tired",
+            "faceSource": "demo/assets/characters/rin/tired.png",
+            "file": "demo/.generated/art/wardrobe/expressions/rin-autumn/tired.png",
+            "sha256": "30447c6690ad7f4655aba8c5bdea29bbef1f2df43a3c5362576bc6b9e5ec1d10"
+          },
+          {
+            "expression": "afraid",
+            "faceSource": "demo/assets/characters/rin/afraid.png",
+            "file": "demo/.generated/art/wardrobe/expressions/rin-autumn/afraid.png",
+            "sha256": "1fdc3434724dc1a8a5d6c5c4eaa229148c4f8a34bab01972c2e7aa3017a15200"
+          },
+          {
+            "expression": "quiet-smile",
+            "faceSource": "demo/assets/characters/rin/quiet-smile.png",
+            "file": "demo/.generated/art/wardrobe/expressions/rin-autumn/quiet-smile.png",
+            "sha256": "63fbd0d8a5e661abecf939953f40fb59d354cca44b9d1b1596460dbbefb9d78d"
+          },
+          {
+            "expression": "smile",
+            "faceSource": "demo/assets/characters/rin/smile.png",
+            "file": "demo/.generated/art/wardrobe/expressions/rin-autumn/smile.png",
+            "sha256": "6d19d9741823779f11019b8fedacede672e01544a06f03aa857254956e30e1e7"
+          }
+        ]
+      },
+      "variants": [
+        {
+          "expression": "neutral",
+          "faceSource": "demo/assets/characters/rin/neutral.png",
+          "file": "demo/assets/characters/rin/outfits/autumn/neutral.png",
+          "sha256": "d4be7f564a8a9af554d729f728c27e029f36799cb9d25964a5a50ba9210d2d77",
+          "qsUsage": []
+        },
+        {
+          "expression": "serious",
+          "faceSource": "demo/assets/characters/rin/serious.png",
+          "file": "demo/assets/characters/rin/outfits/autumn/serious.png",
+          "sha256": "4dca2fd02d7c77007a934c6846f1155ca504e9906a6f2322722dd952dc0236c5",
+          "qsUsage": []
+        },
+        {
+          "expression": "annoyed",
+          "faceSource": "demo/assets/characters/rin/annoyed.png",
+          "file": "demo/assets/characters/rin/outfits/autumn/annoyed.png",
+          "sha256": "b256c0f9e5605617238bcf408c91b5c008e737d5983e4b98c5952d63395273cd",
+          "qsUsage": []
+        },
+        {
+          "expression": "blush",
+          "faceSource": "demo/assets/characters/rin/blush.png",
+          "file": "demo/assets/characters/rin/outfits/autumn/blush.png",
+          "sha256": "74f418e39f0a4b858b3bc9747fec2e6a2d17591cdedcd4e9a8235e43f5e78646",
+          "qsUsage": []
+        },
+        {
+          "expression": "relieved",
+          "faceSource": "demo/assets/characters/rin/relieved.png",
+          "file": "demo/assets/characters/rin/outfits/autumn/relieved.png",
+          "sha256": "3c1f8b788ad777209e1de743e46a6f9b943680faa759961ad2089673281972b6",
+          "qsUsage": []
+        },
+        {
+          "expression": "eyes-closed-shy",
+          "faceSource": "demo/assets/characters/rin/eyes-closed-shy.png",
+          "file": "demo/assets/characters/rin/outfits/autumn/eyes-closed-shy.png",
+          "sha256": "a95dca074fd9feb25bd0d2f8ee57c9d9891ee0c27ccc011a438295bc3f8c7dfb",
+          "qsUsage": []
+        },
+        {
+          "expression": "hesitant",
+          "faceSource": "demo/assets/characters/rin/hesitant.png",
+          "file": "demo/assets/characters/rin/outfits/autumn/hesitant.png",
+          "sha256": "551add401b3b3f9ddf890f36b560621568e9842c7392464ae49090e6533f720a",
+          "qsUsage": []
+        },
+        {
+          "expression": "teary-relief",
+          "faceSource": "demo/assets/characters/rin/teary-relief.png",
+          "file": "demo/assets/characters/rin/outfits/autumn/teary-relief.png",
+          "sha256": "e411280f59cba81b844de7393b0f0aa7f40b9ab6d389d89395ba3c64687bda0d",
+          "qsUsage": []
+        },
+        {
+          "expression": "tired",
+          "faceSource": "demo/assets/characters/rin/tired.png",
+          "file": "demo/assets/characters/rin/outfits/autumn/tired.png",
+          "sha256": "30447c6690ad7f4655aba8c5bdea29bbef1f2df43a3c5362576bc6b9e5ec1d10",
+          "qsUsage": []
+        },
+        {
+          "expression": "afraid",
+          "faceSource": "demo/assets/characters/rin/afraid.png",
+          "file": "demo/assets/characters/rin/outfits/autumn/afraid.png",
+          "sha256": "1fdc3434724dc1a8a5d6c5c4eaa229148c4f8a34bab01972c2e7aa3017a15200",
+          "qsUsage": []
+        },
+        {
+          "expression": "quiet-smile",
+          "faceSource": "demo/assets/characters/rin/quiet-smile.png",
+          "file": "demo/assets/characters/rin/outfits/autumn/quiet-smile.png",
+          "sha256": "63fbd0d8a5e661abecf939953f40fb59d354cca44b9d1b1596460dbbefb9d78d",
+          "qsUsage": []
+        },
+        {
+          "expression": "smile",
+          "faceSource": "demo/assets/characters/rin/smile.png",
+          "file": "demo/assets/characters/rin/outfits/autumn/smile.png",
+          "sha256": "6d19d9741823779f11019b8fedacede672e01544a06f03aa857254956e30e1e7",
+          "qsUsage": []
+        }
+      ],
+      "visualReview": "Full-body and face contact sheets reviewed; no visible double eyes, torn matte or costume/expression jumps.",
+      "staged": false
+    },
+    {
+      "id": "mara-leisure",
+      "character": "mara",
+      "outfit": "leisure",
+      "source": "demo/assets/characters/mara/neutral.png",
+      "prompt": "Use case: identity-preserve. Asset type: Japanese anime visual novel full-body standing character costume variant. Input image 1 is the approved character and edit target. Change ONLY the CLOTHES described below. Preserve EXACTLY the same face, refined eyes and lashes, hairstyle, hair color, head angle, body proportions, apparent adult age, hand pose and foot stance, crisp Japanese bishoujo game linework and soft cel shading. No realistic rendering, no 3D, no different person. Outfit: June seaside day off outfit: feminine pale peach short-sleeved blouse, soft little gathered sleeves, rounded collar, small actual front buttons, tucked into high-waisted ivory flowing wide-leg full-length trousers with practical discreet side pockets; cream closed flat shoes. Gentle feminine relaxed young adult styling, no cargo or sporty clothing. Keep thin red wrist cord. Keep the entire figure from hair top to soles with generous transparent margin, centered, same upright camera and neutral expression as input. Single figure only, genuinely transparent RGBA background, no shadow plane, no labels or text. Do not crop feet or hair, do not enlarge eyes, no duplicate limbs. The existing head should be copied faithfully, not redesigned.",
+      "quality": "medium",
+      "model": "openai/gpt-image-2.5-flare",
+      "status": "integrated-qs",
+      "predictionId": "1tmsysqwadrmr0d0grarmrncvm",
+      "generatedImage": "demo/.generated/art/wardrobe/mara-leisure-output/1tmsysqwadrmr0d0grarmrncvm-output-0-0.png",
+      "preparation": {
+        "id": "mara-leisure",
+        "character": "mara",
+        "source": "demo/assets/characters/mara/neutral.png",
+        "candidate": "demo/.generated/art/wardrobe/candidates/mara-leisure.png",
+        "expressions": [
+          "neutral",
+          "laugh-soft",
+          "shy-look-down",
+          "serious",
+          "annoyed",
+          "blush",
+          "relieved",
+          "hesitant",
+          "tired",
+          "afraid",
+          "smile",
+          "hurt-look-away"
+        ],
+        "outputDir": "demo/.generated/art/wardrobe/expressions",
+        "alignment": [
+          [
+            0.9812295309588405,
+            0.005337141325053604,
+            -86.4645869883781
+          ],
+          [
+            -0.005337141325053604,
+            0.9812295309588405,
+            -9.53321873295328
+          ]
+        ],
+        "stableMatches": 37,
+        "inliers": 11,
+        "scale": 0.9812440458434536,
+        "angle": -0.31164232965770267,
+        "alphaUnchanged": true,
+        "outsideFaceUnchanged": true,
+        "status": "reviewed-for-integration",
+        "variants": [
+          {
+            "expression": "neutral",
+            "faceSource": "demo/assets/characters/mara/neutral.png",
+            "file": "demo/.generated/art/wardrobe/expressions/mara-leisure/neutral.png",
+            "sha256": "4e0aa3efd9e02eb8091ff5a91bccf786a848a1d93d78983941840ffaa1bcd534"
+          },
+          {
+            "expression": "laugh-soft",
+            "faceSource": "demo/assets/characters/mara/laugh-soft.png",
+            "file": "demo/.generated/art/wardrobe/expressions/mara-leisure/laugh-soft.png",
+            "sha256": "8e3d655562035a345afda589b4e3bba443e405f43a64b477ef64615f27571f96"
+          },
+          {
+            "expression": "shy-look-down",
+            "faceSource": "demo/assets/characters/mara/shy-look-down.png",
+            "file": "demo/.generated/art/wardrobe/expressions/mara-leisure/shy-look-down.png",
+            "sha256": "e24d24713a74a7526b48c32b8d80077f354d9947cc3cd41f96c330767a5c26e7"
+          },
+          {
+            "expression": "serious",
+            "faceSource": "demo/assets/characters/mara/serious.png",
+            "file": "demo/.generated/art/wardrobe/expressions/mara-leisure/serious.png",
+            "sha256": "339952b35a85e6e1e5b724d11b0e93acc7c20bded6cb83b49d7a8a0752f46ad5"
+          },
+          {
+            "expression": "annoyed",
+            "faceSource": "demo/assets/characters/mara/annoyed.png",
+            "file": "demo/.generated/art/wardrobe/expressions/mara-leisure/annoyed.png",
+            "sha256": "6bb8d0817303482b18f8d0455f2609e7b25ac0a47ef2b91a12391e92287b0db2"
+          },
+          {
+            "expression": "blush",
+            "faceSource": "demo/assets/characters/mara/blush.png",
+            "file": "demo/.generated/art/wardrobe/expressions/mara-leisure/blush.png",
+            "sha256": "e37f666b90fa7e315311db36719198ba5e3b6b14033f6f01cc9a0a311719ee42"
+          },
+          {
+            "expression": "relieved",
+            "faceSource": "demo/assets/characters/mara/relieved.png",
+            "file": "demo/.generated/art/wardrobe/expressions/mara-leisure/relieved.png",
+            "sha256": "893f64d4dc8f447011c1db11db0d50fe1132f2731636b39a97a9c5067f8e911c"
+          },
+          {
+            "expression": "hesitant",
+            "faceSource": "demo/assets/characters/mara/hesitant.png",
+            "file": "demo/.generated/art/wardrobe/expressions/mara-leisure/hesitant.png",
+            "sha256": "d0c1f2479f1f14484224e0430a5aadc065f8c4841a6c88e5bfdba44a6d7c581f"
+          },
+          {
+            "expression": "tired",
+            "faceSource": "demo/assets/characters/mara/tired.png",
+            "file": "demo/.generated/art/wardrobe/expressions/mara-leisure/tired.png",
+            "sha256": "3b2aa6668943119e782763c262398eedc0b718b76721868b36604288fe50dd8f"
+          },
+          {
+            "expression": "afraid",
+            "faceSource": "demo/assets/characters/mara/afraid.png",
+            "file": "demo/.generated/art/wardrobe/expressions/mara-leisure/afraid.png",
+            "sha256": "d19d2db1fdc80a0672eab1034e54b6d54ba43abc89dedf2bcecd3953f9c77657"
+          },
+          {
+            "expression": "smile",
+            "faceSource": "demo/assets/characters/mara/smile.png",
+            "file": "demo/.generated/art/wardrobe/expressions/mara-leisure/smile.png",
+            "sha256": "b7437b5ae587705fd1f9809a03c24490742bb6002aac81a1885dc6a0c3654412"
+          },
+          {
+            "expression": "hurt-look-away",
+            "faceSource": "demo/assets/characters/mara/hurt-look-away.png",
+            "file": "demo/.generated/art/wardrobe/expressions/mara-leisure/hurt-look-away.png",
+            "sha256": "598eb4043f8037b2c34fd464be52ee9aa51b1be75aceafd1ac1510174e7579e3"
+          }
+        ]
+      },
+      "variants": [
+        {
+          "expression": "neutral",
+          "faceSource": "demo/assets/characters/mara/neutral.png",
+          "file": "demo/assets/characters/mara/outfits/leisure/neutral.png",
+          "sha256": "4e0aa3efd9e02eb8091ff5a91bccf786a848a1d93d78983941840ffaa1bcd534",
+          "qsUsage": [
+            {
+              "module": "chapter-07.qs",
+              "node": "daily-returning-the-book",
+              "line": 264
+            },
+            {
+              "module": "chapter-07.qs",
+              "node": "daily-cafe-afternoon",
+              "line": 294
+            },
+            {
+              "module": "chapter-03.qs",
+              "node": "daily-beach-outing",
+              "line": 617
+            },
+            {
+              "module": "chapter-03.qs",
+              "node": "closeness-lighthouse",
+              "line": 663
+            }
+          ]
+        },
+        {
+          "expression": "laugh-soft",
+          "faceSource": "demo/assets/characters/mara/laugh-soft.png",
+          "file": "demo/assets/characters/mara/outfits/leisure/laugh-soft.png",
+          "sha256": "8e3d655562035a345afda589b4e3bba443e405f43a64b477ef64615f27571f96",
+          "qsUsage": []
+        },
+        {
+          "expression": "shy-look-down",
+          "faceSource": "demo/assets/characters/mara/shy-look-down.png",
+          "file": "demo/assets/characters/mara/outfits/leisure/shy-look-down.png",
+          "sha256": "e24d24713a74a7526b48c32b8d80077f354d9947cc3cd41f96c330767a5c26e7",
+          "qsUsage": []
+        },
+        {
+          "expression": "serious",
+          "faceSource": "demo/assets/characters/mara/serious.png",
+          "file": "demo/assets/characters/mara/outfits/leisure/serious.png",
+          "sha256": "339952b35a85e6e1e5b724d11b0e93acc7c20bded6cb83b49d7a8a0752f46ad5",
+          "qsUsage": []
+        },
+        {
+          "expression": "annoyed",
+          "faceSource": "demo/assets/characters/mara/annoyed.png",
+          "file": "demo/assets/characters/mara/outfits/leisure/annoyed.png",
+          "sha256": "6bb8d0817303482b18f8d0455f2609e7b25ac0a47ef2b91a12391e92287b0db2",
+          "qsUsage": [
+            {
+              "module": "chapter-07.qs",
+              "node": "daily-cafe-afternoon",
+              "line": 337
+            }
+          ]
+        },
+        {
+          "expression": "blush",
+          "faceSource": "demo/assets/characters/mara/blush.png",
+          "file": "demo/assets/characters/mara/outfits/leisure/blush.png",
+          "sha256": "e37f666b90fa7e315311db36719198ba5e3b6b14033f6f01cc9a0a311719ee42",
+          "qsUsage": [
+            {
+              "module": "chapter-03.qs",
+              "node": "closeness-lighthouse",
+              "line": 729
+            }
+          ]
+        },
+        {
+          "expression": "relieved",
+          "faceSource": "demo/assets/characters/mara/relieved.png",
+          "file": "demo/assets/characters/mara/outfits/leisure/relieved.png",
+          "sha256": "893f64d4dc8f447011c1db11db0d50fe1132f2731636b39a97a9c5067f8e911c",
+          "qsUsage": []
+        },
+        {
+          "expression": "hesitant",
+          "faceSource": "demo/assets/characters/mara/hesitant.png",
+          "file": "demo/assets/characters/mara/outfits/leisure/hesitant.png",
+          "sha256": "d0c1f2479f1f14484224e0430a5aadc065f8c4841a6c88e5bfdba44a6d7c581f",
+          "qsUsage": [
+            {
+              "module": "chapter-07.qs",
+              "node": "daily-cafe-afternoon",
+              "line": 329
+            },
+            {
+              "module": "chapter-07.qs",
+              "node": "daily-cafe-afternoon",
+              "line": 364
+            },
+            {
+              "module": "chapter-03.qs",
+              "node": "closeness-lighthouse",
+              "line": 707
+            }
+          ]
+        },
+        {
+          "expression": "tired",
+          "faceSource": "demo/assets/characters/mara/tired.png",
+          "file": "demo/assets/characters/mara/outfits/leisure/tired.png",
+          "sha256": "3b2aa6668943119e782763c262398eedc0b718b76721868b36604288fe50dd8f",
+          "qsUsage": []
+        },
+        {
+          "expression": "afraid",
+          "faceSource": "demo/assets/characters/mara/afraid.png",
+          "file": "demo/assets/characters/mara/outfits/leisure/afraid.png",
+          "sha256": "d19d2db1fdc80a0672eab1034e54b6d54ba43abc89dedf2bcecd3953f9c77657",
+          "qsUsage": []
+        },
+        {
+          "expression": "smile",
+          "faceSource": "demo/assets/characters/mara/smile.png",
+          "file": "demo/assets/characters/mara/outfits/leisure/smile.png",
+          "sha256": "b7437b5ae587705fd1f9809a03c24490742bb6002aac81a1885dc6a0c3654412",
+          "qsUsage": [
+            {
+              "module": "chapter-07.qs",
+              "node": "daily-cafe-afternoon",
+              "line": 322
+            },
+            {
+              "module": "chapter-07.qs",
+              "node": "daily-cafe-afternoon",
+              "line": 354
+            },
+            {
+              "module": "chapter-03.qs",
+              "node": "closeness-lighthouse",
+              "line": 714
+            },
+            {
+              "module": "chapter-03.qs",
+              "node": "closeness-lighthouse",
+              "line": 737
+            }
+          ]
+        },
+        {
+          "expression": "hurt-look-away",
+          "faceSource": "demo/assets/characters/mara/hurt-look-away.png",
+          "file": "demo/assets/characters/mara/outfits/leisure/hurt-look-away.png",
+          "sha256": "598eb4043f8037b2c34fd464be52ee9aa51b1be75aceafd1ac1510174e7579e3",
+          "qsUsage": []
+        }
+      ],
+      "visualReview": "Full-body and face contact sheets reviewed; no visible double eyes, torn matte or costume/expression jumps.",
+      "staged": true
+    },
+    {
+      "id": "mara-date",
+      "character": "mara",
+      "outfit": "date",
+      "source": "demo/assets/characters/mara/neutral.png",
+      "prompt": "Use case: identity-preserve. Asset type: Japanese anime visual novel full-body standing character costume variant. Input image 1 is the approved character and edit target. Change ONLY the CLOTHES described below. Preserve EXACTLY the same face, refined eyes and lashes, hairstyle, hair color, head angle, body proportions, apparent adult age, hand pose and foot stance, crisp Japanese bishoujo game linework and soft cel shading. No realistic rendering, no 3D, no different person. Outfit: June afternoon date: dusty rose feminine short-sleeve button-front blouse with delicate rounded collar, small actual buttons down to the lower hem, worn untucked just over a high-waisted ivory below-knee A-line skirt with discreet usable side pockets; light cream Mary Jane flat shoes. Gentle soft fashionable young woman, not formal officewear. Keep thin red wrist cord. Keep the entire figure from hair top to soles with generous transparent margin, centered, same upright camera and neutral expression as input. Single figure only, genuinely transparent RGBA background, no shadow plane, no labels or text. Do not crop feet or hair, do not enlarge eyes, no duplicate limbs. The existing head should be copied faithfully, not redesigned.",
+      "quality": "medium",
+      "model": "openai/gpt-image-2.5-flare",
+      "status": "integrated-qs",
+      "predictionId": "tefpd9akrxrmy0d0grbrtdmfp8",
+      "generatedImage": "demo/.generated/art/wardrobe/mara-date-output/tefpd9akrxrmy0d0grbrtdmfp8-output-0-0.png",
+      "preparation": {
+        "id": "mara-date",
+        "character": "mara",
+        "source": "demo/assets/characters/mara/neutral.png",
+        "candidate": "demo/.generated/art/wardrobe/candidates/mara-date.png",
+        "expressions": [
+          "neutral",
+          "laugh-soft",
+          "shy-look-down",
+          "serious",
+          "annoyed",
+          "blush",
+          "relieved",
+          "hesitant",
+          "tired",
+          "afraid",
+          "smile",
+          "hurt-look-away"
+        ],
+        "outputDir": "demo/.generated/art/wardrobe/expressions",
+        "alignment": [
+          [
+            0.983149561408565,
+            0.004969956529992129,
+            3.0987935443780033
+          ],
+          [
+            -0.004969956529992129,
+            0.983149561408565,
+            -10.732342233875126
+          ]
+        ],
+        "stableMatches": 43,
+        "inliers": 13,
+        "scale": 0.9831621232359208,
+        "angle": -0.2896355947683791,
+        "alphaUnchanged": true,
+        "outsideFaceUnchanged": true,
+        "status": "reviewed-for-integration",
+        "variants": [
+          {
+            "expression": "neutral",
+            "faceSource": "demo/assets/characters/mara/neutral.png",
+            "file": "demo/.generated/art/wardrobe/expressions/mara-date/neutral.png",
+            "sha256": "b6cb4d5ebb1d685ec953d96e7c257936f56588a56697f24f9a6a61ee2a5f3a32"
+          },
+          {
+            "expression": "laugh-soft",
+            "faceSource": "demo/assets/characters/mara/laugh-soft.png",
+            "file": "demo/.generated/art/wardrobe/expressions/mara-date/laugh-soft.png",
+            "sha256": "04804b463de3a0b1e869455d0d417e62fca253c7a5ac3ff4f29ab8d0258d13d8"
+          },
+          {
+            "expression": "shy-look-down",
+            "faceSource": "demo/assets/characters/mara/shy-look-down.png",
+            "file": "demo/.generated/art/wardrobe/expressions/mara-date/shy-look-down.png",
+            "sha256": "6fb951ee57f2e5f7617392d5805b5d8605841d9719ecd8df2b97b52b44982269"
+          },
+          {
+            "expression": "serious",
+            "faceSource": "demo/assets/characters/mara/serious.png",
+            "file": "demo/.generated/art/wardrobe/expressions/mara-date/serious.png",
+            "sha256": "2e4f9f4adab944026fdbd173a6928c01a4a151e9e1bc2c7d9f9ca67f51cc292d"
+          },
+          {
+            "expression": "annoyed",
+            "faceSource": "demo/assets/characters/mara/annoyed.png",
+            "file": "demo/.generated/art/wardrobe/expressions/mara-date/annoyed.png",
+            "sha256": "e8ef6c0c4fe8272ded854a2380e293c871f877a0380cf060dc21ba663ae1c075"
+          },
+          {
+            "expression": "blush",
+            "faceSource": "demo/assets/characters/mara/blush.png",
+            "file": "demo/.generated/art/wardrobe/expressions/mara-date/blush.png",
+            "sha256": "7ab88360f5ad20e87c3de1f087b58e989ccd78e164ac35aaf96a2eeeab8abdb6"
+          },
+          {
+            "expression": "relieved",
+            "faceSource": "demo/assets/characters/mara/relieved.png",
+            "file": "demo/.generated/art/wardrobe/expressions/mara-date/relieved.png",
+            "sha256": "9a672cb39a0552d776f11598ae25e057a90151f8a5b67c0c1af422d0aef8d1b5"
+          },
+          {
+            "expression": "hesitant",
+            "faceSource": "demo/assets/characters/mara/hesitant.png",
+            "file": "demo/.generated/art/wardrobe/expressions/mara-date/hesitant.png",
+            "sha256": "2b04e081a27e0b8a172733e4e9e5ffdd84cfe82e71b52c53ebef65a8e43235c4"
+          },
+          {
+            "expression": "tired",
+            "faceSource": "demo/assets/characters/mara/tired.png",
+            "file": "demo/.generated/art/wardrobe/expressions/mara-date/tired.png",
+            "sha256": "ca6fb9fab06a41633c8903405b8ba6662eb1e1f53516daa2839b3cef57a7af09"
+          },
+          {
+            "expression": "afraid",
+            "faceSource": "demo/assets/characters/mara/afraid.png",
+            "file": "demo/.generated/art/wardrobe/expressions/mara-date/afraid.png",
+            "sha256": "1be512d52870bce00e5c4ac69b87354859b08ea20312e9adc09a0a15ea5d69fc"
+          },
+          {
+            "expression": "smile",
+            "faceSource": "demo/assets/characters/mara/smile.png",
+            "file": "demo/.generated/art/wardrobe/expressions/mara-date/smile.png",
+            "sha256": "9e82d769eea40b4ff2ee9b5d71575a80492ab2df621beadae94949b196252f43"
+          },
+          {
+            "expression": "hurt-look-away",
+            "faceSource": "demo/assets/characters/mara/hurt-look-away.png",
+            "file": "demo/.generated/art/wardrobe/expressions/mara-date/hurt-look-away.png",
+            "sha256": "687b21ac806e3baf19ee3e02c9b85d7debd8ceb5d0bb42b95fa88a705ac0b63b"
+          }
+        ]
+      },
+      "variants": [
+        {
+          "expression": "neutral",
+          "faceSource": "demo/assets/characters/mara/neutral.png",
+          "file": "demo/assets/characters/mara/outfits/date/neutral.png",
+          "sha256": "b6cb4d5ebb1d685ec953d96e7c257936f56588a56697f24f9a6a61ee2a5f3a32",
+          "qsUsage": []
+        },
+        {
+          "expression": "laugh-soft",
+          "faceSource": "demo/assets/characters/mara/laugh-soft.png",
+          "file": "demo/assets/characters/mara/outfits/date/laugh-soft.png",
+          "sha256": "04804b463de3a0b1e869455d0d417e62fca253c7a5ac3ff4f29ab8d0258d13d8",
+          "qsUsage": []
+        },
+        {
+          "expression": "shy-look-down",
+          "faceSource": "demo/assets/characters/mara/shy-look-down.png",
+          "file": "demo/assets/characters/mara/outfits/date/shy-look-down.png",
+          "sha256": "6fb951ee57f2e5f7617392d5805b5d8605841d9719ecd8df2b97b52b44982269",
+          "qsUsage": [
+            {
+              "module": "chapter-07.qs",
+              "node": "dating-confession",
+              "line": 439
+            }
+          ]
+        },
+        {
+          "expression": "serious",
+          "faceSource": "demo/assets/characters/mara/serious.png",
+          "file": "demo/assets/characters/mara/outfits/date/serious.png",
+          "sha256": "2e4f9f4adab944026fdbd173a6928c01a4a151e9e1bc2c7d9f9ca67f51cc292d",
+          "qsUsage": []
+        },
+        {
+          "expression": "annoyed",
+          "faceSource": "demo/assets/characters/mara/annoyed.png",
+          "file": "demo/assets/characters/mara/outfits/date/annoyed.png",
+          "sha256": "e8ef6c0c4fe8272ded854a2380e293c871f877a0380cf060dc21ba663ae1c075",
+          "qsUsage": []
+        },
+        {
+          "expression": "blush",
+          "faceSource": "demo/assets/characters/mara/blush.png",
+          "file": "demo/assets/characters/mara/outfits/date/blush.png",
+          "sha256": "7ab88360f5ad20e87c3de1f087b58e989ccd78e164ac35aaf96a2eeeab8abdb6",
+          "qsUsage": [
+            {
+              "module": "chapter-07.qs",
+              "node": "dating-invitation",
+              "line": 422
+            },
+            {
+              "module": "chapter-07.qs",
+              "node": "dating-confession",
+              "line": 441
+            },
+            {
+              "module": "chapter-07.qs",
+              "node": "dating-confession",
+              "line": 459
+            }
+          ]
+        },
+        {
+          "expression": "relieved",
+          "faceSource": "demo/assets/characters/mara/relieved.png",
+          "file": "demo/assets/characters/mara/outfits/date/relieved.png",
+          "sha256": "9a672cb39a0552d776f11598ae25e057a90151f8a5b67c0c1af422d0aef8d1b5",
+          "qsUsage": []
+        },
+        {
+          "expression": "hesitant",
+          "faceSource": "demo/assets/characters/mara/hesitant.png",
+          "file": "demo/assets/characters/mara/outfits/date/hesitant.png",
+          "sha256": "2b04e081a27e0b8a172733e4e9e5ffdd84cfe82e71b52c53ebef65a8e43235c4",
+          "qsUsage": [
+            {
+              "module": "chapter-07.qs",
+              "node": "dating-invitation",
+              "line": 407
+            },
+            {
+              "module": "chapter-07.qs",
+              "node": "dating-confession",
+              "line": 437
+            }
+          ]
+        },
+        {
+          "expression": "tired",
+          "faceSource": "demo/assets/characters/mara/tired.png",
+          "file": "demo/assets/characters/mara/outfits/date/tired.png",
+          "sha256": "ca6fb9fab06a41633c8903405b8ba6662eb1e1f53516daa2839b3cef57a7af09",
+          "qsUsage": []
+        },
+        {
+          "expression": "afraid",
+          "faceSource": "demo/assets/characters/mara/afraid.png",
+          "file": "demo/assets/characters/mara/outfits/date/afraid.png",
+          "sha256": "1be512d52870bce00e5c4ac69b87354859b08ea20312e9adc09a0a15ea5d69fc",
+          "qsUsage": []
+        },
+        {
+          "expression": "smile",
+          "faceSource": "demo/assets/characters/mara/smile.png",
+          "file": "demo/assets/characters/mara/outfits/date/smile.png",
+          "sha256": "9e82d769eea40b4ff2ee9b5d71575a80492ab2df621beadae94949b196252f43",
+          "qsUsage": [
+            {
+              "module": "chapter-07.qs",
+              "node": "dating-invitation",
+              "line": 400
+            },
+            {
+              "module": "chapter-07.qs",
+              "node": "dating-confession",
+              "line": 451
+            }
+          ]
+        },
+        {
+          "expression": "hurt-look-away",
+          "faceSource": "demo/assets/characters/mara/hurt-look-away.png",
+          "file": "demo/assets/characters/mara/outfits/date/hurt-look-away.png",
+          "sha256": "687b21ac806e3baf19ee3e02c9b85d7debd8ceb5d0bb42b95fa88a705ac0b63b",
+          "qsUsage": []
+        }
+      ],
+      "visualReview": "Full-body and face contact sheets reviewed; no visible double eyes, torn matte or costume/expression jumps.",
+      "staged": true
+    },
+    {
+      "id": "mara-rain",
+      "character": "mara",
+      "outfit": "rain",
+      "source": "demo/assets/characters/mara/neutral.png",
+      "prompt": "Use case: identity-preserve. Asset type: Japanese anime visual novel full-body standing character costume variant. Input image 1 is the approved character and edit target. Change ONLY the CLOTHES described below. Preserve EXACTLY the same face, refined eyes and lashes, hairstyle, hair color, head angle, body proportions, apparent adult age, hand pose and foot stance, crisp Japanese bishoujo game linework and soft cel shading. No realistic rendering, no 3D, no different person. Outfit: June rain outerwear over the exact existing yellow blouse and ivory skirt: lightweight coral-orange hooded rain jacket, hood lowered entirely behind the neck, open front, long sleeves, hem to upper thigh; keep the ivory knee-length skirt visible and existing flat shoes. Thin rainproof fabric. No umbrella or wet face. Keep thin red wrist cord and all long hair unchanged. Keep the entire figure from hair top to soles with generous transparent margin, centered, same upright camera and neutral expression as input. Single figure only, genuinely transparent RGBA background, no shadow plane, no labels or text. Do not crop feet or hair, do not enlarge eyes, no duplicate limbs. The existing head should be copied faithfully, not redesigned.",
+      "quality": "medium",
+      "model": "openai/gpt-image-2.5-flare",
+      "status": "integrated-qs",
+      "predictionId": "j42y46afw5rmw0d0grbv2x6xsc",
+      "generatedImage": "demo/.generated/art/wardrobe/mara-rain-output/j42y46afw5rmw0d0grbv2x6xsc-output-0-0.png",
+      "preparation": {
+        "id": "mara-rain",
+        "character": "mara",
+        "source": "demo/assets/characters/mara/neutral.png",
+        "candidate": "demo/.generated/art/wardrobe/candidates/mara-rain.png",
+        "expressions": [
+          "neutral",
+          "laugh-soft",
+          "shy-look-down",
+          "serious",
+          "annoyed",
+          "blush",
+          "relieved",
+          "hesitant",
+          "tired",
+          "afraid",
+          "smile",
+          "hurt-look-away"
+        ],
+        "outputDir": "demo/.generated/art/wardrobe/expressions",
+        "alignment": [
+          [
+            1.009795449580545,
+            -0.009935161144192278,
+            -17.153476409582716
+          ],
+          [
+            0.009935161144192278,
+            1.009795449580545,
+            -26.741864323972013
+          ]
+        ],
+        "stableMatches": 45,
+        "inliers": 12,
+        "scale": 1.009844323359069,
+        "angle": 0.56370271400635,
+        "alphaUnchanged": true,
+        "outsideFaceUnchanged": true,
+        "status": "reviewed-for-integration",
+        "variants": [
+          {
+            "expression": "neutral",
+            "faceSource": "demo/assets/characters/mara/neutral.png",
+            "file": "demo/.generated/art/wardrobe/expressions/mara-rain/neutral.png",
+            "sha256": "99f2b3956315fab34cc92f5ff98d9860051bf03ff86c388b07c012f1ae38e4cc"
+          },
+          {
+            "expression": "laugh-soft",
+            "faceSource": "demo/assets/characters/mara/laugh-soft.png",
+            "file": "demo/.generated/art/wardrobe/expressions/mara-rain/laugh-soft.png",
+            "sha256": "5eaf7d25a0b78144863ea3cccb6c67ee14048a7e217f5bb9af120bd82bec042b"
+          },
+          {
+            "expression": "shy-look-down",
+            "faceSource": "demo/assets/characters/mara/shy-look-down.png",
+            "file": "demo/.generated/art/wardrobe/expressions/mara-rain/shy-look-down.png",
+            "sha256": "c98831c0f3f81b757e880c3c80cd61b12a83b92ac58b7d062103b7b4448af226"
+          },
+          {
+            "expression": "serious",
+            "faceSource": "demo/assets/characters/mara/serious.png",
+            "file": "demo/.generated/art/wardrobe/expressions/mara-rain/serious.png",
+            "sha256": "f9dc348db076a8ef643847561a0365d26baf59118a91582c8bf7ecfeb9312a4b"
+          },
+          {
+            "expression": "annoyed",
+            "faceSource": "demo/assets/characters/mara/annoyed.png",
+            "file": "demo/.generated/art/wardrobe/expressions/mara-rain/annoyed.png",
+            "sha256": "4852ff1e5ed6d2ca9d90fcbfd43d21ce62a6051a4fe238f5fede4a5baa74431b"
+          },
+          {
+            "expression": "blush",
+            "faceSource": "demo/assets/characters/mara/blush.png",
+            "file": "demo/.generated/art/wardrobe/expressions/mara-rain/blush.png",
+            "sha256": "e574434e1d6cf3d691beec7cad32766c3c4df9f81e1341c82ba4195b310b3e2c"
+          },
+          {
+            "expression": "relieved",
+            "faceSource": "demo/assets/characters/mara/relieved.png",
+            "file": "demo/.generated/art/wardrobe/expressions/mara-rain/relieved.png",
+            "sha256": "0426ba8f65a8111e04415c63ccdacf803defc0b6a5104d5bc70a34a45acff3c4"
+          },
+          {
+            "expression": "hesitant",
+            "faceSource": "demo/assets/characters/mara/hesitant.png",
+            "file": "demo/.generated/art/wardrobe/expressions/mara-rain/hesitant.png",
+            "sha256": "a7bc11bbf5942df914839e9d77b74816a04e44431405322258efdbabb6b0a3dc"
+          },
+          {
+            "expression": "tired",
+            "faceSource": "demo/assets/characters/mara/tired.png",
+            "file": "demo/.generated/art/wardrobe/expressions/mara-rain/tired.png",
+            "sha256": "0bfd0d84d0d476dd823fe76ca196874c7434173feca6fe1aaa100d100fbbd06f"
+          },
+          {
+            "expression": "afraid",
+            "faceSource": "demo/assets/characters/mara/afraid.png",
+            "file": "demo/.generated/art/wardrobe/expressions/mara-rain/afraid.png",
+            "sha256": "4d34dadf910560f40e3c302b8eeb0e21ffeeebb854b2411a270a6b11cc1380d9"
+          },
+          {
+            "expression": "smile",
+            "faceSource": "demo/assets/characters/mara/smile.png",
+            "file": "demo/.generated/art/wardrobe/expressions/mara-rain/smile.png",
+            "sha256": "b8b29aed1739bfc4281becd4550afe15a6e79f27dbbc830c446c09884b010999"
+          },
+          {
+            "expression": "hurt-look-away",
+            "faceSource": "demo/assets/characters/mara/hurt-look-away.png",
+            "file": "demo/.generated/art/wardrobe/expressions/mara-rain/hurt-look-away.png",
+            "sha256": "a2c729055b88c495ef20368f26dd04d8b5737bd1c2da1d48958117572de346e8"
+          }
+        ]
+      },
+      "variants": [
+        {
+          "expression": "neutral",
+          "faceSource": "demo/assets/characters/mara/neutral.png",
+          "file": "demo/assets/characters/mara/outfits/rain/neutral.png",
+          "sha256": "99f2b3956315fab34cc92f5ff98d9860051bf03ff86c388b07c012f1ae38e4cc",
+          "qsUsage": [
+            {
+              "module": "prologue-arrival.qs",
+              "node": "prologue-arrival",
+              "line": 41
+            },
+            {
+              "module": "prologue-arrival.qs",
+              "node": "prologue-street",
+              "line": 86
+            }
+          ]
+        },
+        {
+          "expression": "laugh-soft",
+          "faceSource": "demo/assets/characters/mara/laugh-soft.png",
+          "file": "demo/assets/characters/mara/outfits/rain/laugh-soft.png",
+          "sha256": "5eaf7d25a0b78144863ea3cccb6c67ee14048a7e217f5bb9af120bd82bec042b",
+          "qsUsage": []
+        },
+        {
+          "expression": "shy-look-down",
+          "faceSource": "demo/assets/characters/mara/shy-look-down.png",
+          "file": "demo/assets/characters/mara/outfits/rain/shy-look-down.png",
+          "sha256": "c98831c0f3f81b757e880c3c80cd61b12a83b92ac58b7d062103b7b4448af226",
+          "qsUsage": []
+        },
+        {
+          "expression": "serious",
+          "faceSource": "demo/assets/characters/mara/serious.png",
+          "file": "demo/assets/characters/mara/outfits/rain/serious.png",
+          "sha256": "f9dc348db076a8ef643847561a0365d26baf59118a91582c8bf7ecfeb9312a4b",
+          "qsUsage": []
+        },
+        {
+          "expression": "annoyed",
+          "faceSource": "demo/assets/characters/mara/annoyed.png",
+          "file": "demo/assets/characters/mara/outfits/rain/annoyed.png",
+          "sha256": "4852ff1e5ed6d2ca9d90fcbfd43d21ce62a6051a4fe238f5fede4a5baa74431b",
+          "qsUsage": []
+        },
+        {
+          "expression": "blush",
+          "faceSource": "demo/assets/characters/mara/blush.png",
+          "file": "demo/assets/characters/mara/outfits/rain/blush.png",
+          "sha256": "e574434e1d6cf3d691beec7cad32766c3c4df9f81e1341c82ba4195b310b3e2c",
+          "qsUsage": []
+        },
+        {
+          "expression": "relieved",
+          "faceSource": "demo/assets/characters/mara/relieved.png",
+          "file": "demo/assets/characters/mara/outfits/rain/relieved.png",
+          "sha256": "0426ba8f65a8111e04415c63ccdacf803defc0b6a5104d5bc70a34a45acff3c4",
+          "qsUsage": []
+        },
+        {
+          "expression": "hesitant",
+          "faceSource": "demo/assets/characters/mara/hesitant.png",
+          "file": "demo/assets/characters/mara/outfits/rain/hesitant.png",
+          "sha256": "a7bc11bbf5942df914839e9d77b74816a04e44431405322258efdbabb6b0a3dc",
+          "qsUsage": []
+        },
+        {
+          "expression": "tired",
+          "faceSource": "demo/assets/characters/mara/tired.png",
+          "file": "demo/assets/characters/mara/outfits/rain/tired.png",
+          "sha256": "0bfd0d84d0d476dd823fe76ca196874c7434173feca6fe1aaa100d100fbbd06f",
+          "qsUsage": []
+        },
+        {
+          "expression": "afraid",
+          "faceSource": "demo/assets/characters/mara/afraid.png",
+          "file": "demo/assets/characters/mara/outfits/rain/afraid.png",
+          "sha256": "4d34dadf910560f40e3c302b8eeb0e21ffeeebb854b2411a270a6b11cc1380d9",
+          "qsUsage": []
+        },
+        {
+          "expression": "smile",
+          "faceSource": "demo/assets/characters/mara/smile.png",
+          "file": "demo/assets/characters/mara/outfits/rain/smile.png",
+          "sha256": "b8b29aed1739bfc4281becd4550afe15a6e79f27dbbc830c446c09884b010999",
+          "qsUsage": [
+            {
+              "module": "prologue-arrival.qs",
+              "node": "prologue-arrival",
+              "line": 61
+            }
+          ]
+        },
+        {
+          "expression": "hurt-look-away",
+          "faceSource": "demo/assets/characters/mara/hurt-look-away.png",
+          "file": "demo/assets/characters/mara/outfits/rain/hurt-look-away.png",
+          "sha256": "a2c729055b88c495ef20368f26dd04d8b5737bd1c2da1d48958117572de346e8",
+          "qsUsage": []
+        }
+      ],
+      "visualReview": "Full-body and face contact sheets reviewed; no visible double eyes, torn matte or costume/expression jumps.",
+      "staged": true
+    },
+    {
+      "id": "mara-autumn",
+      "character": "mara",
+      "outfit": "autumn",
+      "source": "demo/assets/characters/mara/neutral.png",
+      "prompt": "Use case: identity-preserve. Asset type: Japanese anime visual novel full-body standing character costume variant. Input image 1 is the approved character and edit target. Change ONLY the CLOTHES described below. Preserve EXACTLY the same face, refined eyes and lashes, hairstyle, hair color, head angle, body proportions, apparent adult age, hand pose and foot stance, crisp Japanese bishoujo game linework and soft cel shading. No realistic rendering, no 3D, no different person. Outfit: Tokyo autumn indoor outfit: soft oatmeal fine-gauge long-sleeved cardigan with small brown buttons worn over a muted rose blouse, warm taupe calf-length A-line skirt with discreet pockets, brown low-heel closed Mary Jane shoes. Soft feminine casual early-autumn knitwear, not office tailoring, not heavy winter clothes. Keep thin red wrist cord. Keep the entire figure from hair top to soles with generous transparent margin, centered, same upright camera and neutral expression as input. Single figure only, genuinely transparent RGBA background, no shadow plane, no labels or text. Do not crop feet or hair, do not enlarge eyes, no duplicate limbs. The existing head should be copied faithfully, not redesigned.",
+      "quality": "medium",
+      "model": "openai/gpt-image-2.5-flare",
+      "status": "integrated-qs",
+      "predictionId": "mz7ervtj71rmt0d0grbvc348ew",
+      "generatedImage": "demo/.generated/art/wardrobe/mara-autumn-output/mz7ervtj71rmt0d0grbvc348ew-output-0-0.png",
+      "preparation": {
+        "id": "mara-autumn",
+        "character": "mara",
+        "source": "demo/assets/characters/mara/neutral.png",
+        "candidate": "demo/.generated/art/wardrobe/candidates/mara-autumn.png",
+        "expressions": [
+          "neutral",
+          "laugh-soft",
+          "shy-look-down",
+          "serious",
+          "annoyed",
+          "blush",
+          "relieved",
+          "hesitant",
+          "tired",
+          "afraid",
+          "smile",
+          "hurt-look-away"
+        ],
+        "outputDir": "demo/.generated/art/wardrobe/expressions",
+        "alignmentMethod": "reviewed-masked-ecc",
+        "alignment": [
+          [
+            0.98243647813797,
+            -0.001710840268060565,
+            9.303559303283691
+          ],
+          [
+            0.0002628778456710279,
+            0.9740223288536072,
+            -10.277953147888184
+          ]
+        ],
+        "stableMatches": 61,
+        "inliers": null,
+        "correlation": 0.971712287168436,
+        "scale": 0.9824379682540894,
+        "angle": 0.015331057831645012,
+        "alphaUnchanged": true,
+        "outsideFaceUnchanged": true,
+        "status": "reviewed-for-integration",
+        "variants": [
+          {
+            "expression": "neutral",
+            "faceSource": "demo/assets/characters/mara/neutral.png",
+            "file": "demo/.generated/art/wardrobe/expressions/mara-autumn/neutral.png",
+            "sha256": "3070d31208fd51eef4eff5b8635afeccc3958519205b43d61ae77c4697da9682"
+          },
+          {
+            "expression": "laugh-soft",
+            "faceSource": "demo/assets/characters/mara/laugh-soft.png",
+            "file": "demo/.generated/art/wardrobe/expressions/mara-autumn/laugh-soft.png",
+            "sha256": "888a854cb18803a1a7d8aa54a0ffe8b436cf310776dd953630825df656c1e063"
+          },
+          {
+            "expression": "shy-look-down",
+            "faceSource": "demo/assets/characters/mara/shy-look-down.png",
+            "file": "demo/.generated/art/wardrobe/expressions/mara-autumn/shy-look-down.png",
+            "sha256": "a5ee7ed465bbeb734ae7d1c0e197c041753857e737f58d9cc713441b549008ca"
+          },
+          {
+            "expression": "serious",
+            "faceSource": "demo/assets/characters/mara/serious.png",
+            "file": "demo/.generated/art/wardrobe/expressions/mara-autumn/serious.png",
+            "sha256": "9bf5f42cdeaee3879b9b5b6bcf917168a8cdbe7b34f6094c09fce96a75caa569"
+          },
+          {
+            "expression": "annoyed",
+            "faceSource": "demo/assets/characters/mara/annoyed.png",
+            "file": "demo/.generated/art/wardrobe/expressions/mara-autumn/annoyed.png",
+            "sha256": "3f2edbd506a9d5a1d06d9b5d66db6aef79de7ffa065525d9a49a0913575d2a3b"
+          },
+          {
+            "expression": "blush",
+            "faceSource": "demo/assets/characters/mara/blush.png",
+            "file": "demo/.generated/art/wardrobe/expressions/mara-autumn/blush.png",
+            "sha256": "3a4f734931509683c8a86cd08ecad059e5467a4e81de34644aeb2e66b6fe9ac2"
+          },
+          {
+            "expression": "relieved",
+            "faceSource": "demo/assets/characters/mara/relieved.png",
+            "file": "demo/.generated/art/wardrobe/expressions/mara-autumn/relieved.png",
+            "sha256": "6a86156025036fa0af27b8fc079bb52b96bb72954fcef7a28c346625ad5bb853"
+          },
+          {
+            "expression": "hesitant",
+            "faceSource": "demo/assets/characters/mara/hesitant.png",
+            "file": "demo/.generated/art/wardrobe/expressions/mara-autumn/hesitant.png",
+            "sha256": "45e6df8edcea928fa0589375ba99ceed8fe9c86d2e09a6aa08f8066a5f785b81"
+          },
+          {
+            "expression": "tired",
+            "faceSource": "demo/assets/characters/mara/tired.png",
+            "file": "demo/.generated/art/wardrobe/expressions/mara-autumn/tired.png",
+            "sha256": "09d48d3bd54fd7414f3efe2516fc0c27bc75f69df732352d8271f2a5714a5cef"
+          },
+          {
+            "expression": "afraid",
+            "faceSource": "demo/assets/characters/mara/afraid.png",
+            "file": "demo/.generated/art/wardrobe/expressions/mara-autumn/afraid.png",
+            "sha256": "b3bd92e7df45bd4e0fb2cd3fde9cf03bb32a4dcb511643ee7c0e2209705123b0"
+          },
+          {
+            "expression": "smile",
+            "faceSource": "demo/assets/characters/mara/smile.png",
+            "file": "demo/.generated/art/wardrobe/expressions/mara-autumn/smile.png",
+            "sha256": "95b6f1792753d9e19a62a82cb412da36da357d7017805f9e9670ca4422ddc2fd"
+          },
+          {
+            "expression": "hurt-look-away",
+            "faceSource": "demo/assets/characters/mara/hurt-look-away.png",
+            "file": "demo/.generated/art/wardrobe/expressions/mara-autumn/hurt-look-away.png",
+            "sha256": "da4c6d1e881045b600b21b60cf55c6e35955eb9978c61c8ae07f230d323c5782"
+          }
+        ]
+      },
+      "variants": [
+        {
+          "expression": "neutral",
+          "faceSource": "demo/assets/characters/mara/neutral.png",
+          "file": "demo/assets/characters/mara/outfits/autumn/neutral.png",
+          "sha256": "3070d31208fd51eef4eff5b8635afeccc3958519205b43d61ae77c4697da9682",
+          "qsUsage": []
+        },
+        {
+          "expression": "laugh-soft",
+          "faceSource": "demo/assets/characters/mara/laugh-soft.png",
+          "file": "demo/assets/characters/mara/outfits/autumn/laugh-soft.png",
+          "sha256": "888a854cb18803a1a7d8aa54a0ffe8b436cf310776dd953630825df656c1e063",
+          "qsUsage": []
+        },
+        {
+          "expression": "shy-look-down",
+          "faceSource": "demo/assets/characters/mara/shy-look-down.png",
+          "file": "demo/assets/characters/mara/outfits/autumn/shy-look-down.png",
+          "sha256": "a5ee7ed465bbeb734ae7d1c0e197c041753857e737f58d9cc713441b549008ca",
+          "qsUsage": []
+        },
+        {
+          "expression": "serious",
+          "faceSource": "demo/assets/characters/mara/serious.png",
+          "file": "demo/assets/characters/mara/outfits/autumn/serious.png",
+          "sha256": "9bf5f42cdeaee3879b9b5b6bcf917168a8cdbe7b34f6094c09fce96a75caa569",
+          "qsUsage": [
+            {
+              "module": "epilogue.qs",
+              "node": "epilogue-final-report",
+              "line": 310
+            }
+          ]
+        },
+        {
+          "expression": "annoyed",
+          "faceSource": "demo/assets/characters/mara/annoyed.png",
+          "file": "demo/assets/characters/mara/outfits/autumn/annoyed.png",
+          "sha256": "3f2edbd506a9d5a1d06d9b5d66db6aef79de7ffa065525d9a49a0913575d2a3b",
+          "qsUsage": []
+        },
+        {
+          "expression": "blush",
+          "faceSource": "demo/assets/characters/mara/blush.png",
+          "file": "demo/assets/characters/mara/outfits/autumn/blush.png",
+          "sha256": "3a4f734931509683c8a86cd08ecad059e5467a4e81de34644aeb2e66b6fe9ac2",
+          "qsUsage": []
+        },
+        {
+          "expression": "relieved",
+          "faceSource": "demo/assets/characters/mara/relieved.png",
+          "file": "demo/assets/characters/mara/outfits/autumn/relieved.png",
+          "sha256": "6a86156025036fa0af27b8fc079bb52b96bb72954fcef7a28c346625ad5bb853",
+          "qsUsage": []
+        },
+        {
+          "expression": "hesitant",
+          "faceSource": "demo/assets/characters/mara/hesitant.png",
+          "file": "demo/assets/characters/mara/outfits/autumn/hesitant.png",
+          "sha256": "45e6df8edcea928fa0589375ba99ceed8fe9c86d2e09a6aa08f8066a5f785b81",
+          "qsUsage": []
+        },
+        {
+          "expression": "tired",
+          "faceSource": "demo/assets/characters/mara/tired.png",
+          "file": "demo/assets/characters/mara/outfits/autumn/tired.png",
+          "sha256": "09d48d3bd54fd7414f3efe2516fc0c27bc75f69df732352d8271f2a5714a5cef",
+          "qsUsage": []
+        },
+        {
+          "expression": "afraid",
+          "faceSource": "demo/assets/characters/mara/afraid.png",
+          "file": "demo/assets/characters/mara/outfits/autumn/afraid.png",
+          "sha256": "b3bd92e7df45bd4e0fb2cd3fde9cf03bb32a4dcb511643ee7c0e2209705123b0",
+          "qsUsage": []
+        },
+        {
+          "expression": "smile",
+          "faceSource": "demo/assets/characters/mara/smile.png",
+          "file": "demo/assets/characters/mara/outfits/autumn/smile.png",
+          "sha256": "95b6f1792753d9e19a62a82cb412da36da357d7017805f9e9670ca4422ddc2fd",
+          "qsUsage": [
+            {
+              "module": "epilogue.qs",
+              "node": "epilogue-after-class",
+              "line": 178
+            }
+          ]
+        },
+        {
+          "expression": "hurt-look-away",
+          "faceSource": "demo/assets/characters/mara/hurt-look-away.png",
+          "file": "demo/assets/characters/mara/outfits/autumn/hurt-look-away.png",
+          "sha256": "da4c6d1e881045b600b21b60cf55c6e35955eb9978c61c8ae07f230d323c5782",
+          "qsUsage": []
+        }
+      ],
+      "visualReview": "Full-body and face contact sheets reviewed; no visible double eyes, torn matte or costume/expression jumps.",
+      "staged": true
+    },
+    {
+      "id": "haruka-leisure",
+      "character": "haruka",
+      "outfit": "leisure",
+      "source": "demo/assets/characters/haruka/neutral.png",
+      "prompt": "Use case: identity-preserve. Asset type: Japanese anime visual novel full-body standing character costume variant. Input image 1 is the approved character and edit target. Change ONLY the CLOTHES described below. Preserve EXACTLY the same face, refined eyes and lashes, hairstyle, hair color, head angle, body proportions, apparent adult age, hand pose and foot stance, crisp Japanese bishoujo game linework and soft cel shading. No realistic rendering, no 3D, no different person. Outfit: June day off: pale mint plain short-sleeve cotton T-shirt tucked into a soft light-denim blue below-knee A-line skirt with two discreet front pockets, white low-top canvas sneakers. Young university student, simple inexpensive clean casual clothes. No pinafore, no uniform, no heavy boots. Keep glasses and low ponytail. Keep the entire figure from hair top to soles with generous transparent margin, centered, same upright camera and neutral expression as input. Single figure only, genuinely transparent RGBA background, no shadow plane, no labels or text. Do not crop feet or hair, do not enlarge eyes, no duplicate limbs. The existing head should be copied faithfully, not redesigned.",
+      "quality": "medium",
+      "model": "openai/gpt-image-2.5-flare",
+      "status": "integrated-qs",
+      "predictionId": "t3h0702eesrmt0d0grbtg3k7b8",
+      "generatedImage": "demo/.generated/art/wardrobe/haruka-leisure-output/t3h0702eesrmt0d0grbtg3k7b8-output-0-0.png",
+      "preparation": {
+        "id": "haruka-leisure",
+        "character": "haruka",
+        "source": "demo/assets/characters/haruka/neutral.png",
+        "candidate": "demo/.generated/art/wardrobe/candidates/haruka-leisure.png",
+        "expressions": [
+          "neutral",
+          "serious",
+          "hesitant",
+          "smile"
+        ],
+        "outputDir": "demo/.generated/art/wardrobe/expressions",
+        "alignmentMethod": "reviewed-masked-ecc",
+        "alignment": [
+          [
+            1.0045603513717651,
+            -0.003364822594448924,
+            -0.873417317867279
+          ],
+          [
+            -0.009303645230829716,
+            0.9919459819793701,
+            4.249686241149902
+          ]
+        ],
+        "stableMatches": 24,
+        "inliers": null,
+        "correlation": 0.9633574032191188,
+        "scale": 1.004565954208374,
+        "angle": -0.530624508857727,
+        "alphaUnchanged": true,
+        "outsideFaceUnchanged": true,
+        "status": "reviewed-for-integration",
+        "variants": [
+          {
+            "expression": "neutral",
+            "faceSource": "demo/assets/characters/haruka/neutral.png",
+            "file": "demo/.generated/art/wardrobe/expressions/haruka-leisure/neutral.png",
+            "sha256": "561d2bed088af23128cb4fcaf3e6f6d783751c0c8c1ce889023d93095295cefb"
+          },
+          {
+            "expression": "serious",
+            "faceSource": "demo/assets/characters/haruka/serious.png",
+            "file": "demo/.generated/art/wardrobe/expressions/haruka-leisure/serious.png",
+            "sha256": "df15ba6a992caf9a4432fc4b3d3eca37ac0a587349200f8c00b2a11894f06a91"
+          },
+          {
+            "expression": "hesitant",
+            "faceSource": "demo/assets/characters/haruka/hesitant.png",
+            "file": "demo/.generated/art/wardrobe/expressions/haruka-leisure/hesitant.png",
+            "sha256": "6468f35963b53d22c04342e12441f976762ad1bd0685636ad02a3cf0f0ddd747"
+          },
+          {
+            "expression": "smile",
+            "faceSource": "demo/assets/characters/haruka/smile.png",
+            "file": "demo/.generated/art/wardrobe/expressions/haruka-leisure/smile.png",
+            "sha256": "f13e1672e7e1826ca63a7aa13794b42f18bf5b784b90a449f7304cee63d59121"
+          }
+        ]
+      },
+      "variants": [
+        {
+          "expression": "neutral",
+          "faceSource": "demo/assets/characters/haruka/neutral.png",
+          "file": "demo/assets/characters/haruka/outfits/leisure/neutral.png",
+          "sha256": "561d2bed088af23128cb4fcaf3e6f6d783751c0c8c1ce889023d93095295cefb",
+          "qsUsage": [
+            {
+              "module": "chapter-03.qs",
+              "node": "daily-beach-outing",
+              "line": 607
+            }
+          ]
+        },
+        {
+          "expression": "serious",
+          "faceSource": "demo/assets/characters/haruka/serious.png",
+          "file": "demo/assets/characters/haruka/outfits/leisure/serious.png",
+          "sha256": "df15ba6a992caf9a4432fc4b3d3eca37ac0a587349200f8c00b2a11894f06a91",
+          "qsUsage": []
+        },
+        {
+          "expression": "hesitant",
+          "faceSource": "demo/assets/characters/haruka/hesitant.png",
+          "file": "demo/assets/characters/haruka/outfits/leisure/hesitant.png",
+          "sha256": "6468f35963b53d22c04342e12441f976762ad1bd0685636ad02a3cf0f0ddd747",
+          "qsUsage": []
+        },
+        {
+          "expression": "smile",
+          "faceSource": "demo/assets/characters/haruka/smile.png",
+          "file": "demo/assets/characters/haruka/outfits/leisure/smile.png",
+          "sha256": "f13e1672e7e1826ca63a7aa13794b42f18bf5b784b90a449f7304cee63d59121",
+          "qsUsage": [
+            {
+              "module": "chapter-03.qs",
+              "node": "daily-beach-outing",
+              "line": 611
+            }
+          ]
+        }
+      ],
+      "visualReview": "Full-body and face contact sheets reviewed; no visible double eyes, torn matte or costume/expression jumps.",
+      "staged": true
+    },
+    {
+      "id": "mayu-work-alt",
+      "character": "mayu",
+      "outfit": "work-alt",
+      "source": "demo/assets/characters/mayu/neutral.png",
+      "prompt": "Use case: identity-preserve. Asset type: Japanese anime visual novel full-body standing character costume variant. Input image 1 is the approved character and edit target. Change ONLY the CLOTHES described below. Preserve EXACTLY the same face, refined eyes and lashes, hairstyle, hair color, head angle, body proportions, apparent adult age, hand pose and foot stance, crisp Japanese bishoujo game linework and soft cel shading. No realistic rendering, no 3D, no different person. Outfit: Alternate June engineer work outfit: light gray lightweight buttoned work overshirt with rolled-to-forearm sleeves over a plain navy T-shirt, charcoal straight work trousers, dark gray closed flat work shoes. Practical fitted enough not to catch equipment, no dress or skirt. Keep narrow rectangular glasses and the same held folder. Keep the entire figure from hair top to soles with generous transparent margin, centered, same upright camera and neutral expression as input. Single figure only, genuinely transparent RGBA background, no shadow plane, no labels or text. Do not crop feet or hair, do not enlarge eyes, no duplicate limbs. The existing head should be copied faithfully, not redesigned.",
+      "quality": "medium",
+      "model": "openai/gpt-image-2.5-flare",
+      "status": "integrated-qs",
+      "predictionId": "my9wf9jja9rmt0d0grbr4h4d3r",
+      "generatedImage": "demo/.generated/art/wardrobe/mayu-work-alt-output/my9wf9jja9rmt0d0grbr4h4d3r-output-0-0.png",
+      "preparation": {
+        "id": "mayu-work-alt",
+        "character": "mayu",
+        "source": "demo/assets/characters/mayu/neutral.png",
+        "candidate": "demo/.generated/art/wardrobe/candidates/mayu-work-alt.png",
+        "expressions": [
+          "neutral",
+          "serious",
+          "hesitant",
+          "smile"
+        ],
+        "outputDir": "demo/.generated/art/wardrobe/expressions",
+        "alignment": [
+          [
+            1.0115886961566665,
+            -0.002733814732184402,
+            -1.1629848618636953
+          ],
+          [
+            0.002733814732184402,
+            1.0115886961566665,
+            0.3484803503497528
+          ]
+        ],
+        "stableMatches": 38,
+        "inliers": 8,
+        "scale": 1.011592390212053,
+        "angle": 0.15484125652242678,
+        "alphaUnchanged": true,
+        "outsideFaceUnchanged": true,
+        "status": "reviewed-for-integration",
+        "variants": [
+          {
+            "expression": "neutral",
+            "faceSource": "demo/assets/characters/mayu/neutral.png",
+            "file": "demo/.generated/art/wardrobe/expressions/mayu-work-alt/neutral.png",
+            "sha256": "94401424264ed8b666642bbe68d04f5d2f68275c4e4caef1f27077b0d3b68c91"
+          },
+          {
+            "expression": "serious",
+            "faceSource": "demo/assets/characters/mayu/serious.png",
+            "file": "demo/.generated/art/wardrobe/expressions/mayu-work-alt/serious.png",
+            "sha256": "98957fa5c3c9ac22411eaa3b36e40246eeb576e224fac7f31fb00abcb52a0d6b"
+          },
+          {
+            "expression": "hesitant",
+            "faceSource": "demo/assets/characters/mayu/hesitant.png",
+            "file": "demo/.generated/art/wardrobe/expressions/mayu-work-alt/hesitant.png",
+            "sha256": "9f8e315a2a7e4101f4832099eb6ba0a4f7e155b22d279afd9f2ee83196166a8e"
+          },
+          {
+            "expression": "smile",
+            "faceSource": "demo/assets/characters/mayu/smile.png",
+            "file": "demo/.generated/art/wardrobe/expressions/mayu-work-alt/smile.png",
+            "sha256": "318d5d58b22ac0d47ddea57ebf989a3d2452120cceba8a55c0c2151e5a575e14"
+          }
+        ]
+      },
+      "variants": [
+        {
+          "expression": "neutral",
+          "faceSource": "demo/assets/characters/mayu/neutral.png",
+          "file": "demo/assets/characters/mayu/outfits/work-alt/neutral.png",
+          "sha256": "94401424264ed8b666642bbe68d04f5d2f68275c4e4caef1f27077b0d3b68c91",
+          "qsUsage": [
+            {
+              "module": "epilogue.qs",
+              "node": "epilogue-july-meeting",
+              "line": 141
+            }
+          ]
+        },
+        {
+          "expression": "serious",
+          "faceSource": "demo/assets/characters/mayu/serious.png",
+          "file": "demo/assets/characters/mayu/outfits/work-alt/serious.png",
+          "sha256": "98957fa5c3c9ac22411eaa3b36e40246eeb576e224fac7f31fb00abcb52a0d6b",
+          "qsUsage": []
+        },
+        {
+          "expression": "hesitant",
+          "faceSource": "demo/assets/characters/mayu/hesitant.png",
+          "file": "demo/assets/characters/mayu/outfits/work-alt/hesitant.png",
+          "sha256": "9f8e315a2a7e4101f4832099eb6ba0a4f7e155b22d279afd9f2ee83196166a8e",
+          "qsUsage": []
+        },
+        {
+          "expression": "smile",
+          "faceSource": "demo/assets/characters/mayu/smile.png",
+          "file": "demo/assets/characters/mayu/outfits/work-alt/smile.png",
+          "sha256": "318d5d58b22ac0d47ddea57ebf989a3d2452120cceba8a55c0c2151e5a575e14",
+          "qsUsage": []
+        }
+      ],
+      "visualReview": "Full-body and face contact sheets reviewed; no visible double eyes, torn matte or costume/expression jumps.",
+      "staged": true
+    },
+    {
+      "id": "reiko-work-alt",
+      "character": "reiko",
+      "outfit": "work-alt",
+      "source": "demo/assets/characters/reiko/neutral.png",
+      "prompt": "Use case: identity-preserve. Asset type: Japanese anime visual novel full-body standing character costume variant. Input image 1 is the approved character and edit target. Change ONLY the CLOTHES described below. Preserve EXACTLY the same face, refined eyes and lashes, hairstyle, hair color, head angle, body proportions, apparent adult age, hand pose and foot stance, crisp Japanese bishoujo game linework and soft cel shading. No realistic rendering, no 3D, no different person. Outfit: Alternate June professional outfit: dark navy lightweight structured blazer worn open over a pale ivory blouse, medium gray straight full-length tailored trousers, dark low flat closed shoes. Restrained adult professional tailoring, no jewelry change, no glasses. Keep the entire figure from hair top to soles with generous transparent margin, centered, same upright camera and neutral expression as input. Single figure only, genuinely transparent RGBA background, no shadow plane, no labels or text. Do not crop feet or hair, do not enlarge eyes, no duplicate limbs. The existing head should be copied faithfully, not redesigned.",
+      "quality": "medium",
+      "model": "openai/gpt-image-2.5-flare",
+      "status": "integrated-qs",
+      "predictionId": "2yzsze2hy1rmr0d0grbsrkq180",
+      "generatedImage": "demo/.generated/art/wardrobe/reiko-work-alt-output/2yzsze2hy1rmr0d0grbsrkq180-output-0-0.png",
+      "preparation": {
+        "id": "reiko-work-alt",
+        "character": "reiko",
+        "source": "demo/assets/characters/reiko/neutral.png",
+        "candidate": "demo/.generated/art/wardrobe/candidates/reiko-work-alt.png",
+        "expressions": [
+          "neutral",
+          "serious",
+          "hesitant",
+          "smile"
+        ],
+        "outputDir": "demo/.generated/art/wardrobe/expressions",
+        "alignmentMethod": "reviewed-masked-ecc",
+        "alignment": [
+          [
+            0.9533364176750183,
+            -0.0041542742401361465,
+            27.106191635131836
+          ],
+          [
+            0.01983156055212021,
+            0.9650413990020752,
+            -13.62016487121582
+          ]
+        ],
+        "stableMatches": 44,
+        "inliers": null,
+        "correlation": 0.9368663501658392,
+        "scale": 0.9533454775810242,
+        "angle": 1.191710352897644,
+        "alphaUnchanged": true,
+        "outsideFaceUnchanged": true,
+        "status": "reviewed-for-integration",
+        "variants": [
+          {
+            "expression": "neutral",
+            "faceSource": "demo/assets/characters/reiko/neutral.png",
+            "file": "demo/.generated/art/wardrobe/expressions/reiko-work-alt/neutral.png",
+            "sha256": "d42949a0057ec5691348cc51da167e432cc6deb12c7c4e6ff8d29608598cbb81"
+          },
+          {
+            "expression": "serious",
+            "faceSource": "demo/assets/characters/reiko/serious.png",
+            "file": "demo/.generated/art/wardrobe/expressions/reiko-work-alt/serious.png",
+            "sha256": "56772bd02f45479d503b466ee31582abaa98f265de54eac171665336df586639"
+          },
+          {
+            "expression": "hesitant",
+            "faceSource": "demo/assets/characters/reiko/hesitant.png",
+            "file": "demo/.generated/art/wardrobe/expressions/reiko-work-alt/hesitant.png",
+            "sha256": "1bf948c782881c6b4a2b6c154126f6b3a8ab97e5e28a00e445b0fcee7b891e9e"
+          },
+          {
+            "expression": "smile",
+            "faceSource": "demo/assets/characters/reiko/smile.png",
+            "file": "demo/.generated/art/wardrobe/expressions/reiko-work-alt/smile.png",
+            "sha256": "cf00a1a3a8cc18f1bf9fe11b6facc1772e005069818d22ad286ff1e7c3b6353b"
+          }
+        ]
+      },
+      "variants": [
+        {
+          "expression": "neutral",
+          "faceSource": "demo/assets/characters/reiko/neutral.png",
+          "file": "demo/assets/characters/reiko/outfits/work-alt/neutral.png",
+          "sha256": "d42949a0057ec5691348cc51da167e432cc6deb12c7c4e6ff8d29608598cbb81",
+          "qsUsage": [
+            {
+              "module": "chapter-05.qs",
+              "node": "investigation-admission",
+              "line": 130
+            }
+          ]
+        },
+        {
+          "expression": "serious",
+          "faceSource": "demo/assets/characters/reiko/serious.png",
+          "file": "demo/assets/characters/reiko/outfits/work-alt/serious.png",
+          "sha256": "56772bd02f45479d503b466ee31582abaa98f265de54eac171665336df586639",
+          "qsUsage": [
+            {
+              "module": "chapter-05-inspection.qs",
+              "node": "investigation-local-schedule",
+              "line": 36
+            },
+            {
+              "module": "chapter-05-inspection.qs",
+              "node": "investigation-provenance",
+              "line": 142
+            },
+            {
+              "module": "chapter-06.qs",
+              "node": "shutdown-plan",
+              "line": 29
+            },
+            {
+              "module": "chapter-05.qs",
+              "node": "investigation-admission",
+              "line": 134
+            },
+            {
+              "module": "chapter-05.qs",
+              "node": "investigation-resident-call",
+              "line": 151
+            }
+          ]
+        },
+        {
+          "expression": "hesitant",
+          "faceSource": "demo/assets/characters/reiko/hesitant.png",
+          "file": "demo/assets/characters/reiko/outfits/work-alt/hesitant.png",
+          "sha256": "1bf948c782881c6b4a2b6c154126f6b3a8ab97e5e28a00e445b0fcee7b891e9e",
+          "qsUsage": [
+            {
+              "module": "chapter-05-inspection.qs",
+              "node": "investigation-deliberate-omission",
+              "line": 81
+            },
+            {
+              "module": "chapter-05-inspection.qs",
+              "node": "investigation-deliberate-omission",
+              "line": 89
+            },
+            {
+              "module": "chapter-06.qs",
+              "node": "shutdown-plan",
+              "line": 34
+            }
+          ]
+        },
+        {
+          "expression": "smile",
+          "faceSource": "demo/assets/characters/reiko/smile.png",
+          "file": "demo/assets/characters/reiko/outfits/work-alt/smile.png",
+          "sha256": "cf00a1a3a8cc18f1bf9fe11b6facc1772e005069818d22ad286ff1e7c3b6353b",
+          "qsUsage": []
+        }
+      ],
+      "visualReview": "Full-body and face contact sheets reviewed; no visible double eyes, torn matte or costume/expression jumps.",
+      "staged": true
+    },
+    {
+      "id": "yumi-leisure",
+      "character": "yumi",
+      "outfit": "leisure",
+      "source": "demo/assets/characters/yumi/neutral.png",
+      "prompt": "Use case: identity-preserve. Asset type: Japanese anime visual novel full-body standing character costume variant. Input image 1 is the approved character and edit target. Change ONLY the CLOTHES described below. Preserve EXACTLY the same face, refined eyes and lashes, hairstyle, hair color, head angle, body proportions, apparent adult age, hand pose and foot stance, crisp Japanese bishoujo game linework and soft cel shading. No realistic rendering, no 3D, no different person. Outfit: June day off: warm muted terracotta short-sleeved linen loose blouse, cream flowing calf-length culotte trousers with pockets, comfortable dark flat slip-on shoes. Modest comfortable loose clothing for a stocky middle-aged woman, retain her fuller waist, round face and burgundy glasses. No apron, no hat on head, no slimming. Keep the entire figure from hair top to soles with generous transparent margin, centered, same upright camera and neutral expression as input. Single figure only, genuinely transparent RGBA background, no shadow plane, no labels or text. Do not crop feet or hair, do not enlarge eyes, no duplicate limbs. The existing head should be copied faithfully, not redesigned.",
+      "quality": "medium",
+      "model": "openai/gpt-image-2.5-flare",
+      "status": "integrated-qs",
+      "predictionId": "mnc8xaaee9rmt0d0grbsn8g288",
+      "generatedImage": "demo/.generated/art/wardrobe/yumi-leisure-output/mnc8xaaee9rmt0d0grbsn8g288-output-0-0.png",
+      "preparation": {
+        "id": "yumi-leisure",
+        "character": "yumi",
+        "source": "demo/assets/characters/yumi/neutral.png",
+        "candidate": "demo/.generated/art/wardrobe/candidates/yumi-leisure.png",
+        "expressions": [
+          "neutral",
+          "serious",
+          "hesitant"
+        ],
+        "outputDir": "demo/.generated/art/wardrobe/expressions",
+        "alignment": [
+          [
+            1.0141980358415028,
+            -0.011305249875930122,
+            15.034610566665615
+          ],
+          [
+            0.011305249875930122,
+            1.0141980358415028,
+            -20.439622418560994
+          ]
+        ],
+        "stableMatches": 54,
+        "inliers": 20,
+        "scale": 1.014261043607374,
+        "angle": 0.6386487203133109,
+        "alphaUnchanged": true,
+        "outsideFaceUnchanged": true,
+        "status": "reviewed-for-integration",
+        "variants": [
+          {
+            "expression": "neutral",
+            "faceSource": "demo/assets/characters/yumi/neutral.png",
+            "file": "demo/.generated/art/wardrobe/expressions/yumi-leisure/neutral.png",
+            "sha256": "7935bf3b4ba31ec3e2a7e3a3d4b05b35d782f08d65eb6bb56a8da99d8a713bf6"
+          },
+          {
+            "expression": "serious",
+            "faceSource": "demo/assets/characters/yumi/serious.png",
+            "file": "demo/.generated/art/wardrobe/expressions/yumi-leisure/serious.png",
+            "sha256": "bddf70a54dcb0616c20b2d1e885b01942b2e4b0f69500756d926d821828cedd8"
+          },
+          {
+            "expression": "hesitant",
+            "faceSource": "demo/assets/characters/yumi/hesitant.png",
+            "file": "demo/.generated/art/wardrobe/expressions/yumi-leisure/hesitant.png",
+            "sha256": "5fd57f5a2d3c5a9d2e8af0e62c2faec75f4b42aa0de85b6e7f2a38690872c78e"
+          }
+        ]
+      },
+      "variants": [
+        {
+          "expression": "neutral",
+          "faceSource": "demo/assets/characters/yumi/neutral.png",
+          "file": "demo/assets/characters/yumi/outfits/leisure/neutral.png",
+          "sha256": "7935bf3b4ba31ec3e2a7e3a3d4b05b35d782f08d65eb6bb56a8da99d8a713bf6",
+          "qsUsage": [
+            {
+              "module": "chapter-03.qs",
+              "node": "daily-beach-outing",
+              "line": 614
+            }
+          ]
+        },
+        {
+          "expression": "serious",
+          "faceSource": "demo/assets/characters/yumi/serious.png",
+          "file": "demo/assets/characters/yumi/outfits/leisure/serious.png",
+          "sha256": "bddf70a54dcb0616c20b2d1e885b01942b2e4b0f69500756d926d821828cedd8",
+          "qsUsage": []
+        },
+        {
+          "expression": "hesitant",
+          "faceSource": "demo/assets/characters/yumi/hesitant.png",
+          "file": "demo/assets/characters/yumi/outfits/leisure/hesitant.png",
+          "sha256": "5fd57f5a2d3c5a9d2e8af0e62c2faec75f4b42aa0de85b6e7f2a38690872c78e",
+          "qsUsage": []
+        }
+      ],
+      "visualReview": "Full-body and face contact sheets reviewed; no visible double eyes, torn matte or costume/expression jumps.",
+      "staged": true
+    },
+    {
+      "id": "mara-leisure-pose-listening",
+      "character": "mara",
+      "outfit": "leisure",
+      "expression": "pose-listening",
+      "source": "demo/assets/characters/mara/pose-listening.png",
+      "costumeReference": "demo/.generated/art/wardrobe/candidates/mara-leisure.png",
+      "prompt": "Use case: identity-preserve. Asset type: Japanese anime visual novel full-body standing character costume variant. Input image 1 is the approved LISTENING POSE and edit target. Image 2 is the approved new peach blouse and ivory wide-leg trousers outfit reference. Use image 2 only for clothing; keep the hand-to-ear listening action of image 1 exactly. Change ONLY the CLOTHES described below. Preserve EXACTLY the same face, refined eyes and lashes, hairstyle, hair color, head angle, body proportions, apparent adult age, hand pose and foot stance, crisp Japanese bishoujo game linework and soft cel shading. No realistic rendering, no 3D, no different person. Outfit: June seaside day off outfit: feminine pale peach short-sleeved blouse, soft little gathered sleeves, rounded collar, small actual front buttons, tucked into high-waisted ivory flowing wide-leg full-length trousers with practical discreet side pockets; cream closed flat shoes. Gentle feminine relaxed young adult styling, no cargo or sporty clothing. Keep thin red wrist cord. Keep the entire figure from hair top to soles with generous transparent margin, centered, same upright camera and attentive listening expression as input. Single figure only, genuinely transparent RGBA background, no shadow plane, no labels or text. Do not crop feet or hair, do not enlarge eyes, no duplicate limbs. The existing head should be copied faithfully, not redesigned.",
+      "quality": "medium",
+      "model": "openai/gpt-image-2.5-flare",
+      "status": "integrated-qs",
+      "predictionId": "w7nfd66e5srmw0d0grcsvtthxc",
+      "generatedImage": "demo/.generated/art/wardrobe/mara-leisure-pose-listening-output/w7nfd66e5srmw0d0grcsvtthxc-output-0-0.png",
+      "preparation": {
+        "assetId": "mara-leisure-pose-listening",
+        "character": "mara",
+        "heightCm": 172,
+        "footY": 1488,
+        "canvas": [
+          768,
+          1536
+        ],
+        "source": "demo/.generated/art/wardrobe/mara-leisure-pose-listening-output/w7nfd66e5srmw0d0grcsvtthxc-output-0-0.png",
+        "bounds": [
+          318,
+          34,
+          756,
+          1514
+        ],
+        "scale": 0.9562841530054644,
+        "predictionId": "w7nfd66e5srmw0d0grcsvtthxc",
+        "model": "openai/gpt-image-2.5-flare",
+        "alpha": "model soft alpha retained",
+        "status": "reviewed-for-integration"
+      },
+      "variants": [
+        {
+          "expression": "pose-listening",
+          "file": "demo/assets/characters/mara/outfits/leisure/pose-listening.png",
+          "sha256": "4f0d7c7fcf54ee7ff83382ab2c5036922c1289a9625e794c211bfbf26677b49c",
+          "qsUsage": [
+            {
+              "module": "chapter-03.qs",
+              "node": "closeness-lighthouse",
+              "line": 720
+            }
+          ]
+        }
+      ],
+      "visualReview": "Full body: Japanese VN style, unchanged adult identity/build/height, plausible garments and hands. Face contact sheets: original expressions align, eyes and jaw have no visible double edges; native soft alpha preserved. Listening pose keeps hands gently together, as the actual approved pose reference; prompt hand-to-ear wording was inaccurate and was not adopted.",
+      "staged": true
+    }
+  ],
+  "newCostumeCues": 40,
+  "validation": {
+    "typecheck": "passed",
+    "nativeQuickJsModules": 445,
+    "nativeVisualReview": "not-performed",
+    "webBuild": "passed",
+    "qpkAssets": 243,
+    "qpkMiB": 145.17,
+    "quackTests": 193,
+    "productionStoryChecks": 20,
+    "authoredVisualChecks": 18,
+    "browserErrors": [],
+    "outfitSaveLoad": "three beach companions retain expressions, costumes and positions after fresh-page load",
+    "artReview": "full-body outfit boards, face crops, beach/date/autumn production screenshots reviewed",
+    "remaining": "Rin new costumes are library/reference art; additional full-body actions require their own clothed variants. Tokyo epilogue background images are still unprepared; existing ClearBackground staging remains."
+  }
+}

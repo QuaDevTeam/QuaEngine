@@ -25,6 +25,7 @@ export interface WebAssetUrlDisposeOptions {
 interface CachedAssetUrl {
   url: string
   refs: number
+  estimatedBytes: number
   revokeTimer?: ReturnType<typeof setTimeout>
 }
 
@@ -35,6 +36,21 @@ interface ActiveCachedAssetUrl {
 }
 
 const ASSET_URL_REVOKE_GRACE_MS = 250
+// Bounds only idle transition resources. Visible assets remain pinned by users.
+const MAX_IDLE_URLS = 16
+const MAX_IDLE_BYTES = 32 * 1024 * 1024
+const MAX_ASSET_READS = 4
+interface PendingRead {
+  consumers: Array<() => boolean>
+  promise: Promise<AssetData | undefined>
+  run: () => void
+}
+interface AssetReadQueue {
+  active: number
+  pending: Map<string, PendingRead>
+  queue: PendingRead[]
+}
+const assetReads = new WeakMap<QuaAssets, AssetReadQueue>()
 const assetUrlCache = new WeakMap<QuaAssets, Map<string, CachedAssetUrl>>()
 
 export function runtimePackageCandidatesFromMetadata(
@@ -150,8 +166,12 @@ export class WebAssetUrlHandle {
     this.notify()
 
     try {
-      const asset = await getAssetWithTargetPackages(assets, this.options.getType(), assetName, this.options.getTargetPackageId?.())
-      if (currentRequestId !== this.requestId) {
+      const type = this.options.getType()
+      const packages = this.options.getTargetPackageId?.()
+      const asset = await readSharedAsset(assets, cacheKey,
+        () => getAssetWithTargetPackages(assets, type, assetName, packages),
+        () => currentRequestId === this.requestId)
+      if (!asset || currentRequestId !== this.requestId) {
         return
       }
       const nextCached = getCachedAssetUrl(assets, cacheKey)
@@ -159,13 +179,15 @@ export class WebAssetUrlHandle {
         this.useCachedAssetUrl(assets, cacheKey, nextCached)
       }
       else {
-        this.useCachedAssetUrl(assets, cacheKey, createCachedAssetUrl(assets, cacheKey, createObjectURL(asset)))
+        this.useCachedAssetUrl(assets, cacheKey, createCachedAssetUrl(assets, cacheKey, asset))
       }
     }
     catch (caught) {
       if (currentRequestId === this.requestId) {
+        // A failed replacement (including an unloaded package) must not pin the
+        // old image indefinitely under the identity of the requested resource.
+        this.releaseActive({ defer: false })
         this.state = {
-          url: this.state.url,
           loading: false,
           error: caught instanceof Error ? caught : new Error(String(caught)),
         }
@@ -175,6 +197,7 @@ export class WebAssetUrlHandle {
   }
 
   revoke(): void {
+    this.requestId += 1
     this.releaseActive({ defer: false })
     this.state = {
       ...this.state,
@@ -249,8 +272,13 @@ function getCachedAssetUrl(assets: QuaAssets, key: string): CachedAssetUrl | und
   return assetUrlCache.get(assets)?.get(key)
 }
 
-function createCachedAssetUrl(assets: QuaAssets, key: string, url: string): CachedAssetUrl {
-  const entry = { url, refs: 0 }
+function createCachedAssetUrl(assets: QuaAssets, key: string, asset: AssetData): CachedAssetUrl {
+  const width = Number(asset.mediaMetadata?.width)
+  const height = Number(asset.mediaMetadata?.height)
+  const pixels = width * height
+  // RGBA estimate is not a promise about browser/GPU allocator usage.
+  const decoded = Number.isFinite(pixels) && pixels > 0 ? pixels * 4 : 0
+  const entry = { url: createObjectURL(asset), refs: 0, estimatedBytes: asset.data.byteLength + decoded }
   getAssetUrlCache(assets).set(key, entry)
   return entry
 }
@@ -280,7 +308,10 @@ function releaseCachedAssetUrl(
     if (active.entry.refs > 0) {
       return
     }
-    assetUrlCache.get(active.assets)?.delete(active.key)
+    if (active.entry.revokeTimer) clearTimeout(active.entry.revokeTimer)
+    active.entry.revokeTimer = undefined
+    const cache = assetUrlCache.get(active.assets)
+    if (cache?.get(active.key) === active.entry) cache.delete(active.key)
     try {
       revokeObjectURL(active.entry.url)
     }
@@ -291,6 +322,15 @@ function releaseCachedAssetUrl(
 
   if (options.defer) {
     active.entry.revokeTimer = setTimeout(revoke, ASSET_URL_REVOKE_GRACE_MS)
+    const idle = [...(assetUrlCache.get(active.assets)?.entries() || [])].filter(([, entry]) => entry.refs === 0)
+    let bytes = idle.reduce((sum, [, entry]) => sum + entry.estimatedBytes, 0)
+    let count = idle.length
+    for (const [key, entry] of idle) {
+      if (count <= MAX_IDLE_URLS && bytes <= MAX_IDLE_BYTES) break
+      releaseCachedAssetUrl({ assets: active.assets, key, entry }, { defer: false })
+      bytes -= entry.estimatedBytes
+      count -= 1
+    }
   }
   else {
     if (active.entry.revokeTimer) {
@@ -318,4 +358,58 @@ function isAssetNotFoundError(error: unknown): boolean {
     && 'code' in error
     && (error as { code?: unknown }).code === 'ASSET_NOT_FOUND',
   )
+}
+
+// Share simultaneous reads before Blob creation, and avoid starting obsolete
+// queued work during fast-forward/remounts. In-flight storage reads cannot be
+// cancelled through the platform-neutral AssetStorage contract.
+function readSharedAsset(assets: QuaAssets, key: string, read: () => Promise<AssetData>, current: () => boolean): Promise<AssetData | undefined> {
+  let scheduler = assetReads.get(assets)
+  if (!scheduler) {
+    scheduler = { active: 0, pending: new Map(), queue: [] }
+    assetReads.set(assets, scheduler)
+  }
+  const existing = scheduler.pending.get(key)
+  if (existing) {
+    existing.consumers.push(current)
+    return existing.promise
+  }
+  const state = scheduler
+  let resolve!: (asset: AssetData | undefined) => void
+  let reject!: (error: unknown) => void
+  const promise = new Promise<AssetData | undefined>((yes, no) => { resolve = yes; reject = no })
+  const entry: PendingRead = { consumers: [current], promise, run: () => {
+    if (!entry.consumers.some(isCurrent => isCurrent())) {
+      state.pending.delete(key)
+      resolve(undefined)
+      return
+    }
+    state.active += 1
+    void read().then(resolve, reject).finally(() => {
+      state.active -= 1
+      state.pending.delete(key)
+      drain()
+    })
+  } }
+  const drain = () => {
+    while (state.active < MAX_ASSET_READS && state.queue.length) state.queue.shift()!.run()
+  }
+  state.pending.set(key, entry)
+  state.queue.push(entry)
+  drain()
+  return promise
+}
+
+/** Transient resource accounting; estimates exclude browser/GPU internal caches. */
+export function getWebAssetMemoryStats(assets: QuaAssets) {
+  const entries = [...(assetUrlCache.get(assets)?.values() || [])]
+  const idle = entries.filter(entry => entry.refs === 0)
+  return {
+    activeUrls: entries.length - idle.length,
+    idleUrls: idle.length,
+    estimatedResidentBytes: entries.reduce((sum, entry) => sum + entry.estimatedBytes, 0),
+    estimatedIdleBytes: idle.reduce((sum, entry) => sum + entry.estimatedBytes, 0),
+    activeReads: assetReads.get(assets)?.active || 0,
+    queuedReads: assetReads.get(assets)?.queue.length || 0,
+  }
 }

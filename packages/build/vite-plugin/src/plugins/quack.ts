@@ -3,7 +3,7 @@ import type { AssetBundleManifest, QuaEngineVitePluginOptions } from '../core/ty
 import { createHash } from 'node:crypto'
 import { createReadStream } from 'node:fs'
 import { access, readdir, readFile, stat } from 'node:fs/promises'
-import { join, relative, resolve } from 'node:path'
+import { basename, join, relative, resolve } from 'node:path'
 import process from 'node:process'
 import { createDevVfsMiddleware, createDevVfsUpdate } from '@quajs/assets-web/vite'
 import { defineConfig, QuackBundler } from '@quajs/quack'
@@ -42,6 +42,7 @@ export function quackPlugin(options: QuaEngineVitePluginOptions['assetBundling']
     },
 
     async buildStart() {
+      bundleManifest = null
       if (command === 'serve' && devVfs) {
         logPluginMessage('Development mode detected - using QuaAssets VFS instead of bundling', 'info')
         return
@@ -57,13 +58,26 @@ export function quackPlugin(options: QuaEngineVitePluginOptions['assetBundling']
         return
       }
 
+      let bundleFile: string | undefined
+      const emitBundle = (fileName: string, bytes: Uint8Array) => {
+        if (command === 'build') this.emitFile({ type: 'asset', fileName, source: bytes })
+      }
       const quackConfig = defineConfig({
         source: sourcePath,
         output: outputPath + (format === 'qpk' ? '.qpk' : '.zip'),
         format,
         compression,
         encryption,
-        plugins: [...plugins],
+        plugins: [...plugins, {
+          name: 'qua-vite-bundle-output',
+          version: '0.1.0',
+          async postBundle(bundlePath) {
+            // Rollup owns final output. Files written directly by Quack during
+            // buildStart would otherwise be deleted by Vite's emptyOutDir.
+            bundleFile = basename(bundlePath)
+            emitBundle(bundleFile, await readFile(bundlePath))
+          },
+        }],
         verbose: true,
       })
 
@@ -76,6 +90,7 @@ export function quackPlugin(options: QuaEngineVitePluginOptions['assetBundling']
         totalSize: stats.totalSize,
         assets: stats.assetsByType,
         locales: stats.locales?.map((locale: any) => locale.code) || [],
+        bundleFile,
       }
 
       logPluginMessage(`Asset bundle created: ${stats.totalFiles} files, ${formatBytes(stats.totalSize)}`, 'info')

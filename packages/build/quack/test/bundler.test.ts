@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { storyGraphDecoratorMappings } from '@quajs/story-graph/script-compiler'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { QuackBundler } from '../src/core/bundler'
+import { QuackBundler, defineConfig } from '../src/core/bundler'
 import { buildLocalePack } from '../src/i18n/locale-pack'
 
 describe('quackBundler', () => {
@@ -820,6 +820,31 @@ Yuki: We arrived.
       bundler.addPlugin(mockCompressionPlugin)
 
       expect(bundler).toBeDefined()
+    })
+
+    it('rejects target core packages configured as ordinary Quack plugins', () => {
+      expect(() => defineConfig({
+        source: tempDir,
+        plugins: [{
+          name: '@quajs/renderer-web/plugins/audio',
+          version: '1.0.0',
+        }],
+      })).toThrow(/@quajs\/renderer-web/)
+
+      expect(() => new QuackBundler({
+        source: tempDir,
+        output: join(tempDir, 'bad-core-plugin.qpk'),
+        format: 'qpk',
+        plugins: [{
+          name: '@quajs/renderer-cocos/plugins/dialogue',
+          version: '1.0.0',
+        }],
+      })).toThrow(/@quajs\/renderer-cocos/)
+
+      expect(() => bundler.addPlugin({
+        name: '@quajs/engine-native/runtime',
+        version: '1.0.0',
+      })).toThrow(/@quajs\/engine-native/)
     })
   })
 

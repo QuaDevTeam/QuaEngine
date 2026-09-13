@@ -1261,6 +1261,13 @@ function collectAudioTracks(audio: Record<string, unknown> | undefined): Array<R
   if (!audio)
     return []
   const tracks: Array<Record<string, unknown>> = []
+  if (Array.isArray(audio.bgmOutgoing)) {
+    for (const item of audio.bgmOutgoing) {
+      if (item && typeof item === 'object' && !Array.isArray(item)) {
+        tracks.push({ kind: 'bgm', ...item as Record<string, unknown> })
+      }
+    }
+  }
   if (audio.bgm && typeof audio.bgm === 'object' && !Array.isArray(audio.bgm)) {
     tracks.push({ kind: 'bgm', ...audio.bgm as Record<string, unknown> })
   }

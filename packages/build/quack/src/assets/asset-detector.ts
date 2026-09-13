@@ -321,6 +321,12 @@ export class AssetDetector {
 
     const lower = str.toLowerCase()
 
+    // These are asset directories, not language codes. Treating them as
+    // locales strips them from CG/UI lookup paths in production manifests.
+    if (lower === 'cg' || lower === 'ui') {
+      return false
+    }
+
     // Check against common locales first
     if (COMMON_LOCALES.some(locale => locale.toLowerCase() === lower)) {
       return true

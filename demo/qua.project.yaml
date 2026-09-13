@@ -1,0 +1,47 @@
+schemaVersion: 1
+name: Call Me Again Tomorrow Demo
+bundleId: dev.quajs.demo.callmetomorrow
+version: 0.1.0
+home:
+  title: 明天，请再一次呼唤我 Demo
+  shortName: 明天，请再一次呼唤我
+  description: QuaEngine Web and native renderer demo.
+  lang: zh-CN
+  themeColor: '#050507'
+  backgroundColor: '#050507'
+  startUrl: /
+  scope: /
+icons:
+  source: public/icon.png
+  favicon: public/favicon.png
+targets:
+  web:
+    enabled: true
+    layout: landscape
+    devices:
+      desktop: true
+      pad: true
+      phone: true
+    pwa:
+      enabled: false
+      serviceWorker: generated
+  native:
+    enabled: true
+    platforms:
+      - macos
+      - windows
+      - linux
+    profiles:
+      - debug
+    layout: landscape
+    outputDir: dist/native
+    app:
+      bundleId: dev.quajs.demo.callmetomorrow
+      version: 0.1.0
+      buildNumber: '1'
+      icon: public/icon.png
+    build:
+      cargoFeatures:
+        - native-window
+        - native-audio-rodio
+        - quickjs-rquickjs

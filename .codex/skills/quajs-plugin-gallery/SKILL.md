@@ -33,6 +33,7 @@ Renderer entries:
 - `@quajs/renderer-react/plugins/gallery`
 - `@quajs/renderer-svelte/plugins/gallery`
 - `@quajs/renderer-cocos/plugins/gallery`
+- `@quajs/plugin-gallery/native` through `createGalleryNativeRendererFeature()`
 
 Web, React, and Svelte use the shared `@quajs/renderer-web/plugins/gallery` DOM implementation through thin framework adapters. Vue provides framework components over the same projection helpers. Cocos projects the same gallery intents and transient browsing affordances, including lightbox preview, through native host nodes.
 
@@ -117,6 +118,10 @@ Decorators:
 
 Renderer components receive `GalleryProjection`, render locked/unlocked entries, and emit selection/filter/close intents. They must not decide unlock state. Lightbox/detail browsing state is renderer-local and transient only across Web/Vue/React/Svelte/Cocos; locked entries should render the projection they receive, including projected safe locked content, and must not reconstruct hidden definition details. Web-family renderers should expose lightbox as an overlay scene (`qua-gallery-lightbox--overlay-scene`, `data-gallery-lightbox-mode="overlay-scene"`) outside the gallery panel so app themes can size it near fullscreen without making renderer state authoritative. Gallery header counts should sit with the close action rather than under the title; product/demo themes may omit search/filter toolbars when the header count is the intended progress marker. Avoid duplicating locked state in both preview placeholders and entry badges. Lightbox captions and icon-only close controls should live inside the media region as renderer-local chrome, image clicks may toggle caption/control visibility, and blank lightbox/media clicks may hide that chrome.
 
+Native products explicitly register `createGalleryNativeRendererFeature()` in the same feature-surface list used for frame serialization and `NativeHostPlugin`. Its safe-area layout reads only the spoiler-safe `GalleryProjection`, preserves catalog/entry/content QPK provenance, and allowlists close, catalog/entry/content selection, and unlocked-filter actions to existing gallery events.
+
+The official native gallery surface uses structured `boxShadow` and `textShadow` style IR for Web-aligned panel/title depth. This visual projection must not reveal hidden entry data or move selection/filter authority into the renderer.
+
 Gallery scene placement is plugin projection metadata. `GalleryOpenOptions` and `GalleryProjection` accept `overlayStack`, `stackPriority`, and `zIndex`; the default placement is `overlay` stack with gallery zIndex `70`. Save/load back into the gallery scene must preserve those placement fields, and renderers must project them on the official gallery overlay root.
 
 ## Settings
@@ -141,3 +146,9 @@ Run achievement tests when gallery reward/condition integration changes.
 - Are gallery asset refs package-aware?
 - Does renderer emit intents rather than owning unlock/filter authority?
 - If gallery API, decorator, settings, or projection behavior changed, was this skill updated?
+
+## Native visual projection
+
+`createGalleryNativeRendererFeature({ maxWidth, maxHeight, layout })` accepts logical panel size limits (defaults 1180×760) and `split` (default) or `grid` presentation. Cards use separate thumbnail/title/summary nodes. Catalogs, entries, and all content tabs remain scrollable; do not truncate content tabs to a fixed count. Respect plugin-resolved locked placeholders and explicitly revealed content rather than reapplying unlock policy in the renderer.
+
+For grid products, an explicitly open engine UI overlay named `gallery-preview` enables the selected entry's large image preview. The product session opens it after the gallery selection event and closes it with other feature panels. `gallery-close-preview` maps only to `UI_REQUEST_CLOSE` for this fixed element id. Browsing must not unlock content. Asset-level `runtimePackageId` takes lookup precedence and all inherited/content dependencies remain required. Video/audio data must not be submitted to the image decoder; show projected image posters where available. This image preview does not claim native audio/video preview or browser lightbox chrome animation parity.
