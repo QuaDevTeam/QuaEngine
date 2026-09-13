@@ -1,9 +1,10 @@
 /** Full text-story and Web UI regression; media/native E2E remains separate. */
 import assert from 'node:assert/strict'
-import { mkdir, writeFile, rm } from 'node:fs/promises'
+import { mkdir, writeFile, rm, readFile } from 'node:fs/promises'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright'
+import { createHash } from 'node:crypto'
 
 const url = process.env.QUA_STORY_URL || 'http://localhost:4178/'
 const output = process.env.QUA_STORY_OUTPUT
@@ -55,9 +56,29 @@ const line = page.locator('.qua-dialogue-text')
 const waitLine = text => page.waitForFunction(text => document.querySelector('.qua-dialogue-text')?.textContent?.includes(text), text)
 const stageCast = () => page.locator('.qua-character[data-character-visible="true"]:not([data-character-presence="exit"])').evaluateAll(elements => elements.map(el => ({
   id: el.dataset.characterId, expression: el.dataset.spriteExpression,
-  x: el.dataset.characterX, y: el.dataset.characterY, scale: el.dataset.characterScale,
+  x: el.dataset.characterX, y: el.dataset.characterY, scale: el.dataset.characterScale, opacity: Number(getComputedStyle(el).opacity),
 })).sort((a, b) => a.id.localeCompare(b.id)))
 const actingChecks = new Map([
+  ['照片里那张宽大的调音桌', { id: 'mara', expression: 'neutral', x: 480, companions: { haruka: 'neutral' } }],
+  ['她今天来不了，想改成发文件。', { id: 'mara', expression: 'neutral', x: 960 }],
+  ['台门口的感应灯亮了。', { id: 'mara', expression: 'hesitant', x: 960 }],
+  ['Mara 和由美回到台里，把移动设备交给春香。', { id: 'mara', expression: 'tired', x: 700, companions: { yumi: 'neutral' } }],
+
+  ['纸袋贴着手心，还暖着。', { asset: 'inserts/rain-paper-bag.webp', absent: ['rin', 'mara', 'haruka', 'mayu', 'reiko', 'yumi'], insertSave: true }],
+  ['两盒旧磁带等在桌角。', { asset: 'inserts/archive-tape-splice.webp', absent: ['mara'] }],
+  ['左边的正常节目仍然在播。', { asset: 'inserts/return-line-closeup.webp', absent: ['mara', 'haruka'] }],
+  ['箱底最后露出一只小铜铃', { asset: 'inserts/photo-studio-bell.webp', absent: ['mara'] }],
+  ['两把并排，中间隔着一张登记单。', { asset: 'inserts/two-blue-umbrellas.webp', absent: ['mara', 'haruka'] }],
+  ['Mara 又覆上另一只手', { asset: 'inserts/nineteen-twelve-hands.webp', absent: ['rin', 'mara'] }],
+  ['船舱外的观景平台已经开放。', { asset: 'inserts/aoba-from-the-boat.webp', absent: ['mara'] }],
+  ['咖啡、苏打和一只布丁占了中间', { asset: 'inserts/cafe-shared-table.webp', absent: ['mara'] }],
+  ['晚上回到凛的房间，她们把电影放了出来。', { asset: 'backgrounds/rin-room-night.webp', id: 'mara', expression: 'date-smile', y: 785, absent: ['rin', 'haruka', 'mayu', 'reiko', 'yumi'] }],
+  ['洗发水在最里面。', { asset: 'backgrounds/drugstore-day.webp', id: 'mara', expression: 'neutral' }],
+  ['Mara 笑着等凛走完。', { asset: 'backgrounds/tour-boat-cabin.webp', id: 'mara', expression: 'leisure-neutral', y: 785 }],
+  ['Mara 靠近半步。湿袖口', { id: 'mara', x: 900, scale: 1.04 }],
+  ['礼子看着她的背影，没有叫住她。', { id: 'mara', x: 260, scale: 0.9, companions: { reiko: 'work-alt-hesitant' }, absent: ['haruka'] }],
+  ['拆下来的就这些？', { id: 'mara', expression: 'neutral', y: 750, asset: 'backgrounds/civic-exhibit-room.webp' }],
+
   ['十分钟后，门被推开。Mara 一手提着自己的布袋', { id: 'mara', expression: 'pose-drinks' }],
   ["Mara 放下布袋，把手里的饮料递给凛，又从袋里取出自己的那罐搁在长椅上，才去装衣服。", { id: 'mara', expression: 'smile' }],
   ['这里是海岸台的新址测试。', { id: 'haruka', expression: 'pose-script' }],
@@ -71,14 +92,14 @@ const actingChecks = new Map([
   ['Mara 听到这里笑出来。', { id: 'mara', expression: 'laugh-soft' }],
   ["Mara 的眼睛很红，却没哭。凛看着她低下头，扯了扯衬衫下摆，将露出来的线头绕在指尖。", { id: 'mara', expression: 'hurt-look-away' }],
   ["Mara 低下头，用拇指蹭了蹭衬衫下摆的扣子。再看凛时，耳朵也红了。", { id: 'mara', expression: 'date-shy-look-down' }],
-  ["Mara 伸出手，又看了一眼还在屋里的由美。凛也跟着望过去。由美正核对下一张表，头都没抬。", { id: 'mara', expression: 'pose-offer-hand', absent: ['yumi'] }],
+  ["Mara 伸出手，又看了一眼还在屋里的由美。凛也跟着望过去。由美正核对下一张表，头都没抬。", { id: 'mara', expression: 'pose-offer-hand', companions: { yumi: 'neutral' } }],
   ['再放一次后面那段。', { id: 'mara', expression: 'pose-listening' }],
   ['你刚才看见了吧。', { id: 'mara', expression: 'annoyed' }],
   ['我也喜欢你，凛。', { id: 'mara', expression: 'date-blush' }],
   ['你知道我在问什么，还是说没什么。', { id: 'mara', expression: 'annoyed' }],
   ['春香将原邮件、培训录音、修订稿分别打开', { id: 'haruka', absent: ['mara', 'mayu'] }],
   ['这句话会记。你做过的那些，也都会记', { id: 'yumi', expression: 'serious', absent: ['mayu'] }],
-  ['在洗衣服。你的简图没画错。', { absent: ['mara'] }],
+  ['现在在洗衣服，你的简图没画错。', { absent: ['mara'] }],
   ['神代小姐？', { id: 'mara', expression: 'rain-neutral' }],
   ['那算青叶的声音。', { absent: ['rin', 'mara'], backgroundOnly: true }],
   ['你脸上说了。', { id: 'mara', expression: 'leisure-neutral', wardrobeSave: true,
@@ -96,10 +117,14 @@ const checkActing = async text => {
     // Presence and committed timeline updates can settle after dialogue text.
     await page.waitForTimeout(450)
     const cast = await stageCast()
+    for (const actor of cast) assert(actor.opacity >= 0.99, `${fragment}: ${actor.id} is painted, not merely flagged visible`)
     if (expected.id) {
       const actor = cast.find(c => c.id === expected.id)
       assert(actor, `${fragment}: ${expected.id} is on stage`)
       if (expected.expression) assert.equal(actor.expression, expected.expression, fragment)
+      for (const key of ['x', 'y', 'scale']) {
+        if (expected[key] !== undefined) assert(Math.abs(Number(actor[key]) - expected[key]) < 0.01, `${fragment}: committed ${key}`)
+      }
       const sprite = page.locator(`.qua-character[data-character-id="${expected.id}"] .qua-sprite-layer--expression`)
       await page.waitForFunction(id => {
         const image = document.querySelector(`.qua-character[data-character-id="${id}"] .qua-sprite-layer--expression`)
@@ -109,13 +134,32 @@ const checkActing = async text => {
       assert(await sprite.first().evaluate(el => el.naturalWidth > 0), `${fragment}: actual expression image loads`)
     }
     for (const id of expected.absent || []) assert(!cast.some(c => c.id === id), `${fragment}: ${id} stays offscreen`)
-    // Missing references are otherwise silent in the renderer asset handle.
-    if (!expected.expression?.startsWith('autumn-')) {
-      await page.waitForFunction(() => {
-        const image = document.querySelector('.qua-background')
-        return image instanceof HTMLImageElement && image.complete && image.naturalWidth > 0
-      })
-      await page.locator('.qua-background').evaluate(el => el.decode())
+    // Every selected scene, including autumn scenes, must decode its QPK image.
+    const backgroundDigest = async () => page.locator('.qua-background').evaluate(async image => {
+      await image.decode()
+      const bytes = await (await fetch(image.src)).arrayBuffer()
+      const hash = await crypto.subtle.digest('SHA-256', bytes)
+      return [...new Uint8Array(hash)].map(value => value.toString(16).padStart(2, '0')).join('')
+    })
+    await page.waitForFunction(() => {
+      const image = document.querySelector('.qua-background')
+      return image instanceof HTMLImageElement && image.complete && image.naturalWidth > 0
+    })
+    await page.locator('.qua-background').evaluate(el => el.decode())
+    if (expected.asset) {
+      const bytes = await readFile(resolve(dirname(fileURLToPath(import.meta.url)), '../assets/images', expected.asset))
+      const digest = createHash('sha256').update(bytes).digest('hex')
+      assert.equal(await backgroundDigest(), digest, `${fragment}: correct authored image decoded from QPK`)
+      if (expected.insertSave) {
+        await menu(); await button('保存进度').click()
+        await page.locator('[data-save-slot-id="slot-3"]').click()
+        await page.locator('[data-save-slot-id="slot-3"].is-filled').waitFor()
+        await page.reload(); await readyTitle(); await button('读取存档').click()
+        await page.locator('[data-save-slot-id="slot-3"]').click()
+        await waitLine(fragment); await page.waitForTimeout(450)
+        assert.equal(await backgroundDigest(), digest, 'fresh-page load retains the insert image')
+        assert.deepEqual(await stageCast(), cast, 'fresh-page insert load does not reintroduce hidden characters')
+      }
     }
     for (const [id, expression] of Object.entries(expected.companions || {})) {
       assert.equal(cast.find(c => c.id === id)?.expression, expression, `${fragment}: companion outfit`)
@@ -243,7 +287,7 @@ try {
   assert(!(await line.textContent()).includes('2019 年'))
   pass('closing the reading menu resumes live dialogue')
   await readNormallyUntil(() => button('先看看档案目录').isVisible(), [
-    "五月底，由美从市立图书馆拿到了这家公司的联系方式。图书馆前一年请他们整理过口述录音，由美听过修好的几段，想找负责那一批的人。",
+    "由美是从图书馆找到公司的。",
     '他车里收的是 FM。手机也能听', '他搬鱼的时候，没手一条条翻',
     '日常节目还是我们做', '图书馆要做旧港街区的声音展',
     '费用从文化资料整理经费和台里的搬迁预算里出',
@@ -285,7 +329,7 @@ try {
     '这次传输断了一会儿，设备还在采样', '不是你们试验的条件。',
     '今天不是我的班。', '明天换下来拿给我吧。照常收钱',
     '昨天选好的采访等这一段修完就能接着剪。', '八号晚上开始？', '检修仍然要他们安排。',
-    '这一遍可以吗？', '六月十三日，晚上好。这里是海岸台', "春香的杯子仍在窗边，杯口还冒着热气。",
+    '这一遍可以吗？', '六月十三日，晚上好。这里是海岸台', "鲸鱼杯还在原处，蓝色尾巴朝着屋里。",
   ])
   pass('normal reading establishes the rented research workplace, ordinary jobs and known public programme before the first anomalous return')
   await button('先核对港口通知').click(); await waitLine('我去查通知')
@@ -334,7 +378,7 @@ try {
   await title(); await button('章节选择').click()
   await page.locator('[data-story-tree-node-id="chapter-03"] button').click(); await waitLine('六月十七日')
   await readNormallyUntil(async () => (await line.textContent())?.includes('早晨放进包的那本书还在'), [
-    '给试验设备散热的，跟居民家的自来水没关系。',
+    '是冷却水泵，给试验设备散热的。',
     '我丈夫在外地工作，周末才回来。',
     '我明天是要去市民中心。但我还没丢。', '以后搬进来可能要帮忙读招领',
     '蓝伞还在。', '区别很小，但确实不是同一把。',
@@ -361,7 +405,7 @@ try {
     '游客码头在鱼市外侧。', '四十分钟这么快。',
     '缝补用品店隔壁有间咖啡厅。', "两人坐到三点半。Mara 看完一话，抬头看了看时间，又翻过一页，才有些舍不得地合上书。",
     '不收。就是想和你一起。',
-    '我喜欢你，Mara。想和你交往。', '我也喜欢你，凛。', "Mara 伸出手，又看了一眼还在屋里的由美。凛也跟着望过去。由美正核对下一张表，头都没抬。", "最后，凛先牵住 Mara。Mara 收紧手指，低头笑了一下。两人走到楼梯口，凛才想起还没拿伞。",
+    '我喜欢你，Mara。想和你交往。', '我也喜欢你，凛。', '晚上回到凛的房间，她们把电影放了出来。', "Mara 伸出手，又看了一眼还在屋里的由美。凛也跟着望过去。由美正核对下一张表，头都没抬。", "最后，凛先牵住 Mara。Mara 收紧手指，低头笑了一下。两人走到楼梯口，凛才想起还没拿伞。",
   ])
   pass('normal reading follows recovery, the harbor cruise and cafe rest into a deliberate invitation and mutual confession')
   await title(); await button('章节选择').click()
@@ -369,7 +413,7 @@ try {
   await readNormallyUntil(() => button('先在台里核对原始录音与附件').isVisible(), [])
   await button('先在台里核对原始录音与附件').click()
   await readNormallyUntil(() => button('留下来，继续协助核查').isVisible(), [
-    '只是给设施方参考。', "凛停住，关掉逐字稿。录音从没提过锁门，是她自己越想越远了。",
+    '只是给设施方参考。', "录音没有提过锁门。这一层恐惧是她自己加上去的。",
     '哪句话写我不再投诉了', '他没有进围栏里的维护楼',
     '居民回函、完整视频和借道登记另列材料',
   ])
@@ -393,13 +437,13 @@ try {
     '没有查到外部改录音的记录', '九月，东京。星期六。',
     '十一月的一个星期六', '没有被要求以撤回投诉',
     '没有查到人为点火或居民破坏研究设备的证据', '没有进展览，也没有拿来宣传',
-    "信封留在家里的抽屉，日期写好了。凛没带出来。",
+    "信封已经收进抽屉，明早没有哪一页非得再查一次。",
   ])
   pass('normal reading closes the July and November investigation, compensation, archive and relationship aftermath')
   await button('返回标题').click(); await button('章节选择').click()
   await page.locator('[data-story-tree-node-id="chapter-04"] button').click(); await waitLine('六月二十二日')
   await readNormallyUntil(() => button('先为昨晚的隐瞒道歉').isVisible(), [
-    '可能是我自己听岔了。', "凛看着春香。这一次，两人听见的地方相同。",
+    '可能是我自己听岔了。', "春香在凛的记录下面也写下“东堤”。",
     '外勤先取消。所有人的', '二十点三十五分', "凛没有告诉她，自己刚才已经把名字写了下来。",
     '二十一点零五分', '她在普通线路维护区被困，救出时已失去意识，严重吸入烟气。',
     "睡不着时，凛又打开最早那份录音，依然听不清。她关掉播放，后来辨清的那句完整通报却在脑子里反复响起。", '八点零五分。设施管理方', '涉及你本人的那段事故警报，你收到副本了吗',

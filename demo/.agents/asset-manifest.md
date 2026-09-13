@@ -1,5 +1,27 @@
 # 美术素材需求与制作队列
 
+## 2026-09-12 已交付补图
+
+已新增并接入14张Flare medium图，17次调用（含3次定向修正），详见[制作记录](narrative-direction-assets.json)和[预览](narrative-direction-preview.html)。8张特写由QS使用 `inserts/` 资源名加载；6张空间背景补住处夜晚、电台雨夜、东京雨街、返程车窗、游船舱内和药妆店。下表的较早计划不表示全部已经制作。
+
+| 资源 | 画面 |
+| --- | --- |
+| `inserts/rain-paper-bag.webp` | 接站：凛臂弯里的纸袋与被压瘪的奶油面包 |
+| `inserts/archive-tape-splice.webp` | 序章：旧磁带、转录机和待确认的空标签 |
+| `inserts/photo-studio-bell.webp` | 第一章：从六号箱里找到、卸下门框的旧铜铃 |
+| `inserts/two-blue-umbrellas.webp` | 第三章：并排比对两把蓝伞，红线在伞带、白胶带在手柄 |
+| `inserts/return-line-closeup.webp` | 序章异常与第四章回放：返回通道表头和有线耳机 |
+| `inserts/nineteen-twelve-hands.webp` | 第六章：饮料放稳后，凛与Mara握住仍带水珠的手 |
+| `inserts/aoba-from-the-boat.webp` | 第七章：游船上看见的完整青叶海岸线，补上黑屏段 |
+| `inserts/cafe-shared-table.webp` | 第七章：两本漫画、两只勺子和共享布丁的桌面 |
+| `backgrounds/rin-room-night.webp` | 凛在青叶的住处：夜间申请、消息与独处 |
+| `backgrounds/radio-exterior-night.webp` | 海岸台雨夜门外：警告后离开与归途 |
+| `backgrounds/tokyo-neighborhood-rain.webp` | 东京课程后的街道、雨中通话 |
+| `backgrounds/train-window-day.webp` | 提前交接结局：返程列车上的消息 |
+| `backgrounds/tour-boat-cabin.webp` | 游船舱内与侧窗：从登船到开放观景平台 |
+| `backgrounds/drugstore-day.webp` | 二十四日补休日买旅行装洗发水：日用品货架 |
+
+
 2026-09-08 用户要求恢复生图，补齐当前 demo 的缺失美术，覆盖此前暂停指令。Images API重试已成功，但首张凛参考被用户否决为偏写实风格，未接入游戏。已停止旧批次，全部提示词改为明确的日本二次元赛璐璐风格（anime-cel-v2），人物后续又被指出同脸、等高与过于成熟，现按 [六人造型区分](character-visual-design.md) 使用heroine-summer-v7重做两位主角，配角保留distinct-cast-v3独立造型；背景保持anime-cel-v2。实际状态以机器清单为准。
 
 完整机器清单与最终提示词见 [art-production.json](art-production.json)。共99项：6张角色参考、40张立绘及差分、46张背景及变体、6张CG、1张标题图。这个数字是当前制作队列，不代表99张已完成，也不代表每个CG已经完成逐句分镜。新演播室为环境补充，目前QS没有室内参观段，先不强行接入。
