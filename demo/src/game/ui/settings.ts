@@ -1,22 +1,22 @@
-import type { SettingsFieldSlotPayload, SettingsFormSlotPayload, SettingsScopeSlotPayload } from '@quajs/renderer-vue/plugins/settings'
+import type { SettingsGroupSlotPayload, SettingsFieldSlotPayload, SettingsFormSlotPayload, SettingsScopeSlotPayload } from '@quajs/renderer-vue/plugins/settings'
 import { h } from 'vue'
 
 export function renderDemoSettingsHeader(payload: SettingsFormSlotPayload) {
   return h('header', { class: 'vn-settings-header' }, [
     h('div', { class: 'vn-settings-heading' }, [
-      h('h2', { class: 'vn-settings-title' }, 'Config'),
+      h('h2', { class: 'vn-settings-title' }, '设置'),
     ]),
     h('div', { class: 'vn-settings-header-actions' }, [
       h('button', {
         class: 'vn-settings-reset-all',
         type: 'button',
         onClick: payload.resetAll,
-      }, 'RESET'),
+      }, '恢复默认'),
       h('button', {
         class: 'vn-settings-close',
         type: 'button',
         onClick: payload.close,
-      }, 'CLOSE'),
+      }, '关闭'),
     ]),
   ])
 }
@@ -45,17 +45,22 @@ export function renderDemoSettingsControl(payload: SettingsFieldSlotPayload) {
 
 function renderDemoSettingsRange(payload: SettingsFieldSlotPayload) {
   const value = typeof payload.value === 'number' ? payload.value : Number(payload.value || 0)
+  const min = payload.field.control.min ?? 0
+  const max = payload.field.control.max ?? 100
+  const progress = Math.max(0, Math.min(100, (value - min) / (max - min || 1) * 100))
   return h('div', { class: 'vn-settings-control vn-settings-range' }, [
     h('input', {
       id: payload.inputId,
       class: 'vn-settings-range__input',
       type: 'range',
+      style: { '--range-progress': `${progress}%` },
+      'aria-valuetext': formatDemoSettingsValue(payload, value),
       min: payload.field.control.min,
       max: payload.field.control.max,
       step: payload.field.control.step,
       value,
       disabled: payload.disabled,
-      onChange: (event: Event) => {
+      onInput: (event: Event) => {
         const next = Number((event.target as HTMLInputElement).value)
         if (Number.isFinite(next)) {
           payload.update(next)
@@ -70,11 +75,12 @@ function renderDemoSettingsRange(payload: SettingsFieldSlotPayload) {
 }
 
 function renderDemoSettingsSelect(payload: SettingsFieldSlotPayload) {
-  const options = demoSettingsOptions(payload)
+  const options = demoSettingsOptions(payload).map(option => ({ ...option, label: payload.field.pathKey === 'skipMode' ? (option.value === 'all' ? '全部文字' : '仅已读文字') : payload.field.pathKey === 'frameRateLimit' ? `${option.value} 帧` : option.label }))
   return h('span', { class: 'vn-settings-control vn-settings-select' }, [
     h('select', {
       id: payload.inputId,
       class: 'vn-settings-select__input',
+      'data-setting': payload.field.pathKey,
       value: encodeDemoSettingsValue(payload.value),
       disabled: payload.disabled,
       onChange: (event: Event) => {
@@ -84,6 +90,11 @@ function renderDemoSettingsSelect(payload: SettingsFieldSlotPayload) {
       key: encodeDemoSettingsValue(option.value),
       value: encodeDemoSettingsValue(option.value),
     }, option.label || String(option.value)))),
+    h('span', { class: 'vn-settings-select__indicator', 'aria-hidden': 'true' }, [
+      h('svg', { viewBox: '0 0 24 24', fill: 'none', focusable: 'false' }, [
+        h('path', { d: 'M6 9l6 6 6-6', stroke: 'currentColor', 'stroke-width': 1.8, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }),
+      ]),
+    ]),
   ])
 }
 
@@ -101,7 +112,7 @@ function renderDemoSettingsSwitch(payload: SettingsFieldSlotPayload) {
     h('span', { class: 'vn-settings-switch__track' }, [
       h('span', { class: 'vn-settings-switch__thumb' }),
     ]),
-    h('span', { class: 'vn-settings-switch__label' }, checked ? 'ON' : 'OFF'),
+    h('span', { class: 'vn-settings-switch__label' }, checked ? '开' : '关'),
   ])
 }
 
@@ -145,10 +156,10 @@ function decodeDemoSettingsValue(value: string): unknown {
 
 function formatDemoSettingsValue(payload: SettingsFieldSlotPayload, value: number): string {
   if (payload.field.pathKey === 'autoAdvanceDelayMs') {
-    return `${Math.round(value)} ms`
+    return `${(value / 1000).toFixed(1)} 秒`
   }
   if (payload.field.pathKey === 'textSpeedCps') {
-    return `${Math.round(value)} cps`
+    return `每秒 ${Math.round(value)} 字`
   }
   return String(value)
 }
@@ -157,4 +168,26 @@ function titleFromToken(value: string): string {
   return value
     .replace(/[-_]+/g, ' ')
     .replace(/\b\w/g, char => char.toUpperCase())
+}
+
+const settingLabels: Record<string, string> = {
+  locale: '语言', textSpeedCps: '文字显示速度', autoAdvanceDelayMs: '自动阅读间隔',
+  skipMode: '快进范围', confirmBeforeQuit: '退出前确认', frameRateLimit: '画面帧率',
+  masterVolume: '总音量', bgmVolume: '音乐音量', sfxVolume: '音效音量', voiceVolume: '语音音量',
+}
+export function renderDemoSettingsLabel(payload: SettingsFieldSlotPayload) {
+  return h('label', { class: 'qua-settings-field-label', for: payload.inputId }, settingLabels[payload.field.pathKey] || payload.field.schema.title || payload.field.pathKey)
+}
+export function renderDemoSettingsDescription(payload: SettingsFieldSlotPayload) {
+  const descriptions: Record<string, string> = {
+    textSpeedCps: '点击可显示整句，再次点击继续。',
+    autoAdvanceDelayMs: '显示整句后，到下一句的等待时间。',
+    skipMode: '遇到选项时停止。',
+  }
+  return descriptions[payload.field.pathKey] ? h('p', { class: 'qua-settings-field-description' }, descriptions[payload.field.pathKey]) : null
+}
+
+export function renderDemoSettingsGroupHeader(payload: SettingsGroupSlotPayload) {
+  const names: Record<string, string> = { flowControl: '阅读', interaction: '操作', display: '显示', audio: '声音', volumes: '音量' }
+  return h('legend', { class: 'qua-settings-group-title' }, names[payload.group.id] || payload.group.label || '偏好设置')
 }

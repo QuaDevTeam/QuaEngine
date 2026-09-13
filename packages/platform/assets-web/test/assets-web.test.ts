@@ -1,6 +1,8 @@
-import type { AssetData, BundleManifest } from '@quajs/assets'
+import type { AssetData, BundleManifest, StoredAsset } from '@quajs/assets'
 import { MemoryAssetStorage, QuaAssets } from '@quajs/assets'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import Dexie, { type Table } from 'dexie'
+import { IDBFactory, IDBKeyRange } from 'fake-indexeddb'
 import {
   assetDataToBlob,
   createDevVfsProvider,
@@ -8,6 +10,7 @@ import {
   createObjectURLHandle,
   createViteDevAssetRuntime,
   createWebAssetRuntime,
+  createWebAssetStorage,
   createWebAssetsAdapter,
   getBlob,
   getBlobURL,
@@ -17,6 +20,81 @@ import {
 describe('assets-web adapter', () => {
   afterEach(() => {
     vi.restoreAllMocks()
+  })
+
+  it('backfills indexed aliases when opening an existing asset cache', async () => {
+    const previous = { ...Dexie.dependencies }
+    Dexie.dependencies.indexedDB = new IDBFactory()
+    Dexie.dependencies.IDBKeyRange = IDBKeyRange
+    const oldDatabase = new Dexie('asset-cache-upgrade-test')
+    oldDatabase.version(2).stores({
+      assets: 'id, bundleName, logicalBundleName, bundleVersionKey, name, type, locale, hash, version, lastAccessed, createdAt',
+      bundles: 'versionKey, name, logicalName, version, buildNumber, hash, lastUpdated, createdAt, active',
+    })
+    const storage = createWebAssetStorage({ databaseName: oldDatabase.name })
+    const database = storage as unknown as Dexie
+    try {
+      await oldDatabase.table('assets').put({
+        ...createAsset('cached image', 'image/png'), type: 'characters',
+        name: 'smile.png', path: 'mara/day/smile.png', hash: '', createdAt: 1, lastAccessed: 1,
+      })
+      oldDatabase.close()
+      await storage.open!()
+      const result = await storage.findAssets({ type: 'characters', name: 'day/smile.png' })
+      expect(result).toHaveLength(1)
+      expect(new TextDecoder().decode(result[0].data)).toBe('cached image')
+      expect((await storage.getCacheStats()).totalSize).toBe(12)
+      expect(await storage.cleanupAssets(0)).toBe(1)
+    }
+    finally {
+      oldDatabase.close()
+      await database.delete()
+      Object.assign(Dexie.dependencies, previous)
+    }
+  })
+
+  it('keeps byte payloads in IndexedDB and resolves path aliases without reading unrelated images', async () => {
+    const previous = { ...Dexie.dependencies }
+    Dexie.dependencies.indexedDB = new IDBFactory()
+    Dexie.dependencies.IDBKeyRange = IDBKeyRange
+    const storage = createWebAssetStorage({ databaseName: 'memory-lifecycle-test' })
+    const database = storage as unknown as Dexie & { assets: Table<StoredAsset> }
+    try {
+      await storage.open!()
+      const assets: StoredAsset[] = Array.from({ length: 20 }, (_, index) => ({
+        ...createAsset('x', 'image/png'), id: `image-${index}`, name: `pose-${index}.png`,
+        path: `mara/outfits/day/pose-${index}.png`, type: 'characters' as const,
+        data: new Uint8Array(512 * 1024).fill(index), size: 512 * 1024, hash: '',
+        createdAt: 1, lastAccessed: 1,
+      }))
+      const writes = vi.spyOn(database.assets, 'bulkPut')
+      await storage.storeAssets(assets)
+      expect(writes.mock.calls.length).toBe(2)
+      for (const [batch] of writes.mock.calls) {
+        expect((batch as StoredAsset[]).reduce((sum, asset) => sum + asset.data.byteLength, 0)).toBeLessThanOrEqual(8 * 1024 * 1024)
+      }
+      await storage.close!()
+      await storage.open!()
+      let readRecords = 0
+      database.assets.hook('reading', value => { readRecords += 1; return value })
+      const result = await storage.findAssets({ type: 'characters', name: 'day/pose-7.png' })
+      expect(result.map(asset => asset.id)).toEqual(['image-7'])
+      expect(result[0].data[0]).toBe(7)
+      expect(readRecords).toBe(1)
+      readRecords = 0
+      expect(await storage.getDatabaseSize()).toBe(10 * 1024 * 1024)
+      const stats = await storage.getCacheStats()
+      expect(stats.totalAssets).toBe(20)
+      expect(await storage.cleanupAssets(1024 * 1024)).toBe(18)
+      expect(await storage.getDatabaseSize()).toBe(1024 * 1024)
+      expect(readRecords).toBe(0) // statistics and eviction read index keys only
+      await storage.clearAll()
+      expect((await storage.getCacheStats()).totalAssets).toBe(0)
+    }
+    finally {
+      await database.delete()
+      Object.assign(Dexie.dependencies, previous)
+    }
   })
 
   it('fetches bytes and json through Fetch API adapter boundaries', async () => {

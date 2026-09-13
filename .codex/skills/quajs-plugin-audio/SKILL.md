@@ -113,13 +113,19 @@ Audio automation and animation keyframe `easing` values use QuaEngine timing fun
 
 ## Renderer Boundary
 
-Browser autoplay policy is handled by the Web renderer runtime. Autoplay blocks are not engine audio errors; pending tracks should start after a valid user activation unlocks WebAudio.
+Browser autoplay policy is handled by the Web renderer runtime. Autoplay blocks are not engine audio errors; pending tracks should start after a valid user activation unlocks WebAudio. Native window product runtimes may use an opt-in renderer-local backend such as `quajs_native_app`'s `native-window,native-audio-rodio` feature combination; it must consume engine-owned audio projection and QPK-loaded bytes only. The rodio native backend reports naturally finished non-looping tracks as standard `audio/ended` renderer intents, preserves `stopping` long enough to apply renderer-local fade-out, schedules `playAt` / `delayMs`, and applies `fadeInMs` / `fadeOutMs` without mutating engine state. Native audio backends that report completion, interruption, unlock, or playback errors should use `audio/ended`, `audio/interrupted`, `audio/unlocked`, and `audio/error` through the native renderer intent bridge instead of adding a native-specific event path.
+
+The demo native artifact and `dev:native`/`native:e2e` commands enable `native-audio-rodio` and project `demo-native-bgm` from the existing QPK title and story BGM assets. `@quajs/engine-native` maps plugin BGM/voice/SFX/ambient tracks to the Quack `audio` asset kind by default while retaining the track kind separately for playback policy and resource ids. The complete native E2E must prove that real title/story navigation drives backend load/start commands, reaches a non-zero peak active-track count, and returns to zero active tracks after shutdown. Do not treat an isolated frame or command-plan metrics alone as proof of a real audio backend when the feature is disabled.
+
+Native Rodio projection supports bounded processing stages for each track, its bus, and the master bus. EQ stages use the standard biquad types exposed by the audio projection, and automation may target gain or EQ parameters with strictly increasing points and Qua easing. Processing controls are renderer-local and updated without restarting a playing source; native capability declarations must continue to describe only the decoder/backend actually compiled into the artifact. WebAudio and native scheduling share the projection shape, but native and Web are not claimed to be sample-identical.
 
 Audio handles, decoded buffers, WebAudio nodes, Cocos handles, and scheduling internals are renderer-local transient resources. Engine/store owns audio intent.
 
+BGM crossfade is represented in engine-owned projection, not renderer-owned history. When a new BGM is played with `crossfadeMs`, the previous current BGM remains in `bgmOutgoing` as a `stopping` track with fade metadata while the new `bgm` track fades in. Renderers consume both projected tracks and report the outgoing track's `audio/ended` event so the plugin can clear it.
+
 ## Runtime Packages
 
-Audio asset refs and projections must preserve `contentPackageId` and `requiredRuntimePackages`. Runtime package unload should clear audio entries owned by or dependent on the unloaded package.
+Audio asset refs and projections must preserve `contentPackageId` and `requiredRuntimePackages`, including outgoing BGM crossfade tracks. Runtime package unload should clear audio entries owned by or dependent on the unloaded package.
 
 ## Validation
 
@@ -140,4 +146,6 @@ Also run affected renderer audio package tests/builds when renderer projection c
 - Do QuaScript decorators preserve chapter/line id behavior?
 - Are settings split into developer defaults and player preferences?
 - Are runtime package asset refs package-aware?
+- Are EQ bands and automation points validated for finite ranges, bounded counts, and supported property paths before reaching a native backend?
+- Does native audio keep processing controls renderer-local and avoid restarting sources for parameter updates?
 - If audio API, decorator, settings, or projection behavior changed, was this skill updated?

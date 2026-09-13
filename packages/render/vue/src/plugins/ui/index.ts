@@ -1,9 +1,15 @@
-import type { ResolveOverlayStackPlacementOptions, ViewUiOverlayProjection, ViewUiOverlaySurfaceProjection, ViewUiSceneProjection } from '@quajs/render-core'
+import type { SaveSlotProjection, ResolveOverlayStackPlacementOptions, ViewUiOverlayProjection, ViewUiOverlaySurfaceProjection, ViewUiSceneProjection } from '@quajs/render-core'
 import type { SaveSlotDataSource } from '@quajs/renderer-web/save-preview'
 import type { Component, PropType, VNode } from 'vue'
 import type { QuaVueRendererPlugin } from '../core'
 import {
   compareResolvedOverlayStackPlacement,
+  createMenuActionPresentation,
+  createSaveSlotGrid,
+  isFilledSaveSlot,
+  previewStatusLabel,
+  saveSlotDisplayName,
+  saveSlotMeta,
   DEFAULT_UI_OVERLAY_Z_INDEXES,
   getUiOverlaySurfaceProjection,
   LogicToRenderEvents,
@@ -25,7 +31,6 @@ import { dispatchVueRendererIntent } from '../shared/intent'
 import { createUiOverlayStackBinding } from '../shared/overlay'
 
 const BACKLOG_OPEN_REQUEST = 'backlog/open_request'
-const DEFAULT_SAVE_SLOT_COUNT = 12
 const SETTINGS_RENDERER_LAYER_ID = 'settings'
 const UI_OVERLAY_EXIT_MS = 180
 export const UI_TITLE_REQUEST_EVENT = 'ui/title_request'
@@ -80,35 +85,6 @@ type SaveLoadOverlayConfig = UiOverlaySkinConfig & {
   showQuickActions?: boolean
 }
 
-interface SaveSlotProjection {
-  slotId: string
-  name?: string
-  timestamp?: Date | string | number
-  revision?: number
-  saveOpId?: string
-  previewStatus?: 'none' | 'pending' | 'ready' | 'error'
-  previewSrc?: string
-  preview?: {
-    previewId: string
-    mimeType: string
-    byteLength: number
-    width?: number
-    height?: number
-    capturedAt: number
-    hash: string
-    policySummary?: Readonly<Record<string, unknown>>
-  }
-  metadata?: {
-    sceneName?: string
-    stepId?: string
-    chapterId?: string
-    routeId?: string
-    nodeId?: string
-    lineId?: string
-    playtime?: number
-    [key: string]: unknown
-  }
-}
 
 interface RenderedOverlayPresence {
   elementId: string
@@ -579,52 +555,28 @@ export const QuaMenuOverlay = defineComponent({
             showHeading: config.value.showHeaderTitle !== false,
             close: () => actions.requestUiClose(props.elementId),
           }),
-          h('div', { class: 'qua-menu-actions' }, [
+          h('div', { class: 'qua-menu-actions' }, createMenuActionPresentation(config.value).map(item =>
             h(QuaUiActionButton, {
-              className: 'qua-menu-action qua-menu-action--continue',
-              label: 'Continue',
-              onAction: () => actions.requestUiClose(props.elementId),
-            }),
-            h(QuaUiActionButton, {
-              className: 'qua-menu-action qua-menu-action--save',
-              label: 'Save',
-              onAction: () => openMenuTarget('saveLoad', createSaveLoadMenuConfig(config.value, props.elementId, 'save')),
-            }),
-            h(QuaUiActionButton, {
-              className: 'qua-menu-action qua-menu-action--load',
-              label: 'Load',
-              onAction: () => openMenuTarget('saveLoad', createSaveLoadMenuConfig(config.value, props.elementId, 'load')),
-            }),
-            h(QuaUiActionButton, {
-              className: 'qua-menu-action qua-menu-action--settings',
-              label: 'Settings',
+              key: item.id,
+              className: `qua-menu-action qua-menu-action--${item.id}`,
+              label: item.label,
               onAction: () => {
-                const placement = createSettingsMenuPlacement(config.value)
-                return openMenuTarget('settings', {
-                  source: props.elementId,
-                  ...placement,
-                  ...(config.value?.scene ? { scene: createChildUiScene(config.value.scene, 'settings', placement) } : {}),
-                })
+                switch (item.id) {
+                  case 'continue': return actions.requestUiClose(props.elementId)
+                  case 'save':
+                  case 'load': return openMenuTarget('saveLoad', createSaveLoadMenuConfig(config.value, props.elementId, item.id))
+                  case 'backlog': return actions.requestPluginEvent(BACKLOG_OPEN_REQUEST)
+                  case 'title': return openMenuTarget(titleConfirmElementId(config.value), createTitleConfirmMenuConfig(config.value, props.elementId))
+                  case 'settings': {
+                    const placement = createSettingsMenuPlacement(config.value)
+                    return openMenuTarget('settings', {
+                      source: props.elementId, ...placement,
+                      ...(config.value?.scene ? { scene: createChildUiScene(config.value.scene, 'settings', placement) } : {}),
+                    })
+                  }
+                }
               },
-            }),
-            config.value.showBacklog === false
-              ? null
-              : h(QuaUiActionButton, {
-                  className: 'qua-menu-action qua-menu-action--backlog',
-                  label: 'Backlog',
-                  onAction: () => actions.requestPluginEvent(BACKLOG_OPEN_REQUEST),
-                }),
-            config.value.showTitle === false
-              ? null
-              : h(QuaUiActionButton, {
-                  className: 'qua-menu-action qua-menu-action--title',
-                  label: config.value.titleActionLabel || 'Title',
-                  onAction: () => openMenuTarget(
-                    titleConfirmElementId(config.value),
-                    createTitleConfirmMenuConfig(config.value, props.elementId),
-                  ),
-                }),
-          ]),
+            }))),
           config.value.showFlowControls === false
             ? null
             : h('footer', { class: 'qua-menu-footer' }, [
@@ -1286,136 +1238,6 @@ function createTitleConfirmMenuConfig(config: MenuOverlayConfig | undefined, sou
   }
 }
 
-function createSaveSlotGrid(config: SaveLoadOverlayConfig | undefined, listedSlots: readonly SaveSlotProjection[] = []): SaveSlotProjection[] {
-  const byId = new Map([...listedSlots, ...(config?.slots || [])].map(slot => [slot.slotId, slot]))
-  const count = Math.max(config?.slotCount || DEFAULT_SAVE_SLOT_COUNT, config?.slots?.length || 0)
-  const prefix = config?.slotPrefix || 'slot'
-  const slots: SaveSlotProjection[] = []
-  for (let index = 0; index < count; index += 1) {
-    const fallbackId = `${prefix}-${index + 1}`
-    const provided = config?.slots?.[index]
-    const slotId = provided?.slotId || fallbackId
-    slots.push(byId.get(slotId) || provided || { slotId })
-  }
-  return slots
-}
-
-function saveSlotMeta(slot: SaveSlotProjection): string {
-  if (!isFilledSaveSlot(slot)) {
-    return 'No save data'
-  }
-  const pieces = [
-    formatTimestamp(slot.timestamp),
-    formatPlaytime(slot.metadata?.playtime),
-    saveSlotProgressLabel(slot),
-  ].filter(Boolean)
-  return pieces.join(' / ') || 'Saved'
-}
-
-function saveSlotDisplayName(slot: SaveSlotProjection, index: number): string {
-  if (!isFilledSaveSlot(slot)) {
-    return `Empty Slot ${String(index + 1).padStart(2, '0')}`
-  }
-  const storedName = readableStoredSlotName(slot.name)
-  if (storedName) {
-    return storedName
-  }
-  const metadata = slot.metadata || {}
-  const chapter = readableSlotLabel(metadata.chapterId)
-  const scene = readableSlotLabel(metadata.sceneName)
-  const route = readableSlotLabel(metadata.routeId)
-  const pieces = [
-    chapter ? `Chapter ${chapter}` : undefined,
-    scene,
-    route && route !== scene ? route : undefined,
-  ].filter(Boolean)
-  return pieces.join(' · ') || `Save ${String(index + 1).padStart(2, '0')}`
-}
-
-function saveSlotProgressLabel(slot: SaveSlotProjection): string | undefined {
-  const metadata = slot.metadata || {}
-  const line = readableSlotLabel(metadata.lineId)
-  const node = readableSlotLabel(metadata.nodeId)
-  const step = readableSlotLabel(metadata.stepId)
-  return line || node || step
-}
-
-function isFilledSaveSlot(slot: SaveSlotProjection): boolean {
-  return Boolean(
-    slot.timestamp
-    || slot.name
-    || slot.preview
-    || (slot.previewStatus && slot.previewStatus !== 'none')
-    || slot.metadata?.sceneName
-    || slot.metadata?.stepId,
-  )
-}
-
-function previewStatusLabel(slot: SaveSlotProjection, filled: boolean): string {
-  if (slot.previewStatus === 'pending') {
-    return 'Pending'
-  }
-  if (slot.previewStatus === 'error') {
-    return 'Retry'
-  }
-  return filled ? 'Saved' : 'Empty'
-}
-
-function formatTimestamp(timestamp: SaveSlotProjection['timestamp']): string | undefined {
-  if (!timestamp) {
-    return undefined
-  }
-  const date = new Date(timestamp)
-  if (Number.isNaN(date.getTime())) {
-    return undefined
-  }
-  return date.toLocaleString()
-}
-
-function formatPlaytime(playtime: number | undefined): string | undefined {
-  if (typeof playtime !== 'number' || !Number.isFinite(playtime) || playtime <= 0) {
-    return undefined
-  }
-  const totalSeconds = Math.floor(playtime / 1000)
-  const hours = Math.floor(totalSeconds / 3600)
-  const minutes = Math.floor((totalSeconds % 3600) / 60)
-  return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`
-}
-
-function readableSlotLabel(value: unknown): string | undefined {
-  if (typeof value !== 'string') {
-    return undefined
-  }
-  const normalized = value.trim()
-  if (!normalized || isInternalSlotLabel(normalized)) {
-    return undefined
-  }
-  return normalized
-    .replace(/\.[a-z0-9]+$/i, '')
-    .replace(/[-_:/\\]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .replace(/\b\w/g, char => char.toUpperCase())
-}
-
-function readableStoredSlotName(value: unknown): string | undefined {
-  if (typeof value !== 'string') {
-    return undefined
-  }
-  const normalized = value.trim()
-  if (!normalized || isInternalSlotLabel(normalized)) {
-    return undefined
-  }
-  return normalized
-}
-
-function isInternalSlotLabel(value: string): boolean {
-  return value.startsWith('@quajs/')
-    || value.includes('/ui-overlay-host')
-    || value.includes(':ui-overlay-host')
-    || /^slot-\d+$/i.test(value)
-    || value === 'quicksave'
-    || value === 'autosave'
-}
 
 function audioStatus(audio: SettingsAudioProjection | undefined): string {
   if (!audio) {

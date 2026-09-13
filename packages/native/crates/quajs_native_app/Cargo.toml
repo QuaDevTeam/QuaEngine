@@ -1,0 +1,50 @@
+[package]
+name = "quajs_native_app"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+version.workspace = true
+
+[features]
+default = []
+image-decode = ["quajs_wgpu_renderer/image-decode"]
+# Compile-time log ceiling. `log`'s `max_level_*` features are additive and
+# resolved by a least-verbose-wins cfg chain, so exposing one feature per level
+# would let a default `info` silently override an opt-in `debug`. Instead the
+# ceiling is Trace everywhere (runtime `QUA_NATIVE_LOG` does the filtering) and
+# this single flag strips `debug!`/`trace!` from shipping release builds so they
+# cost nothing at all.
+native-log-strip-release = ["log/release_max_level_info"]
+native-font-ab-glyph = ["dep:ab_glyph", "dep:wuff"]
+native-video-gif = ["dep:image"]
+native-audio-rodio = ["dep:rodio"]
+quickjs-rquickjs = ["quajs_native_runtime/quickjs-rquickjs"]
+native-window = [
+  "image-decode",
+  "native-font-ab-glyph",
+  "native-video-gif",
+  "dep:base64",
+  "dep:pollster",
+  "dep:sha1",
+  "dep:tungstenite",
+  "dep:wgpu",
+  "dep:winit",
+  "quajs_wgpu_renderer/real-wgpu-native",
+]
+
+[dependencies]
+ab_glyph = { version = "0.2", optional = true }
+base64 = { version = "0.22", optional = true }
+image = { version = "0.25", optional = true, default-features = false, features = ["gif"] }
+log.workspace = true
+quajs_native_runtime = { path = "../quajs_native_runtime" }
+quajs_wgpu_renderer = { path = "../quajs_wgpu_renderer" }
+pollster = { version = "0.4.0", optional = true }
+rodio = { version = "0.22.2", optional = true, default-features = false, features = ["playback", "symphonia-aac", "symphonia-flac", "symphonia-isomp4", "symphonia-mp3", "symphonia-ogg", "symphonia-pcm", "symphonia-vorbis", "symphonia-wav"] }
+serde.workspace = true
+serde_json.workspace = true
+sha1 = { version = "0.10", optional = true }
+tungstenite = { version = "0.26", optional = true, default-features = false, features = ["handshake"] }
+wgpu = { version = "29.0.3", optional = true, default-features = false, features = ["std", "wgsl"] }
+winit = { version = "0.30.12", optional = true }
+wuff = { version = "0.2.6", optional = true }

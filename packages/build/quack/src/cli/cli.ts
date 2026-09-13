@@ -13,6 +13,7 @@ import { QuackBundler } from '../core/bundler'
 import { buildLocalePack } from '../i18n/locale-pack'
 import { doctorQuaProjectConfig, findQuaProjectConfigFile, loadQuaProjectConfig, syncQuaProjectCocos } from '../project'
 import { readKeyFile, signQpkFile, verifyQpkFile } from '../security/signature'
+import { assertQuackPluginSpecifiersTargetIsolation } from '../target-plugin-isolation'
 import { getErrorMessage, getErrorStack } from '../utils/error'
 import { PatchGenerator } from '../workspace/patch-generator'
 import { VersionManager } from '../workspace/versioning'
@@ -1238,6 +1239,10 @@ async function loadConfig(source: string, options: any): Promise<QuackConfig> {
 }
 
 async function loadCliPlugins(specifiers: string[]): Promise<QuackPlugin[]> {
+  assertQuackPluginSpecifiersTargetIsolation(specifiers, {
+    fieldName: 'quack --plugin',
+  })
+
   const plugins: QuackPlugin[] = []
   for (const specifier of specifiers) {
     plugins.push(...await loadCliPlugin(specifier))

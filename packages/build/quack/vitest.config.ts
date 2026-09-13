@@ -34,6 +34,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
+      '@quajs/native-contracts': resolve(__dirname, '../../native/contracts/src/index.ts'),
       '@quajs/script-compiler': resolve(__dirname, '../script-compiler/src/index.ts'),
       '@quajs/story-graph/script-compiler': resolve(__dirname, '../../game/story-graph/src/script-compiler.ts'),
     },

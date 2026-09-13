@@ -126,6 +126,7 @@ export enum RenderToLogicEvents {
   USER_CLICK = 'user/click',
   USER_KEY_PRESS = 'user/key_press',
   USER_INPUT_COMMAND = 'user/input_command',
+  USER_TEXT_INPUT = 'user/text_input',
   USER_ADVANCE = 'user/advance',
   USER_CHOICE_SELECT = 'user/choice_select',
   FLOW_CONTROL_SET_MODE_REQUEST = 'flow_control/set_mode_request',
@@ -139,6 +140,7 @@ export enum RenderToLogicEvents {
   SAVE_PREVIEW_CAPTURE_RESULT = 'save_preview/capture_result',
   SAVE_PREVIEW_CAPTURE_ERROR = 'save_preview/capture_error',
   GAME_LOAD_REQUEST = 'game/load_request',
+  UI_INTENT = 'ui/intent',
   UI_REQUEST_OPEN = 'ui/request_open',
   UI_REQUEST_CLOSE = 'ui/request_close',
   UI_REQUEST_UPDATE = 'ui/request_update',
@@ -162,7 +164,7 @@ export interface ViewLayoutProjection {
   orientation: ViewLayoutOrientation
   width: number
   height: number
-  /** Preferred/reference aspect ratio. Renderers resolve the active ratio from the container and clamp it into the min/max interval. */
+  /** Fixed logical scene aspect ratio. Renderers fit and center this ratio inside their container. */
   aspectRatio: number
   minAspectRatio: number
   maxAspectRatio: number
@@ -282,6 +284,8 @@ export interface ViewVideoBackgroundProjection {
   muted?: boolean
   volume?: number
   playbackRate?: number
+  seekMs?: number
+  offsetMs?: number
   poster?: string
   transition?: TransitionIntent
   metadata?: Readonly<Record<string, unknown>>
@@ -307,8 +311,23 @@ export interface ViewBackgroundLayerProjection {
   metadata?: Readonly<Record<string, unknown>>
 }
 
+/** Authored 2D subject grading; no inferred geometry, normals or game state. */
+export interface CharacterLightingProjection {
+  /** sRGB channel multipliers; 1 is unchanged. Web clamps each to [0, 1.5]. */
+  ambient?: readonly [number, number, number]
+  /** Broad painted shade across each composed sprite, masked by its original alpha. */
+  shade?: {
+    color: readonly [number, number, number]
+    /** Normalized sprite-box coordinates, independent of stage pixels and DPR. */
+    from: readonly [number, number]
+    to: readonly [number, number]
+  }
+}
+
 export interface ViewBackgroundProjection {
   mode: BackgroundMode
+  /** Scene-authored character material; absent means the original sprite colors. */
+  characterLighting?: Readonly<CharacterLightingProjection>
   assetName?: string
   fit?: BackgroundFit
   origin?: string
@@ -936,6 +955,17 @@ export interface QuaViewProjection {
   effects: readonly Readonly<ViewEffectProjection>[]
   animations: readonly Readonly<ActiveAnimationProjection>[]
   plugins: Readonly<ViewPluginProjectionMap>
+  renderer?: Readonly<ViewRendererProjection>
+}
+
+/** Platform-level renderer configuration projected from the engine to
+ *  renderer implementations. Web renderers ignore fields they do not need;
+ *  native renderers use `targetFrameRate` to drive the frame pacer. */
+export interface ViewRendererProjection {
+  /** Target cadence in frames per second. Valid values are 30, 60, or 120.
+   *  Native renderers clamp to the display refresh rate and to [30, 240].
+   *  Absent means "use the platform default (60 FPS)". */
+  targetFrameRate?: number
 }
 
 export interface ViewPluginProjectionMap {
@@ -1042,6 +1072,12 @@ export interface UserChoiceSelectPayload {
   choiceId: string
 }
 
+export interface RendererUiIntentPayload {
+  action?: string
+  elementId?: string
+  [key: string]: unknown
+}
+
 export type RendererInputCommand
   = | 'advance'
     | 'auto:start'
@@ -1070,6 +1106,18 @@ export interface RendererInputCommandPayload {
   repeat?: boolean
   pressed?: boolean
   timestamp: number
+  metadata?: Readonly<Record<string, unknown>>
+}
+
+export type RendererTextInputPhase = 'enabled' | 'disabled' | 'preedit' | 'commit'
+
+export interface RendererTextInputPayload {
+  phase: RendererTextInputPhase
+  source: string
+  timestamp: number
+  text?: string
+  cursorStart?: number
+  cursorEnd?: number
   metadata?: Readonly<Record<string, unknown>>
 }
 
@@ -1260,6 +1308,7 @@ export interface RenderToLogicEventPayloadMap {
   [RenderToLogicEvents.USER_CLICK]: UserClickPayload
   [RenderToLogicEvents.USER_KEY_PRESS]: { key: string, code?: string }
   [RenderToLogicEvents.USER_INPUT_COMMAND]: RendererInputCommandPayload
+  [RenderToLogicEvents.USER_TEXT_INPUT]: RendererTextInputPayload
   [RenderToLogicEvents.USER_ADVANCE]: { source?: string }
   [RenderToLogicEvents.USER_CHOICE_SELECT]: UserChoiceSelectPayload
   [RenderToLogicEvents.FLOW_CONTROL_SET_MODE_REQUEST]: FlowControlSetModePayload
@@ -1273,6 +1322,7 @@ export interface RenderToLogicEventPayloadMap {
   [RenderToLogicEvents.SAVE_PREVIEW_CAPTURE_RESULT]: SavePreviewCaptureResultPayload
   [RenderToLogicEvents.SAVE_PREVIEW_CAPTURE_ERROR]: SavePreviewCaptureErrorPayload
   [RenderToLogicEvents.GAME_LOAD_REQUEST]: { slotId?: string }
+  [RenderToLogicEvents.UI_INTENT]: RendererUiIntentPayload
   [RenderToLogicEvents.UI_REQUEST_OPEN]: { elementId: string, config?: Record<string, unknown> }
   [RenderToLogicEvents.UI_REQUEST_CLOSE]: { elementId: string }
   [RenderToLogicEvents.UI_REQUEST_UPDATE]: { elementId: string, config: Record<string, unknown> }
@@ -1797,3 +1847,6 @@ function createFlowControlControls(policy: ResolvedFlowControlPolicy): FlowContr
     canAutoAdvance: policy.autoAdvanceable,
   }
 }
+
+export { createMenuActionPresentation, createSaveSlotGrid, saveSlotMeta, saveSlotDisplayName, isFilledSaveSlot, previewStatusLabel } from './ui-presentation'
+export type { MenuActionId, SaveSlotProjection, SaveSlotGridOptions } from './ui-presentation'

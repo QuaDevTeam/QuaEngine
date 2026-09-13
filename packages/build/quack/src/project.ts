@@ -6,6 +6,38 @@ import type {
 import { access, copyFile, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { basename, dirname, extname, isAbsolute, join, relative, resolve } from 'node:path'
 import { parse as parseYaml } from 'yaml'
+import {
+  normalizeQuaProjectNativeBuildConfig,
+  type QuaProjectNativeBuildConfig,
+} from './project-native-build'
+
+export {
+  hasQuaProjectNativeCargoFeature,
+  normalizeQuaProjectNativeBuildConfig,
+  normalizeQuaProjectNativeCargoFeatures,
+  QUA_NATIVE_QUICKJS_CARGO_FEATURE,
+  type QuaProjectNativeBuildConfig,
+} from './project-native-build'
+export {
+  createQuaProjectNativeArtifactPlans,
+  createQuaProjectNativeTargetBundleManifest,
+  emitQuaProjectNativeTargetBundleManifest,
+  QUA_NATIVE_TARGET_BUNDLE_MANIFEST_FILE,
+} from './project-native'
+export type {
+  EmitQuaProjectNativeTargetBundleManifestOptions,
+  EmittedQuaProjectNativeTargetBundleManifest,
+  QuaProjectNativeArtifactPlan,
+  QuaProjectNativeTargetBundleManifestOptions,
+} from './project-native'
+export {
+  emitQuaTargetBundleManifest,
+  QUA_TARGET_BUNDLE_MANIFEST_FILE,
+} from './project-target-bundle'
+export type {
+  EmitQuaTargetBundleManifestOptions,
+  EmittedQuaTargetBundleManifest,
+} from './project-target-bundle'
 
 export const QUA_PROJECT_CONFIG_CANDIDATES = [
   'qua.project.yaml',
@@ -17,6 +49,8 @@ export type QuaProjectConfigFileName = typeof QUA_PROJECT_CONFIG_CANDIDATES[numb
 export type QuaProjectDeviceClass = 'desktop' | 'pad' | 'phone'
 export type QuaProjectLayoutInput = 'landscape' | 'portrait' | (Record<string, unknown> & { preset?: 'landscape' | 'portrait' })
 export type QuaProjectWebServiceWorkerMode = 'generated' | 'none' | (string & {})
+export type QuaProjectNativePlatform = 'macos' | 'windows' | 'linux'
+export type QuaProjectNativeProfile = 'debug' | 'release'
 
 export interface QuaProjectHomeConfig {
   title?: string
@@ -76,9 +110,26 @@ export interface QuaProjectCocosTargetConfig {
   icons?: unknown
 }
 
+export interface QuaProjectNativeTargetConfig {
+  enabled?: boolean
+  platforms?: QuaProjectNativePlatform[]
+  profiles?: QuaProjectNativeProfile[]
+  layout?: QuaProjectLayoutInput
+  outputDir?: string
+  app?: {
+    bundleId?: string
+    version?: string
+    buildNumber?: string
+    icon?: string
+  }
+  assetTarget?: AssetBundleTarget
+  build?: QuaProjectNativeBuildConfig
+}
+
 export interface QuaProjectTargetsConfig {
   web?: false | QuaProjectWebTargetConfig
   cocos?: false | QuaProjectCocosTargetConfig
+  native?: false | QuaProjectNativeTargetConfig
 }
 
 export interface QuaProjectConfigV1 {
@@ -123,6 +174,22 @@ export interface NormalizedQuaProjectCocosTarget {
   icons?: unknown
 }
 
+export interface NormalizedQuaProjectNativeTarget {
+  enabled: boolean
+  platforms: QuaProjectNativePlatform[]
+  profiles: QuaProjectNativeProfile[]
+  layout: QuaProjectLayoutInput
+  outputDir: string
+  app: {
+    bundleId: string
+    version: string
+    buildNumber: string
+    icon?: string
+  }
+  assetTarget?: AssetBundleTarget
+  build: QuaProjectNativeBuildConfig
+}
+
 export interface NormalizedQuaProjectConfig {
   schemaVersion: 1
   name: string
@@ -133,6 +200,7 @@ export interface NormalizedQuaProjectConfig {
   targets: {
     web: NormalizedQuaProjectWebTarget
     cocos?: NormalizedQuaProjectCocosTarget
+    native?: NormalizedQuaProjectNativeTarget
   }
 }
 
@@ -190,7 +258,7 @@ export interface SyncQuaProjectCocosResult {
 }
 
 export type QuaProjectDoctorSeverity = 'info' | 'warning' | 'error'
-export type QuaProjectDoctorTarget = 'project' | 'web' | 'pwa' | 'cocos'
+export type QuaProjectDoctorTarget = 'project' | 'web' | 'pwa' | 'cocos' | 'native'
 
 export interface QuaProjectDoctorIssue {
   id: string
@@ -299,6 +367,11 @@ export function normalizeQuaProjectConfig(input: unknown, options: NormalizeQuaP
   const targetsInput = asRecord(root.targets) || {}
   const web = normalizeWebTarget(targetsInput.web, issues)
   const cocos = normalizeCocosTarget(targetsInput.cocos, issues)
+  const native = normalizeNativeTarget(targetsInput.native, {
+    bundleId,
+    issues,
+    projectVersion: version,
+  })
   validateIconReferences(icons, web, issues)
 
   if (issues.length > 0) {
@@ -315,6 +388,7 @@ export function normalizeQuaProjectConfig(input: unknown, options: NormalizeQuaP
     targets: {
       web,
       ...(cocos ? { cocos } : {}),
+      ...(native ? { native } : {}),
     },
   }
 }
@@ -449,6 +523,26 @@ export function createQuaProjectAssetTargets(project: NormalizedQuaProjectConfig
       })
     }
   }
+  const native = project.targets.native
+  if (native?.enabled) {
+    const configuredName = native.assetTarget?.name
+    const configuredSuffix = native.assetTarget?.suffix
+    const hasMultiplePlatforms = native.platforms.length > 1
+    for (const platform of native.platforms) {
+      const name = configuredName
+        ? hasMultiplePlatforms ? `${configuredName}-${platform}` : configuredName
+        : `native-${platform}`
+      const suffix = configuredSuffix
+        ? hasMultiplePlatforms ? `${configuredSuffix}-${platform}` : configuredSuffix
+        : name
+      targets.push({
+        ...(native.assetTarget || {}),
+        name,
+        platform: native.assetTarget?.platform || 'native',
+        suffix,
+      })
+    }
+  }
   return targets
 }
 
@@ -538,6 +632,7 @@ export async function doctorQuaProjectConfig(
 
   await doctorWebTarget(project, cwd, issues)
   await doctorCocosTarget(project, cwd, issues)
+  await doctorNativeTarget(project, cwd, issues)
 
   return {
     ok: !issues.some(issue => issue.severity === 'error'),
@@ -746,6 +841,64 @@ async function doctorCocosTarget(
   }
 }
 
+async function doctorNativeTarget(
+  project: NormalizedQuaProjectConfig,
+  cwd: string,
+  issues: QuaProjectDoctorIssue[],
+): Promise<void> {
+  const native = project.targets.native
+  if (!native?.enabled) {
+    issues.push({
+      id: 'native.disabled',
+      severity: 'info',
+      target: 'native',
+      message: 'Native target is not configured.',
+    })
+    return
+  }
+
+  issues.push({
+    id: 'native.platforms',
+    severity: 'info',
+    target: 'native',
+    message: `Native target platforms: ${native.platforms.join(', ')}.`,
+  })
+  issues.push({
+    id: 'native.profiles',
+    severity: 'info',
+    target: 'native',
+    message: `Native target profiles: ${native.profiles.join(', ')}.`,
+  })
+  issues.push({
+    id: 'native.output',
+    severity: 'info',
+    target: 'native',
+    filePath: native.outputDir,
+    message: `Native artifacts will be written under "${native.outputDir}" with profile and version isolation.`,
+  })
+
+  if (!native.app.bundleId || !native.app.version || !native.app.buildNumber) {
+    issues.push({
+      id: 'native.app.metadata',
+      severity: 'error',
+      target: 'native',
+      message: 'Native target app metadata must include bundleId, version, and buildNumber.',
+    })
+  }
+
+  const icon = native.app.icon || project.icons.source
+  if (!icon) {
+    issues.push({
+      id: 'native.icon.missing',
+      severity: 'error',
+      target: 'native',
+      message: 'Native target must declare targets.native.app.icon or icons.source for release packaging.',
+    })
+    return
+  }
+  await doctorLocalAssetSources([icon], cwd, 'native', issues)
+}
+
 async function doctorLocalAssetSources(
   sources: readonly string[],
   cwd: string,
@@ -864,6 +1017,72 @@ function normalizeCocosTarget(value: unknown, issues: string[]): NormalizedQuaPr
     buildOptions: asRecord(record.buildOptions) || {},
     icons: record.icons,
   }
+}
+
+function normalizeNativeTarget(
+  value: unknown,
+  context: { bundleId?: string, issues: string[], projectVersion: string },
+): NormalizedQuaProjectNativeTarget | undefined {
+  if (value === false || value === undefined) {
+    return undefined
+  }
+  const record = asRecord(value)
+  if (!record || booleanValue(record.enabled, true) === false) {
+    return undefined
+  }
+  const platforms = normalizeNativePlatforms(record.platforms, context.issues)
+  const profiles = normalizeNativeProfiles(record.profiles, context.issues)
+  const app = asRecord(record.app) || {}
+  const layout = normalizeLayout(record.layout)
+
+  return {
+    enabled: true,
+    platforms,
+    profiles,
+    layout,
+    outputDir: stringValue(record.outputDir) || 'dist/native',
+    app: {
+      bundleId: stringValue(app.bundleId) || context.bundleId || '',
+      version: stringValue(app.version) || context.projectVersion,
+      buildNumber: stringValue(app.buildNumber) || '1',
+      icon: stringValue(app.icon),
+    },
+    assetTarget: asRecord(record.assetTarget) as AssetBundleTarget | undefined,
+    build: normalizeQuaProjectNativeBuildConfig(record.build),
+  }
+}
+
+function normalizeNativePlatforms(value: unknown, issues: string[]): QuaProjectNativePlatform[] {
+  const rawPlatforms = Array.isArray(value) ? value.filter((platform): platform is string => typeof platform === 'string') : []
+  const platforms = rawPlatforms.filter((platform): platform is QuaProjectNativePlatform =>
+    platform === 'macos' || platform === 'windows' || platform === 'linux')
+  if (platforms.length === 0) {
+    issues.push('targets.native.platforms must include at least one of macos, windows, or linux when native is enabled.')
+  }
+  const invalid = rawPlatforms.filter(platform => platform !== 'macos' && platform !== 'windows' && platform !== 'linux')
+  if (invalid.length > 0) {
+    issues.push(`targets.native.platforms contains unsupported platform(s): ${[...new Set(invalid)].join(', ')}.`)
+  }
+  return [...new Set(platforms)]
+}
+
+function normalizeNativeProfiles(value: unknown, issues: string[]): QuaProjectNativeProfile[] {
+  const rawProfiles = value === undefined
+    ? ['debug', 'release']
+    : Array.isArray(value)
+      ? value.filter((profile): profile is string => typeof profile === 'string')
+      : []
+  const profiles = value === undefined
+    ? ['debug' as const, 'release' as const]
+    : rawProfiles.filter((profile): profile is QuaProjectNativeProfile => profile === 'debug' || profile === 'release')
+  if (profiles.length === 0) {
+    issues.push('targets.native.profiles must include debug or release when native is enabled.')
+  }
+  const invalid = rawProfiles.filter(profile => profile !== 'debug' && profile !== 'release')
+  if (invalid.length > 0) {
+    issues.push(`targets.native.profiles contains unsupported profile(s): ${[...new Set(invalid)].join(', ')}.`)
+  }
+  return [...new Set(profiles)]
 }
 
 function normalizeManifestIcons(value: unknown): QuaProjectManifestIconInput[] {

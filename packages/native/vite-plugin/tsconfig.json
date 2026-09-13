@@ -1,0 +1,16 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "moduleResolution": "bundler",
+    "rootDir": "..",
+    "outDir": "./dist",
+    "paths": {
+      "@quajs/native-ui-compiler": ["../ui-compiler/src/index.ts"],
+      "@quajs/native-ui": ["../ui-jsx/src/index.ts"]
+    }
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

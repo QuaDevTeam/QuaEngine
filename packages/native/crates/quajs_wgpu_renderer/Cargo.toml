@@ -1,0 +1,27 @@
+[package]
+name = "quajs_wgpu_renderer"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+version.workspace = true
+
+[features]
+default = []
+bench-smoke = []
+wgpu-backend = []
+real-wgpu = ["wgpu-backend", "dep:wgpu"]
+real-wgpu-noop = ["real-wgpu", "wgpu/noop"]
+real-wgpu-native = ["real-wgpu", "wgpu/dx12", "wgpu/metal", "wgpu/vulkan"]
+image-decode = ["real-wgpu", "dep:image"]
+
+[dependencies]
+log.workspace = true
+quajs_native_runtime = { path = "../quajs_native_runtime" }
+rustybuzz.workspace = true
+unicode-bidi.workspace = true
+unicode-linebreak.workspace = true
+unicode-segmentation = "1.12"
+serde.workspace = true
+serde_json.workspace = true
+wgpu = { version = "29.0.3", optional = true, default-features = false, features = ["std", "wgsl"] }
+image = { version = "0.25", optional = true, default-features = false, features = ["jpeg", "png", "webp"] }

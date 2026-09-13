@@ -1,0 +1,23 @@
+[package]
+name = "quajs_native_runtime"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+version.workspace = true
+
+[features]
+default = []
+quickjs-rquickjs = ["dep:rquickjs", "rquickjs/loader"]
+
+[dependencies]
+log.workspace = true
+rquickjs = { version = "0.12.1", optional = true, default-features = false, features = ["std"] }
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+
+[dev-dependencies]
+
+[[example]]
+name = "quickjs_performance"
+required-features = ["quickjs-rquickjs"]

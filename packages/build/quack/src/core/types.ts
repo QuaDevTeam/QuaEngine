@@ -455,7 +455,7 @@ export interface CocosAssetTargetMetadata extends Omit<CocosAssetTargetManifestM
 
 export interface AssetBundleTarget {
   name: string
-  platform?: 'web' | 'cocos' | (string & {})
+  platform?: 'web' | 'cocos' | 'native' | (string & {})
   displayName?: string
   suffix?: string
   description?: string

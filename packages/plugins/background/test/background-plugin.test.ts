@@ -63,6 +63,21 @@ describe('@quajs/plugin-background', () => {
     expect(engine.setBackgroundProjection).toHaveBeenLastCalledWith(undefined)
   })
 
+  it('owns a detached lighting profile and clears it on a plain scene replacement', async () => {
+    const engine = createEngine()
+    const characterLighting = {
+      ambient: [1, 0.95, 0.9] as [number, number, number],
+      shade: { color: [0.9, 0.95, 1] as [number, number, number], from: [0, 0] as [number, number], to: [1, 1] as [number, number] },
+    }
+    await setBackgroundWithEngine(engine, 'laundry.webp', { characterLighting })
+    characterLighting.ambient[0] = 0
+    characterLighting.shade.to[0] = 0
+    expect(engine.getViewState().background?.characterLighting?.ambient).toEqual([1, 0.95, 0.9])
+    expect(engine.getViewState().background?.characterLighting?.shade?.to).toEqual([1, 1])
+    await setBackgroundWithEngine(engine, 'day.webp')
+    expect(engine.getViewState().background?.characterLighting).toBeUndefined()
+  })
+
   it('writes video background projection state', async () => {
     const engine = createEngine()
 
@@ -342,6 +357,26 @@ describe('@quajs/plugin-background', () => {
       assetName: 'room.png',
       opacity: 0,
     }))
+  })
+
+  it('keeps destination lighting during crossfade and removes it for an unlit destination', async () => {
+    vi.useFakeTimers()
+    const engine = createEngine()
+    await setBackgroundWithEngine(engine, 'day.webp')
+    const characterLighting = { ambient: [0.8, 0.9, 1] as const }
+    const pending = setBackgroundWithEngine(engine, 'night.webp', { characterLighting, transition: { type: 'crossfade', duration: 100 } })
+    await vi.advanceTimersByTimeAsync(0)
+    expect(engine.getViewState().background?.mode).toBe('layered')
+    expect(engine.getViewState().background?.characterLighting).toEqual(characterLighting)
+    await vi.advanceTimersByTimeAsync(100)
+    await pending
+    expect(engine.getViewState().background?.characterLighting).toEqual(characterLighting)
+    const returnToDay = setBackgroundWithEngine(engine, 'day.webp', { transition: { type: 'crossfade', duration: 100 } })
+    await vi.advanceTimersByTimeAsync(0)
+    expect(engine.getViewState().background?.characterLighting).toBeUndefined()
+    await vi.advanceTimersByTimeAsync(100)
+    await returnToDay
+    expect(engine.getViewState().background?.characterLighting).toBeUndefined()
   })
 
   it('plays single layered background transitions through animation', async () => {

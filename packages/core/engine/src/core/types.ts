@@ -123,9 +123,11 @@ export interface GameStep {
 
 export type GameStepScope = Record<string, unknown>
 
-export type GameStepFactory<TScope = GameStepScope> = (scope: TScope) => GameStep[]
+export type GameStepList = GameStep[] | Promise<GameStep[]>
 
-export type OptionalGameStepFactory<TScope = GameStepScope> = (scope?: TScope) => GameStep[]
+export type GameStepFactory<TScope = GameStepScope> = (scope: TScope) => GameStepList
+
+export type OptionalGameStepFactory<TScope = GameStepScope> = (scope?: TScope) => GameStepList
 
 export type GameStepSource<TScope = GameStepScope> = GameStep[] | GameStepFactory<TScope> | OptionalGameStepFactory<TScope>
 
@@ -364,6 +366,7 @@ export interface QuaEngineInterface {
   startFastForward: () => Promise<void>
   stopFastForward: () => Promise<void>
   setLayoutProjection: (layout: ViewLayoutInput) => Promise<void>
+  setRendererOptions: (options: { targetFrameRate?: number }) => Promise<void>
   getPluginProjection: <T = unknown>(pluginId: string) => T | undefined
   setPluginProjection: <T = unknown>(pluginId: string, projection?: T) => Promise<void>
   waitFor: QuaEngineWaitFor

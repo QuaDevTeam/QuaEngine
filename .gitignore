@@ -13,7 +13,13 @@ CLAUDE.md
 *.timestamp*.mjs
 output
 .playwright-cli/
+playwright-report/
+test-results/
+blob-report/
+demo/assets/scripts/native-app.mjs
 .local/
 .local-pack-test/
 .codegraph/
+.codex-tmp/
 *.tgz
+packages/native/target/

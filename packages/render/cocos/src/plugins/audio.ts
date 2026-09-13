@@ -69,6 +69,7 @@ function hasDynamicAudioProjection(value: unknown): boolean {
     return true
   const tracks = [
     projection.bgm,
+    ...(Array.isArray(projection.bgmOutgoing) ? projection.bgmOutgoing : []),
     ...(Array.isArray(projection.voices) ? projection.voices : []),
     ...(Array.isArray(projection.sfx) ? projection.sfx : []),
     ...(Array.isArray(projection.ambients) ? projection.ambients : []),

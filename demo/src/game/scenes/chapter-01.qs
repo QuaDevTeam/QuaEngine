@@ -1,0 +1,546 @@
+<script lang="ts">
+import type { StoryScope } from '../story/prologue-state'
+export interface Scope extends StoryScope {}
+</script>
+
+@Chapter('01', { title: '同一段海风' })
+@Scene('call-me-tomorrow-prologue')
+@Node('chapter-01', { title: '同一段海风' })
+@Protagonist('rin')
+@HideCharacter('rin')
+@HideCharacter('haruka')
+@HideCharacter('mayu')
+@HideCharacter('reiko')
+@HideCharacter('yumi')
+@SetBackground('backgrounds/radio-archive-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })
+@ShowCharacter('mara', { expression: 'neutral', position: { x: 480, y: 750, scale: 1, rotation: 0, anchor: 'center' } })
+六月十三日，上午十点半。海岸台档案室。
+昨晚那只杯子被 Mara 洗净，倒扣在她自己的饭盒旁边。她还在杯底压了一张纸条。
+神代凛: “今天不外借”。这是春香的杯子吧。
+Mara: 她同意了。今晚对照完就还。
+神代凛: 她也愿意陪你看着这只杯子？
+Mara: 愿意。就看到今晚，看我还会不会找不着它。
+她一本正经地说完，又盯住了凛的屏幕。凛点开昨晚的原件，不做降噪，也不调速度。
+录音里的 Mara 仍在找杯子。电脑旁边，她本人正用指节碰着杯沿。
+Mara: 没变。
+神代凛: 纸条管的是今天。昨晚那句话已经录进去了。
+@SetExpression('smile', 'mara')
+Mara: 你昨晚也确认了三遍。
+凛没能反驳。昨晚回到短租房以后，她的确又对过一次校验值。由美让几人今天晚些到，后面的资料确认也一起顺延了。
+凛在纸上列了三项：缓存、串线、错标的预录。每一项她都碰见过，也知道从哪里查。
+她拔下笔帽，准备往下写，却找不到第四种寻常的解释。
+@ShowCharacter('yumi', { expression: 'neutral', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })
+@CharacterEnter('yumi', 'right', 280, { x: 960, y: 750, offset: 70, easing: 'easeOutCubic' }, true)
+青木由美: 我联系到高桥了。她十一点半到。这段先别往节目里放，也别转到工作群之外。
+神代凛: 我做了只读副本。接收时间、机器校时，还有谁在房间里，都记在旁边。
+青木由美: 好。待会儿给高桥看，我也一起听。
+春香带来前一晚的播出日志，纸张边角夹着一枚面包屑。
+水野春香: 所有预录轨都在这里。港口那条通知，我真的没写过。
+神代凛: 我知道。我们再查查自动播放的记录。
+水野春香: 嗯。杯子是昨晚借给 Mara 的，这个时间要不要也记上？
+Mara: 谢谢你把这件事写进事故调查。
+水野春香: 目前唯一事故，是你把我的杯子扣留了。
+凛把播出日志放在左边，右边空出来，等港口的通知。
+
+@Choice('先核对节目的原始录音', undefined, { id: 'verify-audio' })
+@Choice('先核对港口通知', undefined, { id: 'verify-notice' })
+
+神代凛: ${scope.pick('verify-notice', '我去查通知。请保留节目的原始录音，等我回来一起对。', '先听原始录音吧。通知那边请由美联系，我们两边都留原始时间。')}
+Mara: ${scope.pick('verify-notice', '我陪你去市民服务窗口。那边可以查通知是什么时候收到的。', '我把线路一段一段断开。你看输入电平，别拔到还在播的那一排。')}
+${scope.pick('verify-notice', '市民服务窗口的工作人员先确认了凛的委托证，再打开通知的接收登记表。Mara 没替凛回答，只在她漏说编号时，把便签推过来。', 'Mara 蹲在普通音频架前，每拔下一路就念一次标签。凛重复确认，画掉一条。两人花了四十分钟，Mara 一直没催。')}
+神代凛: ${scope.pick('verify-notice', '昨天二十点之前，有二号车辆入口的通告吗？', '这一路断开以后，普通节目还在。异常返回是独立输入。')}
+${scope.pick('verify-notice', '工作人员摇头，打印出今早的签发时间，盖了章交给两人，又提醒她们施工时间还可能调整，明天要再确认。', '正式播出轨里没有找杯子的声音。凛又查了素材库，也没找到。Mara 问还有哪台播放器没对过。')}
+中午前，两边的结果都回到桌上。春香负责把每张截图和原文件对应起来，凛负责逐项复核。
+港务处今早九点二十分签发的通知，写着次日清晨五点关闭东侧二号车辆入口，步行通道不变。
+凛的笔从“东侧二号入口”移到“五点”，再移到页末。她原想找一个不同的字，哪怕只是一处改过的措辞。
+没有。连最后一句提醒都一样。
+节目库中没有对应预录。正式播出日志也证实，昨晚公众听到的是另一段节目。
+水野春香: 那我今晚换一句开场白呢？通知照读，别的地方跟它说得不一样。
+神代凛: 可以。正式通知的时间和入口别改，有人会照着那个时间出门。
+@ShowCharacter('mayu', { expression: 'neutral', position: { x: 1440, y: 750, scale: 1, rotation: 0, anchor: 'center' } })
+@CharacterEnter('mayu', 'right', 280, { x: 1440, y: 750, offset: 70, easing: 'easeOutCubic' }, true)
+高桥真由: 对。普通节目按核实后的事实播，返回线只监听。
+真由提着电脑包进来，包底还在滴水。Mara 拿了条毛巾给她。
+她先请她们保持接线原样，又跟由美确认监听范围。借用设备的工作单上有她的签字。
+高桥真由: 昨天是交接前第一次带载接收。旧返回线应当送进我们那边，维护单没有删掉广播室的旧接口，是我们的疏漏。
+@SetExpression('serious', 'mara')
+Mara: 所以不是我们接错了？
+高桥真由: 你们照普通维护清单做的。需要改清单的人是我们。
+
+@Node('verification-purpose', { title: '海音借来的三分钟' })
+@HideCharacter('rin')
+@HideCharacter('haruka')
+@HideCharacter('reiko')
+@SetBackground('backgrounds/radio-rented-room-day-anime-v4.webp', { transition: { type: 'crossfade', duration: 320 } })
+@ShowCharacter('mayu', { expression: 'serious', position: { x: 480, y: 750, scale: 1, rotation: 0, anchor: 'center' } })
+@ShowCharacter('mara', { expression: 'neutral', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })
+@ShowCharacter('yumi', { expression: 'neutral', position: { x: 1440, y: 750, scale: 1, rotation: 0, anchor: 'center' } })
+真由把重新接线的工单放到电脑旁，问能不能把她们的原始记录收回研究目录。
+神代凛: 收回是什么意思？我们这边不留？
+高桥真由: 我想先归档。意外收听没有在原来的采样范围里。
+青木由美: 她们照你们签的单子接线。范围是你们没改清，不是她们自己进去找的。
+@SetExpression('hesitant', 'mayu')
+真由的手停在工作单上，随后慢慢收了回去。那张纸仍夹在两人之间，谁也没有拿走。
+高桥真由: 对。我不是追究你们。副本可以留，但不能放进公开素材库。我需要知道接收时发生了什么。
+神代凛: 我也需要知道。
+真由看着凛。凛把独立签发的通知推过去，手指压住九点二十分那个时间。
+神代凛: 前天你给我们看的是旧数据补传。这个不是。通知今天才发，我们昨晚就收到了。你们想让信号提前回来，到底是提前到什么时候？
+真由没立即打开演示文档。她从包里取出一本薄册子，翻到有海岸监测图的一页。
+高桥真由: 提前到另一端还没有送出它的时候。
+凛没有听懂似的，又看了一次通知。九点二十分的签发章就在指尖下，墨迹清清楚楚。
+昨晚她戴上耳机的时候，这枚章还没有盖下去。
+@SetExpression('hesitant', 'mara')
+Mara: 不是把路上耽误的一分多钟省掉？
+高桥真由: 不是。前天只讲了普通对照，没有把配对端点的结果告诉你们。现在你们实际收到了，我需要把这一部分说清楚。
+她在监测图旁圈出两个端点，没有再拿旧数据的曲线作例子。
+高桥真由: 目前只能在一对校准过的端点之间接到很短的音频，返回时间固定，窗口也固定。距离给公众使用还很远。
+神代凛: 不是用天气资料算明天会播什么？
+高桥真由: 它没有在算天气。另一端送进什么声音，这边就接到什么。我们暂时把它叫作配对返回。
+说到“暂时”，她的笔停在图上的端点旁。
+@SetExpression('hesitant', 'mayu')
+高桥真由: 只有这组条件能收到，窗口也一直扩不大。原因我还没弄清楚。你要是不信，我把每次的实测记录拿来，我们一起对。
+凛低头看那张监测图。图上画得很完整，离岸传感器、岸上值守、提前处置，每一块之间都有箭头。
+凛的目光顺着箭头走到“提前处置”，又退回页边那行实测时长。三分钟。她昨晚数着秒针等完的，就这么长。
+神代凛: 那我刚才理解错了。这张图是你们以后想做成的样子？
+高桥真由: 对。不是现在已经做到的。
+Mara: 可我们播的是点歌、港口通知。真要拿到海上用，也得先让人把读数念出来？
+高桥真由: 读数可以转成声音，也可以编码，前天的样本就是这样做的。现在原型接的是音频接口，人声和别的声音都能送进去。选海岸台，是方便独立核对。
+神代凛: 那正式的监测数据呢？
+高桥真由: 我还不敢交给港口用。时间准不准、误差多大，都得再测。更何况，那边真会照着消息撤人，不能只看我们在实验室里成功过一次。
+凛将那张通知往她面前推近了一点。
+神代凛: 这份至少不是你们自己写的。
+高桥真由: 对。通知的签发时间要向港务处核实，接收时间查原记录，节目再单独对。任何一项有错，都得重新解释。
+Mara: 所以前天你让我们保留纸响，也是在等这个？
+高桥真由: 是。只有一段报时，很难排除有人照着日期预录。实际节目里有人停顿、翻纸，还有你们独立留下的输出，才能一项项对照。
+神代凛: 还能对我们今天的实际播出。
+高桥真由: 是。公开输出只读分了一路给采集端，节目还走自己的广播链。返回端原本该在研究室监听，旧维护表留下了你们这边的接口。
+Mara 把接线工单翻到第二页。那格接口编号仍然印着，没有手写修改的痕迹。
+Mara: 我们昨天接的是普通音频口。没有开过试验电源。
+高桥真由: 我知道。六月十二日的诊断接收由研究组安排，不是你们把设备启动了。
+由美让真由将这段说明附到工作单后面。她看完才问，之后是否需要台里继续配合。
+高桥真由: 我希望继续采样，仍然只读，不干预节目。另外也想请收到提醒的人，记一下自己后来做了什么。
+@SetExpression('serious', 'yumi')
+青木由美: 我先说好，节目还是按我们核实过的稿子播。要请谁帮你记录，也得问她本人，不能把台里的排班直接拿过去用。
+@SetExpression('neutral', 'mayu')
+高桥真由: 同意。我会给监听范围和联系人。要退出也可以，只关普通监听，不需要碰科研电源。
+纸快写满了，最上面那句“谁放的预录”仍没划掉。凛在下面另起一行。
+神代凛: 先把线路画给我们看。
+真由在纸上画出节目输出、研究采集与返回端，用箭头连起来，又在两端分别标下日期和时刻。
+高桥真由: 这边每天二十点到二十点零三分，收到另一端在次日同一时段送出的声音。提前量是二十四小时，三分钟以外收不到。
+神代凛: 你把时间差说得很确定。
+高桥真由: 我们测过，不止一次。记录我可以给你看，光听我这么说，你肯定不放心。
+神代凛: 那我们在电脑上重放昨晚这份，也会再次发出去？
+高桥真由: 不会。耳机和这台电脑没有传输能力，只有正式节目的那一路输出接着采集端。返回线也不要接进节目输出，免得把重放的旧录音当成新结果。
+@SetExpression('serious', 'mara')
+Mara: 我们能做什么？
+高桥真由: 在台里做只读记录。研究区的设备不要碰。普通广播和科研设备分开，关监听也不等于关科研电源。
+由美把许可的范围重新念了一遍，等所有人点头才签字。
+凛收好许可单，在自己的工作表上记下高桥的电话。
+Mara 的工作电话响起来。她先说正在开会，听见对方报接线工单的编号，又请她们等一下。
+@SetExpression('pose-phone', 'mara')
+Mara: 对，我是普通线路联系人。昨天接口核对完，二十点零三分结束记录。科研设备的部分请找高桥，她现在在台里。
+她确认完工作单的收件地址，把通话记录写在表背。
+@SetExpression('neutral', 'mara')
+Mara: 搬迁以后这个联系人还用我吗？
+青木由美: 这月先不改。之后排班定下来，再统一通知设施方。
+Mara 点头，把那张表放回联络桌。真由将自己的研究值班电话另写在旁边，没有覆盖原来的号码。
+
+@Node('verification-lunch', { title: '热饭的人' })
+@HideCharacter('rin')
+@HideCharacter('haruka')
+@HideCharacter('mayu')
+@HideCharacter('reiko')
+@HideCharacter('yumi')
+@SetBackground('backgrounds/radio-breakroom-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })
+@ShowCharacter('mara', { expression: 'neutral', position: { x: 480, y: 750, scale: 1, rotation: 0, anchor: 'center' } })
+下午，凛在休息间拆开饭盒。冷米饭粘成一块，Mara 看了一眼墙上的钟。
+Mara: 你也把午饭忘了。
+神代凛: 现在才一点。
+@SetExpression('smile', 'mara')
+Mara: 十二点买的，都放凉了。先热一下吧。
+她伸手要拿，凛按住盖子。
+神代凛: 我自己热。你的呢？
+Mara 看向桌边那只一直没开过的袋子。凛把她那盒也拿出来，将压在下面的节目单留在桌上。
+神代凛: 我去热饭。你把播出顺序确认完。
+Mara: 不顺便帮我全做了？
+神代凛: 我热两份已经是极限。
+Mara 笑出声。凛提起两只饭盒去加热，隔着玻璃听见 Mara 说了声谢谢。
+微波炉的转盘转得很慢。凛站在旁边等，顺手在手机上打开Mara发来的专题试听单。
+有一处转场没有定。凛差点给她选了那段最短的垫乐，手指悬在确认键上，最后只记下两个候选时长。
+凛带着热好的饭回来，把两个候选时长写到节目单上，推给 Mara。她又擦掉盒盖上的水，才把饭放到电脑旁。
+Mara: 这两段你选哪一个？
+神代凛: 想留老人最后那句，就得多给现场声几秒。
+@SetExpression('pose-listening', 'mara')
+Mara: 那用短的垫乐。先让他说完。
+@AnimationTimeline(300, true)
+@Key('character:mara', 'position.y', 0, 750, 'ease-in-out')
+@Key('character:mara', 'position.y', 300, 785, 'ease-in-out')
+Mara 按下确认，坐到凛对面。走廊里的电话又响，她朝门口看了一眼。凛以为她又要走，这次却见她把饭盒拉近了些。
+Mara: 由美在接。让我先吃两口。
+神代凛: 你下午还要出去？
+Mara: 取一个话筒夹。店里说到货了……等一下。
+她翻开收货消息，看着日期，眉毛慢慢抬起来。
+Mara: 明早到。我刚才看漏“明”字。
+神代凛: 那今天可以少跑一趟。
+Mara: 可以慢慢吃了。
+Mara 挑出一块腌菜放到盒盖上，又夹起一口饭。凛夹起自己那份尝了尝，咸得皱眉，忽然有点理解她。
+门口的风带进一点潮气，衣架上的毛巾碰着墙。凛问哪里有自助洗衣店，短租房的衣服晾了一夜，袖口摸着仍是湿的。
+Mara: 商店街背面。有一台烘干机声音很响，门上贴着纸，你别用那个。
+神代凛: 坏的？
+Mara: 店主说能用。我妈说吵得像她开的巴士。
+神代凛: 她开的哪条线？
+Mara: 郊区那条。往水库走的，弯道很多。她说坐自己开的车没事，坐别人开的又会晕。
+神代凛: 你坐她的车呢？
+Mara: 我没事。就是一下车，她又问怎么没穿外套，全车都听见了。
+凛笑起来。Mara 说，下次想去水库可以问她母亲，哪班车回来不用等太久，她比站牌记得还清楚。
+她问凛在东京有没有常去的店。凛说最近常去楼下那家便当店，再远一点就只有洗衣店。
+Mara: 都是办事顺便去的地方。
+神代凛: 下班晚，开着门的也不多。
+Mara: 休息的时候呢？
+凛咬着筷子，半天没答上来。Mara 低头拌了拌饭，没有催她。
+电话终于转来找她。Mara 咽下那口饭，接通，说自己现在只能确认编号，实际取件明天再去。
+通话结束，她把手机翻过来放好。
+Mara: 刚才说到休息日。你可以慢慢想。
+神代凛: 有时听音乐。走到哪里算哪里，不一定有目的地。
+Mara: 这个我也会。就是走着走着，经常被叫去抬东西。
+神代凛: 你可以别每条街都认识人。
+Mara: 太迟了。
+Mara 吃掉最后一口饭，低头看了看空盒，又伸手摸了一下还温着的盒底。
+回剪辑桌以后，她隔着玻璃朝凛指了一下耳朵。凛摘下耳机，她才问刚才提过的洗衣店，要不要画张简图。
+凛说要。Mara 在收据背面画了两个转角，又多添一笔，标出晚上仍亮着灯的入口。
+两点，上午列的核对项都处理完了。由美让她们按拆开的班次休息，四点半回来准备晚间对照。凛带着那张简图回房间，Mara 去办她的事。
+再回来时，真由已经在写后续值班安排。接收端会按原定窗口保存，由研究值班人员核对是否录全；许可内的副本放进受限目录。
+@ShowCharacter('mayu', { expression: 'neutral', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })
+@CharacterEnter('mayu', 'right', 280, { x: 960, y: 750, offset: 70, easing: 'easeOutCubic' }, true)
+高桥真由: 有需要立刻处理的异常，我和台里当班的人先联系。其他记录你们上班再看，不必每天回来等。
+@ShowCharacter('yumi', { expression: 'neutral', position: { x: 1440, y: 750, scale: 1, rotation: 0, anchor: 'center' } })
+@CharacterEnter('yumi', 'right', 280, { x: 1440, y: 750, offset: 70, easing: 'easeOutCubic' }, true)
+青木由美: 晚班的节目也有人接。春香不在就我来，还有两位固定代班。别把所有晚班都填在你们俩名下。
+Mara 翻到下周，找到十九号那个休息日，指给凛看。凛也在自己的表上标好，才将笔帽扣上。
+
+@Node('verification-cup', { title: '不用再找杯子' })
+@HideCharacter('rin')
+@HideCharacter('haruka')
+@HideCharacter('reiko')
+@HideCharacter('yumi')
+@SetBackground('backgrounds/radio-monitor-night-anime-v3.webp', { characterLighting: { ambient: [0.93, 0.96, 1.02], shade: { color: [0.88, 0.92, 1], from: [0.2, 0], to: [0.8, 1] } }, transition: { type: 'crossfade', duration: 320 } })
+@ShowCharacter('mara', { expression: 'neutral', position: { x: 700, y: 750, scale: 1, rotation: 0, anchor: 'center' } })
+@ShowCharacter('mayu', { expression: 'serious', position: { x: 1220, y: 750, scale: 1, rotation: 0, anchor: 'center' } })
+晚上八点，春香按照正式通知播报港口改道。副话筒已经关闭。
+Mara捧着杯子，低头吹了吹热茶。直到改道消息播完，也没有再问过杯子在哪儿。
+监听返回里也传来春香的声音，说的却是六月十四日当天的港口通行情形。凛先记下日期，将这三分钟完整录下。
+二十点零三分，接收结束。凛将今晚的返回另存好，先把昨天的返回和今天的播出分轨排在一起。昨天那份里，Mara 问了杯子；今天的播出里没有。
+高桥真由: 先看找杯子这份。我们现在的解释是，它来自另一个“今天”。那边没有收到昨晚这条新提醒，Mara 不知道自己会找杯子，也就没有提前把杯子收好。
+神代凛: 分开的地方，是昨晚收到这条录音的时候？在那之前，两边经历的事都一样？
+高桥真由: 对。更早收到过的返回也一样。不过还缺几项对照，这暂时只是我们的解释。
+Mara: 至少今天我没找杯子。这份录音，也没有跟着变。
+她把杯子还给春香。杯底那张纸被水浸透，只剩“今天”两个字。
+@Node('odd-photo-bell', { title: '关门以后的铃声' })
+@HideCharacter('rin')
+@HideCharacter('haruka')
+@HideCharacter('mayu')
+@HideCharacter('reiko')
+@HideCharacter('yumi')
+@SetBackground('backgrounds/radio-monitor-night-anime-v3.webp', { characterLighting: { ambient: [0.93, 0.96, 1.02], shade: { color: [0.88, 0.92, 1], from: [0.2, 0], to: [0.8, 1] } }, transition: { type: 'crossfade', duration: 320 } })
+@ShowCharacter('mara', { expression: 'hesitant', position: { x: 480, y: 750, scale: 1, rotation: 0, anchor: 'center' } })
+杯子收走以后，凛打开今晚刚保存的返回，从头回放。
+港口消息后面并不是另一条通知。先有一下轻响，像金属碰到玻璃，紧跟着又响了两声，最后一声低下去，留着一点颤。
+@AnimationTimeline(340, true)
+@Key('character:mara', 'position.x', 0, 480)
+@Key('character:mara', 'position.x', 340, 650, 'easeOutCubic')
+Mara 已经走到门边。听见第三声铃，她停下，手从门把上滑开，转身走回凛旁边。
+监听返回／女人的声音: 门再推一点。对，停在那里。
+录音里说话的人尾音有点哑，听着上了年纪。接着是一阵翻纸声，凳脚在地上拖了一下。
+监听返回／Mara的声音: 还是第三下慢。
+监听返回／女人的声音: 一直就这样。你小时候非说它少响一次。
+凛看向身旁的 Mara。她嘴唇动了动，没有接话。
+返回里的春香接着介绍，这段声音来自商店街的老照相馆。介绍还没念完，三分钟的录音就到了末尾，停在“明天起”三个字后面。
+凛没有马上重听。房间里的空调声一下子显得很响。
+神代凛: 以前录过？
+@SetExpression('hesitant', 'mara')
+Mara: 那家店关了。
+神代凛: 多久？
+Mara: 去年冬天。里面都搬空了。
+她将手里的文件夹放下，指向凛屏幕上刚保存的那一条。
+Mara: 这段我没录过。
+春香说，月底专题确实打算放一些老店的声音。她把选题表拿来，照相馆在候选那一栏，后面画着一条横线。
+@ShowCharacter('haruka', { expression: 'serious', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })
+@CharacterEnter('haruka', 'right', 280, { x: 960, y: 750, offset: 70, easing: 'easeOutCubic' }, true)
+水野春香: 老板说不用来了。我还没来得及删。
+Mara: 她现在住女儿那里。钥匙也交回去了。
+凛将录音倒回铃响以前，连着听。港口消息结束之后有一小段节目垫乐，铃声是垫乐收掉以后才进来的。
+神代凛: 铃声是和采访一起剪进去的。店关了，也可能在别处录。
+Mara: 我知道。
+她答得太快，过一会儿才把文件夹往桌子里面推。
+Mara: 可她叫人推门的那一句，和以前一模一样。
+神代凛: 你一听就认出来了？
+Mara 点点头。凛将光标停在第三声铃的位置，迟迟没有往下拖。
+第三声确实迟了一点，像没跟上前两声。凛闭眼听，脑中浮起一扇慢慢合拢的门；睁开眼，却只有屏幕上的波形。门是什么样，她一次也没见过。
+凛问她，小时候是不是常去。
+Mara: 证件照在那里拍。椅子很高，每次坐上去，老板都让我先别晃脚。
+水野春香: 我也拍过。她拿着相机往旁边走，我就跟着转头，总被叫回去。
+Mara: 我也是。她后来在镜头旁贴了张画，让我盯着那个。
+春香笑了一下，随即又盯住屏幕。两个人都认得那个声音，反而谁也没提出再放一遍。
+由美核对完当天的工作单，走过来问她们为什么还没收东西。凛把整段放给她听。
+@ShowCharacter('yumi', { expression: 'neutral', position: { x: 1440, y: 750, scale: 1, rotation: 0, anchor: 'center' } })
+@CharacterEnter('yumi', 'right', 280, { x: 1440, y: 750, offset: 70, easing: 'easeOutCubic' }, true)
+青木由美: 是她。明天我先打电话，晚上别为了这点事把人叫起来。
+神代凛: 如果她已经不想录了呢？
+青木由美: 那就不录。现在这一份也不能拿去当她答应过的证明。
+凛点头，关掉播放器。真由记下这件还需要确认的事。凛合上选题表，决定等由美问过老板再说。
+收线时，Mara 把掉到桌下的笔捡起来，蹲在那里看了一会儿。
+Mara: 我上次经过，橱窗后面连布都没了。
+神代凛: 明天取话筒夹，经过那边吗？
+Mara: 隔一条街。
+神代凛: 我跟你一起。
+她将笔放回笔筒，问凛是不是想看看门。
+神代凛: 嗯。也要去确认港口那条消息。
+Mara: 那先去港口。照相馆在取件的路上，回来再看。
+@SetExpression('serious', 'mara')
+Mara 把明早要带的取件单夹进包，才抬手关灯。凛等她走出来，跟着下了楼。
+@HideCharacter('mara')
+@HideCharacter('rin')
+@HideCharacter('haruka')
+@HideCharacter('mayu')
+@HideCharacter('reiko')
+@HideCharacter('yumi')
+@SetBackground('backgrounds/rin-room-night.webp', { transition: { type: 'crossfade', duration: 400 } })
+回到房间，凛原想再听一遍。耳机插上了，又拔下来，去洗今天一直没有洗的饭盒。
+水从饭盒的角落流过，凛却还记得那第三声铃。Mara 说起照相馆时的神情，也一直留在眼前。
+
+@Node('odd-photo-shutter', { title: '橱窗后面' })
+@HideCharacter('rin')
+@HideCharacter('haruka')
+@HideCharacter('mayu')
+@HideCharacter('reiko')
+@HideCharacter('yumi')
+@SetBackground('backgrounds/town-street-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })
+@ShowCharacter('mara', { expression: 'neutral', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })
+六月十四日，上午。她们先到港口确认通行情况，现场的绕行牌和昨晚的记录一致。
+取到话筒夹后，Mara 领凛穿过一条窄路。路边有人晾床单，她们弯腰绕开，袋子还是蹭到一点水。
+照相馆没有卷帘门。两扇玻璃门从里面扣着，门把手上残留一块胶带，颜色比旁边浅。
+凛往里看。日光能从橱窗一直照到最里面，地板上有几块深浅不同的方印，墙角堆着还没带走的短木条。
+Mara 站到玻璃前，隔着玻璃指向里侧。拍照间的木门原来在的位置，只剩一段门框。
+Mara: 原来挂在这儿。
+门框顶部只有两个空螺孔。一根短绳留在上面，末端散开了。
+神代凛: 你昨天说里面搬空，不是只从外面看过？
+Mara: 我帮忙搬过背景架。铃不是那天拆的，那时还在。
+她往旁边移一点，让凛看墙上的印子。小时候坐的高凳，大概就在其中一块前面。
+隔壁杂货店的女人拿着扫帚出来，问她们是不是找屋主。Mara 说明来意，只说台里想补录老店的声音。
+杂货店店主: 这里没法开门。钥匙在房东那里，里面也没什么可看的。
+神代凛: 门上的铃是老板自己带走的吗？
+杂货店店主: 那几天搬了好多趟，我哪记得这个。你们问她就知道了。
+她用扫帚将门槛上的一截绳扫进垃圾堆。凛盯着看了两眼，又望向门框上的空螺孔。
+Mara 在等由美回电话，手机始终拿在手里。凛指向路口，让她先去背风的地方。
+那里有家蒸包子的小店。Mara 本来说不饿，看见玻璃柜里的豆沙包，又多停了两秒。
+神代凛: 买吧。我也要一个。
+Mara: 你不是刚吃过早饭？
+神代凛: 看你站在这里，我也饿了。
+凛要了肉包，Mara 要豆沙的。店主把两只装在一起。Mara 接过袋子，让凛腾出手收零钱，自己先拿了一只。
+咬到第一口，Mara 才发现拿错了，将肉馅露出来给凛看。
+Mara: 你的。
+神代凛: 已经不是了。
+Mara 笑了一下。凛拿走剩下的豆沙包，说自己正好也想尝尝。
+电话就在这时响了。Mara 一只手拿包子，另一只手拿袋子，凛接过袋子，等她腾出手。
+由美说老板下午要去市民中心，整理捐给旧街展的小物件。明天布展，她今天去清点一遍，可以让她们过去聊，但已经强调不拍照。
+青木由美（通话）: 一点半。先把东西整理好，她愿意讲多少再录多少。别拿旧选题表照着问。
+Mara 记下房间号，重复了一遍不拍照。挂断以后，她将最后一口包子慢慢吃完。
+Mara: 她以前最爱拍别人。
+神代凛: 也许今天不想被拍。
+Mara: 嗯。镜头我不带。
+她们没有再回玻璃门前。Mara 带凛去看回程站牌，发现下一班还要十几分钟，于是坐到靠里的长椅上。
+凛在 Mara 旁边坐下，把空纸袋压平。Mara 用指尖沿着袋上的油印划了半圈，没再提那段铃声。
+
+中午十二点半，送回话筒夹以后，Mara 问能不能主动给明天留一句话。凛说，先有播出的地方，才可能从那边收到。
+由美看过她们写的方案：在十五日公开节目已有的生活提醒栏目里，留十秒钟说一句日常的话。内容先写下来，接收后再改顺序，比对两份真实记录。
+@HideCharacter('rin')
+@HideCharacter('haruka')
+@HideCharacter('mayu')
+@HideCharacter('reiko')
+@SetBackground('backgrounds/radio-archive-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })
+@ShowCharacter('yumi', { expression: 'neutral', position: { x: 700, y: 750, scale: 1, rotation: 0, anchor: 'center' } })
+@ShowCharacter('mara', { expression: 'neutral', position: { x: 1220, y: 750, scale: 1, rotation: 0, anchor: 'center' } })
+青木由美: 不拿应急通知试。句子先给我看，明天主持也得同意。
+春香举手说她愿意，但拒绝在节目里念复杂的编号。Mara 从桌上拿起还没热的饭盒，正好被凛拦下。
+神代凛: 盖子先揭。不能盖得这么严就放进去。
+Mara: 那就这句。
+她们约定在十五日节目预留的一小段生活提醒里，说一句普通的留言。
+Mara: 就说“热饭的时候记得揭盖子”。
+神代凛: 要不再短一点？
+Mara: 记得揭盖子。
+神代凛: 光听这句，谁知道是什么盖子。
+Mara: 那还不如刚才那句。
+Mara 把句子交给由美，收到同意以后写入十五日节目单。时间是十四日的中午十二点五十分，早于今晚接收。吃过饭，她们才拿上下午采访用的设备。
+
+@Node('odd-photo-unpacking', { title: '箱子还没拆完' })
+@HideCharacter('rin')
+@HideCharacter('haruka')
+@HideCharacter('mayu')
+@HideCharacter('reiko')
+@HideCharacter('yumi')
+@SetBackground('backgrounds/civic-exhibit-room.webp', { transition: { type: 'crossfade', duration: 320 } })
+@ShowCharacter('mara', { expression: 'neutral', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })
+离开台里，她们坐车去市民中心。一点半，整理室的门开着一半。
+照相馆老板正蹲着找箱号。她见 Mara 进来，先指了指门边，说伞别靠那里，等会儿还要搬东西。
+Mara: 今天没下雨。
+照相馆老板: 那好。你以前总把伞带进来，弄湿我门口那块垫子。
+Mara: 我已经很久没带进去过了。
+照相馆老板: 是吗？我就记得那块垫子。
+老板站起来，拍掉裤腿上的灰，问凛是不是负责拍照的人。凛解释自己负责录音，老板便点点头，说这个昨天已经答应由美了。
+神代凛: 昨天？
+照相馆老板: 昨天下午。她问我愿不愿意整理的时候聊几句。我说还得看东西找不找得到。
+Mara 和凛对望一下。由美是在接收前就联系过她，春香那张旧选题表还没来得及改。
+老板见她们站着，搬来一只矮凳，自己坐下，叫她们先把箱子一只只转过来。号写在墙那一面。
+她们把录音包放好，先帮她找清单上的六号箱。第一只里全是相框背板，第二只却塞着一层又一层旧毛巾。
+Mara 捏起毛巾一角，老板立即叫她慢点。里面裹着一块很重的金属底座。
+照相馆老板: 这只不用录。早就不是原来那台机器上的。
+Mara: 我还没拿录音机。
+照相馆老板: 我知道你想问什么。谁来都先问最老的那件。
+Mara 把底座放回去，拿起旁边一只塑料梳子。
+Mara: 那这个呢？
+照相馆老板: 去年买的，整理头发用。你想听我说它什么？
+@SetExpression('laugh-soft', 'mara')
+@AnimationTimeline(340, true)
+@Key('character:mara', 'position.y', 0, 750)
+@Key('character:mara', 'position.y', 340, 815, 'easeOutCubic')
+老板仍端端正正坐着，等她解释。Mara 先笑弯了腰，扶着箱沿蹲下；凛也低下头，把快垂进箱里的证件绳替她收好。
+六号箱在最里面。她们终于挪出一条路时，老板的茶也喝完了。她拆开封条，一边数物件，一边问展览以后是不是都得还回来。
+工作人员拿出登记表，说明有的捐赠，有的只是借展，需要她逐件选。她将照相机旁的格子留空，说这一件要带回去。
+凛没插话，等她慢慢选。
+@HideCharacter('rin')
+@HideCharacter('mara')
+@HideCharacter('haruka')
+@HideCharacter('mayu')
+@HideCharacter('reiko')
+@HideCharacter('yumi')
+@SetBackground('inserts/photo-studio-bell.webp', { transition: { type: 'crossfade', duration: 500 } })
+箱底最后露出一只小铜铃，两片金属错开叠着。Mara 伸手到一半，先抬头问能不能碰。
+照相馆老板: 可以。小心挂钩，拆的时候弯了。
+Mara 拿起铜铃，轻轻晃了一下。叮，叮。第三下隔了一点才跟上。
+凛刚拉开一寸录音包，手便停了。铜铃的余音很短，几乎马上就散在开着窗的房间里；她却清楚地记得，昨晚耳机里也是这样断的。
+Mara 和凛对视了一眼，随后低头将铃放回毛巾上。
+@SetBackground('backgrounds/civic-exhibit-room.webp', { transition: { type: 'crossfade', duration: 400 } })
+@ShowCharacter('mara', { expression: 'neutral', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })
+Mara: 拆下来的就这些？有没有少零件？
+照相馆老板: 没少，就是挂钩拆弯了。木门都没了，我家里也没处挂，干脆借给展览。
+神代凛: 我今早在里面看见几根木条，就是那扇门？
+照相馆老板: 对。外面的玻璃门没动，拍照间这扇运不出来，只好拆成板子。以前客人进店以后，还要推开它，铃才会响。
+凛想起门框下的短木条。旧门拆了，铃却被包好，和主人一起搬到了这里。
+工作人员拿来已经准备好的小展示架，说明木工做了能推拉的薄板，想请她确认铃装在什么位置才对。
+板子就靠在门后。Mara 扶稳架子，工作人员用螺丝固定挂钩，来回试了两次。第一次撞不到铃，第二次声音又太急。
+老板把手放到板边，叫他们先停一下。
+照相馆老板: 别推到底。客人进来就站住了，哪会这样用力。
+凛问现在能不能开始录。老板抻平衣襟，又说了句“对了，你不拍照”，把手放回腿上。
+照相馆老板: 那你录吧。别只录铃，也让我说两句。
+凛先报了时间和地点，等她点头再抬手。Mara 轻轻推动那块板。
+照相馆老板: 门再推一点。对，停在那里。
+熟悉的三声从面前响起。凛手心出了汗，指腹碰到录音机侧面的旋钮，差点把收音电平拧低。
+Mara 抬眼看向凛，等她重新点头，才问老板为什么第三下总会迟。
+和昨晚不同，她没有说“还是第三下慢”。老板指给她看两片金属之间略偏的挂钩，说以前一直想调，后来听惯了。
+Mara: 所以不是坏的。
+照相馆老板: 也不能算好的。用着顺手，就没管。
+她讲拍证件照时有人总在最后一下眨眼，又讲一位客人每年都要换张新椅子，明明照的是半身，根本拍不到椅子。
+凛忍不住笑，手里的录音机跟着晃了一下。老板却停住了，看着那支小机器，问这些闲话是不是用不上。
+神代凛: 有用。您接着讲。
+她于是又讲了很久。讲到一半要添茶，Mara 去找热水，凛将刚才那段回放给她听。
+老板将后半段又听了一次，指着其中一句，说木门是春天才拆的，刚才记成冬天了。
+凛当面记下修改。老板等她写完，才继续去翻最后一只箱子。
+
+@Node('odd-photo-broadcast', { title: '铃可以带走' })
+@HideCharacter('rin')
+@HideCharacter('haruka')
+@HideCharacter('mayu')
+@HideCharacter('reiko')
+@HideCharacter('yumi')
+@SetBackground('backgrounds/civic-exhibit-room.webp', { transition: { type: 'crossfade', duration: 320 } })
+@ShowCharacter('mara', { expression: 'neutral', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })
+离开市民中心时已经过了三点。两人在门口陪老板等女儿来接。老板把那台不肯捐的相机抱在腿上，借展的铃则留在里面。
+Mara 问以后还能不能去找她看旧照片。她说可以，先打电话，别又赶在午睡的时候来。
+车到了。她把相机递给女儿，又拿回来，说还是自己抱着放心。
+她们站在台阶旁，等车倒出停车位。Mara 看了一会儿，才把背着的空伞套收进包。
+Mara: 我还以为她什么都不想留了。
+神代凛: 那台相机，她刚才擦了三遍。
+Mara: 嗯。只是店不开了。
+@HideCharacter('rin')
+@HideCharacter('haruka')
+@HideCharacter('mayu')
+@HideCharacter('reiko')
+@SetBackground('backgrounds/radio-studio-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })
+@ShowCharacter('yumi', { expression: 'neutral', position: { x: 700, y: 750, scale: 1, rotation: 0, anchor: 'center' } })
+@ShowCharacter('mara', { expression: 'neutral', position: { x: 1220, y: 750, scale: 1, rotation: 0, anchor: 'center' } })
+回台以后，由美翻出昨天下午的通话记录。老板原本就有今天的整理安排，也同意有空时聊几句。无论她们是否听过返回，台里都要派人去取旧街展的素材。
+春香低头将选题表更新，忍不住问，那她昨晚为什么一点都不知道。
+@HideCharacter('rin')
+@HideCharacter('haruka')
+@HideCharacter('mayu')
+@HideCharacter('reiko')
+@SetBackground('backgrounds/radio-studio-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })
+@ShowCharacter('yumi', { expression: 'neutral', position: { x: 700, y: 750, scale: 1, rotation: 0, anchor: 'center' } })
+@ShowCharacter('mara', { expression: 'neutral', position: { x: 1220, y: 750, scale: 1, rotation: 0, anchor: 'center' } })
+青木由美: 我没把答复补进来。还停在“不想去旧店录”的那条上。
+水野春香: 我差点替人把整个采访取消了。
+青木由美: 以后把地点也写上。这次是我没写清。
+凛打开今天的现场文件，没有先拿回声来对齐。老板讲椅子的那一段很长，铃只有三下，反倒成了最好剪的地方。
+Mara 想用老板说“相机还是自己抱着放心”的那句话收尾。凛翻了翻时间标记，提醒她，那是在门口等车时说的，当时已经收起了录音机。
+Mara 想了一下，将留给那句话的空位删掉。
+Mara: 对，那段没录。用她前面讲相机的那一段吧。
+她们剪出一分多钟，先发给老板试听。她回复木门的拆除日期这回对了，再提醒别把女儿家地址写进介绍。春香删掉住处的说明，只在开头写清录制地点是市民中心。
+四点半，确认过的素材交给晚班编辑。她们中间休息到七点四十分，各自回去吃了饭，再回来按约定核对今晚的节目。
+@HideCharacter('mara')
+@HideCharacter('rin')
+@HideCharacter('haruka')
+@HideCharacter('mayu')
+@HideCharacter('reiko')
+@HideCharacter('yumi')
+@SetBackground('backgrounds/radio-monitor-night-anime-v3.webp', { characterLighting: { ambient: [0.93, 0.96, 1.02], shade: { color: [0.88, 0.92, 1], from: [0.2, 0], to: [0.8, 1] } }, transition: { type: 'crossfade', duration: 320 } })
+晚上播出的介绍写清楚了录制地点：市民中心的展品整理室。旧店没有重新开门，木门也没有突然装回去。
+春香念到“明天起”时，凛不自觉往前坐了一点。
+后半句是“在市民中心一楼展出”。昨晚的窗口停在那三个字后面，剩下的并不是一句催人回照相馆的话。
+二十点零三分，今晚的返回也收完了。凛先将它保存好，回头再听昨天那段铃声，与今晚的实际播出作比较。听到文件末尾，凛摘下一边耳机。对面桌上，Mara 正把拆下的标签纸折起来。
+Mara: 还听？
+神代凛: 今天播出的这份，还想再听一下。
+她将自己的耳机也戴好。两份录音里铜铃的迟缓相似，后面的问句、喝茶时的停顿却各不相同。今天的老板讲到相机时还笑了几声。
+这回再听到凳脚声，凛想起老板坐在矮凳上，把相机往自己这边挪。声音仍只有几秒，毛巾上的铜铃、空掉的茶杯却都跟着回来了。
+Mara 指着记录，提醒凛地点写错了一个字。凛改过来。Mara 将已经收好的包提起，又放回椅子上。
+Mara: 等下一条记完再走。今天不用绕去看门了吧？
+神代凛: 不用。去买明天的早饭。
+Mara: 这回我替你把肉包认清楚。
+凛点头，把鼠标移回今天的返回轨。下午约好的生活留言，应该就在这份里面。
+
+@Node('verification-message', { title: '给明天留一句话' })
+@HideCharacter('rin')
+@HideCharacter('mayu')
+@HideCharacter('reiko')
+@HideCharacter('yumi')
+@SetBackground('backgrounds/radio-monitor-night-anime-v3.webp', { characterLighting: { ambient: [0.93, 0.96, 1.02], shade: { color: [0.88, 0.92, 1], from: [0.2, 0], to: [0.8, 1] } }, transition: { type: 'crossfade', duration: 320 } })
+@ShowCharacter('mara', { expression: 'neutral', position: { x: 700, y: 750, scale: 1, rotation: 0, anchor: 'center' } })
+@ShowCharacter('haruka', { expression: 'neutral', position: { x: 1220, y: 750, scale: 1, rotation: 0, anchor: 'center' } })
+七点五十五分留下的节目单截图还开着。凛记了时间，春香也把它留在公共编辑记录里，让别人能查。
+Mara: 这下不是从录音里抄的了。
+神代凛: 对。我们在收到之前就已经决定要说。
+凛从二十点的报时开始放。返回线里是六月十五日的天气和搬迁信息，生活提醒在第二分钟。
+监听返回／春香的声音: 给午饭吃得很迟的朋友留一句话，热饭的时候——
+录音里的春香忽然笑场了。接着，Mara 从同一支话筒旁补上提醒的末尾：记得揭盖子。
+现在的春香咬住嘴唇，努力不笑出声。Mara 伸手碰了一下自己的脸，问是不是她明天又做怪样子。
+神代凛: 里面没说。先别自己认。
+凛把这段标记好，等它继续往下播。春香的声音很快重新认真起来。
+凛先让剩下的录音继续播放，记下一会儿要商量的事：明天换个顺序试试。
+这三分钟已经接收完毕。要确认换了顺序以后会怎样，凛只能等明天实际试过，再拿录音对照。
+监听返回／春香的声音: 今天的旧鱼市专题，有一位受访者未能按原计划参加。在这里向听众致歉，我们会另约时间补录。
+录音放完，凛把明天换读提醒顺序的提议告诉 Mara。她记了下来。再重听这一段，仍然是春香先笑。
+凛看了一眼桌上的采访排期，上午核对过的两个名字都在，右边写着明天两点。
+Mara 拿过那张纸，先检查自己的笔迹，再翻到预约电话的记录。
+Mara: 电话里都说能来。我还发过地址。
+神代凛: 这段只说没按原计划参加，没说原因。
+Mara: 那明早再确认一次。假如我们知道有人会错过采访，先给他打电话呢？
+神代凛: 打。能到的时间、最晚什么时候要走，都再问一遍。
+Mara: 嗯。我记在旁边，免得明早漏问。
+她在采访排期旁打了个问号，又写上“早上打电话”。凛把台里的电话本递给她。
+
+春香在记录表的简称栏写下“明日广播”，又抬头问这样叫可不可以。
+神代凛: 正式文件还是写返回采样。这个给我们自己找文件用吧。
+水野春香: 不然一下午都是那条、另一条，我已经分不清了。
+Mara: 那条是今天，另一条也是今天收到的明天。
+水野春香: 你不要再讲了。
+凛笑了一声，将她写的简称保留在备注里。窗外有人推着自行车经过，铃声隔着玻璃，很轻地响了一下。
+几人关掉监听。凛收好电话本，明早还要靠那两通电话确认采访安排。

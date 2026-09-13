@@ -1,0 +1,126 @@
+{
+  "date": "2026-09-09",
+  "scope": "Web asset byte storage and renderer image lifecycle; corrected Mara drink sprite and matching QS",
+  "limits": {
+    "maxActiveReadsPerAssets": 4,
+    "maxIdleUrls": 16,
+    "maxEstimatedIdleBytes": 33554432,
+    "idleGraceMs": 250,
+    "storageWriteBatchBytes": 8388608,
+    "oversizedAsset": "one standalone write"
+  },
+  "validation": {
+    "assetsWeb": {
+      "tests": 8,
+      "typecheck": "passed",
+      "build": "passed"
+    },
+    "rendererWeb": {
+      "tests": 88,
+      "typecheck": "passed",
+      "build": "passed"
+    },
+    "rendererVue": {
+      "tests": 58
+    },
+    "demo": {
+      "typecheck": "passed",
+      "webBuild": "passed",
+      "nativeQuickJSModules": 445,
+      "nativeVisualReview": false
+    }
+  },
+  "productionStory": {
+    "cases": 21,
+    "actingChecks": 28,
+    "errors": [],
+    "peakObjectUrls": 10,
+    "peakEncodedBlobBytes": 5001016,
+    "finalTitle": {
+      "name": "final-title",
+      "activeUrls": 4,
+      "activeBlobBytes": 2137137,
+      "created": 273,
+      "revoked": 269,
+      "peakUrls": 10,
+      "peakBytes": 5001016,
+      "estimatedDomImageBytes": 28311552
+    },
+    "raw": ".generated/qa/web-memory/results.json",
+    "versionNote": "Includes all renderer changes and single-can correction. Final index-only size/statistics/eviction refinement separately validated with package tests and final-build browser check."
+  },
+  "finalBuildCheck": {
+    "storage": {
+      "version": 30,
+      "indexes": [
+        "[lastAccessed+size]",
+        "bundleName",
+        "bundleVersionKey",
+        "createdAt",
+        "hash",
+        "lastAccessed",
+        "locale",
+        "logicalBundleName",
+        "lookupKeys",
+        "name",
+        "size",
+        "type",
+        "version"
+      ],
+      "count": 250
+    },
+    "samples": [
+      {
+        "activeUrls": 6,
+        "bytes": 3084830,
+        "created": 14,
+        "revoked": 8
+      },
+      {
+        "activeUrls": 6,
+        "bytes": 3084830,
+        "created": 28,
+        "revoked": 22
+      },
+      {
+        "activeUrls": 6,
+        "bytes": 3084830,
+        "created": 42,
+        "revoked": 36
+      }
+    ],
+    "reloadResumed": true,
+    "errors": [],
+    "raw": ".generated/qa/web-memory-final-check.json",
+    "schemaNote": "Dexie schema3 is native IndexedDB version30. New lookup, size and compound numeric indexes confirmed in real Chrome.",
+    "coverage": [
+      "cold production startup",
+      "250 assets persisted",
+      "three repeated story/title cycles with stable retained URL count",
+      "refresh and resume with decoded character images",
+      "no browser errors"
+    ]
+  },
+  "visualReview": {
+    "model": "openai/gpt-image-2.5-flare",
+    "quality": "medium",
+    "accepted": true,
+    "notes": "Single realistic slim can, one-hand grip and opposite-hand tote; second drink taken from tote in QS. Cutout and actual laundry scene reviewed.",
+    "screenshot": ".generated/qa/web-memory/acting-pose-drinks-6.png"
+  },
+  "limitations": [
+    "URL counters track live Blob handles, not actual process or GPU RAM. Browser controls decoder cache reclamation.",
+    "Active scene projections remain pinned, including beneath title overlays; repeated transitions must not accumulate old scenes.",
+    "Counter epochs reset on page reload. DOM RGBA estimates can double-count shared sources.",
+    "Initial full QPK fetch/parse still materializes compressed and unpacked bytes. Large products need chapter QPK organization; no streaming parser was implemented.",
+    "Persistent cache quota must fit mounted content; this is not a RAM limit or automatic safe eviction of mounted bundles."
+  ],
+  "sha256": {
+    "packages/platform/assets-web/src/index.ts": "f49c7b1ffcce496cbb4afcb3fda7195ec0648c100c70c4f0346319d05d42056e",
+    "packages/render/web/src/assets.ts": "7e000199dd23e64cfab7d9be1db83b2dc72064c2a568f969c0a8077259fbe649",
+    "packages/render/web/src/dom.ts": "49b9279df3eec8890e991d5d77abd90c1491309ae9f72bf4e61e9b96414c7840",
+    "demo/src/game/runtime.ts": "3f23f089152f45a4c9d7e0eede1937f727e6646360f6e09410a843cb71d12b9a",
+    "demo/assets/characters/mara/pose-drinks.png": "b927ec70b64c6d6727b87a4b0dc93758129380632421f7c58c03d07a8403b12b",
+    "demo/src/game/scenes/chapter-03.qs": "c655bfc9a33894994261be07f33a54e1bc3580da33d32eb9e9838b42dc0ac0f3"
+  }
+}

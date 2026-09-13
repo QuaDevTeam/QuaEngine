@@ -19,6 +19,7 @@ export default defineConfig({
         builtin: resolve(import.meta.dirname, 'src/builtin.ts'),
         contracts: resolve(import.meta.dirname, 'src/contracts.ts'),
         form: resolve(import.meta.dirname, 'src/form.ts'),
+        native: resolve(import.meta.dirname, 'src/native.ts'),
         schema: resolve(import.meta.dirname, 'src/schema.ts'),
         storage: resolve(import.meta.dirname, 'src/storage.ts'),
       },
@@ -27,7 +28,12 @@ export default defineConfig({
       formats: ['es'],
     },
     rollupOptions: {
-      external: ['@quajs/engine', '@quajs/pipeline'],
+      external: [
+        '@quajs/engine',
+        '@quajs/engine-native',
+        '@quajs/native-ui-compiler',
+        '@quajs/pipeline',
+      ],
       output: {
         globals: {},
       },

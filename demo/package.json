@@ -11,27 +11,29 @@
     "directory": "demo"
   },
   "scripts": {
-    "assets:generate": "node scripts/generate-assets.mjs",
-    "assets:generate-backgrounds": "node scripts/generate-assets.mjs --only background",
-    "assets:generate-cgs": "node scripts/generate-assets.mjs --only cg",
-    "assets:generate-characters": "node scripts/generate-assets.mjs --only character",
-    "assets:list": "node scripts/generate-assets.mjs --list",
-    "assets:regenerate": "REGENERATE_ALL_ASSETS=1 node scripts/generate-assets.mjs",
-    "assets:regenerate-backgrounds": "REGENERATE_BACKGROUNDS=1 node scripts/generate-assets.mjs",
-    "assets:regenerate-cgs": "REGENERATE_CGS=1 node scripts/generate-assets.mjs",
-    "assets:regenerate-characters": "REGENERATE_CHARACTERS=1 node scripts/generate-assets.mjs",
     "dev": "vite",
+    "dev:web": "vite",
+    "dev:native": "node --experimental-strip-types scripts/native-dev.mjs",
+    "native:e2e": "node --experimental-strip-types scripts/native-dev.mjs --e2e",
     "build": "vite build",
     "preview": "vite preview",
     "assets:build": "quack workspace:bundle --all",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:story": "node scripts/story-smoke.mjs",
+    "test:ui": "node scripts/ui-review.mjs",
+    "test:backlog": "node --experimental-strip-types --test scripts/backlog-policy.test.mjs"
   },
   "dependencies": {
     "@quajs/assets": "workspace:*",
     "@quajs/assets-web": "workspace:*",
+    "@quajs/assets-memory": "workspace:*",
     "@quajs/character": "workspace:*",
     "@quajs/engine": "workspace:*",
+    "@quajs/engine-native": "workspace:*",
+    "@quajs/native-contracts": "workspace:*",
+    "@quajs/native-ui-compiler": "workspace:*",
     "@quajs/pipeline": "workspace:*",
+    "@quajs/plugin-achievement": "workspace:*",
     "@quajs/plugin-animation": "workspace:*",
     "@quajs/plugin-audio": "workspace:*",
     "@quajs/plugin-background": "workspace:*",
@@ -46,15 +48,18 @@
     "@quajs/security-web": "workspace:*",
     "@quajs/story-graph": "workspace:*",
     "@quajs/store-web": "workspace:*",
-    "vue": "^3.5.34"
+    "vue": "^3.5.34",
+    "@quajs/native-ui": "workspace:*"
   },
   "devDependencies": {
     "@quajs/quack": "workspace:*",
     "@quajs/script-compiler": "workspace:*",
     "@quajs/vite-plugin": "workspace:*",
+    "@types/node": "catalog:",
     "@vitejs/plugin-vue": "^6.0.7",
     "sass-embedded": "^1.70.0",
     "typescript": "^6.0.3",
-    "vite": "^8.0.12"
+    "vite": "^8.0.12",
+    "@quajs/vite-plugin-native-ui": "workspace:*"
   }
 }

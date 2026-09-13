@@ -1,0 +1,813 @@
+use std::fmt::{Display, Formatter};
+
+use quajs_native_runtime::{InMemoryNativeHostApi, NativeHostApi};
+use quajs_wgpu_renderer::audio::NativeAudioBackendError;
+#[cfg(not(feature = "native-audio-rodio"))]
+use quajs_wgpu_renderer::audio::NullNativeAudioBackend;
+use quajs_wgpu_renderer::renderer::{
+    configure_wgpu_surface_for_native_renderer, create_real_wgpu_surface_target,
+    InMemoryWgpuNativeRenderRuntimeExecutor, NativeRenderer, RealWgpuEncodedFrameCapture,
+    RealWgpuFrameCaptureError, RealWgpuNativeRenderRuntimeDevice, RealWgpuSurfacePresentReport,
+    RealWgpuSurfaceTargetBootstrapRequest, WgpuNativeRenderBackend, WgpuNativeRenderBackendConfig,
+    WgpuNativeRenderRuntimeError, WgpuNativeSurfaceConfigRequest,
+};
+#[cfg(not(feature = "native-video-gif"))]
+use quajs_wgpu_renderer::video::NullNativeVideoBackend;
+
+#[cfg(feature = "native-audio-rodio")]
+use crate::audio_backend::RodioNativeAudioBackend;
+use crate::font_backend::SimpleNativeFontAtlasBackend;
+use crate::product_frame_scheduler::NativeProductFramePresentFailureKind;
+use crate::product_loop::NativeProductLoopFrameResult;
+use crate::product_runtime::NativeProductRuntime;
+use crate::texture_sync::{
+    NativeTextureBundleLifecycleSyncError, NativeTextureBundleLifecycleSyncReport,
+    NativeTextureCleanedClearResult, NativeTextureJsonLifecycleFrameError,
+    NativeTextureMediaTeardownError,
+};
+#[cfg(feature = "native-video-gif")]
+use crate::video_backend::GifNativeVideoBackend;
+
+pub(crate) type NativeProductWindowBackend = WgpuNativeRenderBackend<
+    InMemoryWgpuNativeRenderRuntimeExecutor<RealWgpuNativeRenderRuntimeDevice>,
+>;
+
+#[cfg(feature = "native-audio-rodio")]
+pub(crate) type NativeProductWindowAudioBackend = RodioNativeAudioBackend;
+#[cfg(not(feature = "native-audio-rodio"))]
+pub(crate) type NativeProductWindowAudioBackend = NullNativeAudioBackend;
+
+pub(crate) type NativeProductWindowFontBackend = SimpleNativeFontAtlasBackend;
+#[cfg(feature = "native-video-gif")]
+pub(crate) type NativeProductWindowVideoBackend = GifNativeVideoBackend;
+#[cfg(not(feature = "native-video-gif"))]
+pub(crate) type NativeProductWindowVideoBackend = NullNativeVideoBackend;
+
+pub(crate) type NativeProductWindowRenderer = NativeRenderer<
+    NativeProductWindowBackend,
+    NativeProductWindowAudioBackend,
+    NativeProductWindowVideoBackend,
+    NativeProductWindowFontBackend,
+>;
+
+pub(crate) type NativeProductWindowInMemoryRuntime =
+    NativeProductWindowRuntime<InMemoryNativeHostApi>;
+
+type RealWgpuProductRuntime<H> = NativeProductRuntime<
+    NativeProductWindowBackend,
+    NativeProductWindowAudioBackend,
+    H,
+    NativeProductWindowVideoBackend,
+    NativeProductWindowFontBackend,
+>;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct NativeProductWindowPhysicalSize {
+    pub(crate) width: u32,
+    pub(crate) height: u32,
+}
+
+impl NativeProductWindowPhysicalSize {
+    pub(crate) fn new(width: u32, height: u32) -> Self {
+        Self {
+            width: width.max(1),
+            height: height.max(1),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct NativeProductWindowPresentation {
+    pub(crate) adapter_name: String,
+    pub(crate) surface_format: String,
+    pub(crate) present_mode: String,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct NativeProductWindowPresentOutcome {
+    pub(crate) present_status: &'static str,
+    pub(crate) presented: bool,
+    pub(crate) surface_refresh_recommended: bool,
+    pub(crate) submitted_command_buffer_count: usize,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct NativeProductWindowResizeReport {
+    pub(crate) physical_size: NativeProductWindowPhysicalSize,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub(crate) struct NativeProductWindowResizeState {
+    count: usize,
+    last_physical_size: Option<NativeProductWindowPhysicalSize>,
+}
+
+impl NativeProductWindowResizeState {
+    pub(crate) fn count(&self) -> usize {
+        self.count
+    }
+
+    pub(crate) fn last_physical_size(&self) -> Option<NativeProductWindowPhysicalSize> {
+        self.last_physical_size
+    }
+
+    pub(crate) fn record_resize(&mut self, report: NativeProductWindowResizeReport) {
+        self.count = self.count.saturating_add(1);
+        self.last_physical_size = Some(report.physical_size);
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct NativeProductWindowError {
+    message: String,
+    present_failure: Option<NativeProductWindowPresentFailure>,
+}
+
+impl NativeProductWindowError {
+    pub(crate) fn new(message: impl Into<String>) -> Self {
+        Self {
+            message: message.into(),
+            present_failure: None,
+        }
+    }
+
+    fn from_present_failure(failure: NativeProductWindowPresentFailure) -> Self {
+        Self {
+            message: failure.to_string(),
+            present_failure: Some(failure),
+        }
+    }
+
+    pub(crate) fn present_failure(&self) -> Option<&NativeProductWindowPresentFailure> {
+        self.present_failure.as_ref()
+    }
+}
+
+impl Display for NativeProductWindowError {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(&self.message)
+    }
+}
+
+impl std::error::Error for NativeProductWindowError {}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum NativeProductWindowPresentFailureKind {
+    Occluded,
+    Timeout,
+    Lost,
+    Outdated,
+    Validation,
+    DeviceLost,
+    OutOfMemory,
+    Fatal,
+}
+
+impl NativeProductWindowPresentFailureKind {
+    pub(crate) fn label(self) -> &'static str {
+        match self {
+            Self::Occluded => "occluded",
+            Self::Timeout => "timeout",
+            Self::Lost => "lost",
+            Self::Outdated => "outdated",
+            Self::Validation => "validation",
+            Self::DeviceLost => "device-lost",
+            Self::OutOfMemory => "out-of-memory",
+            Self::Fatal => "fatal",
+        }
+    }
+
+    pub(crate) fn frame_failure_kind(self) -> NativeProductFramePresentFailureKind {
+        match self {
+            Self::Occluded | Self::Timeout => {
+                NativeProductFramePresentFailureKind::OccludedOrTimedOut
+            }
+            Self::Lost | Self::Outdated => NativeProductFramePresentFailureKind::RecoverableSurface,
+            Self::DeviceLost => NativeProductFramePresentFailureKind::RecoverableDevice,
+            Self::Validation | Self::OutOfMemory | Self::Fatal => {
+                NativeProductFramePresentFailureKind::Fatal
+            }
+        }
+    }
+
+    fn is_occluded_or_timeout(self) -> bool {
+        matches!(self, Self::Occluded | Self::Timeout)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct NativeProductWindowPresentFailure {
+    kind: NativeProductWindowPresentFailureKind,
+    message: String,
+}
+
+impl NativeProductWindowPresentFailure {
+    pub(crate) fn from_message(message: impl Into<String>) -> Self {
+        let message = message.into();
+        Self {
+            kind: classify_present_failure_message(&message),
+            message,
+        }
+    }
+
+    fn from_runtime_error(error: WgpuNativeRenderRuntimeError) -> Self {
+        Self::from_message(format!(
+            "native product window surface present failed: {error}"
+        ))
+    }
+
+    pub(crate) fn kind(&self) -> NativeProductWindowPresentFailureKind {
+        self.kind
+    }
+
+    pub(crate) fn frame_failure_kind(&self) -> NativeProductFramePresentFailureKind {
+        self.kind.frame_failure_kind()
+    }
+
+    pub(crate) fn is_occluded_or_timeout(&self) -> bool {
+        self.kind.is_occluded_or_timeout()
+    }
+}
+
+impl Display for NativeProductWindowPresentFailure {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(&self.message)
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct NativeProductWindowRuntime<H> {
+    instance: wgpu::Instance,
+    surface: wgpu::Surface<'static>,
+    product: RealWgpuProductRuntime<H>,
+    adapter: wgpu::Adapter,
+    backend_config: WgpuNativeRenderBackendConfig,
+    presentation: NativeProductWindowPresentation,
+    configured_physical_size: NativeProductWindowPhysicalSize,
+}
+
+impl<H> NativeProductWindowRuntime<H>
+where
+    H: NativeHostApi,
+{
+    pub(crate) fn bootstrap(
+        instance: &wgpu::Instance,
+        surface: wgpu::Surface<'static>,
+        physical_size: NativeProductWindowPhysicalSize,
+        host: H,
+    ) -> Result<Self, NativeProductWindowError> {
+        let backend_config = WgpuNativeRenderBackendConfig::default();
+        Self::bootstrap_with_backend_config(instance, surface, physical_size, host, backend_config)
+    }
+
+    pub(crate) fn bootstrap_with_backend_config(
+        instance: &wgpu::Instance,
+        surface: wgpu::Surface<'static>,
+        physical_size: NativeProductWindowPhysicalSize,
+        host: H,
+        backend_config: WgpuNativeRenderBackendConfig,
+    ) -> Result<Self, NativeProductWindowError> {
+        let mut bootstrap_request = RealWgpuSurfaceTargetBootstrapRequest::new(
+            physical_size.width,
+            physical_size.height,
+            backend_config.clone(),
+        );
+        bootstrap_request.msaa_samples = configured_msaa_samples();
+        let bootstrap = pollster::block_on(create_real_wgpu_surface_target(
+            instance,
+            &surface,
+            &bootstrap_request,
+        ))
+        .map_err(|error| {
+            NativeProductWindowError::new(format!(
+                "failed to bootstrap native product window wgpu target: {error}"
+            ))
+        })?;
+
+        let runtime_device = RealWgpuNativeRenderRuntimeDevice::new(bootstrap.target);
+        let runtime_executor = InMemoryWgpuNativeRenderRuntimeExecutor::with_device(runtime_device);
+        let backend = WgpuNativeRenderBackend::with_runtime_executor(
+            backend_config.clone(),
+            runtime_executor,
+        );
+        let presentation = NativeProductWindowPresentation {
+            adapter_name: bootstrap.adapter_info.name,
+            surface_format: format!("{:?}", bootstrap.surface_config.config.format),
+            present_mode: format!("{:?}", bootstrap.surface_config.config.present_mode),
+        };
+        let configured_physical_size = NativeProductWindowPhysicalSize::new(
+            bootstrap.surface_config.config.width,
+            bootstrap.surface_config.config.height,
+        );
+        let audio_backend = create_product_window_audio_backend().map_err(|error| {
+            NativeProductWindowError::new(format!(
+                "failed to initialize native product window audio backend: {error}"
+            ))
+        })?;
+        let video_backend = create_product_window_video_backend();
+        let font_backend = create_product_window_font_backend();
+
+        Ok(Self {
+            instance: instance.clone(),
+            surface,
+            product: NativeProductRuntime::new(
+                NativeRenderer::with_audio_video_font_backend(
+                    backend,
+                    audio_backend,
+                    video_backend,
+                    font_backend,
+                ),
+                host,
+            ),
+            adapter: bootstrap.adapter,
+            backend_config,
+            presentation,
+            configured_physical_size,
+        })
+    }
+
+    pub(crate) fn presentation(&self) -> &NativeProductWindowPresentation {
+        &self.presentation
+    }
+
+    pub(crate) fn rendered_frame_count(&self) -> usize {
+        self.product.rendered_frame_count()
+    }
+
+    pub(crate) fn renderer(&self) -> &NativeProductWindowRenderer {
+        self.product.renderer()
+    }
+
+    pub(crate) fn renderer_mut(&mut self) -> &mut NativeProductWindowRenderer {
+        self.product.renderer_mut()
+    }
+
+    pub(crate) fn renderer_and_host_mut(&mut self) -> (&mut NativeProductWindowRenderer, &mut H) {
+        self.product.renderer_and_host_mut()
+    }
+
+    pub(crate) fn host_mut(&mut self) -> &mut H {
+        self.product.host_mut()
+    }
+
+    pub(crate) fn render_projection_json_with_media_teardown(
+        &mut self,
+        input: &str,
+    ) -> Result<NativeProductLoopFrameResult, NativeTextureJsonLifecycleFrameError> {
+        self.product
+            .render_projection_json_with_media_teardown(input)
+    }
+
+    pub(crate) fn tick_host_lifecycle_with_media_teardown(
+        &mut self,
+    ) -> Result<NativeTextureBundleLifecycleSyncReport, NativeTextureBundleLifecycleSyncError> {
+        self.product.tick_host_lifecycle_with_media_teardown()
+    }
+
+    pub(crate) fn shutdown_with_media_teardown(
+        &mut self,
+    ) -> Result<NativeTextureCleanedClearResult, NativeTextureMediaTeardownError> {
+        self.product.shutdown_with_media_teardown()
+    }
+
+    pub(crate) fn present_frame(
+        &mut self,
+        allow_occluded_report: bool,
+    ) -> Result<NativeProductWindowPresentOutcome, NativeProductWindowError> {
+        let offscreen_submitted_command_buffer_count = self
+            .renderer()
+            .backend()
+            .runtime_snapshot()
+            .submitted_command_buffer_count;
+        let present_report = match self.present_frame_to_surface() {
+            Ok(report) => Some(report),
+            Err(error) => {
+                let failure = NativeProductWindowPresentFailure::from_runtime_error(error);
+                if allow_occluded_report && failure.is_occluded_or_timeout() {
+                    None
+                } else {
+                    return Err(NativeProductWindowError::from_present_failure(failure));
+                }
+            }
+        };
+
+        Ok(present_outcome_from_report(
+            present_report,
+            offscreen_submitted_command_buffer_count,
+        ))
+    }
+
+    pub(crate) fn capture_frame_png(
+        &self,
+    ) -> Result<RealWgpuEncodedFrameCapture, RealWgpuFrameCaptureError> {
+        self.renderer()
+            .backend()
+            .runtime_executor()
+            .device()
+            .capture_frame_png()
+    }
+
+    pub(crate) fn present_frame_to_surface(
+        &mut self,
+    ) -> Result<RealWgpuSurfacePresentReport, WgpuNativeRenderRuntimeError> {
+        self.product
+            .renderer_mut()
+            .backend_mut()
+            .present_frame_to_surface(&self.surface)
+    }
+
+    pub(crate) fn resize_to_physical_size(
+        &mut self,
+        physical_size: NativeProductWindowPhysicalSize,
+    ) -> Result<NativeProductWindowResizeReport, NativeProductWindowError> {
+        let surface_config_request = WgpuNativeSurfaceConfigRequest::from_backend_config(
+            physical_size.width,
+            physical_size.height,
+            &self.backend_config,
+        )
+        .map_err(|error| {
+            NativeProductWindowError::new(format!(
+                "failed to plan native product window surface resize request: {error}"
+            ))
+        })?;
+        let surface_config = {
+            let device = self
+                .renderer()
+                .backend()
+                .runtime_executor()
+                .device()
+                .target()
+                .device();
+            configure_wgpu_surface_for_native_renderer(
+                &self.surface,
+                &self.adapter,
+                device,
+                &surface_config_request,
+            )
+            .map_err(|error| {
+                NativeProductWindowError::new(format!(
+                    "failed to configure native product window surface resize: {error}"
+                ))
+            })?
+        };
+        self.renderer_mut()
+            .backend_mut()
+            .resize_target_from_surface_config(&surface_config)
+            .map_err(|error| {
+                NativeProductWindowError::new(format!(
+                    "failed to resize native product window wgpu target: {error}"
+                ))
+            })?;
+
+        self.presentation.surface_format = format!("{:?}", surface_config.config.format);
+        self.presentation.present_mode = format!("{:?}", surface_config.config.present_mode);
+        self.configured_physical_size = NativeProductWindowPhysicalSize::new(
+            surface_config.config.width,
+            surface_config.config.height,
+        );
+
+        Ok(NativeProductWindowResizeReport {
+            physical_size: self.configured_physical_size,
+        })
+    }
+
+    pub(crate) fn recover_device_for_physical_size(
+        &mut self,
+        physical_size: NativeProductWindowPhysicalSize,
+    ) -> Result<NativeProductWindowResizeReport, NativeProductWindowError> {
+        let mut bootstrap_request = RealWgpuSurfaceTargetBootstrapRequest::new(
+            physical_size.width,
+            physical_size.height,
+            self.backend_config.clone(),
+        );
+        bootstrap_request.msaa_samples = configured_msaa_samples();
+        let bootstrap = pollster::block_on(create_real_wgpu_surface_target(
+            &self.instance,
+            &self.surface,
+            &bootstrap_request,
+        ))
+        .map_err(|error| {
+            NativeProductWindowError::new(format!(
+                "failed to recover native product window wgpu device: {error}"
+            ))
+        })?;
+
+        let runtime_device = RealWgpuNativeRenderRuntimeDevice::new(bootstrap.target);
+        let runtime_executor = InMemoryWgpuNativeRenderRuntimeExecutor::with_device(runtime_device);
+        let backend = WgpuNativeRenderBackend::with_runtime_executor(
+            self.backend_config.clone(),
+            runtime_executor,
+        );
+        self.product.renderer_mut().replace_backend(backend);
+        self.adapter = bootstrap.adapter;
+        self.presentation.adapter_name = bootstrap.adapter_info.name;
+        self.presentation.surface_format = format!("{:?}", bootstrap.surface_config.config.format);
+        self.presentation.present_mode =
+            format!("{:?}", bootstrap.surface_config.config.present_mode);
+        self.configured_physical_size = NativeProductWindowPhysicalSize::new(
+            bootstrap.surface_config.config.width,
+            bootstrap.surface_config.config.height,
+        );
+
+        Ok(NativeProductWindowResizeReport {
+            physical_size: self.configured_physical_size,
+        })
+    }
+
+    pub(crate) fn refresh_surface_configuration(
+        &mut self,
+    ) -> Result<NativeProductWindowResizeReport, NativeProductWindowError> {
+        self.resize_to_physical_size(self.configured_physical_size)
+    }
+}
+
+#[cfg(feature = "native-audio-rodio")]
+fn create_product_window_audio_backend(
+) -> Result<NativeProductWindowAudioBackend, NativeAudioBackendError> {
+    RodioNativeAudioBackend::open_default()
+}
+
+#[cfg(not(feature = "native-audio-rodio"))]
+fn create_product_window_audio_backend(
+) -> Result<NativeProductWindowAudioBackend, NativeAudioBackendError> {
+    Ok(NullNativeAudioBackend::new())
+}
+
+fn create_product_window_font_backend() -> NativeProductWindowFontBackend {
+    SimpleNativeFontAtlasBackend::new()
+}
+
+#[cfg(feature = "native-video-gif")]
+fn create_product_window_video_backend() -> NativeProductWindowVideoBackend {
+    GifNativeVideoBackend::new()
+}
+
+#[cfg(not(feature = "native-video-gif"))]
+fn create_product_window_video_backend() -> NativeProductWindowVideoBackend {
+    NullNativeVideoBackend::new()
+}
+
+fn classify_present_failure_message(message: &str) -> NativeProductWindowPresentFailureKind {
+    let normalized = message.to_ascii_lowercase();
+    if normalized.contains("outofmemory")
+        || normalized.contains("out of memory")
+        || normalized.contains("out-of-memory")
+    {
+        return NativeProductWindowPresentFailureKind::OutOfMemory;
+    }
+    if normalized.contains("devicelost")
+        || normalized.contains("device lost")
+        || normalized.contains("device was lost")
+        || normalized.contains("device removed")
+    {
+        return NativeProductWindowPresentFailureKind::DeviceLost;
+    }
+    if normalized.contains("surface is occluded") {
+        return NativeProductWindowPresentFailureKind::Occluded;
+    }
+    if normalized.contains("surface acquisition timed out") {
+        return NativeProductWindowPresentFailureKind::Timeout;
+    }
+    if normalized.contains("surface was lost") {
+        return NativeProductWindowPresentFailureKind::Lost;
+    }
+    if normalized.contains("surface configuration is outdated") {
+        return NativeProductWindowPresentFailureKind::Outdated;
+    }
+    if normalized.contains("surface acquisition failed validation")
+        || normalized.contains("validation")
+    {
+        return NativeProductWindowPresentFailureKind::Validation;
+    }
+    NativeProductWindowPresentFailureKind::Fatal
+}
+
+fn present_outcome_from_report(
+    present_report: Option<RealWgpuSurfacePresentReport>,
+    offscreen_submitted_command_buffer_count: usize,
+) -> NativeProductWindowPresentOutcome {
+    let present_status = present_report
+        .as_ref()
+        .map(|report| match report.status {
+            quajs_wgpu_renderer::renderer::RealWgpuSurfacePresentStatus::Presented => "Presented",
+            quajs_wgpu_renderer::renderer::RealWgpuSurfacePresentStatus::Suboptimal => "Suboptimal",
+        })
+        .unwrap_or("OccludedAfterRetry");
+    let presented = present_report.is_some();
+    let submitted_command_buffer_count = present_report
+        .as_ref()
+        .map(|report| report.copy.submitted_command_buffer_count)
+        .unwrap_or(offscreen_submitted_command_buffer_count);
+    let surface_refresh_recommended = present_report
+        .as_ref()
+        .map(|report| {
+            report.status == quajs_wgpu_renderer::renderer::RealWgpuSurfacePresentStatus::Suboptimal
+        })
+        .unwrap_or(false);
+
+    NativeProductWindowPresentOutcome {
+        present_status,
+        presented,
+        surface_refresh_recommended,
+        submitted_command_buffer_count,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use quajs_wgpu_renderer::renderer::{RealWgpuFrameCopyReport, RealWgpuSurfacePresentStatus};
+
+    use super::*;
+
+    #[test]
+    fn physical_size_normalizes_zero_dimensions() {
+        assert_eq!(
+            NativeProductWindowPhysicalSize::new(0, 0),
+            NativeProductWindowPhysicalSize {
+                width: 1,
+                height: 1,
+            }
+        );
+    }
+
+    #[test]
+    fn resize_state_records_count_and_last_physical_size() {
+        let mut state = NativeProductWindowResizeState::default();
+
+        state.record_resize(NativeProductWindowResizeReport {
+            physical_size: NativeProductWindowPhysicalSize::new(800, 600),
+        });
+        state.record_resize(NativeProductWindowResizeReport {
+            physical_size: NativeProductWindowPhysicalSize::new(1280, 720),
+        });
+
+        assert_eq!(state.count(), 2);
+        assert_eq!(
+            state.last_physical_size(),
+            Some(NativeProductWindowPhysicalSize::new(1280, 720))
+        );
+    }
+
+    #[test]
+    fn present_outcome_uses_surface_copy_count_when_presented() {
+        let outcome = present_outcome_from_report(
+            Some(RealWgpuSurfacePresentReport {
+                copy: RealWgpuFrameCopyReport {
+                    extent: wgpu::Extent3d {
+                        width: 960,
+                        height: 540,
+                        depth_or_array_layers: 1,
+                    },
+                    color_format: wgpu::TextureFormat::Bgra8UnormSrgb,
+                    submitted_command_buffer_count: 4,
+                },
+                status: RealWgpuSurfacePresentStatus::Presented,
+            }),
+            3,
+        );
+
+        assert_eq!(outcome.present_status, "Presented");
+        assert!(outcome.presented);
+        assert!(!outcome.surface_refresh_recommended);
+        assert_eq!(outcome.submitted_command_buffer_count, 4);
+    }
+
+    #[test]
+    fn present_outcome_marks_suboptimal_surface_for_refresh() {
+        let outcome = present_outcome_from_report(
+            Some(RealWgpuSurfacePresentReport {
+                copy: RealWgpuFrameCopyReport {
+                    extent: wgpu::Extent3d {
+                        width: 960,
+                        height: 540,
+                        depth_or_array_layers: 1,
+                    },
+                    color_format: wgpu::TextureFormat::Bgra8UnormSrgb,
+                    submitted_command_buffer_count: 4,
+                },
+                status: RealWgpuSurfacePresentStatus::Suboptimal,
+            }),
+            3,
+        );
+
+        assert_eq!(outcome.present_status, "Suboptimal");
+        assert!(outcome.presented);
+        assert!(outcome.surface_refresh_recommended);
+        assert_eq!(outcome.submitted_command_buffer_count, 4);
+    }
+
+    #[test]
+    fn present_outcome_falls_back_to_offscreen_count_when_occluded() {
+        let outcome = present_outcome_from_report(None, 3);
+
+        assert_eq!(outcome.present_status, "OccludedAfterRetry");
+        assert!(!outcome.presented);
+        assert!(!outcome.surface_refresh_recommended);
+        assert_eq!(outcome.submitted_command_buffer_count, 3);
+    }
+
+    #[test]
+    fn classifies_surface_present_failures_without_smoke_error_types() {
+        assert_eq!(
+            NativeProductWindowPresentFailure::from_message(
+                "InvalidOperationOrder: cannot present frame because surface is occluded."
+            )
+            .kind(),
+            NativeProductWindowPresentFailureKind::Occluded
+        );
+        assert_eq!(
+            NativeProductWindowPresentFailure::from_message(
+                "InvalidOperationOrder: cannot present frame because surface acquisition timed out."
+            )
+            .kind(),
+            NativeProductWindowPresentFailureKind::Timeout
+        );
+        assert_eq!(
+            NativeProductWindowPresentFailure::from_message(
+                "InvalidOperationOrder: cannot present frame because surface was lost."
+            )
+            .kind(),
+            NativeProductWindowPresentFailureKind::Lost
+        );
+        assert_eq!(
+            NativeProductWindowPresentFailure::from_message(
+                "InvalidOperationOrder: cannot present frame because surface configuration is outdated."
+            )
+            .kind(),
+            NativeProductWindowPresentFailureKind::Outdated
+        );
+        assert_eq!(
+            NativeProductWindowPresentFailure::from_message(
+                "InvalidOperationOrder: cannot present frame because surface acquisition failed validation."
+            )
+            .kind(),
+            NativeProductWindowPresentFailureKind::Validation
+        );
+        assert_eq!(
+            NativeProductWindowPresentFailure::from_message(
+                "native product window surface present failed: device removed"
+            )
+            .kind(),
+            NativeProductWindowPresentFailureKind::DeviceLost
+        );
+        assert_eq!(
+            NativeProductWindowPresentFailure::from_message(
+                "native product window surface present failed: OutOfMemory"
+            )
+            .kind(),
+            NativeProductWindowPresentFailureKind::OutOfMemory
+        );
+        assert_eq!(
+            NativeProductWindowPresentFailure::from_message(
+                "InvalidOperationOrder: cannot present frame because surface was lost."
+            )
+            .frame_failure_kind(),
+            NativeProductFramePresentFailureKind::RecoverableSurface
+        );
+        assert_eq!(
+            NativeProductWindowPresentFailure::from_message(
+                "native product window surface present failed: device removed"
+            )
+            .frame_failure_kind(),
+            NativeProductFramePresentFailureKind::RecoverableDevice
+        );
+        assert_eq!(
+            NativeProductWindowPresentFailureKind::Outdated.label(),
+            "outdated"
+        );
+        assert_eq!(
+            NativeProductWindowPresentFailureKind::DeviceLost.label(),
+            "device-lost"
+        );
+        assert_eq!(
+            NativeProductWindowPresentFailureKind::OutOfMemory.label(),
+            "out-of-memory"
+        );
+        assert_eq!(
+            NativeProductWindowPresentFailureKind::Fatal.label(),
+            "fatal"
+        );
+    }
+
+    #[test]
+    fn present_errors_preserve_structured_failure_kind() {
+        let failure = NativeProductWindowPresentFailure::from_message(
+            "native product window surface present failed: surface acquisition timed out",
+        );
+        let error = NativeProductWindowError::from_present_failure(failure);
+
+        assert_eq!(
+            error.present_failure().map(|failure| failure.kind()),
+            Some(NativeProductWindowPresentFailureKind::Timeout)
+        );
+    }
+}
+
+// Local graphics startup option, not narrative state or a package capability.
+// Keep 1x by default: each active composition target needs an extra 4x surface.
+fn configured_msaa_samples() -> u32 {
+    match std::env::var("QUA_NATIVE_MSAA").as_deref() {
+        Ok("4") => 4,
+        _ => 1,
+    }
+}

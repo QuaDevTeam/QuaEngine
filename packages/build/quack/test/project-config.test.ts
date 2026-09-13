@@ -1,17 +1,56 @@
+import type {
+  QuaTargetBootstrap,
+  TargetBundleManifest,
+} from '@quajs/native-contracts'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import {
+  COCOS_TARGET_BOOTSTRAP,
+  createTargetBundleNativeRendererInfo,
+  createTargetBundleNativeRuntimeInfo,
+  createTargetCoreSelection,
+  NATIVE_TARGET_BOOTSTRAP,
+  validateTargetBundleManifest,
+  WEB_TARGET_BOOTSTRAP,
+} from '@quajs/native-contracts'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
   createQuaProjectAssetTargets,
+  createQuaProjectNativeArtifactPlans,
+  createQuaProjectNativeTargetBundleManifest,
   doctorQuaProjectConfig,
+  emitQuaProjectNativeTargetBundleManifest,
+  emitQuaTargetBundleManifest,
   loadQuaProjectConfig,
   mergeQuaProjectAssetTargets,
   normalizeQuaProjectConfig,
+  QUA_NATIVE_TARGET_BUNDLE_MANIFEST_FILE,
+  QUA_NATIVE_QUICKJS_CARGO_FEATURE,
+  QUA_TARGET_BUNDLE_MANIFEST_FILE,
   syncQuaProjectCocos,
 } from '../src/project'
 
 const tempDirs: string[] = []
+
+const NATIVE_RENDERER_CAPABILITIES = [
+  {
+    id: 'native-wgpu.ui.surface@1',
+    target: 'native',
+    version: '1.0.0',
+    ownerPackage: '@quajs/native-renderer',
+    projectionKeys: ['view.ui.overlays'],
+    quiComponents: ['Box', 'Text'],
+    qssFeatures: ['background-color'],
+    fallback: 'reject-package',
+  },
+] as const
+
+const CORE_ADAPTERS_BY_TARGET = {
+  web: WEB_TARGET_BOOTSTRAP.coreAdapters,
+  cocos: COCOS_TARGET_BOOTSTRAP.coreAdapters,
+  native: NATIVE_TARGET_BOOTSTRAP.coreAdapters,
+} satisfies Record<QuaTargetBootstrap, readonly string[]>
 
 describe('qua project config', () => {
   afterEach(async () => {
@@ -41,6 +80,7 @@ describe('qua project config', () => {
       pwa: { enabled: false, serviceWorker: 'generated' },
     })
     expect(project.targets.cocos).toBeUndefined()
+    expect(project.targets.native).toBeUndefined()
   })
 
   it('loads JSON and requires an explicit path when duplicate config files exist', async () => {
@@ -152,11 +192,26 @@ describe('qua project config', () => {
             hybrid: { enabled: true },
           },
         },
+        native: {
+          platforms: ['macos', 'windows'],
+          profiles: ['debug', 'release'],
+          assetTarget: {
+            name: 'native-desktop',
+            suffix: 'desktop',
+            pipeline: { images: { format: 'webp' } },
+          },
+        },
       },
     })
 
     const targets = createQuaProjectAssetTargets(project)
-    expect(targets.map(target => target.name)).toEqual(['web-modern', 'cocos-android', 'cocos-ios'])
+    expect(targets.map(target => target.name)).toEqual([
+      'web-modern',
+      'cocos-android',
+      'cocos-ios',
+      'native-desktop-macos',
+      'native-desktop-windows',
+    ])
     expect(targets[1]).toMatchObject({
       platform: 'cocos',
       cocos: {
@@ -165,6 +220,11 @@ describe('qua project config', () => {
         resourceRoot: 'assets/resources',
         hybrid: { enabled: true },
       },
+    })
+    expect(targets[3]).toMatchObject({
+      platform: 'native',
+      suffix: 'desktop-macos',
+      pipeline: { images: { format: 'webp' } },
     })
 
     const merged = mergeQuaProjectAssetTargets([
@@ -175,6 +235,748 @@ describe('qua project config', () => {
       compression: { algorithm: 'none' },
       pipeline: { images: { format: 'webp' } },
     })
+  })
+
+  it('normalizes native target packaging metadata', () => {
+    const project = normalizeQuaProjectConfig({
+      ...createProjectConfig(),
+      targets: {
+        native: {
+          platforms: ['macos', 'windows'],
+          profiles: ['release'],
+          layout: 'portrait',
+          outputDir: 'dist/native-apps',
+          app: {
+            buildNumber: '42',
+            icon: 'assets/app/icon.png',
+          },
+          build: {
+            features: `native-window ${QUA_NATIVE_QUICKJS_CARGO_FEATURE} ${QUA_NATIVE_QUICKJS_CARGO_FEATURE}`,
+          },
+        },
+      },
+    })
+
+    expect(project.targets.native).toMatchObject({
+      enabled: true,
+      platforms: ['macos', 'windows'],
+      profiles: ['release'],
+      layout: 'portrait',
+      outputDir: 'dist/native-apps',
+      app: {
+        bundleId: 'com.example.starlight',
+        version: '1.0.0',
+        buildNumber: '42',
+        icon: 'assets/app/icon.png',
+      },
+      build: {
+        cargoFeatures: ['native-window', QUA_NATIVE_QUICKJS_CARGO_FEATURE],
+      },
+    })
+  })
+
+  it('creates version-isolated native artifact plans', () => {
+    const noNativeProject = normalizeQuaProjectConfig(createProjectConfig())
+    expect(createQuaProjectNativeArtifactPlans(noNativeProject)).toEqual([])
+
+    const project = normalizeQuaProjectConfig({
+      ...createProjectConfig(),
+      targets: {
+        native: {
+          platforms: ['macos', 'windows'],
+          profiles: ['debug', 'release'],
+          outputDir: 'dist/native-apps',
+          app: {
+            version: '1.2.3 beta',
+            buildNumber: 'build 42',
+            icon: 'assets/app/icon.icns',
+          },
+          assetTarget: {
+            name: 'native-desktop',
+            pipeline: { images: { format: 'webp' } },
+          },
+          build: {
+            hardening: true,
+            cargoFeatures: ['native-window', QUA_NATIVE_QUICKJS_CARGO_FEATURE],
+          },
+        },
+      },
+    })
+
+    const plans = createQuaProjectNativeArtifactPlans(project)
+
+    expect(plans.map(plan => `${plan.profile}/${plan.platform}`)).toEqual([
+      'debug/macos',
+      'debug/windows',
+      'release/macos',
+      'release/windows',
+    ])
+    expect(plans[0]).toMatchObject({
+      target: 'native',
+      platform: 'macos',
+      profile: 'debug',
+      outputDir: 'dist/native-apps',
+      versionSegment: '1.2.3-beta-build-42',
+      artifactDir: join('dist/native-apps', 'debug', '1.2.3-beta-build-42', 'macos'),
+      app: {
+        bundleId: 'com.example.starlight',
+        version: '1.2.3 beta',
+        buildNumber: 'build 42',
+        icon: 'assets/app/icon.icns',
+      },
+      assetTarget: {
+        name: 'native-desktop',
+        pipeline: { images: { format: 'webp' } },
+      },
+      build: {
+        hardening: true,
+        cargoFeatures: ['native-window', QUA_NATIVE_QUICKJS_CARGO_FEATURE],
+      },
+    })
+    expect(new Set(plans.map(plan => plan.versionSegment))).toEqual(new Set(['1.2.3-beta-build-42']))
+    expect(plans.map(plan => plan.artifactDir)).toEqual([
+      join('dist/native-apps', 'debug', '1.2.3-beta-build-42', 'macos'),
+      join('dist/native-apps', 'debug', '1.2.3-beta-build-42', 'windows'),
+      join('dist/native-apps', 'release', '1.2.3-beta-build-42', 'macos'),
+      join('dist/native-apps', 'release', '1.2.3-beta-build-42', 'windows'),
+    ])
+  })
+
+  it('creates native target bundle manifests from artifact plans', () => {
+    const project = normalizeQuaProjectConfig({
+      ...createProjectConfig(),
+      targets: {
+        native: {
+          platforms: ['macos'],
+          profiles: ['release'],
+          outputDir: 'dist/native-apps',
+          build: nativeQuickJsBuild(),
+          app: {
+            icon: 'assets/app/AppIcon.icns',
+          },
+        },
+      },
+    })
+    const [plan] = createQuaProjectNativeArtifactPlans(project)
+    const manifest = createQuaProjectNativeTargetBundleManifest(plan, {
+      nativeRenderer: createTestNativeRendererInfo(),
+      nativeRuntime: createTestNativeRuntimeInfo(),
+      dependencies: [
+        '@quajs/engine',
+        '@quajs/pipeline',
+        ...NATIVE_TARGET_BOOTSTRAP.coreAdapters,
+      ],
+      rendererEntries: [
+        { specifier: '@quajs/native-renderer/builtin', target: 'native' },
+      ],
+      runtimePackages: [
+        {
+          id: 'runtime.chapter.native',
+          executableDependencies: ['@quajs/character'],
+          rendererEntries: [
+            { specifier: '@quajs/native-renderer/ui', target: 'native' },
+          ],
+        },
+      ],
+    })
+
+    expect(validateTargetBundleManifest(manifest, { expectedTarget: 'native' })).toMatchObject({
+      ok: true,
+      diagnostics: [],
+    })
+    expect(manifest).toMatchObject({
+      target: 'native',
+      profile: 'release',
+      platform: 'macos',
+      app: {
+        bundleId: 'com.example.starlight',
+        version: '1.0.0',
+        buildNumber: '1',
+        icon: 'assets/app/AppIcon.icns',
+      },
+      targetCoreResolver: 'native-core-resolver',
+      selectedCorePluginFamily: 'native-core',
+      selectedCoreAdapters: NATIVE_TARGET_BOOTSTRAP.coreAdapters,
+      nativeRuntime: {
+        quickjsVersion: '2025-04-26',
+        nativeRuntimeVersion: '0.1.0',
+        assetAdapterVersion: '0.1.0',
+        storeAdapterVersion: '0.1.0',
+      },
+      projectGraphs: [
+        {
+          id: 'native.release.macos.post-bundle',
+          kind: 'post-bundle',
+          references: expect.arrayContaining([
+            '@quajs/engine',
+            '@quajs/pipeline',
+            '@quajs/engine-native',
+            { specifier: '@quajs/native-renderer/builtin', target: 'native' },
+            '@quajs/character',
+            { specifier: '@quajs/native-renderer/ui', target: 'native' },
+          ]),
+        },
+      ],
+    })
+  })
+
+  it('requires quickjs-rquickjs Cargo feature when a native artifact declares QuickJS support', () => {
+    const project = normalizeQuaProjectConfig({
+      ...createProjectConfig(),
+      targets: {
+        native: {
+          platforms: ['macos'],
+          profiles: ['release'],
+          outputDir: 'dist/native-apps',
+          app: {
+            icon: 'assets/app/AppIcon.icns',
+          },
+        },
+      },
+    })
+    const [plan] = createQuaProjectNativeArtifactPlans(project)
+
+    expect(() => createQuaProjectNativeTargetBundleManifest(plan, {
+      nativeRenderer: createTestNativeRendererInfo(),
+      nativeRuntime: createTestNativeRuntimeInfo(),
+      dependencies: [
+        '@quajs/engine',
+        '@quajs/pipeline',
+        ...NATIVE_TARGET_BOOTSTRAP.coreAdapters,
+      ],
+    })).toThrow(`targets.native.build.cargoFeatures does not include "${QUA_NATIVE_QUICKJS_CARGO_FEATURE}"`)
+  })
+
+  it('allows no-QuickJS native artifacts to emit unsupported QuickJS runtime metadata', () => {
+    const project = normalizeQuaProjectConfig({
+      ...createProjectConfig(),
+      targets: {
+        native: {
+          platforms: ['macos'],
+          profiles: ['release'],
+          outputDir: 'dist/native-apps',
+          app: {
+            icon: 'assets/app/AppIcon.icns',
+          },
+        },
+      },
+    })
+    const [plan] = createQuaProjectNativeArtifactPlans(project)
+    const manifest = createQuaProjectNativeTargetBundleManifest(plan, {
+      nativeRenderer: createTestNativeRendererInfo(),
+      nativeRuntime: createTestNativeRuntimeInfo({ quickjsVersion: 'unsupported' }),
+      dependencies: [
+        '@quajs/engine',
+        '@quajs/pipeline',
+        ...NATIVE_TARGET_BOOTSTRAP.coreAdapters,
+      ],
+    })
+
+    expect(validateTargetBundleManifest(manifest, { expectedTarget: 'native' })).toMatchObject({
+      ok: true,
+      diagnostics: [],
+    })
+    expect(manifest.nativeRuntime.quickjsVersion).toBe('unsupported')
+  })
+
+  it('rejects native project template graphs that redeclare target core adapters', () => {
+    const project = normalizeQuaProjectConfig({
+      ...createProjectConfig(),
+      targets: {
+        native: {
+          platforms: ['macos'],
+          profiles: ['release'],
+          outputDir: 'dist/native-apps',
+          build: nativeQuickJsBuild(),
+          app: {
+            icon: 'assets/app/AppIcon.icns',
+          },
+        },
+      },
+    })
+    const [plan] = createQuaProjectNativeArtifactPlans(project)
+    const manifest = createQuaProjectNativeTargetBundleManifest(plan, {
+      nativeRenderer: createTestNativeRendererInfo(),
+      nativeRuntime: createTestNativeRuntimeInfo(),
+      dependencies: [
+        '@quajs/engine',
+        '@quajs/pipeline',
+        ...NATIVE_TARGET_BOOTSTRAP.coreAdapters,
+      ],
+      rendererEntries: [
+        { specifier: '@quajs/native-renderer/builtin', target: 'native' },
+      ],
+      projectGraphs: [
+        {
+          id: 'native.template.generated',
+          kind: 'project-template',
+          references: [
+            '@quajs/engine',
+            '@quajs/engine-native/native-host',
+          ],
+        },
+      ],
+    })
+    const validation = validateTargetBundleManifest(manifest, { expectedTarget: 'native' })
+
+    expect(validation.ok).toBe(false)
+    expect(validation.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: 'TARGET_BUNDLE_PROJECT_GRAPH_CORE_ADAPTER',
+        target: 'native',
+        packageName: '@quajs/engine-native',
+        projectGraphId: 'native.template.generated',
+        projectGraphKind: 'project-template',
+      }),
+    ]))
+  })
+
+  it('emits validated native target bundle manifests into artifact directories', async () => {
+    const root = await createProjectRoot()
+    const project = normalizeQuaProjectConfig({
+      ...createProjectConfig(),
+      targets: {
+        native: {
+          platforms: ['macos'],
+          profiles: ['release'],
+          outputDir: join(root, 'dist/native-apps'),
+          build: nativeQuickJsBuild(),
+          app: {
+            icon: 'assets/app/AppIcon.icns',
+          },
+        },
+      },
+    })
+    const [plan] = createQuaProjectNativeArtifactPlans(project)
+    const result = await emitQuaProjectNativeTargetBundleManifest(plan, {
+      nativeRenderer: createTestNativeRendererInfo(),
+      nativeRuntime: createTestNativeRuntimeInfo(),
+      dependencies: [
+        '@quajs/engine',
+        '@quajs/pipeline',
+        ...NATIVE_TARGET_BOOTSTRAP.coreAdapters,
+      ],
+      rendererEntries: [
+        { specifier: '@quajs/native-renderer/builtin', target: 'native' },
+      ],
+    })
+    const manifestJson = JSON.parse(await readFile(result.manifestPath, 'utf8')) as Record<string, any>
+
+    expect(result.validation.ok).toBe(true)
+    expect(result.manifestPath).toBe(join(plan.artifactDir, QUA_NATIVE_TARGET_BUNDLE_MANIFEST_FILE))
+    expect(manifestJson).toMatchObject({
+      target: 'native',
+      targetCoreResolver: 'native-core-resolver',
+      selectedCorePluginFamily: 'native-core',
+      nativeRuntime: {
+        quickjsVersion: '2025-04-26',
+        nativeRuntimeVersion: '0.1.0',
+        assetAdapterVersion: '0.1.0',
+        storeAdapterVersion: '0.1.0',
+      },
+      projectGraphs: [
+        {
+          id: 'native.release.macos.post-bundle',
+          kind: 'post-bundle',
+        },
+      ],
+    })
+  })
+
+  it('refuses to overwrite an existing native release manifest with different metadata', async () => {
+    const root = await createProjectRoot()
+    const project = normalizeQuaProjectConfig({
+      ...createProjectConfig(),
+      targets: {
+        native: {
+          platforms: ['macos'],
+          profiles: ['release'],
+          outputDir: join(root, 'dist/native-apps'),
+          build: nativeQuickJsBuild(),
+          app: {
+            icon: 'assets/app/AppIcon.icns',
+          },
+        },
+      },
+    })
+    const [plan] = createQuaProjectNativeArtifactPlans(project)
+    const baseOptions = {
+      nativeRenderer: createTestNativeRendererInfo(),
+      nativeRuntime: createTestNativeRuntimeInfo(),
+      dependencies: [
+        '@quajs/engine',
+        '@quajs/pipeline',
+        ...NATIVE_TARGET_BOOTSTRAP.coreAdapters,
+      ],
+      rendererEntries: [
+        { specifier: '@quajs/native-renderer/builtin', target: 'native' as const },
+      ],
+    }
+
+    const first = await emitQuaProjectNativeTargetBundleManifest(plan, baseOptions)
+
+    await expect(emitQuaProjectNativeTargetBundleManifest(plan, {
+      ...baseOptions,
+      dependencies: [
+        ...baseOptions.dependencies,
+        '@quajs/plugin-background',
+      ],
+    })).rejects.toThrow('already contains a different target-bundle-manifest.json')
+
+    const manifestJson = JSON.parse(await readFile(first.manifestPath, 'utf8')) as Record<string, any>
+    expect(manifestJson.dependencies).not.toContain('@quajs/plugin-background')
+  })
+
+  it('allows debug native manifests to be regenerated in place', async () => {
+    const root = await createProjectRoot()
+    const project = normalizeQuaProjectConfig({
+      ...createProjectConfig(),
+      targets: {
+        native: {
+          platforms: ['macos'],
+          profiles: ['debug'],
+          outputDir: join(root, 'dist/native-apps'),
+          build: nativeQuickJsBuild(),
+          app: {
+            icon: 'assets/app/AppIcon.icns',
+          },
+        },
+      },
+    })
+    const [plan] = createQuaProjectNativeArtifactPlans(project)
+    const baseOptions = {
+      nativeRenderer: createTestNativeRendererInfo(),
+      nativeRuntime: createTestNativeRuntimeInfo(),
+      dependencies: [
+        '@quajs/engine',
+        '@quajs/pipeline',
+        ...NATIVE_TARGET_BOOTSTRAP.coreAdapters,
+      ],
+      rendererEntries: [
+        { specifier: '@quajs/native-renderer/builtin', target: 'native' as const },
+      ],
+    }
+
+    const first = await emitQuaProjectNativeTargetBundleManifest(plan, baseOptions)
+    const second = await emitQuaProjectNativeTargetBundleManifest(plan, {
+      ...baseOptions,
+      dependencies: [
+        ...baseOptions.dependencies,
+        '@quajs/plugin-background',
+      ],
+    })
+    const manifestJson = JSON.parse(await readFile(second.manifestPath, 'utf8')) as Record<string, any>
+
+    expect(first.manifestPath).toBe(second.manifestPath)
+    expect(manifestJson.dependencies).toContain('@quajs/plugin-background')
+  })
+
+  it('rejects invalid native target bundle manifests before writing them', async () => {
+    const root = await createProjectRoot()
+    const project = normalizeQuaProjectConfig({
+      ...createProjectConfig(),
+      targets: {
+        native: {
+          platforms: ['macos'],
+          profiles: ['release'],
+          outputDir: join(root, 'dist/native-apps'),
+          build: nativeQuickJsBuild(),
+          app: {
+            icon: 'assets/app/AppIcon.icns',
+          },
+        },
+      },
+    })
+    const [plan] = createQuaProjectNativeArtifactPlans(project)
+    const manifestPath = join(plan.artifactDir, QUA_NATIVE_TARGET_BUNDLE_MANIFEST_FILE)
+
+    await expect(emitQuaProjectNativeTargetBundleManifest(plan, {
+      manifestPath,
+      nativeRenderer: createTestNativeRendererInfo(),
+      nativeRuntime: createTestNativeRuntimeInfo(),
+      dependencies: [
+        '@quajs/engine',
+        '@quajs/pipeline',
+        ...NATIVE_TARGET_BOOTSTRAP.coreAdapters,
+        '@quajs/renderer-web',
+      ],
+    })).rejects.toThrow('Target bundle manifest validation failed')
+    await expect(readFile(manifestPath, 'utf8')).rejects.toThrow()
+  })
+
+  it('emits validated target bundle manifests for Web, Cocos, and native artifacts', async () => {
+    const root = await createProjectRoot()
+
+    for (const target of ['web', 'cocos', 'native'] as const) {
+      const artifactDir = join(root, 'dist', target)
+      const manifest = createTargetBundleManifestFixture(target)
+      const result = await emitQuaTargetBundleManifest({
+        artifactDir,
+        expectedTarget: target,
+        manifest,
+      })
+      const manifestJson = JSON.parse(await readFile(result.manifestPath, 'utf8')) as Record<string, any>
+
+      expect(result.validation.ok).toBe(true)
+      expect(result.manifestPath).toBe(join(artifactDir, QUA_TARGET_BUNDLE_MANIFEST_FILE))
+      expect(manifestJson).toMatchObject({
+        target,
+        targetCoreResolver: `${target}-core-resolver`,
+        selectedCoreAdapters: CORE_ADAPTERS_BY_TARGET[target],
+      })
+    }
+  })
+
+  it('rejects cross-target core adapters for Web, Cocos, and native manifests before writing', async () => {
+    const root = await createProjectRoot()
+
+    for (const target of ['web', 'cocos', 'native'] as const) {
+      const artifactDir = join(root, 'dist', `leak-${target}`)
+      const manifestPath = join(artifactDir, QUA_TARGET_BUNDLE_MANIFEST_FILE)
+      const foreignCoreAdapters = foreignCoreAdaptersForTarget(target)
+      const cleanManifest = createTargetBundleManifestFixture(target)
+      const manifest: TargetBundleManifest = {
+        ...cleanManifest,
+        dependencies: [
+          ...(cleanManifest.dependencies || []),
+          ...foreignCoreAdapters,
+        ],
+      }
+      const validation = validateTargetBundleManifest(manifest, { expectedTarget: target })
+
+      expect(validation.ok).toBe(false)
+      for (const packageName of foreignCoreAdapters) {
+        expect(validation.diagnostics).toEqual(expect.arrayContaining([
+          expect.objectContaining({
+            code: 'TARGET_CORE_ADAPTER_FORBIDDEN',
+            target,
+            packageName,
+          }),
+        ]))
+      }
+
+      await expect(emitQuaTargetBundleManifest({
+        artifactDir,
+        expectedTarget: target,
+        manifest,
+        manifestPath,
+      })).rejects.toThrow('Target bundle manifest validation failed')
+      await expect(readFile(manifestPath, 'utf8')).rejects.toThrow()
+    }
+  })
+
+  it('rejects generated project shells that redeclare active target core adapters before writing', async () => {
+    const root = await createProjectRoot()
+
+    for (const target of ['web', 'cocos', 'native'] as const) {
+      const artifactDir = join(root, 'dist', `shell-core-${target}`)
+      const manifestPath = join(artifactDir, QUA_TARGET_BUNDLE_MANIFEST_FILE)
+      const activeCoreAdapter = CORE_ADAPTERS_BY_TARGET[target][0]
+      const manifest: TargetBundleManifest = {
+        ...createTargetBundleManifestFixture(target),
+        projectGraphs: [
+          {
+            id: `${target}.startup.generated`,
+            kind: 'startup-shell',
+            references: [
+              '@quajs/engine',
+              activeCoreAdapter,
+            ],
+          },
+        ],
+      }
+      const validation = validateTargetBundleManifest(manifest, { expectedTarget: target })
+
+      expect(validation.ok).toBe(false)
+      expect(validation.diagnostics).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          code: 'TARGET_BUNDLE_PROJECT_GRAPH_CORE_ADAPTER',
+          target,
+          packageName: activeCoreAdapter,
+          projectGraphId: `${target}.startup.generated`,
+          projectGraphKind: 'startup-shell',
+        }),
+      ]))
+
+      await expect(emitQuaTargetBundleManifest({
+        artifactDir,
+        expectedTarget: target,
+        manifest,
+        manifestPath,
+      })).rejects.toThrow('Target bundle manifest validation failed')
+      await expect(readFile(manifestPath, 'utf8')).rejects.toThrow()
+    }
+  })
+
+  it('rejects Web, Cocos, and native project templates that carry all target core plugins before writing', async () => {
+    const root = await createProjectRoot()
+    const graphKinds = ['project-template', 'startup-shell'] as const
+    const allTargetCoreAdapters = allTargetCoreAdaptersForProjectGraphs()
+
+    for (const target of ['web', 'cocos', 'native'] as const) {
+      const artifactDir = join(root, 'dist', `project-template-core-union-${target}`)
+      const manifestPath = join(artifactDir, QUA_TARGET_BUNDLE_MANIFEST_FILE)
+      const manifest: TargetBundleManifest = {
+        ...createTargetBundleManifestFixture(target),
+        projectGraphs: graphKinds.map(kind => ({
+          id: `${target}.${kind}.project-core-union`,
+          kind,
+          references: [
+            '@quajs/engine',
+            '@quajs/plugin-background',
+            ...allTargetCoreAdapters,
+          ],
+        })),
+      }
+      const validation = validateTargetBundleManifest(manifest, { expectedTarget: target })
+
+      expect(validation.ok).toBe(false)
+      for (const kind of graphKinds) {
+        for (const packageName of allTargetCoreAdapters) {
+          expect(validation.diagnostics).toEqual(expect.arrayContaining([
+            expect.objectContaining({
+              code: 'TARGET_BUNDLE_PROJECT_GRAPH_CORE_ADAPTER',
+              target,
+              packageName,
+              projectGraphId: `${target}.${kind}.project-core-union`,
+              projectGraphKind: kind,
+            }),
+          ]))
+        }
+      }
+
+      await expect(emitQuaTargetBundleManifest({
+        artifactDir,
+        expectedTarget: target,
+        manifest,
+        manifestPath,
+      })).rejects.toThrow('Target bundle manifest validation failed')
+      await expect(readFile(manifestPath, 'utf8')).rejects.toThrow()
+    }
+  })
+
+  it('rejects generated artifact graphs that pre-union Web, Cocos, and native core plugins before writing', async () => {
+    const root = await createProjectRoot()
+    const graphKinds = ['debug-shell', 'release-shell', 'smoke-runner', 'installer', 'updater'] as const
+    const allTargetCoreAdapters = allTargetCoreAdaptersForProjectGraphs()
+
+    for (const target of ['web', 'cocos', 'native'] as const) {
+      const artifactDir = join(root, 'dist', `all-target-core-union-${target}`)
+      const manifestPath = join(artifactDir, QUA_TARGET_BUNDLE_MANIFEST_FILE)
+      const manifest: TargetBundleManifest = {
+        ...createTargetBundleManifestFixture(target),
+        projectGraphs: graphKinds.map(kind => ({
+          id: `${target}.${kind}.generated`,
+          kind,
+          references: [
+            '@quajs/engine',
+            '@quajs/plugin-background',
+            ...allTargetCoreAdapters,
+          ],
+        })),
+      }
+      const validation = validateTargetBundleManifest(manifest, { expectedTarget: target })
+
+      expect(validation.ok).toBe(false)
+      for (const kind of graphKinds) {
+        expect(validation.diagnostics).toEqual(expect.arrayContaining([
+          expect.objectContaining({
+            code: 'TARGET_BUNDLE_PROJECT_GRAPH_CORE_ADAPTER',
+            target,
+            projectGraphId: `${target}.${kind}.generated`,
+            projectGraphKind: kind,
+          }),
+        ]))
+      }
+
+      await expect(emitQuaTargetBundleManifest({
+        artifactDir,
+        expectedTarget: target,
+        manifest,
+        manifestPath,
+      })).rejects.toThrow('Target bundle manifest validation failed')
+      await expect(readFile(manifestPath, 'utf8')).rejects.toThrow()
+    }
+  })
+
+  it('rejects post-bundle graphs that retain inactive target core plugins before writing', async () => {
+    const root = await createProjectRoot()
+
+    for (const target of ['web', 'cocos', 'native'] as const) {
+      const artifactDir = join(root, 'dist', `post-bundle-core-leak-${target}`)
+      const manifestPath = join(artifactDir, QUA_TARGET_BUNDLE_MANIFEST_FILE)
+      const inactiveCoreAdapters = foreignCoreAdaptersForTarget(target)
+      const manifest: TargetBundleManifest = {
+        ...createTargetBundleManifestFixture(target),
+        projectGraphs: [
+          {
+            id: `${target}.post-bundle.generated`,
+            kind: 'post-bundle',
+            references: [
+              '@quajs/engine',
+              ...CORE_ADAPTERS_BY_TARGET[target],
+              ...inactiveCoreAdapters,
+            ],
+          },
+        ],
+      }
+      const validation = validateTargetBundleManifest(manifest, { expectedTarget: target })
+
+      expect(validation.ok).toBe(false)
+      for (const packageName of inactiveCoreAdapters) {
+        expect(validation.diagnostics).toEqual(expect.arrayContaining([
+          expect.objectContaining({
+            code: 'TARGET_BUNDLE_PROJECT_GRAPH_CORE_ADAPTER',
+            target,
+            packageName,
+            projectGraphId: `${target}.post-bundle.generated`,
+            projectGraphKind: 'post-bundle',
+          }),
+        ]))
+      }
+
+      await expect(emitQuaTargetBundleManifest({
+        artifactDir,
+        expectedTarget: target,
+        manifest,
+        manifestPath,
+      })).rejects.toThrow('Target bundle manifest validation failed')
+      await expect(readFile(manifestPath, 'utf8')).rejects.toThrow()
+    }
+  })
+
+  it('rejects target bundle manifests before writing when the expected target does not match', async () => {
+    const root = await createProjectRoot()
+
+    for (const expectedTarget of ['web', 'cocos', 'native'] as const) {
+      for (const manifestTarget of ['web', 'cocos', 'native'] as const) {
+        if (manifestTarget === expectedTarget)
+          continue
+
+        const artifactDir = join(root, 'dist', `${expectedTarget}-from-${manifestTarget}`)
+        const manifestPath = join(artifactDir, QUA_TARGET_BUNDLE_MANIFEST_FILE)
+
+        await expect(emitQuaTargetBundleManifest({
+          artifactDir,
+          expectedTarget,
+          manifest: createTargetBundleManifestFixture(manifestTarget),
+          manifestPath,
+        })).rejects.toThrow('Target bundle manifest validation failed')
+        await expect(readFile(manifestPath, 'utf8')).rejects.toThrow()
+      }
+    }
+  })
+
+  it('validates native target platforms and profiles', () => {
+    expect(() => normalizeQuaProjectConfig({
+      ...createProjectConfig(),
+      targets: {
+        native: {
+          platforms: ['ios'],
+          profiles: ['staging'],
+        },
+      },
+    })).toThrow(/targets\.native\.platforms.*targets\.native\.profiles/s)
   })
 
   it('syncs Cocos build config files and icon assets', async () => {
@@ -235,6 +1037,15 @@ describe('qua project config', () => {
             hybrid: { enabled: true },
           },
         },
+        native: {
+          platforms: ['macos', 'windows'],
+          profiles: ['debug'],
+          outputDir: 'dist/native',
+          app: {
+            buildNumber: '7',
+            icon: 'assets/app/icon.png',
+          },
+        },
       },
     })
 
@@ -245,6 +1056,37 @@ describe('qua project config', () => {
       expect.objectContaining({ id: 'web.devices.none', severity: 'error' }),
       expect.objectContaining({ id: 'cocos.project-dir.missing', severity: 'warning' }),
       expect.objectContaining({ id: 'cocos.hybrid.enabled', severity: 'info' }),
+      expect.objectContaining({ id: 'native.platforms', severity: 'info' }),
+      expect.objectContaining({ id: 'native.profiles', severity: 'info' }),
+    ]))
+  })
+
+  it('doctors native target icon readiness', async () => {
+    const root = await createProjectRoot({ icon: false })
+    const project = normalizeQuaProjectConfig({
+      ...createProjectConfig(),
+      icons: {},
+      targets: {
+        web: false,
+        native: {
+          platforms: ['macos'],
+          app: {
+            icon: 'assets/app/missing.icns',
+          },
+        },
+      },
+    })
+
+    const result = await doctorQuaProjectConfig(project, { cwd: root })
+
+    expect(result.ok).toBe(false)
+    expect(result.issues).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: 'native.asset.missing',
+        target: 'native',
+        filePath: 'assets/app/missing.icns',
+        severity: 'error',
+      }),
     ]))
   })
 
@@ -298,6 +1140,88 @@ function createProjectConfig() {
       source: 'assets/app/icon.png',
     },
   }
+}
+
+function createTestNativeRendererInfo() {
+  return createTargetBundleNativeRendererInfo({
+    version: '0.1.0',
+    backendVersion: 'wgpu-test',
+    capabilities: NATIVE_RENDERER_CAPABILITIES,
+  }, payload => `sha256:test-${payload.length}`)
+}
+
+function createTestNativeRuntimeInfo(overrides: Partial<{
+  quickjsVersion: string
+  nativeRuntimeVersion: string
+  assetAdapterVersion: string
+  storeAdapterVersion: string
+}> = {}) {
+  return createTargetBundleNativeRuntimeInfo({
+    quickjsVersion: '2025-04-26',
+    nativeRuntimeVersion: '0.1.0',
+    assetAdapterVersion: '0.1.0',
+    storeAdapterVersion: '0.1.0',
+    ...overrides,
+  })
+}
+
+function nativeQuickJsBuild() {
+  return { cargoFeatures: [QUA_NATIVE_QUICKJS_CARGO_FEATURE] }
+}
+
+function createTargetBundleManifestFixture(target: QuaTargetBootstrap): TargetBundleManifest {
+  const targetCore = createTargetCoreSelection(target)
+  return {
+    schemaVersion: 1,
+    target,
+    profile: 'release',
+    platform: target === 'native' ? 'macos' : target,
+    app: {
+      bundleId: `com.example.${target}`,
+      version: '1.0.0',
+      buildNumber: '1',
+      icon: 'assets/app/icon.png',
+    },
+    ...(target === 'native'
+      ? {
+          nativeRenderer: createTestNativeRendererInfo(),
+          nativeRuntime: createTestNativeRuntimeInfo(),
+        }
+      : {}),
+    targetCoreResolver: targetCore.targetCoreResolver,
+    selectedCorePluginFamily: targetCore.selectedCorePluginFamily,
+    selectedCoreAdapters: targetCore.selectedCoreAdapters,
+    dependencies: [
+      '@quajs/engine',
+      '@quajs/pipeline',
+      ...CORE_ADAPTERS_BY_TARGET[target],
+    ],
+    rendererEntries: [
+      { specifier: rendererEntryForTarget(target), target },
+    ],
+  }
+}
+
+function rendererEntryForTarget(target: QuaTargetBootstrap): string {
+  switch (target) {
+    case 'web':
+      return '@quajs/renderer-web/plugins/ui'
+    case 'cocos':
+      return '@quajs/renderer-cocos/plugins/ui'
+    case 'native':
+      return '@quajs/native-renderer/builtin'
+  }
+}
+
+function foreignCoreAdaptersForTarget(target: QuaTargetBootstrap): string[] {
+  return (Object.keys(CORE_ADAPTERS_BY_TARGET) as QuaTargetBootstrap[])
+    .filter(candidate => candidate !== target)
+    .flatMap(candidate => CORE_ADAPTERS_BY_TARGET[candidate])
+}
+
+function allTargetCoreAdaptersForProjectGraphs(): string[] {
+  return (Object.keys(CORE_ADAPTERS_BY_TARGET) as QuaTargetBootstrap[])
+    .flatMap(target => CORE_ADAPTERS_BY_TARGET[target])
 }
 
 async function writeProjectConfig(root: string, lines: string[]): Promise<string> {

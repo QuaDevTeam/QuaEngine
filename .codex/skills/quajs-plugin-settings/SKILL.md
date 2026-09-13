@@ -34,6 +34,7 @@ Renderer entries:
 - `@quajs/renderer-web/plugins/settings`
 - `@quajs/renderer-vue/plugins/settings`
 - `@quajs/renderer-cocos/plugins/settings`
+- `@quajs/plugin-settings/native` through `createSettingsNativeRendererFeature()`
 
 ## Scope Model
 
@@ -114,6 +115,12 @@ Runtime packages may register settings scopes. Package unload unregisters packag
 
 Renderer settings UI emits update/reset intents. Validation, persistence, apply hooks, and final projection rebuilds happen in the settings bridge.
 
+Native products explicitly register `createSettingsNativeRendererFeature()` in the same feature-surface list used for frame serialization and `NativeHostPlugin`. It projects exposed form fields in logical safe-area coordinates, gives switch/select/numeric controls bounded semantic `settings-update` options, keeps unsupported text/complex controls read-only, preserves runtime scope provenance, and delegates validation/persistence/apply behavior to the settings bridge.
+
+Native range, select, and switch projections include renderer-only control descriptors. Each descriptor contains the current option index, visual part ids, and bounded final options whose intents already contain the validated settings patch. Rust owns drag drafts and select popovers locally, then emits only the selected option intent on commit; the settings plugin remains the authority that validates, persists, applies, and reprojects the accepted value.
+
+The official native settings surface uses the same compact centered panel hierarchy as Web: group headings and separators, label/description copy, slider track/progress/thumb geometry for ranges, framed option labels for selects, switch track/thumb geometry for booleans, readable option labels instead of stored tokens, and structured `boxShadow` / `textShadow` style IR. These are render-only nodes; the parent field row retains the allowlisted settings intent and the renderer must not persist field values locally.
+
 Settings panel placement comes from the engine-owned generic UI overlay projection, not renderer-local state. `engine.showUI('settings', config)` and `config.scene.overlay` may include `overlayStack`, `stackPriority`, and `zIndex`; official renderers use `overlay` stack with settings zIndex `60` by default when no placement is projected.
 
 ## Plugin Integration Rules
@@ -142,3 +149,16 @@ Run affected feature plugin tests when their settings scopes change.
 - Does renderer only emit intents and read projection?
 - Are runtime package scopes unloaded cleanly?
 - If settings schema, scope, projection, or renderer intent behavior changed, was this skill updated?
+
+## Native panel sizing and ranges
+
+Native settings content scrolls within a centered logical-stage panel capped at 720 logical pixels and 84% of safe-area height. Demo Web settings use the logical overlay plane as well, so device/container scaling is consistent across targets. The backdrop remains translucent. Range option payloads stay bounded to 512 samples, distributed over the entire valid step lattice; never emit the first 511 values followed by a jump to max, and never force a max that violates step alignment. Readonly controls have no mutation intents. Generic text/color/object editing is not provided by the current native option-control projection.
+
+`createSettingsNativeRendererFeature({ resolvePanelBounds })` accepts a pure `(context, preferred) => NativeUiSurfaceRect` callback for product-level placement, including reserving dialogue/toolbar space in game. Child controls and scrolling are laid out after resolving the panel bounds. Values are logical-stage units, not device pixels; the callback must not mutate settings or engine projections. Test placement with engine-owned settings visibility and preserve existing control payload validation.
+
+
+Native select controls use the Web closed-field fill, 4px radius, hover border/gradient, padded ellipsized value text and a dedicated up/down chevron. Opening the control appends a transient option list above/below the field; options are package-aware intents and must not become authoritative state. Keep Web select styling and native control geometry aligned, while documenting that browser OS-native popup chrome cannot be pixel-matched by CSS.
+
+## Demo preference persistence
+
+`demo/src/game/runtime-shared.ts` accepts an injected `SettingsStorageAdapter`. The Web entry supplies `settings-storage.ts`, storing the named profile separately from story slots. Without that injection, SettingsPlugin defaults to memory and preferences reset on browser reload. Browser regression must change a preference, refresh, load a story save, and verify the preference still applies; a same-page control change is insufficient.

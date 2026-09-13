@@ -1,0 +1,12 @@
+{
+  "model": "openai/gpt-image-2",
+  "provider": "Replicate CLI",
+  "selectedCandidate": "silver-aqua",
+  "draftQuality": "low",
+  "refinementQuality": "medium",
+  "draftPredictionIds": ["zj0rb993h9rmy0d0g9cafe4ndg", "t6fphm18zsrmy0d0g9ca657ttc"],
+  "refinementPredictionId": "1qmy34s54drmr0d0g9gsnc1fa8",
+  "sourcePrompt": "prompts/silver-aqua-low.txt",
+  "refinementPrompt": "prompts/silver-aqua-medium.txt",
+  "notes": "Silver-white hair, aqua eyes, twin tails, navy star and aqua ribbon; Japanese bishoujo galgame style. Candidate was selected for small-size readability and color continuity with QuaEngine."
+}

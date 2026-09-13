@@ -1,0 +1,1758 @@
+{
+  "model": "openai/gpt-image-2.5-flare",
+  "quality": "medium",
+  "repairCount": 10,
+  "newCount": 8,
+  "attemptCount": 19,
+  "assets": [
+    {
+      "id": "mara-pose-listening",
+      "character": "mara",
+      "expression": "pose-listening",
+      "model": "openai/gpt-image-2.5-flare",
+      "quality": "medium",
+      "predictionId": "p51cre3wxhrmt0d0gqk89sb9jm",
+      "destination": "demo/assets/characters/mara/pose-listening.png",
+      "sha256": "a34f3a2bd2e5822aa150f0054c2f12c6949eb1b921ac3a8bca9d9ed007706956",
+      "provenance": {
+        "model": "openai/gpt-image-2.5-flare",
+        "quality": "medium",
+        "prompt": "Use case: identity-preserve. Polish this exact Japanese anime galgame face crop. The input is the approved 24-year-old Mara with amber eyes and ash-brown hair. Refine only eyes, eyelashes, iris and pupil drawing: clean delicate tapered upper eyelash lines, coherent rounded pupils in both eyes, richly drawn amber irises with restrained gold lower reflections and two small consistent catchlights. Preserve her gentle mature young-adult expression, relaxed eyelids, gaze, eye size, warm small smile, original face shape and ALL hair contours. Keep the same Japanese anime cel art, no photoreal texture or realistic eyeballs. Do not enlarge eyes, make her younger, add eyeliner makeup or excessive sparkles. The input is a locked close-up at1024x1024: do not zoom, recenter, rotate or draw a new head/body. Outside the eyes and brows, preserve the input exactly.",
+        "source": "demo/assets/characters/mara/pose-listening.png",
+        "sourceSha256": "f6be2e2e568825801c07fa0aa6ac18a4818caa826b4a41cf18dd4ba38852e148",
+        "baseCrop": [
+          230,
+          70,
+          486,
+          326
+        ],
+        "archivedSource": "demo/.generated/art/flare/before/mara/pose-listening.png"
+      },
+      "preparation": {
+        "assetId": "mara-pose-listening",
+        "predictionId": "p51cre3wxhrmt0d0gqk89sb9jm",
+        "quality": "medium",
+        "source": "demo/.generated/art/flare/mara-pose-listening-output/p51cre3wxhrmt0d0gqk89sb9jm-output-0-0.png",
+        "sourceSprite": "demo/.generated/art/flare/before/mara/pose-listening.png",
+        "model": "openai/gpt-image-2.5-flare",
+        "baseCrop": [
+          230,
+          70,
+          486,
+          326
+        ],
+        "facePolygons": [
+          [
+            [
+              66,
+              143
+            ],
+            [
+              117,
+              140
+            ],
+            [
+              123,
+              172
+            ],
+            [
+              70,
+              180
+            ]
+          ],
+          [
+            [
+              130,
+              122
+            ],
+            [
+              181,
+              119
+            ],
+            [
+              187,
+              151
+            ],
+            [
+              134,
+              159
+            ]
+          ]
+        ],
+        "alignment": [
+          [
+            0.9999361108808931,
+            2.4547946641894932e-05,
+            -0.3965431213971309
+          ],
+          [
+            -2.4547946641894932e-05,
+            0.9999361108808931,
+            0.5308430712424983
+          ]
+        ],
+        "stableMatches": 179,
+        "inliers": 155,
+        "scale": 0.9999361111822131,
+        "angle": -0.0014065836033977383,
+        "alphaUnchanged": true,
+        "bodyUnchanged": true,
+        "status": "candidate-needs-visual-review"
+      },
+      "review": "已对照原图及生成图检查眼型、瞳孔与神情；最终画布深浅底检查通过。",
+      "qsUsed": true,
+      "usedBy": [
+        "chapter-07",
+        "chapter-03",
+        "chapter-02",
+        "chapter-01",
+        "prologue-restoration"
+      ],
+      "status": "integrated"
+    },
+    {
+      "id": "mara-pose-phone",
+      "character": "mara",
+      "expression": "pose-phone",
+      "model": "openai/gpt-image-2.5-flare",
+      "quality": "medium",
+      "predictionId": "vdzq2hgthnrmr0d0gqms0md2yg",
+      "destination": "demo/assets/characters/mara/pose-phone.png",
+      "sha256": "82d7d3a4e400888eab2311dbdfc34d99ee221de8916aa0eeab06761daf01094d",
+      "provenance": {
+        "id": "mara-pose-phone",
+        "model": "openai/gpt-image-2.5-flare",
+        "quality": "medium",
+        "prompt": "Use case: identity-preserve. Precisely refine this existing Japanese anime visual novel face crop. Character is mara, an adult woman aged24-25. Improve ONLY eyes and lashes: delicate crisp tapered eyelash linework, coherent pupils in both eyes, finely drawn amber with subtle gold reflections irises, restrained subtle iris gradients and consistent small catchlights. Keep the SAME eye outline, iris size, eye angle, gaze, expression and exact position. This is a quality refinement, NOT a new facial expression. Preserve all hair strands, head angle, ears, eyebrows, mouth, cheeks and background exactly. Maintain clean Japanese bishoujo galgame cel style, no realistic eyes, heavy makeup, glitter, enlarged eyes, western illustration, changed age or extra pupils. Output the exact same locked1024x1024 face crop; do not zoom or recenter.",
+        "source": "demo/assets/characters/mara/pose-phone.png",
+        "sourceSha256": "b025ee027b5a35e979d981b2a76ac2809ed548d948cda2e615fc63b4f128db5f",
+        "baseCrop": [
+          230,
+          70,
+          486,
+          326
+        ],
+        "archivedSource": "demo/.generated/art/flare/before/mara/pose-phone.png"
+      },
+      "preparation": {
+        "assetId": "mara-pose-phone",
+        "predictionId": "vdzq2hgthnrmr0d0gqms0md2yg",
+        "quality": "medium",
+        "source": "demo/.generated/art/flare/mara-pose-phone-output/vdzq2hgthnrmr0d0gqms0md2yg-output-0-0.png",
+        "sourceSprite": "demo/.generated/art/flare/before/mara/pose-phone.png",
+        "model": "openai/gpt-image-2.5-flare",
+        "baseCrop": [
+          230,
+          70,
+          486,
+          326
+        ],
+        "facePolygons": [
+          [
+            [
+              65,
+              139
+            ],
+            [
+              116,
+              136
+            ],
+            [
+              122,
+              168
+            ],
+            [
+              69,
+              176
+            ]
+          ],
+          [
+            [
+              129,
+              115
+            ],
+            [
+              180,
+              112
+            ],
+            [
+              186,
+              144
+            ],
+            [
+              133,
+              152
+            ]
+          ]
+        ],
+        "alignment": [
+          [
+            0.9996216693187604,
+            0.00039958672818434687,
+            -0.6659162839145639
+          ],
+          [
+            -0.00039958672818434687,
+            0.9996216693187604,
+            0.6578851081978911
+          ]
+        ],
+        "stableMatches": 235,
+        "inliers": 224,
+        "scale": 0.9996217491837492,
+        "angle": -0.022903296874865902,
+        "alphaUnchanged": true,
+        "bodyUnchanged": true,
+        "status": "candidate-needs-visual-review"
+      },
+      "review": "已对照原图及生成图检查眼型、瞳孔与神情；最终画布深浅底检查通过。",
+      "qsUsed": true,
+      "usedBy": [
+        "chapter-02",
+        "chapter-01",
+        "chapter-04"
+      ],
+      "status": "integrated"
+    },
+    {
+      "id": "mara-pose-explaining",
+      "character": "mara",
+      "expression": "pose-explaining",
+      "model": "openai/gpt-image-2.5-flare",
+      "quality": "medium",
+      "predictionId": "1d52eb0r7nrmy0d0gqms6zmxrm",
+      "destination": "demo/assets/characters/mara/pose-explaining.png",
+      "sha256": "7ce1aa042bf29b499b7e14c2a8f43ef4b379fab4b8bf487c8b6dcf792ffa54dc",
+      "provenance": {
+        "id": "mara-pose-explaining",
+        "model": "openai/gpt-image-2.5-flare",
+        "quality": "medium",
+        "prompt": "Use case: identity-preserve. Precisely refine this existing Japanese anime visual novel face crop. Character is mara, an adult woman aged24-25. Improve ONLY eyes and lashes: delicate crisp tapered eyelash linework, coherent pupils in both eyes, finely drawn amber with subtle gold reflections irises, restrained subtle iris gradients and consistent small catchlights. Keep the SAME eye outline, iris size, eye angle, gaze, expression and exact position. This is a quality refinement, NOT a new facial expression. Preserve all hair strands, head angle, ears, eyebrows, mouth, cheeks and background exactly. Maintain clean Japanese bishoujo galgame cel style, no realistic eyes, heavy makeup, glitter, enlarged eyes, western illustration, changed age or extra pupils. Output the exact same locked1024x1024 face crop; do not zoom or recenter.",
+        "source": "demo/assets/characters/mara/pose-explaining.png",
+        "sourceSha256": "2ca9ad59dc0ca86f36595afc1010a3c9249612b1e5a37bd20fd7c8b1af6d9cc4",
+        "baseCrop": [
+          230,
+          70,
+          486,
+          326
+        ],
+        "archivedSource": "demo/.generated/art/flare/before/mara/pose-explaining.png"
+      },
+      "preparation": {
+        "assetId": "mara-pose-explaining",
+        "predictionId": "1d52eb0r7nrmy0d0gqms6zmxrm",
+        "quality": "medium",
+        "source": "demo/.generated/art/flare/mara-pose-explaining-output/1d52eb0r7nrmy0d0gqms6zmxrm-output-0-0.png",
+        "sourceSprite": "demo/.generated/art/flare/before/mara/pose-explaining.png",
+        "model": "openai/gpt-image-2.5-flare",
+        "baseCrop": [
+          230,
+          70,
+          486,
+          326
+        ],
+        "facePolygons": [
+          [
+            [
+              0,
+              142
+            ],
+            [
+              46,
+              139
+            ],
+            [
+              52,
+              171
+            ],
+            [
+              0,
+              179
+            ]
+          ],
+          [
+            [
+              60,
+              121
+            ],
+            [
+              111,
+              118
+            ],
+            [
+              117,
+              150
+            ],
+            [
+              64,
+              158
+            ]
+          ]
+        ],
+        "alignment": [
+          [
+            0.9992969002396215,
+            -0.0002664519276834377,
+            0.08501715977028995
+          ],
+          [
+            0.0002664519276834377,
+            0.9992969002396215,
+            0.6743186357180166
+          ]
+        ],
+        "stableMatches": 194,
+        "inliers": 180,
+        "scale": 0.9992969357629122,
+        "angle": 0.015277312012000603,
+        "alphaUnchanged": true,
+        "bodyUnchanged": true,
+        "status": "candidate-needs-visual-review"
+      },
+      "review": "已对照原图及生成图检查眼型、瞳孔与神情；最终画布深浅底检查通过。",
+      "qsUsed": true,
+      "usedBy": [
+        "prologue-return-line",
+        "chapter-03",
+        "prologue-restoration"
+      ],
+      "status": "integrated"
+    },
+    {
+      "id": "mara-afraid",
+      "character": "mara",
+      "expression": "afraid",
+      "model": "openai/gpt-image-2.5-flare",
+      "quality": "medium",
+      "predictionId": "1w6r578rydrmr0d0gqms6h4cf4",
+      "destination": "demo/assets/characters/mara/afraid.png",
+      "sha256": "af5a00ebb3de59e51120650a4da3207d3b66e10b113ce583998dce15b7ff6d4a",
+      "provenance": {
+        "id": "mara-afraid",
+        "model": "openai/gpt-image-2.5-flare",
+        "quality": "medium",
+        "prompt": "Use case: identity-preserve. Precisely refine this existing Japanese anime visual novel face crop. Character is mara, an adult woman aged24-25. Improve ONLY eyes and lashes: delicate crisp tapered eyelash linework, coherent pupils in both eyes, finely drawn amber with subtle gold reflections irises, restrained subtle iris gradients and consistent small catchlights. Keep the SAME eye outline, iris size, eye angle, gaze, expression and exact position. This is a quality refinement, NOT a new facial expression. Preserve all hair strands, head angle, ears, eyebrows, mouth, cheeks and background exactly. Maintain clean Japanese bishoujo galgame cel style, no realistic eyes, heavy makeup, glitter, enlarged eyes, western illustration, changed age or extra pupils. Output the exact same locked1024x1024 face crop; do not zoom or recenter. Preserve frightened tense brows and uncertain mouth; do not make her smile or give a vacant doll stare.",
+        "source": "demo/assets/characters/mara/afraid.png",
+        "sourceSha256": "5a4a1b9022dd750281b31277c05bec265c3d1c6c1882b082b231f95ecdebc3f8",
+        "baseCrop": [
+          230,
+          70,
+          486,
+          326
+        ],
+        "archivedSource": "demo/.generated/art/flare/before/mara/afraid.png"
+      },
+      "preparation": {
+        "assetId": "mara-afraid",
+        "predictionId": "1w6r578rydrmr0d0gqms6h4cf4",
+        "quality": "medium",
+        "source": "demo/.generated/art/flare/mara-afraid-output/1w6r578rydrmr0d0gqms6h4cf4-output-0-0.png",
+        "sourceSprite": "demo/.generated/art/flare/before/mara/afraid.png",
+        "model": "openai/gpt-image-2.5-flare",
+        "baseCrop": [
+          230,
+          70,
+          486,
+          326
+        ],
+        "facePolygons": [
+          [
+            [
+              67,
+              141
+            ],
+            [
+              118,
+              138
+            ],
+            [
+              124,
+              170
+            ],
+            [
+              71,
+              178
+            ]
+          ],
+          [
+            [
+              129,
+              119
+            ],
+            [
+              180,
+              116
+            ],
+            [
+              186,
+              148
+            ],
+            [
+              133,
+              156
+            ]
+          ]
+        ],
+        "alignment": [
+          [
+            1.0000841470144566,
+            1.1566740923836144e-05,
+            -0.29546857268958737
+          ],
+          [
+            -1.1566740923836144e-05,
+            1.0000841470144566,
+            0.25503188097688884
+          ]
+        ],
+        "stableMatches": 181,
+        "inliers": 169,
+        "scale": 1.0000841470813457,
+        "angle": -0.0006626696759527092,
+        "alphaUnchanged": true,
+        "bodyUnchanged": true,
+        "status": "candidate-needs-visual-review"
+      },
+      "review": "已对照原图及生成图检查眼型、瞳孔与神情；最终画布深浅底检查通过。",
+      "qsUsed": true,
+      "usedBy": [
+        "prologue-return-line",
+        "chapter-06",
+        "chapter-04"
+      ],
+      "status": "integrated"
+    },
+    {
+      "id": "mara-serious",
+      "character": "mara",
+      "expression": "serious",
+      "model": "openai/gpt-image-2.5-flare",
+      "quality": "medium",
+      "predictionId": "j6srpmgzrnrmy0d0gqmr2ygjdg",
+      "destination": "demo/assets/characters/mara/serious.png",
+      "sha256": "4ebd34fb8ac978f074cb6abc2c5f5be162346cd1134dd80eaaf92c07bbfc993a",
+      "provenance": {
+        "id": "mara-serious",
+        "model": "openai/gpt-image-2.5-flare",
+        "quality": "medium",
+        "prompt": "Use case: identity-preserve. Precisely refine this existing Japanese anime visual novel face crop. Character is mara, an adult woman aged24-25. Improve ONLY eyes and lashes: delicate crisp tapered eyelash linework, coherent pupils in both eyes, finely drawn amber with subtle gold reflections irises, restrained subtle iris gradients and consistent small catchlights. Keep the SAME eye outline, iris size, eye angle, gaze, expression and exact position. This is a quality refinement, NOT a new facial expression. Preserve all hair strands, head angle, ears, eyebrows, mouth, cheeks and background exactly. Maintain clean Japanese bishoujo galgame cel style, no realistic eyes, heavy makeup, glitter, enlarged eyes, western illustration, changed age or extra pupils. Output the exact same locked1024x1024 face crop; do not zoom or recenter. Preserve focused unsmiling expression; no smiling or open mouth.",
+        "source": "demo/assets/characters/mara/serious.png",
+        "sourceSha256": "f660e3f797ac0d217725ec3dd7ecc1113e7f42460e4faa45ee7e45fb6673414f",
+        "baseCrop": [
+          230,
+          70,
+          486,
+          326
+        ],
+        "archivedSource": "demo/.generated/art/flare/before/mara/serious.png"
+      },
+      "preparation": {
+        "assetId": "mara-serious",
+        "predictionId": "j6srpmgzrnrmy0d0gqmr2ygjdg",
+        "quality": "medium",
+        "source": "demo/.generated/art/flare/mara-serious-output/j6srpmgzrnrmy0d0gqmr2ygjdg-output-0-0.png",
+        "sourceSprite": "demo/.generated/art/flare/before/mara/serious.png",
+        "model": "openai/gpt-image-2.5-flare",
+        "baseCrop": [
+          230,
+          70,
+          486,
+          326
+        ],
+        "facePolygons": [
+          [
+            [
+              67,
+              141
+            ],
+            [
+              118,
+              138
+            ],
+            [
+              124,
+              170
+            ],
+            [
+              71,
+              178
+            ]
+          ],
+          [
+            [
+              129,
+              119
+            ],
+            [
+              180,
+              116
+            ],
+            [
+              186,
+              148
+            ],
+            [
+              133,
+              156
+            ]
+          ]
+        ],
+        "alignment": [
+          [
+            0.9999379162153265,
+            0.0002798468142922127,
+            -0.5730067816130416
+          ],
+          [
+            -0.0002798468142922127,
+            0.9999379162153265,
+            0.3943811979925287
+          ]
+        ],
+        "stableMatches": 231,
+        "inliers": 199,
+        "scale": 0.9999379553748766,
+        "angle": -0.016035036466259776,
+        "alphaUnchanged": true,
+        "bodyUnchanged": true,
+        "status": "candidate-needs-visual-review"
+      },
+      "review": "已对照原图及生成图检查眼型、瞳孔与神情；最终画布深浅底检查通过。",
+      "qsUsed": true,
+      "usedBy": [
+        "chapter-05-inspection",
+        "prologue-return-line",
+        "chapter-07",
+        "chapter-03",
+        "chapter-06",
+        "chapter-01",
+        "prologue-restoration",
+        "chapter-05",
+        "chapter-04",
+        "epilogue"
+      ],
+      "status": "integrated"
+    },
+    {
+      "id": "rin-pose-listening",
+      "character": "rin",
+      "expression": "pose-listening",
+      "model": "openai/gpt-image-2.5-flare",
+      "quality": "medium",
+      "predictionId": "4f9zty90rsrmw0d0gqmsgpwkf8",
+      "destination": "demo/assets/characters/rin/pose-listening.png",
+      "sha256": "d38b00198cfd96998072aee3d8fa13eef0adb35a6b2758c764456531746f890c",
+      "provenance": {
+        "id": "rin-pose-listening",
+        "model": "openai/gpt-image-2.5-flare",
+        "quality": "medium",
+        "prompt": "Use case: identity-preserve. Precisely refine this existing Japanese anime visual novel face crop. Character is rin, an adult woman aged24-25. Improve ONLY eyes and lashes: delicate crisp tapered eyelash linework, coherent pupils in both eyes, finely drawn gray-brown with subtle warm reflections irises, restrained subtle iris gradients and consistent small catchlights. Keep the SAME eye outline, iris size, eye angle, gaze, expression and exact position. This is a quality refinement, NOT a new facial expression. Preserve all hair strands, head angle, ears, eyebrows, mouth, cheeks and background exactly. Maintain clean Japanese bishoujo galgame cel style, no realistic eyes, heavy makeup, glitter, enlarged eyes, western illustration, changed age or extra pupils. Output the exact same locked1024x1024 face crop; do not zoom or recenter.",
+        "source": "demo/assets/characters/rin/pose-listening.png",
+        "sourceSha256": "bd72d8be02706f306bebc5666d1ca0b336f2fe829ed0c3de446c2a517f255f0b",
+        "baseCrop": [
+          256,
+          152,
+          512,
+          408
+        ],
+        "archivedSource": "demo/.generated/art/flare/before/rin/pose-listening.png"
+      },
+      "preparation": {
+        "assetId": "rin-pose-listening",
+        "predictionId": "4f9zty90rsrmw0d0gqmsgpwkf8",
+        "quality": "medium",
+        "source": "demo/.generated/art/flare/rin-pose-listening-output/4f9zty90rsrmw0d0gqmsgpwkf8-output-0-0.png",
+        "sourceSprite": "demo/.generated/art/flare/before/rin/pose-listening.png",
+        "model": "openai/gpt-image-2.5-flare",
+        "baseCrop": [
+          256,
+          152,
+          512,
+          408
+        ],
+        "facePolygons": [
+          [
+            [
+              86,
+              117
+            ],
+            [
+              137,
+              114
+            ],
+            [
+              143,
+              146
+            ],
+            [
+              90,
+              154
+            ]
+          ],
+          [
+            [
+              151,
+              133
+            ],
+            [
+              191,
+              129
+            ],
+            [
+              199,
+              157
+            ],
+            [
+              160,
+              170
+            ]
+          ]
+        ],
+        "alignment": [
+          [
+            0.9997910984536645,
+            -0.00025581501620609474,
+            -0.21778427536868422
+          ],
+          [
+            0.00025581501620609474,
+            0.9997910984536645,
+            0.2933478296454062
+          ]
+        ],
+        "stableMatches": 181,
+        "inliers": 167,
+        "scale": 0.999791131181162,
+        "angle": 0.014660182979713273,
+        "alphaUnchanged": true,
+        "bodyUnchanged": true,
+        "status": "candidate-needs-visual-review",
+        "interiorMinimumAlpha": 239
+      },
+      "review": "已对照原图及生成图检查眼型、瞳孔与神情；最终画布深浅底检查通过。",
+      "qsUsed": false,
+      "usedBy": [],
+      "status": "reviewed"
+    },
+    {
+      "id": "rin-pose-phone",
+      "character": "rin",
+      "expression": "pose-phone",
+      "model": "openai/gpt-image-2.5-flare",
+      "quality": "medium",
+      "predictionId": "4646szgxpsrmr0d0gqmrdkmr4r",
+      "destination": "demo/assets/characters/rin/pose-phone.png",
+      "sha256": "bf55c515e3c9681c0f533c787ebd44834647599c92908ce4bfd15cdf35b2b4c6",
+      "provenance": {
+        "id": "rin-pose-phone",
+        "model": "openai/gpt-image-2.5-flare",
+        "quality": "medium",
+        "prompt": "Use case: identity-preserve. Precisely refine this existing Japanese anime visual novel face crop. Character is rin, an adult woman aged24-25. Improve ONLY eyes and lashes: delicate crisp tapered eyelash linework, coherent pupils in both eyes, finely drawn gray-brown with subtle warm reflections irises, restrained subtle iris gradients and consistent small catchlights. Keep the SAME eye outline, iris size, eye angle, gaze, expression and exact position. This is a quality refinement, NOT a new facial expression. Preserve all hair strands, head angle, ears, eyebrows, mouth, cheeks and background exactly. Maintain clean Japanese bishoujo galgame cel style, no realistic eyes, heavy makeup, glitter, enlarged eyes, western illustration, changed age or extra pupils. Output the exact same locked1024x1024 face crop; do not zoom or recenter.",
+        "source": "demo/assets/characters/rin/pose-phone.png",
+        "sourceSha256": "374c6c1635175ffc1d177b6e0bf37a029a1385a52fe79d1bc86a3368928e88f8",
+        "baseCrop": [
+          256,
+          152,
+          512,
+          408
+        ],
+        "archivedSource": "demo/.generated/art/flare/before/rin/pose-phone.png"
+      },
+      "preparation": {
+        "assetId": "rin-pose-phone",
+        "predictionId": "4646szgxpsrmr0d0gqmrdkmr4r",
+        "quality": "medium",
+        "source": "demo/.generated/art/flare/rin-pose-phone-output/4646szgxpsrmr0d0gqmrdkmr4r-output-0-0.png",
+        "sourceSprite": "demo/.generated/art/flare/before/rin/pose-phone.png",
+        "model": "openai/gpt-image-2.5-flare",
+        "baseCrop": [
+          256,
+          152,
+          512,
+          408
+        ],
+        "facePolygons": [
+          [
+            [
+              74,
+              125
+            ],
+            [
+              125,
+              122
+            ],
+            [
+              131,
+              154
+            ],
+            [
+              78,
+              162
+            ]
+          ],
+          [
+            [
+              139,
+              130
+            ],
+            [
+              190,
+              127
+            ],
+            [
+              196,
+              159
+            ],
+            [
+              143,
+              167
+            ]
+          ]
+        ],
+        "alignment": [
+          [
+            0.9993774338530315,
+            -0.0001275542422926224,
+            -0.006537390533408745
+          ],
+          [
+            0.0001275542422926224,
+            0.9993774338530315,
+            0.6386275803788674
+          ]
+        ],
+        "stableMatches": 208,
+        "inliers": 198,
+        "scale": 0.9993774419931415,
+        "angle": 0.00731287244949547,
+        "alphaUnchanged": true,
+        "bodyUnchanged": true,
+        "status": "candidate-needs-visual-review"
+      },
+      "review": "已对照原图及生成图检查眼型、瞳孔与神情；最终画布深浅底检查通过。",
+      "qsUsed": false,
+      "usedBy": [],
+      "status": "reviewed"
+    },
+    {
+      "id": "rin-pose-explaining",
+      "character": "rin",
+      "expression": "pose-explaining",
+      "model": "openai/gpt-image-2.5-flare",
+      "quality": "medium",
+      "predictionId": "h9sxdvs3gsrmy0d0gqms2xq7ng",
+      "destination": "demo/assets/characters/rin/pose-explaining.png",
+      "sha256": "187b2617c9f0576d3136ed8395e8cac49885b9b2a13e2dd04759f33205e284f4",
+      "provenance": {
+        "id": "rin-pose-explaining",
+        "model": "openai/gpt-image-2.5-flare",
+        "quality": "medium",
+        "prompt": "Use case: identity-preserve. Precisely refine this existing Japanese anime visual novel face crop. Character is rin, an adult woman aged24-25. Improve ONLY eyes and lashes: delicate crisp tapered eyelash linework, coherent pupils in both eyes, finely drawn gray-brown with subtle warm reflections irises, restrained subtle iris gradients and consistent small catchlights. Keep the SAME eye outline, iris size, eye angle, gaze, expression and exact position. This is a quality refinement, NOT a new facial expression. Preserve all hair strands, head angle, ears, eyebrows, mouth, cheeks and background exactly. Maintain clean Japanese bishoujo galgame cel style, no realistic eyes, heavy makeup, glitter, enlarged eyes, western illustration, changed age or extra pupils. Output the exact same locked1024x1024 face crop; do not zoom or recenter.",
+        "source": "demo/assets/characters/rin/pose-explaining.png",
+        "sourceSha256": "fe9e56696a50d3efac8b24654b10bd56e55a5d81993a476332f606614c6715df",
+        "baseCrop": [
+          375,
+          152,
+          631,
+          408
+        ],
+        "archivedSource": "demo/.generated/art/flare/before/rin/pose-explaining.png"
+      },
+      "preparation": {
+        "assetId": "rin-pose-explaining",
+        "predictionId": "h9sxdvs3gsrmy0d0gqms2xq7ng",
+        "quality": "medium",
+        "source": "demo/.generated/art/flare/rin-pose-explaining-output/h9sxdvs3gsrmy0d0gqms2xq7ng-output-0-0.png",
+        "sourceSprite": "demo/.generated/art/flare/before/rin/pose-explaining.png",
+        "model": "openai/gpt-image-2.5-flare",
+        "baseCrop": [
+          375,
+          152,
+          631,
+          408
+        ],
+        "facePolygons": [
+          [
+            [
+              78,
+              129
+            ],
+            [
+              129,
+              126
+            ],
+            [
+              135,
+              158
+            ],
+            [
+              82,
+              166
+            ]
+          ],
+          [
+            [
+              149,
+              141
+            ],
+            [
+              200,
+              138
+            ],
+            [
+              206,
+              170
+            ],
+            [
+              153,
+              178
+            ]
+          ]
+        ],
+        "alignment": [
+          [
+            0.9993773424515702,
+            -2.6461996756003086e-05,
+            -0.021300118504847487
+          ],
+          [
+            2.6461996756003086e-05,
+            0.9993773424515702,
+            0.17912611017835778
+          ]
+        ],
+        "stableMatches": 205,
+        "inliers": 190,
+        "scale": 0.9993773428019069,
+        "angle": 0.0015171053683628952,
+        "alphaUnchanged": true,
+        "bodyUnchanged": true,
+        "status": "candidate-needs-visual-review"
+      },
+      "review": "已对照原图及生成图检查眼型、瞳孔与神情；最终画布深浅底检查通过。",
+      "qsUsed": false,
+      "usedBy": [],
+      "status": "reviewed"
+    },
+    {
+      "id": "rin-afraid",
+      "character": "rin",
+      "expression": "afraid",
+      "model": "openai/gpt-image-2.5-flare",
+      "quality": "medium",
+      "predictionId": "cvfhmg928xrmt0d0gqmr4taqkr",
+      "destination": "demo/assets/characters/rin/afraid.png",
+      "sha256": "9083a98a156c1e2e82b497689dc491a13900ed6752a1f57ce5298a164f5b025c",
+      "provenance": {
+        "id": "rin-afraid",
+        "model": "openai/gpt-image-2.5-flare",
+        "quality": "medium",
+        "prompt": "Use case: identity-preserve. Precisely refine this existing Japanese anime visual novel face crop. Character is rin, an adult woman aged24-25. Improve ONLY eyes and lashes: delicate crisp tapered eyelash linework, coherent pupils in both eyes, finely drawn gray-brown with subtle warm reflections irises, restrained subtle iris gradients and consistent small catchlights. Keep the SAME eye outline, iris size, eye angle, gaze, expression and exact position. This is a quality refinement, NOT a new facial expression. Preserve all hair strands, head angle, ears, eyebrows, mouth, cheeks and background exactly. Maintain clean Japanese bishoujo galgame cel style, no realistic eyes, heavy makeup, glitter, enlarged eyes, western illustration, changed age or extra pupils. Output the exact same locked1024x1024 face crop; do not zoom or recenter. Preserve frightened tense brows and uncertain mouth; do not make her smile or give a vacant doll stare.",
+        "source": "demo/assets/characters/rin/afraid.png",
+        "sourceSha256": "f543b28b78ad24e3f78ff17be0362dcf809299b385635199aa4d247ddcf94adf",
+        "baseCrop": [
+          256,
+          152,
+          512,
+          408
+        ],
+        "archivedSource": "demo/.generated/art/flare/before/rin/afraid.png"
+      },
+      "preparation": {
+        "assetId": "rin-afraid",
+        "predictionId": "cvfhmg928xrmt0d0gqmr4taqkr",
+        "quality": "medium",
+        "source": "demo/.generated/art/flare/rin-afraid-output/cvfhmg928xrmt0d0gqmr4taqkr-output-0-0.png",
+        "sourceSprite": "demo/.generated/art/flare/before/rin/afraid.png",
+        "model": "openai/gpt-image-2.5-flare",
+        "baseCrop": [
+          256,
+          152,
+          512,
+          408
+        ],
+        "facePolygons": [
+          [
+            [
+              89,
+              117
+            ],
+            [
+              140,
+              114
+            ],
+            [
+              146,
+              146
+            ],
+            [
+              93,
+              154
+            ]
+          ],
+          [
+            [
+              151,
+              131
+            ],
+            [
+              202,
+              128
+            ],
+            [
+              208,
+              160
+            ],
+            [
+              155,
+              168
+            ]
+          ]
+        ],
+        "alignment": [
+          [
+            0.9994438769986537,
+            -0.000474491417914313,
+            0.22657040505370812
+          ],
+          [
+            0.000474491417914313,
+            0.9994438769986537,
+            0.0712737070986858
+          ]
+        ],
+        "stableMatches": 258,
+        "inliers": 219,
+        "scale": 0.9994439896323383,
+        "angle": 0.027201480988381255,
+        "alphaUnchanged": true,
+        "bodyUnchanged": true,
+        "status": "candidate-needs-visual-review"
+      },
+      "review": "已对照原图及生成图检查眼型、瞳孔与神情；最终画布深浅底检查通过。",
+      "qsUsed": false,
+      "usedBy": [],
+      "status": "reviewed"
+    },
+    {
+      "id": "rin-serious",
+      "character": "rin",
+      "expression": "serious",
+      "model": "openai/gpt-image-2.5-flare",
+      "quality": "medium",
+      "predictionId": "g8g2zns429rmw0d0gqmttdmvkr",
+      "destination": "demo/assets/characters/rin/serious.png",
+      "sha256": "27b7620296d456839a08190d7f1869cda2603a6030073a7e1aaf3fa7941659c2",
+      "provenance": {
+        "id": "rin-serious",
+        "model": "openai/gpt-image-2.5-flare",
+        "quality": "medium",
+        "prompt": "Use case: identity-preserve. Precisely refine this existing Japanese anime visual novel face crop. Character is rin, an adult woman aged24-25. Improve ONLY eyes and lashes: delicate crisp tapered eyelash linework, coherent pupils in both eyes, finely drawn gray-brown with subtle warm reflections irises, restrained subtle iris gradients and consistent small catchlights. Keep the SAME eye outline, iris size, eye angle, gaze, expression and exact position. This is a quality refinement, NOT a new facial expression. Preserve all hair strands, head angle, ears, eyebrows, mouth, cheeks and background exactly. Maintain clean Japanese bishoujo galgame cel style, no realistic eyes, heavy makeup, glitter, enlarged eyes, western illustration, changed age or extra pupils. Output the exact same locked1024x1024 face crop; do not zoom or recenter. Preserve focused unsmiling expression; no smiling or open mouth.",
+        "source": "demo/assets/characters/rin/serious.png",
+        "sourceSha256": "071b9721411cf8a3e992b7dfdb8f40dd399eb3b4a8eac3270e3d51b3f344b99f",
+        "baseCrop": [
+          256,
+          152,
+          512,
+          408
+        ],
+        "archivedSource": "demo/.generated/art/flare/before/rin/serious.png"
+      },
+      "preparation": {
+        "assetId": "rin-serious",
+        "predictionId": "g8g2zns429rmw0d0gqmttdmvkr",
+        "quality": "medium",
+        "source": "demo/.generated/art/flare/rin-serious-output/g8g2zns429rmw0d0gqmttdmvkr-output-0-0.png",
+        "sourceSprite": "demo/.generated/art/flare/before/rin/serious.png",
+        "model": "openai/gpt-image-2.5-flare",
+        "baseCrop": [
+          256,
+          152,
+          512,
+          408
+        ],
+        "facePolygons": [
+          [
+            [
+              89,
+              117
+            ],
+            [
+              140,
+              114
+            ],
+            [
+              146,
+              146
+            ],
+            [
+              93,
+              154
+            ]
+          ],
+          [
+            [
+              151,
+              131
+            ],
+            [
+              202,
+              128
+            ],
+            [
+              208,
+              160
+            ],
+            [
+              155,
+              168
+            ]
+          ]
+        ],
+        "alignment": [
+          [
+            0.9998670009104593,
+            -0.00041476812570156085,
+            -0.13161508092113103
+          ],
+          [
+            0.00041476812570156085,
+            0.9998670009104593,
+            -0.03963312984486546
+          ]
+        ],
+        "stableMatches": 165,
+        "inliers": 157,
+        "scale": 0.9998670869381963,
+        "angle": 0.023767622788325907,
+        "alphaUnchanged": true,
+        "bodyUnchanged": true,
+        "status": "candidate-needs-visual-review"
+      },
+      "review": "已对照原图及生成图检查眼型、瞳孔与神情；最终画布深浅底检查通过。",
+      "qsUsed": false,
+      "usedBy": [],
+      "status": "reviewed"
+    },
+    {
+      "id": "mara-laugh-soft",
+      "character": "mara",
+      "expression": "laugh-soft",
+      "model": "openai/gpt-image-2.5-flare",
+      "quality": "medium",
+      "predictionId": "s6x5vn4egnrmt0d0gqp9xabxxc",
+      "destination": "demo/assets/characters/mara/laugh-soft.png",
+      "sha256": "2b4f6697e26c76d3108278f72a285ba87fe89dd3ba612798547244c8983b3f24",
+      "provenance": {
+        "id": "mara-laugh-soft",
+        "model": "openai/gpt-image-2.5-flare",
+        "quality": "medium",
+        "prompt": "Use case: identity-preserve. Asset type: Japanese anime visual novel character variant. Input image 1 is this same heroine’s approved neutral sprite, used for identity, palette, clothing, proportions and rendering style. Refined Japanese bishoujo galgame cel art, crisp colored outlines, flat colors and restrained two/three-tone shading. Exactly one adult woman. Preserve identity, hair silhouette and color, eye color, clothing seams, shoes, red wrist cord when present, body proportions and light direction. No photorealism, painterly skin, chibi anatomy, new costume, text, watermark, additional person or duplicated limb. Keep the exact supplied face crop. Do not bake any second person or location into the sprite.\nMara,24,172cm, long waist-length ash-brown hair, amber eyes, gentle oval face, yellow short puff-sleeve blouse, ivory knee skirt, flat Mary Jane shoes. Warm young onee-san presence; no increase in age or bust.\nChange: Eyes gently narrowed with a small open laughing mouth, cheeks slightly lifted. Preserve neutral body and all alpha; expression only. Not a huge gag face.\nThe input is a deliberately locked FACE CROP. Keep1024x1024 framing and all hair, ears and chin outlines exactly unchanged. Change facial expression only. Refine eyes with delicate tapered lines, defined pupils, subtle iris reflections and consistent small catchlights. Do not draw any body or change age. Do not zoom out.",
+        "source": "demo/assets/characters/mara/neutral.png",
+        "sourceSha256": "337cfcff4e7a64bfb57201801cf07616cd13aac1dff2c2fb4cf58117b28b0423",
+        "baseCrop": [
+          230,
+          70,
+          486,
+          326
+        ],
+        "newAsset": true
+      },
+      "preparation": {
+        "assetId": "mara-laugh-soft",
+        "predictionId": "s6x5vn4egnrmt0d0gqp9xabxxc",
+        "quality": "medium",
+        "source": "demo/.generated/art/flare/mara-laugh-soft-output/s6x5vn4egnrmt0d0gqp9xabxxc-output-0-0.png",
+        "sourceSprite": "demo/assets/characters/mara/neutral.png",
+        "model": "openai/gpt-image-2.5-flare",
+        "baseCrop": [
+          230,
+          70,
+          486,
+          326
+        ],
+        "facePolygons": [
+          [
+            [
+              69,
+              138
+            ],
+            [
+              100,
+              100
+            ],
+            [
+              144,
+              87
+            ],
+            [
+              169,
+              109
+            ],
+            [
+              176,
+              157
+            ],
+            [
+              161,
+              197
+            ],
+            [
+              135,
+              216
+            ],
+            [
+              112,
+              211
+            ],
+            [
+              82,
+              186
+            ]
+          ]
+        ],
+        "alignment": [
+          [
+            0.999862316647074,
+            -0.0008733424208605627,
+            -0.16921359471012246
+          ],
+          [
+            0.0008733424208605627,
+            0.999862316647074,
+            -0.12171084819309744
+          ]
+        ],
+        "stableMatches": 87,
+        "inliers": 79,
+        "scale": 0.999862698063008,
+        "angle": 0.05004571252105986,
+        "alphaUnchanged": true,
+        "bodyUnchanged": true,
+        "status": "candidate-needs-visual-review",
+        "interiorMinimumAlpha": 250
+      },
+      "review": "已对照原图及生成图检查眼型、瞳孔与神情；最终画布深浅底检查通过。",
+      "qsUsed": true,
+      "usedBy": [
+        "chapter-03"
+      ],
+      "status": "integrated"
+    },
+    {
+      "id": "mara-hurt-look-away",
+      "character": "mara",
+      "expression": "hurt-look-away",
+      "model": "openai/gpt-image-2.5-flare",
+      "quality": "medium",
+      "predictionId": "4rsfdbvhh5rmt0d0gqtb37tvxm",
+      "destination": "demo/assets/characters/mara/hurt-look-away.png",
+      "sha256": "1ff07d45cb75225acfdc5708466657afd651c95075cf5335e55efc8f262e0486",
+      "provenance": {
+        "id": "mara-hurt-look-away",
+        "model": "openai/gpt-image-2.5-flare",
+        "quality": "medium",
+        "prompt": "Edit this exact1024x1024 cropped anime face of adult Mara. Keep every hair contour, face silhouette, ear, head size, head tilt and background pixel in place. Change ONLY her facial expression: she has just learned a person she trusts concealed her death warning. She is quietly hurt and upset, NOT smiling. Lips closed in a small clearly downward curve, inner eyebrows raised and drawn together, eyes slightly red-rimmed, both pupils looking away to her right instead of at viewer. No tears rolling down. No romantic blush or pleased look. Preserve her refined amber irises, delicate upper lashes, modest iris highlights and recognisable adult Japanese galgame face. Expression must visibly differ from neutral and romantic shy; keep mouth closed, no shouting. Do not zoom or add a body.",
+        "source": "demo/assets/characters/mara/neutral.png",
+        "sourceSha256": "337cfcff4e7a64bfb57201801cf07616cd13aac1dff2c2fb4cf58117b28b0423",
+        "baseCrop": [
+          230,
+          70,
+          486,
+          326
+        ],
+        "newAsset": true,
+        "rejectedPrediction": "6fmmwzmfs1rmw0d0gqpbvbkhp0",
+        "rejectionReason": "神情仍像平静的浅笑，未表现受伤与回避。"
+      },
+      "preparation": {
+        "assetId": "mara-hurt-look-away",
+        "predictionId": "4rsfdbvhh5rmt0d0gqtb37tvxm",
+        "quality": "medium",
+        "source": "demo/.generated/art/flare/mara-hurt-look-away-v2-output/4rsfdbvhh5rmt0d0gqtb37tvxm-output-0-0.png",
+        "sourceSprite": "demo/assets/characters/mara/neutral.png",
+        "model": "openai/gpt-image-2.5-flare",
+        "baseCrop": [
+          230,
+          70,
+          486,
+          326
+        ],
+        "facePolygons": [
+          [
+            [
+              69,
+              138
+            ],
+            [
+              100,
+              100
+            ],
+            [
+              144,
+              87
+            ],
+            [
+              169,
+              109
+            ],
+            [
+              176,
+              157
+            ],
+            [
+              161,
+              197
+            ],
+            [
+              135,
+              216
+            ],
+            [
+              112,
+              211
+            ],
+            [
+              82,
+              186
+            ]
+          ]
+        ],
+        "alignment": [
+          [
+            1.0000110867727714,
+            -9.534870069004214e-07,
+            -0.42180926879261094
+          ],
+          [
+            9.534870069004214e-07,
+            1.0000110867727714,
+            0.14490751335128232
+          ]
+        ],
+        "stableMatches": 198,
+        "inliers": 176,
+        "scale": 1.000011086773226,
+        "angle": 5.463017564359497e-05,
+        "alphaUnchanged": true,
+        "bodyUnchanged": true,
+        "status": "candidate-needs-visual-review",
+        "interiorMinimumAlpha": 250
+      },
+      "review": "已对照原图及生成图检查眼型、瞳孔与神情；最终画布深浅底检查通过。",
+      "qsUsed": true,
+      "usedBy": [
+        "chapter-04"
+      ],
+      "status": "integrated"
+    },
+    {
+      "id": "mara-shy-look-down",
+      "character": "mara",
+      "expression": "shy-look-down",
+      "model": "openai/gpt-image-2.5-flare",
+      "quality": "medium",
+      "predictionId": "v36dfscd39rmw0d0gqpbtgxhrr",
+      "destination": "demo/assets/characters/mara/shy-look-down.png",
+      "sha256": "07b058639ef47dd14c226ab1c8db049f55b1a31cb4aa40ff46227ec4efc2a8df",
+      "provenance": {
+        "id": "mara-shy-look-down",
+        "model": "openai/gpt-image-2.5-flare",
+        "quality": "medium",
+        "prompt": "Use case: identity-preserve. Asset type: Japanese anime visual novel character variant. Input image 1 is this same heroine’s approved neutral sprite, used for identity, palette, clothing, proportions and rendering style. Refined Japanese bishoujo galgame cel art, crisp colored outlines, flat colors and restrained two/three-tone shading. Exactly one adult woman. Preserve identity, hair silhouette and color, eye color, clothing seams, shoes, red wrist cord when present, body proportions and light direction. No photorealism, painterly skin, chibi anatomy, new costume, text, watermark, additional person or duplicated limb. Keep the exact supplied face crop. Do not bake any second person or location into the sprite.\nMara,24,172cm, long waist-length ash-brown hair, amber eyes, gentle oval face, yellow short puff-sleeve blouse, ivory knee skirt, flat Mary Jane shoes. Warm young onee-san presence; no increase in age or bust.\nChange: Downcast eyes and a small shy smile, soft blush, eyebrows relaxed with slight uncertainty. Preserve head scale and outline, no dramatic head tilt; expression only.\nThe input is a deliberately locked FACE CROP. Keep1024x1024 framing and all hair, ears and chin outlines exactly unchanged. Change facial expression only. Refine eyes with delicate tapered lines, defined pupils, subtle iris reflections and consistent small catchlights. Do not draw any body or change age. Do not zoom out.",
+        "source": "demo/assets/characters/mara/neutral.png",
+        "sourceSha256": "337cfcff4e7a64bfb57201801cf07616cd13aac1dff2c2fb4cf58117b28b0423",
+        "baseCrop": [
+          230,
+          70,
+          486,
+          326
+        ],
+        "newAsset": true
+      },
+      "preparation": {
+        "assetId": "mara-shy-look-down",
+        "predictionId": "v36dfscd39rmw0d0gqpbtgxhrr",
+        "quality": "medium",
+        "source": "demo/.generated/art/flare/mara-shy-look-down-output/v36dfscd39rmw0d0gqpbtgxhrr-output-0-0.png",
+        "sourceSprite": "demo/assets/characters/mara/neutral.png",
+        "model": "openai/gpt-image-2.5-flare",
+        "baseCrop": [
+          230,
+          70,
+          486,
+          326
+        ],
+        "facePolygons": [
+          [
+            [
+              69,
+              138
+            ],
+            [
+              100,
+              100
+            ],
+            [
+              144,
+              87
+            ],
+            [
+              169,
+              109
+            ],
+            [
+              176,
+              157
+            ],
+            [
+              161,
+              197
+            ],
+            [
+              135,
+              216
+            ],
+            [
+              112,
+              211
+            ],
+            [
+              82,
+              186
+            ]
+          ]
+        ],
+        "alignment": [
+          [
+            1.0005230764571293,
+            -0.0004999100469683306,
+            -0.2796857334738022
+          ],
+          [
+            0.0004999100469683306,
+            1.0005230764571293,
+            -0.91462253327183
+          ]
+        ],
+        "stableMatches": 111,
+        "inliers": 97,
+        "scale": 1.0005232013468222,
+        "angle": 0.02862775893721033,
+        "alphaUnchanged": true,
+        "bodyUnchanged": true,
+        "status": "candidate-needs-visual-review",
+        "interiorMinimumAlpha": 250
+      },
+      "review": "已对照原图及生成图检查眼型、瞳孔与神情；最终画布深浅底检查通过。",
+      "qsUsed": true,
+      "usedBy": [
+        "chapter-07"
+      ],
+      "status": "integrated"
+    },
+    {
+      "id": "rin-quiet-smile",
+      "character": "rin",
+      "expression": "quiet-smile",
+      "model": "openai/gpt-image-2.5-flare",
+      "quality": "medium",
+      "predictionId": "27rapn4jzxrmy0d0gqp8bz7d50",
+      "destination": "demo/assets/characters/rin/quiet-smile.png",
+      "sha256": "a814be82a54c8c4c56fa341ffb30b858a4cb40d167f47bca55d05ce593d86d9d",
+      "provenance": {
+        "id": "rin-quiet-smile",
+        "model": "openai/gpt-image-2.5-flare",
+        "quality": "medium",
+        "prompt": "Use case: identity-preserve. Asset type: Japanese anime visual novel character variant. Input image 1 is this same heroine’s approved neutral sprite, used for identity, palette, clothing, proportions and rendering style. Refined Japanese bishoujo galgame cel art, crisp colored outlines, flat colors and restrained two/three-tone shading. Exactly one adult woman. Preserve identity, hair silhouette and color, eye color, clothing seams, shoes, red wrist cord when present, body proportions and light direction. No photorealism, painterly skin, chibi anatomy, new costume, text, watermark, additional person or duplicated limb. Keep the exact supplied face crop. Do not bake any second person or location into the sprite.\nRin,25,163cm, cute adult oval face, short blue-black bob with teal strand, gray-brown eyes, mist-blue plain T-shirt, navy full-length straight trousers, white sneakers. Reserved and understated; no childlike proportions.\nChange: Soft small closed-mouth smile and steady forward gaze, light blush, still shy but resolved. Preserve exact neutral body and face silhouette. No smug grin.\nThe input is a deliberately locked FACE CROP. Keep1024x1024 framing and all hair, ears and chin outlines exactly unchanged. Change facial expression only. Refine eyes with delicate tapered lines, defined pupils, subtle iris reflections and consistent small catchlights. Do not draw any body or change age. Do not zoom out.",
+        "source": "demo/assets/characters/rin/neutral.png",
+        "sourceSha256": "29c85a0afa87aa5619bfabb8b26c7f0de26bceed9019d90799850da319011e19",
+        "baseCrop": [
+          256,
+          152,
+          512,
+          408
+        ],
+        "newAsset": true
+      },
+      "preparation": {
+        "assetId": "rin-quiet-smile",
+        "predictionId": "27rapn4jzxrmy0d0gqp8bz7d50",
+        "quality": "medium",
+        "source": "demo/.generated/art/flare/rin-quiet-smile-output/27rapn4jzxrmy0d0gqp8bz7d50-output-0-0.png",
+        "sourceSprite": "demo/assets/characters/rin/neutral.png",
+        "model": "openai/gpt-image-2.5-flare",
+        "baseCrop": [
+          256,
+          152,
+          512,
+          408
+        ],
+        "facePolygons": [
+          [
+            [
+              85,
+              108
+            ],
+            [
+              137,
+              93
+            ],
+            [
+              192,
+              106
+            ],
+            [
+              205,
+              146
+            ],
+            [
+              190,
+              179
+            ],
+            [
+              148,
+              207
+            ],
+            [
+              126,
+              211
+            ],
+            [
+              97,
+              187
+            ],
+            [
+              85,
+              156
+            ]
+          ]
+        ],
+        "alignment": [
+          [
+            0.9998257774940656,
+            0.0002882840146403606,
+            -0.7596752894638348
+          ],
+          [
+            -0.0002882840146403606,
+            0.9998257774940656,
+            0.29443594126277994
+          ]
+        ],
+        "stableMatches": 98,
+        "inliers": 84,
+        "scale": 0.9998258190551422,
+        "angle": -0.0165203350964244,
+        "alphaUnchanged": true,
+        "bodyUnchanged": true,
+        "status": "candidate-needs-visual-review",
+        "interiorMinimumAlpha": 250
+      },
+      "review": "已对照原图及生成图检查眼型、瞳孔与神情；最终画布深浅底检查通过。",
+      "qsUsed": false,
+      "usedBy": [],
+      "status": "reviewed"
+    },
+    {
+      "id": "rin-teary-relief",
+      "character": "rin",
+      "expression": "teary-relief",
+      "model": "openai/gpt-image-2.5-flare",
+      "quality": "medium",
+      "predictionId": "3jdadz4genrmy0d0gqpa8bfj04",
+      "destination": "demo/assets/characters/rin/teary-relief.png",
+      "sha256": "add3b0ba3a8b0fff61cb6c807e669587c47f4c681e2f4f934f1265f9f47bc9b7",
+      "provenance": {
+        "id": "rin-teary-relief",
+        "model": "openai/gpt-image-2.5-flare",
+        "quality": "medium",
+        "prompt": "Use case: identity-preserve. Asset type: Japanese anime visual novel character variant. Input image 1 is this same heroine’s approved neutral sprite, used for identity, palette, clothing, proportions and rendering style. Refined Japanese bishoujo galgame cel art, crisp colored outlines, flat colors and restrained two/three-tone shading. Exactly one adult woman. Preserve identity, hair silhouette and color, eye color, clothing seams, shoes, red wrist cord when present, body proportions and light direction. No photorealism, painterly skin, chibi anatomy, new costume, text, watermark, additional person or duplicated limb. Keep the exact supplied face crop. Do not bake any second person or location into the sprite.\nRin,25,163cm, cute adult oval face, short blue-black bob with teal strand, gray-brown eyes, mist-blue plain T-shirt, navy full-length straight trousers, white sneakers. Reserved and understated; no childlike proportions.\nChange: Quiet tears emerging from eyes, brows slightly drawn together, a trembling partly open mouth, no smile and no sobbing gag face. Tears must remain inside the reviewed face area, preserving body and outer alpha.\nThe input is a deliberately locked FACE CROP. Keep1024x1024 framing and all hair, ears and chin outlines exactly unchanged. Change facial expression only. Refine eyes with delicate tapered lines, defined pupils, subtle iris reflections and consistent small catchlights. Do not draw any body or change age. Do not zoom out.",
+        "source": "demo/assets/characters/rin/neutral.png",
+        "sourceSha256": "29c85a0afa87aa5619bfabb8b26c7f0de26bceed9019d90799850da319011e19",
+        "baseCrop": [
+          256,
+          152,
+          512,
+          408
+        ],
+        "newAsset": true
+      },
+      "preparation": {
+        "assetId": "rin-teary-relief",
+        "predictionId": "3jdadz4genrmy0d0gqpa8bfj04",
+        "quality": "medium",
+        "source": "demo/.generated/art/flare/rin-teary-relief-output/3jdadz4genrmy0d0gqpa8bfj04-output-0-0.png",
+        "sourceSprite": "demo/assets/characters/rin/neutral.png",
+        "model": "openai/gpt-image-2.5-flare",
+        "baseCrop": [
+          256,
+          152,
+          512,
+          408
+        ],
+        "facePolygons": [
+          [
+            [
+              85,
+              108
+            ],
+            [
+              137,
+              93
+            ],
+            [
+              192,
+              106
+            ],
+            [
+              205,
+              146
+            ],
+            [
+              190,
+              179
+            ],
+            [
+              148,
+              207
+            ],
+            [
+              126,
+              211
+            ],
+            [
+              97,
+              187
+            ],
+            [
+              85,
+              156
+            ]
+          ]
+        ],
+        "alignment": [
+          [
+            1.0000279211759817,
+            5.805640357856333e-05,
+            -0.6205182334233224
+          ],
+          [
+            -5.805640357856333e-05,
+            1.0000279211759817,
+            0.0013928696844234796
+          ]
+        ],
+        "stableMatches": 100,
+        "inliers": 86,
+        "scale": 1.0000279228612077,
+        "angle": -0.0033262940209821236,
+        "alphaUnchanged": true,
+        "bodyUnchanged": true,
+        "status": "candidate-needs-visual-review",
+        "interiorMinimumAlpha": 250
+      },
+      "review": "已对照原图及生成图检查眼型、瞳孔与神情；最终画布深浅底检查通过。",
+      "qsUsed": false,
+      "usedBy": [],
+      "status": "reviewed"
+    },
+    {
+      "id": "rin-eyes-closed-shy",
+      "character": "rin",
+      "expression": "eyes-closed-shy",
+      "model": "openai/gpt-image-2.5-flare",
+      "quality": "medium",
+      "predictionId": "0bkn0hmph1rmt0d0gqp9wxd6am",
+      "destination": "demo/assets/characters/rin/eyes-closed-shy.png",
+      "sha256": "be1adb314f729d3c7fa2576050c262e6a8bd5ff930fa546411d45501f3216ea9",
+      "provenance": {
+        "id": "rin-eyes-closed-shy",
+        "model": "openai/gpt-image-2.5-flare",
+        "quality": "medium",
+        "prompt": "Use case: identity-preserve. Asset type: Japanese anime visual novel character variant. Input image 1 is this same heroine’s approved neutral sprite, used for identity, palette, clothing, proportions and rendering style. Refined Japanese bishoujo galgame cel art, crisp colored outlines, flat colors and restrained two/three-tone shading. Exactly one adult woman. Preserve identity, hair silhouette and color, eye color, clothing seams, shoes, red wrist cord when present, body proportions and light direction. No photorealism, painterly skin, chibi anatomy, new costume, text, watermark, additional person or duplicated limb. Keep the exact supplied face crop. Do not bake any second person or location into the sprite.\nRin,25,163cm, cute adult oval face, short blue-black bob with teal strand, gray-brown eyes, mist-blue plain T-shirt, navy full-length straight trousers, white sneakers. Reserved and understated; no childlike proportions.\nChange: Eyes softly closed, light blush, lips relaxed and very slightly parted. No kiss partner, pursed cartoon lips or exaggerated sensuality. Preserve exact body and head framing.\nThe input is a deliberately locked FACE CROP. Keep1024x1024 framing and all hair, ears and chin outlines exactly unchanged. Change facial expression only. Refine eyes with delicate tapered lines, defined pupils, subtle iris reflections and consistent small catchlights. Do not draw any body or change age. Do not zoom out.",
+        "source": "demo/assets/characters/rin/neutral.png",
+        "sourceSha256": "29c85a0afa87aa5619bfabb8b26c7f0de26bceed9019d90799850da319011e19",
+        "baseCrop": [
+          256,
+          152,
+          512,
+          408
+        ],
+        "newAsset": true
+      },
+      "preparation": {
+        "assetId": "rin-eyes-closed-shy",
+        "predictionId": "0bkn0hmph1rmt0d0gqp9wxd6am",
+        "quality": "medium",
+        "source": "demo/.generated/art/flare/rin-eyes-closed-shy-output/0bkn0hmph1rmt0d0gqp9wxd6am-output-0-0.png",
+        "sourceSprite": "demo/assets/characters/rin/neutral.png",
+        "model": "openai/gpt-image-2.5-flare",
+        "baseCrop": [
+          256,
+          152,
+          512,
+          408
+        ],
+        "facePolygons": [
+          [
+            [
+              85,
+              108
+            ],
+            [
+              137,
+              93
+            ],
+            [
+              192,
+              106
+            ],
+            [
+              205,
+              146
+            ],
+            [
+              190,
+              179
+            ],
+            [
+              148,
+              207
+            ],
+            [
+              126,
+              211
+            ],
+            [
+              97,
+              187
+            ],
+            [
+              85,
+              156
+            ]
+          ]
+        ],
+        "alignment": [
+          [
+            0.9997274699787554,
+            -8.965358262647527e-05,
+            -0.1332766908495354
+          ],
+          [
+            8.965358262647527e-05,
+            0.9997274699787554,
+            0.046958615213993346
+          ]
+        ],
+        "stableMatches": 106,
+        "inliers": 89,
+        "scale": 0.9997274739987334,
+        "angle": 0.005138172195131707,
+        "alphaUnchanged": true,
+        "bodyUnchanged": true,
+        "status": "candidate-needs-visual-review",
+        "interiorMinimumAlpha": 250
+      },
+      "review": "已对照原图及生成图检查眼型、瞳孔与神情；最终画布深浅底检查通过。",
+      "qsUsed": false,
+      "usedBy": [],
+      "status": "reviewed"
+    },
+    {
+      "id": "mara-pose-offer-hand",
+      "character": "mara",
+      "expression": "pose-offer-hand",
+      "model": "openai/gpt-image-2.5-flare",
+      "quality": "medium",
+      "predictionId": "mhb1a5wh0hrmt0d0gqp85hsm9g",
+      "destination": "demo/assets/characters/mara/pose-offer-hand.png",
+      "sha256": "ee834d49f7a7f28f457e2a5ce1a1884a7c1bc7d5b660c741c2ce1325f9c14c1a",
+      "provenance": {
+        "id": "mara-pose-offer-hand",
+        "model": "openai/gpt-image-2.5-flare",
+        "quality": "medium",
+        "prompt": "Use case: identity-preserve. Asset type: Japanese anime visual novel character variant. Input image 1 is this same heroine’s approved neutral sprite, used for identity, palette, clothing, proportions and rendering style. Refined Japanese bishoujo galgame cel art, crisp colored outlines, flat colors and restrained two/three-tone shading. Exactly one adult woman. Preserve identity, hair silhouette and color, eye color, clothing seams, shoes, red wrist cord when present, body proportions and light direction. No photorealism, painterly skin, chibi anatomy, new costume, text, watermark, additional person or duplicated limb. Keep head and feet inside frame; simple plain background suitable for model-based removal. Do not bake any second person or location into the sprite.\nMara,24,172cm, long waist-length ash-brown hair, amber eyes, gentle oval face, yellow short puff-sleeve blouse, ivory knee skirt, flat Mary Jane shoes. Warm young onee-san presence; no increase in age or bust.\nChange: One empty open hand extended gently forward and slightly downward at natural waist level, fingers relaxed and separated, other arm at side. A bashful warm smile, shoulders relaxed, stable standing stance. No grasped invisible partner.\nKeep the exact approved fine eye drawing and face identity. Produce genuine transparent PNG alpha, no checkerboard, white fringe, ground shadow or chair. Full body standing with feet visible. Expression must be restrained, a gentle shy smile. The extended hand must have five anatomically correct fingers, natural wrist and elbow. No second person.",
+        "source": "demo/assets/characters/mara/neutral.png",
+        "sourceSha256": "337cfcff4e7a64bfb57201801cf07616cd13aac1dff2c2fb4cf58117b28b0423",
+        "baseCrop": null,
+        "newAsset": true
+      },
+      "preparation": {
+        "assetId": "mara-pose-offer-hand",
+        "character": "mara",
+        "heightCm": 172,
+        "footY": 1488,
+        "canvas": [
+          768,
+          1536
+        ],
+        "source": "demo/.generated/art/flare/mara-pose-offer-hand-output/mhb1a5wh0hrmt0d0gqp85hsm9g-output-0-0.png",
+        "bounds": [
+          234,
+          18,
+          767,
+          1526
+        ],
+        "scale": 0.938337801608579,
+        "predictionId": "mhb1a5wh0hrmt0d0gqp85hsm9g",
+        "model": "openai/gpt-image-2.5-flare",
+        "alpha": "model soft alpha retained",
+        "status": "candidate-needs-visual-review"
+      },
+      "review": "已对照原图及生成图检查眼型、瞳孔与神情；最终画布深浅底检查通过。",
+      "qsUsed": true,
+      "usedBy": [
+        "chapter-07"
+      ],
+      "status": "integrated"
+    },
+    {
+      "id": "rin-pose-reach-hand",
+      "character": "rin",
+      "expression": "pose-reach-hand",
+      "model": "openai/gpt-image-2.5-flare",
+      "quality": "medium",
+      "predictionId": "jncad7wnfhrmt0d0gqp8pqe6sr",
+      "destination": "demo/assets/characters/rin/pose-reach-hand.png",
+      "sha256": "faa32bf86c472188e275cc50b8c313197460e77545638a8cb008c9ea02a65ff5",
+      "provenance": {
+        "id": "rin-pose-reach-hand",
+        "model": "openai/gpt-image-2.5-flare",
+        "quality": "medium",
+        "prompt": "Use case: identity-preserve. Asset type: Japanese anime visual novel character variant. Input image 1 is this same heroine’s approved neutral sprite, used for identity, palette, clothing, proportions and rendering style. Refined Japanese bishoujo galgame cel art, crisp colored outlines, flat colors and restrained two/three-tone shading. Exactly one adult woman. Preserve identity, hair silhouette and color, eye color, clothing seams, shoes, red wrist cord when present, body proportions and light direction. No photorealism, painterly skin, chibi anatomy, new costume, text, watermark, additional person or duplicated limb. Keep head and feet inside frame; simple plain background suitable for model-based removal. Do not bake any second person or location into the sprite.\nRin,25,163cm, cute adult oval face, short blue-black bob with teal strand, gray-brown eyes, mist-blue plain T-shirt, navy full-length straight trousers, white sneakers. Reserved and understated; no childlike proportions.\nChange: One empty hand reaching gently forward and slightly down, fingers naturally open, modest shy smile, relaxed shoulders, other hand at side. No invisible grasp, no extra hand. Complete body.\nKeep the exact approved fine eye drawing and face identity. Produce genuine transparent PNG alpha, no checkerboard, white fringe, ground shadow or chair. Full body standing with feet visible. Expression must be restrained, a gentle shy smile. The extended hand must have five anatomically correct fingers, natural wrist and elbow. No second person.",
+        "source": "demo/assets/characters/rin/neutral.png",
+        "sourceSha256": "29c85a0afa87aa5619bfabb8b26c7f0de26bceed9019d90799850da319011e19",
+        "baseCrop": null,
+        "newAsset": true
+      },
+      "preparation": {
+        "assetId": "rin-pose-reach-hand",
+        "character": "rin",
+        "heightCm": 163,
+        "footY": 1488,
+        "canvas": [
+          768,
+          1536
+        ],
+        "source": "demo/.generated/art/flare/rin-pose-reach-hand-output/jncad7wnfhrmt0d0gqp8pqe6sr-output-0-0.png",
+        "bounds": [
+          294,
+          55,
+          679,
+          1496
+        ],
+        "scale": 0.9310485516115872,
+        "predictionId": "jncad7wnfhrmt0d0gqp8pqe6sr",
+        "model": "openai/gpt-image-2.5-flare",
+        "alpha": "model soft alpha retained",
+        "status": "candidate-needs-visual-review"
+      },
+      "review": "已对照原图及生成图检查眼型、瞳孔与神情；最终画布深浅底检查通过。",
+      "qsUsed": false,
+      "usedBy": [],
+      "status": "reviewed"
+    }
+  ]
+}

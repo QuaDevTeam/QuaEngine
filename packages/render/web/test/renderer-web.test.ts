@@ -39,11 +39,14 @@ import {
   mountUnsupportedPlatformUi,
   projectAudioProjection,
   readCssSafeAreaInsets,
+  rendererRootStyle,
   resolveStageLayout,
   stageContentStyle,
+  stageFrameStyle,
   stageLogicalToClientPoint,
   stageViewportStyle,
   WebAssetUrlHandle,
+  getWebAssetMemoryStats,
 } from '../src'
 import { WebAudioRendererController } from '../src/audio'
 import { WebFontFaceRegistry } from '../src/plugins/fonts'
@@ -110,20 +113,20 @@ describe('@quajs/renderer-web', () => {
     expect(container.textContent).toContain('Please open this game on desktop.')
   })
 
-  it('resolves adaptive aspect-interval scaled stage layouts', () => {
+  it('contains fixed-aspect stages inside their renderer containers', () => {
     const landscape = createViewLayoutProjection('landscape')
     const tablet = resolveStageLayout(landscape, { width: 1600, height: 1000 })
 
     expect(tablet).toEqual(expect.objectContaining({
       viewportWidth: 1600,
-      viewportHeight: 1000,
-      viewportY: 0,
+      viewportHeight: 900,
+      viewportY: 50,
       logicalHeight: 1080,
     }))
-    expect(tablet.logicalWidth).toBeCloseTo(1728)
-    expect(tablet.aspectRatio).toBeCloseTo(16 / 10)
+    expect(tablet.logicalWidth).toBeCloseTo(1920)
+    expect(tablet.aspectRatio).toBeCloseTo(16 / 9)
     expect(tablet.safeArea).toEqual(expect.objectContaining({
-      x: 0,
+      x: 96,
       width: 1728,
     }))
 
@@ -155,8 +158,9 @@ describe('@quajs/renderer-web', () => {
 
     const tallPhone = resolveStageLayout(portrait, { width: 360, height: 840 })
     expect(tallPhone.viewportWidth).toBeCloseTo(360)
-    expect(tallPhone.viewportHeight).toBeCloseTo(840)
-    expect(tallPhone.aspectRatio).toBeCloseTo(9 / 21)
+    expect(tallPhone.viewportHeight).toBeCloseTo(780)
+    expect(tallPhone.viewportY).toBeCloseTo(30)
+    expect(tallPhone.aspectRatio).toBeCloseTo(9 / 19.5)
   })
 
   it('converts client coordinates to logical stage coordinates across device ratios', () => {
@@ -168,9 +172,9 @@ describe('@quajs/renderer-web', () => {
       insideViewport: true,
       insideStage: true,
     }))
-    expect(tabletCenter.x).toBeCloseTo(864)
+    expect(tabletCenter.x).toBeCloseTo(960)
     expect(tabletCenter.y).toBeCloseTo(540)
-    expect(stageLogicalToClientPoint(tablet, { x: 864, y: 540 })).toEqual({
+    expect(stageLogicalToClientPoint(tablet, { x: 960, y: 540 })).toEqual({
       clientX: 800,
       clientY: 500,
     })
@@ -237,8 +241,19 @@ describe('@quajs/renderer-web', () => {
     expect(phone.safeArea.height).toBe(2205)
 
     const style = stageContentStyle(phone)
+    expect(rendererRootStyle()).toEqual(expect.objectContaining({
+      'width': '100%',
+      'height': '100%',
+      'min-width': '0',
+      'min-height': '0',
+    }))
+    expect(stageFrameStyle().background).toBe('#000')
     expect(style['--qua-layout-device-pixel-ratio']).toBe(3)
     expect(style['--qua-layout-physical-scale']).toBe(1)
+    expect(style['--qua-layout-width-px']).toBe('1080px')
+    expect(style['--qua-layout-height-px']).toBe('2340px')
+    expect(style['container-name']).toBe('qua-stage')
+    expect(style['container-type']).toBe('size')
     expect(style['--qua-layout-css-safe-inset-top']).toBe('30px')
     expect(style['--qua-layout-safe-inset-top']).toBe(90)
     expect(style['--qua-layout-safe-y']).toBe(90)
@@ -604,8 +619,9 @@ describe('@quajs/renderer-web', () => {
     visualViewport.dispatchEvent(new Event('resize'))
     await flushDom()
 
-    expect(root.querySelector('.qua-stage-viewport')?.getAttribute('style')).toContain('height: 840px')
-    expect(root.querySelector('.qua-stage')?.getAttribute('style')).toContain('width: 1002.857')
+    expect(root.querySelector('.qua-stage-viewport')?.getAttribute('style')).toContain('height: 780px')
+    expect(root.querySelector('.qua-stage-viewport')?.getAttribute('style')).toContain('top: 30px')
+    expect(root.querySelector('.qua-stage')?.getAttribute('style')).toContain('width: 1080px')
 
     await renderer.unmount()
   })
@@ -914,7 +930,7 @@ describe('@quajs/renderer-web', () => {
     await renderer.mount()
 
     expect(root.querySelector('.qua-stage-viewport')?.getAttribute('style')).toContain('width: 1600px')
-    expect(root.querySelector('.qua-stage')?.getAttribute('style')).toContain('width: 1728')
+    expect(root.querySelector('.qua-stage')?.getAttribute('style')).toContain('width: 1920')
     expect(root.querySelector('.qua-stage-overlay')?.getAttribute('style')).toContain('pointer-events: none')
     expect(root.querySelector('.qua-screen-plane')?.getAttribute('style')).toContain('pointer-events: none')
     expect(root.querySelector('.qua-stage-scene-content .qua-background')).not.toBeNull()
@@ -1385,6 +1401,75 @@ describe('@quajs/renderer-web', () => {
       handle.dispose()
       await assets.cleanup()
     }
+  })
+
+  it('deduplicates pending reads and revocation invalidates an in-flight URL load', async () => {
+    const assets = await createImageAssets(['shared.png'])
+    const create = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:shared')
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+    let finish!: (value: AssetData) => void
+    const read = vi.spyOn(assets, 'getAsset').mockImplementation(() => new Promise(resolve => { finish = resolve }))
+    const options = { getAssets: () => assets, getType: () => 'images' as const, getName: () => 'shared.png' }
+    const first = new WebAssetUrlHandle(options)
+    const second = new WebAssetUrlHandle(options)
+    const loads = [first.load(), second.load()]
+    expect(read).toHaveBeenCalledTimes(1)
+    first.revoke()
+    finish(assetData('shared.png', 'images', 'image/png'))
+    await Promise.all(loads)
+    expect(first.getState().url).toBeUndefined()
+    expect(second.getState().url).toBe('blob:shared')
+    expect(create).toHaveBeenCalledTimes(1)
+    first.dispose(); second.dispose()
+    expect(getWebAssetMemoryStats(assets).activeUrls).toBe(0)
+    await assets.cleanup()
+  })
+
+  it('bounds storage read concurrency and drops superseded queued images', async () => {
+    const names = Array.from({ length: 12 }, (_, i) => `${i}.png`)
+    const assets = await createImageAssets(names)
+    vi.spyOn(URL, 'createObjectURL').mockImplementation(() => `blob:${Math.random()}`)
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+    const finish: Array<() => void> = []
+    const read = vi.spyOn(assets, 'getAsset').mockImplementation((_type, name) => new Promise(resolve => {
+      finish.push(() => resolve(assetData(name, 'images', 'image/png')))
+    }))
+    const handles = names.map(name => new WebAssetUrlHandle({ getAssets: () => assets, getType: () => 'images', getName: () => name }))
+    const loads = handles.map(handle => handle.load())
+    expect(read).toHaveBeenCalledTimes(4)
+    expect(getWebAssetMemoryStats(assets).queuedReads).toBe(8)
+    for (const handle of handles.slice(4)) handle.dispose()
+    for (const done of finish) done()
+    await Promise.all(loads)
+    expect(read).toHaveBeenCalledTimes(4)
+    expect(getWebAssetMemoryStats(assets).queuedReads).toBe(0)
+    for (const handle of handles) handle.dispose()
+    await assets.cleanup()
+  })
+
+  it('budgets idle URLs by decoded image dimensions, while active images remain pinned', async () => {
+    vi.useFakeTimers()
+    const names = Array.from({ length: 24 }, (_, i) => `${i}.png`)
+    const assets = await createImageAssets(names)
+    let next = 0
+    vi.spyOn(URL, 'createObjectURL').mockImplementation(() => `blob:budget-${next++}`)
+    const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+    vi.spyOn(assets, 'getAsset').mockImplementation(async (_type, name) => ({
+      ...assetData(name, 'images', 'image/png'), mediaMetadata: { format: 'png', width: 2048, height: 2048 },
+    }))
+    const handles = names.map(name => new WebAssetUrlHandle({ getAssets: () => assets, getType: () => 'images', getName: () => name }))
+    await handles[0].load()
+    for (const handle of handles.slice(1)) { await handle.load(); handle.dispose({ defer: true }) }
+    const stats = getWebAssetMemoryStats(assets)
+    expect(stats.activeUrls).toBe(1)
+    expect(stats.estimatedIdleBytes).toBeLessThanOrEqual(32 * 1024 * 1024)
+    expect(stats.idleUrls).toBeLessThanOrEqual(16)
+    expect(revoke).not.toHaveBeenCalledWith('blob:budget-0')
+    await vi.advanceTimersByTimeAsync(250)
+    expect(getWebAssetMemoryStats(assets).idleUrls).toBe(0)
+    handles[0].dispose()
+    expect(getWebAssetMemoryStats(assets).estimatedResidentBytes).toBe(0)
+    await assets.cleanup()
   })
 
   it('reuses cached asset URLs across deferred renderer remounts', async () => {
@@ -1949,7 +2034,7 @@ describe('@quajs/renderer-web', () => {
     onRenderToLogic(pipeline, RenderToLogicEvents.USER_ADVANCE, payload => advances.push(payload))
     const root = document.createElement('div')
     document.body.append(root)
-    vi.spyOn(root, 'getBoundingClientRect').mockReturnValue(rect(1600, 1000))
+    vi.spyOn(root, 'getBoundingClientRect').mockReturnValue(rectAt(240, 120, 1200, 1200))
     const renderer = createQuaWebDomRenderer({
       container: root,
       pipeline,
@@ -1961,8 +2046,8 @@ describe('@quajs/renderer-web', () => {
     })
 
     await renderer.mount()
-    root.querySelector('.qua-stage')!.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: 800, clientY: 500 }))
-    root.querySelector('.qua-choice-button')!.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: 800, clientY: 500 }))
+    root.querySelector('.qua-stage')!.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: 840, clientY: 720 }))
+    root.querySelector('.qua-choice-button')!.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: 840, clientY: 720 }))
     await flushDom()
 
     expect(advances).toEqual([{ source: 'pointer:stage' }])
@@ -1971,7 +2056,7 @@ describe('@quajs/renderer-web', () => {
       device: 'pointer',
       source: 'pointer:stage',
       metadata: expect.objectContaining({
-        x: expect.closeTo(864),
+        x: expect.closeTo(960),
         y: expect.closeTo(540),
         insideStage: true,
       }),
@@ -2013,6 +2098,14 @@ describe('@quajs/renderer-web', () => {
     await flushDom()
 
     expect(commands).toEqual([])
+    expect(advances).toEqual([])
+
+    const control = document.createElement('button')
+    overlay.append(control)
+    control.focus()
+    control.dispatchEvent(new KeyboardEvent('keydown', { code: 'Escape', key: 'Escape', bubbles: true }))
+    await flushDom()
+    expect(commands).toEqual([expect.objectContaining({ command: 'ui:cancel' })])
     expect(advances).toEqual([])
 
     await renderer.unmount()
