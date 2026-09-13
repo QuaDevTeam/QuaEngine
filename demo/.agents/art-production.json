@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "title": "明天，请再一次呼唤我",
-  "updatedAt": "2026-09-10",
+  "updatedAt": "2026-09-12",
   "generationStatus": "in-progress",
   "authorization": "用户已要求开始补齐全部缺失美术，覆盖此前暂停要求；名称和已定服装不需再次审批。 用户进一步明确允许全员多套服装，主角优先；旧单套限制不适用。",
   "execution": {
@@ -52,7 +52,14 @@
     },
     "qualityPolicy": "User allows low or medium first. This face-fidelity pass uses medium; no high/xhigh/max calls.",
     "expressionBatch": "Flare medium repair and expansion reviewed; previous models retained only as provenance.",
-    "styleReview": "User rejected photographic/architectural-render backgrounds; anime-background-v3 pilots at low, inspect before expanding."
+    "styleReview": "User rejected photographic/architectural-render backgrounds; anime-background-v3 pilots at low, inspect before expanding.",
+    "narrativeDirectionBatch": {
+      "record": "demo/.agents/narrative-direction-assets.json",
+      "model": "openai/gpt-image-2.5-flare",
+      "quality": "medium",
+      "submittedPredictions": 17,
+      "integratedAssets": 14
+    }
   },
   "rules": {
     "referenceReview": "参考逐张审阅后才派生差分；依赖必须使用实际已审阅图，不能仅把文件名写进提示词。",
@@ -2455,26 +2462,36 @@
     },
     {
       "id": "rin-room-night",
-      "type": "background-variant",
-      "description": "凛短租房夜间",
-      "status": "planned",
+      "type": "background",
+      "description": "凛在青叶的住处：夜间申请、消息与独处",
+      "status": "integrated",
       "batch": 3,
       "usedBy": [
-        "daily-small-kitchen"
+        "chapter-07",
+        "chapter-03",
+        "ending-handoff",
+        "chapter-04"
       ],
       "dependsOn": [
         "rin-room-day"
       ],
       "destination": "demo/assets/images/backgrounds/rin-room-night.webp",
-      "stagingPath": "demo/.generated/art/drafts/rin-room-night.png",
       "aspectRatio": "16:9",
       "requiresAlpha": false,
-      "prompt": "VISUAL STYLE LOCK: unmistakable Japanese 2D bishoujo galgame / anime production art. Crisp economical colored ink outlines; flat clean local colors; two or three sharply separated cel-shading tones; clearly drawn large anime eyes with simple bright iris highlights, tiny stylized nose, small line mouth. Simplified hair clumps with graphic highlight shapes, not individually rendered strands. Adult anime character design, not chibi, no school uniform. Luminous coherent pastel colors with readable saturation. NO semi-realism, realistic facial anatomy, skin pores, photographic skin or fabric texture, fashion editorial rendering, 3D, oil painting, watercolor sketch, gray-brown wash, cinematic photorealism or glossy volumetric skin. Backgrounds must be hand-drawn Japanese anime background art with simplified shapes and selective detail, not photographs or realistic architecture renders.\nUse case: lighting-weather. Asset type: visual novel background. Same camera, room geometry, single chair, bed and window as approved rin-room-day. Change to night and warm modest indoor light only; neighboring wall outside, no ocean, extra furniture or characters. Landscape 16:9, eye-level composition, no foreground characters; usable standing area, important geometry above lower dialogue band. No neon cyberpunk, holograms, fantasy costume, logos, watermarks, text or UI.",
-      "tool": null,
-      "model": null,
-      "sourceFile": null,
-      "review": null,
-      "styleRevision": "anime-cel-v2"
+      "prompt": "Use case: lighting-weather. Edit this exact room to rainy June NIGHT. Preserve the camera, layout, green curtains, three small plants, laptop desk and green chair, kitchenette and red pan, refrigerator, lavender bed and right wooden door exactly. Dark blue rain outside window. One modest warm desk lamp and a soft warm ceiling light keep the desk and bed readable. No people, no new objects or text. Match the original drawn anime style.",
+      "tool": "replicate-cli",
+      "model": "openai/gpt-image-2.5-flare",
+      "sourceFile": "demo/assets/images/backgrounds/rin-room-night.webp",
+      "review": "2026-09-12 已逐图审阅并接入QS；图文出入点、修订及验证见 narrative-direction-2026-09-12.md。",
+      "styleRevision": "anime-cel-v2",
+      "parameters": {
+        "quality": "medium",
+        "aspect_ratio": "2048x1152",
+        "output_format": "webp"
+      },
+      "predictionId": "ff6gfaa0anrmw0d0jn889fzrkw",
+      "generationRecord": "demo/.agents/narrative-direction-assets.json",
+      "sha256": "f9f9d6c4374375514a74da21922b3633633c8768297c602262891f22e4b75e4e"
     },
     {
       "id": "rin-kitchen-evening",
@@ -3177,25 +3194,32 @@
     {
       "id": "tour-boat-cabin",
       "type": "background",
-      "description": "游船靠窗座位",
-      "status": "planned",
+      "description": "游船舱内与侧窗：从登船到开放观景平台",
+      "status": "integrated",
       "batch": 3,
       "usedBy": [
-        "daily-harbor-cruise"
+        "chapter-07"
       ],
       "dependsOn": [
         "tour-pier-day"
       ],
       "destination": "demo/assets/images/backgrounds/tour-boat-cabin.webp",
-      "stagingPath": "demo/.generated/art/drafts/tour-boat-cabin.png",
       "aspectRatio": "16:9",
       "requiresAlpha": false,
-      "prompt": "VISUAL STYLE LOCK: unmistakable Japanese 2D bishoujo galgame / anime production art. Crisp economical colored ink outlines; flat clean local colors; two or three sharply separated cel-shading tones; clearly drawn large anime eyes with simple bright iris highlights, tiny stylized nose, small line mouth. Simplified hair clumps with graphic highlight shapes, not individually rendered strands. Adult anime character design, not chibi, no school uniform. Luminous coherent pastel colors with readable saturation. NO semi-realism, realistic facial anatomy, skin pores, photographic skin or fabric texture, fashion editorial rendering, 3D, oil painting, watercolor sketch, gray-brown wash, cinematic photorealism or glossy volumetric skin. Backgrounds must be hand-drawn Japanese anime background art with simplified shapes and selective detail, not photographs or realistic architecture renders.\nUse case: illustration-story. Asset type: visual novel background. Inside modest coastal sightseeing boat, two adjacent ordinary window seats and aisle, calm sea through side windows. Same vessel as approved tour-pier-day, no luxury yacht, no research equipment. First leg primarily water view. Landscape 16:9, eye-level composition, no foreground characters; usable standing area, important geometry above lower dialogue band. No neon cyberpunk, holograms, fantasy costume, logos, watermarks, text or UI.",
-      "tool": null,
-      "model": null,
-      "sourceFile": null,
-      "review": null,
-      "styleRevision": "anime-cel-v2"
+      "prompt": "Pure background asset, absolutely NO UI or dialogue box. Inside a small ordinary Japanese harbor sightseeing passenger boat in June 2019. Seated adult eye height looking diagonally toward two empty modest navy blue seats by a broad SIDE WINDOW. Through the window the SAME compact Aoba coastal town from the reference is visible across blue green harbor water, a soft distant view of low roofs and green hillside, bright overcast late morning. A narrow window frame and seat backs clearly establish that the viewer is INSIDE the cabin. No outdoor railing in foreground. No people, no readable signs, no phones, no letters, no caption panels. 2D hand-drawn Japanese anime visual novel background, fine clean linework, soft restrained shading; use reference only for town geography and painted style, do not copy the outdoor camera position.",
+      "tool": "replicate-cli",
+      "model": "openai/gpt-image-2.5-flare",
+      "sourceFile": "demo/assets/images/backgrounds/tour-boat-cabin.webp",
+      "review": "2026-09-12 已逐图审阅并接入QS；图文出入点、修订及验证见 narrative-direction-2026-09-12.md。",
+      "styleRevision": "anime-cel-v2",
+      "parameters": {
+        "quality": "medium",
+        "aspect_ratio": "2048x1152",
+        "output_format": "webp"
+      },
+      "predictionId": "drmb4s0a9hrmy0d0jnd8jy7xww",
+      "generationRecord": "demo/.agents/narrative-direction-assets.json",
+      "sha256": "d58928101a1d03f2b643a24d86b14462261a214b4a59c23aefa6bac9040f8323"
     },
     {
       "id": "tour-boat-deck",
@@ -5877,6 +5901,283 @@
         "quality": "medium"
       },
       "review": "2026-09-09 Flare重绘；详见heroine-flare-review.json。"
+    },
+    {
+      "id": "rain-paper-bag",
+      "type": "cg",
+      "description": "接站：凛臂弯里的纸袋与被压瘪的奶油面包",
+      "status": "integrated",
+      "usedBy": [
+        "prologue-arrival"
+      ],
+      "destination": "demo/assets/images/inserts/rain-paper-bag.webp",
+      "model": "openai/gpt-image-2.5-flare",
+      "tool": "replicate-cli",
+      "parameters": {
+        "quality": "medium",
+        "aspect_ratio": "2048x1152",
+        "output_format": "webp"
+      },
+      "predictionId": "c37gxdzfw5rmr0d0jn1ac0peam",
+      "prompt": "Close insert looking down at a small brown bakery paper bag supported from underneath by the bare forearm of an adult woman in a plain mist-blue short-sleeved T-shirt, only a tiny sliver of shirt visible at lower left. The bag mouth is slightly open. Inside are two small golden cream buns in white fluted paper liners, one bun visibly dented on top, no overflowing cream. A few dark raindrop spots on the folded rim. Wet slate paving softly out of focus behind, cool rainy daylight with warm color inside the bag. Intimate ordinary first-meeting moment; one forearm, no extra hands, no faces, no fancy shopping handles.",
+      "generationRecord": "demo/.agents/narrative-direction-assets.json",
+      "sha256": "e988e18851e276d0398d687f4cb5e032aafd6cb4d2c5e8f52a126634e671ac83",
+      "sourceFile": "demo/assets/images/inserts/rain-paper-bag.webp",
+      "review": "2026-09-12 已逐图审阅并接入QS；图文出入点、修订及验证见 narrative-direction-2026-09-12.md。"
+    },
+    {
+      "id": "archive-tape-splice",
+      "type": "cg",
+      "description": "序章：旧磁带、转录机和待确认的空标签",
+      "status": "integrated",
+      "usedBy": [
+        "prologue-restoration"
+      ],
+      "destination": "demo/assets/images/inserts/archive-tape-splice.webp",
+      "model": "openai/gpt-image-2.5-flare",
+      "tool": "replicate-cli",
+      "parameters": {
+        "quality": "medium",
+        "aspect_ratio": "2048x1152",
+        "output_format": "webp"
+      },
+      "predictionId": "5wqwbt1gpsrmy0d0jn1rta5nqc",
+      "prompt": "A close three-quarter view of the wooden archival audio workbench from the reference, completely different framing from the wide room. Two ordinary compact audio cassettes in clear plastic cases, a faded handwritten label too faint to read, a small black USB audio interface, part of an old cassette deck at the upper left, and a wired headset laid to the side. A sharpened pencil lies across an empty cream index card beside the cassette being examined. Rainy daylight and warm desk-lamp pool. Focus on the worn cassette shell and slightly curled paper label, no reel-to-reel machine, no glowing science fiction, no people, no readable letters.",
+      "generationRecord": "demo/.agents/narrative-direction-assets.json",
+      "sha256": "cc4e5ccbb91c4dea0f1cb1822f6345a2aab88ceb9365a9db13bbbe6a8dc0980a",
+      "sourceFile": "demo/assets/images/inserts/archive-tape-splice.webp",
+      "review": "2026-09-12 已逐图审阅并接入QS；图文出入点、修订及验证见 narrative-direction-2026-09-12.md。"
+    },
+    {
+      "id": "photo-studio-bell",
+      "type": "cg",
+      "description": "第一章：从六号箱里找到、卸下门框的旧铜铃",
+      "status": "integrated",
+      "usedBy": [
+        "chapter-01"
+      ],
+      "destination": "demo/assets/images/inserts/photo-studio-bell.webp",
+      "model": "openai/gpt-image-2.5-flare",
+      "tool": "replicate-cli",
+      "parameters": {
+        "quality": "medium",
+        "aspect_ratio": "2048x1152",
+        "output_format": "webp"
+      },
+      "predictionId": "vk7ecrfgx1rmy0d0jn4rhypt14",
+      "prompt": "Edit ONLY the central brass chime in this reference illustration. Replace the two large hollow conical bells with TWO SMALL FLAT slightly curved brass chime PLATES, oval leaf-like metal pieces overlapping at different heights on ONE bent hook. No cup-shaped or hollow bells, no internal ball clappers. This ordinary old Japanese shop door chime sounds as its two hanging brass plates gently strike each other. Keep the box, towels, camera, picture-frame backs, warm lighting, illustration style and framing unchanged. Object approximately palm-sized, not huge.",
+      "generationRecord": "demo/.agents/narrative-direction-assets.json",
+      "sha256": "4e0978894d74e14ea84e3da4545635baa9ea1f8790105635c6581e81e74e28ee",
+      "sourceFile": "demo/assets/images/inserts/photo-studio-bell.webp",
+      "review": "2026-09-12 已逐图审阅并接入QS；图文出入点、修订及验证见 narrative-direction-2026-09-12.md。"
+    },
+    {
+      "id": "two-blue-umbrellas",
+      "type": "cg",
+      "description": "第三章：并排比对两把蓝伞，红线在伞带、白胶带在手柄",
+      "status": "integrated",
+      "usedBy": [
+        "chapter-03"
+      ],
+      "destination": "demo/assets/images/inserts/two-blue-umbrellas.webp",
+      "model": "openai/gpt-image-2.5-flare",
+      "tool": "replicate-cli",
+      "parameters": {
+        "quality": "medium",
+        "aspect_ratio": "2048x1152",
+        "output_format": "webp"
+      },
+      "predictionId": "4v14sgfsbhrmw0d0jn4vg0gv3w",
+      "prompt": "Edit the reference illustration ONLY the location of the RED REPAIR THREAD. Erase all red stitches from the umbrella canopy. For EACH umbrella, put three uneven red repair stitches ON the narrow fastening STRAP itself, immediately beside its round metal snap button. This is a repaired strap, not a canopy repair. Keep the two umbrella shapes, all three white tape strips per handle, tip scratch, counter, paper, composition and hand-drawn style exactly unchanged.",
+      "generationRecord": "demo/.agents/narrative-direction-assets.json",
+      "sha256": "17372fbad4048e895f14be71f37ad01c7ea19d0308e0baabafa76112aae08f63",
+      "sourceFile": "demo/assets/images/inserts/two-blue-umbrellas.webp",
+      "review": "2026-09-12 已逐图审阅并接入QS；图文出入点、修订及验证见 narrative-direction-2026-09-12.md。"
+    },
+    {
+      "id": "return-line-closeup",
+      "type": "cg",
+      "description": "序章异常与第四章回放：返回通道表头和有线耳机",
+      "status": "integrated",
+      "usedBy": [
+        "prologue-return-line"
+      ],
+      "destination": "demo/assets/images/inserts/return-line-closeup.webp",
+      "model": "openai/gpt-image-2.5-flare",
+      "tool": "replicate-cli",
+      "parameters": {
+        "quality": "medium",
+        "aspect_ratio": "2048x1152",
+        "output_format": "webp"
+      },
+      "predictionId": "hq1rw3sxkdrmy0d0jn1v0akz24",
+      "prompt": "Tight insert of the reference room's ordinary compact black monitoring interface on the wooden desk and the lower corner of its meter display. Reframe close on one connected wired headphone jack, the cable crossing the desk, the two adjacent vertical meter columns on the screen, one rising pale green and one currently nearly still. The rest of the screen is cropped away or too soft to read. Only a narrow reflected strip of rainy blue night window and warm room light. A pair of ordinary black wired over-ear headphones rests at frame edge. The image conveys listening and uncertain signals without identifying a voice or revealing any words, dates or death. No people, no magical waves, no waveform text, no red alarms, no smoke.",
+      "generationRecord": "demo/.agents/narrative-direction-assets.json",
+      "sha256": "ecdd44093988819ec3aa298f969bcbe24e33a0366f317ac5ba5f1bc094e4a51e",
+      "sourceFile": "demo/assets/images/inserts/return-line-closeup.webp",
+      "review": "2026-09-12 已逐图审阅并接入QS；图文出入点、修订及验证见 narrative-direction-2026-09-12.md。"
+    },
+    {
+      "id": "nineteen-twelve-hands",
+      "type": "cg",
+      "description": "第六章：饮料放稳后，凛与Mara握住仍带水珠的手",
+      "status": "integrated",
+      "usedBy": [
+        "chapter-06"
+      ],
+      "destination": "demo/assets/images/inserts/nineteen-twelve-hands.webp",
+      "model": "openai/gpt-image-2.5-flare",
+      "tool": "replicate-cli",
+      "parameters": {
+        "quality": "medium",
+        "aspect_ratio": "2048x1152",
+        "output_format": "webp"
+      },
+      "predictionId": "hk424va1qsrmt0d0jn1v9hm81m",
+      "prompt": "Intimate close insert of two ADULT women's hands over a radio station break-room wooden table in warm evening light. Rin's single pale bare right hand extends from left and gently holds Mara's bare left hand extending from right; Mara places her bare right hand softly ON TOP of Rin's hand, three visible hands total with anatomically correct fingers and naturally attached wrists. A thin simple red cord bracelet on Mara's left wrist. Short summer sleeves remain outside crop, no faces or bodies. Tiny water droplets on the hands. An opened clear small water bottle stands safely upright to one side. Used paper soup cups and rice-ball wrapping are softly out of focus at upper background, no readable branding. Vulnerability and exhausted relief, NOT romantic glamour or wedding, no rings, no watch or clock, no extra fingers, no injury. Hands entirely within upper/middle area, bottom quarter is quiet table.",
+      "generationRecord": "demo/.agents/narrative-direction-assets.json",
+      "sha256": "1d8c97c50103b54deea812e14be454ebf29a3fc8c4a057e195ef2d7170032e6b",
+      "sourceFile": "demo/assets/images/inserts/nineteen-twelve-hands.webp",
+      "review": "2026-09-12 已逐图审阅并接入QS；图文出入点、修订及验证见 narrative-direction-2026-09-12.md。"
+    },
+    {
+      "id": "aoba-from-the-boat",
+      "type": "cg",
+      "description": "第七章：游船上看见的完整青叶海岸线，补上黑屏段",
+      "status": "integrated",
+      "usedBy": [
+        "chapter-07"
+      ],
+      "destination": "demo/assets/images/inserts/aoba-from-the-boat.webp",
+      "model": "openai/gpt-image-2.5-flare",
+      "tool": "replicate-cli",
+      "parameters": {
+        "quality": "medium",
+        "aspect_ratio": "2048x1152",
+        "output_format": "webp"
+      },
+      "predictionId": "9s829ba3hnrmy0d0jn1sya5gp8",
+      "prompt": "View from the passenger sightseeing boat's public outdoor viewing deck toward a compact Japanese coastal town, June 2019, gentle bright overcast-to-sunny late morning. Low fishing harbor at left, packed shop roofs climbing a green slope in the center, a school sports ground farther uphill and a modest hospital above it. A little white lighthouse and breakwater on the far right. A foreground metal safety railing along the bottom and a narrow strip of boat deck establish that we are ON THE WATER, not standing at the pier. Blue green water and soft wake; physically modest city scale, apartment balconies and small cranes. Clear drawn anime architecture, delicate atmospheric perspective, no passengers, no mountains shaped like skyscrapers, no cruise liner, no readable signs. Spacious lateral composition suitable for a quiet held view.",
+      "generationRecord": "demo/.agents/narrative-direction-assets.json",
+      "sha256": "cadf1dd7031d97e27936166a7ad1256f59d33785c46ad1baafc1e991984389b0",
+      "sourceFile": "demo/assets/images/inserts/aoba-from-the-boat.webp",
+      "review": "2026-09-12 已逐图审阅并接入QS；图文出入点、修订及验证见 narrative-direction-2026-09-12.md。"
+    },
+    {
+      "id": "cafe-shared-table",
+      "type": "cg",
+      "description": "第七章：两本漫画、两只勺子和共享布丁的桌面",
+      "status": "integrated",
+      "usedBy": [
+        "chapter-07"
+      ],
+      "destination": "demo/assets/images/inserts/cafe-shared-table.webp",
+      "model": "openai/gpt-image-2.5-flare",
+      "tool": "replicate-cli",
+      "parameters": {
+        "quality": "medium",
+        "aspect_ratio": "2048x1152",
+        "output_format": "webp"
+      },
+      "predictionId": "s1yrdpt6nhrmr0d0jn1rbh123w",
+      "prompt": "Close overhead-oblique view of a small wooden table for two in a neighborhood Japanese cafe, softly shaded afternoon. One white cup of hot black coffee with saucer near left, one tall pale-green cream soda with vanilla ice cream near right, one caramel custard pudding on a small white plate in the center with two teaspoons beside it. Two well-thumbed Japanese manga volumes open at opposite sides of the table, loose simple line drawings and blank/illegible speech bubbles, no recognizable copyrighted characters. One little corner of a kraft paper shopping bag containing folded fabric visible beside the table. Natural intimate untidy composition with room for the books and drinks, no duplicated cutlery, no faces, hands, text, logos or UI. Warm hand-painted anime colors; objects in upper two thirds, quiet wood near bottom.",
+      "generationRecord": "demo/.agents/narrative-direction-assets.json",
+      "sha256": "b3ed18dd44a1b5b6d4645ec64660efa8795f5c3a824e0ddbda6709c1ab0887a0",
+      "sourceFile": "demo/assets/images/inserts/cafe-shared-table.webp",
+      "review": "2026-09-12 已逐图审阅并接入QS；图文出入点、修订及验证见 narrative-direction-2026-09-12.md。"
+    },
+    {
+      "id": "radio-exterior-night",
+      "type": "background",
+      "description": "海岸台雨夜门外：警告后离开与归途",
+      "status": "integrated",
+      "usedBy": [
+        "chapter-04",
+        "epilogue"
+      ],
+      "destination": "demo/assets/images/backgrounds/radio-exterior-night.webp",
+      "model": "openai/gpt-image-2.5-flare",
+      "tool": "replicate-cli",
+      "parameters": {
+        "quality": "medium",
+        "aspect_ratio": "2048x1152",
+        "output_format": "webp"
+      },
+      "predictionId": "pg6s4mt9jxrmt0d0jn8agpxbh0",
+      "prompt": "Use case: lighting-weather. Edit this exact rainy coastal radio station exterior to NIGHT, preserving all building geometry, viewpoint, harbor on left, entrance porch and steps on right, hydrangeas, and objects. Warm light through glass entrance and upper windows, modest porch light reflected in wet paving, deep blue harbor beyond. No people, no vehicles added, no fires or lightning, no readable text. Original clean hand-drawn anime illustration style, comfortably readable shadow detail.",
+      "generationRecord": "demo/.agents/narrative-direction-assets.json",
+      "sha256": "f59dacc434bff51363fb8f485693fa5c5e84ff7da91d66e93707a3fc1f4d5882",
+      "sourceFile": "demo/assets/images/backgrounds/radio-exterior-night.webp",
+      "review": "2026-09-12 已逐图审阅并接入QS；图文出入点、修订及验证见 narrative-direction-2026-09-12.md。"
+    },
+    {
+      "id": "tokyo-neighborhood-rain",
+      "type": "background",
+      "description": "东京课程后的街道、雨中通话",
+      "status": "integrated",
+      "usedBy": [
+        "epilogue"
+      ],
+      "destination": "demo/assets/images/backgrounds/tokyo-neighborhood-rain.webp",
+      "model": "openai/gpt-image-2.5-flare",
+      "tool": "replicate-cli",
+      "parameters": {
+        "quality": "medium",
+        "aspect_ratio": "2048x1152",
+        "output_format": "webp"
+      },
+      "predictionId": "0wdn279x81rmr0d0jnbt9jr3e4",
+      "prompt": "Edit ONLY the bottom quarter of the reference. Completely REMOVE the translucent dark blue game dialogue box and its rounded white border. Reconstruct the ordinary wet sidewalk, curb, rain reflections and street underneath seamlessly. This is a pure empty background illustration asset, no game UI, no frames, no panels, no borders, no letters. Preserve all buildings, trees, lighting, viewpoint, street composition and original drawn anime style exactly.",
+      "generationRecord": "demo/.agents/narrative-direction-assets.json",
+      "sha256": "4ebe5a146c2b62b2b17abd145484dbb8ddcaeb69cf91b8c16afd47a7418916bd",
+      "sourceFile": "demo/assets/images/backgrounds/tokyo-neighborhood-rain.webp",
+      "review": "2026-09-12 已逐图审阅并接入QS；图文出入点、修订及验证见 narrative-direction-2026-09-12.md。"
+    },
+    {
+      "id": "train-window-day",
+      "type": "background",
+      "description": "提前交接结局：返程列车上的消息",
+      "status": "integrated",
+      "usedBy": [
+        "ending-handoff"
+      ],
+      "destination": "demo/assets/images/backgrounds/train-window-day.webp",
+      "model": "openai/gpt-image-2.5-flare",
+      "tool": "replicate-cli",
+      "parameters": {
+        "quality": "medium",
+        "aspect_ratio": "2048x1152",
+        "output_format": "webp"
+      },
+      "predictionId": "gdq3zvjg1srmt0d0jn89c7wt84",
+      "prompt": "Quiet Japanese local train passenger interior June 2019, view from seated eye level diagonally across an empty pair of blue fabric seats toward a broad side window. Through the window low coastal houses and wet green fields recede under bright overcast daylight; slight suggested motion in scenery, no speed streaks. Subtle reflection of empty carriage in glass. No people, no visible hands, no phone, no readable advertisements or station names. Melancholy but ordinary daytime, finely drawn anime visual novel illustration, clear soft colors, lower quarter unobtrusive seat edge.",
+      "generationRecord": "demo/.agents/narrative-direction-assets.json",
+      "sha256": "7f3852034d3b7a86cb22ab6cd756873a7d564d17417e71426362ebc1c0f1e1ba",
+      "sourceFile": "demo/assets/images/backgrounds/train-window-day.webp",
+      "review": "2026-09-12 已逐图审阅并接入QS；图文出入点、修订及验证见 narrative-direction-2026-09-12.md。"
+    },
+    {
+      "id": "drugstore-day",
+      "type": "background",
+      "description": "二十四日补休日买旅行装洗发水：日用品货架",
+      "status": "integrated",
+      "usedBy": [
+        "chapter-07"
+      ],
+      "destination": "demo/assets/images/backgrounds/drugstore-day.webp",
+      "model": "openai/gpt-image-2.5-flare",
+      "tool": "replicate-cli",
+      "parameters": {
+        "quality": "medium",
+        "aspect_ratio": "2048x1152",
+        "output_format": "webp"
+      },
+      "predictionId": "74kq23sxqhrmt0d0jndt1yq26m",
+      "prompt": "Pure empty background illustration asset for a 2D Japanese anime story, NO game UI, no dialogue box, no border, no panels. A small ordinary Japanese neighborhood drugstore June 2019, adult eye-level viewpoint at the end of a household supplies aisle. Two modest shelves of shampoo and conditioner bottles, travel-sized toiletry bottles, cotton-swab boxes, tissue boxes and refill pouches. Diffuse daytime fluorescent lighting with soft daylight from the front entrance at the far end, a basket stand near doorway. Clean warm hand-drawn anime linework, restrained cel shading, convincing spatial perspective, not photorealistic. Aisle clear for a character sprite, objects recognizable through shapes but all labels illegible, no brands or readable text, no people, no food or produce displays, no medicine closeups.",
+      "generationRecord": "demo/.agents/narrative-direction-assets.json",
+      "sha256": "df4e858c3610d184a204c53bb7291631f091ca971a1c002e9afb6ac8f5c5ecaf",
+      "sourceFile": "demo/assets/images/backgrounds/drugstore-day.webp",
+      "review": "2026-09-12 已逐图审阅并接入QS；图文出入点、修订及验证见 narrative-direction-2026-09-12.md。"
     }
   ],
   "characterDesigns": {

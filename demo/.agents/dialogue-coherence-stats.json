@@ -1,0 +1,91 @@
+{
+  "baseline": "Start of the dialogue-continuity follow-up on 2026-09-12; completed 2026-09-13",
+  "countMethod": "Non-equal contiguous line blocks from difflib.SequenceMatcher(autojunk=False), including staging adjustments",
+  "totalChangedBlocks": 291,
+  "files": [
+    {
+      "file": "chapter-01.qs",
+      "changed_blocks": 33,
+      "before_sha256": "7dc7cd7c2d342f473ce22e29b00ace733a29242729e4f9a11fc4f377789396f4",
+      "after_sha256": "c49824bc8746dce302e55a9347548f3b96e85881a43d1ef4703a73f1c703c686"
+    },
+    {
+      "file": "chapter-02.qs",
+      "changed_blocks": 24,
+      "before_sha256": "aaec5a8cfa89a4c4173610e3f6509105d413dae7a044ef76d196002835ae36f4",
+      "after_sha256": "ab9230e8dbef407f25d2e6d84b657cba376da623544585e2b138faf7746fece1"
+    },
+    {
+      "file": "chapter-03.qs",
+      "changed_blocks": 49,
+      "before_sha256": "4a9c63553dbaa2e6b7e0b7104694f270433c6299efe7aee7fbbb42797d3cbb00",
+      "after_sha256": "48f32f29708e61988acc92b007a3b033f83019ca67094483add68b9f68f9540e"
+    },
+    {
+      "file": "chapter-04.qs",
+      "changed_blocks": 31,
+      "before_sha256": "57949bf9c47530cb3e836d74cf9985094ac9b3a580b734ec31b6417306a05adb",
+      "after_sha256": "0a62d2e34c015075ffc268c7a3d432748e32878a5c6c4ee103be83c1f3d4dc5e"
+    },
+    {
+      "file": "chapter-05-inspection.qs",
+      "changed_blocks": 9,
+      "before_sha256": "1ba1e5405d64760ef68a71c78ba4ad1a6c5e10a485ac0d8f0660f52329f649e8",
+      "after_sha256": "7907ae396dd8d8a3413d76efd45214729ecd724c9af61e57193ed73e068c450f"
+    },
+    {
+      "file": "chapter-05.qs",
+      "changed_blocks": 11,
+      "before_sha256": "0e7f2273042ea20c936732cbca2882c8141a9d1dc92d0671c8c693eeeb5c2c48",
+      "after_sha256": "9bd550d1b79a9b9783ee020d116f5c8e68093d383469f8a7d9f37c932f4d071a"
+    },
+    {
+      "file": "chapter-06.qs",
+      "changed_blocks": 11,
+      "before_sha256": "21c065bb3f9873473bbf93bc174d3d1cee322651b4e75da92931af0a85eb99bf",
+      "after_sha256": "fd741a50e05449f2999c4898c3f9c64d92fdae9ff2cb11bc6e664c6175dd86ff"
+    },
+    {
+      "file": "chapter-07.qs",
+      "changed_blocks": 25,
+      "before_sha256": "850c4d9ef1deb3e4929d559a01982db5c94b0e00d167e2526b1c2b98434ccbb2",
+      "after_sha256": "3fa116de94bf6b44244882eb29b69872404b135267b666401ecde6a7fe9ddbf5"
+    },
+    {
+      "file": "ending-handoff.qs",
+      "changed_blocks": 6,
+      "before_sha256": "4ea4392cfc99b9d748ad40186f94d6635915d80f1ef1c2c9cae52b46cda1d15a",
+      "after_sha256": "dd87483b836b22fdd7d4af55334fe8a58c3d7ecb0d225036e495a29c93f1c3b8"
+    },
+    {
+      "file": "epilogue.qs",
+      "changed_blocks": 24,
+      "before_sha256": "702e5179dbb9fa2c14cdeeddf45221f6585728f4c09fc7822f907c5effd87085",
+      "after_sha256": "f4b17125e172a1a79a58b962b11825aedabf0824eadc5d34d4f911b4fc65d5b6"
+    },
+    {
+      "file": "prologue-arrival.qs",
+      "changed_blocks": 11,
+      "before_sha256": "414bdd3ee505dfeb126d0a62d4707649dc4f1e9d9191c8379a8828280a23e9e0",
+      "after_sha256": "54aeacaa6dcf635804269ae0ac83cc9f48a2e2cc61b7630af78fc681a06e9a50"
+    },
+    {
+      "file": "prologue-commission.qs",
+      "changed_blocks": 19,
+      "before_sha256": "6dc88bff0b297128fe6ecb9d845021a580b089dd6f383540226fe2f09cc57071",
+      "after_sha256": "e1b7024c1a0bedae515bcbbf4e508ebe894e7506e05a707177125ae81cae4882"
+    },
+    {
+      "file": "prologue-restoration.qs",
+      "changed_blocks": 26,
+      "before_sha256": "afbb48651c934372440ebbec6f0f3d2b446951ff4c8866d62c66e1bb910089f3",
+      "after_sha256": "8ba240aad161bb8fddb8e49a35d7863c4cde6404a30265aeff010dcdc668d568"
+    },
+    {
+      "file": "prologue-return-line.qs",
+      "changed_blocks": 12,
+      "before_sha256": "dc7e2059b93cf8feed62912332d9f12d4caa7227ded71551d22b953d75b313f5",
+      "after_sha256": "534738e6e81efa843c908c4b37f75fc911a480291e4e5ad9da924b7b4656fe85"
+    }
+  ]
+}

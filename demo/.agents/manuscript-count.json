@@ -1,79 +1,79 @@
 {
-  "sourceCjk": 100313,
-  "proseWithAllAlternativesCjk": 95143,
+  "sourceCjk": 103017,
+  "proseWithAllAlternativesCjk": 97836,
   "routes": {
     "tomorrow": {
       "combinations": 16,
-      "min": 91295,
-      "max": 91380
+      "min": 93881,
+      "max": 93963
     },
     "letter": {
       "combinations": 16,
-      "min": 91302,
-      "max": 91387
+      "min": 93872,
+      "max": 93954
     },
     "handoff": {
       "combinations": 16,
-      "min": 72128,
-      "max": 72213
+      "min": 74029,
+      "max": 74111
     }
   },
   "sections": {
     "prologue-arrival": {
-      "min": 3028,
-      "max": 3028
+      "min": 3043,
+      "max": 3043
     },
     "prologue-commission": {
-      "min": 7625,
-      "max": 7651
+      "min": 7855,
+      "max": 7881
     },
     "prologue-restoration": {
-      "min": 6707,
-      "max": 6714
+      "min": 6964,
+      "max": 6969
     },
     "prologue-return-line": {
-      "min": 4205,
-      "max": 4205
+      "min": 4421,
+      "max": 4421
     },
     "chapter-01": {
-      "min": 9040,
-      "max": 9048
+      "min": 9347,
+      "max": 9355
     },
     "chapter-02": {
-      "min": 7915,
-      "max": 7915
+      "min": 8201,
+      "max": 8201
     },
     "chapter-03": {
-      "min": 18474,
-      "max": 18474
+      "min": 18722,
+      "max": 18722
     },
     "chapter-04": {
-      "min": 8757,
-      "max": 8762
+      "min": 8903,
+      "max": 8908
     },
     "chapter-05": {
-      "min": 4039,
-      "max": 4078
+      "min": 4129,
+      "max": 4167
     },
     "chapter-05-inspection": {
-      "min": 2919,
-      "max": 2919
+      "min": 3017,
+      "max": 3017
     },
     "chapter-06": {
-      "min": 2921,
-      "max": 2937
+      "min": 3064,
+      "max": 3064
     },
     "chapter-07": {
-      "min": 7810,
-      "max": 7814
+      "min": 8200,
+      "max": 8204
     },
     "epilogue": {
-      "min": 7842,
-      "max": 7855
+      "min": 8002,
+      "max": 8015
     },
     "ending-handoff": {
-      "min": 2338,
-      "max": 2338
+      "min": 2444,
+      "max": 2444
     }
   }
 }
