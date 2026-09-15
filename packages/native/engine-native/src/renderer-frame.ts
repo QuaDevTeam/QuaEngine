@@ -8,18 +8,18 @@ import type {
   ViewEffectProjection,
   ViewUiProjection,
 } from '@quajs/render-core'
+import type { NativeRendererFeatureSurfaceEntry } from './feature-surfaces'
 import {
-  viewAllowsDialogueChrome,
   projectAudioProjection,
   projectBackground,
   projectCharacters,
   projectChoices,
   projectDialogue,
   projectEffect,
-  projectUiOverlay,
   projectStageMotion,
+  projectUiOverlay,
+  viewAllowsDialogueChrome,
 } from '@quajs/render-core'
-import type { NativeRendererFeatureSurfaceEntry } from './feature-surfaces'
 import { createNativeRendererFeatureSurfaceOverlays } from './feature-surfaces'
 
 import { sampleNativeSpriteLayerAnimations } from './sprite-animation'
@@ -120,7 +120,8 @@ export function createNativeRendererViewProjection(
     visible: sourceUi?.visible !== false,
     overlays: { ...asRecord(sourceUi?.overlays), ...Object.fromEntries(featureOverlays.map(overlay => [overlay.elementId, overlay])) },
   } as unknown as ViewUiProjection
-  if (dialogueProjection && !viewAllowsDialogueChrome({ ui: chromeUi })) dialogueProjection.visible = false
+  if (dialogueProjection && !viewAllowsDialogueChrome({ ui: chromeUi }))
+    dialogueProjection.visible = false
   const audio = animations.length > 0
     ? projectAudioProjection<Record<string, unknown>>({ ...view, plugins: plugins ?? {} } as unknown as Readonly<QuaViewProjection>, now)
     : plugins?.audio
@@ -366,15 +367,18 @@ function createNativeAudioProcessingStage(id: string, record: JsonRecord | undef
     gainDb: finiteNumber(record?.gainDb) ?? 0,
     eq: Array.isArray(record?.eq) ? record.eq.map(createNativeAudioEqBand).filter(isJsonRecord) : [],
     automation: Array.isArray(record?.automation)
-      ? record.automation.map(createNativeAudioAutomation).filter(isJsonRecord) : [],
+      ? record.automation.map(createNativeAudioAutomation).filter(isJsonRecord)
+      : [],
   }
 }
 
 function createNativeAudioEqBand(band: unknown): JsonRecord | undefined {
   const record = asRecord(band)
-  if (!record) return undefined
+  if (!record)
+    return undefined
   const frequency = finiteNumber(record.frequency)
-  if (frequency === undefined) return undefined
+  if (frequency === undefined)
+    return undefined
   return omitUndefined({
     type: stringValue(record.type) || 'peaking',
     frequency,
@@ -387,8 +391,9 @@ function createNativeAudioEqBand(band: unknown): JsonRecord | undefined {
 function createNativeAudioAutomation(value: unknown): JsonRecord | undefined {
   const record = asRecord(value)
   const curve = asRecord(record?.curve)
-  if (!record || !curve || !Array.isArray(curve.points)) return undefined
-  const points = curve.points.map(point => {
+  if (!record || !curve || !Array.isArray(curve.points))
+    return undefined
+  const points = curve.points.map((point) => {
     const item = asRecord(point)
     const at = finiteNumber(item?.at)
     const pointValue = finiteNumber(item?.value)
@@ -398,7 +403,8 @@ function createNativeAudioAutomation(value: unknown): JsonRecord | undefined {
   }).filter(isJsonRecord)
   const target = stringValue(record.target)
   const propertyPath = stringValue(record.propertyPath)
-  if (!target || !propertyPath || points.length === 0) return undefined
+  if (!target || !propertyPath || points.length === 0)
+    return undefined
   return {
     target,
     propertyPath,
@@ -730,7 +736,8 @@ function createNativeBackgroundProjection(background: unknown): JsonRecord | und
 
 function createNativeCharacterLightingProjection(value: unknown): JsonRecord | undefined {
   const lighting = asRecord(value)
-  if (!lighting) return undefined
+  if (!lighting)
+    return undefined
   const bounded = (value: unknown, fallback: number, max = 1) =>
     Math.min(max, Math.max(0, finiteNumber(value) ?? fallback))
   const tuple = (value: unknown, defaults: number[], max = 1) =>
@@ -738,11 +745,13 @@ function createNativeCharacterLightingProjection(value: unknown): JsonRecord | u
   const shade = asRecord(lighting.shade)
   return omitUndefined({
     ambient: tuple(lighting.ambient, [1, 1, 1], 1.5),
-    shade: shade ? {
-      color: tuple(shade.color, [1, 1, 1]),
-      from: tuple(shade.from, [0, 0]),
-      to: tuple(shade.to, [1, 1]),
-    } : undefined,
+    shade: shade
+      ? {
+          color: tuple(shade.color, [1, 1, 1]),
+          from: tuple(shade.from, [0, 0]),
+          to: tuple(shade.to, [1, 1]),
+        }
+      : undefined,
   })
 }
 
@@ -778,23 +787,36 @@ function createNativeBackgroundLayerProjection(layer: unknown): JsonRecord | und
 
 function createNativeBackgroundCompositionProjection(composition: unknown): JsonRecord | undefined {
   const record = asRecord(composition)
-  if (!record) return undefined
+  if (!record)
+    return undefined
   const filter = asRecord(record.filter)
   const mask = asRecord(record.mask)
   return omitUndefined({
     blendMode: stringValue(record.blendMode),
     isolation: booleanValue(record.isolation),
-    filter: filter ? omitUndefined({
-      blur: finiteNumber(filter.blur), brightness: finiteNumber(filter.brightness),
-      contrast: finiteNumber(filter.contrast), saturate: finiteNumber(filter.saturate),
-      hueRotate: finiteNumber(filter.hueRotate), grayscale: finiteNumber(filter.grayscale),
-      sepia: finiteNumber(filter.sepia), invert: finiteNumber(filter.invert),
-      dropShadow: stringValue(filter.dropShadow),
-    }) : undefined,
-    mask: mask ? omitUndefined({
-      assetName: stringValue(mask.assetName), assetType: stringValue(mask.assetType), mode: stringValue(mask.mode),
-      position: stringValue(mask.position), size: stringValue(mask.size), repeat: stringValue(mask.repeat),
-    }) : undefined,
+    filter: filter
+      ? omitUndefined({
+          blur: finiteNumber(filter.blur),
+          brightness: finiteNumber(filter.brightness),
+          contrast: finiteNumber(filter.contrast),
+          saturate: finiteNumber(filter.saturate),
+          hueRotate: finiteNumber(filter.hueRotate),
+          grayscale: finiteNumber(filter.grayscale),
+          sepia: finiteNumber(filter.sepia),
+          invert: finiteNumber(filter.invert),
+          dropShadow: stringValue(filter.dropShadow),
+        })
+      : undefined,
+    mask: mask
+      ? omitUndefined({
+          assetName: stringValue(mask.assetName),
+          assetType: stringValue(mask.assetType),
+          mode: stringValue(mask.mode),
+          position: stringValue(mask.position),
+          size: stringValue(mask.size),
+          repeat: stringValue(mask.repeat),
+        })
+      : undefined,
   })
 }
 
@@ -852,16 +874,19 @@ function createNativeCharacterProjection(character: unknown, animations: readonl
 function createNativeSpriteLayers(metadata: unknown): JsonRecord[] | undefined {
   const record = asRecord(metadata)
   const layers = record?.spriteLayers
-  if (!Array.isArray(layers)) return undefined
+  if (!Array.isArray(layers))
+    return undefined
   return layers
-    .map(layer => {
+    .map((layer) => {
       const item = asRecord(layer)
       const asset = stringValue(item?.asset)
       return asset
         ? omitUndefined({
             asset,
-            frame: cloneJsonValue(item?.frame), mask: stringValue(item?.mask),
-            blendMode: stringValue(item?.blendMode), anchor: stringValue(item?.anchor),
+            frame: cloneJsonValue(item?.frame),
+            mask: stringValue(item?.mask),
+            blendMode: stringValue(item?.blendMode),
+            anchor: stringValue(item?.anchor),
             offsetX: finiteNumber(item?.offsetX),
             offsetY: finiteNumber(item?.offsetY),
             zIndex: integerValue(item?.zIndex),
@@ -955,7 +980,8 @@ function createNativeRichTextStyle(style: unknown): JsonRecord | undefined {
     // Numeric Web line-height is a multiplier, while native numeric lengths
     // are logical pixels. Preserve CSS numbers as strings until inheritance
     // resolves against each element's actual font size.
-    lineHeight: typeof record.lineHeight === 'string' ? record.lineHeight
+    lineHeight: typeof record.lineHeight === 'string'
+      ? record.lineHeight
       : finiteNumber(record.lineHeight) !== undefined ? String(record.lineHeight) : undefined,
     textAlign: stringValue(record.textAlign),
   })
@@ -1051,10 +1077,14 @@ function cloneJsonValue<T>(value: T): T | undefined {
 
 function createNativeMotionProjection(value: unknown): JsonRecord | undefined {
   const record = asRecord(value)
-  if (!record) return undefined
+  if (!record)
+    return undefined
   const motion = omitUndefined({
-    x: finiteNumber(record.x), y: finiteNumber(record.y), scale: finiteNumber(record.scale),
-    rotation: finiteNumber(record.rotation), opacity: finiteNumber(record.opacity),
+    x: finiteNumber(record.x),
+    y: finiteNumber(record.y),
+    scale: finiteNumber(record.scale),
+    rotation: finiteNumber(record.rotation),
+    opacity: finiteNumber(record.opacity),
     composition: cloneJsonValue(record.composition),
   })
   return Object.keys(motion).length > 0 ? motion : undefined

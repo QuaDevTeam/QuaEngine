@@ -196,10 +196,12 @@ export function splitTopLevel(
 
   for (let offset = 0; offset < text.length; offset += 1) {
     const char = text[offset]
-    if (char === '(' || char === '[' || char === '{')
+    if (char === '(' || char === '[' || char === '{') {
       depth += 1
-    else if (char === ')' || char === ']' || char === '}')
+    }
+    else if (char === ')' || char === ']' || char === '}') {
       depth = Math.max(0, depth - 1)
+    }
     else if (char === delimiter && depth === 0) {
       parts.push({ start, end: offset, text: text.slice(start, offset) })
       start = offset + 1
@@ -216,9 +218,9 @@ export function wordAt(source: string, offset: number): { end: number, start: nu
 
   let start = offset
   let end = offset
-  while (start > 0 && /[A-Za-z0-9_-]/.test(source[start - 1]))
+  while (start > 0 && /[\w-]/.test(source[start - 1]))
     start -= 1
-  while (end < source.length && /[A-Za-z0-9_-]/.test(source[end]))
+  while (end < source.length && /[\w-]/.test(source[end]))
     end += 1
 
   if (start === end)

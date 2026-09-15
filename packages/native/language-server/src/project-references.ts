@@ -199,7 +199,7 @@ function isValidRenameName(kind: NativeUiProjectReferenceKind, name: string): bo
       return /^[A-Z]\w*$/.test(name)
     case 'class':
     case 'id':
-      return /^[A-Za-z_][\w-]*$/.test(name)
+      return /^[A-Z_][\w-]*$/i.test(name)
     default:
       return false
   }

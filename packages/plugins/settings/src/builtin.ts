@@ -21,8 +21,10 @@ export interface BasePlayerSettings {
   autoAdvanceDelayMs: number
   skipMode: 'read' | 'all'
   confirmBeforeQuit: boolean
-  /** Target render cadence. 30 = battery saver, 60 = default, 120 = high
-   *  refresh rate. Native renderers clamp to the display's actual refresh rate. */
+  /**
+   * Target render cadence. 30 = battery saver, 60 = default, 120 = high
+   *  refresh rate. Native renderers clamp to the display's actual refresh rate.
+   */
   frameRateLimit: 30 | 60 | 120
 }
 

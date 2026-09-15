@@ -1,3 +1,4 @@
+import type { NativeUiTemplateScope } from './projection-template'
 import type {
   NativePackageProvenance,
   NativeQuiActionArgument,
@@ -9,17 +10,17 @@ import type {
 } from './types'
 import { isSafeNativeAssetType, isSafePackageAssetName } from './assets'
 import {
+  propLiteralString,
+  stripQuotes,
+} from './projection-props'
+import {
   currentLoopScopedKey,
+
   resolvedActionArgument,
   scopedNodeId,
   templateStringProp,
   templateStringValue,
-  type NativeUiTemplateScope,
 } from './projection-template'
-import {
-  propLiteralString,
-  stripQuotes,
-} from './projection-props'
 import { findNativeUiComponent } from './registry'
 
 interface NativeProjectionProvenanceOptions {
@@ -111,7 +112,7 @@ function textContentFromBody(
   const end = offsetAtPosition(source, node.bodyRange.end)
   const raw = source.slice(start, end).trim()
   const text = templateStringValue(raw, scope)?.trim() || stripQuotes(raw).trim()
-  return text ? text : undefined
+  return text || undefined
 }
 
 export function imageFromProps(props: readonly NativeQuiProp[]) {

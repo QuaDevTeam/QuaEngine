@@ -106,29 +106,17 @@ export {
   hasQuaProjectNativeCargoFeature,
   loadQuaProjectConfig,
   mergeQuaProjectAssetTargets,
+  normalizeQuaProjectConfig,
   normalizeQuaProjectNativeBuildConfig,
   normalizeQuaProjectNativeCargoFeatures,
-  normalizeQuaProjectConfig,
-  QUA_NATIVE_TARGET_BUNDLE_MANIFEST_FILE,
   QUA_NATIVE_QUICKJS_CARGO_FEATURE,
+  QUA_NATIVE_TARGET_BUNDLE_MANIFEST_FILE,
   QUA_PROJECT_CONFIG_CANDIDATES,
   QUA_TARGET_BUNDLE_MANIFEST_FILE,
   syncQuaProjectCocos,
   tryLoadQuaProjectConfig,
   validateQuaProjectConfig,
 } from './project'
-export {
-  assertLoadedQuackPluginTargetIsolation,
-  assertQuackPluginReferencesTargetIsolation,
-  assertQuackPluginSpecifiersTargetIsolation,
-  assertQuackTargetPluginManifestIsolation,
-  targetFromAssetPlatform,
-} from './target-plugin-isolation'
-export type {
-  AssertQuackPluginTargetIsolationOptions,
-  AssertQuackTargetPluginManifestIsolationOptions,
-  QuackPluginReference,
-} from './target-plugin-isolation'
 export type {
   EmitQuaProjectNativeTargetBundleManifestOptions,
   EmitQuaTargetBundleManifestOptions,
@@ -139,7 +127,6 @@ export type {
   NormalizedQuaProjectConfig,
   NormalizedQuaProjectNativeTarget,
   NormalizedQuaProjectWebTarget,
-  QuaProjectNativeBuildConfig,
   QuaProjectConfigFileName,
   QuaProjectConfigV1,
   QuaProjectDeviceClass,
@@ -148,6 +135,7 @@ export type {
   QuaProjectLayoutInput,
   QuaProjectManifestIconInput,
   QuaProjectNativeArtifactPlan,
+  QuaProjectNativeBuildConfig,
   QuaProjectNativePlatform,
   QuaProjectNativeProfile,
   QuaProjectNativeTargetBundleManifestOptions,
@@ -182,6 +170,18 @@ export {
   verifyRuntimePackageSignature,
 } from './security/signature'
 export type { QpkKeyInput, QpkSignatureOptions, QpkVerifyOptions, QpkVerifyResult, RuntimePackageSignaturePayload } from './security/signature'
+export {
+  assertLoadedQuackPluginTargetIsolation,
+  assertQuackPluginReferencesTargetIsolation,
+  assertQuackPluginSpecifiersTargetIsolation,
+  assertQuackTargetPluginManifestIsolation,
+  targetFromAssetPlatform,
+} from './target-plugin-isolation'
+export type {
+  AssertQuackPluginTargetIsolationOptions,
+  AssertQuackTargetPluginManifestIsolationOptions,
+  QuackPluginReference,
+} from './target-plugin-isolation'
 export { PatchGenerator } from './workspace/patch-generator'
 
 export { VersionManager } from './workspace/versioning'

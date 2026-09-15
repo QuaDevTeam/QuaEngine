@@ -6,18 +6,17 @@ import type {
   TargetCorePluginFamily,
 } from './bootstrap'
 import type {
+  TargetBundleCorePluginFamilyDiagnostic,
+  TargetBundleCoreResolverDiagnostic,
+  TargetBundleSelectedCoreAdapterDiagnostic,
+  TargetCoreResolverId,
+} from './target-bundle-core-validation'
+import type {
   TargetBundleAppInfo,
   TargetBundleAppMetadataDiagnostic,
   TargetBundleArtifactMetadataDiagnostic,
   TargetBundleProfile,
 } from './target-bundle-metadata'
-import type {
-  TargetBundleDependencyReference,
-  TargetBundlePackageReference,
-  TargetBundleProjectGraphRecord,
-  TargetBundleRendererEntryReference,
-  TargetBundleRuntimePackageRecord,
-} from './target-bundle-references'
 import type {
   TargetBundleNativeRendererDiagnostic,
 } from './target-bundle-native-renderer-validation'
@@ -26,11 +25,12 @@ import type {
   TargetBundleNativeRuntimeInfo,
 } from './target-bundle-native-runtime-validation'
 import type {
-  TargetBundleCorePluginFamilyDiagnostic,
-  TargetBundleCoreResolverDiagnostic,
-  TargetBundleSelectedCoreAdapterDiagnostic,
-  TargetCoreResolverId,
-} from './target-bundle-core-validation'
+  TargetBundleDependencyReference,
+  TargetBundlePackageReference,
+  TargetBundleProjectGraphRecord,
+  TargetBundleRendererEntryReference,
+  TargetBundleRuntimePackageRecord,
+} from './target-bundle-references'
 import type {
   TargetBundleProjectGraphDiagnostic,
   TargetBundleRendererEntryTargetDiagnostic,
@@ -49,33 +49,16 @@ import {
   checkAppMetadata,
   checkArtifactMetadata,
 } from './target-bundle-metadata'
+import { checkTargetBundleNativeRendererInfo } from './target-bundle-native-renderer-validation'
+import { checkTargetBundleNativeRuntimeInfo } from './target-bundle-native-runtime-validation'
 import {
   collectPackageReferenceSpecifiers,
 } from './target-bundle-references'
-import { checkTargetBundleNativeRendererInfo } from './target-bundle-native-renderer-validation'
-import { checkTargetBundleNativeRuntimeInfo } from './target-bundle-native-runtime-validation'
 import {
   checkProjectGraphTargetCoreAdapters,
   checkRendererEntryTargets,
   checkRuntimePackageTargetCoreAdapters,
 } from './target-bundle-target-validation'
-
-export type {
-  TargetBundleAppInfo,
-  TargetBundleAppMetadataDiagnostic,
-  TargetBundleArtifactMetadataDiagnostic,
-  TargetBundleProfile,
-} from './target-bundle-metadata'
-
-export type {
-  TargetBundleDependencyReference,
-  TargetBundlePackageGraphReference,
-  TargetBundlePackageReference,
-  TargetBundleProjectGraphKind,
-  TargetBundleProjectGraphRecord,
-  TargetBundleRendererEntryReference,
-  TargetBundleRuntimePackageRecord,
-} from './target-bundle-references'
 
 export type {
   TargetBundleCorePluginFamilyDiagnostic,
@@ -91,15 +74,32 @@ export {
 } from './target-bundle-core-validation'
 
 export type {
-  TargetBundleProjectGraphDiagnostic,
-  TargetBundleRendererEntryTargetDiagnostic,
-  TargetBundleRuntimePackageDiagnostic,
-} from './target-bundle-target-validation'
+  TargetBundleAppInfo,
+  TargetBundleAppMetadataDiagnostic,
+  TargetBundleArtifactMetadataDiagnostic,
+  TargetBundleProfile,
+} from './target-bundle-metadata'
 
 export type {
   TargetBundleNativeRuntimeDiagnostic,
   TargetBundleNativeRuntimeInfo,
 } from './target-bundle-native-runtime-validation'
+
+export type {
+  TargetBundleDependencyReference,
+  TargetBundlePackageGraphReference,
+  TargetBundlePackageReference,
+  TargetBundleProjectGraphKind,
+  TargetBundleProjectGraphRecord,
+  TargetBundleRendererEntryReference,
+  TargetBundleRuntimePackageRecord,
+} from './target-bundle-references'
+
+export type {
+  TargetBundleProjectGraphDiagnostic,
+  TargetBundleRendererEntryTargetDiagnostic,
+  TargetBundleRuntimePackageDiagnostic,
+} from './target-bundle-target-validation'
 
 export interface TargetBundleNativeRendererInfo {
   packageName?: string

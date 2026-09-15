@@ -4,7 +4,35 @@
 // the JSX package.  Any object satisfying these shapes (including the real
 // QuiNode / QuiIntent from @quajs/native-ui) is accepted.
 
+import type { NativeUiCompilerSurfaceNodeProjection } from './projection-layout'
 /** Intermediate node produced by a JSX runtime, e.g. @quajs/native-ui. */
+import type {
+  NativePackageProvenance,
+  NativeQssDocument,
+  NativeQssResolvedLayout,
+  NativeQssResolvedStyle,
+  NativeQuiAstNode,
+  NativeQuiProp,
+  NativeUiRange,
+  NativeUiSurfaceControlOptionProjection,
+  NativeUiSurfaceControlProjection,
+  NativeUiSurfaceIntentProjection,
+  NativeUiSurfaceNodeKind,
+  NativeUiSurfaceProjection,
+  NativeUiSurfaceRect,
+  NativeUiSurfaceVideoProjection,
+} from './types'
+import { isSafeNativeAssetType, isSafePackageAssetName } from './assets'
+import {
+  applyNativeQssStructuralLayout,
+
+  stripNativeQssCompilerLayout,
+} from './projection-layout'
+import { pruneSurfaceNode, ZERO_RECT } from './projection-node-helpers'
+import { resolveStyleForNode } from './projection-selectors'
+import { parseNativeQssObjectFit } from './qss-style-values'
+import { canProjectNativeUiIntent } from './surface-intents'
+
 export interface QuiNode {
   readonly kind: string
   readonly id?: string
@@ -31,33 +59,6 @@ function isQuiIntent(value: unknown): value is QuiIntent {
   )
 }
 
-import type {
-  NativePackageProvenance,
-  NativeQssDocument,
-  NativeQssResolvedLayout,
-  NativeQssResolvedStyle,
-  NativeQuiAstNode,
-  NativeQuiProp,
-  NativeUiRange,
-  NativeUiSurfaceControlProjection,
-  NativeUiSurfaceControlOptionProjection,
-  NativeUiSurfaceIntentProjection,
-  NativeUiSurfaceNodeKind,
-  NativeUiSurfaceProjection,
-  NativeUiSurfaceRect,
-  NativeUiSurfaceVideoProjection,
-} from './types'
-import { isSafeNativeAssetType, isSafePackageAssetName } from './assets'
-import {
-  applyNativeQssStructuralLayout,
-  stripNativeQssCompilerLayout,
-  type NativeUiCompilerSurfaceNodeProjection,
-} from './projection-layout'
-import { pruneSurfaceNode, ZERO_RECT } from './projection-node-helpers'
-import { resolveStyleForNode } from './projection-selectors'
-import { parseNativeQssObjectFit } from './qss-style-values'
-import { canProjectNativeUiIntent } from './surface-intents'
-
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 const EMPTY_RANGE: NativeUiRange = {
@@ -69,8 +70,10 @@ function makeIdProp(id: string): NativeQuiProp {
   return { name: 'id', value: id, nameRange: EMPTY_RANGE, valueRange: EMPTY_RANGE, range: EMPTY_RANGE }
 }
 
-/** Build a minimal NativeQuiAstNode adapter for QSS selector matching.
- *  Passes the node's id (as a NativeQuiProp) so id-based selectors work. */
+/**
+ * Build a minimal NativeQuiAstNode adapter for QSS selector matching.
+ *  Passes the node's id (as a NativeQuiProp) so id-based selectors work.
+ */
 function makeAstAdapter(node: QuiNode): NativeQuiAstNode {
   return {
     name: node.kind,
@@ -85,7 +88,8 @@ function makeAstAdapter(node: QuiNode): NativeQuiAstNode {
 }
 
 function normaliseQssDocs(qss: CompileQuiTsxProjectionOptions['qss']): readonly NativeQssDocument[] {
-  if (!qss) return []
+  if (!qss)
+    return []
   return Array.isArray(qss) ? qss : [qss as NativeQssDocument]
 }
 
@@ -165,46 +169,57 @@ function intentFromAction(action: unknown): NativeUiSurfaceIntentProjection | un
 
 function imageFromQuiProps(props: Readonly<Record<string, unknown>>): { assetName: string, assetType: string } | undefined {
   const src = props.src
-  if (typeof src !== 'string' || !src || !isSafePackageAssetName(src)) return undefined
+  if (typeof src !== 'string' || !src || !isSafePackageAssetName(src))
+    return undefined
   const assetType = typeof props.assetType === 'string' && props.assetType
     ? props.assetType
     : 'images'
-  if (!isSafeNativeAssetType(assetType)) return undefined
+  if (!isSafeNativeAssetType(assetType))
+    return undefined
   return { assetName: src, assetType }
 }
 
 function videoFromQuiProps(props: Readonly<Record<string, unknown>>): NativeUiSurfaceVideoProjection | undefined {
   const src = props.src
-  if (typeof src !== 'string' || !src || !isSafePackageAssetName(src)) return undefined
+  if (typeof src !== 'string' || !src || !isSafePackageAssetName(src))
+    return undefined
   const assetType = typeof props.assetType === 'string' && props.assetType
     ? props.assetType
     : 'videos'
-  if (!isSafeNativeAssetType(assetType)) return undefined
+  if (!isSafeNativeAssetType(assetType))
+    return undefined
   const result: NativeUiSurfaceVideoProjection = { assetName: src, assetType }
-  if (props.looped === true) result.looped = true
-  if (props.muted === true) result.muted = true
+  if (props.looped === true)
+    result.looped = true
+  if (props.muted === true)
+    result.muted = true
   if (typeof props.playbackRate === 'number' && props.playbackRate !== 1)
     result.playbackRate = props.playbackRate
   const fit = typeof props.objectFit === 'string'
     ? parseNativeQssObjectFit(props.objectFit)
     : undefined
-  if (fit) result.objectFit = fit
+  if (fit)
+    result.objectFit = fit
   return result
 }
 
-type QuiRawControlOption = { label: string; intent: unknown }
+interface QuiRawControlOption { label: string, intent: unknown }
 
 function controlOptionsFromProps(
   raw: unknown,
 ): NativeUiSurfaceControlOptionProjection[] | undefined {
-  if (!Array.isArray(raw) || raw.length === 0) return undefined
+  if (!Array.isArray(raw) || raw.length === 0)
+    return undefined
   const result: NativeUiSurfaceControlOptionProjection[] = []
   for (const item of raw) {
-    if (typeof item !== 'object' || item === null) return undefined
+    if (typeof item !== 'object' || item === null)
+      return undefined
     const { label, intent } = item as QuiRawControlOption
-    if (typeof label !== 'string') return undefined
+    if (typeof label !== 'string')
+      return undefined
     const resolved = intentFromAction(intent)
-    if (!resolved) return undefined
+    if (!resolved)
+      return undefined
     result.push({ label, intent: resolved })
   }
   return result
@@ -215,9 +230,11 @@ function controlFromQuiProps(
   props: Readonly<Record<string, unknown>>,
 ): NativeUiSurfaceControlProjection | undefined {
   const selectedIndex = typeof props.selectedIndex === 'number' ? props.selectedIndex : undefined
-  if (selectedIndex === undefined) return undefined
+  if (selectedIndex === undefined)
+    return undefined
   const options = controlOptionsFromProps(props.options)
-  if (!options || options.length === 0) return undefined
+  if (!options || options.length === 0)
+    return undefined
   const parts = (typeof props.parts === 'object' && props.parts !== null)
     ? props.parts as Record<string, string>
     : {}
@@ -295,14 +312,16 @@ export function compileQuiTsxProjection(
   root: QuiNode | null,
   options: CompileQuiTsxProjectionOptions = {},
 ): NativeUiSurfaceProjection {
-  if (!root) return {}
+  if (!root)
+    return {}
 
   const qssDocs = normaliseQssDocs(options.qss)
   const provenance = provenanceFromOptions(options)
   const state: TsxTraversalState = { fallbackCounter: 0 }
   const nodes = surfaceNodesFromQuiChildren([root], [], qssDocs, provenance, state, undefined)
 
-  if (nodes.length === 0) return {}
+  if (nodes.length === 0)
+    return {}
   if (nodes.length === 1 && !options.rootId)
     return { root: stripNativeQssCompilerLayout(nodes[0]) }
 

@@ -60,7 +60,8 @@ export function quackPlugin(options: QuaEngineVitePluginOptions['assetBundling']
 
       let bundleFile: string | undefined
       const emitBundle = (fileName: string, bytes: Uint8Array) => {
-        if (command === 'build') this.emitFile({ type: 'asset', fileName, source: bytes })
+        if (command === 'build')
+          this.emitFile({ type: 'asset', fileName, source: bytes })
       }
       const quackConfig = defineConfig({
         source: sourcePath,

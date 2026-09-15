@@ -18,15 +18,19 @@ export function sampleNativeSpriteLayerAnimations(
     for (const track of animation.resolvedTracks || []) {
       if (track.target.startsWith(prefix)
         && /^(?:(?:base|expression)(?::(?:0|[1-9]\d*))?|0|[1-9]\d*)$/.test(track.target.slice(prefix.length))
-        && properties.has(track.property)) targets.add(track.target)
+        && properties.has(track.property)) {
+        targets.add(track.target)
+      }
     }
   }
   const values: Array<{ target: string, property: string, value: unknown }> = []
   for (const target of targets) {
     for (const track of collectTrackValues(animations, target, now)) {
-      if (!properties.has(track.property)) continue
+      if (!properties.has(track.property))
+        continue
       values.push({ target, ...track })
-      if (values.length === maxSamples) return values
+      if (values.length === maxSamples)
+        return values
     }
   }
   return values.length ? values : undefined

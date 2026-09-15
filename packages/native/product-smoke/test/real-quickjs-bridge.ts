@@ -48,7 +48,7 @@ export interface CreateRealNativeProductBridgeOptions {
 }
 
 const CURRENT_DIR = fileURLToPath(new URL('.', import.meta.url))
-const REPO_ROOT = resolve(CURRENT_DIR, '../../../../..')
+const REPO_ROOT = resolve(CURRENT_DIR, '../../../..')
 const NATIVE_QUICKJS_CARGO_ARGS = [
   'run',
   '--quiet',

@@ -2,10 +2,10 @@ import type { AnimationTimingFunction, ViewCharacterProjection } from '@quajs/re
 import type { QuaWebDomLayerContext, QuaWebDomRendererPlugin } from './core'
 import { runtimePackageCandidatesFromMetadata } from '../assets'
 import { characterProjectionVars, projectCharacters, resolveCharacterPositionAnchor } from '../projection'
+import { characterLightingSvg, createCharacterLightingId, createCharacterLightingSvgElement } from './character-lighting'
 import { defineWebRendererPlugin } from './core'
 import { applyStyleVars, assignData } from './shared'
 import { updateSpriteLayerAnimations } from './sprite'
-import { characterLightingSvg, createCharacterLightingId, createCharacterLightingSvgElement } from './character-lighting'
 
 export { characterLightingSvg, createCharacterLightingId, createCharacterLightingSvgElement } from './character-lighting'
 export type { CharacterLightingSvgNode } from './character-lighting'

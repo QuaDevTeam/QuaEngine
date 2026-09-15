@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   COCOS_TARGET_BOOTSTRAP,
   NATIVE_TARGET_BOOTSTRAP,
-  WEB_TARGET_BOOTSTRAP,
   validateTargetBootstrap,
+  WEB_TARGET_BOOTSTRAP,
 } from '../../src'
 
 describe('target bootstrap adapter sets', () => {

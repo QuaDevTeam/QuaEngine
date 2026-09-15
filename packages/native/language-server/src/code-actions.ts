@@ -101,7 +101,7 @@ function expandToQssDeclaration(
     return undefined
 
   let declarationStart = colon
-  while (declarationStart > lineStart && /[A-Za-z-]/.test(source[declarationStart - 1])) {
+  while (declarationStart > lineStart && /[A-Z-]/i.test(source[declarationStart - 1])) {
     declarationStart -= 1
   }
   while (declarationStart > lineStart && /[ \t]/.test(source[declarationStart - 1])) {
@@ -132,7 +132,7 @@ function expandToQuiProp(
     return undefined
 
   let propStart = colon
-  while (propStart > lineStart && /[A-Za-z0-9_-]/.test(source[propStart - 1])) {
+  while (propStart > lineStart && /[\w-]/.test(source[propStart - 1])) {
     propStart -= 1
   }
   while (propStart > lineStart && /[ \t]/.test(source[propStart - 1])) {

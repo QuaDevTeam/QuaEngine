@@ -5,8 +5,8 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   drainNativeRendererIntentsToPipeline,
   emitNativeRendererIntentToPipeline,
-  installNativeQuickJsRendererIntentBridge,
   installNativeQuickJsPipelineBridge,
+  installNativeQuickJsRendererIntentBridge,
   NativeHostPlugin,
 } from '../src'
 
@@ -1155,7 +1155,6 @@ describe('@quajs/engine-native renderer intents', () => {
     ])
   })
 })
-
 
 it('forwards transient scroll navigation through the existing pipeline and disposes the listener', async () => {
   const pipeline = createTestPipeline()

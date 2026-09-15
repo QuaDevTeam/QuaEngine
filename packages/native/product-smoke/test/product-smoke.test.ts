@@ -1,3 +1,8 @@
+import type { ViewChoiceProjection } from '@quajs/engine'
+import type { QuaNativeHostInfo } from '@quajs/native-contracts'
+import { mkdtemp, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { MemoryAssetStorage } from '@quajs/assets'
 import {
   clearCharacterRegistry,
@@ -7,9 +12,12 @@ import {
   speakWithEngine,
 } from '@quajs/character'
 import { playCharacterFadeWithEngine } from '@quajs/character/animation'
-import type { ViewChoiceProjection } from '@quajs/engine'
-import type { QuaNativeHostInfo } from '@quajs/native-contracts'
 import { emitRenderToLogic, QuaEngine, RenderToLogicEvents } from '@quajs/engine'
+import {
+  createNativeRendererJsonFrameInput,
+  createNativeRuntimeAdapters,
+  NativeHostPlugin,
+} from '@quajs/engine-native'
 import { NATIVE_TARGET_BOOTSTRAP } from '@quajs/native-contracts'
 import {
   AnimationPlugin,
@@ -28,16 +36,8 @@ import {
   normalizeQuaProjectConfig,
 } from '@quajs/quack/project'
 import { compileQuaScriptModuleToTsAsync } from '@quajs/script-compiler'
-import { mkdtemp, rm } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
 import ts from 'typescript'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import {
-  createNativeRendererJsonFrameInput,
-  createNativeRuntimeAdapters,
-} from './helpers'
-import { NativeHostPlugin } from '../../src'
 import {
   createRealNativeProductBridge,
   createRealNativeQuickJsBridge,
@@ -484,7 +484,7 @@ describe('@quajs/engine-native runtime product smoke', () => {
       engine.use(nativeHostPlugin)
 
       await engine.init()
-      engine.getPipeline().on('plugin/native_product_smoke', context => {
+      engine.getPipeline().on('plugin/native_product_smoke', (context) => {
         customPipelineEvents.push(context.event.payload)
       })
       const state = await engine.loadRuntimePackage('native-story.qpk')

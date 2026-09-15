@@ -1,3 +1,5 @@
+import type { NativeAuthoringSmokeContext } from './authoring-smoke-context'
+import type { BenchmarkDefinition } from './types'
 import {
   buildNativeUiProjectIndex,
   updateNativeUiProjectIndex,
@@ -7,8 +9,6 @@ import {
   compileNativeUiSurfaceProjection,
   createNativeUiSurfaceCompatibilityFromProjection,
 } from '@quajs/native-ui-compiler'
-import type { BenchmarkDefinition } from './types'
-import type { NativeAuthoringSmokeContext } from './authoring-smoke-context'
 import { countSurfaceProjection } from './authoring-utils'
 import { createUpdatedQuiProjectSource } from './fixtures'
 import { byteLength } from './runner'

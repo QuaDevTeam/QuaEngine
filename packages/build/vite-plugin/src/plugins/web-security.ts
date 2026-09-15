@@ -66,7 +66,8 @@ export function webSecurityPlugin(options: WebSecurityOptions = {}): Plugin {
           for (const [fileName, output] of Object.entries(bundle)) {
             if (output.type === 'asset' && fileName.endsWith('.html')) {
               const html = typeof output.source === 'string'
-                ? output.source : Buffer.from(output.source).toString('utf8')
+                ? output.source
+                : Buffer.from(output.source).toString('utf8')
               output.source = injectSriAttributes(html, assetHashes)
             }
           }

@@ -6,6 +6,12 @@ import type {
   NativeUiHover,
   NativeUiLanguageOptions,
 } from './types'
+import { parseQssItems } from './qss-parser'
+import {
+  validateAtRule,
+  validateDeclaration,
+  validateSelector,
+} from './qss-validation'
 import {
   findNativeQssProperty,
   findNativeUiComponent,
@@ -19,12 +25,6 @@ import {
   maskSourceLiterals,
   wordAt,
 } from './source'
-import { parseQssItems } from './qss-parser'
-import {
-  validateAtRule,
-  validateDeclaration,
-  validateSelector,
-} from './qss-validation'
 
 export function analyzeQssSource(source: string, options: NativeUiLanguageOptions = {}): NativeQssDocument {
   const lineStarts = createLineStarts(source)
@@ -195,7 +195,7 @@ function findQssDeclarationContext(source: string, offset: number): { propertyNa
     return undefined
 
   const propertyName = source.slice(declarationStart, declarationStart + colon).trim()
-  if (!/^[A-Za-z_-][\w-]*$/.test(propertyName))
+  if (!/^[A-Z_-][\w-]*$/i.test(propertyName))
     return undefined
 
   return { propertyName }

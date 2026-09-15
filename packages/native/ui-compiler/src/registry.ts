@@ -10,8 +10,8 @@ export const QUA_STYLE_LANGUAGE_ID = 'qua-style'
 export const QUA_UI_FILE_EXTENSIONS = ['.qui'] as const
 export const QUA_STYLE_FILE_EXTENSIONS = ['.qss'] as const
 
-export { nativeQuiDirectiveNames } from './registry-directives'
 export { nativeUiComponents } from './registry-components'
+export { nativeQuiDirectiveNames } from './registry-directives'
 export {
   nativeQssProperties,
   nativeQssPseudoStates,

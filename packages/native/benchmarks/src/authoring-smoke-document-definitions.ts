@@ -1,3 +1,5 @@
+import type { NativeAuthoringSmokeContext } from './authoring-smoke-context'
+import type { BenchmarkDefinition } from './types'
 import {
   formatNativeUiDocumentEdits,
   fullDocumentRange,
@@ -13,8 +15,6 @@ import {
   getNativeUiHover,
   resolveNativeQssDeclarations,
 } from '@quajs/native-ui-compiler'
-import type { BenchmarkDefinition } from './types'
-import type { NativeAuthoringSmokeContext } from './authoring-smoke-context'
 import { countQuiAst, positionAtOffset } from './authoring-utils'
 import { byteLength } from './runner'
 

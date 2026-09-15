@@ -5,9 +5,10 @@ import type {
   NativeQssBackgroundPositionValue,
   NativeQssBorderStyleValue,
   NativeQssBoxSizingValue,
+  NativeQssEdgeInsetsValue,
+  NativeQssFilterValue,
   NativeQssFontStyleValue,
   NativeQssFontWeightValue,
-  NativeQssFilterValue,
   NativeQssGradientStop,
   NativeQssGradientValue,
   NativeQssJustifyContentValue,
@@ -21,7 +22,6 @@ import type {
   NativeQssTextTransformValue,
   NativeQssTransformValue,
   NativeQssTransitionEasing,
-  NativeQssEdgeInsetsValue,
   NativeQssTransitionProperty,
   NativeQssTransitionValue,
   NativeQssWhiteSpaceValue,
@@ -108,7 +108,7 @@ function isNativeQssTransitionEasing(value: string): value is NativeQssTransitio
 }
 
 export function parseNativeQssBackgroundImage(value: string): NativeQssBackgroundImageValue | undefined {
-  const match = /^asset\(\s*(?:"([^"]+)"|'([^']+)')\s*(?:,\s*(?:"([^"]+)"|'([^']+)'))?\s*\)$/i.exec(value.trim())
+  const match = /^asset\(\s*(?:"([^"]+)"|'([^']+)')\s*(?:,\s*(?:"([^"]+)"|'([^']+)')\s*)?\)$/i.exec(value.trim())
   if (!match)
     return undefined
 
@@ -144,11 +144,10 @@ export function parseNativeQssFilter(value: string): NativeQssFilterValue | unde
   let cursor = 0
   // Extend pattern to include all supported CSS filter functions.
   const pattern = /(brightness|saturate|blur|contrast|grayscale|sepia|hue-rotate|invert)\(\s*(\d+(?:\.\d+)?(?:deg|px|%)?)\s*\)/gi
-  let match: RegExpExecArray | null
-  while ((match = pattern.exec(source))) {
+  for (const match of source.matchAll(pattern)) {
     if (source.slice(cursor, match.index).trim() || seen.has(match[1].toLowerCase()))
       return undefined
-    cursor = pattern.lastIndex
+    cursor = match.index + match[0].length
     const name = match[1].toLowerCase()
     const raw = match[2]
     const amount = name === 'hue-rotate'
@@ -159,14 +158,30 @@ export function parseNativeQssFilter(value: string): NativeQssFilterValue | unde
     if (amount === undefined)
       return undefined
     switch (name) {
-      case 'brightness': result.brightness = amount; break
-      case 'saturate': result.saturate = amount; break
-      case 'blur': result.blur = amount; break
-      case 'contrast': result.contrast = amount; break
-      case 'grayscale': result.grayscale = amount; break
-      case 'sepia': result.sepia = amount; break
-      case 'hue-rotate': result.hueRotate = amount; break
-      case 'invert': result.invert = amount; break
+      case 'brightness':
+        result.brightness = amount
+        break
+      case 'saturate':
+        result.saturate = amount
+        break
+      case 'blur':
+        result.blur = amount
+        break
+      case 'contrast':
+        result.contrast = amount
+        break
+      case 'grayscale':
+        result.grayscale = amount
+        break
+      case 'sepia':
+        result.sepia = amount
+        break
+      case 'hue-rotate':
+        result.hueRotate = amount
+        break
+      case 'invert':
+        result.invert = amount
+        break
     }
     seen.add(name)
   }
@@ -194,7 +209,8 @@ export function parseNativeQssFlexShrink(value: string): number | undefined {
  */
 export function parseNativeQssFlexBasis(value: string): number | 'auto' | undefined {
   const trimmed = value.trim().toLowerCase()
-  if (trimmed === 'auto') return 'auto'
+  if (trimmed === 'auto')
+    return 'auto'
   const n = parseNativeQssLogicalNumber(trimmed)
   return n !== undefined ? n : undefined
 }
@@ -202,7 +218,8 @@ export function parseNativeQssFlexBasis(value: string): number | 'auto' | undefi
 /** Parse `align-self: auto | flex-start | center | flex-end`. */
 export function parseNativeQssAlignSelf(value: string): NativeQssAlignItemsValue | 'auto' | undefined {
   const v = value.trim().toLowerCase()
-  if (v === 'auto') return 'auto'
+  if (v === 'auto')
+    return 'auto'
   return parseNativeQssAlignItems(v)
 }
 
@@ -242,7 +259,7 @@ export function parseNativeQssBorderImageSource(
 
 export function parseNativeQssBorderImageSlice(
   value: string,
-): { slice: NativeQssEdgeInsetsValue; fill: boolean } | undefined {
+): { slice: NativeQssEdgeInsetsValue, fill: boolean } | undefined {
   const parts = value.trim().split(/\s+/)
   const fillIdx = parts.findIndex(p => p.toLowerCase() === 'fill')
   const fill = fillIdx >= 0
@@ -251,7 +268,7 @@ export function parseNativeQssBorderImageSlice(
   if (nums.length < 1 || nums.length > 4)
     return undefined
   const values = nums.map(p => parseNativeQssLogicalNumber(p))
-  if (values.some(v => v === undefined))
+  if (values.includes(undefined))
     return undefined
   const [t, r, b, l] = expandEdgeValues(values as number[])
   return { slice: { top: t, right: r, bottom: b, left: l }, fill }
@@ -264,7 +281,7 @@ export function parseNativeQssBorderImageWidth(
   if (parts.length < 1 || parts.length > 4)
     return undefined
   const values = parts.map(p => parseNativeQssLogicalNumber(p))
-  if (values.some(v => v === undefined))
+  if (values.includes(undefined))
     return undefined
   const [t, r, b, l] = expandEdgeValues(values as number[])
   return { top: t, right: r, bottom: b, left: l }
@@ -378,11 +395,10 @@ export function parseNativeQssTransform(value: string): NativeQssTransformValue 
   let cursor = 0
   let matched = false
   const pattern = /(translate|scale|rotate)\(([^)]*)\)/gi
-  let match: RegExpExecArray | null
-  while ((match = pattern.exec(source))) {
+  for (const match of source.matchAll(pattern)) {
     if (source.slice(cursor, match.index).trim())
       return undefined
-    cursor = pattern.lastIndex
+    cursor = match.index + match[0].length
     matched = true
     const fn_ = match[1].toLowerCase()
     if (fn_ === 'translate') {
@@ -513,11 +529,11 @@ function parseGradientColorStops(
 ): NativeQssGradientStop[] | undefined {
   if (parts.length < 2 || parts.length > 8)
     return undefined
-  const rawStops: Array<{ color: string; position: number | null }> = []
+  const rawStops: Array<{ color: string, position: number | null }> = []
   for (const part of parts) {
     const trimmed = part.trim()
     // Optionally ends with a percentage, e.g. "rgba(0,0,0,0.5) 30%"
-    const posMatch = /^(.+?)\s+(\d+(?:\.\d+)?)%\s*$/.exec(trimmed)
+    const posMatch = /^(\S(?:.*\S)?)\s+(\d+(?:\.\d+)?)%\s*$/.exec(trimmed)
     if (posMatch) {
       const color = parseNativeQssColor(posMatch[1].trim())
       if (!color)
@@ -579,7 +595,7 @@ function parseLinearGradient(value: string): NativeQssGradientValue | undefined 
     return undefined
 
   const firstPart = parts[0].trim()
-  const hasDirection = /^(to |\-?\d)/i.test(firstPart)
+  const hasDirection = /^(?:to |-?\d)/i.test(firstPart)
   const angleDegrees = hasDirection ? parseGradientAngle(parts[0]) : 180
   if (angleDegrees === undefined)
     return undefined
@@ -600,7 +616,7 @@ function parseRadialGradient(value: string): NativeQssGradientValue | undefined 
   // Detect whether the first part is a shape/position descriptor. CSS defaults
   // an unqualified radial gradient to an ellipse centred in the box.
   const firstLower = parts[0].trim().toLowerCase()
-  const hasDescriptor = /^(circle|ellipse)(?:\s|$)|^at\s/.test(firstLower)
+  const hasDescriptor = /^(?:circle|ellipse)(?:\s|$)|^at\s/.test(firstLower)
   const descriptor = hasDescriptor
     ? parseRadialGradientDescriptor(parts[0])
     : { position: { x: 0.5, y: 0.5 }, shape: 'ellipse' as const }
@@ -651,7 +667,7 @@ function parseRadialGradientDescriptor(value: string): {
   position: { x: number, y: number }
   shape: 'circle' | 'ellipse'
 } | undefined {
-  const match = /^(?:(circle|ellipse)\s*)?(?:at\s+(.+))?$/i.exec(value.trim())
+  const match = /^(?:(circle|ellipse)\s*)?(?:at\s+(\S.*))?$/i.exec(value.trim())
   if (!match)
     return undefined
   const position = match[2]
@@ -669,7 +685,7 @@ function splitQssCommaComponents(value: string): string[] {
   const parts: string[] = []
   let current = ''
   let depth = 0
-  let quote: '"' | "'" | undefined
+  let quote: '"' | '\'' | undefined
   for (const character of value) {
     if (quote) {
       current += character
@@ -677,7 +693,7 @@ function splitQssCommaComponents(value: string): string[] {
         quote = undefined
       continue
     }
-    if (character === '"' || character === "'") {
+    if (character === '"' || character === '\'') {
       quote = character
       current += character
       continue
@@ -756,7 +772,7 @@ function splitQssValueComponents(value: string): string[] {
   const parts: string[] = []
   let current = ''
   let depth = 0
-  let quote: '"' | "'" | undefined
+  let quote: '"' | '\'' | undefined
   for (const character of value) {
     if (quote) {
       current += character
@@ -764,7 +780,7 @@ function splitQssValueComponents(value: string): string[] {
         quote = undefined
       continue
     }
-    if (character === '"' || character === "'") {
+    if (character === '"' || character === '\'') {
       quote = character
       current += character
       continue

@@ -1,11 +1,12 @@
 import type { StoredAsset, StoredBundle } from '@quajs/assets'
+import type { NativeAssetStorageIndex } from './storage-records'
 import { getBundleStorageKey } from '@quajs/assets'
 import {
   cloneStoredAsset,
   cloneStoredBundle,
   decodeJson,
   encodeJson,
-  type NativeAssetStorageIndex,
+
 } from './storage-records'
 
 export interface NativeAssetStorageIndexMaps {

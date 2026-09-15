@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   NATIVE_TARGET_BOOTSTRAP,
-  WEB_TARGET_BOOTSTRAP,
   validateExclusiveTargetBootstrap,
+  WEB_TARGET_BOOTSTRAP,
 } from '../../src'
 
 describe('exclusive target bootstrap isolation', () => {

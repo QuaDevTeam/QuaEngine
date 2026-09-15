@@ -326,7 +326,7 @@ export function assertNativeQuickJsGameStepFactoryCallResponse(
     throw new Error(response.error?.message || 'Native QuickJS GameStep factory call failed.')
   }
   if (!Array.isArray(response.steps)) {
-    throw new Error('Native QuickJS GameStep factory call succeeded without step descriptors.')
+    throw new TypeError('Native QuickJS GameStep factory call succeeded without step descriptors.')
   }
   return response.steps
 }
@@ -339,7 +339,7 @@ export function assertNativeQuickJsGameStepRunResponse(
   }
   const commands = response.commands || []
   if (!Array.isArray(commands)) {
-    throw new Error('Native QuickJS GameStep run commands must be an array.')
+    throw new TypeError('Native QuickJS GameStep run commands must be an array.')
   }
   commands.forEach(assertNativeQuickJsGameStepCommand)
   if (response.pendingWait !== undefined) {
@@ -356,7 +356,7 @@ export function assertNativeQuickJsGameStepRunResponse(
   }
   const pipelineSubscriptions = response.pipelineSubscriptions || []
   if (!Array.isArray(pipelineSubscriptions)) {
-    throw new Error('Native QuickJS GameStep pipelineSubscriptions must be an array.')
+    throw new TypeError('Native QuickJS GameStep pipelineSubscriptions must be an array.')
   }
   pipelineSubscriptions.forEach(assertNativeQuickJsPipelineSubscriptionChange)
   const pendingCount = Number(response.pendingWait !== undefined)
@@ -381,12 +381,12 @@ export function assertNativeQuickJsPipelineListenerDispatchResponse(
   }
   const commands = response.commands || []
   if (!Array.isArray(commands)) {
-    throw new Error('Native QuickJS pipeline listener dispatch commands must be an array.')
+    throw new TypeError('Native QuickJS pipeline listener dispatch commands must be an array.')
   }
   commands.forEach(assertNativeQuickJsGameStepCommand)
   const pipelineSubscriptions = response.pipelineSubscriptions || []
   if (!Array.isArray(pipelineSubscriptions)) {
-    throw new Error('Native QuickJS pipeline listener dispatch pipelineSubscriptions must be an array.')
+    throw new TypeError('Native QuickJS pipeline listener dispatch pipelineSubscriptions must be an array.')
   }
   pipelineSubscriptions.forEach(assertNativeQuickJsPipelineSubscriptionChange)
   return {
@@ -483,7 +483,7 @@ export function assertNativeQuickJsModuleExportCallRequest(
     }
     const parsed = JSON.parse(trimmed)
     if (!Array.isArray(parsed)) {
-      throw new Error('Native QuickJS module export call argsJson must be a JSON array.')
+      throw new TypeError('Native QuickJS module export call argsJson must be a JSON array.')
     }
   }
 }
@@ -765,6 +765,7 @@ function isSafeQuickJsBridgeText(value: string): boolean {
   return value.trim() === value
     && value.length > 0
     && value.length <= 256
+    // eslint-disable-next-line no-control-regex
     && !/[\u0000-\u001F\u007F]/.test(value)
 }
 
@@ -818,7 +819,7 @@ function assertOptionalJsonArray(json: string | undefined, label: string): void 
   }
   const parsed = JSON.parse(trimmed)
   if (!Array.isArray(parsed)) {
-    throw new Error(`${label} must be a JSON array.`)
+    throw new TypeError(`${label} must be a JSON array.`)
   }
 }
 

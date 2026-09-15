@@ -6,7 +6,7 @@ import {
   assertQuackTargetPluginManifestIsolation,
 } from '../src/target-plugin-isolation'
 
-describe('Quack target plugin isolation', () => {
+describe('quack target plugin isolation', () => {
   it('keeps the string specifier compatibility wrapper', () => {
     expect(() => assertQuackPluginSpecifiersTargetIsolation([
       '@quajs/renderer-web/plugins/audio',

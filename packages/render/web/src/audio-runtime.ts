@@ -614,15 +614,19 @@ export class WebAudioAudioRuntime {
         continue
       }
 
-      const param = property === 'gainDb' ? filter.gain : property === 'q' ? filter.Q
-        : property === 'frequency' ? filter.frequency : filter.detune
+      const param = property === 'gainDb'
+        ? filter.gain
+        : property === 'q'
+          ? filter.Q
+          : property === 'frequency' ? filter.frequency : filter.detune
       this.scheduleParamCurve(param, item, this.ensureContext().currentTime, false)
     }
   }
 
   private scheduleParamCurve(param: AudioParam, item: AudioAutomationProjection, now: number, gain: boolean): void {
     const points = item.curve.points
-    if (!points.length) return
+    if (!points.length)
+      return
     const value = (number: number) => gain ? dbToGain(number) : number
     param.cancelScheduledValues(now)
     param.setValueAtTime(value(points[0].value), now + points[0].at / 1000)

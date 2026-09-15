@@ -10,8 +10,8 @@ import {
   getTargetCorePluginFamily,
   TARGET_BOOTSTRAP_MANIFESTS,
 } from './target-bootstrap-manifests'
-import { normalizePackageSpecifier } from './target-core-specifiers'
 import { collectPackageReferenceSpecifiers } from './target-bundle-references'
+import { normalizePackageSpecifier } from './target-core-specifiers'
 
 export type TargetCoreResolverId = 'web-core-resolver' | 'cocos-core-resolver' | 'native-core-resolver'
 

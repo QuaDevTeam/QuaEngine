@@ -36,6 +36,13 @@ interface MatchedRule {
   specificity: number
 }
 
+const NATIVE_INTERACTIVE_PSEUDO_STATES: readonly NativeQssInteractivePseudoState[] = [
+  'hover',
+  'active',
+  'focus',
+  'focus-visible',
+]
+
 export function resolveStyleForNode(
   context: NativeQuiProjectionStyleContext,
   qssDocuments: readonly NativeQssDocument[],
@@ -64,13 +71,6 @@ export function resolveStyleForNode(
 
   return resolved
 }
-
-const NATIVE_INTERACTIVE_PSEUDO_STATES: readonly NativeQssInteractivePseudoState[] = [
-  'hover',
-  'active',
-  'focus',
-  'focus-visible',
-]
 
 function matchingRules(
   context: NativeQuiProjectionStyleContext,
@@ -149,7 +149,7 @@ function parseSelectorChain(selector: string): SelectorChain | undefined {
 }
 
 function parseSelectorSegment(source: string): SelectorSegment | undefined {
-  const component = /^[A-Z][A-Za-z0-9_]*/.exec(source)?.[0]
+  const component = /^[A-Z]\w*/.exec(source)?.[0]
   let cursor = component?.length ?? 0
   const segment: SelectorSegment = { classes: [] }
   if (component)
@@ -157,7 +157,7 @@ function parseSelectorSegment(source: string): SelectorSegment | undefined {
 
   while (cursor < source.length) {
     const prefix = source[cursor]
-    const match = /^[-_A-Za-z][\w-]*/.exec(source.slice(cursor + 1))
+    const match = /^[-_A-Z][\w-]*/i.exec(source.slice(cursor + 1))
     if (!match)
       return undefined
 

@@ -8,6 +8,7 @@ import type {
   StoredBundle,
 } from '@quajs/assets'
 import type { QuaNativeHostApi } from '@quajs/native-contracts'
+import type { NativeAssetStoragePaths } from './storage-paths'
 import {
   compareStoredBundles,
   findBestRankedAssetRecord,
@@ -17,20 +18,20 @@ import {
   selectBestStoredBundle,
 } from '@quajs/assets'
 import {
-  cloneStoredAsset,
-  cloneStoredBundle,
-  matchesBundleForDeletion,
-  matchesCriteria,
-} from './storage-records'
-import {
   decodeNativeAssetStorageIndex,
   encodeNativeAssetStorageIndex,
 } from './storage-index'
 import {
   createNativeAssetStoragePaths,
   deleteNativeAssetStoragePrefix,
-  type NativeAssetStoragePaths,
+
 } from './storage-paths'
+import {
+  cloneStoredAsset,
+  cloneStoredBundle,
+  matchesBundleForDeletion,
+  matchesCriteria,
+} from './storage-records'
 
 export class NativeHostAssetStorage implements AssetStorage {
   private readonly paths: NativeAssetStoragePaths

@@ -3,15 +3,15 @@ import type {
   NativeQuickJsEvaluationResponse,
   NativeQuickJsGameStepFactoryCallRequest,
   NativeQuickJsGameStepFactoryCallResponse,
-  NativeQuickJsPipelineListenerDispatchRequest,
-  NativeQuickJsPipelineListenerDispatchResponse,
+  NativeQuickJsGameStepResumeRequest,
   NativeQuickJsGameStepRunRequest,
   NativeQuickJsGameStepRunResponse,
-  NativeQuickJsGameStepResumeRequest,
   NativeQuickJsModuleExportCallRequest,
   NativeQuickJsModuleExportCallResponse,
   NativeQuickJsModuleNamespaceRecord,
   NativeQuickJsModuleNamespaceSummary,
+  NativeQuickJsPipelineListenerDispatchRequest,
+  NativeQuickJsPipelineListenerDispatchResponse,
   NativeQuickJsReleaseNamespaceRequest,
   NativeQuickJsReleasePackageRequest,
 } from './quickjs'
@@ -116,28 +116,28 @@ export interface NativeRendererIntentInput {
   payloadJson?: string
 }
 
-export type NativeHostApiRequest =
-  | { method: 'getHostInfo' }
-  | { method: 'readAssetBytes', params: NativeAssetReadRequest }
-  | { method: 'listMountedBundles' }
-  | { method: 'readStorage', params: NativeHostApiStorageKeyRequest }
-  | { method: 'writeStorage', params: NativeHostApiWriteStorageRequest }
-  | { method: 'deleteStorage', params: NativeHostApiStorageKeyRequest }
-  | { method: 'listStorageKeys', params: NativeHostApiListStorageKeysRequest }
-  | { method: 'hashBytes', params: NativeHostApiHashBytesRequest }
-  | { method: 'verifySignature', params: NativeSignatureVerifyWireRequest }
-  | { method: 'evaluateQuickJsModule', params: NativeQuickJsEvaluationRequest }
-  | { method: 'callQuickJsModuleExport', params: NativeQuickJsModuleExportCallRequest }
-  | { method: 'callQuickJsGameStepFactory', params: NativeQuickJsGameStepFactoryCallRequest }
-  | { method: 'callQuickJsGameStepRun', params: NativeQuickJsGameStepRunRequest }
-  | { method: 'resumeQuickJsGameStepRun', params: NativeQuickJsGameStepResumeRequest }
-  | { method: 'dispatchQuickJsPipelineListener', params: NativeQuickJsPipelineListenerDispatchRequest }
-  | { method: 'releaseQuickJsModuleNamespace', params: NativeQuickJsReleaseNamespaceRequest }
-  | { method: 'releaseQuickJsPackageNamespaces', params: NativeQuickJsReleasePackageRequest }
-  | { method: 'getQuickJsNamespaceSummary' }
-  | { method: 'getQuickJsPackageNamespaceSummary', params: NativeQuickJsReleasePackageRequest }
-  | { method: 'emitRendererIntent', params: NativeRendererIntent }
-  | { method: 'drainRendererIntents' }
+export type NativeHostApiRequest
+  = | { method: 'getHostInfo' }
+    | { method: 'readAssetBytes', params: NativeAssetReadRequest }
+    | { method: 'listMountedBundles' }
+    | { method: 'readStorage', params: NativeHostApiStorageKeyRequest }
+    | { method: 'writeStorage', params: NativeHostApiWriteStorageRequest }
+    | { method: 'deleteStorage', params: NativeHostApiStorageKeyRequest }
+    | { method: 'listStorageKeys', params: NativeHostApiListStorageKeysRequest }
+    | { method: 'hashBytes', params: NativeHostApiHashBytesRequest }
+    | { method: 'verifySignature', params: NativeSignatureVerifyWireRequest }
+    | { method: 'evaluateQuickJsModule', params: NativeQuickJsEvaluationRequest }
+    | { method: 'callQuickJsModuleExport', params: NativeQuickJsModuleExportCallRequest }
+    | { method: 'callQuickJsGameStepFactory', params: NativeQuickJsGameStepFactoryCallRequest }
+    | { method: 'callQuickJsGameStepRun', params: NativeQuickJsGameStepRunRequest }
+    | { method: 'resumeQuickJsGameStepRun', params: NativeQuickJsGameStepResumeRequest }
+    | { method: 'dispatchQuickJsPipelineListener', params: NativeQuickJsPipelineListenerDispatchRequest }
+    | { method: 'releaseQuickJsModuleNamespace', params: NativeQuickJsReleaseNamespaceRequest }
+    | { method: 'releaseQuickJsPackageNamespaces', params: NativeQuickJsReleasePackageRequest }
+    | { method: 'getQuickJsNamespaceSummary' }
+    | { method: 'getQuickJsPackageNamespaceSummary', params: NativeQuickJsReleasePackageRequest }
+    | { method: 'emitRendererIntent', params: NativeRendererIntent }
+    | { method: 'drainRendererIntents' }
 
 export interface NativeHostApiStorageKeyRequest {
   key: string

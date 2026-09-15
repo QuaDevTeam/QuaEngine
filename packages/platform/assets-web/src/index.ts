@@ -372,7 +372,7 @@ class IndexedDBAssetStorage extends Dexie {
     this.version(version).stores({
       assets: 'id, bundleName, logicalBundleName, bundleVersionKey, name, type, locale, hash, version, lastAccessed, createdAt, size, [lastAccessed+size], *lookupKeys',
       bundles: 'versionKey, name, logicalName, version, buildNumber, hash, lastUpdated, createdAt, active',
-    }).upgrade(transaction => transaction.table('assets').toCollection().modify(asset => {
+    }).upgrade(transaction => transaction.table('assets').toCollection().modify((asset) => {
       asset.lookupKeys = assetLookupKeys(asset)
     }))
   }
@@ -396,7 +396,8 @@ class IndexedDBAssetStorage extends Dexie {
       batch.push({ ...asset, lookupKeys: assetLookupKeys(asset), lastAccessed: now })
       bytes += asset.data.byteLength
     }
-    if (batch.length) await this.assets.bulkPut(batch)
+    if (batch.length)
+      await this.assets.bulkPut(batch)
   }
 
   async getAsset(id: string): Promise<StoredAsset | undefined> {
@@ -413,10 +414,10 @@ class IndexedDBAssetStorage extends Dexie {
     const collection = criteria.name
       ? this.assets.where('lookupKeys').equals(criteria.name)
       : criteria.bundleVersionKey
-      ? this.assets.where('bundleVersionKey').equals(criteria.bundleVersionKey)
-      : criteria.type
-        ? this.assets.where('type').equals(criteria.type)
-        : this.assets.toCollection()
+        ? this.assets.where('bundleVersionKey').equals(criteria.bundleVersionKey)
+        : criteria.type
+          ? this.assets.where('type').equals(criteria.type)
+          : this.assets.toCollection()
     return await collection
       .filter(asset =>
         (!criteria.bundleVersionKey || asset.bundleVersionKey === criteria.bundleVersionKey)
@@ -504,7 +505,7 @@ class IndexedDBAssetStorage extends Dexie {
 
   async getDatabaseSize(): Promise<number> {
     let size = 0
-    await this.assets.orderBy('size').eachKey(key => {
+    await this.assets.orderBy('size').eachKey((key) => {
       size += Number(key)
     })
     return size
@@ -530,7 +531,7 @@ class IndexedDBAssetStorage extends Dexie {
     let oldest = Infinity
     let newest = -Infinity
     // Index keys carry the counters; statistics never deserialize image bytes.
-    await this.assets.orderBy('[lastAccessed+size]').eachKey(key => {
+    await this.assets.orderBy('[lastAccessed+size]').eachKey((key) => {
       const [accessed, size] = key as number[]
       totalAssets += 1
       totalSize += size

@@ -30,8 +30,8 @@
     "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
-    "vite": "catalog:",
-    "sass-embedded": ">=1.70.0"
+    "sass-embedded": ">=1.70.0",
+    "vite": "catalog:"
   },
   "dependencies": {
     "@quajs/native-ui-compiler": "workspace:*"

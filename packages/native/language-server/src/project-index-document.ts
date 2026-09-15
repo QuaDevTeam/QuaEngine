@@ -7,6 +7,15 @@ import type {
   NativeUiLanguageOptions,
   NativeUiRange,
 } from '@quajs/native-ui-compiler'
+import type {
+  NativeUiProjectClassReference,
+  NativeUiProjectComponentReference,
+  NativeUiProjectFile,
+  NativeUiProjectIdReference,
+  NativeUiProjectImport,
+  NativeUiProjectIndexedDocument,
+  NativeUiProjectIndexOptions,
+} from './project-index-types'
 import { fileURLToPath } from 'node:url'
 import {
   analyzeNativeUiDocument,
@@ -18,15 +27,6 @@ import {
   rangeFromRelativeOffsets,
   stringLiteralContentRange,
 } from './source-ranges'
-import type {
-  NativeUiProjectClassReference,
-  NativeUiProjectComponentReference,
-  NativeUiProjectFile,
-  NativeUiProjectIdReference,
-  NativeUiProjectImport,
-  NativeUiProjectIndexedDocument,
-  NativeUiProjectIndexOptions,
-} from './project-index-types'
 
 export type NativeUiProjectIndexedFile
   = | { document: NativeUiProjectIndexedDocument, skippedUri?: never }
@@ -176,7 +176,7 @@ function idReferencesFromQui(
         source: 'qui-node' as const,
       }
     })
-    .filter(reference => /^[A-Za-z_][\w-]*$/.test(reference.name)))
+    .filter(reference => /^[A-Z_][\w-]*$/i.test(reference.name)))
 }
 
 function componentAstNodes(document: NativeQuiDocument): NativeQuiAstNode[] {
@@ -215,7 +215,7 @@ function classReferencesFromQss(document: NativeQssDocument): NativeUiProjectCla
 }
 
 function idReferencesFromQss(document: NativeQssDocument): NativeUiProjectIdReference[] {
-  return document.rules.flatMap(rule => selectorMatches(rule.selector, rule.selectorRange, /#([A-Za-z_][\w-]*)/g).map(match => ({
+  return document.rules.flatMap(rule => selectorMatches(rule.selector, rule.selectorRange, /#([A-Z_][\w-]*)/gi).map(match => ({
     name: match.name,
     range: match.range,
     source: 'qss-selector' as const,

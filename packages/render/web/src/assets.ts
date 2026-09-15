@@ -168,9 +168,7 @@ export class WebAssetUrlHandle {
     try {
       const type = this.options.getType()
       const packages = this.options.getTargetPackageId?.()
-      const asset = await readSharedAsset(assets, cacheKey,
-        () => getAssetWithTargetPackages(assets, type, assetName, packages),
-        () => currentRequestId === this.requestId)
+      const asset = await readSharedAsset(assets, cacheKey, () => getAssetWithTargetPackages(assets, type, assetName, packages), () => currentRequestId === this.requestId)
       if (!asset || currentRequestId !== this.requestId) {
         return
       }
@@ -308,10 +306,12 @@ function releaseCachedAssetUrl(
     if (active.entry.refs > 0) {
       return
     }
-    if (active.entry.revokeTimer) clearTimeout(active.entry.revokeTimer)
+    if (active.entry.revokeTimer)
+      clearTimeout(active.entry.revokeTimer)
     active.entry.revokeTimer = undefined
     const cache = assetUrlCache.get(active.assets)
-    if (cache?.get(active.key) === active.entry) cache.delete(active.key)
+    if (cache?.get(active.key) === active.entry)
+      cache.delete(active.key)
     try {
       revokeObjectURL(active.entry.url)
     }
@@ -326,7 +326,8 @@ function releaseCachedAssetUrl(
     let bytes = idle.reduce((sum, [, entry]) => sum + entry.estimatedBytes, 0)
     let count = idle.length
     for (const [key, entry] of idle) {
-      if (count <= MAX_IDLE_URLS && bytes <= MAX_IDLE_BYTES) break
+      if (count <= MAX_IDLE_URLS && bytes <= MAX_IDLE_BYTES)
+        break
       releaseCachedAssetUrl({ assets: active.assets, key, entry }, { defer: false })
       bytes -= entry.estimatedBytes
       count -= 1
@@ -375,9 +376,16 @@ function readSharedAsset(assets: QuaAssets, key: string, read: () => Promise<Ass
     return existing.promise
   }
   const state = scheduler
+  const drain = () => {
+    while (state.active < MAX_ASSET_READS && state.queue.length)
+      state.queue.shift()!.run()
+  }
   let resolve!: (asset: AssetData | undefined) => void
   let reject!: (error: unknown) => void
-  const promise = new Promise<AssetData | undefined>((yes, no) => { resolve = yes; reject = no })
+  const promise = new Promise<AssetData | undefined>((yes, no) => {
+    resolve = yes
+    reject = no
+  })
   const entry: PendingRead = { consumers: [current], promise, run: () => {
     if (!entry.consumers.some(isCurrent => isCurrent())) {
       state.pending.delete(key)
@@ -391,9 +399,6 @@ function readSharedAsset(assets: QuaAssets, key: string, read: () => Promise<Ass
       drain()
     })
   } }
-  const drain = () => {
-    while (state.active < MAX_ASSET_READS && state.queue.length) state.queue.shift()!.run()
-  }
   state.pending.set(key, entry)
   state.queue.push(entry)
   drain()

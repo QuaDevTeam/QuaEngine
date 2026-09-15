@@ -15,6 +15,7 @@ import type {
   QuaProjectNativePlatform,
   QuaProjectNativeProfile,
 } from './project'
+import type { QuaProjectNativeBuildConfig } from './project-native-build'
 import type { EmittedQuaTargetBundleManifest } from './project-target-bundle'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -23,7 +24,7 @@ import { createTargetCoreSelection } from '@quajs/native-contracts'
 import {
   hasQuaProjectNativeCargoFeature,
   QUA_NATIVE_QUICKJS_CARGO_FEATURE,
-  type QuaProjectNativeBuildConfig,
+
 } from './project-native-build'
 import {
   emitQuaTargetBundleManifest,

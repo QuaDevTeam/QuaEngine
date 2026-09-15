@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { storyGraphDecoratorMappings } from '@quajs/story-graph/script-compiler'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { QuackBundler, defineConfig } from '../src/core/bundler'
+import { defineConfig, QuackBundler } from '../src/core/bundler'
 import { buildLocalePack } from '../src/i18n/locale-pack'
 
 describe('quackBundler', () => {

@@ -22,13 +22,14 @@ describe('@quajs/engine-native', () => {
         const current = ++revision
         if (current > 128)
           throw new Error(`cleanup ${current}`)
-        return [{ id: `module:${current}`, packageId: 'runtime.test', bundleName: 'runtime.test',
-          assetName: 'scripts/test.js', kind: 'script' as const, moduleBytes: 1, codeBytes: 1, revision: current }]
+        return [{ id: `module:${current}`, packageId: 'runtime.test', bundleName: 'runtime.test', assetName: 'scripts/test.js', kind: 'script' as const, moduleBytes: 1, codeBytes: 1, revision: current }]
       }),
     }
     const pipeline = createTestPipeline()
     let errors = 0
-    pipeline.on(RenderToLogicEvents.RENDER_ERROR, () => { errors++ })
+    pipeline.on(RenderToLogicEvents.RENDER_ERROR, () => {
+      errors++
+    })
     const plugin = new NativeHostPlugin({ host })
     await plugin.init({ pipeline } as any)
     for (let i = 0; i < 256; i++) {

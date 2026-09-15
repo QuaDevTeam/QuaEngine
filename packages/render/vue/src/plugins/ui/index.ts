@@ -1,4 +1,4 @@
-import type { SaveSlotProjection, ResolveOverlayStackPlacementOptions, ViewUiOverlayProjection, ViewUiOverlaySurfaceProjection, ViewUiSceneProjection } from '@quajs/render-core'
+import type { ResolveOverlayStackPlacementOptions, SaveSlotProjection, ViewUiOverlayProjection, ViewUiOverlaySurfaceProjection, ViewUiSceneProjection } from '@quajs/render-core'
 import type { SaveSlotDataSource } from '@quajs/renderer-web/save-preview'
 import type { Component, PropType, VNode } from 'vue'
 import type { QuaVueRendererPlugin } from '../core'
@@ -6,16 +6,16 @@ import {
   compareResolvedOverlayStackPlacement,
   createMenuActionPresentation,
   createSaveSlotGrid,
-  isFilledSaveSlot,
-  previewStatusLabel,
-  saveSlotDisplayName,
-  saveSlotMeta,
   DEFAULT_UI_OVERLAY_Z_INDEXES,
   getUiOverlaySurfaceProjection,
+  isFilledSaveSlot,
   LogicToRenderEvents,
   onLogicToRender,
+  previewStatusLabel,
   resolveActiveUiSceneProjection,
   resolveUiOverlayStackPlacement,
+  saveSlotDisplayName,
+  saveSlotMeta,
   uiOverlayIsInteractive,
   uiOverlayIsRenderOnly,
   uiOverlayIsVisible,
@@ -84,7 +84,6 @@ type SaveLoadOverlayConfig = UiOverlaySkinConfig & {
   slotPrefix?: string
   showQuickActions?: boolean
 }
-
 
 interface RenderedOverlayPresence {
   elementId: string
@@ -570,7 +569,8 @@ export const QuaMenuOverlay = defineComponent({
                   case 'settings': {
                     const placement = createSettingsMenuPlacement(config.value)
                     return openMenuTarget('settings', {
-                      source: props.elementId, ...placement,
+                      source: props.elementId,
+                      ...placement,
                       ...(config.value?.scene ? { scene: createChildUiScene(config.value.scene, 'settings', placement) } : {}),
                     })
                   }
@@ -1237,7 +1237,6 @@ function createTitleConfirmMenuConfig(config: MenuOverlayConfig | undefined, sou
     ...(config?.scene ? { scene: createChildUiScene(config.scene, 'titleConfirm', placement) } : {}),
   }
 }
-
 
 function audioStatus(audio: SettingsAudioProjection | undefined): string {
   if (!audio) {

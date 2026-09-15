@@ -95,18 +95,22 @@ describe('gallery native renderer feature', () => {
 
   it('keeps all content tabs reachable and renders only image resources', () => {
     const contents = Array.from({ length: 9 }, (_, i) => ({
-      id: `content-${i}`, kind: 'image', asset: { type: 'images', name: `cg/${i}.png` },
+      id: `content-${i}`,
+      kind: 'image',
+      asset: { type: 'images', name: `cg/${i}.png` },
     }))
     const projection = {
-      sceneActive: true, catalogs: [], filter: {}, filteredEntryIds: ['safe'],
-      selectedEntryId: 'safe', selectedContentId: 'content-8',
-      entries: [{ id: 'safe', title: 'Safe locked preview', unlocked: false,
-        thumbnail: { type: 'images', name: 'safe.png' }, contents }],
+      sceneActive: true,
+      catalogs: [],
+      filter: {},
+      filteredEntryIds: ['safe'],
+      selectedEntryId: 'safe',
+      selectedContentId: 'content-8',
+      entries: [{ id: 'safe', title: 'Safe locked preview', unlocked: false, thumbnail: { type: 'images', name: 'safe.png' }, contents }],
     }
     const feature = createGalleryNativeRendererFeature()
     const render = () => {
-      const result = feature.createOverlays({ projection, view: {}, logicalWidth: 1920,
-        logicalHeight: 1080, safeArea: { x: 0, y: 0, width: 1920, height: 1080 } })
+      const result = feature.createOverlays({ projection, view: {}, logicalWidth: 1920, logicalHeight: 1080, safeArea: { x: 0, y: 0, width: 1920, height: 1080 } })
       return (result as { surface: { root: NativeUiSurfaceNodeProjection } }).surface.root
     }
     let root = render()
@@ -125,15 +129,11 @@ describe('gallery native renderer feature', () => {
 
   it('projects the demo grid and an explicitly opened image preview through UI intents', () => {
     const feature = createGalleryNativeRendererFeature({ layout: 'grid' })
-    const result = feature.createOverlays({ logicalWidth: 1920, logicalHeight: 1080,
-      safeArea: { x: 96, y: 0, width: 1728, height: 1080 },
-      view: { ui: { overlays: { 'gallery-preview': { open: true } } } },
-      projection: { sceneActive: true, catalogs: [], filter: {}, filteredEntryIds: ['image'],
-        selectedEntryId: 'image', entries: [{ id: 'image', title: 'Image', unlocked: true,
-          contents: [{ id: 'cg', kind: 'image', asset: {
-            type: 'images', name: 'cg.png', runtimePackageId: 'image-owner',
-          } }], requiredRuntimePackages: ['catalog-owner'] }] },
-    }) as { surface: { root: NativeUiSurfaceNodeProjection } }
+    const result = feature.createOverlays({ logicalWidth: 1920, logicalHeight: 1080, safeArea: { x: 96, y: 0, width: 1728, height: 1080 }, view: { ui: { overlays: { 'gallery-preview': { open: true } } } }, projection: { sceneActive: true, catalogs: [], filter: {}, filteredEntryIds: ['image'], selectedEntryId: 'image', entries: [{ id: 'image', title: 'Image', unlocked: true, contents: [{ id: 'cg', kind: 'image', asset: {
+      type: 'images',
+      name: 'cg.png',
+      runtimePackageId: 'image-owner',
+    } }], requiredRuntimePackages: ['catalog-owner'] }] } }) as { surface: { root: NativeUiSurfaceNodeProjection } }
     const root = result.surface.root
     expect(findNode(root, 'gallery-preview')).toBeUndefined()
     expect(findNode(root, 'gallery-lightbox')?.kind).toBe('Layer')

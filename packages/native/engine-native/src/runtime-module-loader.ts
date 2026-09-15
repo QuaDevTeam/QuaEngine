@@ -1,6 +1,5 @@
 import type {
   GameStep,
-  StepContext,
   RuntimeLoadedMigrationModule,
   RuntimeLoadedPluginModule,
   RuntimeLoadedSceneModule,
@@ -11,6 +10,7 @@ import type {
   RuntimePackageSceneManifest,
   RuntimePackageStoreMigrationManifest,
   RuntimeScriptModuleRecord,
+  StepContext,
 } from '@quajs/engine'
 import type {
   NativeQuickJsEvaluationRequest,
@@ -20,34 +20,34 @@ import type {
   NativeQuickJsGameStepFactoryCallRequest,
   NativeQuickJsGameStepFactoryCallResponse,
   NativeQuickJsGameStepHelperCallRequest,
-  NativeQuickJsPipelineListenerDispatchRequest,
-  NativeQuickJsPipelineListenerDispatchResponse,
-  NativeQuickJsPipelineSubscriptionChange,
+  NativeQuickJsGameStepResumeRequest,
   NativeQuickJsGameStepRunRequest,
   NativeQuickJsGameStepRunResponse,
-  NativeQuickJsGameStepResumeRequest,
   NativeQuickJsModuleExportCallRequest,
   NativeQuickJsModuleExportCallResponse,
   NativeQuickJsModuleNamespaceRecord,
   NativeQuickJsModuleNamespaceSummary,
+  NativeQuickJsPipelineListenerDispatchRequest,
+  NativeQuickJsPipelineListenerDispatchResponse,
+  NativeQuickJsPipelineSubscriptionChange,
   NativeQuickJsRuntimeModuleKind,
   NativeQuickJsSandboxLimits,
   QuaNativeHostApi,
 } from '@quajs/native-contracts'
 import {
-  assertNativeQuickJsEvaluationResponse,
   assertNativeQuickJsEvaluationRequest,
+  assertNativeQuickJsEvaluationResponse,
   assertNativeQuickJsGameStepCommand,
   assertNativeQuickJsGameStepFactoryCallResponse,
   assertNativeQuickJsGameStepHelperCallRequest,
-  assertNativeQuickJsPipelineListenerDispatchResponse,
   assertNativeQuickJsGameStepRunResponse,
-  createNativeQuickJsPipelineListenerDispatchRequest,
+  assertNativeQuickJsPipelineListenerDispatchResponse,
+  createNativeQuickJsEvaluationRequest,
   createNativeQuickJsGameStepFactoryCallRequest,
   createNativeQuickJsGameStepResumeRequest,
   createNativeQuickJsGameStepRunRequest,
   createNativeQuickJsModuleExportCallRequest,
-  createNativeQuickJsEvaluationRequest,
+  createNativeQuickJsPipelineListenerDispatchRequest,
   isForbiddenNativeAssetReference,
   isForbiddenNativePayload,
   parseNativeQuickJsModuleExportCallResponse,
@@ -147,12 +147,12 @@ interface NativeQuickJsPipelineSubscriptionRecord {
 }
 
 export interface NativeQuickJsPipelineSubscriptionBridge {
-  apply(
+  apply: (
     ctx: StepContext,
     changes: readonly NativeQuickJsPipelineSubscriptionChange[] | undefined,
-  ): void
-  releaseModuleNamespace(moduleNamespaceId: string): void
-  dispose(): void
+  ) => void
+  releaseModuleNamespace: (moduleNamespaceId: string) => void
+  dispose: () => void
 }
 
 export function createNativeHostQuickJsModuleEvaluator(
@@ -466,11 +466,11 @@ export async function executeNativeQuickJsGameStepCommand(
   assertNativeQuickJsGameStepCommand(command)
   const args = command.argsJson === undefined ? [] : JSON.parse(command.argsJson)
   if (!Array.isArray(args)) {
-    throw new Error(`Native QuickJS GameStep command ${command.target}.${command.method} argsJson must be a JSON array.`)
+    throw new TypeError(`Native QuickJS GameStep command ${command.target}.${command.method} argsJson must be a JSON array.`)
   }
   const method = ctx.engine?.[command.method as keyof typeof ctx.engine]
   if (typeof method !== 'function') {
-    throw new Error(`Native QuickJS GameStep command ${command.target}.${command.method} is not available on StepContext.`)
+    throw new TypeError(`Native QuickJS GameStep command ${command.target}.${command.method} is not available on StepContext.`)
   }
   await (method as (...args: unknown[]) => unknown).apply(ctx.engine, args)
 }
@@ -490,11 +490,11 @@ export async function executeNativeQuickJsGameStepHelperCall(
   const helperModule = helperModules[request.module]
   const helper = helperModule?.[request.exportName]
   if (typeof helper !== 'function') {
-    throw new Error(`Native QuickJS helper ${request.module}.${request.exportName} is not registered in the host helper resolver.`)
+    throw new TypeError(`Native QuickJS helper ${request.module}.${request.exportName} is not registered in the host helper resolver.`)
   }
   const args = request.argsJson === undefined ? [] : JSON.parse(request.argsJson)
   if (!Array.isArray(args)) {
-    throw new Error(`Native QuickJS helper ${request.module}.${request.exportName} argsJson must be a JSON array.`)
+    throw new TypeError(`Native QuickJS helper ${request.module}.${request.exportName} argsJson must be a JSON array.`)
   }
   return await helper(ctx.engine, ...args)
 }

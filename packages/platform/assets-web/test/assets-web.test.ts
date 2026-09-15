@@ -1,8 +1,9 @@
 import type { AssetData, BundleManifest, StoredAsset } from '@quajs/assets'
+import type { Table } from 'dexie'
 import { MemoryAssetStorage, QuaAssets } from '@quajs/assets'
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import Dexie, { type Table } from 'dexie'
+import Dexie from 'dexie'
 import { IDBFactory, IDBKeyRange } from 'fake-indexeddb'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   assetDataToBlob,
   createDevVfsProvider,
@@ -10,8 +11,8 @@ import {
   createObjectURLHandle,
   createViteDevAssetRuntime,
   createWebAssetRuntime,
-  createWebAssetStorage,
   createWebAssetsAdapter,
+  createWebAssetStorage,
   getBlob,
   getBlobURL,
   revokeObjectURL,
@@ -35,8 +36,13 @@ describe('assets-web adapter', () => {
     const database = storage as unknown as Dexie
     try {
       await oldDatabase.table('assets').put({
-        ...createAsset('cached image', 'image/png'), type: 'characters',
-        name: 'smile.png', path: 'mara/day/smile.png', hash: '', createdAt: 1, lastAccessed: 1,
+        ...createAsset('cached image', 'image/png'),
+        type: 'characters',
+        name: 'smile.png',
+        path: 'mara/day/smile.png',
+        hash: '',
+        createdAt: 1,
+        lastAccessed: 1,
       })
       oldDatabase.close()
       await storage.open!()
@@ -62,10 +68,16 @@ describe('assets-web adapter', () => {
     try {
       await storage.open!()
       const assets: StoredAsset[] = Array.from({ length: 20 }, (_, index) => ({
-        ...createAsset('x', 'image/png'), id: `image-${index}`, name: `pose-${index}.png`,
-        path: `mara/outfits/day/pose-${index}.png`, type: 'characters' as const,
-        data: new Uint8Array(512 * 1024).fill(index), size: 512 * 1024, hash: '',
-        createdAt: 1, lastAccessed: 1,
+        ...createAsset('x', 'image/png'),
+        id: `image-${index}`,
+        name: `pose-${index}.png`,
+        path: `mara/outfits/day/pose-${index}.png`,
+        type: 'characters' as const,
+        data: new Uint8Array(512 * 1024).fill(index),
+        size: 512 * 1024,
+        hash: '',
+        createdAt: 1,
+        lastAccessed: 1,
       }))
       const writes = vi.spyOn(database.assets, 'bulkPut')
       await storage.storeAssets(assets)
@@ -76,7 +88,10 @@ describe('assets-web adapter', () => {
       await storage.close!()
       await storage.open!()
       let readRecords = 0
-      database.assets.hook('reading', value => { readRecords += 1; return value })
+      database.assets.hook('reading', (value) => {
+        readRecords += 1
+        return value
+      })
       const result = await storage.findAssets({ type: 'characters', name: 'day/pose-7.png' })
       expect(result.map(asset => asset.id)).toEqual(['image-7'])
       expect(result[0].data[0]).toBe(7)

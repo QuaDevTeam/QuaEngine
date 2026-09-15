@@ -22,17 +22,21 @@ export function characterLightingSvg(
   id: string,
   lighting: Readonly<CharacterLightingProjection> | undefined,
 ): CharacterLightingSvgNode | undefined {
-  if (!lighting) return undefined
+  if (!lighting)
+    return undefined
   const ambient = [0, 1, 2].map(i => bounded(lighting.ambient?.[i], 1, 1.5))
   const shade = lighting.shade
   const color = [0, 1, 2].map(i => bounded(shade?.color?.[i], 1))
   const hasShade = !!shade && color.some(c => c !== 1)
-  if (!hasShade && ambient.every(c => c === 1)) return undefined
+  if (!hasShade && ambient.every(c => c === 1))
+    return undefined
 
   const nodes: CharacterLightingSvgNode[] = [{
     tag: 'feColorMatrix',
     attrs: {
-      in: 'SourceGraphic', type: 'matrix', result: 'tone',
+      in: 'SourceGraphic',
+      type: 'matrix',
+      result: 'tone',
       // SVG color matrices operate on unpremultiplied channels. Make the
       // intermediate opaque only for multiplication, then restore source alpha
       // exactly once. Multiplying two alpha-masked layers would darken edges.
@@ -54,10 +58,10 @@ export function characterLightingSvg(
   }
   return {
     tag: 'svg',
-    attrs: { width: 0, height: 0, 'aria-hidden': 'true', focusable: 'false', style: 'position:absolute;pointer-events:none;overflow:hidden' },
+    attrs: { 'width': 0, 'height': 0, 'aria-hidden': 'true', 'focusable': 'false', 'style': 'position:absolute;pointer-events:none;overflow:hidden' },
     children: [{ tag: 'defs', attrs: {}, children: [{
       tag: 'filter',
-      attrs: { id, x: '0%', y: '0%', width: '100%', height: '100%', 'color-interpolation-filters': 'sRGB' },
+      attrs: { id, 'x': '0%', 'y': '0%', 'width': '100%', 'height': '100%', 'color-interpolation-filters': 'sRGB' },
       children: nodes,
     }] }],
   }

@@ -20,14 +20,17 @@ describe('native renderer frame serialization', () => {
     lighting.shade.from[0] = 1
     expect(frame.view.background).toMatchObject({ characterLighting: { ambient: [1.02, 0.98, 0.92], shade: { from: [0.2, 0] } } })
     expect(createNativeRendererJsonFrameInput({ background: { mode: 'image', assetName: 'day.png' } }).view.background)
-      .not.toHaveProperty('characterLighting')
+      .not
+      .toHaveProperty('characterLighting')
   })
 
   it('uses the same bounded lighting defaults as the Web material', () => {
     expect(createNativeRendererJsonFrameInput({ background: { mode: 'image', characterLighting: {
-      ambient: [-1, 9, Number.NaN], shade: { color: [9, -1], from: [-2, 4], to: [Number.NaN] },
+      ambient: [-1, 9, Number.NaN],
+      shade: { color: [9, -1], from: [-2, 4], to: [Number.NaN] },
     } } }).view.background).toMatchObject({ characterLighting: {
-      ambient: [0, 1.5, 1], shade: { color: [1, 0, 1], from: [0, 1], to: [1, 1] },
+      ambient: [0, 1.5, 1],
+      shade: { color: [1, 0, 1], from: [0, 1], to: [1, 1] },
     } })
   })
   it('preserves stage, camera, dialogue, choice and rich-span timeline results', () => {
@@ -36,9 +39,7 @@ describe('native renderer frame serialization', () => {
       plugins: { camera: { x: 15 } },
       dialogue: { visible: true, text: { kind: 'rich-text', blocks: [{ id: 'line', spans: [{ id: 'word', text: 'Animated' }] }] } },
       choices: [{ id: 'one', text: 'One' }],
-      animations: [{ id: 'motion', state: 'running', startedAt: 1000, duration: 1000,
-        resolvedTracks: [track('stage:main', 'x'), track('dialogue:box', 'y'),
-          track('choices:panel', 'y'), track('choice:one', 'x'), track('richTextSpan:dialogue:word', 'fontSize')] }],
+      animations: [{ id: 'motion', state: 'running', startedAt: 1000, duration: 1000, resolvedTracks: [track('stage:main', 'x'), track('dialogue:box', 'y'), track('choices:panel', 'y'), track('choice:one', 'x'), track('richTextSpan:dialogue:word', 'fontSize')] }],
     }, { now: 1500 })
     expect(frame.view.stage).toEqual({ x: 50 })
     expect(frame.view.camera).toEqual({ x: 15 })
@@ -49,7 +50,8 @@ describe('native renderer frame serialization', () => {
   it('keeps engine-owned settled motion when Rust projects active timelines', () => {
     const frame = createNativeRendererJsonFrameInput({
       plugins: { dialogue: { x: 25 }, choices: { y: 40, choices: { one: { scale: 0.8 } } } },
-      dialogue: { visible: true, text: 'Settled' }, choices: [{ id: 'one', text: 'One' }],
+      dialogue: { visible: true, text: 'Settled' },
+      choices: [{ id: 'one', text: 'One' }],
     }, { projectAnimations: false })
     expect(frame.view.dialogue).toMatchObject({ x: 25 })
     expect(frame.view.choices).toMatchObject({ y: 40, choices: [{ id: 'one', scale: 0.8 }] })
@@ -114,21 +116,21 @@ describe('native renderer frame serialization', () => {
 
   it('preserves CSS metric inheritance through documents, blocks, spans and speaker styles', () => {
     const text = {
-      fontSize: '24px', lineHeight: 1.5,
-      blocks: [{ fontSize: '150%', lineHeight: '120%', textAlign: 'right',
-        spans: [{ text: 'large', fontSize: '2em', lineHeight: 'normal' },
-          { text: 'tight', lineHeight: 0 }],
-      }],
+      fontSize: '24px',
+      lineHeight: 1.5,
+      blocks: [{ fontSize: '150%', lineHeight: '120%', textAlign: 'right', spans: [{ text: 'large', fontSize: '2em', lineHeight: 'normal' }, { text: 'tight', lineHeight: 0 }] }],
     }
     const frame = createNativeRendererJsonFrameInput({ dialogue: {
-      visible: true, mode: 'say', text, speakerStyle: { lineHeight: 1.1 },
+      visible: true,
+      mode: 'say',
+      text,
+      speakerStyle: { lineHeight: 1.1 },
     } })
     expect(frame.view.dialogue).toMatchObject({
       speakerStyle: { lineHeight: '1.1' },
       text: { style: { fontSize: '24px', lineHeight: '1.5' }, blocks: [{
         style: { fontSize: '150%', lineHeight: '120%', textAlign: 'right' },
-        spans: [{ text: 'large', style: { fontSize: '2em', lineHeight: 'normal' } },
-          { text: 'tight', style: { lineHeight: '0' } }],
+        spans: [{ text: 'large', style: { fontSize: '2em', lineHeight: 'normal' } }, { text: 'tight', style: { lineHeight: '0' } }],
       }] },
     })
     expect(text.lineHeight).toBe(1.5)
@@ -549,7 +551,6 @@ describe('native renderer frame serialization', () => {
   })
 })
 
-
 it('projects scene dialogue visibility without mutating the engine dialogue', () => {
   const dialogue = { visible: true, text: 'Keep this checkpoint text', mode: 'narration' }
   const overlay = { visible: true, elementId: 'backlog', scene: { id: 'backlog', presentation: 'overlay', overlay: { hideDialogue: true } } }
@@ -558,7 +559,6 @@ it('projects scene dialogue visibility without mutating the engine dialogue', ()
   expect(dialogue.visible).toBe(true)
   expect(createNativeRendererViewProjection({ dialogue, ui: { overlays: {} } }).dialogue).toMatchObject({ visible: true })
 })
-
 
 it('preserves feature scene policy when generating a native surface from plugin state', () => {
   const scene = { id: 'backlog', presentation: 'overlay', overlay: { hideDialogue: true } }

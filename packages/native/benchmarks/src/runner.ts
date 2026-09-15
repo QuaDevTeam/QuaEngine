@@ -1,3 +1,4 @@
+import type { BenchmarkDefinition, NativeBenchmarkRecord } from './types'
 import { Buffer } from 'node:buffer'
 import { performance } from 'node:perf_hooks'
 import process from 'node:process'
@@ -5,7 +6,6 @@ import {
   NATIVE_BENCHMARK_PACKAGE_VERSION,
   NATIVE_BENCHMARK_SCHEMA_VERSION,
 } from './constants'
-import type { BenchmarkDefinition, NativeBenchmarkRecord } from './types'
 
 export function runBenchmarkDefinition(
   definition: BenchmarkDefinition,

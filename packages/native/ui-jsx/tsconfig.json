@@ -2,12 +2,12 @@
   "extends": "../../../tsconfig.base.json",
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2022"],
-    "moduleResolution": "bundler",
-    "rootDir": "..",
-    "outDir": "./dist",
     "jsx": "react-jsx",
-    "jsxImportSource": "@quajs/native-ui"
+    "jsxImportSource": "@quajs/native-ui",
+    "lib": ["ES2022"],
+    "rootDir": "..",
+    "moduleResolution": "bundler",
+    "outDir": "./dist"
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]

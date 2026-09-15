@@ -44,7 +44,7 @@ export function parseNativeQssEdgeInsets(value: string): NativeQssEdgeInsetsValu
     return undefined
 
   const numbers = parts.map(parseNativeQssLogicalNumber)
-  if (numbers.some(number => number === undefined))
+  if (numbers.includes(undefined))
     return undefined
 
   const [top, right = top, bottom = top, left = right] = numbers as [number, number?, number?, number?]
@@ -57,7 +57,7 @@ export function parseNativeQssGap(value: string): NativeQssResolvedLayout | unde
     return undefined
 
   const numbers = parts.map(parseNativeQssLogicalNumber)
-  if (numbers.some(number => number === undefined))
+  if (numbers.includes(undefined))
     return undefined
 
   const [rowGap, columnGap = rowGap] = numbers as [number, number?]
@@ -100,7 +100,7 @@ export function parseNativeQssColor(value: string): string | undefined {
   if (!normalized)
     return undefined
 
-  if (/^#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(normalized))
+  if (/^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(normalized))
     return normalized
 
   const keyword = normalized.toLowerCase()

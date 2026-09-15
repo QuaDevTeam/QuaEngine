@@ -1,11 +1,12 @@
+import type { NativeUiTemplateScope } from './projection-template'
 import type {
   NativeQuiAstNode,
   NativeQuiProp,
 } from './types'
 import {
   evaluateQuiExpression,
+
   templateStringValue,
-  type NativeUiTemplateScope,
 } from './projection-template'
 
 export interface NativeQuiLoopIteration {
@@ -22,7 +23,7 @@ interface QuiForExpression {
 
 const IDENTIFIER = String.raw`[A-Za-z_$][\w$]*`
 const FOR_PATTERN = new RegExp(
-  String.raw`^\s*(?:(${IDENTIFIER})|\(\s*(${IDENTIFIER})(?:\s*,\s*(${IDENTIFIER}))?\s*\))\s+in\s+([\s\S]+?)\s*$`,
+  String.raw`^\s*(?:(${IDENTIFIER})|\(\s*(${IDENTIFIER})(?:\s*,\s*(${IDENTIFIER}))?\s*\))\s+in\s*(\S(?:[\s\S]*\S)?)\s*$`,
 )
 
 export function conditionalBranch(node: NativeQuiAstNode): NativeQuiConditionalBranch | undefined {

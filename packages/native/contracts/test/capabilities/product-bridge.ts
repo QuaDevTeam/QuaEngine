@@ -139,7 +139,8 @@ describe('native product bridge adapter contracts', () => {
     }))
 
     await expect(bridge.renderProjectionFrame('{"view":{}}'))
-      .rejects.toThrow('Native product bridge projection frame failed.')
+      .rejects
+      .toThrow('Native product bridge projection frame failed.')
   })
 
   it('normalizes projection frame request inputs without stringifying frame objects', () => {

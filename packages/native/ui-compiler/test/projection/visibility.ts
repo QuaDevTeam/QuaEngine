@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
 import { Button, Panel, Text } from '@quajs/native-ui'
+import { describe, expect, it } from 'vitest'
 import { analyzeQssSource, compileQuiTsxProjection } from '../../src'
 import { withDefaultVisible } from './helpers'
 

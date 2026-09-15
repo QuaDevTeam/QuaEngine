@@ -57,7 +57,8 @@ export function createSaveSlotGrid(config: SaveSlotGridOptions | undefined, list
   const requestedCount = config?.slotCount
   const count = Math.max(
     typeof requestedCount === 'number' && Number.isFinite(requestedCount)
-      ? Math.max(0, Math.floor(requestedCount)) : DEFAULT_SAVE_SLOT_COUNT,
+      ? Math.max(0, Math.floor(requestedCount))
+      : DEFAULT_SAVE_SLOT_COUNT,
     config?.slots?.length || 0,
   )
   const prefix = config?.slotPrefix || 'slot'
@@ -140,7 +141,7 @@ function formatTimestamp(timestamp: SaveSlotProjection['timestamp']): string | u
   if (Number.isNaN(date.getTime())) {
     return undefined
   }
-  return date.toISOString().slice(0, 16).replace('T', ' ') + ' UTC'
+  return `${date.toISOString().slice(0, 16).replace('T', ' ')} UTC`
 }
 
 function formatPlaytime(playtime: number | undefined): string | undefined {
@@ -187,4 +188,3 @@ function isInternalSlotLabel(value: string): boolean {
     || value === 'quicksave'
     || value === 'autosave'
 }
-

@@ -1,3 +1,4 @@
+import type { QuaNativeHostApi, QuaNativeHostInfo } from '@quajs/native-contracts'
 import type {
   QuaGameSavePreviewRecord,
   QuaGameSaveSlotIndex,
@@ -8,15 +9,14 @@ import type {
   StorageConfig,
   StorageMiddleware,
 } from '@quajs/store'
-import type { QuaNativeHostApi, QuaNativeHostInfo } from '@quajs/native-contracts'
 import type { NativeStoreRecord, NativeStoreRecordKind } from './storage-records'
-import { decodeNativeStoreRecord, encodeNativeStoreRecord } from './storage-records'
 import {
   createNativeStoreGroupPrefix,
   createNativeStoreNamespace,
   createNativeStoreRecordKey,
   requireNativeStoreStorageKeys,
 } from './storage-keys'
+import { decodeNativeStoreRecord, encodeNativeStoreRecord } from './storage-records'
 
 export interface NativeStoreBackendOptions {
   host: QuaNativeHostApi
