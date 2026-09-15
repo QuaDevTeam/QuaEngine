@@ -226,5 +226,4 @@ describe('target bundle manifest validation', () => {
       }),
     ]))
   })
-
 })

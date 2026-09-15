@@ -1,5 +1,5 @@
-import type { NativeCapabilityManifestSha256 } from './capability-manifest'
 import type { QuaNativeRendererInfo, RendererTargetCapability } from './capabilities'
+import type { NativeCapabilityManifestSha256 } from './capability-manifest'
 import type { TargetBundleNativeRendererInfo } from './target-bundle'
 import { createNativeCapabilityManifestHash } from './capability-manifest'
 

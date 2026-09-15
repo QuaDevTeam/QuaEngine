@@ -36,6 +36,7 @@ import {
   createRendererInputController,
   DEFAULT_DIALOGUE_PRESENCE_EXIT_MS,
   evaluateWebPlatformSupport,
+  getWebAssetMemoryStats,
   mountUnsupportedPlatformUi,
   projectAudioProjection,
   readCssSafeAreaInsets,
@@ -46,7 +47,6 @@ import {
   stageLogicalToClientPoint,
   stageViewportStyle,
   WebAssetUrlHandle,
-  getWebAssetMemoryStats,
 } from '../src'
 import { WebAudioRendererController } from '../src/audio'
 import { WebFontFaceRegistry } from '../src/plugins/fonts'
@@ -1408,7 +1408,9 @@ describe('@quajs/renderer-web', () => {
     const create = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:shared')
     vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
     let finish!: (value: AssetData) => void
-    const read = vi.spyOn(assets, 'getAsset').mockImplementation(() => new Promise(resolve => { finish = resolve }))
+    const read = vi.spyOn(assets, 'getAsset').mockImplementation(() => new Promise((resolve) => {
+      finish = resolve
+    }))
     const options = { getAssets: () => assets, getType: () => 'images' as const, getName: () => 'shared.png' }
     const first = new WebAssetUrlHandle(options)
     const second = new WebAssetUrlHandle(options)
@@ -1420,7 +1422,8 @@ describe('@quajs/renderer-web', () => {
     expect(first.getState().url).toBeUndefined()
     expect(second.getState().url).toBe('blob:shared')
     expect(create).toHaveBeenCalledTimes(1)
-    first.dispose(); second.dispose()
+    first.dispose()
+    second.dispose()
     expect(getWebAssetMemoryStats(assets).activeUrls).toBe(0)
     await assets.cleanup()
   })
@@ -1431,7 +1434,7 @@ describe('@quajs/renderer-web', () => {
     vi.spyOn(URL, 'createObjectURL').mockImplementation(() => `blob:${Math.random()}`)
     vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
     const finish: Array<() => void> = []
-    const read = vi.spyOn(assets, 'getAsset').mockImplementation((_type, name) => new Promise(resolve => {
+    const read = vi.spyOn(assets, 'getAsset').mockImplementation((_type, name) => new Promise((resolve) => {
       finish.push(() => resolve(assetData(name, 'images', 'image/png')))
     }))
     const handles = names.map(name => new WebAssetUrlHandle({ getAssets: () => assets, getType: () => 'images', getName: () => name }))
@@ -1455,11 +1458,15 @@ describe('@quajs/renderer-web', () => {
     vi.spyOn(URL, 'createObjectURL').mockImplementation(() => `blob:budget-${next++}`)
     const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
     vi.spyOn(assets, 'getAsset').mockImplementation(async (_type, name) => ({
-      ...assetData(name, 'images', 'image/png'), mediaMetadata: { format: 'png', width: 2048, height: 2048 },
+      ...assetData(name, 'images', 'image/png'),
+      mediaMetadata: { format: 'png', width: 2048, height: 2048 },
     }))
     const handles = names.map(name => new WebAssetUrlHandle({ getAssets: () => assets, getType: () => 'images', getName: () => name }))
     await handles[0].load()
-    for (const handle of handles.slice(1)) { await handle.load(); handle.dispose({ defer: true }) }
+    for (const handle of handles.slice(1)) {
+      await handle.load()
+      handle.dispose({ defer: true })
+    }
     const stats = getWebAssetMemoryStats(assets)
     expect(stats.activeUrls).toBe(1)
     expect(stats.estimatedIdleBytes).toBeLessThanOrEqual(32 * 1024 * 1024)

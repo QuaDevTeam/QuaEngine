@@ -119,6 +119,7 @@ export function isForbiddenNativeAssetReference(assetName: string): boolean {
     return true
   if (
     assetName.trim() !== assetName
+    // eslint-disable-next-line no-control-regex
     || /[\u0000-\u001F\u007F]/.test(assetName)
     || assetName.includes('\\')
   ) {

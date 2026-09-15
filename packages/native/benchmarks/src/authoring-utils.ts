@@ -60,8 +60,7 @@ export function countSurfaceProjection(
 
 export function createInvalidAssetSourceFixture(): string {
   return Array.from({ length: 16 }, (_, index) =>
-    `Image(src: "../escape-${index}.png", asset-type: "../bad-${index}")`,
-  ).join('\n')
+    `Image(src: "../escape-${index}.png", asset-type: "../bad-${index}")`).join('\n')
 }
 
 export function positionAtOffset(source: string, offset: number): { character: number, line: number } {

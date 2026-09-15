@@ -10,8 +10,8 @@ import {
   createNativeQuickJsPipelineSubscriptionBridge,
   createNativeRuntimeAdapters,
   createNativeRuntimeModuleLoader,
-  executeNativeQuickJsGameStepHelperCall,
   executeNativeQuickJsGameStepCommand,
+  executeNativeQuickJsGameStepHelperCall,
 } from './helpers'
 
 describe('@quajs/engine-native runtime module loader QuickJS host bridge', () => {

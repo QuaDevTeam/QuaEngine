@@ -1,3 +1,4 @@
+import { Box, Button, Column, Panel, save, Stack, Text, ui } from '@quajs/native-ui'
 /**
  * Integration smoke test: NativeApp TSX component → compileQuiTsxProjection
  *
@@ -9,13 +10,10 @@
  * resolution works for the real screen components.
  */
 import { describe, expect, it } from 'vitest'
-import { Box, Button, Column, Panel, Stack, Text } from '@quajs/native-ui'
-import { ui, save } from '@quajs/native-ui'
 import {
   analyzeQssSource,
   compileQuiTsxProjection,
 } from '../src'
-import type { NativeDemoAppSurfaceState } from '../../demo/src/targets/native/ui'
 // NOTE: NativeApp lives in the demo package — import it here for the
 // integration test.  If the demo isn't available (CI-only ui-compiler run),
 // the component-function tests below still cover the projection pipeline.
@@ -75,8 +73,7 @@ Button.primary { color: #ff0000; font-size: 14px; }
   })
 
   it('resolves intent from QuiIntent onClick prop', () => {
-    const root = Button({ id: 'open-btn', class: 'menu-btn', x: 0, y: 0, width: 100, height: 40,
-      onClick: ui.open('story'), children: 'START' })
+    const root = Button({ id: 'open-btn', class: 'menu-btn', x: 0, y: 0, width: 100, height: 40, onClick: ui.open('story'), children: 'START' })
 
     const result = compileQuiTsxProjection(root)
     expect(result.root?.intent).toEqual({
@@ -88,8 +85,7 @@ Button.primary { color: #ff0000; font-size: 14px; }
   })
 
   it('resolves save.select intent from onClick prop', () => {
-    const root = Button({ id: 'slot-1', x: 0, y: 0, width: 100, height: 60,
-      onClick: save.select('slot-1'), children: 'Slot 1' })
+    const root = Button({ id: 'slot-1', x: 0, y: 0, width: 100, height: 60, onClick: save.select('slot-1'), children: 'Slot 1' })
 
     const result = compileQuiTsxProjection(root)
     expect(result.root?.intent?.event).toBe('ui/intent')
@@ -99,7 +95,8 @@ Button.primary { color: #ff0000; font-size: 14px; }
   })
 })
 
-describe('@quajs/native-ui screen registry integration', () => {  it('renders a complete panel with buttons and correct text projection', () => {
+describe('@quajs/native-ui screen registry integration', () => {
+  it('renders a complete panel with buttons and correct text projection', () => {
     const root = Panel({ id: 'menu', class: 'game-menu-panel', x: 730, y: 160, width: 460, height: 650, children: [
       Text({ id: 'title', class: 'panel-title', x: 770, y: 202, width: 300, height: 54, children: 'MENU' }),
       Column({ id: 'actions', class: 'game-menu-actions', x: 770, y: 322, width: 380, height: 330, children: [
@@ -188,13 +185,11 @@ Box.anchored { right: 10px; bottom: 20px; width: 50px; height: 30px; }
   })
 
   it('suppresses intents on pointer-events none and non-intent kinds', () => {
-    const root = Button({ id: 'ghost', class: 'ghost', x: 0, y: 0, width: 40, height: 20,
-      onClick: ui.open('story'), children: 'NOPE' })
+    const root = Button({ id: 'ghost', class: 'ghost', x: 0, y: 0, width: 40, height: 20, onClick: ui.open('story'), children: 'NOPE' })
     const qss = analyzeQssSource(`Button.ghost { pointer-events: none; }`)
     expect(compileQuiTsxProjection(root, { qss }).root?.intent).toBeUndefined()
 
-    const text = Text({ id: 'label', x: 0, y: 0, width: 40, height: 20,
-      onClick: ui.open('story'), children: 'L' })
+    const text = Text({ id: 'label', x: 0, y: 0, width: 40, height: 20, onClick: ui.open('story'), children: 'L' })
     expect(compileQuiTsxProjection(text).root?.intent).toBeUndefined()
   })
 
@@ -221,7 +216,6 @@ Box.anchored { right: 10px; bottom: 20px; width: 50px; height: 30px; }
     expect(projected?.video?.objectFit).toBeUndefined()
   })
 })
-
 
 describe('disabled native controls', () => {
   const qss = analyzeQssSource(`Button { color: white; opacity: 1; }

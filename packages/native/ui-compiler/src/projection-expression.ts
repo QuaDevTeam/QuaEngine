@@ -1,6 +1,6 @@
 import type { NativeUiTemplateScope } from './projection-template'
 
-const IDENTIFIER = String.raw`[A-Za-z_$][\w$]*`
+const IDENTIFIER = String.raw`[a-z_$][\w$]*`
 const EQUALITY_OPERATORS = ['===', '!==', '==', '!='] as const
 const RELATIONAL_OPERATORS = ['<=', '>=', '<', '>'] as const
 
@@ -14,7 +14,7 @@ export function evaluateQuiExpression(expression: string, scope: NativeUiTemplat
     const condition = evaluateQuiExpression(ternary.condition, scope)
     if (condition === undefined)
       return undefined
-    return evaluateQuiExpression(Boolean(condition) ? ternary.whenTrue : ternary.whenFalse, scope)
+    return evaluateQuiExpression(condition ? ternary.whenTrue : ternary.whenFalse, scope)
   }
 
   const coalesce = splitTopLevelOperator(trimmed, '??')
@@ -26,7 +26,7 @@ export function evaluateQuiExpression(expression: string, scope: NativeUiTemplat
   const logicalOr = splitTopLevelOperator(trimmed, '||')
   if (logicalOr) {
     const left = evaluateQuiExpression(logicalOr.left, scope)
-    return left ? left : evaluateQuiExpression(logicalOr.right, scope)
+    return left || evaluateQuiExpression(logicalOr.right, scope)
   }
 
   const logicalAnd = splitTopLevelOperator(trimmed, '&&')
@@ -149,7 +149,7 @@ function objectLiteralKey(source: string): string | undefined {
   const literal = literalValue(source)
   if (literal.matched)
     return typeof literal.value === 'string' ? literal.value : undefined
-  return /^[A-Za-z_$][\w$]*$/.test(source) ? source : undefined
+  return /^[A-Z_$][\w$]*$/i.test(source) ? source : undefined
 }
 
 function resolvePath(expression: string, scope: NativeUiTemplateScope): unknown {
@@ -178,11 +178,11 @@ function resolvePath(expression: string, scope: NativeUiTemplateScope): unknown 
 
 function pathParts(expression: string): Array<number | string> {
   const normalized = expression.replace(/\?\./g, '.').trim()
-  if (!new RegExp(String.raw`^${IDENTIFIER}(?:\.(?:${IDENTIFIER})|\[\d+\])*$`).test(normalized))
+  if (!new RegExp(String.raw`^${IDENTIFIER}(?:\.${IDENTIFIER}|\[\d+\])*$`, 'i').test(normalized))
     return []
 
   const parts: Array<number | string> = []
-  const matcher = new RegExp(String.raw`${IDENTIFIER}|\[(\d+)\]`, 'g')
+  const matcher = new RegExp(String.raw`${IDENTIFIER}|\[(\d+)\]`, 'gi')
   for (const match of normalized.matchAll(matcher))
     parts.push(match[1] !== undefined ? Number(match[1]) : match[0])
   return parts

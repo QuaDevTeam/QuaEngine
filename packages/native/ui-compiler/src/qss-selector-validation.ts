@@ -9,9 +9,9 @@ import {
 } from './registry'
 import { splitTopLevel } from './source'
 
-const ATTR_SELECTOR_PATTERN = /\[[A-Za-z_][\w-]*(?:\s*=\s*(?:"[^"]*"|'[^']*'|[A-Za-z0-9_-]+))?\]/g
-const PART_SELECTOR_PATTERN = /([A-Z][A-Za-z0-9_]*)::part\(([A-Za-z_][\w-]*)\)/g
-const PSEUDO_PATTERN = /(?<!:):([A-Za-z-]+)(?![A-Za-z-(])/g
+const ATTR_SELECTOR_PATTERN = /\[[A-Z_][\w-]*(?:\s*=\s*(?:"[^"]*"|'[^']*'|[\w-]+))?\]/gi
+const PART_SELECTOR_PATTERN = /([A-Z]\w*)::part\(([A-Za-z_][\w-]*)\)/g
+const PSEUDO_PATTERN = /(?<!:):([A-Z-]+)(?![A-Z-(])/gi
 
 export function validateSelector(
   rule: NativeQssRule,
@@ -53,9 +53,7 @@ export function validateSelector(
       pushUnsupportedSelector(rule, diagnostics, 'Attribute selectors must use [name] or [name="value"] syntax.')
     }
 
-    let partMatch: RegExpExecArray | null
-    PART_SELECTOR_PATTERN.lastIndex = 0
-    while ((partMatch = PART_SELECTOR_PATTERN.exec(selector))) {
+    for (const partMatch of selector.matchAll(PART_SELECTOR_PATTERN)) {
       const component = findNativeUiComponent(partMatch[1])
       if (!component || !(component.styleParts || []).includes(partMatch[2])) {
         diagnostics.push({
@@ -68,9 +66,7 @@ export function validateSelector(
       }
     }
 
-    let pseudoMatch: RegExpExecArray | null
-    PSEUDO_PATTERN.lastIndex = 0
-    while ((pseudoMatch = PSEUDO_PATTERN.exec(selector))) {
+    for (const pseudoMatch of selector.matchAll(PSEUDO_PATTERN)) {
       if (!(nativeQssPseudoStates as readonly string[]).includes(pseudoMatch[1])) {
         pushUnsupportedSelector(rule, diagnostics, `Pseudo-state :${pseudoMatch[1]} is not supported.`)
       }
@@ -94,7 +90,7 @@ export function validateSelector(
     }
 
     if (options.lint?.strictComponents) {
-      for (const match of selector.matchAll(/\b([A-Z][A-Za-z0-9_]*)\b/g)) {
+      for (const match of selector.matchAll(/\b([A-Z]\w*)\b/g)) {
         if (!findNativeUiComponent(match[1])) {
           diagnostics.push({
             code: 'QSS_UNKNOWN_ELEMENT',

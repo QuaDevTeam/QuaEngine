@@ -27,8 +27,11 @@ describe('settings native renderer feature', () => {
     const bounds = { x: 470, y: 115, width: 980, height: 642 }
     const view = { ui: { overlays: { settings: { open: true } } } }
     const result = createSettingsNativeRendererFeature({ resolvePanelBounds: () => bounds }).createOverlays({
-      logicalWidth: 1920, logicalHeight: 1080, view,
-      projection: { scopes: {} }, safeArea: { x: 96, y: 0, width: 1728, height: 1080 },
+      logicalWidth: 1920,
+      logicalHeight: 1080,
+      view,
+      projection: { scopes: {} },
+      safeArea: { x: 96, y: 0, width: 1728, height: 1080 },
     }) as { surface: { root: NativeUiSurfaceNodeProjection } }
     expect(findNode(result.surface.root, 'settings-panel')?.bounds).toEqual(bounds)
     expect(view).toEqual({ ui: { overlays: { settings: { open: true } } } })
@@ -153,13 +156,15 @@ describe('settings native renderer feature', () => {
 
   it('caps overflowing panels and samples large numeric ranges across their full extent', () => {
     const properties = Object.fromEntries(Array.from({ length: 20 }, (_, i) => [
-      `value${i}`, { type: 'number', minimum: 0, maximum: 10000, multipleOf: 1 },
+      `value${i}`,
+      { type: 'number', minimum: 0, maximum: 10000, multipleOf: 1 },
     ]))
     const frame = createNativeRendererJsonFrameInput({
       layout: { height: 1080, aspectRatio: 16 / 9 },
       ui: { overlays: { settings: { open: true } } },
       plugins: { settings: { scopes: { test: {
-        schema: { type: 'object', properties }, defaults: {},
+        schema: { type: 'object', properties },
+        defaults: {},
         values: { value0: 5000 },
       } }, revision: 1 } },
     }, { featureSurfaces: [createSettingsNativeRendererFeature()] })

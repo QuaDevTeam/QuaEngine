@@ -119,6 +119,8 @@ function isLegacySerializedUint8Array(value: object): value is Record<string, nu
       .every((key, index) => key === index)
 }
 
+const BASE64_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+
 function bytesToBase64(bytes: Uint8Array): string {
   let output = ''
   for (let index = 0; index < bytes.length; index += 3) {
@@ -163,5 +165,3 @@ function base64Value(char: string): number {
     throw new Error('Invalid native store base64 character.')
   return value
 }
-
-const BASE64_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'

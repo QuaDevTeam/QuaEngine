@@ -220,7 +220,8 @@ describe('quaEngine runtime architecture', () => {
     await engine.init()
     await engine.showDialogue({ text: 'Authoritative' })
     await engine.setBackgroundProjection({
-      mode: 'image', assetName: 'room.webp',
+      mode: 'image',
+      assetName: 'room.webp',
       characterLighting: { ambient: [1, 0.9, 0.8], shade: { color: [0.8, 0.9, 1], from: [0, 0], to: [1, 1] } },
     })
     await engine.setPluginProjection('audio', audioProjection({

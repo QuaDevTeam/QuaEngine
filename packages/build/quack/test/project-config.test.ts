@@ -25,8 +25,8 @@ import {
   loadQuaProjectConfig,
   mergeQuaProjectAssetTargets,
   normalizeQuaProjectConfig,
-  QUA_NATIVE_TARGET_BUNDLE_MANIFEST_FILE,
   QUA_NATIVE_QUICKJS_CARGO_FEATURE,
+  QUA_NATIVE_TARGET_BUNDLE_MANIFEST_FILE,
   QUA_TARGET_BUNDLE_MANIFEST_FILE,
   syncQuaProjectCocos,
 } from '../src/project'

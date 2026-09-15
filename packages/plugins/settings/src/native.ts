@@ -153,9 +153,7 @@ function createSettingsRoot(
         provenance,
         style: {
           backgroundColor: '#0b0d12',
-          backgroundGradient: { kind: 'linear', angleDegrees: 180,
-            stops: [{ color: 'rgba(18,20,27,0.96)', position: 0 },
-              { color: 'rgba(6,7,11,0.96)', position: 1 }] },
+          backgroundGradient: { kind: 'linear', angleDegrees: 180, stops: [{ color: 'rgba(18,20,27,0.96)', position: 0 }, { color: 'rgba(6,7,11,0.96)', position: 1 }] },
           borderColor: 'rgba(245,226,190,0.34)',
           borderRadius: 2,
           borderWidth: 1,
@@ -218,9 +216,9 @@ function createSettingsRoot(
   })
 }
 
-type NativeSettingsEntry =
-  | { kind: 'group', id: string, label: string, scope: SettingsScopeFormProjection }
-  | { kind: 'field', field: SettingsFieldFormProjection, scope: SettingsScopeFormProjection }
+type NativeSettingsEntry
+  = | { kind: 'group', id: string, label: string, scope: SettingsScopeFormProjection }
+    | { kind: 'field', field: SettingsFieldFormProjection, scope: SettingsScopeFormProjection }
 
 function flattenSettingsEntries(scopes: readonly SettingsScopeFormProjection[]): NativeSettingsEntry[] {
   return scopes.flatMap(scope => scope.groups.flatMap((group) => {
@@ -388,17 +386,19 @@ function createSliderControlNodes(
       width: trackWidth,
       height: bounds.height,
     }, {
-      control: options.length > 0 ? {
-        kind: 'range',
-        options: options.map(option => ({ label: option.label, intent: option.intent })),
-        parts: {
-          progress: `${id}-slider-progress`,
-          thumb: `${id}-slider-thumb`,
-          thumbHalo: `${id}-slider-thumb-halo`,
-          value: `${id}-value`,
-        },
-        selectedIndex,
-      } : undefined,
+      control: options.length > 0
+        ? {
+            kind: 'range',
+            options: options.map(option => ({ label: option.label, intent: option.intent })),
+            parts: {
+              progress: `${id}-slider-progress`,
+              thumb: `${id}-slider-thumb`,
+              thumbHalo: `${id}-slider-thumb-halo`,
+              value: `${id}-value`,
+            },
+            selectedIndex,
+          }
+        : undefined,
       provenance,
       style: { backgroundColor: 'transparent' },
       children: [
@@ -484,12 +484,14 @@ function createSelectControlNodes(
     width: bounds.width,
     height: 40,
   }, {
-    control: options.length > 0 ? {
-      kind: 'select',
-      options: options.map(option => ({ label: option.label, intent: option.intent })),
-      parts: { chevron: `${id}-select-chevron`, value: `${id}-select-value` },
-      selectedIndex,
-    } : undefined,
+    control: options.length > 0
+      ? {
+          kind: 'select',
+          options: options.map(option => ({ label: option.label, intent: option.intent })),
+          parts: { chevron: `${id}-select-chevron`, value: `${id}-select-value` },
+          selectedIndex,
+        }
+      : undefined,
     provenance,
     style: {
       backgroundColor: 'rgba(5,7,11,0.62)',
@@ -497,10 +499,12 @@ function createSelectControlNodes(
       borderRadius: 4,
       borderWidth: 1,
     },
-    stateStyles: field.readonly ? undefined : {
-      hover: { bounds: { x: bounds.x, y: bounds.y + 2, width: bounds.width, height: 40 }, style: { borderColor: 'rgba(255,226,166,0.62)', backgroundGradient: { kind: 'linear', angleDegrees: 180, stops: [{ color: 'rgba(36,34,30,0.92)', position: 0 }, { color: 'rgba(10,11,15,0.94)', position: 1 }] } } },
-      'focus-visible': { bounds: { x: bounds.x, y: bounds.y + 2, width: bounds.width, height: 40 }, style: { borderColor: 'rgba(129,229,255,0.72)' } },
-    },
+    stateStyles: field.readonly
+      ? undefined
+      : {
+          'hover': { bounds: { x: bounds.x, y: bounds.y + 2, width: bounds.width, height: 40 }, style: { borderColor: 'rgba(255,226,166,0.62)', backgroundGradient: { kind: 'linear', angleDegrees: 180, stops: [{ color: 'rgba(36,34,30,0.92)', position: 0 }, { color: 'rgba(10,11,15,0.94)', position: 1 }] } } },
+          'focus-visible': { bounds: { x: bounds.x, y: bounds.y + 2, width: bounds.width, height: 40 }, style: { borderColor: 'rgba(129,229,255,0.72)' } },
+        },
     children: [
       node(`${id}-select-value`, 'Text', {
         x: bounds.x + 12,
@@ -543,12 +547,14 @@ function createSwitchControlNodes(
       ]
   return [
     node(`${id}-switch-track`, 'Box', track, {
-      control: options.length > 0 ? {
-        kind: 'switch',
-        options: options.map(option => ({ label: option.label, intent: option.intent })),
-        parts: { track: `${id}-switch-track`, thumb: `${id}-switch-thumb`, value: `${id}-value` },
-        selectedIndex: checked ? 1 : 0,
-      } : undefined,
+      control: options.length > 0
+        ? {
+            kind: 'switch',
+            options: options.map(option => ({ label: option.label, intent: option.intent })),
+            parts: { track: `${id}-switch-track`, thumb: `${id}-switch-thumb`, value: `${id}-value` },
+            selectedIndex: checked ? 1 : 0,
+          }
+        : undefined,
       provenance,
       style: {
         backgroundColor: checked ? 'rgba(129,229,255,0.16)' : 'rgba(255,255,255,0.06)',

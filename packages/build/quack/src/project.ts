@@ -3,21 +3,15 @@ import type {
   CocosAssetTargetMetadata,
   CocosBuildPlatform,
 } from './core/types'
+import type { QuaProjectNativeBuildConfig } from './project-native-build'
 import { access, copyFile, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { basename, dirname, extname, isAbsolute, join, relative, resolve } from 'node:path'
 import { parse as parseYaml } from 'yaml'
 import {
   normalizeQuaProjectNativeBuildConfig,
-  type QuaProjectNativeBuildConfig,
+
 } from './project-native-build'
 
-export {
-  hasQuaProjectNativeCargoFeature,
-  normalizeQuaProjectNativeBuildConfig,
-  normalizeQuaProjectNativeCargoFeatures,
-  QUA_NATIVE_QUICKJS_CARGO_FEATURE,
-  type QuaProjectNativeBuildConfig,
-} from './project-native-build'
 export {
   createQuaProjectNativeArtifactPlans,
   createQuaProjectNativeTargetBundleManifest,
@@ -30,6 +24,13 @@ export type {
   QuaProjectNativeArtifactPlan,
   QuaProjectNativeTargetBundleManifestOptions,
 } from './project-native'
+export {
+  hasQuaProjectNativeCargoFeature,
+  normalizeQuaProjectNativeBuildConfig,
+  normalizeQuaProjectNativeCargoFeatures,
+  QUA_NATIVE_QUICKJS_CARGO_FEATURE,
+  type QuaProjectNativeBuildConfig,
+} from './project-native-build'
 export {
   emitQuaTargetBundleManifest,
   QUA_TARGET_BUNDLE_MANIFEST_FILE,

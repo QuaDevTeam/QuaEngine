@@ -1,3 +1,4 @@
+import type { NativeUiTemplateScope } from './projection-template'
 import type {
   NativeQuiAstNode,
   NativeQuiDocument,
@@ -6,9 +7,9 @@ import type {
 import { numberProp, propString } from './projection-props'
 import {
   evaluateQuiExpression,
+
   templateStringProp,
   templateStringValue,
-  type NativeUiTemplateScope,
 } from './projection-template'
 
 export interface NativeQuiSlotContent {

@@ -2,28 +2,28 @@
  * All component kinds mirroring the native renderer's NativeUiSurfaceNodeKind.
  * Fragment is a virtual container that is flattened during projection.
  */
-export type QuiNodeKind =
-  | 'Backdrop'
-  | 'Box'
-  | 'Button'
-  | 'Column'
-  | 'Divider'
-  | 'Fragment'
-  | 'Grid'
-  | 'Image'
-  | 'Layer'
-  | 'Panel'
-  | 'RichText'
-  | 'Row'
-  | 'SafeArea'
-  | 'Scroll'
-  | 'Select'
-  | 'Slider'
-  | 'Spacer'
-  | 'Stack'
-  | 'Switch'
-  | 'Text'
-  | 'Video'
+export type QuiNodeKind
+  = | 'Backdrop'
+    | 'Box'
+    | 'Button'
+    | 'Column'
+    | 'Divider'
+    | 'Fragment'
+    | 'Grid'
+    | 'Image'
+    | 'Layer'
+    | 'Panel'
+    | 'RichText'
+    | 'Row'
+    | 'SafeArea'
+    | 'Scroll'
+    | 'Select'
+    | 'Slider'
+    | 'Spacer'
+    | 'Stack'
+    | 'Switch'
+    | 'Text'
+    | 'Video'
 
 /**
  * An intent that maps directly to a NativeUiSurfaceIntentProjection.
@@ -38,12 +38,12 @@ export interface QuiIntent {
 }
 
 /** Recursive child type accepted by JSX expressions. */
-export type QuiChildren =
-  | QuiNode
-  | null
-  | undefined
-  | false
-  | readonly QuiChildren[]
+export type QuiChildren
+  = | QuiNode
+    | null
+    | undefined
+    | false
+    | readonly QuiChildren[]
 
 /**
  * Intermediate node produced by the JSX runtime.
@@ -143,19 +143,19 @@ export interface QuiControlOption {
 export interface SliderProps extends QuiBaseProps {
   selectedIndex: number
   options: readonly QuiControlOption[]
-  parts?: { progress?: string; thumb?: string; thumbHalo?: string; value?: string }
+  parts?: { progress?: string, thumb?: string, thumbHalo?: string, value?: string }
 }
 
 export interface SwitchProps extends QuiBaseProps {
   selectedIndex: number
   options: readonly [QuiControlOption, QuiControlOption]
-  parts?: { track?: string; thumb?: string; value?: string }
+  parts?: { track?: string, thumb?: string, value?: string }
 }
 
 export interface SelectProps extends QuiBaseProps {
   selectedIndex: number
   options: readonly QuiControlOption[]
-  parts?: { value?: string; chevron?: string }
+  parts?: { value?: string, chevron?: string }
 }
 
 export interface TextProps extends QuiBaseProps {
@@ -190,6 +190,7 @@ export interface VideoProps extends QuiBaseProps {
 // ─── JSX namespace ──────────────────────────────────────────────────────────
 // Consumed by TypeScript when jsxImportSource = "@quajs/native-ui".
 
+// eslint-disable-next-line ts/no-namespace
 export namespace JSX {
   // QuiNode | null — JSX factory can return null for filtered/conditional nodes
   export type Element = QuiNode | null

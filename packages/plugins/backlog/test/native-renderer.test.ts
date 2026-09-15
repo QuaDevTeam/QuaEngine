@@ -26,7 +26,9 @@ describe('backlog native renderer feature', () => {
 
   it('grows long history rows without truncating text or overlapping the next entry', () => {
     const result = createBacklogNativeRendererFeature().createOverlays({
-      logicalWidth: 1920, logicalHeight: 1080, view: {},
+      logicalWidth: 1920,
+      logicalHeight: 1080,
+      view: {},
       safeArea: { x: 96, y: 0, width: 1728, height: 1080 },
       projection: { visible: true, entries: [
         { id: 'short', text: 'Short', gameTimeMs: 0 },
@@ -43,7 +45,9 @@ describe('backlog native renderer feature', () => {
   it('supports product placement and compact rows while preserving intents and long text', () => {
     const bounds = { x: 470, y: 107, width: 980, height: 660 }
     const result = createBacklogNativeRendererFeature({ density: 'compact', resolvePanelBounds: () => bounds }).createOverlays({
-      logicalWidth: 1920, logicalHeight: 1080, view: {},
+      logicalWidth: 1920,
+      logicalHeight: 1080,
+      view: {},
       safeArea: { x: 96, y: 0, width: 1728, height: 1080 },
       projection: { visible: true, entries: [
         { id: 'short', text: 'Short', speaker: 'Mira', gameTimeMs: 0, rewindable: true },

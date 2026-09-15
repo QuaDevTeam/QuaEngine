@@ -15,11 +15,11 @@ import type {
   NativeUiTextEdit,
 } from './index'
 import { existsSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import {
   CompletionItemKind,
   DiagnosticSeverity,
 } from 'vscode-languageserver/node.js'
-import { fileURLToPath } from 'node:url'
 
 export function toLspDiagnostic(diagnostic: NativeUiDiagnostic) {
   return {

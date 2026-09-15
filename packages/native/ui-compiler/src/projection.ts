@@ -1,8 +1,11 @@
+import type { NativeQuiSlotContent } from './projection-composites'
+import type { NativeUiCompilerSurfaceNodeProjection } from './projection-layout'
+import type { NativeUiTemplateScope } from './projection-template'
 import type {
+  NativePackageProvenance,
   NativeQssDocument,
   NativeQssResolvedNodeStyle,
   NativeQssResolvedStyle,
-  NativePackageProvenance,
   NativeQuiAstNode,
   NativeQuiDocument,
   NativeUiSurfaceNodeKind,
@@ -10,20 +13,26 @@ import type {
   NativeUiSurfaceRect,
 } from './types'
 import {
+  compositeExpansionForNode,
+
+  scopedNumberPropResolver,
+} from './projection-composites'
+import {
   conditionalBranch,
   conditionalBranchValue,
   evaluateQuiCondition,
   loopIterationsForNode,
 } from './projection-directives'
 import {
-  templateBooleanProp,
-  type NativeUiTemplateScope,
-} from './projection-template'
+  applyNativeQssStructuralLayout,
+
+  stripNativeQssCompilerLayout,
+} from './projection-layout'
 import {
-  compositeExpansionForNode,
-  scopedNumberPropResolver,
-  type NativeQuiSlotContent,
-} from './projection-composites'
+  pruneSurfaceNode,
+  rectFromProps,
+  ZERO_RECT,
+} from './projection-node-helpers'
 import {
   imageFromProps,
   intentFromNode,
@@ -32,17 +41,11 @@ import {
   packageProvenanceFromOptions,
   textFromNode,
 } from './projection-node-values'
-import {
-  pruneSurfaceNode,
-  rectFromProps,
-  ZERO_RECT,
-} from './projection-node-helpers'
-import {
-  applyNativeQssStructuralLayout,
-  stripNativeQssCompilerLayout,
-  type NativeUiCompilerSurfaceNodeProjection,
-} from './projection-layout'
 import { resolveStyleForNode } from './projection-selectors'
+import {
+
+  templateBooleanProp,
+} from './projection-template'
 import { canProjectNativeUiIntent } from './surface-intents'
 
 export interface CompileNativeUiSurfaceProjectionOptions {

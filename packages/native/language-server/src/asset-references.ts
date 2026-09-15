@@ -96,7 +96,7 @@ function assetReferencesFromQss(
 }
 
 function parseQssAssetCall(value: string): { assetName: string, assetNameEnd: number, assetNameStart: number, assetType: string } | undefined {
-  const match = /^asset\(\s*(["'])([^"']+)\1\s*(?:,\s*(["'])([A-Za-z][A-Za-z0-9-]*)\3)?\s*\)$/i.exec(value.trim())
+  const match = /^asset\(\s*(["'])([^"']+)\1\s*(?:,\s*(["'])([A-Z][A-Z0-9-]*)\3\s*)?\)$/i.exec(value.trim())
   if (!match || match.index === undefined)
     return undefined
 

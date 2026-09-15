@@ -41,14 +41,14 @@
     "test:ui": "vitest --ui",
     "typecheck": "tsc --noEmit"
   },
-  "dependencies": {
-    "@quajs/native-contracts": "workspace:*",
-    "@quajs/native-ui": "workspace:*"
-  },
   "peerDependencies": {
     "sass-embedded": ">=1.70.0"
   },
   "peerDependenciesMeta": {
     "sass-embedded": { "optional": true }
+  },
+  "dependencies": {
+    "@quajs/native-contracts": "workspace:*",
+    "@quajs/native-ui": "workspace:*"
   }
 }

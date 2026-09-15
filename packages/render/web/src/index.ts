@@ -11,8 +11,8 @@ export {
 export type { WebAssetTargetPackageId, WebAssetUrlHandleOptions, WebAssetUrlState } from './assets'
 export {
   getAssetWithTargetPackages,
-  getWebAssetMemoryStats,
   getJSONWithTargetPackages,
+  getWebAssetMemoryStats,
   runtimePackageCandidatesFromMetadata,
   WebAssetUrlHandle,
 } from './assets'

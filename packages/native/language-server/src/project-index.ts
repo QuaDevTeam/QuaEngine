@@ -1,5 +1,3 @@
-import { indexNativeUiProjectFile } from './project-index-document'
-import { summarizeProjectIndex } from './project-index-summary'
 import type { NativeUiProjectIndexedFile } from './project-index-document'
 import type {
   NativeUiProjectFile,
@@ -7,6 +5,8 @@ import type {
   NativeUiProjectIndexChange,
   NativeUiProjectIndexOptions,
 } from './project-index-types'
+import { indexNativeUiProjectFile } from './project-index-document'
+import { summarizeProjectIndex } from './project-index-summary'
 
 export type {
   NativeUiProjectClassReference,

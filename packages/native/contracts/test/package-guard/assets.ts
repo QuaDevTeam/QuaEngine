@@ -107,7 +107,7 @@ describe('native runtime package guard asset references', () => {
       path: 'ui/./menu.qui.json',
       relativePath: 'ui/./menu.qui.json',
     }
-    bundle.manifest.assets.data!['directory'] = {
+    bundle.manifest.assets.data!.directory = {
       name: 'directory',
       path: 'ui/',
       relativePath: 'ui/',

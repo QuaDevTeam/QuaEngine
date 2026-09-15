@@ -4,12 +4,12 @@ import type {
   QuaNativeHostInfo,
 } from './capabilities'
 
-export type NativeProductBridgeRequest =
-  | { method: 'getHostInfo' }
-  | { method: 'renderProjectionFrame', params: NativeProductBridgeProjectionFrameRequest }
-  | { method: 'tickLifecycle' }
-  | { method: 'drainRendererIntents' }
-  | { method: 'shutdown' }
+export type NativeProductBridgeRequest
+  = | { method: 'getHostInfo' }
+    | { method: 'renderProjectionFrame', params: NativeProductBridgeProjectionFrameRequest }
+    | { method: 'tickLifecycle' }
+    | { method: 'drainRendererIntents' }
+    | { method: 'shutdown' }
 
 export interface NativeProductBridgeProjectionFrameRequest {
   frameJson?: string
@@ -80,8 +80,8 @@ export interface NativeProductBridgeResponse {
   error?: NativeHostApiErrorInfo
 }
 
-export type NativeProductBridgeDispatch =
-  (request: NativeProductBridgeRequest) => NativeProductBridgeResponse | Promise<NativeProductBridgeResponse>
+export type NativeProductBridgeDispatch
+  = (request: NativeProductBridgeRequest) => NativeProductBridgeResponse | Promise<NativeProductBridgeResponse>
 
 export interface QuaNativeProductBridge {
   getHostInfo: () => Promise<QuaNativeHostInfo>

@@ -15,13 +15,25 @@ export {
   literalStringValue,
 } from './assets'
 export {
-  createNativeUiSurfaceCompatibilityFromProjection,
   createNativeUiSurfaceCompatibilityFromDocuments,
+  createNativeUiSurfaceCompatibilityFromProjection,
 } from './compatibility'
 export type {
-  CreateNativeUiSurfaceCompatibilityFromProjectionOptions,
   CreateNativeUiSurfaceCompatibilityFromDocumentsOptions,
+  CreateNativeUiSurfaceCompatibilityFromProjectionOptions,
 } from './compatibility'
+export {
+  compileNativeUiSurfaceProjection,
+} from './projection'
+export type {
+  CompileNativeUiSurfaceProjectionOptions,
+} from './projection'
+export {
+  collectNativeUiSurfaceProjectionRequirements,
+} from './projection-requirements'
+export type {
+  NativeUiSurfaceProjectionRequirements,
+} from './projection-requirements'
 export {
   analyzeQssSource,
   formatQssSource,
@@ -32,31 +44,19 @@ export {
   resolveNativeQssDeclarations,
 } from './qss-resolved-style'
 export {
-  compileNativeUiSurfaceProjection,
-} from './projection'
-export type {
-  CompileNativeUiSurfaceProjectionOptions,
-} from './projection'
-export {
-  compileQuiTsxProjection,
-} from './tsx-projection-compiler'
-export type {
-  CompileQuiTsxProjectionOptions,
-} from './tsx-projection-compiler'
-export {
   compileQssScss,
 } from './qss-scss'
 export type {
   CompileQssScssOptions,
   QssScssCompileResult,
 } from './qss-scss'
-export {
-  collectNativeUiSurfaceProjectionRequirements,
-} from './projection-requirements'
-export type {
-  NativeUiSurfaceProjectionRequirements,
-} from './projection-requirements'
 export * from './registry'
+export {
+  compileQuiTsxProjection,
+} from './tsx-projection-compiler'
+export type {
+  CompileQuiTsxProjectionOptions,
+} from './tsx-projection-compiler'
 export * from './types'
 
 // ─── Document-kind detection ──────────────────────────────────────────────────

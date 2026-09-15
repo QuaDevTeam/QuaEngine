@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
 import { Button, Column, Panel, Row, Text } from '@quajs/native-ui'
+import { describe, expect, it } from 'vitest'
 import { analyzeQssSource, compileQuiTsxProjection } from '../../src'
 import { withDefaultVisible } from './helpers'
 
@@ -68,7 +68,9 @@ Text#choice-c { width: 50px; }
 
     expect(compileQuiTsxProjection(root, { qss })).toEqual(withDefaultVisible({
       root: {
-        id: 'root', kind: 'Panel', bounds: { x: 0, y: 0, width: 520, height: 320 },
+        id: 'root',
+        kind: 'Panel',
+        bounds: { x: 0, y: 0, width: 520, height: 320 },
         children: [
           { id: 'toolbar', kind: 'Row', bounds: { x: 20, y: 30, width: 300, height: 60 }, children: [
             { id: 'save', kind: 'Button', bounds: { x: 90, y: 70, width: 80, height: 20 }, text: 'Save' },
@@ -101,14 +103,13 @@ Button.override { top: 150px; box-sizing: content-box; padding: 10px; border-wid
 
     expect(compileQuiTsxProjection(root, { qss })).toEqual(withDefaultVisible({
       root: {
-        id: 'root', kind: 'Panel', bounds: { x: 0, y: 0, width: 360, height: 220 },
+        id: 'root',
+        kind: 'Panel',
+        bounds: { x: 0, y: 0, width: 360, height: 220 },
         children: [
-          { id: 'content', kind: 'Button', bounds: { x: 20, y: 20, width: 124, height: 54 }, text: 'Content',
-            style: { borderWidth: 2, padding: { top: 5, right: 10, bottom: 5, left: 10 } } },
-          { id: 'border', kind: 'Button', bounds: { x: 20, y: 90, width: 100, height: 40 }, text: 'Border',
-            style: { borderWidth: 2, padding: { top: 5, right: 10, bottom: 5, left: 10 } } },
-          { id: 'override', kind: 'Button', bounds: { x: 20, y: 150, width: 50, height: 20 }, text: 'Override',
-            style: { borderWidth: 5, padding: { top: 10, right: 10, bottom: 10, left: 10 } } },
+          { id: 'content', kind: 'Button', bounds: { x: 20, y: 20, width: 124, height: 54 }, text: 'Content', style: { borderWidth: 2, padding: { top: 5, right: 10, bottom: 5, left: 10 } } },
+          { id: 'border', kind: 'Button', bounds: { x: 20, y: 90, width: 100, height: 40 }, text: 'Border', style: { borderWidth: 2, padding: { top: 5, right: 10, bottom: 5, left: 10 } } },
+          { id: 'override', kind: 'Button', bounds: { x: 20, y: 150, width: 50, height: 20 }, text: 'Override', style: { borderWidth: 5, padding: { top: 10, right: 10, bottom: 10, left: 10 } } },
         ],
       },
     }))

@@ -11,11 +11,16 @@ describe('metadataGenerator', () => {
     const assets = ['images/backgrounds/room.png', 'images/cg/room.png', 'audio/bgm/theme.ogg', 'scripts/scenes/opening.js'].map((relativePath, index) => ({
       name: relativePath.split('/').at(-1)!,
       type: relativePath.split('/')[0] as AssetInfo['type'],
-      path: `/test/${relativePath}`, relativePath,
-      size: 100, hash: `hash-${index}`, mtime: 1, locales: ['default'],
+      path: `/test/${relativePath}`,
+      relativePath,
+      size: 100,
+      hash: `hash-${index}`,
+      mtime: 1,
+      locales: ['default'],
     }))
     const manifest = generator.generateManifest(assets, 'nested-assets', {
-      format: 'qpk', compression: { algorithm: 'none' },
+      format: 'qpk',
+      compression: { algorithm: 'none' },
       encryption: { enabled: false, algorithm: 'none' },
     })
     for (const asset of assets) {

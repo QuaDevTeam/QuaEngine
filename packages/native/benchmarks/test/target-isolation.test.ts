@@ -1,8 +1,8 @@
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import {
-  collectForbiddenTargetCoreManifestDependencyViolations,
   collectForbiddenTargetCoreImportViolations,
+  collectForbiddenTargetCoreManifestDependencyViolations,
   importSpecifiers,
 } from '../../ui-compiler/test/target-isolation-helpers'
 

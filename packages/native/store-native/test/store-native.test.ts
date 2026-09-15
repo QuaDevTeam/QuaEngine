@@ -1,16 +1,16 @@
+import type { NativeHostApiRequest, QuaNativeHostApi, QuaNativeHostInfo } from '@quajs/native-contracts'
 import type {
   QuaGameSavePreviewRecord,
   QuaGameSaveSlotIndex,
   QuaGameSaveSlotPayload,
   QuaSnapshot,
 } from '@quajs/store'
-import type { NativeHostApiRequest, QuaNativeHostApi, QuaNativeHostInfo } from '@quajs/native-contracts'
 import { createNativeHostApiFromBridge } from '@quajs/native-contracts'
 import { describe, expect, it, vi } from 'vitest'
 import {
-  NativeStoreBackend,
   createNativeStorageConfig,
   createNativeStoreNamespace,
+  NativeStoreBackend,
 } from '../src'
 
 function createHost(): QuaNativeHostApi & { storage: Map<string, Uint8Array> } {
@@ -23,7 +23,7 @@ function createHost(): QuaNativeHostApi & { storage: Map<string, Uint8Array> } {
     writeStorage: vi.fn(async (key, value) => {
       storage.set(key, new Uint8Array(value))
     }),
-    deleteStorage: vi.fn(async key => {
+    deleteStorage: vi.fn(async (key) => {
       storage.delete(key)
     }),
     listStorageKeys: vi.fn(async prefix => [...storage.keys()].filter(key => key.startsWith(prefix))),

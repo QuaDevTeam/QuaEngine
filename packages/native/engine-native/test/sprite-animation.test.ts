@@ -6,12 +6,16 @@ describe('native sprite timeline sampling', () => {
   const track = (target: string, property: string, value: unknown) => ({ target: `spriteLayer:mira:one:${target}`, property, keyframes: [{ at: 0, value }] })
   it('samples unresolved sprite layers and preserves scoped asset identity', () => {
     const frame = createNativeRendererJsonFrameInput({ characters: [character], animations: [{ id: 'layer-motion', state: 'paused', startedAt: 1000, pausedAt: 1500, duration: 1000, resolvedTracks: [
-      track('1', 'opacity', 0.3), track('expression', 'opacity', 0.2), track('expression:1', 'opacity', 0.1),
+      track('1', 'opacity', 0.3),
+      track('expression', 'opacity', 0.2),
+      track('expression:1', 'opacity', 0.1),
       { target: 'spriteLayer:mira:one:base', property: 'offsetX', keyframes: [{ at: 0, value: 0 }, { at: 1000, value: 100, easing: 'ease-in' }] },
     ] }] }, { now: 9999 })
     expect(frame.view.characters).toMatchObject([{ sprite: 'mira/base.png', expression: 'smile', provenance: { contentPackageId: 'runtime.faces' }, spriteLayerAnimationValues: [
-      { target: 'spriteLayer:mira:one:1', value: 0.3 }, { target: 'spriteLayer:mira:one:expression', value: 0.2 },
-      { target: 'spriteLayer:mira:one:expression:1', value: 0.1 }, { target: 'spriteLayer:mira:one:base', value: 25 },
+      { target: 'spriteLayer:mira:one:1', value: 0.3 },
+      { target: 'spriteLayer:mira:one:expression', value: 0.2 },
+      { target: 'spriteLayer:mira:one:expression:1', value: 0.1 },
+      { target: 'spriteLayer:mira:one:base', value: 25 },
     ] }])
     expect(character.metadata).toEqual({ contentPackageId: 'runtime.faces' })
   })

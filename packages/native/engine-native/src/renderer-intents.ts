@@ -1,8 +1,8 @@
-import type { NativeRendererIntent, QuaNativeHostApi } from '@quajs/native-contracts'
 import type { RendererInputCommandPayload, RendererTextInputPayload } from '@quajs/engine'
+import type { NativeRendererIntent, QuaNativeHostApi } from '@quajs/native-contracts'
+import type { NativeRendererFeatureSurfaceEntry } from './feature-surfaces'
 import { emitRenderToLogic, RenderToLogicEvents } from '@quajs/engine'
 import { parseNativeRendererIntentPayload } from '@quajs/native-contracts'
-import type { NativeRendererFeatureSurfaceEntry } from './feature-surfaces'
 import { resolveNativeRendererFeatureIntent } from './feature-surfaces'
 
 type NativeRendererIntentPipeline = Parameters<typeof emitRenderToLogic>[0]
@@ -493,7 +493,7 @@ function optionalStringField(payload: Record<string, unknown>, field: string): s
   if (value === undefined)
     return undefined
   if (typeof value !== 'string') {
-    throw new Error(`Native renderer user/text_input intent payload field "${field}" must be a string when provided.`)
+    throw new TypeError(`Native renderer user/text_input intent payload field "${field}" must be a string when provided.`)
   }
   return value
 }
@@ -507,7 +507,7 @@ function optionalIntentStringField(
   if (value === undefined)
     return undefined
   if (typeof value !== 'string') {
-    throw new Error(`Native renderer ${intentType} intent payload field "${field}" must be a string when provided.`)
+    throw new TypeError(`Native renderer ${intentType} intent payload field "${field}" must be a string when provided.`)
   }
   return value
 }
@@ -532,7 +532,7 @@ function optionalFiniteNumberField(payload: Record<string, unknown>, field: stri
   if (value === undefined)
     return undefined
   if (typeof value !== 'number' || !Number.isFinite(value)) {
-    throw new Error(`Native renderer user/text_input intent payload field "${field}" must be a finite number when provided.`)
+    throw new TypeError(`Native renderer user/text_input intent payload field "${field}" must be a finite number when provided.`)
   }
   return value
 }
@@ -542,7 +542,7 @@ function optionalBooleanField(payload: Record<string, unknown>, field: string): 
   if (value === undefined)
     return undefined
   if (typeof value !== 'boolean') {
-    throw new Error(`Native renderer user/input_command intent payload field "${field}" must be a boolean when provided.`)
+    throw new TypeError(`Native renderer user/input_command intent payload field "${field}" must be a boolean when provided.`)
   }
   return value
 }

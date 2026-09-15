@@ -36,4 +36,3 @@ export function assertNativeRuntimePackageCompatibility(
     throw new Error(message || 'Native runtime package compatibility check failed.')
   }
 }
-

@@ -44,8 +44,9 @@ export function applyNativeQssStructuralLayout(
     || child.compilerLayout?.flexBasis !== undefined
     || child.compilerLayout?.alignSelf !== undefined)
   if (!layout && !hasChildLayout && !style?.padding && !style?.borderWidth
-    && !style?.borderTopWidth && !style?.borderRightWidth && !style?.borderBottomWidth && !style?.borderLeftWidth)
+    && !style?.borderTopWidth && !style?.borderRightWidth && !style?.borderBottomWidth && !style?.borderLeftWidth) {
     return [...children]
+  }
 
   bounds = nativeQssContentBounds(bounds, style)
   switch (kind) {
@@ -70,9 +71,7 @@ export function nativeQssContentBounds(
   const right = (style?.padding?.right ?? 0) + border(style?.borderRightWidth)
   const top = (style?.padding?.top ?? 0) + border(style?.borderTopWidth)
   const bottom = (style?.padding?.bottom ?? 0) + border(style?.borderBottomWidth)
-  return { x: bounds.x + left, y: bounds.y + top,
-    width: Math.max(0, bounds.width - left - right),
-    height: Math.max(0, bounds.height - top - bottom) }
+  return { x: bounds.x + left, y: bounds.y + top, width: Math.max(0, bounds.width - left - right), height: Math.max(0, bounds.height - top - bottom) }
 }
 
 export function stripNativeQssCompilerLayout(
@@ -349,7 +348,8 @@ function flexBasisMainSize(
   naturalSize: number,
 ): number {
   const basis = child.compilerLayout?.flexBasis
-  if (basis === undefined || basis === 'auto') return naturalSize
+  if (basis === undefined || basis === 'auto')
+    return naturalSize
   return Math.max(0, basis)
 }
 
@@ -358,7 +358,8 @@ function resolveEffectiveAlign(
   alignSelf: NativeQssResolvedLayout['alignSelf'],
   parentAlignItems: NativeQssAlignItemsValue | undefined,
 ): NativeQssAlignItemsValue | undefined {
-  if (!alignSelf || alignSelf === 'auto') return parentAlignItems
+  if (!alignSelf || alignSelf === 'auto')
+    return parentAlignItems
   return alignSelf
 }
 
@@ -376,13 +377,15 @@ function distributeFlex(
   freeSpace: number,
 ): number[] {
   const result = [...naturalSizes]
-  if (freeSpace === 0) return result
+  if (freeSpace === 0)
+    return result
 
   if (freeSpace > 0) {
     // Grow pass
     const growFactors = children.map(c => Math.max(0, c.compilerLayout?.flexGrow ?? 0))
     const totalGrow = growFactors.reduce((s, g) => s + g, 0)
-    if (totalGrow <= 0) return result
+    if (totalGrow <= 0)
+      return result
     for (let i = 0; i < result.length; i++) {
       if (growFactors[i] > 0)
         result[i] = Math.max(0, result[i] + freeSpace * (growFactors[i] / totalGrow))
@@ -394,7 +397,8 @@ function distributeFlex(
     // Weighted shrink: weight = factor * naturalSize (standard CSS flex-shrink)
     const shrinkWeights = shrinkFactors.map((f, i) => f * Math.max(0, naturalSizes[i]))
     const totalWeight = shrinkWeights.reduce((s, w) => s + w, 0)
-    if (totalWeight <= 0) return result
+    if (totalWeight <= 0)
+      return result
     const overflow = -freeSpace
     for (let i = 0; i < result.length; i++) {
       if (shrinkWeights[i] > 0)

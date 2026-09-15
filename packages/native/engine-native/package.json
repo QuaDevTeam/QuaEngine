@@ -46,13 +46,6 @@
     "@quajs/render-core": "workspace:*"
   },
   "devDependencies": {
-    "@quajs/assets": "workspace:*",
-    "@quajs/character": "workspace:*",
-    "@quajs/plugin-animation": "workspace:*",
-    "@quajs/plugin-audio": "workspace:*",
-    "@quajs/plugin-background": "workspace:*",
-    "@quajs/quack": "workspace:*",
-    "@quajs/script-compiler": "workspace:*",
     "typescript": "catalog:"
   }
 }

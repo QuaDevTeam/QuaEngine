@@ -1,8 +1,8 @@
-import type { NativeHostApiRequest, QuaNativeHostApi } from '@quajs/native-contracts'
 import type { BundleManifest, StoredAsset, StoredBundle } from '@quajs/assets'
+import type { NativeHostApiRequest, QuaNativeHostApi } from '@quajs/native-contracts'
 import { createNativeHostApiFromBridge } from '@quajs/native-contracts'
 import { describe, expect, it, vi } from 'vitest'
-import { NativeHostAssetStorage, createNativeAssetsAdapter } from '../src'
+import { createNativeAssetsAdapter, NativeHostAssetStorage } from '../src'
 
 function createHost(initialStorage: Record<string, Uint8Array> = {}): QuaNativeHostApi & {
   storage: Map<string, Uint8Array>
@@ -24,7 +24,7 @@ function createHost(initialStorage: Record<string, Uint8Array> = {}): QuaNativeH
     writeStorage: vi.fn(async (key, value) => {
       storage.set(key, new Uint8Array(value))
     }),
-    deleteStorage: vi.fn(async key => {
+    deleteStorage: vi.fn(async (key) => {
       storage.delete(key)
     }),
     listStorageKeys: vi.fn(async prefix => [...storage.keys()].filter(key => key.startsWith(prefix))),

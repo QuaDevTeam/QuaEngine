@@ -315,6 +315,7 @@ describe('native host bridge adapter contracts', () => {
     }))
 
     await expect(host.readAssetBytes({ url: 'missing.png' }))
-      .rejects.toThrow('Native asset "missing.png" was not found.')
+      .rejects
+      .toThrow('Native asset "missing.png" was not found.')
   })
 })

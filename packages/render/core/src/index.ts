@@ -958,13 +958,17 @@ export interface QuaViewProjection {
   renderer?: Readonly<ViewRendererProjection>
 }
 
-/** Platform-level renderer configuration projected from the engine to
+/**
+ * Platform-level renderer configuration projected from the engine to
  *  renderer implementations. Web renderers ignore fields they do not need;
- *  native renderers use `targetFrameRate` to drive the frame pacer. */
+ *  native renderers use `targetFrameRate` to drive the frame pacer.
+ */
 export interface ViewRendererProjection {
-  /** Target cadence in frames per second. Valid values are 30, 60, or 120.
+  /**
+   * Target cadence in frames per second. Valid values are 30, 60, or 120.
    *  Native renderers clamp to the display refresh rate and to [30, 240].
-   *  Absent means "use the platform default (60 FPS)". */
+   *  Absent means "use the platform default (60 FPS)".
+   */
   targetFrameRate?: number
 }
 
@@ -1848,5 +1852,5 @@ function createFlowControlControls(policy: ResolvedFlowControlPolicy): FlowContr
   }
 }
 
-export { createMenuActionPresentation, createSaveSlotGrid, saveSlotMeta, saveSlotDisplayName, isFilledSaveSlot, previewStatusLabel } from './ui-presentation'
-export type { MenuActionId, SaveSlotProjection, SaveSlotGridOptions } from './ui-presentation'
+export { createMenuActionPresentation, createSaveSlotGrid, isFilledSaveSlot, previewStatusLabel, saveSlotDisplayName, saveSlotMeta } from './ui-presentation'
+export type { MenuActionId, SaveSlotGridOptions, SaveSlotProjection } from './ui-presentation'

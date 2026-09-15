@@ -2,13 +2,13 @@ import type {
   QuaTargetBootstrap,
   TargetCorePluginFamily,
 } from './bootstrap'
+import type { TargetBundleManifest } from './target-bundle'
 import type {
   TargetBundlePackageGraphReference,
   TargetBundlePackageReference,
   TargetBundleProjectGraphKind,
   TargetBundleRendererEntryReference,
 } from './target-bundle-references'
-import type { TargetBundleManifest } from './target-bundle'
 import {
   collectTargetCoreAdapterRoots,
   getPackageTargetCorePluginFamily,

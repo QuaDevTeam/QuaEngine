@@ -72,10 +72,13 @@ export function createNativeRendererFeatureSurfaceOverlays(
     })
     const scene = recordValue(projection.ui)?.scene
     const append = (overlay: NativeRendererFeatureSurfaceOverlay) => overlays.push({
-      ...overlay, ...(scene && !overlay.scene ? { scene } : {}),
+      ...overlay,
+      ...(scene && !overlay.scene ? { scene } : {}),
     })
-    if (Array.isArray(result)) result.forEach(append)
-    else if (result) append(result as NativeRendererFeatureSurfaceOverlay)
+    if (Array.isArray(result))
+      result.forEach(append)
+    else if (result)
+      append(result as NativeRendererFeatureSurfaceOverlay)
   }
 
   return overlays

@@ -1,9 +1,9 @@
-import { collectTargetCoreAdapterRoots, normalizePackageSpecifier } from './bootstrap'
 import type {
   NativeGuardPackageReference,
   NativeGuardRuntimePackageManifest,
   NativeRuntimePackageGuardDiagnostic,
 } from './package-guard'
+import { collectTargetCoreAdapterRoots, normalizePackageSpecifier } from './bootstrap'
 
 export function collectTargetCoreDependencyDeclarations(
   runtimePackage: NativeGuardRuntimePackageManifest,

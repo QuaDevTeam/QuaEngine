@@ -3,7 +3,6 @@ import type {
   NativeUiDiagnostic,
   NativeUiLanguageOptions,
 } from './types'
-import { findNativeQssProperty } from './registry'
 import {
   parseNativeQssAlignItems,
   parseNativeQssAlignSelf,
@@ -16,6 +15,7 @@ import {
   parseNativeQssBorderImageSource,
   parseNativeQssBorderImageWidth,
   parseNativeQssBorderStyle,
+  parseNativeQssBoxShadow,
   parseNativeQssBoxSizing,
   parseNativeQssColor,
   parseNativeQssCoordinateNumber,
@@ -38,22 +38,22 @@ import {
   parseNativeQssOverflow,
   parseNativeQssPointerEvents,
   parseNativeQssPosition,
-  parseNativeQssBoxShadow,
+  parseNativeQssScale,
   parseNativeQssTextAlign,
   parseNativeQssTextDecoration,
   parseNativeQssTextOverflow,
-  parseNativeQssTextTransform,
   parseNativeQssTextShadow,
+  parseNativeQssTextTransform,
   parseNativeQssTransform,
   parseNativeQssTransformOrigin,
-  parseNativeQssTranslate,
-  parseNativeQssScale,
   parseNativeQssTransition,
+  parseNativeQssTranslate,
   parseNativeQssVisibility,
   parseNativeQssWhiteSpace,
 } from './qss-resolved-style'
+import { findNativeQssProperty } from './registry'
 
-const UNSUPPORTED_UNIT_PATTERN = /(?:^|[^\w-])(?:-?\d*\.?\d+)(em|rem|vw|vh|vmin|vmax|dvh|svh|lvh|cm|mm|in|pt|pc)\b/g
+const UNSUPPORTED_UNIT_PATTERN = /(?:^|[^\w-])-?(?:\d+(?:\.\d+)?|\.\d+)(em|rem|vw|vh|vmin|vmax|dvh|svh|lvh|cm|mm|in|pt|pc)\b/g
 
 export function validateDeclaration(
   declaration: NativeQssDeclaration,

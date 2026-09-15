@@ -80,8 +80,7 @@ function createBacklogRoot(
   const available = insetRect(context.safeArea, edge, edge)
   const width = Math.min(1040, available.width)
   const height = Math.min(660, available.height)
-  const preferred = { x: available.x + (available.width - width) / 2,
-    y: available.y + (available.height - height) / 2, width, height }
+  const preferred = { x: available.x + (available.width - width) / 2, y: available.y + (available.height - height) / 2, width, height }
   const panelBounds = options.resolvePanelBounds?.(context, preferred) ?? preferred
   const headerHeight = compact ? 88 : Math.max(64, Math.min(92, panelBounds.height * 0.1))
   const footerGap = Math.max(18, panelBounds.height * 0.025)
@@ -105,7 +104,10 @@ function createBacklogRoot(
     )), 0)
     const height = compact ? Math.max(56, 37 + lines * 19) : Math.max(entryHeight, 48 + lines * 32)
     const row = createBacklogEntryNode(entry, index, {
-      x: panelBounds.x + edge, y: entryY, width: panelBounds.width - edge * 2, height,
+      x: panelBounds.x + edge,
+      y: entryY,
+      width: panelBounds.width - edge * 2,
+      height,
     }, provenance, compact)
     entryY += height + entryGap
     return row
@@ -119,8 +121,9 @@ function createBacklogRoot(
     node('backlog-panel', 'Panel', panelBounds, {
       style: {
         backgroundColor: compact ? '#07080c' : '#12151a',
-        ...(compact ? { backgroundGradient: { kind: 'linear' as const, angleDegrees: 180,
-          stops: [{ color: 'rgba(20,22,30,0.96)', position: 0 }, { color: 'rgba(6,7,11,0.97)', position: 1 }] } } : {}),
+        ...(compact
+          ? { backgroundGradient: { kind: 'linear' as const, angleDegrees: 180, stops: [{ color: 'rgba(20,22,30,0.96)', position: 0 }, { color: 'rgba(6,7,11,0.97)', position: 1 }] } }
+          : {}),
         borderColor: compact ? 'rgba(245,226,190,0.34)' : '#5f6773',
         borderRadius: compact ? 2 : 6,
         borderWidth: 1,
@@ -221,20 +224,23 @@ function createBacklogEntryNode(
   ]
 
   if (compact) {
-    children.splice(0, children.length,
-      node(`backlog-entry-${index}-index`, 'Text', { x: bounds.x + 12, y: bounds.y + 10, width: 86, height: 15 }, {
-        text: String(index + 1).padStart(2, '0'), style: { color: '#81e5ff', fontSize: 10, fontFamily: ['Noto Sans'] }, provenance,
-      }),
-      node(`backlog-entry-${index}-metadata`, 'Text', { x: bounds.x + 12, y: bounds.y + 28, width: 86, height: 15 }, {
-        text: formatGameTime(entry.gameTimeMs), style: { color: 'rgba(247,242,234,0.48)', fontSize: 10, fontFamily: ['Noto Sans'] }, provenance,
-      }),
-      node(`backlog-entry-${index}-speaker`, 'Text', { x: bounds.x + 108, y: bounds.y + 10, width: Math.max(1, textRight - bounds.x - 108), height: 15 }, {
-        text: entry.speaker || '', style: { color: '#ffe3a0', fontSize: 13, fontFamily: ['Noto Sans'] }, provenance,
-      }),
-      node(`backlog-entry-${index}-body`, 'Text', { x: bounds.x + 108, y: bounds.y + 28, width: Math.max(1, textRight - bounds.x - 108), height: bounds.height - 37 }, {
-        text: body, style: { color: 'rgba(255,250,242,0.9)', fontSize: 13, fontFamily: ['Noto Sans'], lineHeight: 19, whiteSpace: 'pre-wrap' }, provenance,
-      }),
-    )
+    children.splice(0, children.length, node(`backlog-entry-${index}-index`, 'Text', { x: bounds.x + 12, y: bounds.y + 10, width: 86, height: 15 }, {
+      text: String(index + 1).padStart(2, '0'),
+      style: { color: '#81e5ff', fontSize: 10, fontFamily: ['Noto Sans'] },
+      provenance,
+    }), node(`backlog-entry-${index}-metadata`, 'Text', { x: bounds.x + 12, y: bounds.y + 28, width: 86, height: 15 }, {
+      text: formatGameTime(entry.gameTimeMs),
+      style: { color: 'rgba(247,242,234,0.48)', fontSize: 10, fontFamily: ['Noto Sans'] },
+      provenance,
+    }), node(`backlog-entry-${index}-speaker`, 'Text', { x: bounds.x + 108, y: bounds.y + 10, width: Math.max(1, textRight - bounds.x - 108), height: 15 }, {
+      text: entry.speaker || '',
+      style: { color: '#ffe3a0', fontSize: 13, fontFamily: ['Noto Sans'] },
+      provenance,
+    }), node(`backlog-entry-${index}-body`, 'Text', { x: bounds.x + 108, y: bounds.y + 28, width: Math.max(1, textRight - bounds.x - 108), height: bounds.height - 37 }, {
+      text: body,
+      style: { color: 'rgba(255,250,242,0.9)', fontSize: 13, fontFamily: ['Noto Sans'], lineHeight: 19, whiteSpace: 'pre-wrap' },
+      provenance,
+    }))
   }
 
   let controlX = bounds.x + bounds.width - 18
@@ -271,8 +277,7 @@ function createBacklogEntryNode(
     children,
     provenance,
     style: compact
-      ? { backgroundColor: '#080a10', borderColor: 'rgba(245,226,190,0.18)', borderWidth: 1, borderRadius: 4,
-          backgroundGradient: { kind: 'linear', angleDegrees: 180, stops: [{ color: 'rgba(20,24,33,0.88)', position: 0 }, { color: 'rgba(7,8,12,0.92)', position: 1 }] } }
+      ? { backgroundColor: '#080a10', borderColor: 'rgba(245,226,190,0.18)', borderWidth: 1, borderRadius: 4, backgroundGradient: { kind: 'linear', angleDegrees: 180, stops: [{ color: 'rgba(20,24,33,0.88)', position: 0 }, { color: 'rgba(7,8,12,0.92)', position: 1 }] } }
       : { backgroundColor: '#1a1e24', borderRadius: 4 },
   })
 }

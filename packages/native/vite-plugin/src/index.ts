@@ -1,7 +1,7 @@
 import type { Plugin } from 'vite'
-import { compileQssScss } from '@quajs/native-ui-compiler'
 import { readFile } from 'node:fs/promises'
 import { pathToFileURL } from 'node:url'
+import { compileQssScss } from '@quajs/native-ui-compiler'
 
 export interface QssScssPluginOptions {
   /**

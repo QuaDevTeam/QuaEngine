@@ -7,14 +7,14 @@ import type {
   RuntimePackageNativeRendererCompatibility,
   TargetBundleManifest,
 } from '@quajs/native-contracts'
+import type { NativeRendererFeatureSurfaceEntry } from './feature-surfaces'
+import type { NativeQuickJsRendererIntentBridge } from './quickjs-renderer-bridge'
+import type { NativeQuickJsHelperCallExecutor, NativeQuickJsHelperModuleRegistry, NativeQuickJsModuleNamespaceResolver, NativeQuickJsPipelineSubscriptionBridge, NativeQuickJsStepContextSerializer, NativeRuntimeModuleEvaluator } from './runtime-module-loader'
+import type { NativeSavePreviewCaptureProvider } from './save-preview-capture'
 import { assertNativeRuntimePackageGuard } from '@quajs/native-contracts'
 import { assertNativeRuntimePackageCompatibility } from './compatibility'
 import { NativeHostPlugin } from './native-host-plugin'
-import type { NativeSavePreviewCaptureProvider } from './save-preview-capture'
-import type { NativeRendererFeatureSurfaceEntry } from './feature-surfaces'
-import type { NativeQuickJsRendererIntentBridge } from './quickjs-renderer-bridge'
 import { createNativeHostQuickJsGameStepModuleNamespaceResolver, createNativeHostQuickJsModuleEvaluator, createNativeQuickJsPipelineSubscriptionBridge, createNativeRuntimeModuleLoader } from './runtime-module-loader'
-import type { NativeQuickJsHelperCallExecutor, NativeQuickJsHelperModuleRegistry, NativeQuickJsModuleNamespaceResolver, NativeQuickJsPipelineSubscriptionBridge, NativeQuickJsStepContextSerializer, NativeRuntimeModuleEvaluator } from './runtime-module-loader'
 
 declare const TextEncoder: {
   new(): { encode: (input: string) => Uint8Array }
@@ -230,11 +230,11 @@ function base64ToBytes(value: string): Uint8Array {
   return bytes
 }
 
+const BASE64_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+
 function base64Value(char: string): number {
   const value = BASE64_ALPHABET.indexOf(char)
   if (value < 0)
     throw new Error('Invalid native package signature base64 character.')
   return value
 }
-
-const BASE64_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'

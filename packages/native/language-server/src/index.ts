@@ -16,12 +16,11 @@ import { createNativeUiAssetCodeActions } from './code-actions'
 import { toLspDiagnostic } from './server-lsp'
 import { offsetAtPosition } from './source-ranges'
 
-export { offsetAtPosition } from './source-ranges'
-
 export type {
   NativeUiProjectAssetReference,
   NativeUiProjectAssetReferenceSource,
 } from './asset-references'
+
 export {
   isSafeNativeUiProjectAssetName,
 } from './asset-references'
@@ -54,6 +53,7 @@ export {
   findNativeUiProjectReferences,
   getNativeUiProjectDocumentLinks,
 } from './project-references'
+export { offsetAtPosition } from './source-ranges'
 export type {
   NativeUiCompletionItem,
   NativeUiDiagnostic,

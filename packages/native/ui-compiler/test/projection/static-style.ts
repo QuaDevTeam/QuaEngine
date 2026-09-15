@@ -1,6 +1,5 @@
+import { Box, Button, Image, Panel, Text, ui } from '@quajs/native-ui'
 import { describe, expect, it } from 'vitest'
-import { Box, Button, Image, Panel, Text } from '@quajs/native-ui'
-import { ui } from '@quajs/native-ui'
 import { analyzeQssSource, compileQuiTsxProjection } from '../../src'
 import { withDefaultVisible } from './helpers'
 
@@ -68,21 +67,14 @@ Button.primary { background-color: #f0c15a; color: #18130a; font-weight: bold; p
           padding: { top: 20, right: 24, bottom: 20, left: 24 },
         },
         children: [
-          { id: 'title', kind: 'Text', bounds: { x: 32, y: 28, width: 240, height: 44 },
-            zIndex: 8, text: 'Main Menu', provenance,
-            style: { color: '#f7f3e8', fontSize: 34, padding: { top: 2, right: 4, bottom: 2, left: 4 } } },
-          { id: 'poster', kind: 'Image', bounds: { x: 40, y: 96, width: 180, height: 112 },
-            provenance, image: { assetType: 'images', assetName: 'ui/poster.png' } },
-          { id: 'close', kind: 'Button', bounds: { x: 340, y: 236, width: 120, height: 48 },
-            text: 'Close',
-            intent: { event: 'ui/intent', action: 'close', metadata: { arg0: 'menu' } },
-            provenance,
-            style: {
-              backgroundColor: '#f0c15a',
-              color: '#18130a',
-              fontWeight: 'bold',
-              padding: { top: 8, right: 14, bottom: 10, left: 16 },
-            } },
+          { id: 'title', kind: 'Text', bounds: { x: 32, y: 28, width: 240, height: 44 }, zIndex: 8, text: 'Main Menu', provenance, style: { color: '#f7f3e8', fontSize: 34, padding: { top: 2, right: 4, bottom: 2, left: 4 } } },
+          { id: 'poster', kind: 'Image', bounds: { x: 40, y: 96, width: 180, height: 112 }, provenance, image: { assetType: 'images', assetName: 'ui/poster.png' } },
+          { id: 'close', kind: 'Button', bounds: { x: 340, y: 236, width: 120, height: 48 }, text: 'Close', intent: { event: 'ui/intent', action: 'close', metadata: { arg0: 'menu' } }, provenance, style: {
+            backgroundColor: '#f0c15a',
+            color: '#18130a',
+            fontWeight: 'bold',
+            padding: { top: 8, right: 14, bottom: 10, left: 16 },
+          } },
         ],
       },
     }))

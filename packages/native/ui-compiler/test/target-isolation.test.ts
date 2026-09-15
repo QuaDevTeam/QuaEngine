@@ -4,8 +4,8 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import {
-  collectForbiddenTargetCoreManifestDependencyViolations,
   collectForbiddenTargetCoreImportViolations,
+  collectForbiddenTargetCoreManifestDependencyViolations,
   importSpecifiers,
   sourceFiles,
 } from './target-isolation-helpers'

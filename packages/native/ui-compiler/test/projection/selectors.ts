@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
 import { Button, Column, Panel } from '@quajs/native-ui'
+import { describe, expect, it } from 'vitest'
 import { analyzeQssSource, compileQuiTsxProjection } from '../../src'
 
 describe('@quajs/native-ui-compiler projection selectors', () => {

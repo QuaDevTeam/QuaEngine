@@ -1,11 +1,11 @@
 import { createHash } from 'node:crypto'
-import { mkdtemp, mkdir, readFile, realpath, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { build } from 'vite'
 import { expect, it } from 'vitest'
-import { webSecurityPlugin } from '../src/plugins/web-security'
 import { quackPlugin } from '../src/plugins/quack'
+import { webSecurityPlugin } from '../src/plugins/web-security'
 
 it('hashes final Vite chunks after dynamic-import preloads and HTML emission', async () => {
   const root = await realpath(await mkdtemp(join(tmpdir(), 'qua-sri-build-')))
@@ -31,11 +31,13 @@ it('hashes final Vite chunks after dynamic-import preloads and HTML emission', a
         },
       },
     })
-    if (Array.isArray(result) || !('output' in result)) throw new Error('Expected one output bundle')
+    if (Array.isArray(result) || !('output' in result))
+      throw new Error('Expected one output bundle')
     const output = result.output
     const readAsset = (name: string) => {
       const asset = output.find(item => item.fileName === name)
-      if (!asset || asset.type !== 'asset') throw new Error(`Missing asset ${name}`)
+      if (!asset || asset.type !== 'asset')
+        throw new Error(`Missing asset ${name}`)
       return typeof asset.source === 'string' ? asset.source : Buffer.from(asset.source).toString('utf8')
     }
     const manifest = JSON.parse(readAsset('qua-security/security-manifest.json'))
@@ -49,7 +51,7 @@ it('hashes final Vite chunks after dynamic-import preloads and HTML emission', a
     }
     for (const page of ['index.html', 'nested/index.html']) {
       const html = readAsset(page)
-      const script = html.match(/<script\b[^>]*src="([^"]+)"[^>]*>/)?.[0]
+      const script = html.match(/<script\b[^>]+src="([^"]+)"[^>]*>/)?.[0]
       expect(script).toBeDefined()
       const fileName = script!.match(/src="\/demo\/([^"]+)"/)?.[1]
       const entry = manifest.sri.assets.find((item: { fileName: string }) => item.fileName === fileName)

@@ -90,8 +90,8 @@ const qssAcceptanceCases: Record<string, QssAcceptanceCase> = {
   },
   'border-image-source': {
     validDeclarations: ['border-image-source: asset("ui/panel.png")'],
-    invalidDeclaration: 'border-image-source: panel.png',  // missing asset() wrapper
-    expected: { style: {} },  // source alone doesn't populate borderImage (slice required)
+    invalidDeclaration: 'border-image-source: panel.png', // missing asset() wrapper
+    expected: { style: {} }, // source alone doesn't populate borderImage (slice required)
   },
   'border-image-slice': {
     validDeclarations: [

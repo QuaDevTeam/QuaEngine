@@ -80,10 +80,10 @@ export function sourceFiles(root: string): string[] {
 }
 
 export function importSpecifiers(source: string): string[] {
-  const pattern = /\b(?:import|export)\s+(?:type\s+)?(?:[^'"]*?\s+from\s+)?['"]([^'"]+)['"]|\bimport\s*\(\s*(?:\/\*[\s\S]*?\*\/\s*)?['"]([^'"]+)['"]\s*\)|\brequire\s*\(\s*['"]([^'"]+)['"]\s*\)/g
+  const pattern = /\bfrom\s+['"]([^'"]+)['"]|\bimport\s+['"]([^'"]+)['"]|\bimport\s*\(\s*(?:\/\*[\s\S]*?\*\/\s*)?['"]([^'"]+)['"]\s*\)|\brequire\s*\(\s*['"]([^'"]+)['"]\s*\)/g
   const specifiers: string[] = []
   for (const match of source.matchAll(pattern))
-    specifiers.push(match[1] ?? match[2] ?? match[3])
+    specifiers.push(match[1] ?? match[2] ?? match[3] ?? match[4])
   return specifiers
 }
 
