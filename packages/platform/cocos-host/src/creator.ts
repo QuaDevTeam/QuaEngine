@@ -18,6 +18,7 @@ import type {
   CocosRuntimeHost,
   CocosStorageHost,
 } from './index'
+import { CocosResourcePool } from './resources/pool'
 
 export interface CocosCreatorHostOptions {
   rootNode: unknown
@@ -102,6 +103,7 @@ export interface CocosCreatorModule {
   Sprite?: unknown
   Label?: unknown
   RichText?: unknown
+  Graphics?: unknown
   Button?: unknown
   EditBox?: unknown
   Toggle?: unknown
@@ -152,12 +154,17 @@ export function createCocosCreatorHost(options: CocosCreatorHostOptions): CocosH
   const parentNodes = new Map<string, CocosCreatorNode>()
   const slicedFrames = new Map<string, any>()
   const visualNodes = new Map<string, Map<string, any>>()
+  const solidColors = new Map<string, string>()
   const metadataByNode = new Map<string, Record<string, unknown>>()
   const root = wrapNode(options.rootNode, 'root', 'root')
   registerNode(root)
 
   const fileBridge = options.files
   const resourceBridge = options.resources
+  const resourcePool = new CocosResourcePool(resources, {
+    retain: resourceBridge?.retainResource ? resource => resourceBridge.retainResource!(resource) : undefined,
+    release: resourceBridge?.releaseResource ? resource => resourceBridge.releaseResource!(resource) : undefined,
+  })
   const audioBridge = options.audio
 
   const nodeHost = {
@@ -185,6 +192,7 @@ export function createCocosCreatorHost(options: CocosCreatorHostOptions): CocosH
       parentNodes.delete(current.id)
       metadataByNode.delete(current.id)
       visualNodes.delete(current.id)
+      solidColors.delete(current.id)
       slicedFrames.get(current.id)?.destroy?.()
       slicedFrames.delete(current.id)
     },
@@ -197,6 +205,8 @@ export function createCocosCreatorHost(options: CocosCreatorHostOptions): CocosH
       }
       const parentNative = parentNode.native as any
       const childNative = childNode.native as any
+      if (typeof parentNative?.layer === 'number')
+        childNative.layer = parentNative.layer
       parentNative?.addChild?.(childNative)
       if (Array.isArray(parentNative?.children) && !parentNative.children.includes(childNative)) {
         parentNative.children.push(childNative)
@@ -233,6 +243,7 @@ export function createCocosCreatorHost(options: CocosCreatorHostOptions): CocosH
       for (const visual of visualNodes.get(node.id)?.values() || [])
         visual.destroy?.()
       visualNodes.delete(node.id)
+      solidColors.delete(node.id)
       native?.removeAllChildren?.()
     },
     setNodeVisible(node: CocosHostNode, visible: boolean) {
@@ -315,8 +326,27 @@ export function createCocosCreatorHost(options: CocosCreatorHostOptions): CocosH
       native.control = clonePlain(control)
     },
     setNodeColor(node: CocosHostNode, color?: string) {
-      const native = asCreatorNode(node).native as any
+      const current = asCreatorNode(node)
+      const native = current.native as any
       native.color = parseCocosColor(options.cc, color)
+      const spriteNode = visualNodes.get(node.id)?.get('sprite')
+      const sprite = getComponent(spriteNode || native, options.cc?.Sprite, 'cc.Sprite')
+      if (sprite) {
+        sprite.color = parseCocosColor(options.cc, color || '#ffffff')
+        return
+      }
+      if (!color) {
+        solidColors.delete(node.id)
+        const visual = visualNodes.get(node.id)?.get('color')
+        if (visual)
+          visual.active = false
+        return
+      }
+      solidColors.set(node.id, color)
+      const graphics = presentationComponent(current, 'color', options.cc?.Graphics, 'cc.Graphics')
+      if (!graphics)
+        warn('Cocos Creator solid color projection requires cc.Graphics; color metadata is retained only.')
+      updatePresentation(current)
     },
     setNodeMetadata(node: CocosHostNode, metadata: Record<string, unknown>) {
       metadataByNode.set(asCreatorNode(node).id, { ...metadata })
@@ -410,54 +440,43 @@ export function createCocosCreatorHost(options: CocosCreatorHostOptions): CocosH
       },
       async createResource(kind: CocosHostResourceKind, data, resourceOptions = {}) {
         const id = resourceOptions.id || `${kind}:${++resourceSerial}`
-        const existing = resources.get(id)
-        if (existing)
-          return existing
-        if (!resourceBridge?.createResource && kind !== 'custom') {
-          throw new Error(`Cocos Creator requires resources.createResource to decode ${kind} bytes into a native asset.`)
-        }
-        const resource = await resourceBridge?.createResource?.(kind, data, {
-          id,
-          source: resourceOptions.source,
-          mimeType: resourceOptions.mimeType,
-          metadata: resourceOptions.metadata,
-          cc: options.cc,
-        }) || {
-          id,
-          kind,
-          source: resourceOptions.source,
-          mimeType: resourceOptions.mimeType,
-          width: Number(resourceOptions.metadata?.width) || undefined,
-          height: Number(resourceOptions.metadata?.height) || undefined,
-          duration: Number(resourceOptions.metadata?.duration) || undefined,
-          native: new Uint8Array(data),
-        }
-        resources.set(id, resource)
-        return resource
+        return (await resourcePool.acquire(id, kind, async () => {
+          if (!resourceBridge?.createResource && kind !== 'custom') {
+            throw new Error(`Cocos Creator requires resources.createResource to decode ${kind} bytes into a native asset.`)
+          }
+          const resource = await resourceBridge?.createResource?.(kind, data, {
+            id,
+            source: resourceOptions.source,
+            mimeType: resourceOptions.mimeType,
+            metadata: resourceOptions.metadata,
+            cc: options.cc,
+          }) || {
+            id,
+            kind,
+            source: resourceOptions.source,
+            mimeType: resourceOptions.mimeType,
+            width: Number(resourceOptions.metadata?.width) || undefined,
+            height: Number(resourceOptions.metadata?.height) || undefined,
+            duration: Number(resourceOptions.metadata?.duration) || undefined,
+            native: new Uint8Array(data),
+          }
+          return resource
+        }))!
       },
       async loadResource(kind: CocosHostResourceKind, source, resourceOptions = {}) {
         const id = resourceOptions.id || `${kind}:${source}`
-        const existing = resources.get(id)
-        if (existing)
-          return existing
-        const resource = await resourceBridge?.loadResource?.(kind, source, {
+        return resourcePool.acquire(id, kind, async () => resourceBridge?.loadResource?.(kind, source, {
           id,
           mimeType: resourceOptions.mimeType,
           metadata: resourceOptions.metadata,
           cc: options.cc,
-        })
-        if (!resource)
-          return undefined
-        resources.set(id, resource)
-        return resource
+        }))
       },
       retainResource(resource) {
-        resourceBridge?.retainResource?.(resource)
+        resourcePool.retain(resource)
       },
       releaseResource(resource) {
-        resourceBridge?.releaseResource?.(resource)
-        if (resources.get(resource.id) === resource)
-          resources.delete(resource.id)
+        resourcePool.release(resource)
       },
     },
     audio: {
@@ -598,6 +617,8 @@ export function createCocosCreatorHost(options: CocosCreatorHostOptions): CocosH
     let visual = visuals.get(kind)
     if (!visual) {
       visual = new options.cc.Node(`qua-${kind}`)
+      if (typeof (node.native as any)?.layer === 'number')
+        visual.layer = (node.native as any).layer
       ;(node.native as any).addChild?.(visual)
       visuals.set(kind, visual)
     }
@@ -621,7 +642,20 @@ export function createCocosCreatorHost(options: CocosCreatorHostOptions): CocosH
       ui?.setContentSize?.(node.transform.width ?? 0, node.transform.height ?? 0)
       ui?.setAnchorPoint?.(node.transform.anchorX ?? 0, 1 - (node.transform.anchorY ?? 0))
       visual.setPosition?.(0, 0, 0)
-      visual.setSiblingIndex?.(kind === 'sprite' ? 0 : 1)
+      visual.setSiblingIndex?.(kind === 'color' || kind === 'sprite' ? 0 : 1)
+      if (kind === 'color') {
+        const color = solidColors.get(node.id)
+        visual.active = Boolean(color)
+        const graphics = getComponent(visual, options.cc?.Graphics, 'cc.Graphics')
+        if (graphics && color) {
+          const width = node.transform.width ?? 0
+          const height = node.transform.height ?? 0
+          graphics.clear()
+          graphics.fillColor = parseCocosColor(options.cc, color)
+          graphics.rect(-(node.transform.anchorX ?? 0) * width || 0, -((1 - (node.transform.anchorY ?? 0)) * height), width, height)
+          graphics.fill()
+        }
+      }
     }
   }
 

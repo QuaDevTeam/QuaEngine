@@ -18,10 +18,12 @@ import {
   settingsValuesEqual,
   stringifySettingsInputValue,
 } from '@quajs/plugin-settings/form'
-import { clientPointToStageLogical, DEFAULT_UI_OVERLAY_Z_INDEXES, LogicToRenderEvents } from '@quajs/render-core'
+import { DEFAULT_UI_OVERLAY_Z_INDEXES } from '@quajs/render-core'
 import { resolveCocosUiOverlayPlacement, resolveCocosUiOverlayZIndex } from '../overlay-placement'
 import { applyCocosUiControlSkin } from '../ui-skin'
 import { defineCocosRendererPlugin } from './core'
+import { createCocosProjectionTask } from './projection-task'
+import { resolveInputMetadataAny } from './projection-utils'
 
 const DEFAULT_SETTINGS_ELEMENT_ID = 'settings'
 
@@ -34,18 +36,14 @@ export function createSettingsCocosRendererPlugin(options: SettingsCocosRenderer
     name: '@quajs/renderer-cocos/settings',
     setup(context) {
       const elementId = options.elementId || DEFAULT_SETTINGS_ELEMENT_ID
+      const project = createCocosProjectionTask(context, 'settings', cocos => renderSettingsLayer({ ...context, cocos, getViewState: cocos.getViewState }, elementId))
       const sync = () => {
-        void renderSettingsLayer(context, elementId).catch(error => context.reportError(error, {
-          message: 'Cocos settings projection failed.',
-          phase: 'renderer-cocos:settings',
-          pluginName: '@quajs/renderer-cocos/settings',
-        }))
+        void project()
       }
-      context.addDisposer(context.onLogicToRender(LogicToRenderEvents.VIEW_UPDATE, sync))
       context.addDisposer(context.cocos.host.input.onInput(async (event) => {
         if (event.kind !== 'pointer' || event.phase !== 'down')
           return
-        const metadata = resolveSettingsActionMetadata(context, event)
+        const metadata = resolveInputMetadataAny(context, event, ['settingsAction'])
         if (!metadata)
           return
         await dispatchSettingsAction(context, elementId, metadata, event.metadata)
@@ -430,25 +428,6 @@ function settingsSkinKind(control: string): 'button' | 'panel' | 'input' | 'tab'
   if (control === 'select' || control === 'radio')
     return 'tab'
   return 'input'
-}
-
-function resolveSettingsActionMetadata(
-  context: CocosRendererPluginContext,
-  event: { x?: number, y?: number, targetNode?: unknown, metadata?: Record<string, unknown> },
-): Record<string, unknown> | undefined {
-  if (typeof event.metadata?.settingsAction === 'string')
-    return event.metadata
-  const targetNode = event.targetNode
-  if (targetNode) {
-    const metadata = context.cocos.host.nodes.getNodeMetadata?.(targetNode as Parameters<typeof context.cocos.host.nodes.getNodeMetadata>[0])
-    return typeof metadata?.settingsAction === 'string' ? metadata : undefined
-  }
-  const point = clientPointToStageLogical(context.cocos.getStageLayout(), {
-    clientX: event.x ?? 0,
-    clientY: event.y ?? 0,
-  })
-  const hit = context.cocos.host.nodes.hitTest?.(context.cocos.getRootNode(), point, { metadataKey: 'settingsAction' })
-  return typeof hit?.metadata?.settingsAction === 'string' ? hit.metadata : undefined
 }
 
 async function dispatchSettingsAction(

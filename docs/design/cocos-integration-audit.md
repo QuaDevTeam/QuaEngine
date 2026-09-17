@@ -19,6 +19,13 @@ without an installed Cocos Creator runtime.
 | Asset cache | The byte directory was never created, concurrent index writes could race, and reads retained full byte arrays in the metadata map. Directory creation, serialized index writes, and metadata-only retention fix these paths. Materialization shares in-flight creation and cleans late completions after clear. |
 | Save backend | Snapshot-capture failure left rollback disabled; overlapping transactions silently joined another transaction; orphaned payloads/previews survived clear. Capture always resets transaction state, overlaps/nesting reject explicitly, and clear removes all slot records. Unsupported envelopes reject at decode. |
 | Trust policy | Comparing two hashes supplied by a package was treated as sufficient integrity. Static runtime package opt-in now requires an application verifier by default; metadata comparison remains explicitly metadata-only. |
+| Panel refresh and cancellation | Settings and backlog only listened to pipeline view events, missing public setters and safe-area refreshes. Settings skins could complete after the panel closed or renderer was destroyed, writing into dead nodes and retaining resources. Both consume snapshot refreshes; asynchronous settings work uses the cancellable projection task. |
+| Settings input | Settings-only hit tests ignored higher overlays, allowing clicks to reset/change settings underneath another panel. Settings now use the shared frontmost interactive target lookup. |
+| Font replacement | Loaded font signatures ignored asset replacement and package candidate changes. Registration now includes asset revision and required package candidates. |
+| Shared native resources | Creator duplicated concurrent decodes and released shared assets on the first caller's release. The shared Creator/fake resource pool coalesces creation, counts leases, rejects mismatched IDs/kinds, and ignores stale releases. |
+| Asynchronous audio disposal | Replacing/removing tracks and renderer teardown released resources before native stop/dispose finished. Each audio handle now owns a resource lease through disposal; renderer teardown awaits pending disposal. |
+| Solid color projection | Creator stored a color on a node without a drawable component, so basic scene fades/effects were invisible. Solid rectangles now use optional `cc.Graphics`, update with logical size/anchor changes, and warn if Graphics is unavailable. Existing sprites receive tint directly. |
+| Creator camera visibility | New nodes retained Creator's default layer instead of the parent Canvas layer, which could make sprites/text invisible to a UI-only camera. Projection nodes and presentation children now inherit their parent render layer. |
 
 ## Host integration requirements
 
@@ -33,10 +40,19 @@ Supply `resources.createResource` to decode QPK bytes into actual Creator assets
 `resources.loadResource` to load hybrid native assets, and
 `audio.createAudioHandle` for native playback. The audio bridge owns native end
 notifications and handle disposal; optional seek/rate/EQ capabilities must reflect
-what it implements. Resource decoders must return the requested resource ID.
+what it implements. Resource decoders must return the requested resource ID and
+kind. Each successful resource create/load acquires one lease; release it once
+when finished. The host coalesces concurrent requests for an ID and balances
+optional native retain/release hooks. Without a native retain hook, the host
+releases the allocation only after its last owner releases.
+
+Audio resource leases cover native creation as well as stop/dispose. Teardown
+awaits disposal of existing handles; an unfinished native creation keeps its
+resource until it returns and its cancelled handle is disposed.
 
 The default Creator node bridge supports basic position/size/opacity, sprite and
-text projection, and basic control components. Video, material-based masks,
+text projection, solid rectangles when `cc.Graphics` is supplied, and basic
+control components. Video, material-based masks,
 filters/blend/composition, frame crops, clip rendering, skin interaction states,
 and fully styled native controls require a custom node/control implementation.
 The bridge retains their projection metadata and warns rather than claiming that
@@ -66,11 +82,14 @@ Run lint on the changed package files and Quack's `cocos-target`,
 both a fake host and a Creator-shaped node/component fixture. Deferred promises
 exercise slow resource completion, cancellation, sharing, and rollback failures.
 
-Recorded verification for this change: 138 tests pass across these six packages
-(21 host, 68 renderer, 11 assets, 6 store, 5 security, 27 render-core), plus 41
-Quack target/project tests. Package type checks, builds and lint pass. The added
-regressions include unchanged native audio start counts, fade completion, and a
-cancelled pending native audio handle that never starts playback.
+Recorded verification on 2026-09-17: 156 tests pass across these six packages
+(27 host, 80 renderer, 11 assets, 6 store, 5 security, 27 render-core), plus 41
+Quack target/project tests. All six package type checks and builds pass; full
+host/renderer lint and `git diff --check` pass. This follow-up adds 18 regressions
+covering panel cancellation/refresh, overlay occlusion, font replacement, shared
+resource leases, native camera layers, solid color drawing, and delayed/failing
+audio creation, seeking and disposal. Two animation/audio timing tests now advance
+fake timers explicitly instead of relying on a 100 ms wall-clock deadline.
 
 No Creator editor, simulator, device, native asset importer, real filesystem,
 actual audio playback, visual output, or native GPU behavior is verified here.

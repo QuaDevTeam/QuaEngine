@@ -1539,7 +1539,9 @@ describe('@quajs/renderer-cocos', () => {
     })
   })
 
-  it('applies Cocos audio seek, fade, and gain automation', async () => {
+  it('applies Cocos audio seek, fade, and gain automation', async ({ onTestFinished }) => {
+    vi.useFakeTimers()
+    onTestFinished(() => vi.useRealTimers())
     let now = 0
     const host = createFakeCocosHost({ now: () => now })
     const renderer = new QuaCocosRendererController({
@@ -1601,7 +1603,7 @@ describe('@quajs/renderer-cocos', () => {
     expect(host.audioBusVolumes.get('master')).toBeCloseTo(10 ** (-6 / 20), 6)
 
     now = 500
-    await waitForEventually(() => handle.volume > 0.2)
+    await vi.advanceTimersByTimeAsync(16)
 
     expect(handle.volume).toBeCloseTo((10 ** (-6 / 20)) * 0.5, 6)
     expect(handle.eqBands).toEqual([{ frequency: 1000, gainDb: -3 }])
@@ -1712,7 +1714,9 @@ describe('@quajs/renderer-cocos', () => {
     expect(host.audioHandlesById.get('bgm:main')?.volume).toBeCloseTo(10 ** (-6 / 20), 6)
   })
 
-  it('ticks running Cocos animations without synthetic view updates', async () => {
+  it('ticks running Cocos animations without synthetic view updates', async ({ onTestFinished }) => {
+    vi.useFakeTimers()
+    onTestFinished(() => vi.useRealTimers())
     let now = 0
     const host = createFakeCocosHost({ now: () => now })
     const pendingFrames = new Set<number>()
@@ -1758,7 +1762,7 @@ describe('@quajs/renderer-cocos', () => {
     expect(pendingFrames.size).toBeGreaterThan(0)
 
     now = 500
-    await waitForEventually(() => findNodeByKind(host, 'dialogue-box')?.transform.opacity === 0.5)
+    await vi.advanceTimersByTimeAsync(16)
 
     expect(findNode(host, 'qua-scene')?.transform.x).toBe(10)
     expect(findNode(host, 'menu')?.transform.x).toBe(20)
@@ -1999,6 +2003,7 @@ describe('@quajs/renderer-cocos', () => {
     expect(findNode(host, 'achievement:item:first:image')?.sprite?.source).toBe('first-icon.png')
     expect(findNode(host, 'achievement:item:first:badges')?.text).toContain('2/3')
     expect(findNode(host, 'achievement:item:first:badges')?.text).toContain('route')
+    await waitFor(() => Boolean(findNode(host, 'achievement:detail:first:image')?.sprite))
     expect(findNode(host, 'achievement:detail:first:image')?.sprite?.source).toBe('first-banner.png')
     expect(findNode(host, 'achievement:detail:first')?.text).toContain('Unlocked 1970-01-01T00:00:00.001Z')
     const sound = host.audioHandlesById.get('achievement:toast-1:sound')
@@ -2304,7 +2309,7 @@ describe('@quajs/renderer-cocos', () => {
     await renderer.start()
     await pipeline.emit(LogicToRenderEvents.VIEW_UPDATE, { view: createView({ backgroundAsset: 'new.png' }) })
     finish()
-    await flushAsync()
+    await waitFor(() => findNodeByKind(host, 'background')?.sprite?.source === 'new.png')
     expect(findNodeByKind(host, 'background')?.sprite?.source).toBe('new.png')
     expect([...host.resourcesById.values()].some(resource => resource.source === 'old.png')).toBe(false)
     await renderer.destroy()

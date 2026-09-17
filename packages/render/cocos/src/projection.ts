@@ -274,7 +274,6 @@ export async function renderCocosAudio(context: CocosRendererHostContext, option
     if (!resource)
       continue
     activeKeys.push(key)
-    context.setLayerResource('audio', key, resource)
     const state = stringValue(track.state, 'playing')
     await context.syncAudioHandle('audio', key, resource, {
       loop: booleanValue(track.loop, kind === 'bgm' || kind === 'ambient'),
@@ -294,6 +293,7 @@ export async function renderCocosAudio(context: CocosRendererHostContext, option
       interruptible: booleanValue(track.interruptible, kind === 'voice' || kind === 'sfx'),
       endedPayload: audioTrackEndedPayload(track, kind, id, assetName),
     })
+    context.setLayerResource('audio', key, resource)
   }
   context.releaseAudioHandles('audio', activeKeys)
 }
