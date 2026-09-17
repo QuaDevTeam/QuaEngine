@@ -344,7 +344,7 @@ describe('createCocosCreatorHost', () => {
     expect(host.runtime.now()).toBe(0)
     expect((node as any).native).toMatchObject({
       x: 30,
-      y: 20,
+      y: -20,
       scaleX: 4,
       scaleY: 3,
       width: 100,

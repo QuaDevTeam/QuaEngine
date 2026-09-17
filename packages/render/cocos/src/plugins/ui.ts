@@ -1,8 +1,10 @@
 import type { RenderCocosUiOptions } from '../projection'
 import type { CocosRendererPluginContext } from '../types'
-import { clientPointToStageLogical, LogicToRenderEvents } from '@quajs/render-core'
+import { clientPointToStageLogical } from '@quajs/render-core'
 import { renderCocosUi } from '../projection'
 import { defineCocosRendererPlugin } from './core'
+import { createCocosProjectionTask } from './projection-task'
+import { INTERACTIVE_CONTROL_METADATA_KEYS } from './projection-utils'
 
 export interface UiCocosRendererPluginOptions extends RenderCocosUiOptions {}
 
@@ -10,14 +12,10 @@ export function createUiCocosRendererPlugin(options: UiCocosRendererPluginOption
   return defineCocosRendererPlugin({
     name: '@quajs/renderer-cocos/ui',
     setup(context) {
+      const project = createCocosProjectionTask(context, 'ui', cocos => renderCocosUi(cocos, options))
       const sync = () => {
-        void renderCocosUi(context.cocos, options).catch(error => context.reportError(error, {
-          message: 'Cocos UI projection failed.',
-          phase: 'renderer-cocos:ui',
-          pluginName: '@quajs/renderer-cocos/ui',
-        }))
+        void project()
       }
-      context.addDisposer(context.onLogicToRender(LogicToRenderEvents.VIEW_UPDATE, sync))
       context.addDisposer(context.cocos.registerAnimationSync(sync))
       context.addDisposer(context.cocos.host.input.onInput(async (event) => {
         if (event.kind !== 'pointer' || event.phase !== 'down')
@@ -49,7 +47,9 @@ function resolveUiActionMetadata(
     clientX: event.x ?? 0,
     clientY: event.y ?? 0,
   })
-  const hit = context.cocos.host.nodes.hitTest?.(context.cocos.getRootNode(), point, { metadataKey: 'uiAction' })
+  if (!point.insideStage)
+    return undefined
+  const hit = context.cocos.host.nodes.hitTest?.(context.cocos.getRootNode(), point, { metadataKeys: INTERACTIVE_CONTROL_METADATA_KEYS })
   return typeof hit?.metadata?.uiAction === 'string' ? hit.metadata : undefined
 }
 

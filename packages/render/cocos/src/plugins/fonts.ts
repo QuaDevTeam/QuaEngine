@@ -1,6 +1,7 @@
 import { LogicToRenderEvents } from '@quajs/render-core'
 import { resolveAssetWithTargetPackages, runtimePackageCandidatesFromMetadata } from '../utils'
 import { defineCocosRendererPlugin } from './core'
+import { createCocosProjectionTask } from './projection-task'
 
 export function createFontsCocosRendererPlugin() {
   return defineCocosRendererPlugin({
@@ -8,6 +9,7 @@ export function createFontsCocosRendererPlugin() {
     setup(context) {
       const records = new Map<string, CocosFontRecord>()
       let warnedUnsupported = false
+      let disposed = false
 
       const unregisterRecord = async (key: string, record: CocosFontRecord) => {
         await context.cocos.host.fonts?.unregisterFontFace(key)
@@ -15,10 +17,10 @@ export function createFontsCocosRendererPlugin() {
         records.delete(key)
       }
 
-      const sync = async (options: { retryFailed?: boolean } = {}) => {
-        const node = context.cocos.getLayerNode('fonts', 'font-layer', 5)
-        const projection = resolveFontsProjection(context.cocos.getViewState().plugins.fonts)
-        context.cocos.host.nodes.setNodeMetadata?.(node, {
+      const project = createCocosProjectionTask<{ retryFailed?: boolean }>(context, 'fonts', async (cocos, options) => {
+        const node = cocos.getLayerNode('fonts', 'font-layer', 5)
+        const projection = resolveFontsProjection(cocos.getViewState().plugins.fonts)
+        cocos.host.nodes.setNodeMetadata?.(node, {
           plugin: 'fonts',
           faces: projection.faces.map(face => ({
             family: stringValue(face.family),
@@ -30,11 +32,11 @@ export function createFontsCocosRendererPlugin() {
           requiredRuntimePackages: projection.requiredRuntimePackages,
         })
 
-        const fonts = context.cocos.host.fonts
+        const fonts = cocos.host.fonts
         if (!fonts?.registerFontFace) {
           if (projection.faces.length > 0 && !warnedUnsupported) {
             warnedUnsupported = true
-            context.cocos.reportWarning('Cocos host does not provide font materialization capability.', {
+            cocos.reportWarning('Cocos host does not provide font materialization capability.', {
               plugin: 'fonts',
               count: projection.faces.length,
             })
@@ -62,7 +64,8 @@ export function createFontsCocosRendererPlugin() {
             await unregisterRecord(key, current)
           }
 
-          const resource = await resolveAssetWithTargetPackages(context.cocos, 'fonts', assetName, runtimePackageCandidatesFromMetadata({
+          const resource = await resolveAssetWithTargetPackages(cocos, 'fonts', assetName, runtimePackageCandidatesFromMetadata({
+            requiredRuntimePackages: projection.requiredRuntimePackages,
             ...(isRecord(face.metadata) ? face.metadata : {}),
             ...(stringValue(face.contentPackageId) ? { contentPackageId: stringValue(face.contentPackageId) } : {}),
           }))
@@ -70,7 +73,7 @@ export function createFontsCocosRendererPlugin() {
             continue
 
           const resourceKey = `font:${key}`
-          context.cocos.setLayerResource('fonts', resourceKey, resource)
+          cocos.setLayerResource('fonts', resourceKey, resource)
           const nextRecord: CocosFontRecord = {
             signature,
             resourceKey,
@@ -97,7 +100,10 @@ export function createFontsCocosRendererPlugin() {
               contentPackageId: stringValue(face.contentPackageId),
               metadata: isRecord(face.metadata) ? { ...face.metadata } : undefined,
             })
-            nextRecord.state = 'loaded'
+            if (disposed)
+              await unregisterRecord(key, nextRecord)
+            else
+              nextRecord.state = 'loaded'
           }
           catch (error) {
             nextRecord.state = 'error'
@@ -115,15 +121,14 @@ export function createFontsCocosRendererPlugin() {
             await unregisterRecord(key, record)
           }
         }
-      }
+      })
+      const sync = (options: { retryFailed?: boolean } = {}) => project(options)
 
-      context.addDisposer(context.onLogicToRender(LogicToRenderEvents.VIEW_UPDATE, () => {
-        void sync()
-      }))
       context.addDisposer(context.onLogicToRender(LogicToRenderEvents.ASSET_CHANGED, () => {
         void sync({ retryFailed: true })
       }))
       context.addDisposer(() => {
+        disposed = true
         for (const [key, record] of [...records]) {
           void unregisterRecord(key, record)
         }

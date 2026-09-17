@@ -49,6 +49,7 @@ export interface FakeCocosHost extends CocosHost {
   fontFacesById: Map<string, { resource: CocosHostResource, options: CocosHostFontFaceOptions }>
   files: Map<string, Uint8Array>
   inputEvents: CocosHostInputEvent[]
+  emitLayoutChange: () => void
   emitInput: (event: CocosHostInputEvent) => Promise<void>
 }
 
@@ -80,6 +81,7 @@ export function createFakeCocosHost(options: FakeCocosHostOptions = {}): FakeCoc
   const audioBusVolumes = new Map<string, number>()
   const audioBusEq = new Map<string, readonly unknown[]>()
   const fontFacesById = new Map<string, { resource: CocosHostResource, options: CocosHostFontFaceOptions }>()
+  const layoutListeners = new Set<() => void>()
   const inputListeners = new Set<CocosHostInputListener>()
   const inputEvents: CocosHostInputEvent[] = []
   const now = options.now || Date.now
@@ -158,8 +160,14 @@ export function createFakeCocosHost(options: FakeCocosHostOptions = {}): FakeCoc
     getNodeMetadata(node: CocosHostNode) {
       return { ...asFakeNode(node).metadata }
     },
-    hitTest(rootNode: CocosHostNode, point: { x: number, y: number }, hitOptions: { metadataKey?: string, includeInvisible?: boolean } = {}) {
+    hitTest(rootNode: CocosHostNode, point: { x: number, y: number }, hitOptions: { metadataKey?: string, metadataKeys?: readonly string[], includeInvisible?: boolean } = {}) {
       return hitTestNode(asFakeNode(rootNode), point, hitOptions, identityMatrix())
+    },
+    onLayoutChange(listener: () => void) {
+      layoutListeners.add(listener)
+      return () => {
+        layoutListeners.delete(listener)
+      }
     },
     getContainerSize: () => options.containerSize || { width: 1920, height: 1080 },
     getDevicePixelRatio: () => options.devicePixelRatio || 1,
@@ -423,6 +431,9 @@ export function createFakeCocosHost(options: FakeCocosHostOptions = {}): FakeCoc
         timeouts.delete(handle)
       },
     },
+    emitLayoutChange: () => {
+      for (const listener of layoutListeners) listener()
+    },
     capabilities: {
       localFiles: true,
       writableStorage: true,
@@ -458,11 +469,13 @@ function asFakeNode(node: CocosHostNode): FakeCocosNode {
 function hitTestNode(
   root: FakeCocosNode,
   point: { x: number, y: number },
-  options: { metadataKey?: string, includeInvisible?: boolean },
+  options: { metadataKey?: string, metadataKeys?: readonly string[], includeInvisible?: boolean },
   parentMatrix: HitTestMatrix,
 ): { node: FakeCocosNode, metadata?: Record<string, unknown> } | undefined {
+  if (root.destroyed || (!options.includeInvisible && root.visible === false))
+    return undefined
   const nodeMatrix = root.kind === 'stage' ? parentMatrix : multiplyMatrix(parentMatrix, fakeNodeMatrix(root))
-  const children = [...root.children].sort((left, right) => (right.transform.zIndex || 0) - (left.transform.zIndex || 0))
+  const children = [...root.children].reverse().sort((left, right) => (right.transform.zIndex || 0) - (left.transform.zIndex || 0))
   for (const child of children) {
     const hit = hitTestNode(child, point, options, nodeMatrix)
     if (hit)
@@ -471,6 +484,8 @@ function hitTestNode(
   if (!options.includeInvisible && root.visible === false)
     return undefined
   if (options.metadataKey && root.metadata[options.metadataKey] === undefined)
+    return undefined
+  if (options.metadataKeys && !options.metadataKeys.some(key => root.metadata[key] !== undefined))
     return undefined
   if (!containsPoint(root, point, nodeMatrix))
     return undefined
@@ -504,7 +519,7 @@ function containsPoint(node: FakeCocosNode, point: { x: number, y: number }, mat
   const width = typeof node.transform.width === 'number' ? node.transform.width : undefined
   const height = typeof node.transform.height === 'number' ? node.transform.height : undefined
   if (width === undefined || height === undefined)
-    return true
+    return false
   const inverse = invertMatrix(matrix)
   if (!inverse)
     return false
@@ -570,7 +585,7 @@ function numberValue(value: unknown, fallback: number): number {
 function listFiles(files: Map<string, Uint8Array>, rootPath: string): CocosHostFileInfo[] {
   const normalizedRoot = normalizePath(rootPath)
   return Array.from(files.entries())
-    .filter(([path]) => path.startsWith(normalizedRoot))
+    .filter(([path]) => path === normalizedRoot || path.startsWith(`${normalizedRoot.replace(/\/+$/, '')}/`))
     .map(([path, bytes]) => ({ path, size: bytes.byteLength }))
 }
 

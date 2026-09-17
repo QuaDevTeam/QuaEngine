@@ -30,7 +30,7 @@ describe('@quajs/security-cocos', () => {
       package: staticPackage,
     }))).resolves.toBe(false)
 
-    const optInPolicy = createCocosStaticOnlyTrustPolicy({ allowStaticRuntimePackages: true })
+    const optInPolicy = createCocosStaticOnlyTrustPolicy({ allowStaticRuntimePackages: true, verifyIntegrity: () => true })
     const dynamicPackage = createRuntimePackage({
       scripts: [{
         id: 'story',
@@ -46,6 +46,15 @@ describe('@quajs/security-cocos', () => {
       bundle: createBundle(createManifest(staticPackage)),
       package: staticPackage,
     }))).resolves.toBe(true)
+  })
+
+  it('does not trust matching self-declared hashes without an application verifier', async () => {
+    const pkg = createRuntimePackage()
+    const context = { package: pkg, bundle: createBundle(createManifest(pkg)) }
+    const noVerifier = createCocosStaticOnlyTrustPolicy({ allowStaticRuntimePackages: true })
+    expect(await noVerifier.verifyPackage?.(context)).toBe(false)
+    const rejected = createCocosStaticOnlyTrustPolicy({ allowStaticRuntimePackages: true, verifyIntegrity: () => false })
+    expect(await rejected.verifyPackage?.(context)).toBe(false)
   })
 
   it('throws explicit unsupported errors for dynamic Cocos module loading', async () => {

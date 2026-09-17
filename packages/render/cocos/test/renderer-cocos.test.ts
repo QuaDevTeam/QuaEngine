@@ -15,9 +15,13 @@ import {
   LogicToRenderEvents,
   RenderToLogicEvents,
 } from '@quajs/render-core'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { QuaCocosRendererController } from '../src'
 import { CocosDialogueTypewriterRuntime } from '../src/dialogue-typewriter'
+import { createAudioCocosRendererPlugin } from '../src/plugins/audio'
+import { createBackgroundCocosRendererPlugin } from '../src/plugins/background'
+import { createChoicesCocosRendererPlugin } from '../src/plugins/choices'
+import { createDialogueCocosRendererPlugin } from '../src/plugins/dialogue'
 import { createInputCocosRendererPlugin } from '../src/plugins/input'
 import { createVisualNovelCocosRendererPlugins } from '../src/plugins/preset'
 import { createSavePreviewCocosRendererPlugin } from '../src/plugins/save-preview'
@@ -2276,6 +2280,240 @@ describe('@quajs/renderer-cocos', () => {
     await renderer.start()
     await renderer.destroy()
     expect(structuredCloneJson(view)).toEqual(frozen)
+  })
+  it('coalesces delayed background updates and never writes into destroyed nodes', async () => {
+    const host = createFakeCocosHost()
+    let finish!: () => void
+    const gate = new Promise<void>((resolve) => {
+      finish = resolve
+    })
+    const setSprite = host.nodes.setNodeSprite
+    host.nodes.setNodeSprite = (node, ...args) => {
+      expect((node as any).destroyed).toBe(false)
+      setSprite(node, ...args)
+    }
+    const assets = createFakeAssets() as any
+    const getAsset = assets.getAsset
+    assets.getAsset = async (type: string, name: string) => {
+      if (name === 'old.png')
+        await gate
+      return getAsset(type, name)
+    }
+    const pipeline = new Pipeline()
+    const renderer = new QuaCocosRendererController({ host, pipeline, assets, initialView: createView({ backgroundAsset: 'old.png' }), plugins: [createBackgroundCocosRendererPlugin()] })
+    await renderer.start()
+    await pipeline.emit(LogicToRenderEvents.VIEW_UPDATE, { view: createView({ backgroundAsset: 'new.png' }) })
+    finish()
+    await flushAsync()
+    expect(findNodeByKind(host, 'background')?.sprite?.source).toBe('new.png')
+    expect([...host.resourcesById.values()].some(resource => resource.source === 'old.png')).toBe(false)
+    await renderer.destroy()
+    expect(host.resourcesById.size).toBe(0)
+  })
+
+  it('releases late native materialization after teardown without recreating layers', async () => {
+    const host = createFakeCocosHost()
+    let finish!: () => void
+    const gate = new Promise<void>((resolve) => {
+      finish = resolve
+    })
+    const create = host.assets.createResource
+    host.assets.createResource = async (...args) => {
+      await gate
+      return create(...args)
+    }
+    const renderer = new QuaCocosRendererController({ host, pipeline: new Pipeline(), assets: createFakeAssets(), initialView: createView({ backgroundAsset: 'late.png' }), plugins: [createBackgroundCocosRendererPlugin()] })
+    await renderer.start()
+    await flushAsync()
+    await renderer.destroy()
+    finish()
+    await flushAsync()
+    expect(host.root.children).toHaveLength(0)
+    expect(host.resourcesById.size).toBe(0)
+    expect([...host.resourceReleaseCounts.values()]).toEqual([1])
+  })
+
+  it('shares one native resource for simultaneous background and avatar loads', async () => {
+    const host = createFakeCocosHost()
+    let finish!: () => void
+    const gate = new Promise<void>((resolve) => {
+      finish = resolve
+    })
+    const create = host.assets.createResource
+    const spy = vi.spyOn(host.assets, 'createResource').mockImplementation(async (...args) => {
+      await gate
+      return create(...args)
+    })
+    const renderer = new QuaCocosRendererController({ host, pipeline: new Pipeline(), assets: createFakeAssets(), initialView: createView({ backgroundAsset: 'same.png', dialogueAvatar: { name: 'same.png', type: 'images' } }), plugins: [createBackgroundCocosRendererPlugin(), createDialogueCocosRendererPlugin()] })
+    await renderer.start()
+    finish()
+    await flushAsync()
+    expect(spy).toHaveBeenCalledTimes(1)
+    expect(host.resourcesById.size).toBe(1)
+    await renderer.destroy()
+    expect([...host.resourceReleaseCounts.values()]).toEqual([1])
+  })
+
+  it('refreshes stage layout on a parent-only resize and unsubscribes on destroy', async () => {
+    const size = { width: 1280, height: 720 }
+    const host = createFakeCocosHost({ containerSize: size })
+    const renderer = new QuaCocosRendererController({ host, pipeline: new Pipeline(), initialView: createView() })
+    await renderer.start()
+    size.width = 360
+    size.height = 780
+    host.emitLayoutChange()
+    expect(renderer.getSnapshot().stageLayout.scale).toBeCloseTo(360 / 1920)
+    expect(renderer.getSnapshot().stageLayout.viewportY).toBeCloseTo((780 - 202.5) / 2)
+    await renderer.destroy()
+    host.emitLayoutChange()
+    expect(host.root.children).toHaveLength(0)
+  })
+
+  it('dispatches configured pointer release bindings and ignores letterbox taps', async () => {
+    const host = createFakeCocosHost({ containerSize: { width: 360, height: 780 } })
+    const pipeline = new Pipeline()
+    const advances: unknown[] = []
+    pipeline.on(RenderToLogicEvents.USER_ADVANCE, context => advances.push(context.event.payload))
+    const renderer = new QuaCocosRendererController({ host, pipeline, initialView: createView(), plugins: [createInputCocosRendererPlugin({ includeDefaultBindings: false, bindings: [{ source: 'pointer', phase: 'release', command: 'advance' }] })] })
+    await renderer.start()
+    await host.emitInput({ kind: 'pointer', phase: 'up', x: 180, y: 10 })
+    expect(advances).toHaveLength(0)
+    await host.emitInput({ kind: 'pointer', phase: 'up', x: 180, y: 390 })
+    expect(advances).toHaveLength(1)
+    await renderer.destroy()
+  })
+
+  it('does not dispatch an underlying choice through a higher overlay control', async () => {
+    const host = createFakeCocosHost()
+    const pipeline = new Pipeline()
+    const choices: unknown[] = []
+    pipeline.on(RenderToLogicEvents.USER_CHOICE_SELECT, context => choices.push(context.event.payload))
+    const renderer = new QuaCocosRendererController({ host, pipeline, initialView: createView(), plugins: [createChoicesCocosRendererPlugin()] })
+    await renderer.start()
+    await flushAsync()
+    const choice = [...host.nodesById.values()].find(node => node.metadata.choiceId === 'a')!
+    const stage = host.root.children[0]
+    const overlay = host.nodes.createNode('overlay', { parent: stage })
+    host.nodes.setNodeTransform(overlay, { width: 1920, height: 1080, zIndex: 1000000 })
+    host.nodes.setNodeMetadata?.(overlay, { uiAction: 'panel' })
+    await host.emitInput({ kind: 'pointer', phase: 'down', x: choice.transform.x! + 1, y: choice.transform.y! + 1 })
+    expect(choices).toHaveLength(0)
+    await renderer.destroy()
+  })
+
+  it('does not publish ready or recreate nodes when destroyed during async setup', async () => {
+    const host = createFakeCocosHost()
+    const pipeline = new Pipeline()
+    const ready: unknown[] = []
+    pipeline.on(RenderToLogicEvents.RENDER_READY, context => ready.push(context.event.payload))
+    let finish!: () => void
+    const gate = new Promise<void>((resolve) => {
+      finish = resolve
+    })
+    const renderer = new QuaCocosRendererController({ host, pipeline, initialView: createView(), plugins: [{ name: 'deferred', setup: async () => {
+      await gate
+    } }] })
+    const starting = renderer.start()
+    const sameStart = renderer.start()
+    await renderer.destroy()
+    finish()
+    await Promise.all([starting, sameStart])
+    expect(ready).toHaveLength(0)
+    expect(host.root.children).toHaveLength(0)
+    renderer.refresh()
+    expect(host.root.children).toHaveLength(0)
+  })
+  it('refreshes mounted projections through public view and asset setters', async () => {
+    const host = createFakeCocosHost()
+    const renderer = new QuaCocosRendererController({ host, pipeline: new Pipeline(), assets: createFakeAssets(), initialView: createView({ backgroundAsset: 'old.png' }), plugins: [createBackgroundCocosRendererPlugin()] })
+    await renderer.start()
+    await flushAsync()
+    renderer.setView(createView({ backgroundAsset: 'next.png' }))
+    await flushAsync()
+    expect(findNodeByKind(host, 'background')?.sprite?.source).toBe('next.png')
+    renderer.setAssets(createFakeAssets({ assets: { 'images:next.png': { ...defaultAsset('images', 'next.png'), path: 'replacement.png' } } }))
+    await flushAsync()
+    expect(findNodeByKind(host, 'background')?.sprite?.source).toBe('replacement.png')
+    await renderer.destroy()
+    expect(host.resourcesById.size).toBe(0)
+  })
+  it('updates native audio parameters without replaying an unchanged or ended track', async () => {
+    const host = createFakeCocosHost()
+    const create = host.audio.createAudioHandle
+    const play = vi.fn()
+    host.audio.createAudioHandle = async (...args) => {
+      const handle = await create(...args)
+      const original = handle.play
+      handle.play = async () => {
+        play()
+        await original()
+      }
+      return handle
+    }
+    const renderer = new QuaCocosRendererController({ host, pipeline: new Pipeline(), assets: createFakeAssets(), initialView: createView({ audioAsset: 'bgm.ogg' }), plugins: [createAudioCocosRendererPlugin()] })
+    await renderer.start()
+    await flushAsync()
+    expect(play).toHaveBeenCalledTimes(1)
+    renderer.setView(createView({ audioAsset: 'bgm.ogg', audioEq: [{ frequency: 1000, gainDb: -3 }] }))
+    await flushAsync()
+    expect(play).toHaveBeenCalledTimes(1)
+    host.audioHandlesById.get('bgm:main')!.emitEnded()
+    renderer.setView(createView({ audioAsset: 'bgm.ogg' }))
+    await flushAsync()
+    expect(play).toHaveBeenCalledTimes(1)
+    await renderer.destroy()
+  })
+
+  it('reports projected fade completion once and does not restart a stopped native source', async () => {
+    let now = 0
+    const host = createFakeCocosHost({ now: () => now })
+    const pipeline = new Pipeline()
+    const ended: unknown[] = []
+    pipeline.on(AudioRenderToLogicEvents.ENDED, context => ended.push(context.event.payload))
+    const view = createView({ audioAsset: 'bgm.ogg' })
+    const renderer = new QuaCocosRendererController({ host, pipeline, assets: createFakeAssets(), initialView: view, plugins: [createAudioCocosRendererPlugin()] })
+    await renderer.start()
+    await flushAsync()
+    const stopping = createView({ audioAsset: 'bgm.ogg' })
+    ;(stopping.plugins.audio as any).bgm.state = 'stopping'
+    ;(stopping.plugins.audio as any).bgm.fadeOutMs = 100
+    renderer.setView(stopping)
+    await flushAsync()
+    now = 150
+    renderer.setView({ ...stopping })
+    await flushAsync()
+    expect(host.audioHandlesById.get('bgm:main')?.playing).toBe(false)
+    expect(ended).toHaveLength(1)
+    renderer.setView({ ...stopping })
+    await flushAsync()
+    expect(ended).toHaveLength(1)
+    expect(host.audioHandlesById.get('bgm:main')?.playing).toBe(false)
+    await renderer.destroy()
+  })
+  it('does not start audio that finishes creating after its intent was removed', async () => {
+    const host = createFakeCocosHost()
+    let finish!: () => void
+    const gate = new Promise<void>((resolve) => {
+      finish = resolve
+    })
+    const create = host.audio.createAudioHandle
+    const play = vi.fn()
+    host.audio.createAudioHandle = async (...args) => {
+      await gate
+      const handle = await create(...args)
+      handle.play = play
+      return handle
+    }
+    const renderer = new QuaCocosRendererController({ host, pipeline: new Pipeline(), assets: createFakeAssets(), initialView: createView({ audioAsset: 'obsolete.ogg' }), plugins: [createAudioCocosRendererPlugin()] })
+    await renderer.start()
+    await flushAsync()
+    renderer.setView(createView())
+    finish()
+    await flushAsync()
+    expect(play).not.toHaveBeenCalled()
+    expect([...host.audioHandlesById.values()].every(handle => handle.disposed)).toBe(true)
+    await renderer.destroy()
+    expect(host.resourcesById.size).toBe(0)
   })
 })
 

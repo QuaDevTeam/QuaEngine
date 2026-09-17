@@ -57,6 +57,11 @@ export interface CocosBundleIntegrityResult {
 export interface CocosStaticOnlyTrustPolicyOptions {
   requireIntegrity?: boolean
   allowStaticRuntimePackages?: boolean
+  /**
+   * Verify package bytes/signatures against an application-trusted digest or key.
+   * Manifest hash equality alone does not establish integrity.
+   */
+  verifyIntegrity?: (ctx: CocosRuntimePackageTrustContext) => boolean | Promise<boolean>
 }
 
 export function createCocosStaticOnlyTrustPolicy(
@@ -67,7 +72,7 @@ export function createCocosStaticOnlyTrustPolicy(
   return {
     requireSignature: false,
     allowUnsignedInDevelopment: false,
-    verifyPackage(ctx: CocosRuntimePackageTrustContext): boolean {
+    async verifyPackage(ctx: CocosRuntimePackageTrustContext): Promise<boolean> {
       if (!allowStaticRuntimePackages) {
         return false
       }
@@ -77,7 +82,9 @@ export function createCocosStaticOnlyTrustPolicy(
       if (!requireIntegrity) {
         return true
       }
-      return verifyCocosBundleIntegrity({
+      if (!options.verifyIntegrity)
+        return false
+      return await options.verifyIntegrity(ctx) && verifyCocosBundleIntegrity({
         manifest: ctx.bundle.manifest,
         expectedHash: ctx.package.integrity?.hash,
         algorithm: ctx.package.integrity?.algorithm,
@@ -95,6 +102,7 @@ export function createUnsupportedCocosRuntimeModuleLoader(): CocosRuntimeModuleL
   }
 }
 
+/** Checks manifest metadata consistency only; it does not hash bytes or verify signatures. */
 export function verifyCocosBundleIntegrity(input: CocosBundleIntegrityInput | CocosDynamicBundleRecord): CocosBundleIntegrityResult {
   const manifest = input.manifest
   const explicit = isIntegrityInput(input) ? input : {}

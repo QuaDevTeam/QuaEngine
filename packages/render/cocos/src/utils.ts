@@ -35,6 +35,7 @@ export function runtimePackageCandidatesFromAssetRef(
   if (!asset)
     return undefined
   return runtimePackageCandidatesFromMetadata({
+    requiredRuntimePackages: asset.requiredRuntimePackages,
     ...(isRecord(asset.metadata) ? asset.metadata : {}),
     ...(typeof asset.runtimePackageId === 'string' ? { contentPackageId: asset.runtimePackageId } : {}),
     ...(typeof asset.contentPackageId === 'string' ? { contentPackageId: asset.contentPackageId } : {}),

@@ -73,12 +73,17 @@ export class QuaCocosRendererController {
   private pluginHost?: RendererPluginHost
   private subscribedAssets?: QuaAssets
   private started = false
+  private lifecycle = 0
+  private startTask?: Promise<void>
   private stageRoot?: CocosHostNode
   private sceneRoot?: CocosHostNode
   private cameraRoot?: CocosHostNode
   private readonly layers = new Map<string, CocosHostNode>()
   private readonly layerResources = new Map<string, Map<string, CocosHostResource>>()
   private readonly materializedResources = new Map<string, { resource: CocosHostResource, refs: number }>()
+  private readonly pendingResources = new Map<string, Promise<CocosHostResource | undefined>>()
+  private resourceEpoch = 0
+  private layoutDisposer?: () => void
   private readonly audioHandles = new Map<string, Map<string, CocosAudioRuntimeHandle>>()
   private readonly warnedAudioCapabilities = new Set<string>()
   private animationFrame: number | undefined
@@ -86,6 +91,8 @@ export class QuaCocosRendererController {
 
   private readonly refreshAssets = (_change?: AssetChange) => {
     this.assetRevision += 1
+    this.resourceEpoch += 1
+    this.pendingResources.clear()
     this.refresh()
   }
 
@@ -131,34 +138,64 @@ export class QuaCocosRendererController {
   }
 
   async start(): Promise<void> {
+    if (this.startTask)
+      return this.startTask
     if (this.started)
       return
-
-    this.started = true
-    this.getRootNode()
-    this.subscribePipeline()
-    this.subscribeAssets()
-    this.pluginHost = new RendererPluginHost(this.plugins)
+    const task = this.startRenderer()
+    this.startTask = task
     try {
-      await this.pluginHost.init(this.createPluginContext())
+      await task
+    }
+    finally {
+      if (this.startTask === task)
+        this.startTask = undefined
+    }
+  }
+
+  private async startRenderer(): Promise<void> {
+    this.started = true
+    const lifecycle = ++this.lifecycle
+    const pluginHost = new RendererPluginHost(this.plugins)
+    this.pluginHost = pluginHost
+    try {
+      this.getRootNode()
+      this.subscribePipeline()
+      this.subscribeAssets()
+      this.layoutDisposer = this.host.nodes.onLayoutChange?.(() => {
+        if (this.started) {
+          this.refresh()
+          this.runAnimationSyncs()
+        }
+      })
+      await pluginHost.init(this.createPluginContext())
+      if (!this.started || this.lifecycle !== lifecycle) {
+        await pluginHost.destroy()
+        return
+      }
+      this.refresh()
+      if (this.autoReady)
+        await this.actions.ready()
     }
     catch (error) {
+      if (this.lifecycle === lifecycle)
+        await this.destroy()
       await this.reportError(error, {
-        message: 'Cocos renderer plugin initialization failed.',
+        message: 'Cocos renderer initialization failed.',
         phase: 'renderer-cocos:start',
       })
       throw error
-    }
-
-    this.refresh()
-    if (this.autoReady) {
-      await this.actions.ready()
     }
   }
 
   async destroy(): Promise<void> {
     const wasStarted = this.started
     this.started = false
+    this.lifecycle += 1
+    this.resourceEpoch += 1
+    this.pendingResources.clear()
+    this.layoutDisposer?.()
+    this.layoutDisposer = undefined
     this.cleanupPipelineSubscriptions()
     this.cleanupAssetSubscription()
     this.cancelAnimationFrameLoop()
@@ -173,9 +210,9 @@ export class QuaCocosRendererController {
     for (const layerId of [...this.audioHandles.keys()]) {
       this.releaseAudioHandles(layerId)
     }
-    for (const key of [...this.materializedResources.keys()]) {
-      this.releaseMaterializedResource(key)
-    }
+    for (const ref of this.materializedResources.values())
+      this.host.assets.releaseResource(ref.resource)
+    this.materializedResources.clear()
     if (this.stageRoot) {
       this.host.nodes.destroyNode(this.stageRoot)
       this.stageRoot = undefined
@@ -198,6 +235,8 @@ export class QuaCocosRendererController {
       return
     this.cleanupAssetSubscription()
     this.assets = assets
+    this.resourceEpoch += 1
+    this.pendingResources.clear()
     if (this.started) {
       this.subscribeAssets()
     }
@@ -207,7 +246,8 @@ export class QuaCocosRendererController {
 
   refresh(): void {
     this.revision += 1
-    this.applyStageLayout()
+    if (this.started)
+      this.applyStageLayout()
     this.publish()
     this.scheduleAnimationFrameLoop()
   }
@@ -241,8 +281,7 @@ export class QuaCocosRendererController {
       this.refresh()
     }))
     this.pipelineUnsubscribers.push(onLogicToRender(this.pipeline, LogicToRenderEvents.ASSET_CHANGED, () => {
-      this.assetRevision += 1
-      this.refresh()
+      this.refreshAssets()
     }))
     this.pipelineUnsubscribers.push(onLogicToRender(this.pipeline, LogicToRenderEvents.RUNTIME_PACKAGE_PLUGIN, (payload) => {
       this.host.runtime.warn?.('Cocos renderer ignores dynamic runtime renderer plugin manifests.', {
@@ -314,22 +353,39 @@ export class QuaCocosRendererController {
   }
 
   private createCocosContext(): CocosRendererHostContext {
+    const getAssets = () => this.assets
+    const lifecycle = this.lifecycle
+    const check = () => {
+      if (!this.started || this.lifecycle !== lifecycle)
+        throw new Error('Cocos renderer context is no longer active.')
+    }
     return {
       host: this.host,
-      assets: this.assets,
+      get assets() {
+        return getAssets()
+      },
       rendererId: this.rendererId,
+      getAssetRevision: () => this.assetRevision,
+      subscribe: listener => this.subscribe(listener),
       getViewState: () => this.projection,
       getActions: () => this.actions,
       registerAdvanceInterceptor: interceptor => this.registerAdvanceInterceptor(interceptor),
       registerAnimationSync: sync => this.registerAnimationSync(sync),
       getStageLayout: () => this.resolveStageLayout(),
-      getRootNode: () => this.getRootNode(),
-      getLayerNode: (id, kind, order) => this.getLayerNode(id, kind, order),
+      getRootNode: () => {
+        check()
+        return this.getRootNode()
+      },
+      getLayerNode: (id, kind, order) => {
+        check()
+        return this.getLayerNode(id, kind, order)
+      },
       clearLayer: id => this.clearLayer(id),
       resolveAsset: (type, name, options) => this.resolveAsset(type, name, options),
+      releaseAsset: resource => this.releaseMaterializedResource(resource.id),
       releaseLayerResources: id => this.releaseLayerResources(id),
       setLayerResource: (layerId, key, resource) => this.setLayerResource(layerId, key, resource),
-      syncAudioHandle: (layerId, key, resource, options) => this.syncAudioHandle(layerId, key, resource, options),
+      syncAudioHandle: (layerId, key, resource, options, isCurrent) => this.syncAudioHandle(layerId, key, resource, options, isCurrent),
       releaseAudioHandles: (layerId, activeKeys) => this.releaseAudioHandles(layerId, activeKeys),
       interruptAudioTracks: (kind, source) => this.interruptAudioTracks(kind, source),
       captureStage: (options, policy) => this.captureStage(options, policy),
@@ -533,22 +589,45 @@ export class QuaCocosRendererController {
     if (nativeResource)
       return nativeResource
 
+    const epoch = this.resourceEpoch
     const asset = await this.assets.getAsset(type, name, options)
-    const cacheKey = `${asset.id}:${resourceKindForAsset(asset)}`
-    const cached = this.materializedResources.get(cacheKey)
-    if (cached) {
-      cached.refs += 1
-      this.host.assets.retainResource?.(cached.resource)
-      return cached.resource
-    }
-    const resource = await this.host.assets.createResource(resourceKindForAsset(asset), asset.data, {
+    if (!this.started || epoch !== this.resourceEpoch)
+      return undefined
+    const cacheKey = `${asset.id}:${resourceKindForAsset(asset)}${this.resourceEpoch ? `:epoch:${this.resourceEpoch}` : ''}`
+    return this.acquireResource(cacheKey, () => this.host.assets.createResource(resourceKindForAsset(asset), asset.data, {
       id: cacheKey,
       source: asset.path || asset.name,
       mimeType: asset.mimeType,
       metadata: asset.mediaMetadata,
-    })
-    this.materializedResources.set(cacheKey, { resource, refs: 1 })
-    return resource
+    }))
+  }
+
+  private async acquireResource(key: string, create: () => Promise<CocosHostResource | undefined>): Promise<CocosHostResource | undefined> {
+    let pending = this.pendingResources.get(key)
+    if (!pending && !this.materializedResources.has(key)) {
+      const epoch = this.resourceEpoch
+      pending = create().then((resource) => {
+        if (!resource)
+          return undefined
+        if (epoch !== this.resourceEpoch || !this.started) {
+          this.host.assets.releaseResource(resource)
+          return undefined
+        }
+        this.materializedResources.set(key, { resource, refs: 0 })
+        return resource
+      }).finally(() => {
+        if (this.pendingResources.get(key) === pending)
+          this.pendingResources.delete(key)
+      })
+      this.pendingResources.set(key, pending)
+    }
+    if (pending)
+      await pending
+    const ref = this.materializedResources.get(key)
+    if (!ref)
+      return undefined
+    ref.refs += 1
+    return ref.resource
   }
 
   private async resolveNativeAsset(
@@ -559,11 +638,12 @@ export class QuaCocosRendererController {
     const assets = this.assets
     if (!assets?.getAssetManifestRecord || !assets.getBundleManifest)
       return undefined
+    const epoch = this.resourceEpoch
     const record = await assets.getAssetManifestRecord(type, name, options)
     if (!record)
       return undefined
     const manifest = await assets.getBundleManifest(record.bundleVersionKey || record.bundleName || record.logicalBundleName || '')
-    if (!manifest || !usesCocosNativeAsset(manifest, type))
+    if (!this.started || epoch !== this.resourceEpoch || !manifest || !usesCocosNativeAsset(manifest, type))
       return undefined
 
     if (!this.host.assets.loadResource) {
@@ -576,21 +656,14 @@ export class QuaCocosRendererController {
     }
 
     const kind = resourceKindForAssetType(type)
-    const cacheKey = `${record.id}:${kind}:native`
-    const cached = this.materializedResources.get(cacheKey)
-    if (cached) {
-      cached.refs += 1
-      this.host.assets.retainResource?.(cached.resource)
-      return cached.resource
-    }
-
+    const cacheKey = `${record.id}:${kind}:native${this.resourceEpoch ? `:epoch:${this.resourceEpoch}` : ''}`
     let resource: CocosHostResource | undefined
     try {
-      resource = await this.host.assets.loadResource(kind, record.path, {
+      resource = await this.acquireResource(cacheKey, () => this.host.assets.loadResource!(kind, record.path, {
         id: cacheKey,
         mimeType: record.mimeType,
         metadata: record.mediaMetadata,
-      })
+      }))
     }
     catch (error) {
       this.host.runtime.warn?.('Cocos hybrid native asset load failed; falling back to QPK bytes.', {
@@ -610,7 +683,6 @@ export class QuaCocosRendererController {
       return undefined
     }
 
-    this.materializedResources.set(cacheKey, { resource, refs: 1 })
     return resource
   }
 
@@ -679,6 +751,7 @@ export class QuaCocosRendererController {
       interruptible?: boolean
       endedPayload?: AudioTrackEventPayload
     },
+    isCurrent: () => boolean = () => true,
   ): Promise<CocosHostAudioHandle> {
     const handles = this.audioHandles.get(layerId) || new Map<string, CocosAudioRuntimeHandle>()
     const existing = handles.get(key)
@@ -689,10 +762,22 @@ export class QuaCocosRendererController {
         existing.releasing = false
         this.clearAudioReleaseTimer(existing)
       }
+      const newStart = options.playAt !== existing.options.playAt
+        || options.endedPayload?.lineId !== existing.endedPayload?.lineId
+        || options.endedPayload?.chapterId !== existing.endedPayload?.chapterId
+      if (newStart) {
+        await existing.handle.stop()
+        existing.nativeState = 'stopped'
+        existing.lastSeekMs = undefined
+        existing.pausedPositionMs = undefined
+      }
       const nextSignature = audioRuntimeSignature(resource, options)
       if (existing.signature !== nextSignature) {
         existing.interrupted = false
         existing.signature = nextSignature
+        if (existing.nativeState === 'ended')
+          existing.nativeState = undefined
+        existing.endedNotified = false
       }
       this.updateAudioRuntimeState(existing, options, volume, loop)
       existing.handle.setLoop(loop)
@@ -701,17 +786,20 @@ export class QuaCocosRendererController {
       existing.endedPayload = options.endedPayload
       await this.applyAudioSeek(existing, key)
       this.applyAudioRuntimeVolume(existing)
-      await this.applyAudioPlayback(existing, key)
+      if (isCurrent())
+        await this.applyAudioPlayback(existing, key)
       this.scheduleAudioFrameLoop()
       return existing.handle
     }
     if (existing) {
+      existing.disposed = true
       existing.endedDisposer?.()
       this.clearAudioStartTimer(existing)
       this.clearAudioReleaseTimer(existing)
       await existing.handle.stop()
       await existing.handle.dispose()
     }
+    const epoch = this.resourceEpoch
     const handle = await this.host.audio.createAudioHandle(resource, {
       id: key,
       loop,
@@ -719,6 +807,15 @@ export class QuaCocosRendererController {
       playbackRate: options.playbackRate,
       bus: options.bus,
     })
+    if (!this.started || epoch !== this.resourceEpoch || !isCurrent()) {
+      try {
+        await handle.stop()
+      }
+      finally {
+        await handle.dispose()
+      }
+      throw new Error('Cocos audio creation was cancelled by renderer teardown or asset replacement.')
+    }
     const record: CocosAudioRuntimeHandle = {
       handle,
       resource,
@@ -728,26 +825,15 @@ export class QuaCocosRendererController {
       endedPayload: options.endedPayload,
     }
     this.updateAudioRuntimeState(record, options, volume, loop, { created: true })
-    record.endedDisposer = handle.onEnded?.(() => {
-      const payload = record.endedPayload
-      if (!payload)
-        return
-      void emitAudioRenderToLogic(this.requirePipeline(), AudioRenderToLogicEvents.ENDED, payload).catch(error => this.reportError(error, {
-        message: 'Cocos audio ended event dispatch failed.',
-        phase: 'renderer-cocos:audio-ended',
-        metadata: {
-          channel: payload.channel,
-          id: payload.id,
-        },
-      }))
-    })
+    record.endedDisposer = handle.onEnded?.(() => this.notifyAudioEnded(record))
     handles.set(key, record)
     this.audioHandles.set(layerId, handles)
     this.applyAudioPlaybackRate(handle, options.playbackRate ?? 1, key)
     this.applyAudioTrackEq(record, key)
     await this.applyAudioSeek(record, key)
     this.applyAudioRuntimeVolume(record)
-    await this.applyAudioPlayback(record, key)
+    if (isCurrent())
+      await this.applyAudioPlayback(record, key)
     this.scheduleAudioFrameLoop()
     return handle
   }
@@ -762,6 +848,7 @@ export class QuaCocosRendererController {
         continue
       if (active && this.releaseAudioHandleWithFade(layerId, key, record, handles))
         continue
+      record.disposed = true
       record.endedDisposer?.()
       this.clearAudioStartTimer(record)
       this.clearAudioReleaseTimer(record)
@@ -799,6 +886,7 @@ export class QuaCocosRendererController {
     record.fadeOutStopped = false
     this.applyAudioRuntimeVolume(record)
     record.releaseTimer = this.host.scheduler.setTimeout(() => {
+      record.disposed = true
       record.endedDisposer?.()
       this.clearAudioStartTimer(record)
       void Promise.resolve(record.handle.stop()).finally(() => {
@@ -859,24 +947,65 @@ export class QuaCocosRendererController {
     })
   }
 
+  private notifyAudioEnded(record: CocosAudioRuntimeHandle): void {
+    if (record.disposed)
+      return
+    record.nativeState = 'ended'
+    const payload = record.endedPayload
+    if (!payload || record.endedNotified)
+      return
+    record.endedNotified = true
+    void emitAudioRenderToLogic(this.requirePipeline(), AudioRenderToLogicEvents.ENDED, payload).catch(error => this.reportError(error, {
+      message: 'Cocos audio ended event dispatch failed.',
+      phase: 'renderer-cocos:audio-ended',
+      metadata: { channel: payload.channel, id: payload.id },
+    }))
+  }
+
+  private async playAudioRecord(record: CocosAudioRuntimeHandle): Promise<void> {
+    if (!this.started || record.disposed || record.nativeState === 'playing' || record.nativeState === 'ended')
+      return
+    record.nativeState = 'playing'
+    try {
+      await record.handle.play()
+    }
+    catch (error) {
+      record.nativeState = undefined
+      throw error
+    }
+  }
+
   private async applyAudioPlayback(record: CocosAudioRuntimeHandle, key: string): Promise<void> {
-    this.clearAudioStartTimer(record)
-    if (record.interrupted) {
-      await record.handle.stop()
+    if (record.interrupted || record.fadeOutStopped || record.options.state === 'stopped') {
+      this.clearAudioStartTimer(record)
+      if (record.nativeState !== 'stopped' && record.nativeState !== 'ended') {
+        await record.handle.stop()
+        record.nativeState = 'stopped'
+      }
       return
     }
     if (record.options.playing === false) {
-      record.pausedPositionMs = record.handle.getPosition?.()
-      await record.handle.pause()
+      this.clearAudioStartTimer(record)
+      if (record.nativeState !== 'paused') {
+        record.pausedPositionMs = record.handle.getPosition?.()
+        await record.handle.pause()
+        record.nativeState = 'paused'
+      }
       return
     }
     const playAt = record.options.playAt
     const now = this.host.runtime.now()
     if (typeof playAt === 'number' && Number.isFinite(playAt) && playAt > now) {
-      await record.handle.pause()
+      if (record.startTimer !== undefined && record.pendingPlayAt === playAt)
+        return
+      this.clearAudioStartTimer(record)
+      if (record.nativeState !== 'paused') {
+        await record.handle.pause()
+        record.nativeState = 'paused'
+      }
       record.startTimer = this.host.scheduler.setTimeout(() => {
         record.startTimer = undefined
-        void Promise.resolve(record.handle.play()).catch((error: unknown) => {
+        void this.playAudioRecord(record).catch((error: unknown) => {
           void this.reportError(error, {
             message: 'Cocos delayed audio playback failed.',
             phase: 'renderer-cocos:audio-play-at',
@@ -887,12 +1016,13 @@ export class QuaCocosRendererController {
       record.pendingPlayAt = playAt
       return
     }
+    this.clearAudioStartTimer(record)
     if (record.pausedPositionMs !== undefined && record.handle.seek && record.options.seekMs === undefined && record.options.offsetMs === undefined) {
       await record.handle.seek(record.pausedPositionMs)
       record.lastSeekMs = record.pausedPositionMs
       record.pausedPositionMs = undefined
     }
-    await record.handle.play()
+    await this.playAudioRecord(record)
   }
 
   private clearAudioStartTimer(record: CocosAudioRuntimeHandle): void {
@@ -978,7 +1108,8 @@ export class QuaCocosRendererController {
       volume *= 1 - progress
       if (progress >= 1 && record.options.state === 'stopping' && !record.fadeOutStopped) {
         record.fadeOutStopped = true
-        void Promise.resolve(record.handle.stop()).catch(error => this.reportError(error, {
+        record.nativeState = 'stopped'
+        void Promise.resolve(record.handle.stop()).then(() => this.notifyAudioEnded(record)).catch(error => this.reportError(error, {
           message: 'Cocos audio fade-out stop failed.',
           phase: 'renderer-cocos:audio-fade-out',
         }))
@@ -1291,6 +1422,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export type CocosRuntimePluginPayload = LogicToRenderPayload<LogicToRenderEvents.RUNTIME_PACKAGE_PLUGIN>
 
 interface CocosAudioRuntimeHandle {
+  nativeState?: 'playing' | 'paused' | 'stopped' | 'ended'
+  endedNotified?: boolean
+  disposed?: boolean
   handle: CocosHostAudioHandle
   resource: CocosHostResource
   signature: string

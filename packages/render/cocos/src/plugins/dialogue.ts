@@ -1,9 +1,10 @@
 import type { DialogueTypewriterProjection } from '@quajs/render-core'
-import { LogicToRenderEvents, projectDialogue, viewAllowsDialogueChrome } from '@quajs/render-core'
+import { projectDialogue, viewAllowsDialogueChrome } from '@quajs/render-core'
 import { CocosDialogueTypewriterRuntime } from '../dialogue-typewriter'
 import { renderCocosDialogue } from '../projection'
 import { resolveAssetWithTargetPackages, runtimePackageCandidatesFromMetadata } from '../utils'
 import { defineCocosRendererPlugin } from './core'
+import { createCocosProjectionTask, subscribeCocosProjection } from './projection-task'
 
 export function createDialogueCocosRendererPlugin() {
   return defineCocosRendererPlugin({
@@ -11,21 +12,18 @@ export function createDialogueCocosRendererPlugin() {
     setup(context) {
       let frame: number | undefined
       const soundHandles = new Map<string, { handle: { stop: () => void | Promise<void>, dispose: () => void | Promise<void> } }>()
-      const playTypewriterSound = async (
-        sound: NonNullable<DialogueTypewriterProjection['sound']>,
-        visibleCharacters: number,
-      ) => {
-        const resource = await resolveAssetWithTargetPackages(context.cocos, 'audio', sound.assetKey, runtimePackageCandidatesFromMetadata({
+      const playTypewriterSound = createCocosProjectionTask<{ sound: NonNullable<DialogueTypewriterProjection['sound']>, visibleCharacters: number }>(context, 'dialogue-typewriter-sound', async (cocos, { sound, visibleCharacters }) => {
+        const resource = await resolveAssetWithTargetPackages(cocos, 'audio', sound.assetKey, runtimePackageCandidatesFromMetadata({
           ...(sound.metadata || {}),
           ...(sound.contentPackageId ? { contentPackageId: sound.contentPackageId } : {}),
         }))
         if (!resource)
           return
-        const key = `typewriter:${visibleCharacters}:${context.cocos.host.runtime.now()}`
-        context.cocos.setLayerResource('dialogue-typewriter', key, resource)
+        const key = `typewriter:${visibleCharacters}:${cocos.host.runtime.now()}`
+        cocos.setLayerResource('dialogue-typewriter', key, resource)
         let handle: { stop: () => void | Promise<void>, dispose: () => void | Promise<void> } | undefined
         try {
-          const audioHandle = await context.cocos.host.audio.createAudioHandle(resource, {
+          const audioHandle = await cocos.host.audio.createAudioHandle(resource, {
             id: key,
             loop: false,
             volume: sound.gainDb === undefined ? 1 : 10 ** (sound.gainDb / 20),
@@ -35,9 +33,11 @@ export function createDialogueCocosRendererPlugin() {
           handle = audioHandle
           soundHandles.set(key, { handle: audioHandle })
           audioHandle.onEnded?.(() => {
+            if (soundHandles.get(key)?.handle !== audioHandle)
+              return
             void audioHandle.dispose()
             soundHandles.delete(key)
-            context.cocos.setLayerResource('dialogue-typewriter', key, undefined)
+            cocos.setLayerResource('dialogue-typewriter', key, undefined)
           })
           await audioHandle.play()
         }
@@ -47,26 +47,23 @@ export function createDialogueCocosRendererPlugin() {
             void handle.dispose()
             soundHandles.delete(key)
           }
-          context.cocos.setLayerResource('dialogue-typewriter', key, undefined)
+          cocos.setLayerResource('dialogue-typewriter', key, undefined)
           throw error
         }
-      }
+      }, { subscribe: false })
       const typewriterRuntime = new CocosDialogueTypewriterRuntime({
         now: () => context.cocos.host.runtime.now(),
         onSound: (sound, visibleCharacters) => {
-          void playTypewriterSound(sound, visibleCharacters).catch(error => context.reportError(error, {
+          void playTypewriterSound({ sound, visibleCharacters }).catch(error => context.reportError(error, {
             message: 'Cocos typewriter sound playback failed.',
             phase: 'renderer-cocos:dialogue-typewriter-sound',
             pluginName: '@quajs/renderer-cocos/dialogue',
           }))
         },
       })
+      const renderTask = createCocosProjectionTask<Parameters<typeof renderCocosDialogue>[1]>(context, 'dialogue', (cocos, options) => renderCocosDialogue(cocos, options), { subscribe: false })
       const renderDialogue = (options?: Parameters<typeof renderCocosDialogue>[1]) => {
-        void renderCocosDialogue(context.cocos, options).catch(error => context.reportError(error, {
-          message: 'Cocos dialogue projection failed.',
-          phase: 'renderer-cocos:dialogue',
-          pluginName: '@quajs/renderer-cocos/dialogue',
-        }))
+        void renderTask(options)
       }
       let sync: () => void
       const schedule = () => {
@@ -106,7 +103,7 @@ export function createDialogueCocosRendererPlugin() {
         }
         return revealed
       }))
-      context.addDisposer(context.onLogicToRender(LogicToRenderEvents.VIEW_UPDATE, sync))
+      context.addDisposer(subscribeCocosProjection(context, sync))
       context.addDisposer(context.cocos.registerAnimationSync(sync))
       context.addDisposer(() => {
         if (frame !== undefined) {

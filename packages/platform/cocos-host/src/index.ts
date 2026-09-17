@@ -21,6 +21,11 @@ export interface CocosHostInsets {
   left: number
 }
 
+/**
+ * Parent-local logical units, top-left origin, +Y down. x/y position the
+ * untransformed top-left; anchors (0..1, top-left = 0,0) set the rotation/scale pivot.
+ * The stage node alone maps logical units into container units.
+ */
 export interface CocosHostTransform {
   x?: number
   y?: number
@@ -189,6 +194,7 @@ export interface CocosHostFileInfo {
 export interface CocosHostInputEvent {
   kind: CocosHostInputKind
   phase?: 'down' | 'up' | 'move' | 'wheel' | 'focus' | 'blur'
+  /** Container-local coordinates with top-left origin, before stage unscaling. */
   x?: number
   y?: number
   key?: string
@@ -223,13 +229,16 @@ export interface CocosNodeHost {
   setNodeColor?: (node: CocosHostNode, color?: string) => void
   setNodeMetadata?: (node: CocosHostNode, metadata: Record<string, unknown>) => void
   getNodeMetadata?: (node: CocosHostNode) => Record<string, unknown> | undefined
+  /** Input point is already in logical stage coordinates; exclude hidden subtrees. */
   hitTest?: (root: CocosHostNode, point: CocosHostVec2, options?: {
     metadataKey?: string
+    metadataKeys?: readonly string[]
     includeInvisible?: boolean
   }) => CocosHostHitTestResult | undefined
   getContainerSize: () => CocosHostSize
   getDevicePixelRatio?: () => number
   getSafeAreaInsets?: () => Partial<{ top: number, right: number, bottom: number, left: number }>
+  onLayoutChange?: (listener: () => void) => CocosHostDisposer
 }
 
 export interface CocosAssetHost {

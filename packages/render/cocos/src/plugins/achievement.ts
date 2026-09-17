@@ -6,10 +6,11 @@ import type {
 } from '@quajs/plugin-achievement/contracts'
 import type { CocosRendererPluginContext } from '../types'
 import { ACHIEVEMENT_PLUGIN_ID, AchievementRenderToLogicEvents } from '@quajs/plugin-achievement/contracts'
-import { compareResolvedOverlayStackPlacement, DEFAULT_UI_OVERLAY_Z_INDEXES, LogicToRenderEvents } from '@quajs/render-core'
+import { compareResolvedOverlayStackPlacement, DEFAULT_UI_OVERLAY_Z_INDEXES } from '@quajs/render-core'
 import { resolveCocosOverlayPlacement, resolveCocosOverlayZIndex } from '../overlay-placement'
 import { resolveAssetWithTargetPackages, runtimePackageCandidatesFromAssetRef } from '../utils'
 import { defineCocosRendererPlugin } from './core'
+import { createCocosProjectionTask } from './projection-task'
 import { resolveInputMetadataAny, stringValue } from './projection-utils'
 
 type AchievementAssetRef = NonNullable<AchievementProjectionItem['icon']>
@@ -22,17 +23,18 @@ export function createAchievementCocosRendererPlugin() {
       const soundHandles = new Map<string, AchievementSoundHandle>()
       const pages = new Map<string, number>()
       const notificationTimers = new Map<string, number>()
-      const sync = () => {
-        void renderAchievementLayer(context, playedNotifications, soundHandles, pages).then(() => {
+      let disposed = false
+      const project = createCocosProjectionTask(context, 'achievement', async (cocos) => {
+        await renderAchievementLayer({ ...context, cocos, getViewState: cocos.getViewState }, playedNotifications, soundHandles, pages)
+        if (!disposed)
           syncNotificationTimers(context, notificationTimers)
-        }).catch(error => context.reportError(error, {
-          message: 'Cocos achievement projection failed.',
-          phase: 'renderer-cocos:achievement',
-          pluginName: '@quajs/renderer-cocos/achievement',
-        }))
+      })
+      const sync = () => {
+        void project()
       }
-      context.addDisposer(context.onLogicToRender(LogicToRenderEvents.VIEW_UPDATE, sync))
-      context.addDisposer(context.onLogicToRender(LogicToRenderEvents.ASSET_CHANGED, sync))
+      context.addDisposer(() => {
+        disposed = true
+      })
       context.addDisposer(context.cocos.host.input.onInput(async (event) => {
         const metadata = resolveInputMetadataAny(context, event, [
           'achievementId',
@@ -201,6 +203,8 @@ async function renderAchievementToast(
         handle = audioHandle
         soundHandles.set(notification.id, { handle: audioHandle, resourceKey })
         audioHandle.onEnded?.(() => {
+          if (soundHandles.get(notification.id)?.handle !== audioHandle)
+            return
           void audioHandle.dispose()
           soundHandles.delete(notification.id)
           context.cocos.setLayerResource('achievement-sound', resourceKey, undefined)

@@ -1,6 +1,6 @@
 import type { BundleManifest, StoredAsset } from '@quajs/assets'
 import { createFakeCocosHost } from '@quajs/cocos-host/testing'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   CocosAssetMaterializer,
   CocosAssetStorage,
@@ -102,6 +102,86 @@ describe('assets-cocos', () => {
     expect(host.resourcesById.size).toBe(1)
     materializer.clear()
     expect(host.resourcesById.size).toBe(0)
+  })
+
+  it('shares in-flight materialization and releases exactly once after the last handle', async () => {
+    const host = createFakeCocosHost()
+    let finish!: () => void
+    const gate = new Promise<void>((resolve) => {
+      finish = resolve
+    })
+    const create = host.assets.createResource
+    const spy = vi.spyOn(host.assets, 'createResource').mockImplementation(async (...args) => {
+      await gate
+      return create(...args)
+    })
+    const materializer = new CocosAssetMaterializer({ host })
+    const a = materializer.materialize(createAssetData())
+    const b = materializer.materialize(createAssetData())
+    finish()
+    const [first, second] = await Promise.all([a, b])
+    expect(spy).toHaveBeenCalledTimes(1)
+    first.release()
+    first.release()
+    expect(host.resourcesById.size).toBe(1)
+    second.retain()
+    second.release()
+    expect(host.resourcesById.size).toBe(1)
+    second.release()
+    expect(host.resourceReleaseCounts.get(second.resource.id)).toBe(1)
+    expect(host.resourcesById.size).toBe(0)
+  })
+
+  it('disposes native resources that finish loading after clear', async () => {
+    const host = createFakeCocosHost()
+    let finish!: () => void
+    const gate = new Promise<void>((resolve) => {
+      finish = resolve
+    })
+    const create = host.assets.createResource
+    host.assets.createResource = async (...args) => {
+      await gate
+      return create(...args)
+    }
+    const materializer = new CocosAssetMaterializer({ host })
+    const loading = materializer.materialize(createAssetData())
+    materializer.clear()
+    finish()
+    await expect(loading).rejects.toThrow('cleared while loading')
+    expect(host.resourcesById.size).toBe(0)
+  })
+
+  it('creates the asset directory and serializes concurrent index writes', async () => {
+    const host = createFakeCocosHost()
+    const directories = new Set<string>()
+    host.storage.ensureDir = async (path) => {
+      directories.add(path)
+    }
+    const writeBytes = host.storage.writeBytes
+    host.storage.writeBytes = async (path, bytes) => {
+      expect(directories.has(path.slice(0, path.lastIndexOf('/')))).toBe(true)
+      await writeBytes(path, bytes)
+    }
+    const writeText = host.storage.writeText
+    let active = 0
+    let maxActive = 0
+    host.storage.writeText = async (...args) => {
+      active += 1
+      maxActive = Math.max(maxActive, active)
+      await Promise.resolve()
+      await writeText(...args)
+      active -= 1
+    }
+    const storage = new CocosAssetStorage(host)
+    await storage.open()
+    await Promise.all([
+      storage.storeAsset(createAsset()),
+      storage.storeAsset({ ...createAsset(), id: 'second', name: 'second.png' }),
+    ])
+    expect(maxActive).toBe(1)
+    const reopened = new CocosAssetStorage(host)
+    await reopened.open()
+    expect((await reopened.findAssets({ type: 'images' })).map(asset => asset.id)).toHaveLength(2)
   })
 
   it('rejects dynamic runtime bundle loading through static Cocos assets', async () => {

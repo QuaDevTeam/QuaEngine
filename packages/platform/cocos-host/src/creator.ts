@@ -15,10 +15,13 @@ import type {
   CocosHostSize,
   CocosHostSpriteOptions,
   CocosHostTransform,
+  CocosRuntimeHost,
+  CocosStorageHost,
 } from './index'
 
 export interface CocosCreatorHostOptions {
   rootNode: unknown
+  runtime?: Partial<CocosRuntimeHost>
   cc?: CocosCreatorModule
   writableRoot?: string
   files?: CocosCreatorFileBridge
@@ -67,6 +70,8 @@ export interface CocosCreatorResourceBridge {
 }
 
 export interface CocosCreatorAudioBridge {
+  /** Declare rate support only when returned handles implement setPlaybackRate. */
+  playbackRate?: boolean
   createAudioHandle?: (resource: CocosHostResource, options: {
     id: string
     loop: boolean
@@ -86,6 +91,7 @@ export interface CocosCreatorInputBridge {
 }
 
 export interface CocosCreatorLayoutBridge {
+  onLayoutChange?: (listener: () => void) => CocosHostDisposer
   getContainerSize?: () => CocosHostSize
   getDevicePixelRatio?: () => number
   getSafeAreaInsets?: () => Partial<{ top: number, right: number, bottom: number, left: number }>
@@ -104,6 +110,7 @@ export interface CocosCreatorModule {
   UIOpacity?: unknown
   AudioSource?: unknown
   Color?: new (r?: number, g?: number, b?: number, a?: number) => unknown
+  Vec3?: new (x?: number, y?: number, z?: number) => unknown
   input?: {
     on?: (type: unknown, callback: (event: unknown) => void, target?: unknown) => void
     off?: (type: unknown, callback: (event: unknown) => void, target?: unknown) => void
@@ -118,6 +125,8 @@ export interface CocosCreatorModule {
     now?: () => number
   }
   view?: {
+    on?: (event: string, callback: () => void) => void
+    off?: (event: string, callback: () => void) => void
     getVisibleSize?: () => CocosHostSize
     getDevicePixelRatio?: () => number
     getSafeAreaRect?: () => CocosHostRect
@@ -130,9 +139,19 @@ export interface CocosCreatorModule {
 export function createCocosCreatorHost(options: CocosCreatorHostOptions): CocosHost {
   const files = new Map<string, Uint8Array>()
   const resources = new Map<string, CocosHostResource>()
+  let resourceSerial = 0
+  const warned = new Set<string>()
+  const warn = (message: string, metadata?: Record<string, unknown>) => {
+    if (warned.has(message))
+      return
+    warned.add(message)
+    ;(options.runtime?.warn || console.warn)(message, metadata)
+  }
   const nodesByNative = new WeakMap<object, CocosCreatorNode>()
   const childNodes = new Map<string, Set<CocosCreatorNode>>()
   const parentNodes = new Map<string, CocosCreatorNode>()
+  const slicedFrames = new Map<string, any>()
+  const visualNodes = new Map<string, Map<string, any>>()
   const metadataByNode = new Map<string, Record<string, unknown>>()
   const root = wrapNode(options.rootNode, 'root', 'root')
   registerNode(root)
@@ -147,7 +166,6 @@ export function createCocosCreatorHost(options: CocosCreatorHostOptions): CocosH
       const native = options.cc?.Node ? new options.cc.Node(nodeOptions.name || kind) : { name: nodeOptions.name || kind, children: [] }
       const node = wrapNode(native, kind, nodeOptions.name || kind)
       registerNode(node)
-      ensureDefaultComponent(options.cc, node, kind)
       if (nodeOptions.parent) {
         nodeHost.appendChild(nodeOptions.parent, node)
       }
@@ -166,6 +184,9 @@ export function createCocosCreatorHost(options: CocosCreatorHostOptions): CocosH
       childNodes.delete(current.id)
       parentNodes.delete(current.id)
       metadataByNode.delete(current.id)
+      visualNodes.delete(current.id)
+      slicedFrames.get(current.id)?.destroy?.()
+      slicedFrames.delete(current.id)
     },
     appendChild(parent: CocosHostNode, child: CocosHostNode) {
       const parentNode = asCreatorNode(parent)
@@ -187,13 +208,18 @@ export function createCocosCreatorHost(options: CocosCreatorHostOptions): CocosH
       }
       children.add(childNode)
       parentNodes.set(childNode.id, parentNode)
+      projectTransform(childNode)
+      sortChildren(parentNode)
     },
     removeChild(parent: CocosHostNode, child: CocosHostNode) {
       const parentNode = asCreatorNode(parent)
       const childNode = asCreatorNode(child)
       const parentNative = parentNode.native as any
       const childNative = childNode.native as any
-      parentNative?.removeChild?.(childNative)
+      if (parentNative?.removeChild)
+        parentNative.removeChild(childNative)
+      else if (Array.isArray(parentNative?.children))
+        parentNative.children = parentNative.children.filter((child: unknown) => child !== childNative)
       childNodes.get(parentNode.id)?.delete(childNode)
       if (parentNodes.get(childNode.id)?.id === parentNode.id) {
         parentNodes.delete(childNode.id)
@@ -204,17 +230,29 @@ export function createCocosCreatorHost(options: CocosCreatorHostOptions): CocosH
         nodeHost.destroyNode(child)
       }
       const native = asCreatorNode(node).native as any
+      for (const visual of visualNodes.get(node.id)?.values() || [])
+        visual.destroy?.()
+      visualNodes.delete(node.id)
       native?.removeAllChildren?.()
     },
     setNodeVisible(node: CocosHostNode, visible: boolean) {
       ;(asCreatorNode(node).native as any).active = visible
     },
     setNodeTransform(node: CocosHostNode, transform: CocosHostTransform) {
-      applyTransform(options.cc, asCreatorNode(node), transform)
+      const current = asCreatorNode(node)
+      Object.assign(current.transform, Object.fromEntries(Object.entries(transform).filter(([, value]) => value !== undefined)))
+      projectTransform(current)
+      for (const child of childNodes.get(current.id) || [])
+        projectTransform(child)
+      const parent = parentNodes.get(current.id)
+      if (parent && transform.zIndex !== undefined)
+        sortChildren(parent)
+      if (transform.clip)
+        warn('Cocos Creator clip projection requires a custom mask implementation; clip metadata is retained only.')
     },
     setNodeText(node: CocosHostNode, text: string, style = {}) {
       const native = asCreatorNode(node).native as any
-      const label = ensureComponent(native, options.cc?.Label, 'cc.Label')
+      const label = presentationComponent(asCreatorNode(node), 'label', options.cc?.Label, 'cc.Label')
       if (label) {
         label.string = text
         applyTextStyle(options.cc, label, style)
@@ -225,7 +263,7 @@ export function createCocosCreatorHost(options: CocosCreatorHostOptions): CocosH
     },
     setNodeRichText(node: CocosHostNode, markup: string, style = {}) {
       const native = asCreatorNode(node).native as any
-      const richText = ensureComponent(native, options.cc?.RichText, 'cc.RichText')
+      const richText = presentationComponent(asCreatorNode(node), 'rich-text', options.cc?.RichText, 'cc.RichText')
       if (richText) {
         richText.string = markup
         applyTextStyle(options.cc, richText, style)
@@ -236,12 +274,27 @@ export function createCocosCreatorHost(options: CocosCreatorHostOptions): CocosH
     },
     setNodeSprite(node: CocosHostNode, resource?: CocosHostResource, spriteOptions: CocosHostSpriteOptions = {}) {
       const native = asCreatorNode(node).native as any
-      const sprite = ensureComponent(native, options.cc?.Sprite, 'cc.Sprite')
+      const sprite = presentationComponent(asCreatorNode(node), 'sprite', options.cc?.Sprite, 'cc.Sprite')
       if (sprite) {
-        if (spriteOptions.mode === 'video')
-          sprite.videoClip = resource?.native
-        else
-          sprite.spriteFrame = resource?.native
+        if (spriteOptions.mode === 'video') {
+          warn('Cocos Creator video projection is unavailable without a custom node host.')
+          sprite.spriteFrame = null
+        }
+        else {
+          slicedFrames.get(node.id)?.destroy?.()
+          slicedFrames.delete(node.id)
+          const frame = resource?.native as any
+          if (spriteOptions.slice && frame?.clone) {
+            const copy = frame.clone()
+            slicedFrames.set(node.id, copy)
+            sprite.spriteFrame = copy
+          }
+          else {
+            sprite.spriteFrame = frame ?? null
+            if (spriteOptions.slice)
+              warn('Cocos Creator cannot customize shared slice insets without SpriteFrame.clone; asset insets are used.')
+          }
+        }
         applySpriteMode(options.cc, sprite, resource, spriteOptions)
         applySpriteVisualOptions(sprite, spriteOptions)
       }
@@ -249,9 +302,11 @@ export function createCocosCreatorHost(options: CocosCreatorHostOptions): CocosH
         native.sprite = resource?.native
       }
       if (spriteOptions.tint)
-        native.color = parseCocosColor(options.cc, spriteOptions.tint)
+        (sprite || native).color = parseCocosColor(options.cc, spriteOptions.tint)
       if (spriteOptions.opacity !== undefined)
         applyNodeOpacity(options.cc, native, spriteOptions.opacity)
+      if (spriteOptions.mask || spriteOptions.filter || spriteOptions.composition || spriteOptions.frame || spriteOptions.states || (spriteOptions.blendMode && spriteOptions.blendMode !== 'normal'))
+        warn('Cocos Creator advanced sprite options require a custom material/control implementation; projection metadata is retained only.')
       native.spriteOptions = clonePlain(spriteOptions)
     },
     setNodeControl(node: CocosHostNode, control: CocosHostControlOptions) {
@@ -270,8 +325,21 @@ export function createCocosCreatorHost(options: CocosCreatorHostOptions): CocosH
       const metadata = metadataByNode.get(asCreatorNode(node).id)
       return metadata ? { ...metadata } : undefined
     },
-    hitTest(rootNode: CocosHostNode, point: { x: number, y: number }, hitOptions: { metadataKey?: string, includeInvisible?: boolean } = {}) {
+    hitTest(rootNode: CocosHostNode, point: { x: number, y: number }, hitOptions: { metadataKey?: string, metadataKeys?: readonly string[], includeInvisible?: boolean } = {}) {
       return hitTestNode(asCreatorNode(rootNode), point, childNodes, metadataByNode, hitOptions, identityMatrix())
+    },
+    onLayoutChange(listener: () => void) {
+      if (options.layout?.onLayoutChange)
+        return options.layout.onLayoutChange(listener)
+      const native = root.native as any
+      native?.on?.('size-changed', listener)
+      options.cc?.view?.on?.('canvas-resize', listener)
+      options.cc?.view?.on?.('design-resolution-changed', listener)
+      return () => {
+        native?.off?.('size-changed', listener)
+        options.cc?.view?.off?.('canvas-resize', listener)
+        options.cc?.view?.off?.('design-resolution-changed', listener)
+      }
     },
     getContainerSize: () => options.layout?.getContainerSize?.() || readNodeSize(options.cc, root) || options.cc?.view?.getVisibleSize?.() || { width: 1920, height: 1080 },
     getDevicePixelRatio: () => options.layout?.getDevicePixelRatio?.() || options.cc?.view?.getDevicePixelRatio?.() || globalThis.devicePixelRatio || 1,
@@ -280,7 +348,9 @@ export function createCocosCreatorHost(options: CocosCreatorHostOptions): CocosH
 
   return {
     runtime: {
-      now: () => creatorNow(options.cc),
+      now: () => options.runtime?.now?.() ?? creatorNow(options.cc),
+      warn,
+      error: options.runtime?.error || console.error,
     },
     nodes: nodeHost,
     assets: {
@@ -289,6 +359,11 @@ export function createCocosCreatorHost(options: CocosCreatorHostOptions): CocosH
         const cached = files.get(path)
         if (cached)
           return new Uint8Array(cached)
+        if (!isRemoteUrl(source) && fileBridge?.readBytes) {
+          const bytes = await fileBridge.readBytes(path)
+          if (bytes)
+            return new Uint8Array(bytes)
+        }
         if (fileBridge?.loadBytes)
           return fileBridge.loadBytes(path)
         if (isRemoteUrl(source) && globalThis.fetch) {
@@ -311,6 +386,7 @@ export function createCocosCreatorHost(options: CocosCreatorHostOptions): CocosH
           await fileBridge.writeBytes(normalized, bytes)
           return
         }
+        warn('Cocos Creator has no persistent file writer; writes are kept in memory for this host instance only.')
         files.set(normalized, new Uint8Array(bytes))
       },
       async readBytes(path) {
@@ -333,10 +409,13 @@ export function createCocosCreatorHost(options: CocosCreatorHostOptions): CocosH
         return listMemoryFiles(files, normalized)
       },
       async createResource(kind: CocosHostResourceKind, data, resourceOptions = {}) {
-        const id = resourceOptions.id || `${kind}:${resources.size + 1}`
+        const id = resourceOptions.id || `${kind}:${++resourceSerial}`
         const existing = resources.get(id)
         if (existing)
           return existing
+        if (!resourceBridge?.createResource && kind !== 'custom') {
+          throw new Error(`Cocos Creator requires resources.createResource to decode ${kind} bytes into a native asset.`)
+        }
         const resource = await resourceBridge?.createResource?.(kind, data, {
           id,
           source: resourceOptions.source,
@@ -377,7 +456,8 @@ export function createCocosCreatorHost(options: CocosCreatorHostOptions): CocosH
       },
       releaseResource(resource) {
         resourceBridge?.releaseResource?.(resource)
-        resources.delete(resource.id)
+        if (resources.get(resource.id) === resource)
+          resources.delete(resource.id)
       },
     },
     audio: {
@@ -392,7 +472,7 @@ export function createCocosCreatorHost(options: CocosCreatorHostOptions): CocosH
             cc: options.cc,
           })
         }
-        return createFallbackAudioHandle(resource, handleOptions)
+        throw new Error('Cocos Creator audio playback requires an audio.createAudioHandle bridge.')
       },
       setBusVolume: audioBridge?.setBusVolume,
       setBusEq: audioBridge?.setBusEq,
@@ -413,6 +493,7 @@ export function createCocosCreatorHost(options: CocosCreatorHostOptions): CocosH
           await fileBridge.writeBytes(normalized, value)
           return
         }
+        warn('Cocos Creator has no persistent file writer; writes are kept in memory for this host instance only.')
         files.set(normalized, new Uint8Array(value))
       },
       async readBytes(path) {
@@ -439,21 +520,21 @@ export function createCocosCreatorHost(options: CocosCreatorHostOptions): CocosH
       },
       move: fileBridge?.move
         ? (from, to) => fileBridge.move!(normalizePath(from, options.writableRoot), normalizePath(to, options.writableRoot))
-        : async (from, to) => {
+        : async function (this: CocosStorageHost, from, to) {
           const source = normalizePath(from, options.writableRoot)
           const target = normalizePath(to, options.writableRoot)
-          const bytes = files.get(source)
-          if (bytes) {
-            files.set(target, bytes)
-            files.delete(source)
-          }
+          const bytes = await this.readBytes(source)
+          if (!bytes)
+            throw new Error(`Cocos Creator cannot move missing file: ${source}`)
+          await this.writeBytes(target, bytes)
+          await this.delete(source)
         },
     },
     input: {
       onInput(listener) {
         if (options.input?.onInput)
           return options.input.onInput(listener)
-        return bindCreatorInput(options.cc, root, listener)
+        return bindCreatorInput(options.cc, root, nodeHost.getContainerSize, listener)
       },
     },
     capture: options.capture,
@@ -474,15 +555,80 @@ export function createCocosCreatorHost(options: CocosCreatorHostOptions): CocosH
     capabilities: {
       localFiles: Boolean(fileBridge?.loadBytes || fileBridge?.readBytes),
       remoteFiles: Boolean(globalThis.fetch || options.cc?.assetManager?.loadRemote),
-      writableStorage: Boolean(fileBridge?.writeBytes || options.writableRoot),
+      writableStorage: Boolean(fileBridge?.writeBytes && fileBridge.readBytes && fileBridge.delete && fileBridge.list),
       input: Boolean(options.input?.onInput || options.cc?.input || (root.native as any)?.on),
       audioEq: Boolean(audioBridge?.setBusEq),
-      audioPlaybackRate: Boolean(audioBridge?.createAudioHandle),
-      video: true,
+      audioPlaybackRate: audioBridge?.playbackRate === true,
+      video: false,
       capture: Boolean(options.capture),
       fonts: Boolean(options.fonts?.registerFontFace),
       nativeAssets: Boolean(resourceBridge?.loadResource),
     },
+  }
+
+  function projectTransform(node: CocosCreatorNode): void {
+    const parent = parentNodes.get(node.id)
+    const parentNative = parent?.native as any
+    const parentUi = getComponent(parentNative, options.cc?.UITransform, 'cc.UITransform')
+    const size = parent?.kind === 'root'
+      ? nodeHost.getContainerSize()
+      : { width: parent?.transform.width ?? 0, height: parent?.transform.height ?? 0 }
+    const parentAnchor = parent?.kind === 'root'
+      ? { x: parentUi?.anchorX ?? parentNative?.anchorX ?? 0, y: 1 - (parentUi?.anchorY ?? parentNative?.anchorY ?? 1) }
+      : { x: parent?.transform.anchorX ?? 0, y: parent?.transform.anchorY ?? 0 }
+    applyTransform(options.cc, node, {
+      ...node.transform,
+      x: (node.transform.x ?? 0) + (node.transform.anchorX ?? 0) * (node.transform.width ?? 0) - parentAnchor.x * size.width,
+      y: parentAnchor.y * size.height - (node.transform.y ?? 0) - (node.transform.anchorY ?? 0) * (node.transform.height ?? 0),
+      anchorX: node.transform.anchorX ?? 0,
+      anchorY: 1 - (node.transform.anchorY ?? 0),
+      rotation: -(node.transform.rotation ?? 0),
+    })
+    updatePresentation(node)
+  }
+
+  function presentationComponent(node: CocosCreatorNode, kind: string, component: unknown, componentName: string): any {
+    if (!options.cc?.Node || !component)
+      return ensureComponent(node.native, component, componentName)
+    let visuals = visualNodes.get(node.id)
+    if (!visuals) {
+      visuals = new Map()
+      visualNodes.set(node.id, visuals)
+    }
+    let visual = visuals.get(kind)
+    if (!visual) {
+      visual = new options.cc.Node(`qua-${kind}`)
+      ;(node.native as any).addChild?.(visual)
+      visuals.set(kind, visual)
+    }
+    if (kind === 'label' || kind === 'rich-text') {
+      const other = visuals.get(kind === 'label' ? 'rich-text' : 'label')
+      if (other)
+        other.active = false
+    }
+    visual.active = true
+    const projected = ensureComponent(visual, component, componentName)
+    updatePresentation(node)
+    return projected
+  }
+
+  function updatePresentation(node: CocosCreatorNode): void {
+    const visuals = visualNodes.get(node.id)
+    if (!visuals)
+      return
+    for (const [kind, visual] of visuals) {
+      const ui = ensureComponent(visual, options.cc?.UITransform, 'cc.UITransform')
+      ui?.setContentSize?.(node.transform.width ?? 0, node.transform.height ?? 0)
+      ui?.setAnchorPoint?.(node.transform.anchorX ?? 0, 1 - (node.transform.anchorY ?? 0))
+      visual.setPosition?.(0, 0, 0)
+      visual.setSiblingIndex?.(kind === 'sprite' ? 0 : 1)
+    }
+  }
+
+  function sortChildren(parent: CocosCreatorNode): void {
+    const children = [...(childNodes.get(parent.id) || [])]
+      .sort((left, right) => (left.transform.zIndex ?? 0) - (right.transform.zIndex ?? 0))
+    children.forEach((child, index) => (child.native as any)?.setSiblingIndex?.(index))
   }
 
   function registerNode(node: CocosCreatorNode): void {
@@ -494,6 +640,7 @@ export function createCocosCreatorHost(options: CocosCreatorHostOptions): CocosH
 }
 
 interface CocosCreatorNode extends CocosHostNode {
+  transform: CocosHostTransform
   native: unknown
 }
 
@@ -503,6 +650,7 @@ function wrapNode(native: unknown, kind: string, name?: string): CocosCreatorNod
     kind,
     name,
     native,
+    transform: {},
   }
 }
 
@@ -510,21 +658,12 @@ function asCreatorNode(node: CocosHostNode): CocosCreatorNode {
   return node as CocosCreatorNode
 }
 
-function ensureDefaultComponent(cc: CocosCreatorModule | undefined, node: CocosCreatorNode, kind: string): void {
-  const native = node.native as any
-  if (kind.includes('label') || kind.includes('dialogue') || kind.includes('choice') || kind.includes('text')) {
-    ensureComponent(native, cc?.Label, 'cc.Label')
-  }
-  if (kind.includes('rich')) {
-    ensureComponent(native, cc?.RichText, 'cc.RichText')
-  }
-  if (kind.includes('sprite') || kind.includes('background') || kind.includes('character')) {
-    ensureComponent(native, cc?.Sprite, 'cc.Sprite')
-  }
+function getComponent(native: any, component: unknown, componentName: string): any {
+  return (component ? native?.getComponent?.(component) : undefined) || native?.getComponent?.(componentName)
 }
 
 function ensureComponent(native: any, component: unknown, componentName: string): any {
-  const existing = native?.getComponent?.(component) || native?.getComponent?.(componentName)
+  const existing = getComponent(native, component, componentName)
   if (existing)
     return existing
   if (component) {
@@ -542,7 +681,7 @@ function applyTransform(cc: CocosCreatorModule | undefined, node: CocosCreatorNo
     const current = readNativePosition(native)
     const nextX = transform.x ?? current.x
     const nextY = transform.y ?? current.y
-    native?.setPosition?.(nextX, nextY)
+    native?.setPosition?.(nextX, nextY, native?.getPosition?.()?.z ?? 0)
     if (!native?.setPosition) {
       native.x = nextX
       native.y = nextY
@@ -552,7 +691,7 @@ function applyTransform(cc: CocosCreatorModule | undefined, node: CocosCreatorNo
     const current = readNativeScale(native)
     const nextScaleX = transform.scaleX ?? current.x
     const nextScaleY = transform.scaleY ?? current.y
-    native?.setScale?.(nextScaleX, nextScaleY)
+    native?.setScale?.(nextScaleX, nextScaleY, native?.getScale?.()?.z ?? 1)
     if (!native?.setScale) {
       native.scaleX = nextScaleX
       native.scaleY = nextScaleY
@@ -564,7 +703,6 @@ function applyTransform(cc: CocosCreatorModule | undefined, node: CocosCreatorNo
   if (transform.zIndex !== undefined) {
     native.priority = transform.zIndex
     native.zIndex = transform.zIndex
-    native.setSiblingIndex?.(Math.max(0, Math.floor(transform.zIndex)))
   }
   const uiTransform = ensureComponent(native, cc?.UITransform, 'cc.UITransform')
   if (uiTransform) {
@@ -617,20 +755,6 @@ function readNativeScale(native: any): { x: number, y: number } {
   }
 }
 
-function readNativeRotation(native: any): number {
-  return finiteNumber(native?.angle, finiteNumber(native?.rotation, 0) ?? 0) ?? 0
-}
-
-function readNativeAnchor(native: any, size: CocosHostSize): { x: number, y: number } {
-  const uiTransform = native?.getComponent?.('cc.UITransform')
-  const anchorX = finiteNumber(native?.anchorX, finiteNumber(uiTransform?.anchorX, 0) ?? 0) ?? 0
-  const anchorY = finiteNumber(native?.anchorY, finiteNumber(uiTransform?.anchorY, 0) ?? 0) ?? 0
-  return {
-    x: anchorX * size.width,
-    y: anchorY * size.height,
-  }
-}
-
 function applySpriteMode(
   cc: CocosCreatorModule | undefined,
   sprite: any,
@@ -649,13 +773,11 @@ function applySpriteMode(
   }
 
   const sizeMode = (cc?.Sprite as any)?.SizeMode || {}
-  if (options.mode === 'sliced' || options.mode === 'tiled') {
-    sprite.sizeMode = sizeMode.CUSTOM ?? sprite.sizeMode
-  }
+  sprite.sizeMode = sizeMode.CUSTOM ?? sprite.sizeMode
 
-  const frame = resource?.native as any
+  const frame = sprite.spriteFrame
   const slice = options.slice
-  if (frame && slice) {
+  if (frame && slice && frame !== resource?.native) {
     frame.insetTop = finiteNumber(slice.top, frame.insetTop)
     frame.insetRight = finiteNumber(slice.right, frame.insetRight)
     frame.insetBottom = finiteNumber(slice.bottom, frame.insetBottom)
@@ -747,8 +869,10 @@ function applyTextStyle(cc: CocosCreatorModule | undefined, component: any, styl
     component.lineHeight = style.lineHeight
   if (style.color)
     component.color = parseCocosColor(cc, style.color)
-  if (style.align)
-    component.horizontalAlign = style.align
+  if (style.align) {
+    const alignments = (cc?.Label as any)?.HorizontalAlign || { LEFT: 0, CENTER: 1, RIGHT: 2 }
+    component.horizontalAlign = alignments[style.align.toUpperCase()] ?? alignments.LEFT
+  }
 }
 
 function parseCocosColor(cc: CocosCreatorModule | undefined, color?: string): unknown {
@@ -768,7 +892,7 @@ function parseCocosColor(cc: CocosCreatorModule | undefined, color?: string): un
 
 function readNodeSize(cc: CocosCreatorModule | undefined, node: CocosCreatorNode): CocosHostSize | undefined {
   const native = node.native as any
-  const transform = native?.getComponent?.(cc?.UITransform) || native?.getComponent?.('cc.UITransform')
+  const transform = getComponent(native, cc?.UITransform, 'cc.UITransform')
   const width = Number(transform?.width || native?.width)
   const height = Number(transform?.height || native?.height)
   return width > 0 && height > 0 ? { width, height } : undefined
@@ -792,11 +916,13 @@ function hitTestNode(
   point: { x: number, y: number },
   childNodes: Map<string, Set<CocosCreatorNode>>,
   metadataByNode: Map<string, Record<string, unknown>>,
-  options: { metadataKey?: string, includeInvisible?: boolean },
+  options: { metadataKey?: string, metadataKeys?: readonly string[], includeInvisible?: boolean },
   parentMatrix: HitTestMatrix,
 ): { node: CocosHostNode, metadata?: Record<string, unknown> } | undefined {
+  if (!options.includeInvisible && (root.native as any)?.active === false)
+    return undefined
   const nodeMatrix = root.kind === 'stage' ? parentMatrix : multiplyMatrix(parentMatrix, creatorNodeMatrix(root))
-  const children = [...(childNodes.get(root.id) || [])].sort((left, right) => {
+  const children = [...(childNodes.get(root.id) || [])].reverse().sort((left, right) => {
     const lz = Number((left.native as any)?.priority || (left.native as any)?.zIndex || 0)
     const rz = Number((right.native as any)?.priority || (right.native as any)?.zIndex || 0)
     return rz - lz
@@ -806,11 +932,10 @@ function hitTestNode(
     if (hit)
       return hit
   }
-  const native = root.native as any
-  if (!options.includeInvisible && native?.active === false)
-    return undefined
   const metadata = metadataByNode.get(root.id)
   if (options.metadataKey && metadata?.[options.metadataKey] === undefined)
+    return undefined
+  if (options.metadataKeys && !options.metadataKeys.some(key => metadata?.[key] !== undefined))
     return undefined
   if (!containsPoint(root, point, nodeMatrix))
     return undefined
@@ -827,24 +952,20 @@ interface HitTestMatrix {
 }
 
 function creatorNodeMatrix(node: CocosCreatorNode): HitTestMatrix {
-  const native = node.native as any
-  const size = readNodeSize(undefined, node) || { width: 0, height: 0 }
-  const position = readNativePosition(native)
-  const scale = readNativeScale(native)
-  const anchor = readNativeAnchor(native, size)
-  let matrix = translateMatrix(position.x, position.y)
-  matrix = multiplyMatrix(matrix, translateMatrix(anchor.x, anchor.y))
-  matrix = multiplyMatrix(matrix, rotateMatrix(readNativeRotation(native)))
-  matrix = multiplyMatrix(matrix, scaleMatrix(scale.x, scale.y))
-  matrix = multiplyMatrix(matrix, translateMatrix(-anchor.x, -anchor.y))
-  return matrix
+  const t = node.transform
+  const anchorX = (t.anchorX ?? 0) * (t.width ?? 0)
+  const anchorY = (t.anchorY ?? 0) * (t.height ?? 0)
+  let matrix = translateMatrix(t.x ?? 0, t.y ?? 0)
+  matrix = multiplyMatrix(matrix, translateMatrix(anchorX, anchorY))
+  matrix = multiplyMatrix(matrix, rotateMatrix(t.rotation ?? 0))
+  matrix = multiplyMatrix(matrix, scaleMatrix(t.scaleX ?? 1, t.scaleY ?? 1))
+  return multiplyMatrix(matrix, translateMatrix(-anchorX, -anchorY))
 }
 
 function containsPoint(node: CocosCreatorNode, point: { x: number, y: number }, matrix: HitTestMatrix): boolean {
-  const size = readNodeSize(undefined, node)
-  if (!size)
-    return true
-  const { width, height } = size
+  const { width, height } = node.transform
+  if (width === undefined || height === undefined)
+    return false
   const inverse = invertMatrix(matrix)
   if (!inverse)
     return false
@@ -906,19 +1027,43 @@ function transformPoint(matrix: HitTestMatrix, point: { x: number, y: number }):
 function bindCreatorInput(
   cc: CocosCreatorModule | undefined,
   root: CocosCreatorNode,
+  getContainerSize: () => CocosHostSize,
   listener: CocosHostInputListener,
 ): CocosHostDisposer {
   const disposers: CocosHostDisposer[] = []
   const eventType = cc?.Input?.EventType || {}
-  bindInputEvent(cc?.input, eventType.TOUCH_START || 'touch-start', event => listener(toPointerEvent(event, 'down')), disposers)
-  bindInputEvent(cc?.input, eventType.TOUCH_MOVE || 'touch-move', event => listener(toPointerEvent(event, 'move')), disposers)
-  bindInputEvent(cc?.input, eventType.TOUCH_END || 'touch-end', event => listener(toPointerEvent(event, 'up')), disposers)
-  bindInputEvent(cc?.input, eventType.KEY_DOWN || 'keydown', event => listener(toKeyboardEvent(event, 'down')), disposers)
-  bindInputEvent(cc?.input, eventType.KEY_UP || 'keyup', event => listener(toKeyboardEvent(event, 'up')), disposers)
-  const native = root.native as any
-  bindNodeEvent(native, 'touchstart', event => listener(toPointerEvent(event, 'down')), disposers)
-  bindNodeEvent(native, 'touchmove', event => listener(toPointerEvent(event, 'move')), disposers)
-  bindNodeEvent(native, 'touchend', event => listener(toPointerEvent(event, 'up')), disposers)
+  const dispatch = (event: CocosHostInputEvent) => {
+    void Promise.resolve().then(() => listener(event)).catch(error => console.error('Cocos input listener failed.', error))
+  }
+  const pointer = (phase: CocosHostInputEvent['phase']) => (event: unknown) => {
+    const input = toPointerEvent(event, phase)
+    const size = getContainerSize()
+    const ui = getComponent(root.native, cc?.UITransform, 'cc.UITransform')
+    if (ui?.convertToNodeSpaceAR) {
+      const point = cc?.Vec3 ? new cc.Vec3(input.x, input.y, 0) : { x: input.x, y: input.y, z: 0 }
+      const local = ui.convertToNodeSpaceAR(point)
+      input.x = local.x + (ui.anchorX ?? 0.5) * size.width
+      input.y = (1 - (ui.anchorY ?? 0.5)) * size.height - local.y
+    }
+    else {
+      input.y = size.height - (input.y ?? 0)
+    }
+    dispatch(input)
+  }
+  if (cc?.input?.on && cc.input.off) {
+    bindInputEvent(cc.input, eventType.TOUCH_START || 'touch-start', pointer('down'), disposers)
+    bindInputEvent(cc.input, eventType.TOUCH_MOVE || 'touch-move', pointer('move'), disposers)
+    bindInputEvent(cc.input, eventType.TOUCH_END || 'touch-end', pointer('up'), disposers)
+    bindInputEvent(cc.input, eventType.TOUCH_CANCEL || 'touch-cancel', () => dispatch({ kind: 'focus', phase: 'blur' }), disposers)
+    bindInputEvent(cc.input, eventType.KEY_DOWN || 'keydown', event => dispatch(toKeyboardEvent(event, 'down')), disposers)
+    bindInputEvent(cc.input, eventType.KEY_UP || 'keyup', event => dispatch(toKeyboardEvent(event, 'up')), disposers)
+  }
+  else {
+    const native = root.native as any
+    bindNodeEvent(native, 'touch-start', pointer('down'), disposers)
+    bindNodeEvent(native, 'touch-move', pointer('move'), disposers)
+    bindNodeEvent(native, 'touch-end', pointer('up'), disposers)
+  }
   return () => {
     for (const dispose of disposers)
       dispose()
@@ -953,76 +1098,43 @@ function toPointerEvent(event: unknown, phase: CocosHostInputEvent['phase']): Co
 
 function toKeyboardEvent(event: unknown, phase: CocosHostInputEvent['phase']): CocosHostInputEvent {
   const record = event as any
-  const key = record?.key || record?.keyCode || record?.code
+  const numericCode = Number(record?.keyCode)
+  const codes: Record<number, string> = {
+    13: 'Enter',
+    27: 'Escape',
+    32: 'Space',
+    33: 'PageUp',
+    34: 'PageDown',
+    37: 'ArrowLeft',
+    38: 'ArrowUp',
+    39: 'ArrowRight',
+    40: 'ArrowDown',
+    16: 'ShiftLeft',
+    17: 'ControlLeft',
+    18: 'AltLeft',
+  }
+  const code = record?.code || codes[numericCode]
+    || (numericCode >= 65 && numericCode <= 90 ? `Key${String.fromCharCode(numericCode)}` : undefined)
+    || (numericCode >= 48 && numericCode <= 57 ? `Digit${String.fromCharCode(numericCode)}` : undefined)
+  const key = record?.key ?? code ?? record?.keyCode
   return {
     kind: 'keyboard',
     phase,
     key: key === undefined ? undefined : String(key),
-    code: record?.code === undefined ? undefined : String(record.code),
+    code,
     repeat: Boolean(record?.repeat),
     metadata: { nativeEvent: event },
   }
 }
 
-function createFallbackAudioHandle(resource: CocosHostResource, options: { id?: string, loop?: boolean, volume?: number }): CocosHostAudioHandle {
-  let playing = false
-  let volume = options.volume ?? 1
-  let loop = options.loop ?? false
-  let positionMs = 0
-  let eqBands: readonly unknown[] = []
-  const endedListeners = new Set<() => void>()
-  const handle = {
-    id: options.id || resource.id,
-    play: () => {
-      playing = true
-    },
-    pause: () => {
-      playing = false
-    },
-    stop: () => {
-      playing = false
-    },
-    setVolume: (next: number) => {
-      volume = next
-    },
-    setLoop: (next: boolean) => {
-      loop = next
-    },
-    setEq: (bands: readonly unknown[]) => {
-      eqBands = [...bands]
-    },
-    seek: (next: number) => {
-      positionMs = next
-    },
-    getPosition: () => positionMs,
-    onEnded: (listener: () => void) => {
-      endedListeners.add(listener)
-      return () => endedListeners.delete(listener)
-    },
-    dispose: () => {
-      volume = 0
-      loop = false
-      playing = false
-      endedListeners.clear()
-    },
-  }
-  Object.defineProperties(handle, {
-    playing: { get: () => playing },
-    volume: { get: () => volume },
-    loop: { get: () => loop },
-    positionMs: { get: () => positionMs },
-    eqBands: { get: () => eqBands },
-    resource: { get: () => resource },
-  })
-  return handle
-}
-
 function normalizePath(path: string, root?: string): string {
-  const normalized = path.replace(/^cocos:\/\//, '').replace(/^\/+/, '')
-  if (!root)
+  if (/^[a-z][a-z\d+.-]*:\/\//i.test(path) && !path.startsWith('cocos://'))
+    return path
+  const normalized = path.replace(/^cocos:\/\//, '')
+  if (!root || normalized.startsWith('/'))
     return normalized
-  const normalizedRoot = root.replace(/\/+$/, '').replace(/^\/+/, '')
-  return normalized.startsWith(`${normalizedRoot}/`) ? normalized : `${normalizedRoot}/${normalized}`
+  const normalizedRoot = root.replace(/\/+$/, '')
+  return normalized === normalizedRoot || normalized.startsWith(`${normalizedRoot}/`) ? normalized : `${normalizedRoot}/${normalized}`
 }
 
 function creatorNow(cc: CocosCreatorModule | undefined): number {
@@ -1074,7 +1186,7 @@ async function bytesFromValue(value: unknown): Promise<Uint8Array | undefined> {
 
 function listMemoryFiles(files: Map<string, Uint8Array>, rootPath: string): CocosHostFileInfo[] {
   return Array.from(files.entries())
-    .filter(([path]) => path.startsWith(rootPath))
+    .filter(([path]) => path === rootPath || path.startsWith(`${rootPath.replace(/\/+$/, '')}/`))
     .map(([path, bytes]) => ({ path, size: bytes.byteLength }))
 }
 
@@ -1091,5 +1203,13 @@ function finiteNumber(value: unknown, fallback: number | undefined): number | un
 }
 
 function clonePlain<T>(value: T): T {
-  return JSON.parse(JSON.stringify(value)) as T
+  if (Array.isArray(value))
+    return value.map(item => clonePlain(item)) as T
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [
+      key,
+      key === 'resource' || key === 'native' ? item : clonePlain(item),
+    ])) as T
+  }
+  return value
 }
