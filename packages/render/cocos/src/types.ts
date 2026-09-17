@@ -26,6 +26,9 @@ export interface CocosRendererHostContext {
   host: CocosHost
   assets?: QuaAssets
   rendererId?: string
+  getAssetRevision: () => number
+  /** Subscribe to readonly renderer snapshot changes, including setView/setAssets and layout. */
+  subscribe: (listener: () => void) => () => void
   getViewState: () => RendererPluginContext['getViewState'] extends () => infer T ? T : never
   getActions: () => RendererActions
   registerAdvanceInterceptor: (interceptor: (source?: string) => boolean | Promise<boolean>) => () => void
@@ -35,6 +38,7 @@ export interface CocosRendererHostContext {
   getLayerNode: (id: string, kind?: string, order?: number) => CocosHostNode
   clearLayer: (id: string) => void
   resolveAsset: (type: AssetType, name: string | undefined, options?: { targetPackageId?: string }) => Promise<CocosHostResource | undefined>
+  releaseAsset: (resource: CocosHostResource) => void
   releaseLayerResources: (id: string) => void
   setLayerResource: (layerId: string, key: string, resource?: CocosHostResource) => void
   syncAudioHandle: (layerId: string, key: string, resource: CocosHostResource, options: {
@@ -54,7 +58,7 @@ export interface CocosRendererHostContext {
     automation?: readonly Record<string, unknown>[]
     interruptible?: boolean
     endedPayload?: AudioTrackEventPayload
-  }) => Promise<CocosHostAudioHandle>
+  }, isCurrent?: () => boolean) => Promise<CocosHostAudioHandle>
   releaseAudioHandles: (layerId: string, activeKeys?: readonly string[]) => void
   interruptAudioTracks: (kind: string, source?: string) => Promise<void>
   captureStage: (

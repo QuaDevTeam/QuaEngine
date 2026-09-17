@@ -112,6 +112,7 @@ export class CocosAssetStorage implements AssetStorage {
   private assets = new Map<string, StoredAsset>()
   private bundles = new Map<string, StoredBundle>()
   private opened = false
+  private indexWrite: Promise<void> = Promise.resolve()
 
   constructor(private readonly host: CocosHost, options: { root?: string, now?: () => number } = {}) {
     this.root = normalizeRoot(options.root || 'qua-assets-cache')
@@ -128,6 +129,7 @@ export class CocosAssetStorage implements AssetStorage {
 
   async close(): Promise<void> {
     await this.saveIndex()
+    this.opened = false
   }
 
   async getAsset(id: string): Promise<StoredAsset | undefined> {
@@ -138,12 +140,13 @@ export class CocosAssetStorage implements AssetStorage {
     if (!data)
       return undefined
     const asset = cloneStoredAsset({ ...metadata, data, lastAccessed: this.now() })
-    this.assets.set(id, asset)
+    this.assets.set(id, { ...asset, data: new Uint8Array() })
     await this.saveIndex()
     return cloneStoredAsset(asset)
   }
 
   async storeAsset(asset: StoredAsset): Promise<void> {
+    await this.host.storage.ensureDir(`${this.root}/assets`)
     await this.host.storage.writeBytes(this.assetPath(asset.id), asset.data)
     this.assets.set(asset.id, cloneStoredAsset({ ...asset, data: new Uint8Array(), lastAccessed: this.now() }))
     await this.saveIndex()
@@ -318,12 +321,17 @@ export class CocosAssetStorage implements AssetStorage {
     this.bundles = new Map((parsed.bundles || []).map(bundle => [getBundleStorageKey(bundle), cloneStoredBundle(bundle)]))
   }
 
-  private async saveIndex(): Promise<void> {
-    await this.host.storage.ensureDir(this.root)
-    await this.host.storage.writeText(this.indexPath(), JSON.stringify({
+  private saveIndex(): Promise<void> {
+    const text = JSON.stringify({
       assets: Array.from(this.assets.values()).map(asset => ({ ...asset, data: undefined })),
       bundles: Array.from(this.bundles.values()),
-    }))
+    })
+    const write = this.indexWrite.catch(() => {}).then(async () => {
+      await this.host.storage.ensureDir(this.root)
+      await this.host.storage.writeText(this.indexPath(), text)
+    })
+    this.indexWrite = write
+    return write
   }
 
   private indexPath(): string {
@@ -337,31 +345,47 @@ export class CocosAssetStorage implements AssetStorage {
 
 export class CocosAssetMaterializer {
   private refs = new Map<string, { resource: CocosHostResource, count: number }>()
+  private pending = new Map<string, Promise<CocosHostResource>>()
+  private generation = 0
 
   constructor(private readonly options: CocosAssetMaterializerOptions) {}
 
   async materialize(asset: AssetData, kind = inferResourceKind(asset)): Promise<CocosMaterializedAsset> {
-    const key = `${asset.id}:${kind}`
-    const existing = this.refs.get(key)
-    if (existing) {
-      existing.count += 1
-      return this.createHandle(key, asset, existing.resource)
+    const key = `${asset.id}:${kind}${this.generation ? `:generation:${this.generation}` : ''}`
+    let pending = this.pending.get(key)
+    if (!pending && !this.refs.has(key)) {
+      const generation = this.generation
+      pending = this.options.host.assets.createResource(kind, asset.data, {
+        id: key,
+        source: asset.path || asset.name,
+        mimeType: asset.mimeType,
+        metadata: asset.mediaMetadata,
+      }).then((resource) => {
+        if (this.generation !== generation) {
+          this.options.host.assets.releaseResource(resource)
+          throw new Error('Cocos asset materialization was cleared while loading.')
+        }
+        this.refs.set(key, { resource, count: 0 })
+        return resource
+      }).finally(() => {
+        if (this.pending.get(key) === pending)
+          this.pending.delete(key)
+      })
+      this.pending.set(key, pending)
     }
-    const resource = await this.options.host.assets.createResource(kind, asset.data, {
-      id: key,
-      source: asset.path || asset.name,
-      mimeType: asset.mimeType,
-      metadata: asset.mediaMetadata,
-    })
-    this.refs.set(key, { resource, count: 1 })
-    return this.createHandle(key, asset, resource)
+    if (pending)
+      await pending
+    const current = this.refs.get(key)
+    if (!current)
+      throw new Error('Cocos asset materialization was cleared while loading.')
+    current.count += 1
+    return this.createHandle(key, asset, current.resource)
   }
 
   retain(key: string): void {
     const current = this.refs.get(key)
     if (current) {
       current.count += 1
-      this.options.host.assets.retainResource?.(current.resource)
     }
   }
 
@@ -377,6 +401,8 @@ export class CocosAssetMaterializer {
   }
 
   clear(): void {
+    this.generation += 1
+    this.pending.clear()
     for (const [key, ref] of Array.from(this.refs.entries())) {
       this.refs.delete(key)
       this.options.host.assets.releaseResource(ref.resource)
@@ -384,13 +410,25 @@ export class CocosAssetMaterializer {
   }
 
   private createHandle(key: string, asset: AssetData, resource: CocosHostResource): CocosMaterializedAsset {
+    let held = 1
+    const current = this.refs.get(key)
     return {
       key,
       type: asset.type,
       name: asset.name,
       resource,
-      retain: () => this.retain(key),
-      release: () => this.release(key),
+      retain: () => {
+        if (held > 0 && this.refs.get(key) === current) {
+          held += 1
+          this.retain(key)
+        }
+      },
+      release: () => {
+        if (held > 0 && this.refs.get(key) === current) {
+          held -= 1
+          this.release(key)
+        }
+      },
     }
   }
 }

@@ -6,6 +6,7 @@ import type {
 import type { CocosRendererPluginContext } from '../types'
 import { clientPointToStageLogical, RenderToLogicEvents, viewAllowsDialogueChrome, viewAllowsHudChrome } from '@quajs/render-core'
 import { defineCocosRendererPlugin } from './core'
+import { INTERACTIVE_CONTROL_METADATA_KEYS } from './projection-utils'
 
 export type CocosRendererInputBindingPhase = 'press' | 'release'
 export type CocosRendererInputWheelDirection = 'up' | 'down' | 'left' | 'right'
@@ -69,21 +70,6 @@ export function createInputCocosRendererPlugin(options: InputCocosRendererPlugin
 
 export const inputCocosRendererPlugin = createInputCocosRendererPlugin()
 
-const INTERACTIVE_CONTROL_METADATA_KEYS = [
-  'choiceId',
-  'settingsScope',
-  'backlogEntryId',
-  'galleryEntryId',
-  'achievementId',
-  'elementId',
-  'uiAction',
-  'settingsAction',
-  'settingsPathKey',
-  'backlogAction',
-  'galleryAction',
-  'achievementAction',
-] as const
-
 const DEFAULT_KEYBOARD_BINDINGS: readonly CocosRendererInputKeyboardBinding[] = [
   { source: 'keyboard', code: 'Enter', command: 'advance' },
   { source: 'keyboard', code: 'Space', command: 'advance' },
@@ -137,7 +123,7 @@ class CocosInputController {
   }
 
   async handleInputEvent(event: CocosHostInputEvent): Promise<void> {
-    if (event.kind === 'pointer' && event.phase === 'down') {
+    if (event.kind === 'pointer' && (event.phase === 'down' || event.phase === 'up')) {
       await this.handlePointer(event)
       return
     }
@@ -166,19 +152,24 @@ class CocosInputController {
       clientX: event.x ?? 0,
       clientY: event.y ?? 0,
     })
+    if (!point.insideStage && !event.targetNode)
+      return
+    const phase = inputPhase(event.phase)
     const target = typeof event.metadata?.target === 'string' ? event.metadata.target : undefined
-    await this.context.emitRenderToLogic(RenderToLogicEvents.USER_CLICK, {
-      x: point.x,
-      y: point.y,
-      target,
-    })
+    if (phase === 'press') {
+      await this.context.emitRenderToLogic(RenderToLogicEvents.USER_CLICK, {
+        x: point.x,
+        y: point.y,
+        target,
+      })
+    }
 
     if (this.options.filterInteractiveTargets !== false && isInteractiveControlPointer(this.context, event, point)) {
       return
     }
 
     for (const binding of this.bindings) {
-      if (binding.source !== 'pointer' || (binding.phase || 'press') !== 'press')
+      if (binding.source !== 'pointer' || (binding.phase || 'press') !== phase)
         continue
       if (binding.target && binding.target !== target)
         continue
@@ -186,7 +177,7 @@ class CocosInputController {
         command: binding.command,
         device: 'pointer',
         source: `cocos:pointer${target ? `:${target}` : ''}`,
-        pressed: true,
+        pressed: phase === 'press',
         metadata: {
           ...event.metadata,
           x: point.x,
@@ -480,10 +471,8 @@ function isInteractiveControlPointer(
       return true
   }
 
-  return INTERACTIVE_CONTROL_METADATA_KEYS.some((metadataKey) => {
-    const hit = context.cocos.host.nodes.hitTest?.(context.cocos.getRootNode(), point, { metadataKey })
-    return hasInteractiveControlMetadata(hit?.metadata)
-  })
+  const hit = context.cocos.host.nodes.hitTest?.(context.cocos.getRootNode(), point, { metadataKeys: INTERACTIVE_CONTROL_METADATA_KEYS })
+  return hasInteractiveControlMetadata(hit?.metadata)
 }
 
 function hasInteractiveControlMetadata(metadata: Record<string, unknown> | undefined): boolean {

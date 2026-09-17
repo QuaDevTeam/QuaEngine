@@ -1,22 +1,22 @@
-import { LogicToRenderEvents, RenderToLogicEvents } from '@quajs/render-core'
+import { RenderToLogicEvents } from '@quajs/render-core'
 import { renderCocosAudio } from '../projection'
 import { defineCocosRendererPlugin } from './core'
+import { createCocosProjectionTask } from './projection-task'
 
 export function createAudioCocosRendererPlugin() {
   return defineCocosRendererPlugin({
     name: '@quajs/renderer-cocos/audio',
     setup(context) {
       let frame: number | undefined
+      let disposed = false
       const busAutomationStarts = new Map<string, { signature?: string, startedAt: number }>()
 
+      const project = createCocosProjectionTask(context, 'audio', async (cocos) => {
+        await renderCocosAudio(cocos, { busAutomationStarts })
+        schedule()
+      })
       function sync() {
-        void renderCocosAudio(context.cocos, { busAutomationStarts }).then(() => {
-          schedule()
-        }).catch(error => context.reportError(error, {
-          message: 'Cocos audio projection failed.',
-          phase: 'renderer-cocos:audio',
-          pluginName: '@quajs/renderer-cocos/audio',
-        }))
+        void project()
       }
 
       function cancelFrame() {
@@ -28,7 +28,7 @@ export function createAudioCocosRendererPlugin() {
 
       function schedule() {
         cancelFrame()
-        if (!hasDynamicAudioProjection(context.getViewState().plugins.audio))
+        if (disposed || !hasDynamicAudioProjection(context.getViewState().plugins.audio))
           return
         frame = context.cocos.host.scheduler.requestFrame(() => {
           frame = undefined
@@ -40,8 +40,6 @@ export function createAudioCocosRendererPlugin() {
           pluginName: '@quajs/renderer-cocos/audio',
         })
       }
-      context.addDisposer(context.onLogicToRender(LogicToRenderEvents.VIEW_UPDATE, sync))
-      context.addDisposer(context.onLogicToRender(LogicToRenderEvents.ASSET_CHANGED, sync))
       context.addDisposer(context.cocos.registerAnimationSync(sync))
       context.addDisposer(context.onRenderToLogic(RenderToLogicEvents.USER_ADVANCE, (payload) => {
         void context.cocos.interruptAudioTracks('voice', payload.source).catch(error => context.reportError(error, {
@@ -51,6 +49,7 @@ export function createAudioCocosRendererPlugin() {
         }))
       }))
       context.addDisposer(() => {
+        disposed = true
         cancelFrame()
         busAutomationStarts.clear()
       })

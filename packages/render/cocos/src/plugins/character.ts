@@ -1,7 +1,8 @@
 import type { AnimationTimingFunction, ViewCharacterProjection } from '@quajs/render-core'
-import { easeProgress, LogicToRenderEvents, projectCharacters } from '@quajs/render-core'
+import { easeProgress, projectCharacters } from '@quajs/render-core'
 import { renderCocosCharacters } from '../projection'
 import { defineCocosRendererPlugin } from './core'
+import { createCocosProjectionTask } from './projection-task'
 
 export interface CharacterCocosRendererPluginOptions {
   transitions?: boolean | {
@@ -20,6 +21,7 @@ export function createCharacterCocosRendererPlugin(options: CharacterCocosRender
       const presence = new Map<string, CharacterPresenceRecord>()
       const transition = resolveCharacterTransitionOptions(options.transitions)
       let frame: number | undefined
+      let disposed = false
 
       function cancelFrame() {
         if (frame !== undefined) {
@@ -30,7 +32,7 @@ export function createCharacterCocosRendererPlugin(options: CharacterCocosRender
 
       function scheduleFrame() {
         cancelFrame()
-        if (!hasActivePresenceTransition(presence))
+        if (disposed || !hasActivePresenceTransition(presence))
           return
         frame = context.cocos.host.scheduler.requestFrame(() => {
           frame = undefined
@@ -38,28 +40,27 @@ export function createCharacterCocosRendererPlugin(options: CharacterCocosRender
         })
       }
 
-      function sync() {
+      const project = createCocosProjectionTask(context, 'character', async (cocos) => {
         const now = context.cocos.host.runtime.now()
-        const projectedCharacters = projectCharacters(context.getViewState().characters, context.getViewState().animations, now)
+        const projectedCharacters = projectCharacters(cocos.getViewState().characters, cocos.getViewState().animations, now)
         const projected = resolvePresenceCharacters(
           projectedCharacters,
           now,
           presence,
           transition,
         )
-        void renderCocosCharacters(context.cocos, {
+        await renderCocosCharacters(cocos, {
           characters: projected.characters,
           presencePhases: projected.phases,
-        }).then(() => scheduleFrame()).catch(error => context.reportError(error, {
-          message: 'Cocos character projection failed.',
-          phase: 'renderer-cocos:character',
-          pluginName: '@quajs/renderer-cocos/character',
-        }))
+        })
+        scheduleFrame()
+      })
+      function sync() {
+        void project()
       }
-      context.addDisposer(context.onLogicToRender(LogicToRenderEvents.VIEW_UPDATE, sync))
-      context.addDisposer(context.onLogicToRender(LogicToRenderEvents.ASSET_CHANGED, sync))
       context.addDisposer(context.cocos.registerAnimationSync(sync))
       context.addDisposer(() => {
+        disposed = true
         cancelFrame()
         presence.clear()
       })

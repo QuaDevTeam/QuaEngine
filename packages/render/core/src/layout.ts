@@ -80,11 +80,10 @@ export function resolveStageLayout(
   const containerHeight = positiveNumber(container.height, fallbackContainer.height)
   const devicePixelRatio = positiveNumber(container.devicePixelRatio, 1)
   const cssSafeAreaInsets = normalizeSafeAreaInsets(container.safeAreaInsets)
-  const containerAspectRatio = containerWidth / containerHeight
-  const aspectRatio = clamp(containerAspectRatio, layout.minAspectRatio, layout.maxAspectRatio)
+  const aspectRatio = positiveNumber(layout.aspectRatio, layout.width / layout.height)
   const viewport = fitAspectRatio(containerWidth, containerHeight, aspectRatio)
   const scale = viewport.height / layout.height
-  const logicalWidth = viewport.width / scale
+  const logicalWidth = layout.height * aspectRatio
   const logicalHeight = layout.height
   const safeWidth = Math.min(logicalWidth, layout.height * layout.minAspectRatio)
   const aspectSafeArea: StageSafeArea = {
@@ -191,10 +190,6 @@ function fitAspectRatio(width: number, height: number, aspectRatio: number): { w
 
 function positiveNumber(value: number | undefined, fallback: number): number {
   return Number.isFinite(value) && value !== undefined && value > 0 ? value : fallback
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(Math.max(value, min), max)
 }
 
 function normalizeSafeAreaInsets(insets: Partial<StageSafeAreaInsets> | undefined): StageSafeAreaInsets {

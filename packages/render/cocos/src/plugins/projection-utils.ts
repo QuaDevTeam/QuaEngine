@@ -2,6 +2,20 @@ import type { CocosHostInputEvent } from '@quajs/cocos-host'
 import type { CocosRendererPluginContext } from '../types'
 import { clientPointToStageLogical, LogicToRenderEvents } from '@quajs/render-core'
 
+export const INTERACTIVE_CONTROL_METADATA_KEYS = [
+  'choiceId',
+  'settingsScope',
+  'backlogEntryId',
+  'galleryEntryId',
+  'achievementId',
+  'elementId',
+  'uiAction',
+  'settingsAction',
+  'settingsPathKey',
+  'backlogAction',
+  'galleryAction',
+  'achievementAction',
+] as const
 export function syncProjectionLayer(
   context: CocosRendererPluginContext,
   options: {
@@ -107,7 +121,10 @@ export function resolveInputMetadata(
     clientX: event.x ?? 0,
     clientY: event.y ?? 0,
   })
-  return context.cocos.host.nodes.hitTest?.(context.cocos.getRootNode(), point, { metadataKey })?.metadata
+  if (!point.insideStage)
+    return undefined
+  const metadata = context.cocos.host.nodes.hitTest?.(context.cocos.getRootNode(), point, { metadataKeys: INTERACTIVE_CONTROL_METADATA_KEYS })?.metadata
+  return metadata?.[metadataKey] !== undefined ? metadata : undefined
 }
 
 export function resolveInputMetadataAny(
@@ -128,12 +145,10 @@ export function resolveInputMetadataAny(
     clientX: event.x ?? 0,
     clientY: event.y ?? 0,
   })
-  for (const metadataKey of metadataKeys) {
-    const metadata = context.cocos.host.nodes.hitTest?.(context.cocos.getRootNode(), point, { metadataKey })?.metadata
-    if (metadata)
-      return metadata
-  }
-  return undefined
+  if (!point.insideStage)
+    return undefined
+  const metadata = context.cocos.host.nodes.hitTest?.(context.cocos.getRootNode(), point, { metadataKeys: INTERACTIVE_CONTROL_METADATA_KEYS })?.metadata
+  return hasAnyMetadataKey(metadata, metadataKeys) ? metadata : undefined
 }
 
 function hasAnyMetadataKey(metadata: Record<string, unknown> | undefined, keys: readonly string[]): metadata is Record<string, unknown> {

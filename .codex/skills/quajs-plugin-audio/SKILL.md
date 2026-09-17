@@ -123,6 +123,14 @@ Audio handles, decoded buffers, WebAudio nodes, Cocos handles, and scheduling in
 
 BGM crossfade is represented in engine-owned projection, not renderer-owned history. When a new BGM is played with `crossfadeMs`, the previous current BGM remains in `bgmOutgoing` as a `stopping` track with fade metadata while the new `bgm` track fades in. Renderers consume both projected tracks and report the outgoing track's `audio/ended` event so the plugin can clear it.
 
+Cocos native playback calls must be idempotent for unchanged intent. Volume/EQ,
+layout, dialogue, and animation refreshes must not call `play()` again on an
+already playing or naturally ended native handle. Keep scheduled starts stable,
+pause/resume explicitly, and report `audio/ended` once when a projected fade-out
+finishes; native `stop()` need not emit a natural-end callback. This transport
+bookkeeping is transient renderer state. Late native handles created after
+renderer teardown must be stopped and disposed without starting playback.
+
 ## Runtime Packages
 
 Audio asset refs and projections must preserve `contentPackageId` and `requiredRuntimePackages`, including outgoing BGM crossfade tracks. Runtime package unload should clear audio entries owned by or dependent on the unloaded package.

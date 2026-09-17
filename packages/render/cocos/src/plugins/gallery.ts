@@ -2,10 +2,11 @@ import type { CocosHostNode } from '@quajs/cocos-host'
 import type { GalleryContentBlock, GalleryEntryProjectionItem, GalleryProjection } from '@quajs/plugin-gallery/contracts'
 import type { CocosRendererPluginContext } from '../types'
 import { GALLERY_PLUGIN_ID, GalleryRenderToLogicEvents } from '@quajs/plugin-gallery/contracts'
-import { DEFAULT_UI_OVERLAY_Z_INDEXES, LogicToRenderEvents } from '@quajs/render-core'
+import { DEFAULT_UI_OVERLAY_Z_INDEXES } from '@quajs/render-core'
 import { resolveCocosOverlayPlacement, resolveCocosOverlayZIndex } from '../overlay-placement'
 import { resolveAssetWithTargetPackages, runtimePackageCandidatesFromAssetRef } from '../utils'
 import { defineCocosRendererPlugin } from './core'
+import { createCocosProjectionTask } from './projection-task'
 import { resolveInputMetadataAny, stringValue } from './projection-utils'
 
 export function createGalleryCocosRendererPlugin() {
@@ -15,15 +16,12 @@ export function createGalleryCocosRendererPlugin() {
       const pages = new Map<string, number>()
       const audioPreviews = new Map<string, GalleryAudioPreviewHandle>()
       const lightbox: GalleryLightboxState = {}
+      const project = createCocosProjectionTask(context, 'gallery', async (cocos) => {
+        await renderGalleryLayer({ ...context, cocos, getViewState: cocos.getViewState }, pages, audioPreviews, lightbox)
+      })
       const sync = () => {
-        void renderGalleryLayer(context, pages, audioPreviews, lightbox).catch(error => context.reportError(error, {
-          message: 'Cocos gallery projection failed.',
-          phase: 'renderer-cocos:gallery',
-          pluginName: '@quajs/renderer-cocos/gallery',
-        }))
+        void project()
       }
-      context.addDisposer(context.onLogicToRender(LogicToRenderEvents.VIEW_UPDATE, sync))
-      context.addDisposer(context.onLogicToRender(LogicToRenderEvents.ASSET_CHANGED, sync))
       context.addDisposer(context.cocos.host.input.onInput(async (event) => {
         const metadata = resolveInputMetadataAny(context, event, [
           'galleryEntryId',
@@ -322,7 +320,8 @@ async function renderGalleryContentPreview(
     const resource = ref
       ? await resolveAssetWithTargetPackages(context.cocos, ref.type, ref.name, runtimePackageCandidatesFromAssetRef(ref as unknown as Record<string, unknown>))
       : undefined
-    context.cocos.setLayerResource('gallery', `content:${content.id}`, resource)
+    if (content.kind !== 'audio')
+      context.cocos.setLayerResource('gallery', `content:${content.id}`, resource)
     if (content.kind === 'audio') {
       context.cocos.host.nodes.setNodeText(node, content.title || ref?.name || 'Audio', { fontSize: 24, color: '#ffffff' })
       context.cocos.host.nodes.setNodeControl?.(node, { kind: 'button', label: content.title || ref?.name || 'Audio' })
@@ -336,6 +335,9 @@ async function renderGalleryContentPreview(
         const resourceKey = `content:${content.id}:audio`
         context.cocos.setLayerResource('gallery-audio', resourceKey, resource)
         audioPreviews.set(content.id, { handle, resourceKey })
+      }
+      else if (resource) {
+        context.cocos.releaseAsset(resource)
       }
       return
     }

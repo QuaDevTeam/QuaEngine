@@ -135,34 +135,35 @@ export class CocosFileStoreBackend implements StorageBackend {
   }
 
   async clearGameSlots(): Promise<void> {
-    for (const slot of await this.listGameSlotIndexes()) {
-      await this.deleteGameSlotIndex(slot.slotId)
-      await this.deleteGameSlotPayload(slot.slotId)
-      if (slot.preview) {
-        await this.deleteGameSlotPreview(slot.preview.previewId)
-      }
+    for (const directory of [this.slotIndexesDir(), this.slotPayloadsDir(), this.slotPreviewsDir()]) {
+      for (const file of await this.options.host.storage.list(directory))
+        await this.options.host.storage.delete(file.path)
     }
   }
 
   async transaction<T>(mode: StorageTransactionMode, action: () => Promise<T>): Promise<T> {
-    if (mode === 'readonly' || this.transactionDepth > 0) {
-      this.transactionDepth += 1
+    if (this.transactionDepth > 0)
+      throw new Error('Cocos store transactions must not overlap or nest; await the active transaction first.')
+    if (mode === 'readonly') {
+      this.transactionDepth = 1
       try {
         return await action()
       }
       finally {
-        this.transactionDepth -= 1
+        this.transactionDepth = 0
       }
     }
 
     this.transactionDepth = 1
-    const snapshot = await this.captureSnapshot()
     try {
-      return await action()
-    }
-    catch (error) {
-      await this.restoreSnapshot(snapshot)
-      throw error
+      const snapshot = await this.captureSnapshot()
+      try {
+        return await action()
+      }
+      catch (error) {
+        await this.restoreSnapshot(snapshot)
+        throw error
+      }
     }
     finally {
       this.transactionDepth = 0
@@ -278,7 +279,7 @@ function encodeEnvelope(envelope: CocosStoreEnvelope): string {
 }
 
 function decodeEnvelope<T extends CocosStoreRecord>(text: string): CocosStoreEnvelope<T> {
-  return JSON.parse(text, (_key, value) => {
+  const envelope = JSON.parse(text, (_key, value) => {
     if (value && typeof value === 'object' && value.__quaType === 'Date') {
       return new Date(value.value)
     }
@@ -287,6 +288,9 @@ function decodeEnvelope<T extends CocosStoreRecord>(text: string): CocosStoreEnv
     }
     return value
   }) as CocosStoreEnvelope<T>
+  if (envelope?.format !== 'quastore-cocos' || envelope.version !== 1 || !envelope.record || typeof envelope.record !== 'object')
+    throw new Error('Invalid or unsupported Cocos store envelope.')
+  return envelope
 }
 
 function normalizeRoot(root: string): string {

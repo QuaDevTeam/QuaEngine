@@ -98,6 +98,7 @@ export type CocosRenderOnlyOverlaySurfaceFactory = (
 export async function renderCocosBackground(context: CocosRendererHostContext): Promise<void> {
   const layer = context.getLayerNode('background', 'background-layer', 10)
   context.host.nodes.clearChildren(layer)
+  context.releaseLayerResources('background')
   const background = projectBackground(context.getViewState().background, context.getViewState().animations, context.host.runtime.now())
   if (!background) {
     context.releaseLayerResources('background')
@@ -176,7 +177,7 @@ export async function renderCocosDialogue(context: CocosRendererHostContext, opt
       : undefined,
   })
   context.host.nodes.setNodeTransform(box, motionTransform(dialogue as unknown as Record<string, unknown>))
-  void setDialogueAvatarNode(context, box, dialogue, renderKey)
+  await setDialogueAvatarNode(context, box, dialogue, renderKey)
 }
 
 function nextDialogueRenderKey(context: CocosRendererHostContext): string {
@@ -498,12 +499,12 @@ function dialogueMarkup(dialogue: ViewDialogueProjection): string {
   return parts.filter(Boolean).join('\n')
 }
 
-function setDialogueAvatarNode(
+async function setDialogueAvatarNode(
   context: CocosRendererHostContext,
   box: CocosHostNode,
   dialogue: ViewDialogueProjection,
   renderKey: string,
-): void {
+): Promise<void> {
   if (!dialogue.avatar) {
     return
   }
@@ -513,7 +514,7 @@ function setDialogueAvatarNode(
     characterId: dialogue.characterId,
     renderKey,
   })
-  void resolveAssetWithTargetPackages(
+  const resource = await resolveAssetWithTargetPackages(
     context,
     dialogue.avatar.type || 'images',
     dialogue.avatar.name,
@@ -521,25 +522,14 @@ function setDialogueAvatarNode(
       ...(dialogue.avatar.metadata || {}),
       ...(dialogue.avatar.runtimePackageId ? { contentPackageId: dialogue.avatar.runtimePackageId } : {}),
     }),
-  ).then((resource) => {
-    if (activeDialogueRenderKeys.get(context) !== renderKey) {
-      return
-    }
-    context.host.nodes.setNodeSprite(avatar, resource)
-    context.setLayerResource('dialogue', 'avatar', resource)
-  }).catch((error) => {
-    if (activeDialogueRenderKeys.get(context) !== renderKey) {
-      return
-    }
-    return context.reportError(error, {
-      message: 'Cocos dialogue avatar projection failed.',
-      phase: 'renderer-cocos:dialogue-avatar',
-      metadata: {
-        name: dialogue.avatar?.name,
-        type: dialogue.avatar?.type || 'images',
-      },
-    })
-  })
+  )
+  if (activeDialogueRenderKeys.get(context) !== renderKey) {
+    if (resource)
+      context.releaseAsset(resource)
+    return
+  }
+  context.host.nodes.setNodeSprite(avatar, resource)
+  context.setLayerResource('dialogue', 'avatar', resource)
 }
 
 function richTextContentToCocosMarkup(content: RichTextContent): string {

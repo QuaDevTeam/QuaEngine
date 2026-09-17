@@ -1,6 +1,6 @@
 import type { QuaGameSavePreviewRecord, QuaGameSaveSlotPayload, QuaSnapshot } from '@quajs/store'
 import { createFakeCocosHost } from '@quajs/cocos-host/testing'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { CocosFileStoreBackend } from '../src'
 
 describe('cocos file store backend', () => {
@@ -44,6 +44,50 @@ describe('cocos file store backend', () => {
     })).rejects.toThrow('rollback')
 
     expect((await backend.getGameSlotPayload('slot'))?.index.revision).toBe(1)
+  })
+
+  it('restores transaction protection after snapshot capture fails', async () => {
+    const host = createFakeCocosHost()
+    const backend = new CocosFileStoreBackend({ host })
+    await backend.init()
+    await backend.saveGameSlotPayload(createSlot('slot', 1))
+    vi.spyOn(host.storage, 'list').mockRejectedValueOnce(new Error('disk unavailable'))
+    await expect(backend.transaction('readwrite', async () => {})).rejects.toThrow('disk unavailable')
+    await expect(backend.transaction('readwrite', async () => {
+      await backend.saveGameSlotPayload(createSlot('slot', 2))
+      throw new Error('rollback')
+    })).rejects.toThrow('rollback')
+    expect((await backend.getGameSlotPayload('slot'))?.index.revision).toBe(1)
+  })
+
+  it('rejects overlapping transactions instead of rolling back another save', async () => {
+    const host = createFakeCocosHost()
+    const backend = new CocosFileStoreBackend({ host })
+    await backend.init()
+    let finish!: () => void
+    const gate = new Promise<void>((resolve) => {
+      finish = resolve
+    })
+    const first = backend.transaction('readwrite', async () => {
+      await gate
+    })
+    await expect(backend.transaction('readwrite', async () => {})).rejects.toThrow('must not overlap or nest')
+    finish()
+    await first
+    await expect(backend.transaction('readwrite', async () => 1)).resolves.toBe(1)
+  })
+
+  it('clears orphaned slot payloads and previews while preserving snapshots', async () => {
+    const host = createFakeCocosHost()
+    const backend = new CocosFileStoreBackend({ host })
+    await backend.init()
+    await backend.saveGameSlotPayload(createSlot('orphan', 1))
+    await backend.saveGameSlotPreview({ previewId: 'orphan', slotId: 'orphan', bytes: new Uint8Array([1]), byteLength: 1, mimeType: 'image/png', capturedAt: 0 })
+    await backend.saveSnapshot({ id: 'keep', storeName: 'main', data: {}, createdAt: new Date(0) })
+    await backend.clearGameSlots()
+    expect(await backend.getGameSlotPayload('orphan')).toBeUndefined()
+    expect(await backend.getGameSlotPreview('orphan')).toBeUndefined()
+    expect(await backend.getSnapshot('keep')).toBeDefined()
   })
 
   it('serializes preview bytes without browser base64 globals', async () => {
