@@ -15,6 +15,7 @@ import type {
   CocosHostSpriteOptions,
   CocosHostTransform,
 } from './index'
+import { CocosResourcePool } from './resources/pool'
 
 export interface FakeCocosNode extends CocosHostNode {
   parent?: FakeCocosNode
@@ -76,6 +77,7 @@ export function createFakeCocosHost(options: FakeCocosHostOptions = {}): FakeCoc
   }
   const nodesById = new Map<string, FakeCocosNode>()
   const resourcesById = new Map<string, CocosHostResource>()
+  const resourcePool = new CocosResourcePool(resourcesById)
   const resourceReleaseCounts = new Map<string, number>()
   const audioHandlesById = new Map<string, FakeCocosAudioHandle>()
   const audioBusVolumes = new Map<string, number>()
@@ -197,48 +199,42 @@ export function createFakeCocosHost(options: FakeCocosHostOptions = {}): FakeCoc
     },
     async createResource(kind: CocosHostResourceKind, data, resourceOptions = {}) {
       const id = resourceOptions.id || nextId(`resource:${kind}`)
-      const existing = resourcesById.get(id)
-      if (existing)
-        return existing
-      const resource: CocosHostResource = {
-        id,
-        kind,
-        source: resourceOptions.source,
-        mimeType: resourceOptions.mimeType,
-        width: Number(resourceOptions.metadata?.width) || undefined,
-        height: Number(resourceOptions.metadata?.height) || undefined,
-        duration: Number(resourceOptions.metadata?.duration) || undefined,
-        native: new Uint8Array(data),
-      }
-      resourcesById.set(id, resource)
-      return resource
+      return (await resourcePool.acquire(id, kind, async () => {
+        const resource: CocosHostResource = {
+          id,
+          kind,
+          source: resourceOptions.source,
+          mimeType: resourceOptions.mimeType,
+          width: Number(resourceOptions.metadata?.width) || undefined,
+          height: Number(resourceOptions.metadata?.height) || undefined,
+          duration: Number(resourceOptions.metadata?.duration) || undefined,
+          native: new Uint8Array(data),
+        }
+        return resource
+      }))!
     },
     async loadResource(kind: CocosHostResourceKind, source, resourceOptions = {}) {
       const id = resourceOptions.id || `${kind}:${source}`
-      const existing = resourcesById.get(id)
-      if (existing)
-        return existing
-      const resource: CocosHostResource = {
-        id,
-        kind,
-        source,
-        mimeType: resourceOptions.mimeType,
-        width: Number(resourceOptions.metadata?.width) || undefined,
-        height: Number(resourceOptions.metadata?.height) || undefined,
-        duration: Number(resourceOptions.metadata?.duration) || undefined,
-        native: { source, kind },
-      }
-      resourcesById.set(id, resource)
-      return resource
+      return resourcePool.acquire(id, kind, async () => {
+        const resource: CocosHostResource = {
+          id,
+          kind,
+          source,
+          mimeType: resourceOptions.mimeType,
+          width: Number(resourceOptions.metadata?.width) || undefined,
+          height: Number(resourceOptions.metadata?.height) || undefined,
+          duration: Number(resourceOptions.metadata?.duration) || undefined,
+          native: { source, kind },
+        }
+        return resource
+      })
     },
     retainResource(resource) {
-      if (!resourcesById.has(resource.id)) {
-        resourcesById.set(resource.id, resource)
-      }
+      resourcePool.retain(resource)
     },
     releaseResource(resource) {
       resourceReleaseCounts.set(resource.id, (resourceReleaseCounts.get(resource.id) || 0) + 1)
-      resourcesById.delete(resource.id)
+      resourcePool.release(resource)
     },
   }
 

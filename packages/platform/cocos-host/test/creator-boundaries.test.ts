@@ -21,6 +21,7 @@ class UITransform {
   }
 }
 class Node {
+  layer = 1
   children: Node[] = []
   parent?: Node
   position = { x: 0, y: 0 }
@@ -100,6 +101,43 @@ function creator() {
 }
 
 describe('creator native boundaries', () => {
+  it('inherits the parent render layer for projection nodes and presentation children', () => {
+    class Sprite {}
+    const root = new Node()
+    root.layer = 1 << 25
+    const host = createCocosCreatorHost({ rootNode: root, cc: { Node, UITransform, Sprite } })
+    const stage = host.nodes.createNode('stage', { parent: host.nodes.getRootNode() })
+    const image = host.nodes.createNode('image', { parent: stage })
+    host.nodes.setNodeSprite(image, { id: 'image', kind: 'spriteFrame', native: {} })
+    const nativeStage = (stage as any).native as Node
+    const nativeImage = (image as any).native as Node
+    expect(nativeStage.layer).toBe(root.layer)
+    expect(nativeImage.layer).toBe(root.layer)
+    expect(nativeImage.children[0].layer).toBe(root.layer)
+  })
+
+  it('draws solid scene fades in native Graphics and follows logical size and anchors', () => {
+    class Graphics {
+      fillColor: unknown
+      clear = vi.fn()
+      rect = vi.fn()
+      fill = vi.fn()
+    }
+    const host = createCocosCreatorHost({ rootNode: new Node(), cc: { Node, UITransform, Graphics } })
+    const overlay = host.nodes.createNode('scene-transition', { parent: host.nodes.getRootNode() })
+    host.nodes.setNodeTransform(overlay, { width: 1920, height: 1080 })
+    host.nodes.setNodeColor!(overlay, '#000000')
+    const visual = ((overlay as any).native as Node).children.find(node => node.name === 'qua-color')!
+    expect(visual).toBeDefined()
+    const graphics = visual.getComponent(Graphics) as Graphics
+    expect(graphics.rect).toHaveBeenLastCalledWith(0, -1080, 1920, 1080)
+    expect(graphics.fillColor).toEqual({ r: 0, g: 0, b: 0, a: 255 })
+    host.nodes.setNodeTransform(overlay, { width: 200, height: 100, anchorX: 0.5, anchorY: 0.5 })
+    expect(graphics.rect).toHaveBeenLastCalledWith(-100, -50, 200, 100)
+    host.nodes.setNodeColor!(overlay, undefined)
+    expect((visual as any).active).toBe(false)
+  })
+
   it('maps top-left stage and nested pivots to Creator Y-up coordinates', () => {
     const { host } = creator()
     const stage = host.nodes.createNode('stage', { parent: host.nodes.getRootNode() })

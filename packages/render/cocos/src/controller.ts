@@ -85,6 +85,7 @@ export class QuaCocosRendererController {
   private resourceEpoch = 0
   private layoutDisposer?: () => void
   private readonly audioHandles = new Map<string, Map<string, CocosAudioRuntimeHandle>>()
+  private readonly audioDisposals = new Set<Promise<void>>()
   private readonly warnedAudioCapabilities = new Set<string>()
   private animationFrame: number | undefined
   private audioFrame: number | undefined
@@ -210,9 +211,11 @@ export class QuaCocosRendererController {
     for (const layerId of [...this.audioHandles.keys()]) {
       this.releaseAudioHandles(layerId)
     }
-    for (const ref of this.materializedResources.values())
-      this.host.assets.releaseResource(ref.resource)
-    this.materializedResources.clear()
+    await Promise.all(this.audioDisposals)
+    for (const layerId of [...this.layerResources.keys()])
+      this.releaseLayerResources(layerId)
+    // In-flight projection/audio creation owns the remaining leases and releases
+    // them when cancellation completes. Do not free native assets underneath it.
     if (this.stageRoot) {
       this.host.nodes.destroyNode(this.stageRoot)
       this.stageRoot = undefined
@@ -767,6 +770,8 @@ export class QuaCocosRendererController {
         || options.endedPayload?.chapterId !== existing.endedPayload?.chapterId
       if (newStart) {
         await existing.handle.stop()
+        if (existing.disposed || !isCurrent())
+          return existing.handle
         existing.nativeState = 'stopped'
         existing.lastSeekMs = undefined
         existing.pausedPositionMs = undefined
@@ -785,6 +790,8 @@ export class QuaCocosRendererController {
       this.applyAudioTrackEq(existing, key)
       existing.endedPayload = options.endedPayload
       await this.applyAudioSeek(existing, key)
+      if (existing.disposed || !isCurrent())
+        return existing.handle
       this.applyAudioRuntimeVolume(existing)
       if (isCurrent())
         await this.applyAudioPlayback(existing, key)
@@ -792,27 +799,41 @@ export class QuaCocosRendererController {
       return existing.handle
     }
     if (existing) {
-      existing.disposed = true
-      existing.endedDisposer?.()
-      this.clearAudioStartTimer(existing)
-      this.clearAudioReleaseTimer(existing)
-      await existing.handle.stop()
-      await existing.handle.dispose()
+      handles.delete(key)
+      await this.disposeAudioRecord(existing)
+      this.setLayerResource(layerId, key, undefined)
     }
+    if (!this.started || !isCurrent())
+      throw new Error('Cocos audio intent is no longer active.')
     const epoch = this.resourceEpoch
-    const handle = await this.host.audio.createAudioHandle(resource, {
-      id: key,
-      loop,
-      volume,
-      playbackRate: options.playbackRate,
-      bus: options.bus,
-    })
+    const resourceRef = this.materializedResources.get(resource.id)
+    if (resourceRef)
+      resourceRef.refs += 1
+    let handle: CocosHostAudioHandle
+    try {
+      handle = await this.host.audio.createAudioHandle(resource, {
+        id: key,
+        loop,
+        volume,
+        playbackRate: options.playbackRate,
+        bus: options.bus,
+      })
+    }
+    catch (error) {
+      this.releaseMaterializedResource(resource.id)
+      throw error
+    }
     if (!this.started || epoch !== this.resourceEpoch || !isCurrent()) {
       try {
         await handle.stop()
       }
       finally {
-        await handle.dispose()
+        try {
+          await handle.dispose()
+        }
+        finally {
+          this.releaseMaterializedResource(resource.id)
+        }
       }
       throw new Error('Cocos audio creation was cancelled by renderer teardown or asset replacement.')
     }
@@ -828,14 +849,53 @@ export class QuaCocosRendererController {
     record.endedDisposer = handle.onEnded?.(() => this.notifyAudioEnded(record))
     handles.set(key, record)
     this.audioHandles.set(layerId, handles)
-    this.applyAudioPlaybackRate(handle, options.playbackRate ?? 1, key)
-    this.applyAudioTrackEq(record, key)
-    await this.applyAudioSeek(record, key)
-    this.applyAudioRuntimeVolume(record)
-    if (isCurrent())
-      await this.applyAudioPlayback(record, key)
-    this.scheduleAudioFrameLoop()
+    try {
+      this.applyAudioPlaybackRate(handle, options.playbackRate ?? 1, key)
+      this.applyAudioTrackEq(record, key)
+      await this.applyAudioSeek(record, key)
+      if (!record.disposed) {
+        this.applyAudioRuntimeVolume(record)
+        if (isCurrent())
+          await this.applyAudioPlayback(record, key)
+        this.scheduleAudioFrameLoop()
+      }
+    }
+    catch (error) {
+      if (handles.get(key) === record)
+        handles.delete(key)
+      await this.disposeAudioRecord(record)
+      this.setLayerResource(layerId, key, undefined)
+      throw error
+    }
     return handle
+  }
+
+  private disposeAudioRecord(record: CocosAudioRuntimeHandle): Promise<void> {
+    if (record.disposal)
+      return record.disposal
+    record.disposed = true
+    record.endedDisposer?.()
+    this.clearAudioStartTimer(record)
+    this.clearAudioReleaseTimer(record)
+    const task = (async () => {
+      try {
+        try {
+          await record.handle.stop()
+        }
+        finally {
+          await record.handle.dispose()
+        }
+      }
+      catch (error) {
+        await this.reportError(error, { message: 'Cocos audio disposal failed.', phase: 'renderer-cocos:audio-dispose' })
+      }
+      finally {
+        this.releaseMaterializedResource(record.resource.id)
+      }
+    })().finally(() => this.audioDisposals.delete(task))
+    record.disposal = task
+    this.audioDisposals.add(task)
+    return task
   }
 
   private releaseAudioHandles(layerId: string, activeKeys?: readonly string[]): void {
@@ -848,12 +908,7 @@ export class QuaCocosRendererController {
         continue
       if (active && this.releaseAudioHandleWithFade(layerId, key, record, handles))
         continue
-      record.disposed = true
-      record.endedDisposer?.()
-      this.clearAudioStartTimer(record)
-      this.clearAudioReleaseTimer(record)
-      void record.handle.stop()
-      void record.handle.dispose()
+      void this.disposeAudioRecord(record)
       this.setLayerResource(layerId, key, undefined)
       handles.delete(key)
     }
@@ -886,12 +941,7 @@ export class QuaCocosRendererController {
     record.fadeOutStopped = false
     this.applyAudioRuntimeVolume(record)
     record.releaseTimer = this.host.scheduler.setTimeout(() => {
-      record.disposed = true
-      record.endedDisposer?.()
-      this.clearAudioStartTimer(record)
-      void Promise.resolve(record.handle.stop()).finally(() => {
-        void record.handle.dispose()
-      })
+      void this.disposeAudioRecord(record)
       this.setLayerResource(layerId, key, undefined)
       handles.delete(key)
       if (handles.size === 0) {
@@ -1422,6 +1472,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export type CocosRuntimePluginPayload = LogicToRenderPayload<LogicToRenderEvents.RUNTIME_PACKAGE_PLUGIN>
 
 interface CocosAudioRuntimeHandle {
+  disposal?: Promise<void>
   nativeState?: 'playing' | 'paused' | 'stopped' | 'ended'
   endedNotified?: boolean
   disposed?: boolean

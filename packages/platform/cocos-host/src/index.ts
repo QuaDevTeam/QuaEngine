@@ -247,18 +247,22 @@ export interface CocosAssetHost {
   readBytes: (path: string) => Promise<Uint8Array | undefined>
   deleteFile: (path: string) => Promise<void>
   listFiles: (root: string) => Promise<CocosHostFileInfo[]>
+  /** Acquire one resource lease. Shared IDs must preserve identity and requested kind. */
   createResource: (kind: CocosHostResourceKind, data: Uint8Array, options?: {
     id?: string
     source?: string
     mimeType?: string
     metadata?: Record<string, unknown>
   }) => Promise<CocosHostResource>
+  /** Acquire one lease for a native resource; release it when no longer used. */
   loadResource?: (kind: CocosHostResourceKind, source: string, options?: {
     id?: string
     mimeType?: string
     metadata?: Record<string, unknown>
   }) => Promise<CocosHostResource | undefined>
+  /** Acquire an additional lease for an already live resource. */
   retainResource?: (resource: CocosHostResource) => void
+  /** Release one lease; the last release destroys the host-owned native resource. */
   releaseResource: (resource: CocosHostResource) => void
 }
 

@@ -55,7 +55,7 @@ export function createFontsCocosRendererPlugin() {
             continue
 
           const key = fontFaceIdentity(face)
-          const signature = fontFaceSignature(face)
+          const signature = JSON.stringify([fontFaceSignature(face), projection.requiredRuntimePackages, cocos.getAssetRevision()])
           desiredKeys.add(key)
           const current = records.get(key)
           if (current?.signature === signature && (!options.retryFailed || current.state !== 'error'))

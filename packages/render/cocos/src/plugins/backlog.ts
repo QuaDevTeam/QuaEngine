@@ -3,9 +3,10 @@ import type { BacklogEntry, BacklogProjection, BacklogUiProjection } from '@quaj
 import type { ViewOverlayStackPlacement } from '@quajs/render-core'
 import type { CocosRendererPluginContext } from '../types'
 import { BACKLOG_PLUGIN_ID, BacklogRenderToLogicEvents } from '@quajs/plugin-backlog/contracts'
-import { DEFAULT_UI_OVERLAY_Z_INDEXES, LogicToRenderEvents } from '@quajs/render-core'
+import { DEFAULT_UI_OVERLAY_Z_INDEXES } from '@quajs/render-core'
 import { resolveCocosOverlayPlacement, resolveCocosOverlayZIndex } from '../overlay-placement'
 import { defineCocosRendererPlugin } from './core'
+import { subscribeCocosProjection } from './projection-task'
 import { resolveInputMetadataAny, stringValue } from './projection-utils'
 
 export function createBacklogCocosRendererPlugin() {
@@ -14,7 +15,7 @@ export function createBacklogCocosRendererPlugin() {
     setup(context) {
       let page = 0
       const sync = () => renderBacklogLayer(context, page)
-      context.addDisposer(context.onLogicToRender(LogicToRenderEvents.VIEW_UPDATE, sync))
+      context.addDisposer(subscribeCocosProjection(context, sync))
       context.addDisposer(context.cocos.host.input.onInput(async (event) => {
         const metadata = resolveInputMetadataAny(context, event, [
           'backlogEntryId',
