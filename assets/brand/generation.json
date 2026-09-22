@@ -1,12 +1,10 @@
 {
-  "model": "openai/gpt-image-2",
+  "model": "openai/gpt-image-2.5-flare",
   "provider": "Replicate CLI",
-  "selectedCandidate": "silver-aqua",
-  "draftQuality": "low",
-  "refinementQuality": "medium",
-  "draftPredictionIds": ["zj0rb993h9rmy0d0g9cafe4ndg", "t6fphm18zsrmy0d0g9ca657ttc"],
-  "refinementPredictionId": "1qmy34s54drmr0d0g9gsnc1fa8",
-  "sourcePrompt": "prompts/silver-aqua-low.txt",
-  "refinementPrompt": "prompts/silver-aqua-medium.txt",
-  "notes": "Silver-white hair, aqua eyes, twin tails, navy star and aqua ribbon; Japanese bishoujo galgame style. Candidate was selected for small-size readability and color continuity with QuaEngine."
+  "quality": "medium",
+  "predictionId": "svsng3rpfhrmw0d0rk3vz4w4k0",
+  "date": "2026-09-21",
+  "sourcePrompt": "prompts/chibi-mascot-medium.txt",
+  "reference": "User-provided chibi illustration, used as a style reference only; not distributed in the brand kit.",
+  "notes": "Original pink bob-haired chibi guide, mint star hairpin and ribbon. Visually reviewed at source resolution. No WIP label. Opaque warm cream background."
 }

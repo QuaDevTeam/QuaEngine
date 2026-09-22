@@ -1,0 +1,15 @@
+{
+  "capturedAt": "2026-09-21T17:20:52.931Z",
+  "route": "/docs/getting-started/first-story/",
+  "source": "Local production build of docs/",
+  "viewport": {
+    "width": 1440,
+    "height": 980
+  },
+  "themes": [
+    "light",
+    "dark"
+  ],
+  "browser": "153.0.8010.48",
+  "note": "Real documentation UI. These screenshots do not represent editor or game renderer validation."
+}
