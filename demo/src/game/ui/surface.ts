@@ -2,53 +2,44 @@ import type { SaveSlotProjection, ViewLayoutProjection } from '@quajs/render-cor
 import {
   analyzeQssSource,
   compileQuiTsxProjection,
-} from '@quajs/native-ui-compiler'
-import nativeAppQssSource from './native-app.scss?raw'
-import { NativeApp } from './native-app'
+} from '@quajs/native-ui-compiler/runtime'
+import { DemoApp } from './app'
+import appQssSource from './app.scss?raw'
 
-export type NativeDemoAppScreen =
-  | 'backlog'
-  | 'gallery'
-  | 'game'
-  | 'game-over'
-  | 'game-menu'
-  | 'save-load'
-  | 'save-confirm'
-  | 'settings'
-  | 'story-tree'
-  | 'system'
-  | 'title'
-  | 'title-confirm'
+export type DemoAppScreen
+  = | 'backlog'
+    | 'gallery'
+    | 'game'
+    | 'game-over'
+    | 'game-menu'
+    | 'save-load'
+    | 'save-confirm'
+    | 'settings'
+    | 'story-tree'
+    | 'system'
+    | 'title'
+    | 'title-confirm'
+    | 'quit-confirm'
 
-export interface NativeDemoAppListItem {
+export interface DemoAppListItem {
   id: string
   label: string
   disabled?: boolean
 }
 
-export interface NativeDemoChapterItem extends NativeDemoAppListItem {
+export interface DemoChapterItem extends DemoAppListItem {
   chapter: string
   description?: string
   current?: boolean
   unlocked?: boolean
 }
 
-export interface NativeDemoAppSettingItem {
-  id: string
-  label: string
-  type: 'slider' | 'switch'
-  selectedIndex: number
-  /** Discrete step labels; two entries for switch (off/on). */
-  options: readonly { label: string }[]
-}
-
-export interface NativeDemoAppSurfaceState {
+export interface DemoAppSurfaceState {
   /** Translation function — called for every static UI string. */
   t: (key: string) => string
   pendingSaveSlotId?: string
   canContinue: boolean
   autoActive: boolean
-  englishTitle: string
   gameOverDescription: string
   gameOverSubtitle: string
   gameOverTitle: string
@@ -56,32 +47,27 @@ export interface NativeDemoAppSurfaceState {
   saveLoadTitle: string
   saveLoadMode: 'load' | 'save'
   saveSlotItems: readonly SaveSlotProjection[]
-  screen: NativeDemoAppScreen
+  screen: DemoAppScreen
   skipActive: boolean
-  storyTreeItems: readonly NativeDemoChapterItem[]
+  storyTreeItems: readonly DemoChapterItem[]
   title: string
   titleSurface: boolean
-  /** Gallery image items (id = asset name). */
-  galleryItems: readonly NativeDemoAppListItem[]
-  /** Dialogue backlog entries. */
-  backlogItems: readonly NativeDemoAppListItem[]
-  /** Settings items rendered in the settings panel. */
-  settingItems: readonly NativeDemoAppSettingItem[]
+
 }
 
-export const NATIVE_DEMO_APP_ELEMENT_ID = 'native-app-shell'
-export const NATIVE_DEMO_APP_SURFACE_KEY = 'demo/native-app'
+export const DEMO_APP_ELEMENT_ID = 'demo-app-shell'
+export const DEMO_APP_SURFACE_KEY = 'demo/app'
 
-const nativeAppQss = analyzeQssSource(nativeAppQssSource)
-assertValidNativeUiDocument('native-app.qss', nativeAppQss.diagnostics)
+const appQss = analyzeQssSource(appQssSource)
+assertValidNativeUiDocument('app.qss', appQss.diagnostics)
 
-export function createNativeDemoAppSurface(state: NativeDemoAppSurfaceState, layout: Readonly<ViewLayoutProjection>): Record<string, unknown> {
-  // NativeApp is called with the current view state — all conditionals and
+export function createDemoAppSurface(state: DemoAppSurfaceState, layout: Readonly<ViewLayoutProjection>): Record<string, unknown> {
+  // DemoApp is called with the current view state — all conditionals and
   // loops are evaluated here (TSX semantics), producing a resolved QuiNode tree.
-  const root = NativeApp({ view: { ...state, layout } })
+  const root = DemoApp({ view: { ...state, layout } })
 
   const projection = compileQuiTsxProjection(root, {
-    qss: nativeAppQss,
+    qss: appQss,
   })
 
   if (!projection.root) {
@@ -102,7 +88,7 @@ export function createNativeDemoAppSurface(state: NativeDemoAppSurfaceState, lay
     overlayStack: 'hud',
     zIndex: 10,
     surface: {
-      key: NATIVE_DEMO_APP_SURFACE_KEY,
+      key: DEMO_APP_SURFACE_KEY,
       root: projection.root,
     },
   }

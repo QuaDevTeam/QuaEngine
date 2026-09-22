@@ -19,11 +19,11 @@ export interface Scope extends StoryScope {}
 @Key('character:mara', 'position.y', 0, 750, 'ease-in-out')
 @Key('character:mara', 'position.y', 360, 825, 'ease-in-out')
 Mara 蹲着拉出纸盒，半张通知牢牢卡在里面。昨天她们一见设备亮灯就要抬头，今天这点故障终于只值得一句抱怨。
-Mara: 没急件的时候怎么不卡。
+Mara: 没急件的时候怎么不卡呢。
 神代凛: 昨天印了那么多，今天轮到它要休息了。
 @SetExpression('smile', 'mara')
-Mara: 你到底帮谁？把那包纸递给我。
-她抽出皱纸，重新打印。出纸口送到一半，又停了一下。Mara 伸手等着，直到整页落下，才扶着膝盖站起来。
+Mara: 你到底帮谁啦？把那包纸递给我。
+她抽出皱纸，重新打印。出纸口送到一半，又卡了一下。Mara 伸手等着，直到整页落下，才扶着膝盖站起来。
 @AnimationTimeline(320, true)
 @Key('character:mara', 'position.y', 0, 825, 'ease-in-out')
 @Key('character:mara', 'position.y', 320, 750, 'ease-in-out')
@@ -70,10 +70,10 @@ Mara: 不带。我的用完了。
 门铃响起，Mara 回头看了一眼。凛愣了愣，才跟进店里。
 洗发水在最里面。Mara 找到平时用的那种，发现只剩大瓶，拿起来看价格，嘀咕怎么没有替换装。
 凛原想说大瓶也可以，见 Mara 盯着手里的小包，便改问另一排会不会有替换装。
-她们找完另一排，又请店员查了一下库存。确实没有，下一次到货要过两天。
+她们找完另一排，又请店员查了查库存。确实没有，下一次到货要过两天。
 Mara 把大瓶放回去，挑了一瓶旅行装。
 神代凛: 这个算下来更贵。
-Mara: 但只要用两天。我不想背那一大瓶回去。
+Mara: 但只要用两天嘛。我不想背那一大瓶回去。
 神代凛: 嗯。
 Mara 看了凛一眼，将小瓶放进篮子，又问她有没有要买的。
 凛走到棉签那一排，拿起一盒。Mara 跟过来看了看包装，问她房间里的也用完了吗。
@@ -84,7 +84,7 @@ Mara 将篮子递过来。凛接过，里面只放着那一小瓶洗发水。
 她们又绕了半排，最后谁都没加东西。付账时，店员问要不要袋子，Mara 说不用，把洗发水握在手里，零钱袋收进口袋。
 @SetBackground('backgrounds/town-street-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 400 } })
 出来以后，凛问她，昨晚是不是就用完了。
-Mara: 昨晚挤了半天，最后兑水洗的。今天不想再这样。
+Mara: 昨晚挤了半天，最后兑水洗的。今天不想再这样了。
 @AnimationTimeline(300, true)
 @Key('character:mara', 'position.y', 0, 750, 'ease-in-out')
 @Key('character:mara', 'position.y', 300, 785, 'ease-in-out')
@@ -99,7 +99,7 @@ Mara: 我知道。所以只问你要不要来。
 凛将包带从掌心绕开，放到身旁。刚才那张读不进去的目录，她已经很久没想起来了。
 神代凛: 我想来。你不买东西，只走一会儿，我也想来。
 Mara 低头看着自己的鞋尖，轻轻蹭了蹭地面。
-Mara: 那我下次还叫你。
+Mara: 那我下次还叫你哦。
 神代凛: 好。
 @SetExpression('smile', 'mara')
 Mara 往椅背上一靠，小瓶洗发水搁在两人中间。门铃又响，有人提着满袋东西出来，她们就收一下脚，等人过去，再舒展开。
@@ -114,14 +114,14 @@ Mara 抬眼看了凛一会儿，说，那就先这样试试吧。凛点点头，
 两人吃完冰，把空杯扔进店外的分类桶。回去走到路口，凛习惯性地朝台里拐，Mara 叫住她，指了指相反的方向。
 Mara: 今天下午你休息。回去睡一会儿吧。
 神代凛: 你呢？
-Mara: 也回去。刚才真只出来买洗发水。
+Mara: 也回去。刚才真的只是出来买洗发水啦。
 她晃了晃那只小瓶，朝凛挥手。凛笑着答应，在路口跟她分开。
 @HideCharacter('mara')
 @SetBackground('backgrounds/rin-room-day.webp', { transition: { type: 'crossfade', duration: 500 } })
 回到房间，凛放下包，推开一点窗。外面不知哪儿有蝉在叫，躺到床上仍听得清楚。她拉过薄被，不知不觉睡着了。
 醒来时，手机上有 Mara 发来的照片。是那张终于挂正的店牌，配了一句，刚好在车窗里看见。
 凛回复，至少现在左右分清了。Mara 很快发来笑脸。
-凛也笑了一下，起身去烧水。
+凛也笑了，起身去烧水。
 
 @Node('dating-record', { title: '先不听那一份' })
 @HideCharacter('rin')
@@ -138,7 +138,7 @@ Mara: 也回去。刚才真只出来买洗发水。
 Mara: 好，单独留着。我暂时不想听。以后谁要用，你先跟我说一声。
 神代凛: 好。我跟由美说。调查那份还得留着，但要拿来做节目，我也不答应他们直接用。
 Mara: 我知道。你呢？里面说话的是你。
-凛愣了一下，手指还压在目录上。想到耳机里那句“对不起”，她的胃又一阵发紧。
+凛一怔，手指还压在目录上。想到耳机里那句“对不起”，她的胃又一阵发紧。
 神代凛: 我也不想再听见自己说那句话。
 她们共同确认封存的位置和查阅规则，由美保管登记。目录里留下说明，日常播放器不再显示那一条。
 @Node('dating-reply', { title: '回信发出去以后' })
@@ -155,7 +155,7 @@ Mara: 回信发了。九月去东京。现在还差住处，两家都不便宜�
 神代凛: 你告诉由美了吗？
 Mara: 说了。春香一听，非要下次同班时自己换备用电池，让我在旁边看着。
 神代凛: 她上周就会了。
-Mara: 是啊。我说会了，她还嫌我答得敷衍。
+Mara: 是啊。我说会了啦，她还嫌我答得敷衍。
 凛笑了。Mara 看着她，问申请表发出去没有。
 神代凛: 今天晚上交。
 Mara: 晚饭前？吃完可就该犯困了。
@@ -165,12 +165,7 @@ Mara: 好。我先看哪家今天开门。
 附件上传完了。凛将介绍读到最后，光标又移回第一行。窗外有人关卷帘门，金属碰地的一声让她抬起头：已经快到约好的时间。
 Mara 发来店名，说已从家里出发，到楼下再叫她。凛回复好，把外套先搭在椅背上。
 凛重新点开样本。洗衣店的滚筒停下，店主问袜子是谁的。听了这么多遍，她还是能挑出音量忽大忽小的地方，忍不住想再修一下。
-@HideCharacter('mara')
-@HideCharacter('rin')
-@HideCharacter('haruka')
-@HideCharacter('mayu')
-@HideCharacter('reiko')
-@HideCharacter('yumi')
+@HideAllCharacters()
 @SetBackground('backgrounds/rin-room-day.webp', { transition: { type: 'crossfade', duration: 400 } })
 Mara（消息）: 还有多久？我问的是晚饭。
 神代凛（消息）: 十分钟。
@@ -186,11 +181,11 @@ Mara: 那收包？
 Mara: 现在呢？
 神代凛: 现在可以了。
 凛关掉电脑，下楼看见 Mara 正靠在屋檐下等。两人走到街上，凛才问起，Mara 回录取邮件时是不是也检查了很多次。
-Mara: 看了。发送以后也看。第一遍还以为忘填电话。
+Mara: 看了。发送以后也看。第一遍还以为忘填电话呢。
 神代凛: 填了吗？
 Mara: 填了。我把回信截图发给我妈，问她有没有漏掉什么。她说名字和号码都齐，叫我别再找毛病了。
 凛停下脚步笑起来。Mara 轻碰她的胳膊，提醒她别挡在店门口。凛这才换了只手拿包，让开了路。
-她们那晚换了一家店。等饭时，Mara在窗边看见游览船的时刻表，问凛来青叶以后坐过没有。
+她们那晚换了一家店。等饭时，Mara 在窗边看见游览船的时刻表，问凛来青叶以后坐过没有。
 神代凛: 只坐过巴士。
 Mara: 明天上午有一班，四十分钟就回来。要去吗？回来吃饭，下午再还目录。
 凛翻了翻表。航线从旧港外侧绕过白岛，再回同一个码头，不用赶另一班接驳。
@@ -199,39 +194,24 @@ Mara: 等一下，我看明天开不开。
 Mara 查到正常开航的公告，将日期指给凛。两人选了十点半那一班，订好船票。回去时，连在码头哪边碰头也说好了。
 
 @Node('daily-harbor-cruise', { title: '从海上看青叶' })
-@HideCharacter('mara')
-@HideCharacter('rin')
-@HideCharacter('haruka')
-@HideCharacter('mayu')
-@HideCharacter('reiko')
-@HideCharacter('yumi')
+@HideAllCharacters()
 @SetBackground('backgrounds/tour-pier-day.webp', { transition: { type: 'crossfade', duration: 320 } })
 六月二十六日，星期三，上午。今天和明天都是排好的休息日。
-@HideCharacter('mara')
-@HideCharacter('rin')
-@HideCharacter('haruka')
-@HideCharacter('mayu')
-@HideCharacter('reiko')
-@HideCharacter('yumi')
+@HideAllCharacters()
 @SetBackground('backgrounds/tour-pier-day.webp', { transition: { type: 'crossfade', duration: 320 } })
 游客码头在鱼市外侧。凛到时，卖冰的车刚走，售票亭前已经排了几个人。她打开手机上的蓝色船票，确认登船口。
-Mara站在路线图旁，穿一件薄外套。见凛过来，她从包里取出唱片目录，敲了敲封面。
-@HideCharacter('mara')
-@HideCharacter('rin')
-@HideCharacter('haruka')
-@HideCharacter('mayu')
-@HideCharacter('reiko')
-@HideCharacter('yumi')
+Mara 站在路线图旁，穿一件薄外套。见凛过来，她从包里取出唱片目录，敲了敲封面。
+@HideAllCharacters()
 @SetBackground('backgrounds/tour-pier-day.webp', { transition: { type: 'crossfade', duration: 400 } })
 @ShowCharacter('mara', { expression: 'leisure-neutral', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })
 Mara: 带上了。下午就不会忘。
 神代凛: 我还以为你会拿录音机。
 Mara: 今天坐船。拿了又得护着，连手都空不出来。
-她把目录装回包里，拉好拉链。船靠岸时，码头边的轮胎被挤得轻轻动了一下，船员放稳跳板，等前一班的游客全下来才开始检票。
-凛把屏幕亮度调高，扫过闸口。Mara已经走到跳板另一端，回头见凛盯着脚下，往边上让了让。
+她把目录装回包里，拉好拉链。船靠岸时，码头边的轮胎被挤得轻轻晃了晃，船员放稳跳板，等前一班的游客全下来才开始检票。
+凛把屏幕亮度调高，扫过闸口。Mara 已经走到跳板另一端，回头见凛盯着脚下，往边上让了让。
 Mara: 扶这里。站稳再走。
 神代凛: 我在看缝有多宽。
-Mara: 你的鞋掉不进去。
+Mara: 你的鞋掉不进去啦。
 神代凛: 谢谢，忽然知道还有这件事可以担心了。
 @SetBackground('backgrounds/tour-boat-cabin.webp', { transition: { type: 'crossfade', duration: 500 } })
 @ShowCharacter('mara', { expression: 'leisure-neutral', position: { x: 960, y: 785, scale: 1, rotation: 0, anchor: 'center' } })
@@ -243,12 +223,12 @@ Mara: 回程就轮到我们了。
 Mara: 这条线？小学的时候一次。刚才在路线图前才发现，现在绕另一边。
 她说得坦然。凛原本把她当成半个导游，只好自己点开电子船票附的路线图。
 出了港口，船慢慢转向。先前重叠的屋顶渐渐错开，露出商店街后面的学校操场，操场再往上是医院。凛认出十九号巴士停过的雨棚，没想到从这里能一次看见它们。
-Mara指着一栋楼，说那是她住的地方。凛对着她手指的方向看了半天，只见一排灰色窗户。
+Mara 指着一栋楼，说那是她住的地方。凛对着她手指的方向看了半天，只见一排灰色窗户。
 神代凛: 带红水箱的？
 Mara: 旁边。阳台有绿色遮雨布。
 神代凛: 那有两栋。
 Mara 也迟疑了，拿出手机里的照片对比。旁边一位阿姨听见，笑着说从水上看都长得差不多，她住了三十年，出一次海也要认一遍。
-Mara把照片放大，终于找到公寓楼边的吊臂。它从陆地看很高，从这里看却细得像插在屋顶上的一根针。
+Mara 把照片放大，找到公寓楼边的吊臂。它从陆地看很高，从这里看却细得像插在屋顶上的一根针。
 Mara: 就那栋。下回在阳台挂条更大的毛巾。
 神代凛: 先挡住的是楼下的窗户吧。
 白岛比地图上看着小，岛上没码头，低矮的草坡上有一座白色航标。讲解声正在介绍岛上的航标，前排的小孩追问住在那里的人怎么去上学。他母亲说没人住，他仍认真地望着那扇小门。
@@ -256,22 +236,17 @@ Mara: 就那栋。下回在阳台挂条更大的毛巾。
 Mara 见凛在笑，问起原因。凛低声解释，Mara 便朝岛上看了一眼。
 Mara: 床得折起来。桌子也放不下。
 神代凛: 你还想放桌子？
-Mara: 不然在哪吃饭。
+Mara: 不然在哪吃饭嘛。
 Mara 说得一本正经，说完却先笑了。船绕过岛的外侧，青叶的海岸线终于完整地出现在窗前。
-@HideCharacter('rin')
-@HideCharacter('mara')
-@HideCharacter('haruka')
-@HideCharacter('mayu')
-@HideCharacter('reiko')
-@HideCharacter('yumi')
+@HideAllCharacters()
 @SetBackground('inserts/aoba-from-the-boat.webp', { transition: { type: 'crossfade', duration: 700 } })
-船舱外的观景平台已经开放。凛想去看一会儿，Mara跟着起身，将包带缩短，贴着身体背好。风比船舱里大，凛靠到栏杆旁，外套下摆立刻被吹起。
-Mara把额前的头发压住，另一只手拿手机，对着小城拍了两张。屏幕上全是反光，她遮了半天，也没看清拍到了什么。
+船舱外的观景平台已经开放。凛想去看一会儿，Mara 跟着起身，将包带缩短，贴着身体背好。风比船舱里大，凛靠到栏杆旁，外套下摆立刻被吹起。
+Mara 把额前的头发压住，另一只手拿手机，对着小城拍了两张。屏幕上全是反光，她遮了半天，也没看清拍到了什么。
 神代凛: 给我吧。你站这边，背着光。
 @ShowCharacter('mara', { expression: 'leisure-smile', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })
 Mara 把手机递过来。凛想替她拍一张，举起手机时，Mara 却还在指远处的楼。
 神代凛: 看这里。
-Mara转过来，刚想整理头发，凛已经按下了。照片里她嘴微微张着，像是有一句话没说完。
+Mara 转过来，刚想整理头发，凛已经按下了。照片里她嘴微微张着，像是有一句话没说完。
 Mara: 这张删了。
 神代凛: 再拍一张再删。
 @SetExpression('leisure-hesitant', 'mara')
@@ -294,7 +269,7 @@ Mara: 下次可以去远一点。先吃饭，我早饭吃少了。
 @HideCharacter('yumi')
 @SetBackground('backgrounds/record-shop-day.webp', { transition: { type: 'crossfade', duration: 320 } })
 六月二十六日，午后。吃过饭，她们从游客码头走回商店街。
-Mara要还十八号借的唱片目录，老板今天提早关门。凛想买一个装自己作品资料的袋子，和她一起进店。
+Mara 要还十八号借的唱片目录，老板今天提早关门。凛想买一个装自己作品资料的袋子，和她一起进店。
 店里有些闷。Mara 脱下薄外套，搭在包上，露出里面的浅桃色衬衫。
 @ShowCharacter('mara', { expression: 'leisure-neutral', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })
 归还只花几分钟。老板接过目录，问她上次找到的歌还放不放。
@@ -328,11 +303,11 @@ Mara: 可能。不过这条长度刚好。先试试，实在不行再换。
 @SetBackground('backgrounds/cafe-day.webp', { transition: { type: 'crossfade', duration: 320 } })
 @ShowCharacter('mara', { expression: 'leisure-neutral', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })
 缝补用品店隔壁有间咖啡厅。门口挂着今日甜点的牌子，玻璃后面的空桌上摆了一只很矮的花瓶。
-Mara在门口停住，看了眼时间。才两点多。
+Mara 在门口停住，看了眼时间。才两点多。
 Mara: 我想喝点东西。你急着回去吗？
 神代凛: 不急。
 凛替她拉开门。店里没有从街上看着那么安静，咖啡机正在磨豆，靠窗有两个人对着一台电脑说话，手边的冰已经融了大半。
-店员让她们自己选位置。Mara走向窗边，又回头问凛坐不坐里面。凛看见书架后面还有一张两人桌，便指给她。
+店员让她们自己选位置。Mara 走向窗边，又回头问凛坐不坐里面。凛看见书架后面还有一张两人桌，便指给她。
 神代凛: 那里吧。太阳照不到。
 Mara: 好。我刚才已经晒够了。
 两人把购物袋挂在椅背上。Mara 很快选好奶油苏打，见凛在咖啡那页看了许久，就把菜单翻过来，指给她看茶的那一栏。
@@ -342,12 +317,12 @@ Mara: 准备坐多久？
 Mara: 没有。我回去也是补这个包。
 她拍拍袋子里的布，又用手掌轻轻压了压，免得包装纸一直响。
 凛最后还是点了热咖啡。店员说第二杯半价，Mara 便笑着说，那可以多坐一会儿。凛应了声好，又和她一起翻到甜点那页。
-她们选了一份烤布丁。店员问要几只勺子，Mara说两只，凛才从包里取出手机，想把钱转给她。
-Mara: 还没结账。
+她们选了一份烤布丁。店员问要几只勺子，Mara 说两只，凛才从包里取出手机，想把钱转给她。
+Mara: 还没结账啦。
 神代凛: 哦。
 凛放下手机。Mara 也没再算账，转而去拿桌边的一本旧漫画。
 书脊已经松了，封面上的猫趴在一个饭盒里。凛拿到同一套的前一册，讲一家人搬到乡下经营旅店。主人公花三页整理庭院，第四页客人说，能不能不住这么多虫子的地方。
-凛笑出声，Mara从书后面抬眼。
+凛笑出声，Mara 从书后面抬眼。
 Mara: 哪一页？
 凛把书转过去。Mara 翻了翻前后两页，指着院子里晾的那排鞋。
 Mara: 我比较担心这个。怎么把客人的鞋全洗了，有些不能泡水吧。
@@ -359,12 +334,7 @@ Mara: 晒干以后变硬了，我妈穿着磨脚，就给我下雨天踩水。�
 @AnimationTimeline(300, true)
 @Key('character:mara', 'position.y', 0, 750, 'ease-in-out')
 @Key('character:mara', 'position.y', 300, 785, 'ease-in-out')
-@HideCharacter('rin')
-@HideCharacter('mara')
-@HideCharacter('haruka')
-@HideCharacter('mayu')
-@HideCharacter('reiko')
-@HideCharacter('yumi')
+@HideAllCharacters()
 @SetBackground('inserts/cafe-shared-table.webp', { transition: { type: 'crossfade', duration: 550 } })
 饮料送来，漫画往桌边挪了挪。咖啡、苏打和一只布丁占了中间，两把勺子并排搁着。Mara 看了半天，先将其中一把推给凛。
 神代凛: 你先吃啊。
@@ -373,12 +343,12 @@ Mara: 晒干以后变硬了，我妈穿着磨脚，就给我下雨天踩水。�
 Mara: 我怕一挖就全倒了。
 Mara 从靠近自己的一边挖了一小块，布丁仍稳稳立着。两人各吃了几口，话渐渐少下来，又翻起桌上的书。
 咖啡机停了。靠窗那桌的人收起电脑，走时碰歪了花瓶，店员扶正它，重新擦了一遍桌面。阳光落在空椅背上，慢慢移到地板。
-凛读到这一册末尾，顺手往旁边一摸，才发现续集在Mara手里。
+凛读到这一册末尾，顺手往旁边一摸，才发现续集在 Mara 手里。
 神代凛: 这两个人已经在一起了？
 Mara: 嗯。我直接拿的这一册，前面还不知道怎么认识的。
 神代凛: 那你知道这两个人——
 @SetExpression('leisure-annoyed', 'mara')
-Mara: 先别告诉我。我想自己猜。
+Mara: 先别告诉我啦。我想自己猜。
 凛及时住了嘴，没再讲前一册发生的事。Mara 低头继续翻，过了一会儿却皱起眉，又借走凛那一册，从第一页读起。
 凛忍着笑，把杯子端起来。咖啡已经温了，刚好能连续喝几口。
 店员来添水，问还要不要点什么。凛见 Mara 又拿来下一本，便续了一杯咖啡。Mara 抬头朝她笑了笑，把剩下的布丁推到两人都够得着的地方。
@@ -386,7 +356,7 @@ Mara: 先别告诉我。我想自己猜。
 Mara: 下回来要是找不到这本怎么办？
 神代凛: 把封面拍一下。
 Mara 拍完，发现凛也拿着手机。凛原想拍自己那册的封面，却连 Mara 扶书的手一起拍进去了。她看了一眼，留下了这张。
-结账时她们各付饮料，布丁由凛付。Mara算了一下，说下次她请甜点。凛答应得很快，收零钱时又把两枚硬币碰到了地上。
+结账时她们各付饮料，布丁由凛付。Mara 算了算，说下次她请甜点。凛答应得很快，收零钱时又把两枚硬币碰到了地上。
 凛弯腰捡起一枚，另一枚已经被 Mara 拾起来，摊在掌心递到她面前。接过时，凛的指尖碰到 Mara 的手，这才发现自己一直在笑。
 @HideCharacter('rin')
 @HideCharacter('haruka')
@@ -395,7 +365,7 @@ Mara 拍完，发现凛也拿着手机。凛原想拍自己那册的封面，却
 @HideCharacter('yumi')
 @SetBackground('backgrounds/town-street-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })
 @ShowCharacter('mara', { expression: 'leisure-smile', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })
-走出咖啡厅，街上的光比里面亮得多。Mara眯起眼睛，等凛将购物袋换到另一只手，才继续往前走。
+走出咖啡厅，街上的光比里面亮得多。Mara 眯起眼睛，等凛将购物袋换到另一只手，才继续往前走。
 她摸着布料边缘，问凛那部爱情片看完没有。
 神代凛: 还没开始看。
 Mara: 怕结尾？
@@ -419,12 +389,7 @@ Mara 转回去看红灯，又看了一眼自己刚买的布。直到灯快变了
 神代凛: 如果临时有事……
 Mara: 我明天下午就是空着的。真有事再给你打电话。你记得把电影带上。
 Mara 走在旁边，肩上的包带还是旧的。凛看见口袋里露出的补布，已经开始想，下次见面时那块布会不会缝好了。
-@HideCharacter('mara')
-@HideCharacter('rin')
-@HideCharacter('haruka')
-@HideCharacter('mayu')
-@HideCharacter('reiko')
-@HideCharacter('yumi')
+@HideAllCharacters()
 @SetBackground('backgrounds/rin-room-day.webp', { transition: { type: 'crossfade', duration: 320 } })
 到商店街的岔路，她们各自回家。凛坐在房间里，拿出空白卡片，试着画了一只海鸥。
 只有两笔，看着仍像眉毛。凛又画一只，结果更像眉毛了。
@@ -452,7 +417,7 @@ Mara: 那今天准备干什么？
 神代凛: 我想……和你约会。
 凛本来想等走到长椅那边再说。话先出了口，手还攥着包带。Mara 停下来，看着凛。
 旁边有游客在看路线牌。凛说得太轻，说完便有些担心 Mara 没听清。
-Mara 低头看了一眼手里的地图，把它折好，放进口袋。然后朝靠里的步道指了一下。
+Mara 低头看了一眼手里的地图，把它折好，放进口袋。然后朝靠里的步道指了指。
 Mara: 先走到那边吧。这里挡着人了。
 经过第一个转角，Mara 放慢脚步等凛。两人并肩走了一小段，她看了凛一眼，将手伸进口袋，又很快拿出来。
 @AnimationTimeline(300, true)
@@ -464,7 +429,7 @@ Mara: 可以放这儿。不抢你的。
 神代凛: 我知道。
 包终于放下，凛的手没地方去了，只好压到膝上。
 @SetExpression('date-blush', 'mara')
-Mara: 你刚才那句话，再说一次？
+Mara: 你刚才那句话，再说一次嘛？
 神代凛: 我想和你约会。
 Mara 抬头望向凛。这次，凛没有避开。
 Mara: ……你说的，是我想的那种约会？
@@ -491,7 +456,7 @@ Mara: 你一问是不是去收声音，我差点就顺着说了。
 @AnimationTimeline(420, true)
 @Key('character:mara', 'position.x', 0, 960, 'ease-in-out')
 @Key('character:mara', 'position.x', 420, 900, 'ease-in-out')
-Mara 笑了一下，挪近些，轻碰凛放在膝上的手。凛摊开手掌，让她握住。
+Mara 笑了笑，挪近些，轻碰凛放在膝上的手。凛摊开手掌，让她握住。
 @SetExpression('date-smile', 'mara')
 Mara: 那我以后想见你，就直接找你了？不拿录音当借口了。
 神代凛: 嗯。我也想见你。等九月你来东京，下课就给我打电话，我们一起吃饭。
@@ -512,7 +477,7 @@ Mara: 凛，你看我一下。
 Mara: 你一直看我领口。我还想亲你，抬一下头？
 凛忍不住笑，抬起头。这一次，她闭上眼睛，手指攥住 Mara 的衣角。直到起身才发觉还没松手。Mara 低头看了一眼，等她松开，便牵住了她。
 @ShowCharacter('mara', { expression: 'date-smile', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })
-走到售货机前，Mara 想喝的口味终于补货。凛跟着按了同一个按钮，第一口就甜得皱眉。
+走到售货机前，Mara 想喝的口味补货了。凛跟着按了同一个按钮，第一口就甜得皱眉。
 Mara: 不喜欢？给我吧，你买茶。
 神代凛: 你喝两罐？
 Mara: 喝不完带回去。总比让你勉强喝掉好。
@@ -528,7 +493,7 @@ Mara 伸手接过凛那罐，就着刚才的位置喝了一口。凛看着她，
 @Key('character:mara', 'position.y', 0, 750)
 @Key('character:mara', 'position.y', 280, 785, 'easeOutCubic')
 晚上回到凛的房间，她们把电影放了出来。Mara 坐在床沿，替凛挪开包；凛在她身旁坐下，将音量调低了一点。
-Mara: 不坐椅子了？
+Mara: 不坐椅子啦？
 神代凛: 这里也看得见。
 Mara 没再问，往她身边靠了靠。片头过去，凛几次想指给她看下一幕，又记起自己答应过不讲。
 Mara: 我知道你有话想说。等这段放完，再告诉我。
@@ -553,7 +518,7 @@ Mara 在门边等，问凛要不要去市民中心看她们搬进去的架子。
 神代凛: 是帮忙，还是一起去？
 @ShowCharacter('mara', { expression: 'neutral', position: { x: 1220, y: 750, scale: 1, rotation: 0, anchor: 'center' } })
 @CharacterEnter('mara', 'right', 280, { x: 1220, y: 750, offset: 70, easing: 'easeOutCubic' }, true)
-Mara: 一起去。架子已经装好了，不用你扛。
+Mara: 一起去啦。架子已经装好了，不用你扛。
 神代凛: 那走吧。
 @SetExpression('pose-offer-hand', 'mara')
 Mara 伸出手，又看了一眼还在屋里的由美。凛也跟着望过去。由美正核对下一张表，头都没抬。
@@ -561,7 +526,7 @@ Mara 伸出手，又看了一眼还在屋里的由美。凛也跟着望过去。
 @AnimationTimeline(400, true)
 @Key('character:mara', 'position.x', 0, 1220, 'ease-in-out')
 @Key('character:mara', 'position.x', 400, 1120, 'ease-in-out')
-最后，凛先牵住 Mara。Mara 收紧手指，低头笑了一下。两人走到楼梯口，凛才想起还没拿伞。
+最后，凛先牵住 Mara。Mara 收紧手指，低头笑了。两人走到楼梯口，凛才想起还没拿伞。
 她们折回去，由美把门边那把递出来，问这次是不是凛的。凛说是，脸有点热。
 第二天下午，她们再一起进台的时候，至少记得先把伞放好了。
 
@@ -576,11 +541,11 @@ Mara 伸出手，又看了一眼还在屋里的由美。凛也跟着望过去。
 六月二十九日，下午。月底另外约定的协助班从一点开始，凛和 Mara 在门口碰头。
 春香将最后一期节目单拿来，看到 Mara 牵着凛的手时停了一秒，然后把单子递给了凛。
 @SetExpression('smile', 'haruka')
-水野春香: 先空一只手，帮我对一遍？下午就要录了。
+水野春香: 先空一只手啦，帮我对一遍？下午就要录了。
 @SetExpression('blush', 'mara')
 Mara: 好，我看前半段。凛，你看署名和素材表。
 水野春香: 署名那儿我改了两次，怕又留了旧的。
 她指完修改的地方，就回去拿耳机了。凛接过节目单，才发现刚才一直捏着同一个纸角。
 Mara: 你比被她检查录音还紧张。
 神代凛: 她检查录音的时候，我至少知道哪里可能有错。
-凛签完自己的那份，才发现笔帽还在 Mara 手里。Mara 递过来，顺便轻碰了一下她的手。
+凛签完自己的那份，才发现笔帽还在 Mara 手里。Mara 递过来，顺便轻碰了碰她的手。

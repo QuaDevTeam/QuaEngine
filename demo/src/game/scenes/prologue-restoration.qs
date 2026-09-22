@@ -20,7 +20,7 @@ Mara: 昨晚热水够用吗？
 神代凛: 够。怎么了？
 Mara: 房东说你看了热水器说明书，又问了一遍楼下几点关门。她以为你是来检查的。
 神代凛: 我只是怕洗到一半没热水。
-Mara: 她还特地把说明书的塑封擦了一遍。
+Mara: 她还特地把说明书的塑封擦了一遍呢。
 她把杯子放在走廊的小桌上，替凛推开水池间的门。凛倒完水回来，茶正好没有那么烫。
 资料室只开了一盏顶灯。窗边的纸箱已经贴上昨天的新标签，黑色转接头装进了一个透明袋。
 Mara: 找到了。真的是黑色的。
@@ -28,12 +28,7 @@ Mara: 找到了。真的是黑色的。
 @SetExpression('smile', 'mara')
 Mara: 所以我把三个都拿来了。
 凛在袋子上写下型号，挑出正确的一根。Mara 等她接好，把另外两根分开收了起来。
-@HideCharacter('rin')
-@HideCharacter('mara')
-@HideCharacter('haruka')
-@HideCharacter('mayu')
-@HideCharacter('reiko')
-@HideCharacter('yumi')
+@HideAllCharacters()
 @SetBackground('inserts/archive-tape-splice.webp', { transition: { type: 'crossfade', duration: 400 } })
 两盒旧磁带等在桌角。标签褪得只剩几笔，凛将空白卡片压在旁边，没有急着替它们猜一个名字。
 Mara: 这两盒下午再认。先听昨天说好的那张卡？
@@ -45,7 +40,7 @@ Mara 从待修清单里找出一份生日留言，去年六月寄给点歌节目
 录音中的居民: ……二十八岁啦。工作别太忙，有空就回来吃饭。
 录音里停了一会儿，传来电动车驶过的声音，随后是一声压得很低的笑。
 录音中的居民: 不回来也行。打个电话。我把鱼买多了，不是特意给你买的。
-Mara 用手背挡了一下嘴。
+Mara 用手背挡了挡嘴。
 神代凛: 你还记得录这段的时候？
 Mara: 他当时让我把最后一句剪掉。后来他太太在旁边说，不准剪。
 神代凛: 最后确认的是哪个版本？
@@ -103,7 +98,7 @@ Mara: 再把这一项写完。
 水野春香: 两位，还吃不吃午饭了？
 凛看了一眼时间。十二点四十七分。
 Mara: 你不是说十二点叫我们？
-水野春香: 叫了。你说，等这个进度条走完。
+水野春香: 叫了啦。你说，等这个进度条走完。
 她们一起看向屏幕。备份早就完成了。
 
 @Node('prologue-lunch', { title: '谁的饭先凉了' })
@@ -131,7 +126,7 @@ Mara 喝完半杯水，盯着饭盒想了两秒，又看看凛的炖菜，将自
 @SetExpression('smile', 'mara')
 Mara: 神代小姐，我觉得你的菜需要一点变化。
 神代凛: 不需要。
-Mara: 我还没说。
+Mara: 我还没说呢。
 神代凛: 你是想把辣的换给我吧。
 Mara 顺着凛的目光，看了一眼已经推到两人中间的饭盒，只好拉回去。
 @SetExpression('hesitant', 'mara')
@@ -146,7 +141,7 @@ Mara: 哪家？
 Mara: 今天的没压扁吧？
 神代凛: 没有。少了一项服务。
 春香突然呛了一下，抓起纸巾转过身。Mara 把小碗接过去，嘴角这才重新扬起来。
-水野春香: 我没有笑。饭太干了。
+水野春香: 我没有笑啦。饭太干了。
 Mara: 你吃的是咖喱。
 水烧开了，门口咔哒一声。由美端着杯子进来，顺手收走了桌上的一份账单。
 @ShowCharacter('yumi', { expression: 'neutral', position: { x: 1440, y: 750, scale: 1, rotation: 0, anchor: 'center' } })
@@ -155,8 +150,8 @@ Mara: 你吃的是咖喱。
 Mara: 辣过头了，店里换了辣椒。
 青木由美: 那多配点饭。下午的街头录音我让春香去，你把资料室这边做完。
 水野春香: 我带普通话筒就够了？
-Mara: 再带防风罩。街上风不大，屋檐底下却有穿堂风。我等下给你拿。
-她说完又停了一下，指了指挂在墙上的袋子。
+Mara: 再带个防风罩吧。街上风不大，屋檐底下却有穿堂风。我等下给你拿。
+她说完又停了停，指了指挂在墙上的袋子。
 Mara: 就在第二个钩子上。你先看，有不确定的再叫我。
 春香点点头，拿自己的手机记了下来。
 盒盖上的辣椒越堆越多。Mara 翻了几下，以为挑干净了，下一口却又辣得直找水。凛等她喝过水，想起了昨天那份文件。
@@ -169,8 +164,8 @@ Mara: 所以还没做完。一放出来就像施工投诉材料。
 她翻了翻手机，似乎找到一个文件，又没有立刻点开。
 Mara: 现在不放了。吃饭。
 神代凛: 做好以后，可以让我听听吗？
-她握着手机的手停了一下。
-Mara: 还没剪好，有的地方很乱。
+她握着手机的手停住。
+Mara: 还没剪好呢，有的地方很乱。
 神代凛: 没关系。我想听听你挑了哪些声音。
 她把手机反扣在桌上。
 @SetExpression('smile', 'mara')
@@ -182,12 +177,7 @@ Mara: 风不把雨刮进来的话。明天还不干，我就拿去烘。
 凛看看屋檐外越积越厚的云，把空饭盒收进袋子，跟她回了屋。
 
 @Node('prologue-afternoon-shift', { title: '播出以前的事' })
-@HideCharacter('mara')
-@HideCharacter('rin')
-@HideCharacter('haruka')
-@HideCharacter('mayu')
-@HideCharacter('reiko')
-@HideCharacter('yumi')
+@HideAllCharacters()
 @SetBackground('backgrounds/radio-archive-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })
 午饭后，春香带着话筒出门。凛回到资料室，把上午修好的文件另存成试听版，准备给来索取录音的人试听。
 Mara 在隔壁试昨天换过的话筒线。第一次只听见一边，第二次两边都有了，但她没有直接说好了。
@@ -239,7 +229,7 @@ Mara 故意不换气，硬把下一句也接上，到最后只剩气声。凛赶
 @ShowCharacter('yumi', { expression: 'neutral', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })
 @CharacterEnter('yumi', 'right', 280, { x: 960, y: 750, offset: 70, easing: 'easeOutCubic' }, true)
 青木由美: 我刚才就想问，你要憋到什么时候。
-Mara: 在改了。神代小姐刚才也听见了，真的太长。
+Mara: 在改啦。神代小姐刚才也听见了，真的太长。
 Mara 指向凛。凛把记在纸边的时长递给由美。由美看过，让两人把主办方简称也拿去核对，不要自行省掉。
 凛回资料室发试听文件。那位父亲很快打来电话，凛关掉电脑的扬声器，问他方不方便现在听听发过去的文件。
 他说自己在店里，电话那头一直有人叫他。凛等了一会儿，听见他说换好了地方，便请他从头播放。
@@ -325,7 +315,7 @@ Mara: 春香念的报时，也能拿来对一下。
 确认手里的副本与接收时留下的文件一致，三人才继续往下听。录音里传来翻纸声，说话的人停了一下，才接着往下念。
 高桥真由: 这种没有写进稿子的声音也要保留。不是要你们故意弄出动静，照常播就行。
 Mara: 那我下午憋气读完的那段，不用再来一次吧。
-真由看向 Mara，问是哪一段。凛解释了两句，真由低头笑了一下，又将杯子移远一点，免得碰到研究员正在拆的外壳。
+真由看向 Mara，问是哪一段。凛解释了两句，真由低头笑了，又将杯子移远一点，免得碰到研究员正在拆的外壳。
 由美过来找人确认搬运时间，话就停在这里。真由合起记录册，问明晚八点是哪一版节目。凛说还要等正式稿，今天不能给她一份当成明天确定会播的内容。
 高桥真由: 好。那就以实际输出为准。
 回资料室的路上，Mara 问凛听懂了多少。
@@ -345,7 +335,7 @@ Mara: 那我跟研究室总算有共同话题了。
 @SetBackground('backgrounds/radio-archive-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })
 @ShowCharacter('mara', { expression: 'neutral', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })
 六月十一日，下午五点半。
-凛把最后一份试听的进度写在便签上，明天要做的事还有三行。Mara 路过门口，朝凛晃了一下钥匙，说今天先走，母亲约她回去吃饭。
+凛把最后一份试听的进度写在便签上，明天要做的事还有三行。Mara 路过门口，朝凛晃了晃钥匙，说今天先走，母亲约她回去吃饭。
 神代凛: 你不等晚间节目？
 @HideCharacter('rin')
 @HideCharacter('haruka')
@@ -358,15 +348,10 @@ Mara: 今天不是我的班。稿子下午交了，哪里还要改，他们会�
 她拉开自己的包，确认里面没有台里的钥匙，才关好拉链。
 Mara: 你也别把整箱带回去。
 神代凛: 这箱搬得动。
-@HideCharacter('mara')
-@HideCharacter('rin')
-@HideCharacter('haruka')
-@HideCharacter('mayu')
-@HideCharacter('reiko')
-@HideCharacter('yumi')
+@HideAllCharacters()
 @ShowCharacter('mara', { expression: 'smile', position: { x: 1120, y: 750, scale: 1, rotation: 0, anchor: 'center' } })
 Mara: 所以才提醒你。
-凛笑了一下，将那只刚拉到脚边的箱子推回桌下。
+凛笑了，将那只刚拉到脚边的箱子推回桌下。
 @CharacterExit('mara', 'right', 360, { x: 1120, y: 750, offset: 190, easing: 'easeInCubic' }, true)
 Mara 在楼梯口接起母亲的电话，说自己现在出门，还来得及买豆腐。声音随着脚步远了，凛才把便签贴上箱盖。
 五点四十分，凛将门带上。走廊另一头有人刚来上班，雨伞靠在门边，手里拿着晚间节目的稿子。

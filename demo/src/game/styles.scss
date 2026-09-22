@@ -1,6 +1,8 @@
 @use './styles/base';
-@use './styles/shell';
 @use './styles/dialogue';
-@use './styles/system-panels';
-@use './styles/reading-ui';
-@use './styles/motion';
+
+.game-root, .qua-renderer { width: 100%; height: 100%; position: relative; overflow: hidden; }
+.game-root[data-dialogue-chrome='false'] .qua-dialogue-box { visibility: hidden; pointer-events: none; }
+.vn-renderer .qua-character { width: 640px; max-width: none; max-height: none; }
+.vn-renderer .qua-character > .qua-sprite { aspect-ratio: 1 / 2; }
+.vn-renderer .qua-character .qua-sprite-layer--base { display: block; }
