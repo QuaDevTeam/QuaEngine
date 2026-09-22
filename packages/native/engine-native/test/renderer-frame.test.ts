@@ -2,6 +2,72 @@ import { describe, expect, it } from 'vitest'
 import { createNativeRendererJsonFrameInput, createNativeRendererViewProjection } from '../src'
 
 describe('native renderer frame serialization', () => {
+  it('projects an optional loading scene without demanding the destination or mutating engine state', () => {
+    const preparation = { id: 'startup', images: [{ assetType: 'images', assetName: 'title.webp', provenance: { contentPackageId: 'chapter' } }] }
+    const view = {
+      background: { mode: 'image', assetName: 'room.webp' },
+      characters: [{ id: 'alice', visible: true, sprite: 'alice.webp' }],
+      ui: { visible: true, overlays: { title: { visible: true, title: 'Title' } } },
+      plugins: { 'asset-loading': { visible: true, preparation } },
+    }
+    const surface = { pluginId: 'asset-loading', createOverlays: () => ({ elementId: 'asset-loading', visible: true, surface: { key: 'test' } }) }
+    const frame = createNativeRendererViewProjection(view, { featureSurfaces: [surface] })
+    expect(frame.background).toBeUndefined()
+    expect(frame.characters).toBeUndefined()
+    expect(frame.ui).toMatchObject({ overlays: [{ elementId: 'asset-loading' }] })
+    expect((frame.ui as { overlays: unknown[] }).overlays).toHaveLength(1)
+    expect(view.ui.overlays.title.visible).toBe(true)
+    expect(createNativeRendererViewProjection(view).background).toBeDefined()
+    preparation.images[0].assetName = 'changed.webp'
+    expect(frame.plugins).toMatchObject({ 'asset-loading': { preparation: { images: [{ assetName: 'title.webp', provenance: { contentPackageId: 'chapter' } }] } } })
+  })
+  it('serializes preparation and sampled shader progress without aliasing the stored value', () => {
+    const shaderTransition = { shader: { wgsl: 'source', glsl: 'source', params: [1, 2, 3, 4] }, incomingLayerIds: ['new'], progress: 0 }
+    const background = { mode: 'layered', preparationId: 'prepare-1', shaderTransition, layers: [{ id: 'old', assetName: 'old.png' }, { id: 'new', assetName: 'new.png' }] }
+    const frame = createNativeRendererJsonFrameInput({ background, animations: [{ id: 'transition', startedAt: 1000, state: 'running', duration: 1000, resolvedTracks: [{ target: 'background:main', property: 'shaderTransition.progress', keyframes: [{ at: 0, value: 0 }, { at: 1000, value: 1 }] }] }] }, { now: 1500 })
+    expect(frame.view.background).toMatchObject({ preparationId: 'prepare-1', shaderTransition: { progress: 0.5, shader: { params: [1, 2, 3, 4] } } })
+    expect(shaderTransition.progress).toBe(0)
+    shaderTransition.shader.params[0] = 99
+    expect(frame.view.background).toMatchObject({ shaderTransition: { shader: { params: [1, 2, 3, 4] } } })
+  })
+
+  it('projects a scene-only frame while preserving the engine UI and image composition', () => {
+    const view = {
+      background: { mode: 'layered', assetName: 'room.png', layers: [{ id: 'photo', assetName: 'photo.png', x: 370, y: 240, width: 420, height: 280, zIndex: 5 }] },
+      characters: [{ id: 'alice', name: 'Alice', visible: true, sprite: 'alice.png' }],
+      dialogue: { visible: true, text: 'Keep this line' },
+      choices: [{ id: 'a', text: 'A', enabled: true }],
+      ui: { visible: false, overlays: { menu: { visible: true, title: 'Menu' } } },
+    }
+    const frame = createNativeRendererViewProjection(view)
+    expect(frame.background).toMatchObject({ layers: [{ assetName: 'room.png' }, { assetName: 'photo.png', x: 370, y: 240, width: 420, height: 280 }] })
+    expect(frame.characters).toMatchObject([{ id: 'alice', visible: true }])
+    expect(frame.dialogue).toMatchObject({ visible: false })
+    expect(frame.choices).toMatchObject({ visible: false, choices: [] })
+    expect(frame.ui).toEqual({ visible: false, overlays: [] })
+    expect(view.dialogue.visible).toBe(true)
+    const restored = createNativeRendererViewProjection({ ...view, ui: { ...view.ui, visible: true } })
+    expect(restored.dialogue).toMatchObject({ visible: true })
+    expect(restored.choices).toMatchObject({ choices: [{ id: 'a' }] })
+  })
+
+  it('samples placed image motion while UI is hidden and retains live native tracks', () => {
+    const view = {
+      background: { mode: 'layered', assetName: 'room.png', layers: [{ id: 'photo', assetName: 'photo.png', x: 100, y: 110, width: 420, height: 280 }] },
+      ui: { visible: false },
+      animations: [{ id: 'photo-motion', state: 'running', startedAt: 1000, duration: 1000, playbackRate: 1, resolvedTracks:
+        Object.entries({ x: [100, 500], y: [110, 250], width: [420, 480], height: [280, 320], scale: [1, 0.8], rotation: [0, -12], opacity: [1, 0.6] })
+          .map(([property, [from, to]]) => ({ target: 'backgroundLayer:photo', property, keyframes: [{ at: 0, value: from }, { at: 1000, value: to }] })) }],
+    }
+    const sampled = createNativeRendererJsonFrameInput(view, { now: 1500 })
+    expect(sampled.view.background).toMatchObject({ layers: [{ assetName: 'room.png' }, { id: 'photo', x: 300, y: 180, width: 450, height: 300, scale: 0.9, rotation: -6, opacity: 0.8 }] })
+    expect(sampled.view.ui).toMatchObject({ visible: false })
+    const live = createNativeRendererJsonFrameInput(view, { now: 1500, projectAnimations: false })
+    expect(live.view.background).toMatchObject({ layers: [{ assetName: 'room.png' }, { id: 'photo', x: 100, width: 420 }] })
+    expect(live.view.animations).toMatchObject(view.animations)
+    expect(view.background.layers[0].x).toBe(100)
+  })
+
   it('preserves engine-owned flow mode and policy across the native frame boundary', () => {
     const flowControl = { revision: 3, mode: 'skip', skipMode: 'read', policy: { skippable: true }, stopAtChoices: true }
     const frame = createNativeRendererJsonFrameInput({ flowControl })
@@ -192,7 +258,7 @@ describe('native renderer frame serialization', () => {
           interactive: true,
           zIndex: 50,
           surface: {
-            key: '@quajs/plugin-backlog/native',
+            key: '@quajs/plugin-backlog/surface',
             root: {
               id: 'backlog-root',
               kind: 'Panel',
@@ -212,7 +278,7 @@ describe('native renderer frame serialization', () => {
           elementId: 'backlog',
           renderMode: 'render-only',
           surface: expect.objectContaining({
-            key: '@quajs/plugin-backlog/native',
+            key: '@quajs/plugin-backlog/surface',
             root: expect.objectContaining({
               bounds: { x: 96, y: 0, width: 1728, height: 1080 },
               text: 'Remember this.',

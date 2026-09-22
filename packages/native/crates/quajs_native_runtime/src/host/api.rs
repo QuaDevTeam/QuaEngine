@@ -133,6 +133,13 @@ pub type NativeHostApiResult<T> = Result<T, NativeHostApiError>;
 pub trait NativeHostApi {
     fn host_info(&self) -> NativeHostInfo;
     fn read_asset_bytes(&self, request: &NativeAssetReadRequest) -> NativeHostApiResult<Vec<u8>>;
+    /// Native resource preparation can inspect resident headers without copying a QPK asset.
+    fn read_shared_asset_bytes(
+        &self,
+        request: &NativeAssetReadRequest,
+    ) -> NativeHostApiResult<Arc<[u8]>> {
+        self.read_asset_bytes(request).map(Arc::from)
+    }
     fn list_mounted_bundles(&self) -> NativeHostApiResult<Vec<NativeMountedBundleInfo>>;
     fn read_storage(&self, key: &str) -> NativeHostApiResult<Option<Vec<u8>>>;
     fn write_storage(&mut self, key: &str, value: Vec<u8>) -> NativeHostApiResult<()>;
@@ -178,6 +185,19 @@ impl InMemoryNativeHostApi {
     pub fn renderer_intents(&self) -> &[NativeRendererIntent] {
         &self.renderer_intents
     }
+
+    /// Borrowed diagnostics: inspecting a QPK must not clone all resident asset bytes.
+    pub fn inspect_assets(&self) -> impl Iterator<Item = (&str, &[u8])> {
+        self.assets
+            .iter()
+            .map(|(key, value)| (key.as_str(), value.as_ref()))
+    }
+
+    pub fn inspect_storage(&self) -> impl Iterator<Item = (&str, &[u8])> {
+        self.storage
+            .iter()
+            .map(|(key, value)| (key.as_str(), value.as_slice()))
+    }
 }
 
 impl NativeHostApi for InMemoryNativeHostApi {
@@ -189,6 +209,16 @@ impl NativeHostApi for InMemoryNativeHostApi {
         self.assets
             .get(&request.url)
             .map(|bytes| bytes.to_vec())
+            .ok_or_else(|| NativeHostApiError::AssetNotFound(request.url.clone()))
+    }
+
+    fn read_shared_asset_bytes(
+        &self,
+        request: &NativeAssetReadRequest,
+    ) -> NativeHostApiResult<Arc<[u8]>> {
+        self.assets
+            .get(&request.url)
+            .cloned()
             .ok_or_else(|| NativeHostApiError::AssetNotFound(request.url.clone()))
     }
 

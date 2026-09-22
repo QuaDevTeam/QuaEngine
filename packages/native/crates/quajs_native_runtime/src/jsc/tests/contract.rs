@@ -1,33 +1,33 @@
 use super::super::*;
 
 #[test]
-fn reports_explicit_quickjs_runtime_version() {
-    let version = quickjs_runtime_version();
+fn reports_explicit_jsc_runtime_version() {
+    let version = jsc_runtime_version();
 
     assert!(!version.trim().is_empty());
     assert_ne!(version, "pending");
 }
 
 #[test]
-fn serializes_quickjs_evaluation_request_with_ts_field_names() {
-    let request = QuickJsEvaluationRequest {
-        module: QuickJsRuntimeModuleRecord {
+fn serializes_jsc_evaluation_request_with_ts_field_names() {
+    let request = JscEvaluationRequest {
+        module: JscRuntimeModuleRecord {
             asset_name: "scripts/opening.js".to_string(),
             bundle_name: "runtime.chapter.native-ui".to_string(),
             package_id: "runtime.chapter.native-ui".to_string(),
-            kind: QuickJsRuntimeModuleKind::Script,
+            kind: JscRuntimeModuleKind::Script,
             code: "export default function opening() {}".to_string(),
             bytes: vec![1, 2, 3],
         },
-        module_graph: vec![QuickJsRuntimeModuleRecord {
+        module_graph: vec![JscRuntimeModuleRecord {
             asset_name: "scripts/helper.js".to_string(),
             bundle_name: "runtime.chapter.native-ui".to_string(),
             package_id: "runtime.chapter.native-ui".to_string(),
-            kind: QuickJsRuntimeModuleKind::Script,
+            kind: JscRuntimeModuleKind::Script,
             code: "export const helper = true".to_string(),
             bytes: vec![4, 5, 6],
         }],
-        limits: QuickJsSandboxLimits::default(),
+        limits: JscSandboxLimits::default(),
     };
 
     let json = serde_json::to_value(request).unwrap();
@@ -41,17 +41,15 @@ fn serializes_quickjs_evaluation_request_with_ts_field_names() {
         json["moduleGraph"][0]["bytes"],
         serde_json::json!([4, 5, 6])
     );
-    assert_eq!(json["limits"]["maxHeapBytes"], 64 * 1024 * 1024);
     assert_eq!(json["limits"]["maxModuleBytes"], 4 * 1024 * 1024);
 }
 
 #[test]
 fn serializes_evaluation_success_and_error_responses() {
-    let success =
-        QuickJsEvaluationResponse::success("runtime.chapter.native-ui:scripts/opening.js");
-    let error = QuickJsEvaluationResponse::error(QuickJsEvaluationError {
-        code: QuickJsEvaluationErrorCode::UnsupportedRuntime,
-        message: "QuickJS host is not initialized.".to_string(),
+    let success = JscEvaluationResponse::success("runtime.chapter.native-ui:scripts/opening.js");
+    let error = JscEvaluationResponse::error(JscEvaluationError {
+        code: JscEvaluationErrorCode::UnsupportedRuntime,
+        message: "JavaScriptCore host is not initialized.".to_string(),
         asset_name: Some("scripts/opening.js".to_string()),
         detail: None,
     });
@@ -71,14 +69,14 @@ fn serializes_evaluation_success_and_error_responses() {
 
 #[test]
 fn serializes_module_export_call_requests_and_responses() {
-    let request = QuickJsModuleExportCallRequest {
-        module_namespace_id: "quickjs:rquickjs:1".to_string(),
+    let request = JscModuleExportCallRequest {
+        module_namespace_id: "jsc:1".to_string(),
         export_name: "default".to_string(),
         args_json: Some("[{\"scene\":\"opening\"}]".to_string()),
     };
-    let success = QuickJsModuleExportCallResponse::success(Some("{\"ok\":true}".to_string()));
-    let error = QuickJsModuleExportCallResponse::error(QuickJsEvaluationError {
-        code: QuickJsEvaluationErrorCode::MissingExport,
+    let success = JscModuleExportCallResponse::success(Some("{\"ok\":true}".to_string()));
+    let error = JscModuleExportCallResponse::error(JscEvaluationError {
+        code: JscEvaluationErrorCode::MissingExport,
         message: "Missing export.".to_string(),
         asset_name: None,
         detail: None,
@@ -88,7 +86,7 @@ fn serializes_module_export_call_requests_and_responses() {
     let success_json = serde_json::to_value(success).unwrap();
     let error_json = serde_json::to_value(error).unwrap();
 
-    assert_eq!(request_json["moduleNamespaceId"], "quickjs:rquickjs:1");
+    assert_eq!(request_json["moduleNamespaceId"], "jsc:1");
     assert_eq!(request_json["exportName"], "default");
     assert_eq!(request_json["argsJson"], "[{\"scene\":\"opening\"}]");
     assert_eq!(success_json["ok"], true);
@@ -99,63 +97,62 @@ fn serializes_module_export_call_requests_and_responses() {
 
 #[test]
 fn serializes_game_step_factory_and_run_requests_and_responses() {
-    let factory_request = QuickJsGameStepFactoryCallRequest {
-        module_namespace_id: "quickjs:rquickjs:1".to_string(),
+    let factory_request = JscGameStepFactoryCallRequest {
+        module_namespace_id: "jsc:1".to_string(),
         export_name: "default".to_string(),
         scope_json: Some("{\"route\":\"main\"}".to_string()),
     };
-    let factory_success =
-        QuickJsGameStepFactoryCallResponse::success(vec![QuickJsGameStepDescriptor {
-            uuid: "intro.1".to_string(),
-            run_handle_id: "quickjs:rquickjs:step:1".to_string(),
-            metadata_json: Some("{\"title\":\"Opening\"}".to_string()),
-        }]);
-    let run_request = QuickJsGameStepRunRequest {
-        run_handle_id: "quickjs:rquickjs:step:1".to_string(),
+    let factory_success = JscGameStepFactoryCallResponse::success(vec![JscGameStepDescriptor {
+        uuid: "intro.1".to_string(),
+        run_handle_id: "jsc:step:1".to_string(),
+        metadata_json: Some("{\"title\":\"Opening\"}".to_string()),
+    }]);
+    let run_request = JscGameStepRunRequest {
+        run_handle_id: "jsc:step:1".to_string(),
         ctx_json: Some("{\"stepId\":\"intro.1\"}".to_string()),
     };
-    let resume_request = QuickJsGameStepResumeRequest {
-        resume_handle_id: "quickjs:rquickjs:resume:1".to_string(),
+    let resume_request = JscGameStepResumeRequest {
+        resume_handle_id: "jsc:resume:1".to_string(),
         payload_json: Some("{\"choiceId\":\"go\"}".to_string()),
     };
-    let run_error = QuickJsGameStepRunResponse::error(QuickJsEvaluationError {
-        code: QuickJsEvaluationErrorCode::MissingRunHandle,
+    let run_error = JscGameStepRunResponse::error(JscEvaluationError {
+        code: JscEvaluationErrorCode::MissingRunHandle,
         message: "Missing run handle.".to_string(),
         asset_name: None,
         detail: None,
     });
-    let run_success = QuickJsGameStepRunResponse::success(vec![QuickJsGameStepCommand {
+    let run_success = JscGameStepRunResponse::success(vec![JscGameStepCommand {
         target: "engine".to_string(),
         method: "showChoices".to_string(),
         args_json: Some("[[{\"id\":\"go\",\"text\":\"Go\"}]]".to_string()),
     }]);
-    let pending_run = QuickJsGameStepRunResponse::pending(
+    let pending_run = JscGameStepRunResponse::pending(
         Vec::new(),
-        QuickJsGameStepWaitRequest {
-            resume_handle_id: "quickjs:rquickjs:resume:1".to_string(),
+        JscGameStepWaitRequest {
+            resume_handle_id: "jsc:resume:1".to_string(),
             event: "user/choice_select".to_string(),
         },
     );
-    let pending_translation_run = QuickJsGameStepRunResponse::pending_translation(
+    let pending_translation_run = JscGameStepRunResponse::pending_translation(
         Vec::new(),
-        QuickJsGameStepTranslationRequest {
-            resume_handle_id: "quickjs:rquickjs:resume:2".to_string(),
+        JscGameStepTranslationRequest {
+            resume_handle_id: "jsc:resume:2".to_string(),
             key: "runtime.greeting".to_string(),
             options_json: Some("{\"values\":{\"name\":\"Mira\"}}".to_string()),
         },
     );
-    let pending_pipeline_run = QuickJsGameStepRunResponse::pending_pipeline_emit(
+    let pending_pipeline_run = JscGameStepRunResponse::pending_pipeline_emit(
         Vec::new(),
-        QuickJsGameStepPipelineEmitRequest {
-            resume_handle_id: "quickjs:rquickjs:resume:3".to_string(),
+        JscGameStepPipelineEmitRequest {
+            resume_handle_id: "jsc:resume:3".to_string(),
             event: "plugin/custom_event".to_string(),
             payload_json: Some("{\"ok\":true}".to_string()),
         },
     );
-    let pending_helper_run = QuickJsGameStepRunResponse::pending_helper_call(
+    let pending_helper_run = JscGameStepRunResponse::pending_helper_call(
         Vec::new(),
-        QuickJsGameStepHelperCallRequest {
-            resume_handle_id: "quickjs:rquickjs:resume:4".to_string(),
+        JscGameStepHelperCallRequest {
+            resume_handle_id: "jsc:resume:4".to_string(),
             module: "@quajs/plugin-background".to_string(),
             export_name: "setBackgroundWithEngine".to_string(),
             args_json: Some("[\"bg/opening.png\"]".to_string()),
@@ -173,28 +170,22 @@ fn serializes_game_step_factory_and_run_requests_and_responses() {
     let resume_request_json = serde_json::to_value(resume_request).unwrap();
     let run_error_json = serde_json::to_value(run_error).unwrap();
 
-    assert_eq!(
-        factory_request_json["moduleNamespaceId"],
-        "quickjs:rquickjs:1"
-    );
+    assert_eq!(factory_request_json["moduleNamespaceId"], "jsc:1");
     assert_eq!(factory_request_json["exportName"], "default");
     assert_eq!(factory_request_json["scopeJson"], "{\"route\":\"main\"}");
     assert_eq!(factory_success_json["ok"], true);
     assert_eq!(factory_success_json["steps"][0]["uuid"], "intro.1");
     assert_eq!(
         factory_success_json["steps"][0]["runHandleId"],
-        "quickjs:rquickjs:step:1"
+        "jsc:step:1"
     );
     assert_eq!(
         factory_success_json["steps"][0]["metadataJson"],
         "{\"title\":\"Opening\"}"
     );
-    assert_eq!(run_request_json["runHandleId"], "quickjs:rquickjs:step:1");
+    assert_eq!(run_request_json["runHandleId"], "jsc:step:1");
     assert_eq!(run_request_json["ctxJson"], "{\"stepId\":\"intro.1\"}");
-    assert_eq!(
-        resume_request_json["resumeHandleId"],
-        "quickjs:rquickjs:resume:1"
-    );
+    assert_eq!(resume_request_json["resumeHandleId"], "jsc:resume:1");
     assert_eq!(resume_request_json["payloadJson"], "{\"choiceId\":\"go\"}");
     assert_eq!(run_success_json["ok"], true);
     assert_eq!(run_success_json["commands"][0]["target"], "engine");
@@ -207,7 +198,7 @@ fn serializes_game_step_factory_and_run_requests_and_responses() {
     assert_eq!(pending_run_json["commands"], serde_json::json!([]));
     assert_eq!(
         pending_run_json["pendingWait"]["resumeHandleId"],
-        "quickjs:rquickjs:resume:1"
+        "jsc:resume:1"
     );
     assert_eq!(
         pending_run_json["pendingWait"]["event"],
@@ -216,7 +207,7 @@ fn serializes_game_step_factory_and_run_requests_and_responses() {
     assert_eq!(pending_translation_run_json["ok"], true);
     assert_eq!(
         pending_translation_run_json["pendingTranslation"]["resumeHandleId"],
-        "quickjs:rquickjs:resume:2"
+        "jsc:resume:2"
     );
     assert_eq!(
         pending_translation_run_json["pendingTranslation"]["key"],
@@ -229,7 +220,7 @@ fn serializes_game_step_factory_and_run_requests_and_responses() {
     assert_eq!(pending_pipeline_run_json["ok"], true);
     assert_eq!(
         pending_pipeline_run_json["pendingPipelineEmit"]["resumeHandleId"],
-        "quickjs:rquickjs:resume:3"
+        "jsc:resume:3"
     );
     assert_eq!(
         pending_pipeline_run_json["pendingPipelineEmit"]["event"],
@@ -242,7 +233,7 @@ fn serializes_game_step_factory_and_run_requests_and_responses() {
     assert_eq!(pending_helper_run_json["ok"], true);
     assert_eq!(
         pending_helper_run_json["pendingHelperCall"]["resumeHandleId"],
-        "quickjs:rquickjs:resume:4"
+        "jsc:resume:4"
     );
     assert_eq!(
         pending_helper_run_json["pendingHelperCall"]["module"],
@@ -262,25 +253,25 @@ fn serializes_game_step_factory_and_run_requests_and_responses() {
 
 #[test]
 fn serializes_pipeline_listener_dispatch_requests_and_responses() {
-    let request = QuickJsPipelineListenerDispatchRequest {
-        subscription_id: "quickjs:rquickjs:1:pipeline:1".to_string(),
+    let request = JscPipelineListenerDispatchRequest {
+        subscription_id: "jsc:1:pipeline:1".to_string(),
         context_json: "{\"event\":{\"type\":\"plugin/custom_event\",\"payload\":{\"value\":42}}}"
             .to_string(),
     };
-    let subscribe = QuickJsPipelineSubscriptionChange {
-        op: QuickJsPipelineSubscriptionOperation::Subscribe,
-        subscription_id: "quickjs:rquickjs:1:pipeline:1".to_string(),
-        module_namespace_id: "quickjs:rquickjs:1".to_string(),
+    let subscribe = JscPipelineSubscriptionChange {
+        op: JscPipelineSubscriptionOperation::Subscribe,
+        subscription_id: "jsc:1:pipeline:1".to_string(),
+        module_namespace_id: "jsc:1".to_string(),
         event: "plugin/custom_event".to_string(),
     };
-    let unsubscribe = QuickJsPipelineSubscriptionChange {
-        op: QuickJsPipelineSubscriptionOperation::Unsubscribe,
+    let unsubscribe = JscPipelineSubscriptionChange {
+        op: JscPipelineSubscriptionOperation::Unsubscribe,
         ..subscribe.clone()
     };
-    let run_response = QuickJsGameStepRunResponse::success(Vec::new())
+    let run_response = JscGameStepRunResponse::success(Vec::new())
         .with_pipeline_subscriptions(vec![subscribe.clone()]);
-    let dispatch_response = QuickJsPipelineListenerDispatchResponse::success(
-        vec![QuickJsGameStepCommand {
+    let dispatch_response = JscPipelineListenerDispatchResponse::success(
+        vec![JscGameStepCommand {
             target: "engine".to_string(),
             method: "showDialogue".to_string(),
             args_json: Some("[{\"text\":\"Dispatched\"}]".to_string()),
@@ -292,10 +283,7 @@ fn serializes_pipeline_listener_dispatch_requests_and_responses() {
     let run_response_json = serde_json::to_value(run_response).unwrap();
     let dispatch_response_json = serde_json::to_value(dispatch_response).unwrap();
 
-    assert_eq!(
-        request_json["subscriptionId"],
-        "quickjs:rquickjs:1:pipeline:1"
-    );
+    assert_eq!(request_json["subscriptionId"], "jsc:1:pipeline:1");
     assert_eq!(
         request_json["contextJson"],
         "{\"event\":{\"type\":\"plugin/custom_event\",\"payload\":{\"value\":42}}}"
@@ -306,7 +294,7 @@ fn serializes_pipeline_listener_dispatch_requests_and_responses() {
     );
     assert_eq!(
         run_response_json["pipelineSubscriptions"][0]["moduleNamespaceId"],
-        "quickjs:rquickjs:1"
+        "jsc:1"
     );
     assert_eq!(dispatch_response_json["ok"], true);
     assert_eq!(

@@ -18,7 +18,7 @@ describe('@quajs/engine-native', () => {
     let revision = 0
     const host = {
       ...createHost(),
-      releaseQuickJsPackageNamespaces: vi.fn(async () => {
+      releaseJscPackageNamespaces: vi.fn(async () => {
         const current = ++revision
         if (current > 128)
           throw new Error(`cleanup ${current}`)
@@ -35,12 +35,12 @@ describe('@quajs/engine-native', () => {
     for (let i = 0; i < 256; i++) {
       await emitLogicToRender(pipeline, LogicToRenderEvents.RUNTIME_PACKAGE_UNLOAD, { packageId: 'runtime.test' })
     }
-    expect(host.releaseQuickJsPackageNamespaces).toHaveBeenCalledTimes(256)
+    expect(host.releaseJscPackageNamespaces).toHaveBeenCalledTimes(256)
     expect(errors).toBe(128)
-    expect(plugin.getReleasedQuickJsPackageNamespaces()).toHaveLength(64)
-    expect(plugin.getReleasedQuickJsPackageNamespaces()[0].revision).toBe(65)
-    expect(plugin.getQuickJsCleanupErrors()).toHaveLength(64)
-    expect(plugin.getQuickJsCleanupErrors()[0].message).toBe('cleanup 193')
+    expect(plugin.getReleasedJscPackageNamespaces()).toHaveLength(64)
+    expect(plugin.getReleasedJscPackageNamespaces()[0].revision).toBe(65)
+    expect(plugin.getJscCleanupErrors()).toHaveLength(64)
+    expect(plugin.getJscCleanupErrors()[0].message).toBe('cleanup 193')
     plugin.destroy()
   })
 
@@ -182,9 +182,9 @@ describe('@quajs/engine-native', () => {
     ])
   })
 
-  it('releases package-owned QuickJS namespaces after runtime package unload is emitted to renderers', async () => {
+  it('releases package-owned JavaScriptCore namespaces after runtime package unload is emitted to renderers', async () => {
     const namespaceRecord = {
-      id: 'quickjs:module:1',
+      id: 'jsc:module:1',
       packageId: 'runtime.chapter.native-ui',
       bundleName: 'runtime.chapter.native-ui',
       assetName: 'scripts/opening.js',
@@ -195,7 +195,7 @@ describe('@quajs/engine-native', () => {
     }
     const host = {
       ...createHost(),
-      releaseQuickJsPackageNamespaces: vi.fn(async () => [namespaceRecord]),
+      releaseJscPackageNamespaces: vi.fn(async () => [namespaceRecord]),
     }
     const plugin = new NativeHostPlugin({ host })
     const pipeline = createTestPipeline()
@@ -212,8 +212,8 @@ describe('@quajs/engine-native', () => {
       bundleName: 'runtime.chapter.native-ui',
     })
 
-    expect(host.releaseQuickJsPackageNamespaces).toHaveBeenCalledWith('runtime.chapter.native-ui')
-    expect(plugin.getReleasedQuickJsPackageNamespaces()).toEqual([namespaceRecord])
+    expect(host.releaseJscPackageNamespaces).toHaveBeenCalledWith('runtime.chapter.native-ui')
+    expect(plugin.getReleasedJscPackageNamespaces()).toEqual([namespaceRecord])
 
     const noCleanupPipeline = createTestPipeline()
     const noCleanupPlugin = new NativeHostPlugin({ host: createHost() })
@@ -226,14 +226,14 @@ describe('@quajs/engine-native', () => {
     await emitLogicToRender(pipeline, LogicToRenderEvents.RUNTIME_PACKAGE_UNLOAD, {
       packageId: 'runtime.chapter.native-ui',
     })
-    expect(host.releaseQuickJsPackageNamespaces).toHaveBeenCalledTimes(1)
+    expect(host.releaseJscPackageNamespaces).toHaveBeenCalledTimes(1)
   })
 
-  it('reports QuickJS package namespace cleanup failures without blocking runtime package unload', async () => {
+  it('reports JavaScriptCore package namespace cleanup failures without blocking runtime package unload', async () => {
     const cleanupError = new Error('native cleanup unavailable')
     const host = {
       ...createHost(),
-      releaseQuickJsPackageNamespaces: vi.fn(async () => {
+      releaseJscPackageNamespaces: vi.fn(async () => {
         throw cleanupError
       }),
     }
@@ -249,14 +249,14 @@ describe('@quajs/engine-native', () => {
       bundleName: 'runtime.chapter.native-ui',
     })).resolves.toBeUndefined()
 
-    expect(host.releaseQuickJsPackageNamespaces).toHaveBeenCalledWith('runtime.chapter.native-ui')
-    expect(plugin.getReleasedQuickJsPackageNamespaces()).toEqual([])
-    expect(plugin.getQuickJsCleanupErrors()).toEqual([cleanupError])
+    expect(host.releaseJscPackageNamespaces).toHaveBeenCalledWith('runtime.chapter.native-ui')
+    expect(plugin.getReleasedJscPackageNamespaces()).toEqual([])
+    expect(plugin.getJscCleanupErrors()).toEqual([cleanupError])
     expect(errors).toEqual([
       expect.objectContaining({
         message: 'native cleanup unavailable',
         source: 'native-renderer',
-        phase: 'quickjs-cleanup',
+        phase: 'jsc-cleanup',
         recoverable: true,
         metadata: {
           runtimePackageId: 'runtime.chapter.native-ui',
@@ -265,10 +265,10 @@ describe('@quajs/engine-native', () => {
     ])
   })
 
-  it('moves QuickJS namespace cleanup listeners when the native host plugin is reinitialized', async () => {
+  it('moves JavaScriptCore namespace cleanup listeners when the native host plugin is reinitialized', async () => {
     const host = {
       ...createHost(),
-      releaseQuickJsPackageNamespaces: vi.fn(async () => []),
+      releaseJscPackageNamespaces: vi.fn(async () => []),
     }
     const plugin = new NativeHostPlugin({ host })
     const firstPipeline = createTestPipeline()
@@ -286,16 +286,16 @@ describe('@quajs/engine-native', () => {
       bundleName: 'runtime.second',
     })
 
-    expect(host.releaseQuickJsPackageNamespaces).toHaveBeenCalledTimes(1)
-    expect(host.releaseQuickJsPackageNamespaces).toHaveBeenCalledWith('runtime.second')
+    expect(host.releaseJscPackageNamespaces).toHaveBeenCalledTimes(1)
+    expect(host.releaseJscPackageNamespaces).toHaveBeenCalledWith('runtime.second')
   })
 
-  it('keeps runtime package unload recoverable when QuickJS cleanup error reporting fails', async () => {
+  it('keeps runtime package unload recoverable when JavaScriptCore cleanup error reporting fails', async () => {
     const cleanupError = new Error('native cleanup unavailable')
     const renderErrorListenerFailure = new Error('render error listener failed')
     const host = {
       ...createHost(),
-      releaseQuickJsPackageNamespaces: vi.fn(async () => {
+      releaseJscPackageNamespaces: vi.fn(async () => {
         throw cleanupError
       }),
     }
@@ -312,9 +312,9 @@ describe('@quajs/engine-native', () => {
       bundleName: 'runtime.chapter.native-ui',
     })).resolves.toBeUndefined()
 
-    expect(host.releaseQuickJsPackageNamespaces).toHaveBeenCalledWith('runtime.chapter.native-ui')
-    expect(plugin.getReleasedQuickJsPackageNamespaces()).toEqual([])
-    expect(plugin.getQuickJsCleanupErrors()).toEqual([cleanupError])
+    expect(host.releaseJscPackageNamespaces).toHaveBeenCalledWith('runtime.chapter.native-ui')
+    expect(plugin.getReleasedJscPackageNamespaces()).toEqual([])
+    expect(plugin.getJscCleanupErrors()).toEqual([cleanupError])
   })
 
   it('checks runtime package native renderer compatibility before activation', () => {

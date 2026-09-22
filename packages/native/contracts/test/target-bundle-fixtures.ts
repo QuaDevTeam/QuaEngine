@@ -232,7 +232,7 @@ export function nativeRendererInfo(): NonNullable<TargetBundleManifest['nativeRe
 
 export function nativeRuntimeInfo(): NonNullable<TargetBundleManifest['nativeRuntime']> {
   return createTargetBundleNativeRuntimeInfo({
-    quickjsVersion: '2025-04-26',
+    jscVersion: '2025-04-26',
     nativeRuntimeVersion: '0.1.0',
     assetAdapterVersion: '0.1.0',
     storeAdapterVersion: '0.1.0',

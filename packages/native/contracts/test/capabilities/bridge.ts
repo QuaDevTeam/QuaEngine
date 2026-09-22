@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   createNativeHostApiFromBridge,
-  createNativeQuickJsEvaluationRequest,
+  createNativeJscEvaluationRequest,
   createNativeRendererIntent,
 } from '../../src'
 import { createHostInfo } from './helpers'
@@ -10,7 +10,7 @@ describe('native host bridge adapter contracts', () => {
   it('adapts host bridge dispatchers to the QuaNativeHostApi shape', async () => {
     const requests: unknown[] = []
     const namespaceRecord = {
-      id: 'quickjs:module:1',
+      id: 'jsc:module:1',
       packageId: 'runtime.chapter.native-ui',
       bundleName: 'runtime.chapter.native-ui',
       assetName: 'scripts/opening.js',
@@ -56,22 +56,22 @@ describe('native host bridge adapter contracts', () => {
           return { ok: true, payload: { type: 'hash', value: 'sha256:test' } }
         case 'verifySignature':
           return { ok: true, payload: { type: 'signatureValid', value: true } }
-        case 'evaluateQuickJsModule':
+        case 'evaluateJscModule':
           return {
             ok: true,
             payload: {
-              type: 'quickJsEvaluation',
+              type: 'jscEvaluation',
               value: {
                 ok: true,
                 moduleNamespaceId: `${request.params.module.packageId}:${request.params.module.assetName}`,
               },
             },
           }
-        case 'callQuickJsModuleExport':
+        case 'callJscModuleExport':
           return {
             ok: true,
             payload: {
-              type: 'quickJsExportCall',
+              type: 'jscExportCall',
               value: {
                 ok: true,
                 valueJson: JSON.stringify({
@@ -82,11 +82,11 @@ describe('native host bridge adapter contracts', () => {
               },
             },
           }
-        case 'callQuickJsGameStepFactory':
+        case 'callJscGameStepFactory':
           return {
             ok: true,
             payload: {
-              type: 'quickJsGameStepFactoryCall',
+              type: 'jscGameStepFactoryCall',
               value: {
                 ok: true,
                 steps: [{
@@ -100,11 +100,11 @@ describe('native host bridge adapter contracts', () => {
               },
             },
           }
-        case 'callQuickJsGameStepRun':
+        case 'callJscGameStepRun':
           return {
             ok: true,
             payload: {
-              type: 'quickJsGameStepRun',
+              type: 'jscGameStepRun',
               value: {
                 ok: true,
                 commands: [{
@@ -115,11 +115,11 @@ describe('native host bridge adapter contracts', () => {
               },
             },
           }
-        case 'resumeQuickJsGameStepRun':
+        case 'resumeJscGameStepRun':
           return {
             ok: true,
             payload: {
-              type: 'quickJsGameStepRun',
+              type: 'jscGameStepRun',
               value: {
                 ok: true,
                 commands: [{
@@ -130,11 +130,11 @@ describe('native host bridge adapter contracts', () => {
               },
             },
           }
-        case 'releaseQuickJsModuleNamespace':
+        case 'releaseJscModuleNamespace':
           return {
             ok: true,
             payload: {
-              type: 'quickJsNamespace',
+              type: 'jscNamespace',
               value: request.params.moduleNamespaceId === 'missing'
                 ? null
                 : {
@@ -143,27 +143,27 @@ describe('native host bridge adapter contracts', () => {
                   },
             },
           }
-        case 'releaseQuickJsPackageNamespaces':
+        case 'releaseJscPackageNamespaces':
           return {
             ok: true,
             payload: {
-              type: 'quickJsNamespaces',
+              type: 'jscNamespaces',
               value: [namespaceRecord],
             },
           }
-        case 'getQuickJsNamespaceSummary':
+        case 'getJscNamespaceSummary':
           return {
             ok: true,
             payload: {
-              type: 'quickJsNamespaceSummary',
+              type: 'jscNamespaceSummary',
               value: namespaceSummary,
             },
           }
-        case 'getQuickJsPackageNamespaceSummary':
+        case 'getJscPackageNamespaceSummary':
           return {
             ok: true,
             payload: {
-              type: 'quickJsNamespaceSummary',
+              type: 'jscNamespaceSummary',
               value: request.params.packageId === namespaceRecord.packageId
                 ? namespaceSummary
                 : {
@@ -192,7 +192,7 @@ describe('native host bridge adapter contracts', () => {
       signature: new Uint8Array([2]),
       algorithm: 'ed25519',
     })).resolves.toBe(true)
-    await expect(host.evaluateQuickJsModule?.(createNativeQuickJsEvaluationRequest({
+    await expect(host.evaluateJscModule?.(createNativeJscEvaluationRequest({
       assetName: 'scripts/opening.js',
       bundleName: 'runtime.chapter.native-ui',
       bytes: new Uint8Array([1, 2, 3]),
@@ -203,28 +203,28 @@ describe('native host bridge adapter contracts', () => {
       ok: true,
       moduleNamespaceId: 'runtime.chapter.native-ui:scripts/opening.js',
     })
-    await expect(host.callQuickJsModuleExport?.({
-      moduleNamespaceId: 'quickjs:module:1',
+    await expect(host.callJscModuleExport?.({
+      moduleNamespaceId: 'jsc:module:1',
       exportName: 'default',
       argsJson: '[{"scene":"opening"}]',
     })).resolves.toEqual({
       ok: true,
-      valueJson: '{"namespace":"quickjs:module:1","exportName":"default","args":[{"scene":"opening"}]}',
+      valueJson: '{"namespace":"jsc:module:1","exportName":"default","args":[{"scene":"opening"}]}',
     })
-    await expect(host.callQuickJsGameStepFactory?.({
-      moduleNamespaceId: 'quickjs:module:1',
+    await expect(host.callJscGameStepFactory?.({
+      moduleNamespaceId: 'jsc:module:1',
       exportName: 'default',
       scopeJson: '{"title":"Opening"}',
     })).resolves.toEqual({
       ok: true,
       steps: [{
         uuid: 'intro.1',
-        runHandleId: 'quickjs:module:1:run:1',
+        runHandleId: 'jsc:module:1:run:1',
         metadataJson: '{"exportName":"default","scope":{"title":"Opening"}}',
       }],
     })
-    await expect(host.callQuickJsGameStepRun?.({
-      runHandleId: 'quickjs:module:1:run:1',
+    await expect(host.callJscGameStepRun?.({
+      runHandleId: 'jsc:module:1:run:1',
       ctxJson: '{"stepId":"intro.1"}',
     })).resolves.toEqual({
       ok: true,
@@ -234,8 +234,8 @@ describe('native host bridge adapter contracts', () => {
         argsJson: '[]',
       }],
     })
-    await expect(host.resumeQuickJsGameStepRun?.({
-      resumeHandleId: 'quickjs:resume:1',
+    await expect(host.resumeJscGameStepRun?.({
+      resumeHandleId: 'jsc:resume:1',
       payloadJson: '{"choiceId":"go"}',
     })).resolves.toEqual({
       ok: true,
@@ -245,12 +245,12 @@ describe('native host bridge adapter contracts', () => {
         argsJson: '[]',
       }],
     })
-    await expect(host.releaseQuickJsModuleNamespace?.('quickjs:module:1')).resolves.toEqual(namespaceRecord)
-    await expect(host.releaseQuickJsModuleNamespace?.('missing')).resolves.toBeUndefined()
-    await expect(host.releaseQuickJsPackageNamespaces?.('runtime.chapter.native-ui')).resolves.toEqual([namespaceRecord])
-    await expect(host.getQuickJsNamespaceSummary?.()).resolves.toEqual(namespaceSummary)
-    await expect(host.getQuickJsPackageNamespaceSummary?.('runtime.chapter.native-ui')).resolves.toEqual(namespaceSummary)
-    await expect(host.getQuickJsPackageNamespaceSummary?.('runtime.other')).resolves.toEqual({
+    await expect(host.releaseJscModuleNamespace?.('jsc:module:1')).resolves.toEqual(namespaceRecord)
+    await expect(host.releaseJscModuleNamespace?.('missing')).resolves.toBeUndefined()
+    await expect(host.releaseJscPackageNamespaces?.('runtime.chapter.native-ui')).resolves.toEqual([namespaceRecord])
+    await expect(host.getJscNamespaceSummary?.()).resolves.toEqual(namespaceSummary)
+    await expect(host.getJscPackageNamespaceSummary?.('runtime.chapter.native-ui')).resolves.toEqual(namespaceSummary)
+    await expect(host.getJscPackageNamespaceSummary?.('runtime.other')).resolves.toEqual({
       namespaceCount: 0,
       packageCount: 0,
       moduleBytes: 0,
@@ -264,41 +264,41 @@ describe('native host bridge adapter contracts', () => {
     expect(requests).toEqual(expect.arrayContaining([
       { method: 'readAssetBytes', params: { url: 'images/bg.png' } },
       { method: 'writeStorage', params: { key: 'profile/save-1', value: [7, 8] } },
-      expect.objectContaining({ method: 'evaluateQuickJsModule' }),
+      expect.objectContaining({ method: 'evaluateJscModule' }),
       {
-        method: 'callQuickJsModuleExport',
+        method: 'callJscModuleExport',
         params: {
-          moduleNamespaceId: 'quickjs:module:1',
+          moduleNamespaceId: 'jsc:module:1',
           exportName: 'default',
           argsJson: '[{"scene":"opening"}]',
         },
       },
       {
-        method: 'callQuickJsGameStepFactory',
+        method: 'callJscGameStepFactory',
         params: {
-          moduleNamespaceId: 'quickjs:module:1',
+          moduleNamespaceId: 'jsc:module:1',
           exportName: 'default',
           scopeJson: '{"title":"Opening"}',
         },
       },
       {
-        method: 'callQuickJsGameStepRun',
+        method: 'callJscGameStepRun',
         params: {
-          runHandleId: 'quickjs:module:1:run:1',
+          runHandleId: 'jsc:module:1:run:1',
           ctxJson: '{"stepId":"intro.1"}',
         },
       },
       {
-        method: 'resumeQuickJsGameStepRun',
+        method: 'resumeJscGameStepRun',
         params: {
-          resumeHandleId: 'quickjs:resume:1',
+          resumeHandleId: 'jsc:resume:1',
           payloadJson: '{"choiceId":"go"}',
         },
       },
-      { method: 'releaseQuickJsModuleNamespace', params: { moduleNamespaceId: 'quickjs:module:1' } },
-      { method: 'releaseQuickJsPackageNamespaces', params: { packageId: 'runtime.chapter.native-ui' } },
-      { method: 'getQuickJsNamespaceSummary' },
-      { method: 'getQuickJsPackageNamespaceSummary', params: { packageId: 'runtime.chapter.native-ui' } },
+      { method: 'releaseJscModuleNamespace', params: { moduleNamespaceId: 'jsc:module:1' } },
+      { method: 'releaseJscPackageNamespaces', params: { packageId: 'runtime.chapter.native-ui' } },
+      { method: 'getJscNamespaceSummary' },
+      { method: 'getJscPackageNamespaceSummary', params: { packageId: 'runtime.chapter.native-ui' } },
       { method: 'drainRendererIntents' },
       { method: 'emitRendererIntent', params: { type: 'ui/intent', payloadJson: '{"action":"close"}' } },
     ]))

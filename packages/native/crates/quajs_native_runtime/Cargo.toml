@@ -7,11 +7,16 @@ version.workspace = true
 
 [features]
 default = []
-quickjs-rquickjs = ["dep:rquickjs", "rquickjs/loader"]
+javascriptcore = ["dep:javascriptcore-sys", "dep:otter-jsc-sys", "dep:swc_common", "dep:swc_ecma_ast", "dep:swc_ecma_parser", "dep:swc_ecma_codegen", "dep:swc_ecma_transforms_base", "dep:swc_ecma_transforms_module"]
 
 [dependencies]
 log.workspace = true
-rquickjs = { version = "0.12.1", optional = true, default-features = false, features = ["std"] }
+swc_common = { version = "26", optional = true }
+swc_ecma_ast = { version = "29", optional = true }
+swc_ecma_parser = { version = "45.1.3", optional = true, default-features = false }
+swc_ecma_codegen = { version = "32", optional = true }
+swc_ecma_transforms_base = { version = "49", optional = true }
+swc_ecma_transforms_module = { version = "56", optional = true }
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
@@ -19,5 +24,12 @@ sha2.workspace = true
 [dev-dependencies]
 
 [[example]]
-name = "quickjs_performance"
-required-features = ["quickjs-rquickjs"]
+name = "jsc_performance"
+required-features = ["javascriptcore"]
+
+[target.'cfg(any(target_os = "macos", target_os = "linux"))'.dependencies]
+javascriptcore-sys = { version = "0.0.6", optional = true }
+
+# Fixed bun-webkit JSC distribution on Windows; the wrapper uses the same C ABI.
+[target.'cfg(target_os = "windows")'.dependencies]
+otter-jsc-sys = { version = "=0.1.1", optional = true }

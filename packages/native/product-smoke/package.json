@@ -3,7 +3,7 @@
   "type": "module",
   "version": "0.1.0",
   "private": true,
-  "description": "Product smoke tests that run compiled QuaScript through the real native QuickJS and renderer app",
+  "description": "Product smoke tests that run compiled QuaScript through the real native JavaScriptCore and renderer app",
   "author": "QuaDevTeam",
   "license": "Apache-2.0",
   "repository": {
@@ -14,7 +14,7 @@
   "keywords": [
     "quaengine",
     "native",
-    "quickjs",
+    "jsc",
     "smoke",
     "test"
   ],

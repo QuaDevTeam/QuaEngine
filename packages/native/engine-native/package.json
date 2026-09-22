@@ -2,7 +2,7 @@
   "name": "@quajs/engine-native",
   "type": "module",
   "version": "0.1.0",
-  "description": "Native QuaEngine host plugin and compatibility helpers for QuickJS + wgpu runtime",
+  "description": "Native QuaEngine host plugin and compatibility helpers for JavaScriptCore + wgpu runtime",
   "author": "QuaDevTeam",
   "license": "Apache-2.0",
   "repository": {

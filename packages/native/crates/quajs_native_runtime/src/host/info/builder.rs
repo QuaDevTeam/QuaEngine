@@ -1,4 +1,4 @@
-use crate::quickjs::quickjs_runtime_version;
+use crate::jsc::jsc_runtime_version;
 
 use super::{
     capability_manifest_hash, current_platform, current_profile, NativeAppInfo, NativeHostInfo,
@@ -16,7 +16,7 @@ pub struct NativeHostInfoBuilder {
     arch: String,
     renderer_version: String,
     backend_version: Option<String>,
-    quickjs_version: String,
+    jsc_version: String,
     native_runtime_version: String,
     asset_adapter_version: String,
     store_adapter_version: String,
@@ -36,7 +36,7 @@ impl NativeHostInfoBuilder {
             arch: std::env::consts::ARCH.to_string(),
             renderer_version: package_version.clone(),
             backend_version: None,
-            quickjs_version: quickjs_runtime_version().to_string(),
+            jsc_version: jsc_runtime_version().to_string(),
             native_runtime_version: package_version.clone(),
             asset_adapter_version: package_version.clone(),
             store_adapter_version: package_version,
@@ -79,8 +79,8 @@ impl NativeHostInfoBuilder {
         self
     }
 
-    pub fn quickjs_version(mut self, version: impl Into<String>) -> Self {
-        self.quickjs_version = version.into();
+    pub fn jsc_version(mut self, version: impl Into<String>) -> Self {
+        self.jsc_version = version.into();
         self
     }
 
@@ -124,7 +124,7 @@ impl NativeHostInfoBuilder {
                 capabilities: self.capabilities,
             },
             runtime: NativeRuntimeInfo {
-                quickjs_version: self.quickjs_version,
+                jsc_version: self.jsc_version,
                 native_runtime_version: self.native_runtime_version,
                 asset_adapter_version: self.asset_adapter_version,
                 store_adapter_version: self.store_adapter_version,

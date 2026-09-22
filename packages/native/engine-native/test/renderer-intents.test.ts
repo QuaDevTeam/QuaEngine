@@ -5,8 +5,8 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   drainNativeRendererIntentsToPipeline,
   emitNativeRendererIntentToPipeline,
-  installNativeQuickJsPipelineBridge,
-  installNativeQuickJsRendererIntentBridge,
+  installNativeJscPipelineBridge,
+  installNativeJscRendererIntentBridge,
   NativeHostPlugin,
 } from '../src'
 
@@ -29,7 +29,7 @@ function createHostInfo(): QuaNativeHostInfo {
       capabilities: [],
     },
     runtime: {
-      quickjsVersion: 'unsupported',
+      jscVersion: 'unsupported',
       nativeRuntimeVersion: '0.1.0',
       assetAdapterVersion: '0.1.0',
       storeAdapterVersion: '0.1.0',
@@ -88,11 +88,20 @@ const AUDIO_EVENTS = {
 } as const
 
 describe('@quajs/engine-native renderer intents', () => {
-  it('injects committed QuickJS renderer intents into the existing pipeline', async () => {
+  it('returns background readiness and shader errors through the existing pipeline', async () => {
+    const pipeline = createTestPipeline()
+    for (const payload of [{ id: 'background.transition:1' }, { id: 'background.transition:2', error: 'Invalid WGSL' }]) {
+      const result = await emitNativeRendererIntentToPipeline(pipeline as any, createNativeRendererIntent({ type: 'background/ready', payload }))
+      expect(result.handled).toBe(true)
+      expect(pipeline.emit).toHaveBeenLastCalledWith(RenderToLogicEvents.BACKGROUND_READY, payload)
+    }
+  })
+
+  it('injects committed JavaScriptCore renderer intents into the existing pipeline', async () => {
     const pipeline = createTestPipeline()
     let listener: ((intent: ReturnType<typeof createNativeRendererIntent>) => void | Promise<void>) | undefined
     const unsubscribe = vi.fn()
-    const dispose = installNativeQuickJsRendererIntentBridge({
+    const dispose = installNativeJscRendererIntentBridge({
       subscribe(next) {
         listener = next
         return unsubscribe
@@ -177,7 +186,7 @@ describe('@quajs/engine-native renderer intents', () => {
         payload: { action: 'feature-close', elementId: 'feature:close' },
       }),
       { featureSurfaces: [duplicate, duplicate] },
-    )).rejects.toThrow('Native renderer feature intent action "feature-close" is registered more than once.')
+    )).rejects.toThrow('UI feature intent action "feature-close" is registered more than once.')
   })
 
   it('maps native renderer pointer intents into render-to-logic pipeline events', async () => {
@@ -1159,7 +1168,7 @@ describe('@quajs/engine-native renderer intents', () => {
 it('forwards transient scroll navigation through the existing pipeline and disposes the listener', async () => {
   const pipeline = createTestPipeline()
   const bridge = { emit: vi.fn() }
-  const dispose = installNativeQuickJsPipelineBridge(bridge, pipeline as any)
+  const dispose = installNativeJscPipelineBridge(bridge, pipeline as any)
   const payload = { elementId: 'backlog', nodeId: 'backlog-scroll', edge: 'end' }
   await pipeline.emit('native-ui/scroll', payload)
   expect(bridge.emit).toHaveBeenCalledWith('native-ui/scroll', payload)

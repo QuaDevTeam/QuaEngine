@@ -4,28 +4,28 @@ import { emitNativeRendererIntentToPipeline } from './renderer-intents'
 
 type NativeRendererIntentPipeline = Parameters<typeof emitNativeRendererIntentToPipeline>[0]
 
-export interface NativeQuickJsRendererIntentBridge {
+export interface NativeJscRendererIntentBridge {
   subscribe: (
     listener: (intent: NativeRendererIntent) => void | Promise<void>,
   ) => () => void
 }
 
-export interface NativeQuickJsRendererIntentSubscriptionOptions extends NativeRendererIntentBridgeOptions {
+export interface NativeJscRendererIntentSubscriptionOptions extends NativeRendererIntentBridgeOptions {
   onDispatch?: (result: NativeRendererIntentDispatchResult, intent: NativeRendererIntent) => void
 }
 
-export function resolveNativeQuickJsRendererIntentBridge(): NativeQuickJsRendererIntentBridge | undefined {
+export function resolveNativeJscRendererIntentBridge(): NativeJscRendererIntentBridge | undefined {
   const root = globalThis as typeof globalThis & {
-    __quaNativeRendererBridge?: NativeQuickJsRendererIntentBridge
+    __quaNativeRendererBridge?: NativeJscRendererIntentBridge
   }
   const bridge = root.__quaNativeRendererBridge
   return bridge && typeof bridge.subscribe === 'function' ? bridge : undefined
 }
 
-export function installNativeQuickJsRendererIntentBridge(
-  bridge: NativeQuickJsRendererIntentBridge,
+export function installNativeJscRendererIntentBridge(
+  bridge: NativeJscRendererIntentBridge,
   pipeline: NativeRendererIntentPipeline,
-  options: NativeQuickJsRendererIntentSubscriptionOptions = {},
+  options: NativeJscRendererIntentSubscriptionOptions = {},
 ): () => void {
   return bridge.subscribe(async (intent) => {
     try {
@@ -33,7 +33,7 @@ export function installNativeQuickJsRendererIntentBridge(
       options.onDispatch?.(result, intent)
       if (!result.handled) {
         options.onError?.(
-          new Error(`Native renderer intent "${intent.type}" was not handled by the QuickJS UI bridge.`),
+          new Error(`Native renderer intent "${intent.type}" was not handled by the JavaScriptCore UI bridge.`),
           intent,
         )
       }

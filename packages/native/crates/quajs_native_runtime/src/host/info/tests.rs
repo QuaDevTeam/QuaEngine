@@ -22,7 +22,7 @@ fn serializes_host_info_with_ts_contract_field_names() {
         .arch("arm64")
         .renderer_version("0.9.0")
         .backend_version(Some("wgpu-test"))
-        .quickjs_version("quickjs-test")
+        .jsc_version("jsc-test")
         .capabilities(vec![capability])
         .build();
     let json = serde_json::to_value(&host_info).unwrap();
@@ -57,7 +57,7 @@ fn serializes_host_info_with_ts_contract_field_names() {
         json["renderer"]["capabilities"][0]["quiComponents"][0],
         "Box"
     );
-    assert_eq!(json["runtime"]["quickjsVersion"], "quickjs-test");
+    assert_eq!(json["runtime"]["jscVersion"], "jsc-test");
     assert!(host_info.has_capability("native-wgpu.ui.surface@1"));
 }
 

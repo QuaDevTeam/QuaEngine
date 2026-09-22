@@ -1,49 +1,46 @@
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "javascriptcore")]
+mod jsc_backend;
+#[cfg(feature = "javascriptcore")]
+mod modules;
 mod registry;
 mod renderer_bridge;
-#[cfg(feature = "quickjs-rquickjs")]
-mod rquickjs_backend;
 mod validation;
+#[cfg(feature = "javascriptcore")]
+mod value;
 
+#[cfg(feature = "javascriptcore")]
+pub use jsc_backend::{jsc_runtime_backend_version, JavaScriptCoreEvaluator, JSC_BACKEND_VERSION};
 pub use registry::{
-    quickjs_module_namespace_id, QuickJsModuleNamespaceRecord, QuickJsModuleNamespaceRegistry,
-    QuickJsModuleNamespaceSummary,
+    jsc_module_namespace_id, JscModuleNamespaceRecord, JscModuleNamespaceRegistry,
+    JscModuleNamespaceSummary,
 };
-pub use renderer_bridge::QuickJsRendererIntentHost;
-#[cfg(feature = "quickjs-rquickjs")]
-pub use rquickjs_backend::{
-    quickjs_rquickjs_runtime_version, RquickJsModuleEvaluator, RQUICKJS_BACKEND_VERSION,
-};
+pub use renderer_bridge::JscRendererIntentHost;
 pub use validation::{
     is_forbidden_native_module_payload, is_forbidden_runtime_module_asset_name,
-    is_supported_quickjs_module_asset, validate_quickjs_evaluation_request,
-    validate_quickjs_game_step_factory_call_request, validate_quickjs_game_step_resume_request,
-    validate_quickjs_game_step_run_request, validate_quickjs_module_export_call_request,
-    validate_quickjs_pipeline_listener_dispatch_request,
+    is_supported_jsc_module_asset, validate_jsc_evaluation_request,
+    validate_jsc_game_step_factory_call_request, validate_jsc_game_step_resume_request,
+    validate_jsc_game_step_run_request, validate_jsc_module_export_call_request,
+    validate_jsc_pipeline_listener_dispatch_request,
 };
 
-pub const UNSUPPORTED_QUICKJS_VERSION: &str = "unsupported";
+pub const UNSUPPORTED_JSC_VERSION: &str = "unsupported";
 
-pub fn quickjs_runtime_version() -> &'static str {
-    match option_env!("QUA_NATIVE_QUICKJS_VERSION") {
-        Some(version) if !version.trim().is_empty() => version,
-        _ => {
-            #[cfg(feature = "quickjs-rquickjs")]
-            {
-                quickjs_rquickjs_runtime_version()
-            }
-            #[cfg(not(feature = "quickjs-rquickjs"))]
-            {
-                UNSUPPORTED_QUICKJS_VERSION
-            }
-        }
+pub fn jsc_runtime_version() -> &'static str {
+    #[cfg(feature = "javascriptcore")]
+    {
+        jsc_runtime_backend_version()
+    }
+    #[cfg(not(feature = "javascriptcore"))]
+    {
+        UNSUPPORTED_JSC_VERSION
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub enum QuickJsRuntimeModuleKind {
+pub enum JscRuntimeModuleKind {
     Script,
     Scene,
     EnginePlugin,
@@ -52,57 +49,53 @@ pub enum QuickJsRuntimeModuleKind {
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct QuickJsRuntimeModuleRecord {
+pub struct JscRuntimeModuleRecord {
     pub asset_name: String,
     pub bundle_name: String,
     pub package_id: String,
-    pub kind: QuickJsRuntimeModuleKind,
+    pub kind: JscRuntimeModuleKind,
     pub code: String,
     pub bytes: Vec<u8>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct QuickJsSandboxLimits {
-    pub max_heap_bytes: u64,
-    pub max_stack_bytes: u64,
+pub struct JscSandboxLimits {
     pub max_module_bytes: u64,
-    pub max_execution_ticks: u64,
+    pub max_execution_time_ms: u64,
 }
 
-impl Default for QuickJsSandboxLimits {
+impl Default for JscSandboxLimits {
     fn default() -> Self {
         Self {
-            max_heap_bytes: 64 * 1024 * 1024,
-            max_stack_bytes: 2 * 1024 * 1024,
             max_module_bytes: 4 * 1024 * 1024,
-            max_execution_ticks: 1_000_000,
+            max_execution_time_ms: 1_000,
         }
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct QuickJsEvaluationRequest {
-    pub module: QuickJsRuntimeModuleRecord,
+pub struct JscEvaluationRequest {
+    pub module: JscRuntimeModuleRecord,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub module_graph: Vec<QuickJsRuntimeModuleRecord>,
-    pub limits: QuickJsSandboxLimits,
+    pub module_graph: Vec<JscRuntimeModuleRecord>,
+    pub limits: JscSandboxLimits,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct QuickJsEvaluationResponse {
+pub struct JscEvaluationResponse {
     pub ok: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub module_namespace_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub error: Option<QuickJsEvaluationError>,
+    pub error: Option<JscEvaluationError>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct QuickJsModuleExportCallRequest {
+pub struct JscModuleExportCallRequest {
     pub module_namespace_id: String,
     pub export_name: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -111,24 +104,24 @@ pub struct QuickJsModuleExportCallRequest {
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct QuickJsModuleExportCallResponse {
+pub struct JscModuleExportCallResponse {
     pub ok: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub value_json: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub error: Option<QuickJsEvaluationError>,
+    pub error: Option<JscEvaluationError>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct QuickJsPipelineMessage {
+pub struct JscPipelineMessage {
     pub event: String,
     pub payload_json: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct QuickJsGameStepFactoryCallRequest {
+pub struct JscGameStepFactoryCallRequest {
     pub module_namespace_id: String,
     pub export_name: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -137,7 +130,7 @@ pub struct QuickJsGameStepFactoryCallRequest {
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct QuickJsGameStepDescriptor {
+pub struct JscGameStepDescriptor {
     pub uuid: String,
     pub run_handle_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -146,17 +139,17 @@ pub struct QuickJsGameStepDescriptor {
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct QuickJsGameStepFactoryCallResponse {
+pub struct JscGameStepFactoryCallResponse {
     pub ok: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub steps: Option<Vec<QuickJsGameStepDescriptor>>,
+    pub steps: Option<Vec<JscGameStepDescriptor>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub error: Option<QuickJsEvaluationError>,
+    pub error: Option<JscEvaluationError>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct QuickJsGameStepRunRequest {
+pub struct JscGameStepRunRequest {
     pub run_handle_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ctx_json: Option<String>,
@@ -164,14 +157,14 @@ pub struct QuickJsGameStepRunRequest {
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct QuickJsGameStepWaitRequest {
+pub struct JscGameStepWaitRequest {
     pub resume_handle_id: String,
     pub event: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct QuickJsGameStepTranslationRequest {
+pub struct JscGameStepTranslationRequest {
     pub resume_handle_id: String,
     pub key: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -180,7 +173,7 @@ pub struct QuickJsGameStepTranslationRequest {
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct QuickJsGameStepPipelineEmitRequest {
+pub struct JscGameStepPipelineEmitRequest {
     pub resume_handle_id: String,
     pub event: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -189,15 +182,15 @@ pub struct QuickJsGameStepPipelineEmitRequest {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub enum QuickJsPipelineSubscriptionOperation {
+pub enum JscPipelineSubscriptionOperation {
     Subscribe,
     Unsubscribe,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct QuickJsPipelineSubscriptionChange {
-    pub op: QuickJsPipelineSubscriptionOperation,
+pub struct JscPipelineSubscriptionChange {
+    pub op: JscPipelineSubscriptionOperation,
     pub subscription_id: String,
     pub module_namespace_id: String,
     pub event: String,
@@ -205,26 +198,26 @@ pub struct QuickJsPipelineSubscriptionChange {
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct QuickJsPipelineListenerDispatchRequest {
+pub struct JscPipelineListenerDispatchRequest {
     pub subscription_id: String,
     pub context_json: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct QuickJsPipelineListenerDispatchResponse {
+pub struct JscPipelineListenerDispatchResponse {
     pub ok: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub commands: Option<Vec<QuickJsGameStepCommand>>,
+    pub commands: Option<Vec<JscGameStepCommand>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub pipeline_subscriptions: Option<Vec<QuickJsPipelineSubscriptionChange>>,
+    pub pipeline_subscriptions: Option<Vec<JscPipelineSubscriptionChange>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub error: Option<QuickJsEvaluationError>,
+    pub error: Option<JscEvaluationError>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct QuickJsGameStepHelperCallRequest {
+pub struct JscGameStepHelperCallRequest {
     pub resume_handle_id: String,
     pub module: String,
     pub export_name: String,
@@ -234,7 +227,7 @@ pub struct QuickJsGameStepHelperCallRequest {
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct QuickJsGameStepResumeRequest {
+pub struct JscGameStepResumeRequest {
     pub resume_handle_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub payload_json: Option<String>,
@@ -242,7 +235,7 @@ pub struct QuickJsGameStepResumeRequest {
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct QuickJsGameStepCommand {
+pub struct JscGameStepCommand {
     pub target: String,
     pub method: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -251,27 +244,27 @@ pub struct QuickJsGameStepCommand {
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct QuickJsGameStepRunResponse {
+pub struct JscGameStepRunResponse {
     pub ok: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub commands: Option<Vec<QuickJsGameStepCommand>>,
+    pub commands: Option<Vec<JscGameStepCommand>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub pending_wait: Option<QuickJsGameStepWaitRequest>,
+    pub pending_wait: Option<JscGameStepWaitRequest>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub pending_translation: Option<QuickJsGameStepTranslationRequest>,
+    pub pending_translation: Option<JscGameStepTranslationRequest>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub pending_pipeline_emit: Option<QuickJsGameStepPipelineEmitRequest>,
+    pub pending_pipeline_emit: Option<JscGameStepPipelineEmitRequest>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub pending_helper_call: Option<QuickJsGameStepHelperCallRequest>,
+    pub pending_helper_call: Option<JscGameStepHelperCallRequest>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub pipeline_subscriptions: Option<Vec<QuickJsPipelineSubscriptionChange>>,
+    pub pipeline_subscriptions: Option<Vec<JscPipelineSubscriptionChange>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub error: Option<QuickJsEvaluationError>,
+    pub error: Option<JscEvaluationError>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub enum QuickJsEvaluationErrorCode {
+pub enum JscEvaluationErrorCode {
     MissingAssetName,
     ForbiddenAssetName,
     ForbiddenNativePayload,
@@ -302,8 +295,8 @@ pub enum QuickJsEvaluationErrorCode {
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct QuickJsEvaluationError {
-    pub code: QuickJsEvaluationErrorCode,
+pub struct JscEvaluationError {
+    pub code: JscEvaluationErrorCode,
     pub message: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub asset_name: Option<String>,
@@ -311,7 +304,7 @@ pub struct QuickJsEvaluationError {
     pub detail: Option<String>,
 }
 
-impl QuickJsEvaluationResponse {
+impl JscEvaluationResponse {
     pub fn success(module_namespace_id: impl Into<String>) -> Self {
         Self {
             ok: true,
@@ -320,7 +313,7 @@ impl QuickJsEvaluationResponse {
         }
     }
 
-    pub fn error(error: QuickJsEvaluationError) -> Self {
+    pub fn error(error: JscEvaluationError) -> Self {
         Self {
             ok: false,
             module_namespace_id: None,
@@ -329,7 +322,7 @@ impl QuickJsEvaluationResponse {
     }
 }
 
-impl QuickJsModuleExportCallResponse {
+impl JscModuleExportCallResponse {
     pub fn success(value_json: Option<String>) -> Self {
         Self {
             ok: true,
@@ -338,7 +331,7 @@ impl QuickJsModuleExportCallResponse {
         }
     }
 
-    pub fn error(error: QuickJsEvaluationError) -> Self {
+    pub fn error(error: JscEvaluationError) -> Self {
         Self {
             ok: false,
             value_json: None,
@@ -347,8 +340,8 @@ impl QuickJsModuleExportCallResponse {
     }
 }
 
-impl QuickJsGameStepFactoryCallResponse {
-    pub fn success(steps: Vec<QuickJsGameStepDescriptor>) -> Self {
+impl JscGameStepFactoryCallResponse {
+    pub fn success(steps: Vec<JscGameStepDescriptor>) -> Self {
         Self {
             ok: true,
             steps: Some(steps),
@@ -356,7 +349,7 @@ impl QuickJsGameStepFactoryCallResponse {
         }
     }
 
-    pub fn error(error: QuickJsEvaluationError) -> Self {
+    pub fn error(error: JscEvaluationError) -> Self {
         Self {
             ok: false,
             steps: None,
@@ -365,8 +358,8 @@ impl QuickJsGameStepFactoryCallResponse {
     }
 }
 
-impl QuickJsGameStepRunResponse {
-    pub fn success(commands: Vec<QuickJsGameStepCommand>) -> Self {
+impl JscGameStepRunResponse {
+    pub fn success(commands: Vec<JscGameStepCommand>) -> Self {
         Self {
             ok: true,
             commands: Some(commands),
@@ -381,7 +374,7 @@ impl QuickJsGameStepRunResponse {
 
     pub fn with_pipeline_subscriptions(
         mut self,
-        subscriptions: Vec<QuickJsPipelineSubscriptionChange>,
+        subscriptions: Vec<JscPipelineSubscriptionChange>,
     ) -> Self {
         if !subscriptions.is_empty() {
             self.pipeline_subscriptions = Some(subscriptions);
@@ -390,8 +383,8 @@ impl QuickJsGameStepRunResponse {
     }
 
     pub fn pending(
-        commands: Vec<QuickJsGameStepCommand>,
-        pending_wait: QuickJsGameStepWaitRequest,
+        commands: Vec<JscGameStepCommand>,
+        pending_wait: JscGameStepWaitRequest,
     ) -> Self {
         Self {
             ok: true,
@@ -406,8 +399,8 @@ impl QuickJsGameStepRunResponse {
     }
 
     pub fn pending_translation(
-        commands: Vec<QuickJsGameStepCommand>,
-        pending_translation: QuickJsGameStepTranslationRequest,
+        commands: Vec<JscGameStepCommand>,
+        pending_translation: JscGameStepTranslationRequest,
     ) -> Self {
         Self {
             ok: true,
@@ -422,8 +415,8 @@ impl QuickJsGameStepRunResponse {
     }
 
     pub fn pending_pipeline_emit(
-        commands: Vec<QuickJsGameStepCommand>,
-        pending_pipeline_emit: QuickJsGameStepPipelineEmitRequest,
+        commands: Vec<JscGameStepCommand>,
+        pending_pipeline_emit: JscGameStepPipelineEmitRequest,
     ) -> Self {
         Self {
             ok: true,
@@ -438,8 +431,8 @@ impl QuickJsGameStepRunResponse {
     }
 
     pub fn pending_helper_call(
-        commands: Vec<QuickJsGameStepCommand>,
-        pending_helper_call: QuickJsGameStepHelperCallRequest,
+        commands: Vec<JscGameStepCommand>,
+        pending_helper_call: JscGameStepHelperCallRequest,
     ) -> Self {
         Self {
             ok: true,
@@ -453,7 +446,7 @@ impl QuickJsGameStepRunResponse {
         }
     }
 
-    pub fn error(error: QuickJsEvaluationError) -> Self {
+    pub fn error(error: JscEvaluationError) -> Self {
         Self {
             ok: false,
             commands: None,
@@ -467,10 +460,10 @@ impl QuickJsGameStepRunResponse {
     }
 }
 
-impl QuickJsPipelineListenerDispatchResponse {
+impl JscPipelineListenerDispatchResponse {
     pub fn success(
-        commands: Vec<QuickJsGameStepCommand>,
-        subscriptions: Vec<QuickJsPipelineSubscriptionChange>,
+        commands: Vec<JscGameStepCommand>,
+        subscriptions: Vec<JscPipelineSubscriptionChange>,
     ) -> Self {
         Self {
             ok: true,
@@ -484,7 +477,7 @@ impl QuickJsPipelineListenerDispatchResponse {
         }
     }
 
-    pub fn error(error: QuickJsEvaluationError) -> Self {
+    pub fn error(error: JscEvaluationError) -> Self {
         Self {
             ok: false,
             commands: None,
@@ -494,30 +487,29 @@ impl QuickJsPipelineListenerDispatchResponse {
     }
 }
 
-pub type QuickJsEvaluationResult = Result<QuickJsEvaluationResponse, QuickJsEvaluationError>;
-pub type QuickJsModuleExportCallResult =
-    Result<QuickJsModuleExportCallResponse, QuickJsEvaluationError>;
-pub type QuickJsGameStepFactoryCallResult =
-    Result<QuickJsGameStepFactoryCallResponse, QuickJsEvaluationError>;
-pub type QuickJsGameStepRunResult = Result<QuickJsGameStepRunResponse, QuickJsEvaluationError>;
-pub type QuickJsPipelineListenerDispatchResult =
-    Result<QuickJsPipelineListenerDispatchResponse, QuickJsEvaluationError>;
-pub type QuickJsRendererIntentDispatchResult = Result<bool, QuickJsEvaluationError>;
+pub type JscEvaluationResult = Result<JscEvaluationResponse, JscEvaluationError>;
+pub type JscModuleExportCallResult = Result<JscModuleExportCallResponse, JscEvaluationError>;
+pub type JscGameStepFactoryCallResult = Result<JscGameStepFactoryCallResponse, JscEvaluationError>;
+pub type JscGameStepRunResult = Result<JscGameStepRunResponse, JscEvaluationError>;
+pub type JscPipelineListenerDispatchResult =
+    Result<JscPipelineListenerDispatchResponse, JscEvaluationError>;
+pub type JscRendererIntentDispatchResult = Result<bool, JscEvaluationError>;
 
-pub trait QuickJsModuleEvaluator {
-    fn evaluate_module(&mut self, request: &QuickJsEvaluationRequest) -> QuickJsEvaluationResult;
+pub trait JscModuleEvaluator {
+    fn evaluate_module(&mut self, request: &JscEvaluationRequest) -> JscEvaluationResult;
 
     fn call_module_export(
         &mut self,
-        request: &QuickJsModuleExportCallRequest,
-    ) -> QuickJsModuleExportCallResult {
-        Err(QuickJsEvaluationError {
-            code: QuickJsEvaluationErrorCode::UnsupportedRuntime,
-            message: "QuickJS module export calls are not available in this native runtime build."
-                .to_string(),
+        request: &JscModuleExportCallRequest,
+    ) -> JscModuleExportCallResult {
+        Err(JscEvaluationError {
+            code: JscEvaluationErrorCode::UnsupportedRuntime,
+            message:
+                "JavaScriptCore module export calls are not available in this native runtime build."
+                    .to_string(),
             asset_name: None,
             detail: Some(format!(
-                "No QuickJS evaluator backend has been installed for namespace \"{}\".",
+                "No JavaScriptCore evaluator backend has been installed for namespace \"{}\".",
                 request.module_namespace_id
             )),
         })
@@ -525,49 +517,44 @@ pub trait QuickJsModuleEvaluator {
 
     fn call_game_step_factory(
         &mut self,
-        request: &QuickJsGameStepFactoryCallRequest,
-    ) -> QuickJsGameStepFactoryCallResult {
-        Err(QuickJsEvaluationError {
-            code: QuickJsEvaluationErrorCode::UnsupportedRuntime,
+        request: &JscGameStepFactoryCallRequest,
+    ) -> JscGameStepFactoryCallResult {
+        Err(JscEvaluationError {
+            code: JscEvaluationErrorCode::UnsupportedRuntime,
             message:
-                "QuickJS GameStep factory calls are not available in this native runtime build."
+                "JavaScriptCore GameStep factory calls are not available in this native runtime build."
                     .to_string(),
             asset_name: None,
             detail: Some(format!(
-                "No QuickJS evaluator backend has been installed for namespace \"{}\".",
+                "No JavaScriptCore evaluator backend has been installed for namespace \"{}\".",
                 request.module_namespace_id
             )),
         })
     }
 
-    fn call_game_step_run(
-        &mut self,
-        request: &QuickJsGameStepRunRequest,
-    ) -> QuickJsGameStepRunResult {
-        Err(QuickJsEvaluationError {
-            code: QuickJsEvaluationErrorCode::UnsupportedRuntime,
-            message: "QuickJS GameStep run calls are not available in this native runtime build."
-                .to_string(),
+    fn call_game_step_run(&mut self, request: &JscGameStepRunRequest) -> JscGameStepRunResult {
+        Err(JscEvaluationError {
+            code: JscEvaluationErrorCode::UnsupportedRuntime,
+            message:
+                "JavaScriptCore GameStep run calls are not available in this native runtime build."
+                    .to_string(),
             asset_name: None,
             detail: Some(format!(
-                "No QuickJS evaluator backend has been installed for run handle \"{}\".",
+                "No JavaScriptCore evaluator backend has been installed for run handle \"{}\".",
                 request.run_handle_id
             )),
         })
     }
 
-    fn resume_game_step_run(
-        &mut self,
-        request: &QuickJsGameStepResumeRequest,
-    ) -> QuickJsGameStepRunResult {
-        Err(QuickJsEvaluationError {
-            code: QuickJsEvaluationErrorCode::UnsupportedRuntime,
+    fn resume_game_step_run(&mut self, request: &JscGameStepResumeRequest) -> JscGameStepRunResult {
+        Err(JscEvaluationError {
+            code: JscEvaluationErrorCode::UnsupportedRuntime,
             message:
-                "QuickJS GameStep continuation resume calls are not available in this native runtime build."
+                "JavaScriptCore GameStep continuation resume calls are not available in this native runtime build."
                     .to_string(),
             asset_name: None,
             detail: Some(format!(
-                "No QuickJS evaluator backend has been installed for resume handle \"{}\".",
+                "No JavaScriptCore evaluator backend has been installed for resume handle \"{}\".",
                 request.resume_handle_id
             )),
         })
@@ -575,15 +562,15 @@ pub trait QuickJsModuleEvaluator {
 
     fn dispatch_pipeline_listener(
         &mut self,
-        request: &QuickJsPipelineListenerDispatchRequest,
-    ) -> QuickJsPipelineListenerDispatchResult {
-        Err(QuickJsEvaluationError {
-            code: QuickJsEvaluationErrorCode::UnsupportedRuntime,
-            message: "QuickJS pipeline listener dispatch calls are not available in this native runtime build."
+        request: &JscPipelineListenerDispatchRequest,
+    ) -> JscPipelineListenerDispatchResult {
+        Err(JscEvaluationError {
+            code: JscEvaluationErrorCode::UnsupportedRuntime,
+            message: "JavaScriptCore pipeline listener dispatch calls are not available in this native runtime build."
                 .to_string(),
             asset_name: None,
             detail: Some(format!(
-                "No QuickJS evaluator backend has been installed for subscription \"{}\".",
+                "No JavaScriptCore evaluator backend has been installed for subscription \"{}\".",
                 request.subscription_id
             )),
         })
@@ -592,13 +579,13 @@ pub trait QuickJsModuleEvaluator {
     fn dispatch_renderer_intent(
         &mut self,
         _intent: &crate::host::NativeRendererIntent,
-    ) -> QuickJsRendererIntentDispatchResult {
+    ) -> JscRendererIntentDispatchResult {
         Ok(false)
     }
 
     fn release_module_namespace(&mut self, _module_namespace_id: &str) {}
 
-    fn release_module_namespaces(&mut self, records: &[QuickJsModuleNamespaceRecord]) {
+    fn release_module_namespaces(&mut self, records: &[JscModuleNamespaceRecord]) {
         for record in records {
             self.release_module_namespace(&record.id);
         }
@@ -606,40 +593,41 @@ pub trait QuickJsModuleEvaluator {
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct UnsupportedQuickJsModuleEvaluator;
+pub struct UnsupportedJscModuleEvaluator;
 
-impl QuickJsModuleEvaluator for UnsupportedQuickJsModuleEvaluator {
-    fn evaluate_module(&mut self, request: &QuickJsEvaluationRequest) -> QuickJsEvaluationResult {
-        Err(QuickJsEvaluationError {
-            code: QuickJsEvaluationErrorCode::UnsupportedRuntime,
-            message: "QuickJS module evaluation is not available in this native runtime build."
-                .to_string(),
+impl JscModuleEvaluator for UnsupportedJscModuleEvaluator {
+    fn evaluate_module(&mut self, request: &JscEvaluationRequest) -> JscEvaluationResult {
+        Err(JscEvaluationError {
+            code: JscEvaluationErrorCode::UnsupportedRuntime,
+            message:
+                "JavaScriptCore module evaluation is not available in this native runtime build."
+                    .to_string(),
             asset_name: Some(request.module.asset_name.clone()),
-            detail: Some("No QuickJS evaluator backend has been installed.".to_string()),
+            detail: Some("No JavaScriptCore evaluator backend has been installed.".to_string()),
         })
     }
 }
 
-pub fn evaluate_quickjs_module(
-    evaluator: &mut impl QuickJsModuleEvaluator,
-    request: &QuickJsEvaluationRequest,
-) -> QuickJsEvaluationResponse {
-    if let Err(error) = validate_quickjs_evaluation_request(request) {
-        return QuickJsEvaluationResponse::error(error);
+pub fn evaluate_jsc_module(
+    evaluator: &mut impl JscModuleEvaluator,
+    request: &JscEvaluationRequest,
+) -> JscEvaluationResponse {
+    if let Err(error) = validate_jsc_evaluation_request(request) {
+        return JscEvaluationResponse::error(error);
     }
 
     match evaluator.evaluate_module(request) {
         Ok(response) => response,
-        Err(error) => QuickJsEvaluationResponse::error(error),
+        Err(error) => JscEvaluationResponse::error(error),
     }
 }
 
-pub fn evaluate_quickjs_module_with_registry(
-    evaluator: &mut impl QuickJsModuleEvaluator,
-    registry: &mut QuickJsModuleNamespaceRegistry,
-    request: &QuickJsEvaluationRequest,
-) -> QuickJsEvaluationResponse {
-    let response = evaluate_quickjs_module(evaluator, request);
+pub fn evaluate_jsc_module_with_registry(
+    evaluator: &mut impl JscModuleEvaluator,
+    registry: &mut JscModuleNamespaceRegistry,
+    request: &JscEvaluationRequest,
+) -> JscEvaluationResponse {
+    let response = evaluate_jsc_module(evaluator, request);
     if let (true, Some(module_namespace_id)) =
         (response.ok, response.module_namespace_id.as_deref())
     {
@@ -648,80 +636,80 @@ pub fn evaluate_quickjs_module_with_registry(
     response
 }
 
-pub fn call_quickjs_module_export(
-    evaluator: &mut impl QuickJsModuleEvaluator,
-    request: &QuickJsModuleExportCallRequest,
-) -> QuickJsModuleExportCallResponse {
-    if let Err(error) = validation::validate_quickjs_module_export_call_request(request) {
-        return QuickJsModuleExportCallResponse::error(error);
+pub fn call_jsc_module_export(
+    evaluator: &mut impl JscModuleEvaluator,
+    request: &JscModuleExportCallRequest,
+) -> JscModuleExportCallResponse {
+    if let Err(error) = validation::validate_jsc_module_export_call_request(request) {
+        return JscModuleExportCallResponse::error(error);
     }
 
     match evaluator.call_module_export(request) {
         Ok(response) => response,
-        Err(error) => QuickJsModuleExportCallResponse::error(error),
+        Err(error) => JscModuleExportCallResponse::error(error),
     }
 }
 
-pub fn call_quickjs_game_step_factory(
-    evaluator: &mut impl QuickJsModuleEvaluator,
-    request: &QuickJsGameStepFactoryCallRequest,
-) -> QuickJsGameStepFactoryCallResponse {
-    if let Err(error) = validation::validate_quickjs_game_step_factory_call_request(request) {
-        return QuickJsGameStepFactoryCallResponse::error(error);
+pub fn call_jsc_game_step_factory(
+    evaluator: &mut impl JscModuleEvaluator,
+    request: &JscGameStepFactoryCallRequest,
+) -> JscGameStepFactoryCallResponse {
+    if let Err(error) = validation::validate_jsc_game_step_factory_call_request(request) {
+        return JscGameStepFactoryCallResponse::error(error);
     }
 
     match evaluator.call_game_step_factory(request) {
         Ok(response) => response,
-        Err(error) => QuickJsGameStepFactoryCallResponse::error(error),
+        Err(error) => JscGameStepFactoryCallResponse::error(error),
     }
 }
 
-pub fn call_quickjs_game_step_run(
-    evaluator: &mut impl QuickJsModuleEvaluator,
-    request: &QuickJsGameStepRunRequest,
-) -> QuickJsGameStepRunResponse {
-    if let Err(error) = validation::validate_quickjs_game_step_run_request(request) {
-        return QuickJsGameStepRunResponse::error(error);
+pub fn call_jsc_game_step_run(
+    evaluator: &mut impl JscModuleEvaluator,
+    request: &JscGameStepRunRequest,
+) -> JscGameStepRunResponse {
+    if let Err(error) = validation::validate_jsc_game_step_run_request(request) {
+        return JscGameStepRunResponse::error(error);
     }
 
     match evaluator.call_game_step_run(request) {
         Ok(response) => response,
-        Err(error) => QuickJsGameStepRunResponse::error(error),
+        Err(error) => JscGameStepRunResponse::error(error),
     }
 }
 
-pub fn resume_quickjs_game_step_run(
-    evaluator: &mut impl QuickJsModuleEvaluator,
-    request: &QuickJsGameStepResumeRequest,
-) -> QuickJsGameStepRunResponse {
-    if let Err(error) = validation::validate_quickjs_game_step_resume_request(request) {
-        return QuickJsGameStepRunResponse::error(error);
+pub fn resume_jsc_game_step_run(
+    evaluator: &mut impl JscModuleEvaluator,
+    request: &JscGameStepResumeRequest,
+) -> JscGameStepRunResponse {
+    if let Err(error) = validation::validate_jsc_game_step_resume_request(request) {
+        return JscGameStepRunResponse::error(error);
     }
 
     match evaluator.resume_game_step_run(request) {
         Ok(response) => response,
-        Err(error) => QuickJsGameStepRunResponse::error(error),
+        Err(error) => JscGameStepRunResponse::error(error),
     }
 }
 
-pub fn dispatch_quickjs_pipeline_listener(
-    evaluator: &mut impl QuickJsModuleEvaluator,
-    request: &QuickJsPipelineListenerDispatchRequest,
-) -> QuickJsPipelineListenerDispatchResponse {
-    if let Err(error) = validation::validate_quickjs_pipeline_listener_dispatch_request(request) {
-        return QuickJsPipelineListenerDispatchResponse::error(error);
+pub fn dispatch_jsc_pipeline_listener(
+    evaluator: &mut impl JscModuleEvaluator,
+    request: &JscPipelineListenerDispatchRequest,
+) -> JscPipelineListenerDispatchResponse {
+    if let Err(error) = validation::validate_jsc_pipeline_listener_dispatch_request(request) {
+        return JscPipelineListenerDispatchResponse::error(error);
     }
 
     match evaluator.dispatch_pipeline_listener(request) {
         Ok(response) => response,
-        Err(error) => QuickJsPipelineListenerDispatchResponse::error(error),
+        Err(error) => JscPipelineListenerDispatchResponse::error(error),
     }
 }
 
-pub fn dispatch_quickjs_renderer_intent(
-    evaluator: &mut impl QuickJsModuleEvaluator,
+pub fn dispatch_jsc_renderer_intent(
+    evaluator: &mut impl JscModuleEvaluator,
     intent: &crate::host::NativeRendererIntent,
-) -> QuickJsRendererIntentDispatchResult {
+) -> JscRendererIntentDispatchResult {
     evaluator.dispatch_renderer_intent(intent)
 }
 

@@ -1,20 +1,21 @@
 import type { EngineContext, EnginePlugin } from '@quajs/engine'
 import type {
   ExclusiveTargetBootstrapValidationResult,
-  NativeQuickJsModuleNamespaceRecord,
+  NativeJscModuleNamespaceRecord,
   NativeRendererIntent,
   QuaNativeHostApi,
   QuaNativeHostInfo,
   TargetBundleManifest,
   TargetBundleManifestValidationResult,
 } from '@quajs/native-contracts'
-import type { NativeRendererFeatureSurfaceEntry } from './feature-surfaces'
-import type { NativeQuickJsRendererIntentBridge } from './quickjs-renderer-bridge'
+import type { UiFeatureSurfaceEntry } from '@quajs/render-core'
+import type { NativeJscRendererIntentBridge } from './jsc-renderer-bridge'
 import type { CreateNativeRendererJsonFrameInputOptions, NativeRendererEngineViewProjection, NativeRendererJsonFrameInput } from './renderer-frame'
 import type { NativeRendererIntentBridgeDisposer, NativeRendererIntentDrainResult } from './renderer-intents'
-import type { NativeQuickJsPipelineSubscriptionBridge } from './runtime-module-loader'
+import type { NativeJscPipelineSubscriptionBridge } from './runtime-module-loader'
 import type { NativeSavePreviewCaptureProvider } from './save-preview-capture'
 import { emitRenderToLogic, LogicToRenderEvents, onLogicToRender, RenderToLogicEvents } from '@quajs/engine'
+import { installNativeJscRendererIntentBridge, resolveNativeJscRendererIntentBridge } from './jsc-renderer-bridge'
 import {
   checkNativeAppManifestCompatibility,
   checkNativeRendererManifestCompatibility,
@@ -25,18 +26,17 @@ import {
   formatNativeTargetBootstrapError,
   formatNativeTargetBundleManifestError,
 } from './native-manifest-validation'
-import { installNativeQuickJsRendererIntentBridge, resolveNativeQuickJsRendererIntentBridge } from './quickjs-renderer-bridge'
 import { createNativeRendererJsonFrameInput } from './renderer-frame'
 import { drainNativeRendererIntentsToPipeline, installNativeRendererIntentBridge } from './renderer-intents'
 import { installNativeSavePreviewCaptureResponder } from './save-preview-capture'
 
 export interface NativeHostPluginOptions {
   captureSavePreview?: NativeSavePreviewCaptureProvider
-  featureSurfaces?: readonly NativeRendererFeatureSurfaceEntry[]
+  featureSurfaces?: readonly UiFeatureSurfaceEntry[]
   host: QuaNativeHostApi
   info?: QuaNativeHostInfo
-  quickJsPipelineSubscriptionBridge?: NativeQuickJsPipelineSubscriptionBridge
-  quickJsRendererIntentBridge?: NativeQuickJsRendererIntentBridge
+  jscPipelineSubscriptionBridge?: NativeJscPipelineSubscriptionBridge
+  jscRendererIntentBridge?: NativeJscRendererIntentBridge
   rendererId?: string
   targetBootstrapPackages?: readonly string[]
   targetBundleManifest?: TargetBundleManifest
@@ -58,11 +58,11 @@ export class NativeHostPlugin implements EnginePlugin {
   private hostInfo?: QuaNativeHostInfo
   private targetBootstrapValidation?: ExclusiveTargetBootstrapValidationResult
   private targetBundleManifestValidation?: TargetBundleManifestValidationResult
-  private releasedQuickJsPackages: NativeQuickJsModuleNamespaceRecord[] = []
+  private releasedJscPackages: NativeJscModuleNamespaceRecord[] = []
   private rendererIntentErrors: Error[] = []
-  private quickJsCleanupErrors: Error[] = []
+  private jscCleanupErrors: Error[] = []
   private disposeRendererIntentBridge?: NativeRendererIntentBridgeDisposer
-  private disposeQuickJsRendererIntentBridge?: () => void
+  private disposeJscRendererIntentBridge?: () => void
   private disposeRuntimePackageUnloadListener?: () => void
   private disposeSavePreviewCaptureResponder?: () => void
   private rendererIntentPipeline?: NonNullable<EngineContext['pipeline']>
@@ -84,19 +84,19 @@ export class NativeHostPlugin implements EnginePlugin {
         },
       }
       this.disposeRendererIntentBridge?.()
-      this.disposeQuickJsRendererIntentBridge?.()
-      const quickJsRendererIntentBridge = this.options.quickJsRendererIntentBridge
-        || resolveNativeQuickJsRendererIntentBridge()
-      if (quickJsRendererIntentBridge) {
+      this.disposeJscRendererIntentBridge?.()
+      const jscRendererIntentBridge = this.options.jscRendererIntentBridge
+        || resolveNativeJscRendererIntentBridge()
+      if (jscRendererIntentBridge) {
         this.disposeRendererIntentBridge = undefined
-        this.disposeQuickJsRendererIntentBridge = installNativeQuickJsRendererIntentBridge(
-          quickJsRendererIntentBridge,
+        this.disposeJscRendererIntentBridge = installNativeJscRendererIntentBridge(
+          jscRendererIntentBridge,
           context.pipeline,
           rendererIntentBridgeOptions,
         )
       }
       else {
-        this.disposeQuickJsRendererIntentBridge = undefined
+        this.disposeJscRendererIntentBridge = undefined
         this.disposeRendererIntentBridge = installNativeRendererIntentBridge(
           this.options.host,
           context.pipeline,
@@ -107,7 +107,7 @@ export class NativeHostPlugin implements EnginePlugin {
       this.disposeRuntimePackageUnloadListener = onLogicToRender(
         context.pipeline,
         LogicToRenderEvents.RUNTIME_PACKAGE_UNLOAD,
-        async payload => this.releaseQuickJsPackageNamespaces(context.pipeline!, payload.packageId),
+        async payload => this.releaseJscPackageNamespaces(context.pipeline!, payload.packageId),
       )
       this.disposeSavePreviewCaptureResponder?.()
       this.disposeSavePreviewCaptureResponder = installNativeSavePreviewCaptureResponder(
@@ -123,30 +123,30 @@ export class NativeHostPlugin implements EnginePlugin {
   destroy(): void {
     this.disposeRendererIntentBridge?.()
     this.disposeRendererIntentBridge = undefined
-    this.disposeQuickJsRendererIntentBridge?.()
-    this.disposeQuickJsRendererIntentBridge = undefined
+    this.disposeJscRendererIntentBridge?.()
+    this.disposeJscRendererIntentBridge = undefined
     this.disposeRuntimePackageUnloadListener?.()
     this.disposeRuntimePackageUnloadListener = undefined
     this.disposeSavePreviewCaptureResponder?.()
     this.disposeSavePreviewCaptureResponder = undefined
     this.rendererIntentPipeline = undefined
-    this.options.quickJsPipelineSubscriptionBridge?.dispose()
+    this.options.jscPipelineSubscriptionBridge?.dispose()
   }
 
   getHostInfo(): QuaNativeHostInfo | undefined {
     return this.hostInfo
   }
 
-  getReleasedQuickJsPackageNamespaces(): NativeQuickJsModuleNamespaceRecord[] {
-    return [...this.releasedQuickJsPackages]
+  getReleasedJscPackageNamespaces(): NativeJscModuleNamespaceRecord[] {
+    return [...this.releasedJscPackages]
   }
 
   getRendererIntentErrors(): Error[] {
     return [...this.rendererIntentErrors]
   }
 
-  getQuickJsCleanupErrors(): Error[] {
-    return [...this.quickJsCleanupErrors]
+  getJscCleanupErrors(): Error[] {
+    return [...this.jscCleanupErrors]
   }
 
   getTargetBootstrapValidation(): ExclusiveTargetBootstrapValidationResult | undefined {
@@ -222,21 +222,21 @@ export class NativeHostPlugin implements EnginePlugin {
       throw new Error(formatNativeManifestCompatibilityError(diagnostics))
   }
 
-  private async releaseQuickJsPackageNamespaces(
+  private async releaseJscPackageNamespaces(
     pipeline: NonNullable<EngineContext['pipeline']>,
     packageId: string,
   ): Promise<void> {
-    if (!this.options.host.releaseQuickJsPackageNamespaces)
+    if (!this.options.host.releaseJscPackageNamespaces)
       return
     try {
-      const released = await this.options.host.releaseQuickJsPackageNamespaces(packageId)
+      const released = await this.options.host.releaseJscPackageNamespaces(packageId)
       for (const record of released) {
-        this.options.quickJsPipelineSubscriptionBridge?.releaseModuleNamespace(record.id)
+        this.options.jscPipelineSubscriptionBridge?.releaseModuleNamespace(record.id)
       }
-      appendDiagnostic(this.releasedQuickJsPackages, released)
+      appendDiagnostic(this.releasedJscPackages, released)
     }
     catch (error) {
-      await this.recordQuickJsCleanupError(pipeline, error, packageId).catch(() => undefined)
+      await this.recordJscCleanupError(pipeline, error, packageId).catch(() => undefined)
     }
   }
 
@@ -264,13 +264,13 @@ export class NativeHostPlugin implements EnginePlugin {
     })
   }
 
-  private async recordQuickJsCleanupError(
+  private async recordJscCleanupError(
     pipeline: NonNullable<EngineContext['pipeline']>,
     error: unknown,
     packageId: string,
   ): Promise<void> {
     const normalized = error instanceof Error ? error : new Error(String(error))
-    appendDiagnostic(this.quickJsCleanupErrors, [normalized])
+    appendDiagnostic(this.jscCleanupErrors, [normalized])
     await emitRenderToLogic(pipeline, RenderToLogicEvents.RENDER_ERROR, {
       message: normalized.message,
       error: {
@@ -279,7 +279,7 @@ export class NativeHostPlugin implements EnginePlugin {
         stack: normalized.stack,
       },
       source: 'native-renderer',
-      phase: 'quickjs-cleanup',
+      phase: 'jsc-cleanup',
       recoverable: true,
       timestamp: Date.now(),
       metadata: {

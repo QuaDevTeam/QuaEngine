@@ -2,16 +2,16 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
 
-use super::{QuickJsEvaluationRequest, QuickJsRuntimeModuleKind, QuickJsRuntimeModuleRecord};
+use super::{JscEvaluationRequest, JscRuntimeModuleKind, JscRuntimeModuleRecord};
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct QuickJsModuleNamespaceRecord {
+pub struct JscModuleNamespaceRecord {
     pub id: String,
     pub package_id: String,
     pub bundle_name: String,
     pub asset_name: String,
-    pub kind: QuickJsRuntimeModuleKind,
+    pub kind: JscRuntimeModuleKind,
     pub module_bytes: u64,
     pub code_bytes: u64,
     pub revision: u64,
@@ -19,7 +19,7 @@ pub struct QuickJsModuleNamespaceRecord {
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct QuickJsModuleNamespaceSummary {
+pub struct JscModuleNamespaceSummary {
     pub namespace_count: usize,
     pub package_count: usize,
     pub module_bytes: u64,
@@ -28,12 +28,12 @@ pub struct QuickJsModuleNamespaceSummary {
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct QuickJsModuleNamespaceRegistry {
-    namespaces: BTreeMap<String, QuickJsModuleNamespaceRecord>,
+pub struct JscModuleNamespaceRegistry {
+    namespaces: BTreeMap<String, JscModuleNamespaceRecord>,
     revision: u64,
 }
 
-impl QuickJsModuleNamespaceRegistry {
+impl JscModuleNamespaceRegistry {
     pub fn new() -> Self {
         Self::default()
     }
@@ -41,10 +41,10 @@ impl QuickJsModuleNamespaceRegistry {
     pub fn register_evaluated_module(
         &mut self,
         module_namespace_id: impl Into<String>,
-        request: &QuickJsEvaluationRequest,
-    ) -> QuickJsModuleNamespaceRecord {
+        request: &JscEvaluationRequest,
+    ) -> JscModuleNamespaceRecord {
         self.revision += 1;
-        let record = QuickJsModuleNamespaceRecord {
+        let record = JscModuleNamespaceRecord {
             id: module_namespace_id.into(),
             package_id: request.module.package_id.clone(),
             bundle_name: request.module.bundle_name.clone(),
@@ -58,7 +58,7 @@ impl QuickJsModuleNamespaceRegistry {
         record
     }
 
-    pub fn get(&self, id: &str) -> Option<&QuickJsModuleNamespaceRecord> {
+    pub fn get(&self, id: &str) -> Option<&JscModuleNamespaceRecord> {
         self.namespaces.get(id)
     }
 
@@ -74,15 +74,15 @@ impl QuickJsModuleNamespaceRegistry {
         self.namespaces.is_empty()
     }
 
-    pub fn records(&self) -> impl Iterator<Item = &QuickJsModuleNamespaceRecord> {
+    pub fn records(&self) -> impl Iterator<Item = &JscModuleNamespaceRecord> {
         self.namespaces.values()
     }
 
-    pub fn release_namespace(&mut self, id: &str) -> Option<QuickJsModuleNamespaceRecord> {
+    pub fn release_namespace(&mut self, id: &str) -> Option<JscModuleNamespaceRecord> {
         self.namespaces.remove(id)
     }
 
-    pub fn release_package(&mut self, package_id: &str) -> Vec<QuickJsModuleNamespaceRecord> {
+    pub fn release_package(&mut self, package_id: &str) -> Vec<JscModuleNamespaceRecord> {
         let ids = self
             .namespaces
             .values()
@@ -95,15 +95,15 @@ impl QuickJsModuleNamespaceRegistry {
             .collect()
     }
 
-    pub fn clear(&mut self) -> Vec<QuickJsModuleNamespaceRecord> {
+    pub fn clear(&mut self) -> Vec<JscModuleNamespaceRecord> {
         std::mem::take(&mut self.namespaces).into_values().collect()
     }
 
-    pub fn summary(&self) -> QuickJsModuleNamespaceSummary {
+    pub fn summary(&self) -> JscModuleNamespaceSummary {
         summarize(self.namespaces.values())
     }
 
-    pub fn package_summary(&self, package_id: &str) -> QuickJsModuleNamespaceSummary {
+    pub fn package_summary(&self, package_id: &str) -> JscModuleNamespaceSummary {
         summarize(
             self.namespaces
                 .values()
@@ -112,7 +112,7 @@ impl QuickJsModuleNamespaceRegistry {
     }
 }
 
-pub fn quickjs_module_namespace_id(module: &QuickJsRuntimeModuleRecord) -> String {
+pub fn jsc_module_namespace_id(module: &JscRuntimeModuleRecord) -> String {
     format!(
         "{}:{}:{}",
         module.package_id, module.bundle_name, module.asset_name
@@ -120,10 +120,10 @@ pub fn quickjs_module_namespace_id(module: &QuickJsRuntimeModuleRecord) -> Strin
 }
 
 fn summarize<'a>(
-    records: impl Iterator<Item = &'a QuickJsModuleNamespaceRecord>,
-) -> QuickJsModuleNamespaceSummary {
+    records: impl Iterator<Item = &'a JscModuleNamespaceRecord>,
+) -> JscModuleNamespaceSummary {
     let mut packages = BTreeSet::new();
-    let mut summary = QuickJsModuleNamespaceSummary::default();
+    let mut summary = JscModuleNamespaceSummary::default();
 
     for record in records {
         summary.namespace_count += 1;
@@ -142,19 +142,18 @@ fn summarize<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::quickjs::{
-        QuickJsEvaluationRequest, QuickJsRuntimeModuleKind, QuickJsRuntimeModuleRecord,
-        QuickJsSandboxLimits,
+    use crate::jsc::{
+        JscEvaluationRequest, JscRuntimeModuleKind, JscRuntimeModuleRecord, JscSandboxLimits,
     };
 
     #[test]
     fn registers_package_aware_namespace_records() {
-        let mut registry = QuickJsModuleNamespaceRegistry::new();
+        let mut registry = JscModuleNamespaceRegistry::new();
         let request = request_for_asset("runtime.chapter.native-ui", "scripts/opening.js");
 
-        let record = registry.register_evaluated_module("quickjs:module:1", &request);
+        let record = registry.register_evaluated_module("jsc:module:1", &request);
 
-        assert_eq!(record.id, "quickjs:module:1");
+        assert_eq!(record.id, "jsc:module:1");
         assert_eq!(record.package_id, "runtime.chapter.native-ui");
         assert_eq!(record.asset_name, "scripts/opening.js");
         assert_eq!(record.module_bytes, 3);
@@ -167,13 +166,13 @@ mod tests {
 
     #[test]
     fn updates_existing_namespace_and_tracks_revision() {
-        let mut registry = QuickJsModuleNamespaceRegistry::new();
+        let mut registry = JscModuleNamespaceRegistry::new();
         let first = registry.register_evaluated_module(
-            "quickjs:module:1",
+            "jsc:module:1",
             &request_for_asset("runtime.chapter.native-ui", "scripts/opening.js"),
         );
         let second = registry.register_evaluated_module(
-            "quickjs:module:1",
+            "jsc:module:1",
             &request_for_asset("runtime.chapter.native-ui", "scripts/opening.js"),
         );
 
@@ -186,17 +185,17 @@ mod tests {
 
     #[test]
     fn releases_namespaces_by_package() {
-        let mut registry = QuickJsModuleNamespaceRegistry::new();
+        let mut registry = JscModuleNamespaceRegistry::new();
         let runtime_a = registry.register_evaluated_module(
-            "quickjs:a",
+            "jsc:a",
             &request_for_asset("runtime.chapter.a", "scripts/a.js"),
         );
         let runtime_b = registry.register_evaluated_module(
-            "quickjs:b",
+            "jsc:b",
             &request_for_asset("runtime.chapter.b", "scripts/b.js"),
         );
         registry.register_evaluated_module(
-            "quickjs:a-extra",
+            "jsc:a-extra",
             &request_for_asset("runtime.chapter.a", "scripts/a-extra.js"),
         );
 
@@ -216,18 +215,18 @@ mod tests {
         assert_eq!(registry.summary().total_bytes, 39);
     }
 
-    fn request_for_asset(package_id: &str, asset_name: &str) -> QuickJsEvaluationRequest {
-        QuickJsEvaluationRequest {
-            module: QuickJsRuntimeModuleRecord {
+    fn request_for_asset(package_id: &str, asset_name: &str) -> JscEvaluationRequest {
+        JscEvaluationRequest {
+            module: JscRuntimeModuleRecord {
                 asset_name: asset_name.to_string(),
                 bundle_name: package_id.to_string(),
                 package_id: package_id.to_string(),
-                kind: QuickJsRuntimeModuleKind::Script,
+                kind: JscRuntimeModuleKind::Script,
                 code: "export default function opening() {}".to_string(),
                 bytes: vec![1, 2, 3],
             },
             module_graph: Vec::new(),
-            limits: QuickJsSandboxLimits::default(),
+            limits: JscSandboxLimits::default(),
         }
     }
 }

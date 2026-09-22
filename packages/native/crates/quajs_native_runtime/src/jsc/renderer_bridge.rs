@@ -3,14 +3,14 @@ use crate::host::{
     NativeMountedBundleInfo, NativeRendererIntent, NativeSignatureVerifyRequest,
 };
 
-use super::QuickJsModuleEvaluator;
+use super::JscModuleEvaluator;
 
-pub struct QuickJsRendererIntentHost<H, E> {
+pub struct JscRendererIntentHost<H, E> {
     host: H,
     evaluator: E,
 }
 
-impl<H, E> QuickJsRendererIntentHost<H, E> {
+impl<H, E> JscRendererIntentHost<H, E> {
     pub fn new(host: H, evaluator: E) -> Self {
         Self { host, evaluator }
     }
@@ -36,10 +36,10 @@ impl<H, E> QuickJsRendererIntentHost<H, E> {
     }
 }
 
-impl<H, E> NativeHostApi for QuickJsRendererIntentHost<H, E>
+impl<H, E> NativeHostApi for JscRendererIntentHost<H, E>
 where
     H: NativeHostApi,
-    E: QuickJsModuleEvaluator,
+    E: JscModuleEvaluator,
 {
     fn host_info(&self) -> NativeHostInfo {
         self.host.host_info()
@@ -85,7 +85,7 @@ where
             Ok(true) => Ok(()),
             Ok(false) => self.host.emit_renderer_intent(event),
             Err(error) => Err(NativeHostApiError::InvalidRequest(format!(
-                "Native renderer QuickJS intent bridge failed: {}",
+                "Native renderer JavaScriptCore intent bridge failed: {}",
                 error.message
             ))),
         }

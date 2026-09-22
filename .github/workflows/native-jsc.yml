@@ -1,0 +1,29 @@
+name: Native JavaScriptCore
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  runtime:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6.0.2
+      - name: Install JavaScriptCoreGTK
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libjavascriptcoregtk-4.1-dev
+      - name: Select Rust stable
+        run: rustup default stable
+      - name: Test JavaScriptCore runtime and module lifecycle
+        run: cargo test --locked --manifest-path packages/native/Cargo.toml -p quajs_native_runtime --features javascriptcore
+      - name: Test native host bridge and startup
+        run: cargo test --locked --manifest-path packages/native/Cargo.toml -p quajs_native_app --features javascriptcore
+      - name: Build Windows window and audio integration
+        if: runner.os == 'Windows'
+        run: cargo build --locked --manifest-path packages/native/Cargo.toml -p quajs_native_app --features native-window,native-audio-rodio,javascriptcore

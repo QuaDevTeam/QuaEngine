@@ -8,43 +8,40 @@ fn evaluator_helper_validates_request_before_calling_backend() {
         calls: usize,
     }
 
-    impl QuickJsModuleEvaluator for CountingEvaluator {
-        fn evaluate_module(
-            &mut self,
-            _request: &QuickJsEvaluationRequest,
-        ) -> QuickJsEvaluationResult {
+    impl JscModuleEvaluator for CountingEvaluator {
+        fn evaluate_module(&mut self, _request: &JscEvaluationRequest) -> JscEvaluationResult {
             self.calls += 1;
-            Ok(QuickJsEvaluationResponse::success("unused"))
+            Ok(JscEvaluationResponse::success("unused"))
         }
     }
 
     let mut evaluator = CountingEvaluator::default();
     let response =
-        evaluate_quickjs_module(&mut evaluator, &request_for_asset("../opening.js", vec![1]));
+        evaluate_jsc_module(&mut evaluator, &request_for_asset("../opening.js", vec![1]));
 
     assert!(!response.ok);
     assert_eq!(evaluator.calls, 0);
     assert_eq!(
         response.error.unwrap().code,
-        QuickJsEvaluationErrorCode::ForbiddenAssetName
+        JscEvaluationErrorCode::ForbiddenAssetName
     );
 }
 
 #[test]
 fn unsupported_evaluator_returns_structured_runtime_error() {
-    let mut evaluator = UnsupportedQuickJsModuleEvaluator;
-    let response = evaluate_quickjs_module(
+    let mut evaluator = UnsupportedJscModuleEvaluator;
+    let response = evaluate_jsc_module(
         &mut evaluator,
         &request_for_asset("scripts/opening.js", vec![1, 2, 3]),
     );
 
     assert!(!response.ok);
     let error = response.error.unwrap();
-    assert_eq!(error.code, QuickJsEvaluationErrorCode::UnsupportedRuntime);
+    assert_eq!(error.code, JscEvaluationErrorCode::UnsupportedRuntime);
     assert_eq!(error.asset_name, Some("scripts/opening.js".to_string()));
     assert_eq!(
         error.detail,
-        Some("No QuickJS evaluator backend has been installed.".to_string())
+        Some("No JavaScriptCore evaluator backend has been installed.".to_string())
     );
 }
 
@@ -55,30 +52,27 @@ fn export_call_helper_validates_request_before_calling_backend() {
         calls: usize,
     }
 
-    impl QuickJsModuleEvaluator for CountingEvaluator {
-        fn evaluate_module(
-            &mut self,
-            _request: &QuickJsEvaluationRequest,
-        ) -> QuickJsEvaluationResult {
-            Ok(QuickJsEvaluationResponse::success("unused"))
+    impl JscModuleEvaluator for CountingEvaluator {
+        fn evaluate_module(&mut self, _request: &JscEvaluationRequest) -> JscEvaluationResult {
+            Ok(JscEvaluationResponse::success("unused"))
         }
 
         fn call_module_export(
             &mut self,
-            _request: &QuickJsModuleExportCallRequest,
-        ) -> QuickJsModuleExportCallResult {
+            _request: &JscModuleExportCallRequest,
+        ) -> JscModuleExportCallResult {
             self.calls += 1;
-            Ok(QuickJsModuleExportCallResponse::success(Some(
+            Ok(JscModuleExportCallResponse::success(Some(
                 "null".to_string(),
             )))
         }
     }
 
     let mut evaluator = CountingEvaluator::default();
-    let response = call_quickjs_module_export(
+    let response = call_jsc_module_export(
         &mut evaluator,
-        &QuickJsModuleExportCallRequest {
-            module_namespace_id: "quickjs:rquickjs:1".to_string(),
+        &JscModuleExportCallRequest {
+            module_namespace_id: "jsc:1".to_string(),
             export_name: "default".to_string(),
             args_json: Some("{\"not\":\"array\"}".to_string()),
         },
@@ -88,17 +82,17 @@ fn export_call_helper_validates_request_before_calling_backend() {
     assert_eq!(evaluator.calls, 0);
     assert_eq!(
         response.error.unwrap().code,
-        QuickJsEvaluationErrorCode::InvalidArguments
+        JscEvaluationErrorCode::InvalidArguments
     );
 }
 
 #[test]
 fn unsupported_evaluator_returns_structured_export_call_error() {
-    let mut evaluator = UnsupportedQuickJsModuleEvaluator;
-    let response = call_quickjs_module_export(
+    let mut evaluator = UnsupportedJscModuleEvaluator;
+    let response = call_jsc_module_export(
         &mut evaluator,
-        &QuickJsModuleExportCallRequest {
-            module_namespace_id: "quickjs:rquickjs:1".to_string(),
+        &JscModuleExportCallRequest {
+            module_namespace_id: "jsc:1".to_string(),
             export_name: "default".to_string(),
             args_json: None,
         },
@@ -106,11 +100,11 @@ fn unsupported_evaluator_returns_structured_export_call_error() {
 
     assert!(!response.ok);
     let error = response.error.unwrap();
-    assert_eq!(error.code, QuickJsEvaluationErrorCode::UnsupportedRuntime);
+    assert_eq!(error.code, JscEvaluationErrorCode::UnsupportedRuntime);
     assert_eq!(
         error.detail,
         Some(
-            "No QuickJS evaluator backend has been installed for namespace \"quickjs:rquickjs:1\"."
+            "No JavaScriptCore evaluator backend has been installed for namespace \"jsc:1\"."
                 .to_string()
         )
     );
@@ -123,28 +117,25 @@ fn game_step_factory_helper_validates_request_before_calling_backend() {
         calls: usize,
     }
 
-    impl QuickJsModuleEvaluator for CountingEvaluator {
-        fn evaluate_module(
-            &mut self,
-            _request: &QuickJsEvaluationRequest,
-        ) -> QuickJsEvaluationResult {
-            Ok(QuickJsEvaluationResponse::success("unused"))
+    impl JscModuleEvaluator for CountingEvaluator {
+        fn evaluate_module(&mut self, _request: &JscEvaluationRequest) -> JscEvaluationResult {
+            Ok(JscEvaluationResponse::success("unused"))
         }
 
         fn call_game_step_factory(
             &mut self,
-            _request: &QuickJsGameStepFactoryCallRequest,
-        ) -> QuickJsGameStepFactoryCallResult {
+            _request: &JscGameStepFactoryCallRequest,
+        ) -> JscGameStepFactoryCallResult {
             self.calls += 1;
-            Ok(QuickJsGameStepFactoryCallResponse::success(Vec::new()))
+            Ok(JscGameStepFactoryCallResponse::success(Vec::new()))
         }
     }
 
     let mut evaluator = CountingEvaluator::default();
-    let response = call_quickjs_game_step_factory(
+    let response = call_jsc_game_step_factory(
         &mut evaluator,
-        &QuickJsGameStepFactoryCallRequest {
-            module_namespace_id: "quickjs:rquickjs:1".to_string(),
+        &JscGameStepFactoryCallRequest {
+            module_namespace_id: "jsc:1".to_string(),
             export_name: "default".to_string(),
             scope_json: Some("[]".to_string()),
         },
@@ -154,7 +145,7 @@ fn game_step_factory_helper_validates_request_before_calling_backend() {
     assert_eq!(evaluator.calls, 0);
     assert_eq!(
         response.error.unwrap().code,
-        QuickJsEvaluationErrorCode::InvalidScope
+        JscEvaluationErrorCode::InvalidScope
     );
 }
 
@@ -165,28 +156,22 @@ fn game_step_run_helper_validates_request_before_calling_backend() {
         calls: usize,
     }
 
-    impl QuickJsModuleEvaluator for CountingEvaluator {
-        fn evaluate_module(
-            &mut self,
-            _request: &QuickJsEvaluationRequest,
-        ) -> QuickJsEvaluationResult {
-            Ok(QuickJsEvaluationResponse::success("unused"))
+    impl JscModuleEvaluator for CountingEvaluator {
+        fn evaluate_module(&mut self, _request: &JscEvaluationRequest) -> JscEvaluationResult {
+            Ok(JscEvaluationResponse::success("unused"))
         }
 
-        fn call_game_step_run(
-            &mut self,
-            _request: &QuickJsGameStepRunRequest,
-        ) -> QuickJsGameStepRunResult {
+        fn call_game_step_run(&mut self, _request: &JscGameStepRunRequest) -> JscGameStepRunResult {
             self.calls += 1;
-            Ok(QuickJsGameStepRunResponse::success(Vec::new()))
+            Ok(JscGameStepRunResponse::success(Vec::new()))
         }
     }
 
     let mut evaluator = CountingEvaluator::default();
-    let response = call_quickjs_game_step_run(
+    let response = call_jsc_game_step_run(
         &mut evaluator,
-        &QuickJsGameStepRunRequest {
-            run_handle_id: "quickjs:rquickjs:step:1".to_string(),
+        &JscGameStepRunRequest {
+            run_handle_id: "jsc:step:1".to_string(),
             ctx_json: Some("null".to_string()),
         },
     );
@@ -195,25 +180,25 @@ fn game_step_run_helper_validates_request_before_calling_backend() {
     assert_eq!(evaluator.calls, 0);
     assert_eq!(
         response.error.unwrap().code,
-        QuickJsEvaluationErrorCode::InvalidStepContext
+        JscEvaluationErrorCode::InvalidStepContext
     );
 }
 
 #[test]
 fn unsupported_evaluator_returns_structured_game_step_errors() {
-    let mut evaluator = UnsupportedQuickJsModuleEvaluator;
-    let factory = call_quickjs_game_step_factory(
+    let mut evaluator = UnsupportedJscModuleEvaluator;
+    let factory = call_jsc_game_step_factory(
         &mut evaluator,
-        &QuickJsGameStepFactoryCallRequest {
-            module_namespace_id: "quickjs:rquickjs:1".to_string(),
+        &JscGameStepFactoryCallRequest {
+            module_namespace_id: "jsc:1".to_string(),
             export_name: "default".to_string(),
             scope_json: None,
         },
     );
-    let run = call_quickjs_game_step_run(
+    let run = call_jsc_game_step_run(
         &mut evaluator,
-        &QuickJsGameStepRunRequest {
-            run_handle_id: "quickjs:rquickjs:step:1".to_string(),
+        &JscGameStepRunRequest {
+            run_handle_id: "jsc:step:1".to_string(),
             ctx_json: None,
         },
     );
@@ -221,12 +206,12 @@ fn unsupported_evaluator_returns_structured_game_step_errors() {
     assert!(!factory.ok);
     assert_eq!(
         factory.error.unwrap().code,
-        QuickJsEvaluationErrorCode::UnsupportedRuntime
+        JscEvaluationErrorCode::UnsupportedRuntime
     );
     assert!(!run.ok);
     assert_eq!(
         run.error.unwrap().code,
-        QuickJsEvaluationErrorCode::UnsupportedRuntime
+        JscEvaluationErrorCode::UnsupportedRuntime
     );
 }
 
@@ -234,12 +219,9 @@ fn unsupported_evaluator_returns_structured_game_step_errors() {
 fn evaluator_helper_returns_backend_success_response() {
     struct NamespaceEvaluator;
 
-    impl QuickJsModuleEvaluator for NamespaceEvaluator {
-        fn evaluate_module(
-            &mut self,
-            request: &QuickJsEvaluationRequest,
-        ) -> QuickJsEvaluationResult {
-            Ok(QuickJsEvaluationResponse::success(format!(
+    impl JscModuleEvaluator for NamespaceEvaluator {
+        fn evaluate_module(&mut self, request: &JscEvaluationRequest) -> JscEvaluationResult {
+            Ok(JscEvaluationResponse::success(format!(
                 "{}:{}",
                 request.module.package_id, request.module.asset_name
             )))
@@ -247,7 +229,7 @@ fn evaluator_helper_returns_backend_success_response() {
     }
 
     let mut evaluator = NamespaceEvaluator;
-    let response = evaluate_quickjs_module(
+    let response = evaluate_jsc_module(
         &mut evaluator,
         &request_for_asset("scripts/opening.js", vec![1, 2, 3]),
     );
@@ -263,21 +245,18 @@ fn evaluator_helper_returns_backend_success_response() {
 fn evaluator_helper_registers_successful_namespaces() {
     struct NamespaceEvaluator;
 
-    impl QuickJsModuleEvaluator for NamespaceEvaluator {
-        fn evaluate_module(
-            &mut self,
-            request: &QuickJsEvaluationRequest,
-        ) -> QuickJsEvaluationResult {
-            Ok(QuickJsEvaluationResponse::success(
-                quickjs_module_namespace_id(&request.module),
-            ))
+    impl JscModuleEvaluator for NamespaceEvaluator {
+        fn evaluate_module(&mut self, request: &JscEvaluationRequest) -> JscEvaluationResult {
+            Ok(JscEvaluationResponse::success(jsc_module_namespace_id(
+                &request.module,
+            )))
         }
     }
 
     let mut evaluator = NamespaceEvaluator;
-    let mut registry = QuickJsModuleNamespaceRegistry::new();
+    let mut registry = JscModuleNamespaceRegistry::new();
     let request = request_for_asset("scripts/opening.js", vec![1, 2, 3]);
-    let response = evaluate_quickjs_module_with_registry(&mut evaluator, &mut registry, &request);
+    let response = evaluate_jsc_module_with_registry(&mut evaluator, &mut registry, &request);
 
     assert!(response.ok);
     let namespace_id = response.module_namespace_id.unwrap();
@@ -291,9 +270,9 @@ fn evaluator_helper_registers_successful_namespaces() {
 
 #[test]
 fn evaluator_helper_does_not_register_failed_namespaces() {
-    let mut evaluator = UnsupportedQuickJsModuleEvaluator;
-    let mut registry = QuickJsModuleNamespaceRegistry::new();
-    let response = evaluate_quickjs_module_with_registry(
+    let mut evaluator = UnsupportedJscModuleEvaluator;
+    let mut registry = JscModuleNamespaceRegistry::new();
+    let response = evaluate_jsc_module_with_registry(
         &mut evaluator,
         &mut registry,
         &request_for_asset("scripts/opening.js", vec![1, 2, 3]),
