@@ -1,18 +1,13 @@
 use super::super::*;
 
 #[test]
-fn placeholder_texture_rgba8_is_deterministic_by_resource_id() {
+fn missing_images_never_generate_visible_resource_id_colors() {
     let bg_resource_ids = vec!["images:bg.png".to_string()];
     let fg_resource_ids = vec!["images:fg.png".to_string()];
 
-    assert_eq!(
-        placeholder_texture_rgba8(&bg_resource_ids),
-        placeholder_texture_rgba8(&bg_resource_ids)
-    );
-    assert_ne!(
-        placeholder_texture_rgba8(&bg_resource_ids),
-        placeholder_texture_rgba8(&fg_resource_ids)
-    );
+    for ids in [bg_resource_ids, fg_resource_ids, Vec::new()] {
+        assert_eq!(placeholder_texture_rgba8(&ids), [0; 16]);
+    }
 }
 
 #[test]

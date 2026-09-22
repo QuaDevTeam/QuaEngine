@@ -98,6 +98,10 @@ pub enum BackgroundFit {
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BackgroundProjection {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub preparation_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub shader_transition: Option<BackgroundShaderProjection>,
     pub mode: BackgroundMode,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub character_lighting:
@@ -137,6 +141,8 @@ pub struct BackgroundProjection {
 impl Default for BackgroundProjection {
     fn default() -> Self {
         Self {
+            preparation_id: None,
+            shader_transition: None,
             mode: BackgroundMode::Image,
             character_lighting: None,
             asset_name: None,
@@ -265,4 +271,18 @@ impl BackgroundVideoProjection {
 
 fn default_background_fit() -> BackgroundFit {
     BackgroundFit::Cover
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BackgroundShaderProjection {
+    pub shader: BackgroundShaderDefinition,
+    pub progress: f32,
+    pub incoming_layer_ids: Vec<String>,
+}
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct BackgroundShaderDefinition {
+    pub wgsl: String,
+    #[serde(default)]
+    pub params: [f32; 4],
 }

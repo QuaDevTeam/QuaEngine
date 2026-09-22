@@ -1,0 +1,55 @@
+{
+  "name": "@quajs/editor-animation",
+  "type": "module",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Visual keyframe authoring with QuaEngine Web renderer preview.",
+  "license": "MPL-2.0",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./indexer": {
+      "types": "./dist/indexing/indexer.d.ts",
+      "import": "./dist/indexing/indexer.js"
+    },
+    "./styles.scss": "./src/editor/styles.scss"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && node ../scripts/build-styles.mjs src/editor/styles.scss dist/styles.css",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@quajs/editor-character": "workspace:*",
+    "@quajs/editor-controls": "workspace:*",
+    "@quajs/editor-core": "workspace:*",
+    "@quajs/pipeline": "workspace:*",
+    "@quajs/plugin-animation": "workspace:*",
+    "@quajs/render-core": "workspace:*",
+    "@quajs/renderer-web": "workspace:*",
+    "@quajs/script-compiler": "workspace:*"
+  },
+  "devDependencies": {
+    "sass-embedded": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "quajs": {
+    "extension": {
+      "schemaVersion": 1,
+      "id": "qua.animation",
+      "title": "Animation Editor",
+      "devtools": {
+        "apiVersion": 1,
+        "entry": "./dist/index.js",
+        "export": "animationEditorPlugin",
+        "indexer": "./dist/indexing/indexer.js",
+        "indexerExport": "animationEditorIndexer",
+        "style": "./dist/styles.css"
+      }
+    }
+  }
+}

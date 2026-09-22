@@ -1416,6 +1416,7 @@ function cloneCharacter(character: Readonly<ViewCharacterProjection>) {
 function cloneBackground(background: Readonly<ViewBackgroundProjection>): ViewBackgroundProjection {
   return {
     ...background,
+    shaderTransition: background.shaderTransition ? { ...background.shaderTransition } : undefined,
     transition: background.transition ? { ...background.transition } : undefined,
     video: background.video
       ? {
@@ -1433,6 +1434,13 @@ function cloneBackground(background: Readonly<ViewBackgroundProjection>): ViewBa
 function cloneBackgroundLayer(layer: Readonly<ViewBackgroundLayerProjection>): ViewBackgroundLayerProjection {
   return {
     ...layer,
+    video: layer.video
+      ? {
+          ...layer.video,
+          transition: layer.video.transition ? { ...layer.video.transition } : undefined,
+          metadata: layer.video.metadata ? cloneUnknownRecord(layer.video.metadata) : undefined,
+        }
+      : undefined,
     composition: layer.composition ? cloneUnknownRecord(layer.composition) : undefined,
     transition: layer.transition ? { ...layer.transition } : undefined,
     metadata: layer.metadata ? cloneUnknownRecord(layer.metadata) : undefined,

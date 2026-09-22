@@ -30,7 +30,7 @@ export default defineConfig({
         'node:path',
         'node:url',
         'typescript',
-        'vscode-languageserver/node',
+        'vscode-languageserver/node.js',
         'vscode-languageserver-textdocument',
       ],
       output: {

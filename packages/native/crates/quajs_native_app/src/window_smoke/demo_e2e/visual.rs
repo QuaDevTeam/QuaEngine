@@ -17,6 +17,8 @@ pub(super) struct VisualCheckpoint {
     pub file: String,
     pub width: u32,
     pub height: u32,
+    pub presented: bool,
+    pub present_status: String,
     pub background: Option<String>,
     pub characters: Vec<String>,
     pub dialogue: Option<String>,
@@ -87,6 +89,7 @@ impl VisualCheckpoints {
     pub fn capture(
         &mut self,
         capture: &RealWgpuEncodedFrameCapture,
+        presentation: &crate::product_window::NativeProductWindowPresentOutcome,
     ) -> Result<(), NativeWindowSmokeError> {
         let Some(pending) = self.pending.take() else {
             return Ok(());
@@ -119,6 +122,8 @@ impl VisualCheckpoints {
             file,
             width: capture.width,
             height: capture.height,
+            presented: presentation.presented,
+            present_status: presentation.present_status.into(),
             background: pending
                 .frame
                 .pointer("/view/background/assetName")
@@ -136,6 +141,12 @@ impl VisualCheckpoints {
             serde_json::to_vec_pretty(&checkpoint).map_err(|e| error(e.to_string()))?,
         )
         .map_err(|e| error(e.to_string()))?;
+        if !presentation_passes(presentation.presented, presentation.present_status) {
+            return Err(error(format!(
+                "Native demo E2E checkpoint {} did not reach the window surface ({}). Offscreen pixels cannot prove window presentation; capture: {}.",
+                pending.name, presentation.present_status, path.display()
+            )));
+        }
         if !pixels_pass(bright_fraction, mean_luma, luma_stddev) {
             return Err(error(format!(
                 "Native demo E2E checkpoint {} is black or blank: bright={bright_fraction:.3}, mean={mean_luma:.1}, stddev={luma_stddev:.1}; capture: {}.",
@@ -186,6 +197,10 @@ fn region_metrics(
 
 fn pixels_pass(bright: f64, mean: f64, stddev: f64) -> bool {
     bright >= 0.25 && mean >= 20.0 && stddev >= 8.0
+}
+
+fn presentation_passes(presented: bool, status: &str) -> bool {
+    presented && matches!(status, "Presented" | "Suboptimal")
 }
 
 pub(super) fn full_dialogue_text(frame: &Value) -> Option<String> {
@@ -271,6 +286,16 @@ pub(super) fn visible_characters(frame: &Value) -> Vec<String> {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn offscreen_or_occluded_frames_never_prove_window_presentation() {
+        for status in ["OccludedAfterRetry", "Offscreen", "Timeout", "Presented"] {
+            assert!(!presentation_passes(false, status));
+        }
+        assert!(!presentation_passes(true, "OccludedAfterRetry"));
+        assert!(presentation_passes(true, "Presented"));
+        assert!(presentation_passes(true, "Suboptimal"));
+    }
 
     #[test]
     fn reveal_frames_are_one_dialogue_but_repeated_lines_have_distinct_revisions() {

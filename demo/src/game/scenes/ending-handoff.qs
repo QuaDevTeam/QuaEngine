@@ -67,15 +67,15 @@ Mara（消息）: 在台里。准备八点的普通节目。
 六月二十四日，上午。青叶站。
 由美把凛的委托确认书发来，说剩下的档案由接手同事处理，返程报销照合同走。邮件末尾另外加了一句，今天不用回复工作消息。
 凛仍回了收到，然后把电脑放回包里。
-Mara赶到车站大厅时，检票口还没有开始排队。她十点要回台里交说明，赶在那之前来送凛。她穿着平常那件外套，手里拎一只小纸袋。
-Mara: 面包店今天只有这个。你原来买的卖完了。
+Mara 赶到车站大厅时，检票口还没有开始排队。她十点要回台里交说明，赶在那之前来送凛。她穿着平常那件外套，手里拎一只小纸袋。
+Mara: 面包店今天只有这个了。你原来买的卖完了。
 神代凛: 这个我也喜欢。
 Mara: 甜的也喜欢？我看你前几次都挑咸口。
 神代凛: 甜的也吃。太咸的才不喜欢。
 Mara: 你不是喜欢腌菜？
 凛低下头，把纸袋折好，放进随身包最上面。
 神代凛: 喜欢它酸。要是光剩咸味，就吃不下了。
-Mara 笑了一下，很短，随后看向到站时间牌。
+Mara 笑了一声，很短，随后看向到站时间牌。
 凛想问课程的事，又担心听起来像在安排 Mara 的九月。她还在犹豫，Mara 已先拿出了手机。
 Mara: 明天要回录取邮件。我跟由美试过排班，缺的那一班找到了人。
 神代凛: 你想去吗？
@@ -96,23 +96,13 @@ Mara: 好。等你到了，我们再聊。别又打了半天字，最后只发�
 Mara 替凛把露在包外的证件绳塞好。指尖隔着布料碰到凛，很快收回去。凛低头看那处折痕，直到检票声又响，才拉好包。
 @CharacterExit('mara', 'right', 600, { x: 900, y: 750, offset: 160, opacityFrom: 1, opacityTo: 0, easing: 'ease-in-out' }, true)
 凛过了检票口，又回头望去。Mara 正站在外面挥手。凛也抬起手，一直到下站台的楼梯挡住对方的身影。
-@HideCharacter('mara')
-@HideCharacter('rin')
-@HideCharacter('haruka')
-@HideCharacter('mayu')
-@HideCharacter('reiko')
-@HideCharacter('yumi')
+@HideAllCharacters()
 @SetBackground('backgrounds/station-platform-day.webp', { transition: { type: 'crossfade', duration: 320 } })
 下到站台，凛又摸了摸包外。证件绳已经塞好，手指只碰到潮湿的布。
 @SetBackground('backgrounds/train-window-day.webp', { transition: { type: 'crossfade', duration: 550 } })
 列车开出车站不久，手机亮了。Mara 发来消息，说纸袋底下还有一张收据，不要当糖纸丢掉。
 凛翻出来。背面写着面包店的营业时间，周三上午那一栏被圈住，旁边补了一句，下次别挑休息日。
-@HideCharacter('mara')
-@HideCharacter('rin')
-@HideCharacter('haruka')
-@HideCharacter('mayu')
-@HideCharacter('reiko')
-@HideCharacter('yumi')
+@HideAllCharacters()
 神代凛（消息）: 看到了。下次先查。
 凛把收据夹进笔记本，打开她发来的课程资料。窗外的房屋渐渐稀疏，站前那条街很快看不见了，工作群里还有后续核查的消息。
 到了东京，凛给 Mara 发了到站照片。过了一会儿，Mara 回复，知道了，先去吃饭。
@@ -121,12 +111,7 @@ Mara 替凛把露在包外的证件绳塞好。指尖隔着布料碰到凛，很
 
 
 @Node('handoff-followup', { title: '寄来的更正' })
-@HideCharacter('mara')
-@HideCharacter('rin')
-@HideCharacter('haruka')
-@HideCharacter('mayu')
-@HideCharacter('reiko')
-@HideCharacter('yumi')
+@HideAllCharacters()
 @SetBackground('backgrounds/company-office-day.webp', { transition: { type: 'crossfade', duration: 600 } })
 十一月，由美寄来调查结束后的回复。信先到了公司，同事转交给凛时，问那箱磁带后来修完了没有。
 凛说修完了。同事便去接另一通电话，凛独自在门口又站了一会儿。
@@ -142,10 +127,5 @@ Mara（消息）: 周六一起吃饭吧。先说，我不想整顿饭都讲这�
 神代凛（消息）: 好。找家能慢慢吃的吧。
 她发来两个地址，让凛选一个。凛看过营业时间，选了星期六确定开门的那家。
 信里需要回答的问题已经答完，凛将它收进文件夹。手机还停在餐馆页面，她点开菜单，将 Mara 上次说想吃的那一道截了下来。
-@HideCharacter('mara')
-@HideCharacter('rin')
-@HideCharacter('haruka')
-@HideCharacter('mayu')
-@HideCharacter('reiko')
-@HideCharacter('yumi')
+@HideAllCharacters()
 她们的话还没有说完。

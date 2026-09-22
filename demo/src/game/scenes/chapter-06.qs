@@ -28,7 +28,7 @@ Mara: 先喝。新的消息来了，我会告诉你。
 @ShowCharacter('yumi', { expression: 'serious', position: { x: 700, y: 750, scale: 1, rotation: 0, anchor: 'center' } })
 @ShowCharacter('reiko', { expression: 'work-alt-serious', position: { x: 1220, y: 750, scale: 1, rotation: 0, anchor: 'center' } })
 下午四点，停机组给出方案。会议通过电话进行，真由在规定的现场工作区，由美坐在台里记要点。
-技术组已经取消了十八点四十分的定时试验，但辅助线路仍然带电，设备里积存的能量也还没释放完。现场水位继续上涨，损坏的隔离装置也无法可靠地切断电路；按常规办法慢慢降低设备负荷，要花更长时间，现场的情况已经不允许继续等了。
+技术组已经取消了十八点四十分的定时试验，但辅助支路仍然带电，设备里积存的能量也还没释放完。现场水位继续上涨，损坏的隔离装置也无法可靠地切断电路；按常规办法慢慢降低设备负荷，要花更长时间，现场的情况已经不允许继续等了。
 另一种办法是按维护手册，把剩余能量导入专门的耗能装置。这样能尽快解除带电风险，但配对组件会损坏报废，这组机器就再也收不到回声了。
 高桥真由（通话）: 普通播出不依赖它。广播和研究用的线路，我们会分开检查。你们可以继续准备备用节目。
 @SetExpression('work-alt-hesitant', 'reiko')
@@ -64,14 +64,9 @@ Mara: 我也怕，所以今天不往那边去。手机开着，到了车上给�
 神代凛: 回来吃什么？
 Mara 的手停在包扣上。她看了凛一眼，才将松开的搭扣按紧。
 @SetExpression('pose-equipment-soft', 'mara')
-Mara: 有汤的。今天不吃冷饭。
+Mara: 有汤的啦。今天不吃冷饭。
 @CharacterExit('mara', 'right', 420, { x: 700, y: 750, offset: 240, opacityFrom: 1, opacityTo: 0, easing: 'ease-in-out' }, true)
-@HideCharacter('mara')
-@HideCharacter('rin')
-@HideCharacter('haruka')
-@HideCharacter('mayu')
-@HideCharacter('reiko')
-@HideCharacter('yumi')
+@HideAllCharacters()
 @SetBackground('backgrounds/radio-mobile-rain-anime-v3.webp', { transition: { type: 'crossfade', duration: 320 } })
 Mara 踩过门外的积水，由美跟在旁边。凛看着两人上车，手机很快就震了一下。
 @Node('shutdown-weather-copy', { title: '今晚要播的话' })
@@ -90,7 +85,7 @@ Mara 踩过门外的积水，由美跟在旁边。凛看着两人上车，手机
 春香在纸上改好路口的说法，却没有走。凛抬头，发现她正看着旁边那份录音记录。
 水野春香: 如果今晚还有人问那段警报，我们要怎么答？
 神代凛: 交由美处理。这份死讯不能当新闻播，录音里说的事在这里还没有发生。
-水野春香: 我知道不能播。我是怕自己一紧张，说成我们已经知道会怎样。
+水野春香: 我知道不能播啦。我是怕自己一紧张，说成我们已经知道会怎样。
 神代凛: 就说收到过警报，正在按核实的现场情况处理。问到还没查清的，就请由美回答。
 @AnimationTimeline(320, true)
 @Key('character:haruka', 'position.y', 0, 750, 'ease-in-out')
@@ -145,12 +140,12 @@ Mara 和由美回到台里，把移动设备交给春香。备用链路传来春
 Mara: 我又拿到腌菜了。给你？
 神代凛: 放这里吧。昨天那份我还挺喜欢。
 @SetExpression('smile', 'mara')
-Mara: 那我不用挑了。
+Mara: 那我不用挑啦。
 Mara 把小包腌菜放到凛面前，笑着撕开饭团的包装。凛靠着椅背，总算吃下了第一口。
 走廊里有人来取最新的道路通知。Mara 起身指了指打印机，确认他拿到完整页才回来。
 凛看着 Mara 坐下，没再问她刚才去了哪里。Mara 折起弄湿的袖口，发现汤碗外壁也湿着，又抽了张纸垫在下面。
 神代凛: 早晨你说，以为自己说错了什么。
-Mara 的手停了一下。
+Mara 的手停住。
 Mara: 嗯。
 神代凛: 昨晚那顿饭，我真的很开心。我还想再约你来着。后来不敢看你，是我一看见你，就想起那段录音。
 @SetExpression('serious', 'mara')
@@ -178,12 +173,7 @@ Mara: 嗯。
 @AnimationTimeline(350, true)
 @Key('character:mara', 'position.x', 0, 960, 'ease-in-out')
 @Key('character:mara', 'position.x', 350, 920, 'ease-in-out')
-@HideCharacter('rin')
-@HideCharacter('mara')
-@HideCharacter('haruka')
-@HideCharacter('mayu')
-@HideCharacter('reiko')
-@HideCharacter('yumi')
+@HideAllCharacters()
 @SetBackground('inserts/nineteen-twelve-hands.webp', { transition: { type: 'crossfade', duration: 650 } })
 凛握住 Mara 的手。两人的指尖都沾着瓶上的水，湿湿的。Mara 又覆上另一只手，轻轻按住凛的手背。
 隔间里，春香还在和由美确认节目稿。凛听着翻页声，低头看着两人握在一起的手。

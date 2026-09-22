@@ -175,6 +175,10 @@ fn host_clones_share_immutable_assets_but_keep_storage_and_reads_independent() {
         asset_id: None,
     };
     let mut read = clone.read_asset_bytes(&request).unwrap();
+    assert!(Arc::ptr_eq(
+        &host.assets["base.qpk"],
+        &clone.read_shared_asset_bytes(&request).unwrap()
+    ));
     read[0] = 9;
     assert_eq!(host.read_asset_bytes(&request).unwrap()[0], 7);
     clone = clone.with_asset("base.qpk", vec![3]);

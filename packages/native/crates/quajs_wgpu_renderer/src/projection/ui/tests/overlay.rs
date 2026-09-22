@@ -281,7 +281,7 @@ fn paints_overlay_stack_panels_above_hud_stack_app_shell() {
                 surface: Some(UiOverlaySurfaceProjection::new("demo/native-app.qui")),
                 overlay_stack: Some("hud".to_string()),
                 z_index: Some(10),
-                ..UiOverlayProjection::new("native-app-shell")
+                ..UiOverlayProjection::new("demo-app-shell")
             },
             UiOverlayProjection {
                 surface: Some(UiOverlaySurfaceProjection::new("plugin-settings/native")),
@@ -297,7 +297,7 @@ fn paints_overlay_stack_panels_above_hud_stack_app_shell() {
 
     let shell = commands
         .iter()
-        .position(|command| command.id == "ui:native-app-shell")
+        .position(|command| command.id == "ui:demo-app-shell")
         .expect("app shell command");
     let settings = commands
         .iter()

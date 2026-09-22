@@ -5,16 +5,15 @@ use super::api::{
     NativeRendererIntent, NativeSignatureVerifyRequest,
 };
 use super::info::NativeHostInfo;
-use crate::quickjs::{
-    call_quickjs_game_step_factory, call_quickjs_game_step_run, call_quickjs_module_export,
-    dispatch_quickjs_pipeline_listener, evaluate_quickjs_module_with_registry,
-    resume_quickjs_game_step_run, QuickJsEvaluationRequest, QuickJsEvaluationResponse,
-    QuickJsGameStepFactoryCallRequest, QuickJsGameStepFactoryCallResponse,
-    QuickJsGameStepResumeRequest, QuickJsGameStepRunRequest, QuickJsGameStepRunResponse,
-    QuickJsModuleEvaluator, QuickJsModuleExportCallRequest, QuickJsModuleExportCallResponse,
-    QuickJsModuleNamespaceRecord, QuickJsModuleNamespaceRegistry, QuickJsModuleNamespaceSummary,
-    QuickJsPipelineListenerDispatchRequest, QuickJsPipelineListenerDispatchResponse,
-    UnsupportedQuickJsModuleEvaluator,
+use crate::jsc::{
+    call_jsc_game_step_factory, call_jsc_game_step_run, call_jsc_module_export,
+    dispatch_jsc_pipeline_listener, evaluate_jsc_module_with_registry, resume_jsc_game_step_run,
+    JscEvaluationRequest, JscEvaluationResponse, JscGameStepFactoryCallRequest,
+    JscGameStepFactoryCallResponse, JscGameStepResumeRequest, JscGameStepRunRequest,
+    JscGameStepRunResponse, JscModuleEvaluator, JscModuleExportCallRequest,
+    JscModuleExportCallResponse, JscModuleNamespaceRecord, JscModuleNamespaceRegistry,
+    JscModuleNamespaceSummary, JscPipelineListenerDispatchRequest,
+    JscPipelineListenerDispatchResponse, UnsupportedJscModuleEvaluator,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
@@ -29,16 +28,16 @@ pub enum NativeHostApiRequest {
     ListStorageKeys(NativeHostApiListStorageKeysRequest),
     HashBytes(NativeHostApiHashBytesRequest),
     VerifySignature(NativeSignatureVerifyRequest),
-    EvaluateQuickJsModule(QuickJsEvaluationRequest),
-    CallQuickJsModuleExport(QuickJsModuleExportCallRequest),
-    CallQuickJsGameStepFactory(QuickJsGameStepFactoryCallRequest),
-    CallQuickJsGameStepRun(QuickJsGameStepRunRequest),
-    ResumeQuickJsGameStepRun(QuickJsGameStepResumeRequest),
-    DispatchQuickJsPipelineListener(QuickJsPipelineListenerDispatchRequest),
-    ReleaseQuickJsModuleNamespace(NativeQuickJsReleaseNamespaceRequest),
-    ReleaseQuickJsPackageNamespaces(NativeQuickJsReleasePackageRequest),
-    GetQuickJsNamespaceSummary,
-    GetQuickJsPackageNamespaceSummary(NativeQuickJsReleasePackageRequest),
+    EvaluateJscModule(JscEvaluationRequest),
+    CallJscModuleExport(JscModuleExportCallRequest),
+    CallJscGameStepFactory(JscGameStepFactoryCallRequest),
+    CallJscGameStepRun(JscGameStepRunRequest),
+    ResumeJscGameStepRun(JscGameStepResumeRequest),
+    DispatchJscPipelineListener(JscPipelineListenerDispatchRequest),
+    ReleaseJscModuleNamespace(NativeJscReleaseNamespaceRequest),
+    ReleaseJscPackageNamespaces(NativeJscReleasePackageRequest),
+    GetJscNamespaceSummary,
+    GetJscPackageNamespaceSummary(NativeJscReleasePackageRequest),
     EmitRendererIntent(NativeRendererIntent),
     DrainRendererIntents,
 }
@@ -71,13 +70,13 @@ pub struct NativeHostApiHashBytesRequest {
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct NativeQuickJsReleaseNamespaceRequest {
+pub struct NativeJscReleaseNamespaceRequest {
     pub module_namespace_id: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct NativeQuickJsReleasePackageRequest {
+pub struct NativeJscReleasePackageRequest {
     pub package_id: String,
 }
 
@@ -101,14 +100,14 @@ pub enum NativeHostApiResponsePayload {
     StorageKeys(Vec<String>),
     Hash(String),
     SignatureValid(bool),
-    QuickJsEvaluation(QuickJsEvaluationResponse),
-    QuickJsExportCall(QuickJsModuleExportCallResponse),
-    QuickJsGameStepFactoryCall(QuickJsGameStepFactoryCallResponse),
-    QuickJsGameStepRun(QuickJsGameStepRunResponse),
-    QuickJsPipelineListenerDispatch(QuickJsPipelineListenerDispatchResponse),
-    QuickJsNamespace(Option<QuickJsModuleNamespaceRecord>),
-    QuickJsNamespaces(Vec<QuickJsModuleNamespaceRecord>),
-    QuickJsNamespaceSummary(QuickJsModuleNamespaceSummary),
+    JscEvaluation(JscEvaluationResponse),
+    JscExportCall(JscModuleExportCallResponse),
+    JscGameStepFactoryCall(JscGameStepFactoryCallResponse),
+    JscGameStepRun(JscGameStepRunResponse),
+    JscPipelineListenerDispatch(JscPipelineListenerDispatchResponse),
+    JscNamespace(Option<JscModuleNamespaceRecord>),
+    JscNamespaces(Vec<JscModuleNamespaceRecord>),
+    JscNamespaceSummary(JscModuleNamespaceSummary),
     RendererIntents(Vec<NativeRendererIntent>),
 }
 
@@ -142,23 +141,23 @@ pub fn dispatch_native_host_api_request(
     host: &mut impl NativeHostApi,
     request: NativeHostApiRequest,
 ) -> NativeHostApiResponse {
-    let mut quickjs = UnsupportedQuickJsModuleEvaluator;
-    dispatch_native_host_api_request_with_quickjs(host, &mut quickjs, request)
+    let mut jsc = UnsupportedJscModuleEvaluator;
+    dispatch_native_host_api_request_with_jsc(host, &mut jsc, request)
 }
 
-pub fn dispatch_native_host_api_request_with_quickjs(
+pub fn dispatch_native_host_api_request_with_jsc(
     host: &mut impl NativeHostApi,
-    quickjs: &mut impl QuickJsModuleEvaluator,
+    jsc: &mut impl JscModuleEvaluator,
     request: NativeHostApiRequest,
 ) -> NativeHostApiResponse {
-    let mut registry = QuickJsModuleNamespaceRegistry::new();
-    dispatch_native_host_api_request_with_quickjs_registry(host, quickjs, &mut registry, request)
+    let mut registry = JscModuleNamespaceRegistry::new();
+    dispatch_native_host_api_request_with_jsc_registry(host, jsc, &mut registry, request)
 }
 
-pub fn dispatch_native_host_api_request_with_quickjs_registry(
+pub fn dispatch_native_host_api_request_with_jsc_registry(
     host: &mut impl NativeHostApi,
-    quickjs: &mut impl QuickJsModuleEvaluator,
-    registry: &mut QuickJsModuleNamespaceRegistry,
+    jsc: &mut impl JscModuleEvaluator,
+    registry: &mut JscModuleNamespaceRegistry,
     request: NativeHostApiRequest,
 ) -> NativeHostApiResponse {
     match request {
@@ -203,59 +202,49 @@ pub fn dispatch_native_host_api_request_with_quickjs_registry(
             .map(NativeHostApiResponsePayload::SignatureValid)
             .map(NativeHostApiResponse::success)
             .unwrap_or_else(|error| NativeHostApiResponse::error(error.to_info())),
-        NativeHostApiRequest::EvaluateQuickJsModule(request) => {
-            NativeHostApiResponse::success(NativeHostApiResponsePayload::QuickJsEvaluation(
-                evaluate_quickjs_module_with_registry(quickjs, registry, &request),
+        NativeHostApiRequest::EvaluateJscModule(request) => {
+            NativeHostApiResponse::success(NativeHostApiResponsePayload::JscEvaluation(
+                evaluate_jsc_module_with_registry(jsc, registry, &request),
             ))
         }
-        NativeHostApiRequest::CallQuickJsModuleExport(request) => {
-            NativeHostApiResponse::success(NativeHostApiResponsePayload::QuickJsExportCall(
-                call_quickjs_module_export(quickjs, &request),
+        NativeHostApiRequest::CallJscModuleExport(request) => NativeHostApiResponse::success(
+            NativeHostApiResponsePayload::JscExportCall(call_jsc_module_export(jsc, &request)),
+        ),
+        NativeHostApiRequest::CallJscGameStepFactory(request) => {
+            NativeHostApiResponse::success(NativeHostApiResponsePayload::JscGameStepFactoryCall(
+                call_jsc_game_step_factory(jsc, &request),
             ))
         }
-        NativeHostApiRequest::CallQuickJsGameStepFactory(request) => {
+        NativeHostApiRequest::CallJscGameStepRun(request) => NativeHostApiResponse::success(
+            NativeHostApiResponsePayload::JscGameStepRun(call_jsc_game_step_run(jsc, &request)),
+        ),
+        NativeHostApiRequest::ResumeJscGameStepRun(request) => NativeHostApiResponse::success(
+            NativeHostApiResponsePayload::JscGameStepRun(resume_jsc_game_step_run(jsc, &request)),
+        ),
+        NativeHostApiRequest::DispatchJscPipelineListener(request) => {
             NativeHostApiResponse::success(
-                NativeHostApiResponsePayload::QuickJsGameStepFactoryCall(
-                    call_quickjs_game_step_factory(quickjs, &request),
+                NativeHostApiResponsePayload::JscPipelineListenerDispatch(
+                    dispatch_jsc_pipeline_listener(jsc, &request),
                 ),
             )
         }
-        NativeHostApiRequest::CallQuickJsGameStepRun(request) => {
-            NativeHostApiResponse::success(NativeHostApiResponsePayload::QuickJsGameStepRun(
-                call_quickjs_game_step_run(quickjs, &request),
-            ))
-        }
-        NativeHostApiRequest::ResumeQuickJsGameStepRun(request) => {
-            NativeHostApiResponse::success(NativeHostApiResponsePayload::QuickJsGameStepRun(
-                resume_quickjs_game_step_run(quickjs, &request),
-            ))
-        }
-        NativeHostApiRequest::DispatchQuickJsPipelineListener(request) => {
-            NativeHostApiResponse::success(
-                NativeHostApiResponsePayload::QuickJsPipelineListenerDispatch(
-                    dispatch_quickjs_pipeline_listener(quickjs, &request),
-                ),
-            )
-        }
-        NativeHostApiRequest::ReleaseQuickJsModuleNamespace(request) => {
+        NativeHostApiRequest::ReleaseJscModuleNamespace(request) => {
             let released = registry.release_namespace(&request.module_namespace_id);
             if let Some(record) = &released {
-                quickjs.release_module_namespace(&record.id);
+                jsc.release_module_namespace(&record.id);
             }
-            NativeHostApiResponse::success(NativeHostApiResponsePayload::QuickJsNamespace(released))
+            NativeHostApiResponse::success(NativeHostApiResponsePayload::JscNamespace(released))
         }
-        NativeHostApiRequest::ReleaseQuickJsPackageNamespaces(request) => {
+        NativeHostApiRequest::ReleaseJscPackageNamespaces(request) => {
             let released = registry.release_package(&request.package_id);
-            quickjs.release_module_namespaces(&released);
-            NativeHostApiResponse::success(NativeHostApiResponsePayload::QuickJsNamespaces(
-                released,
-            ))
+            jsc.release_module_namespaces(&released);
+            NativeHostApiResponse::success(NativeHostApiResponsePayload::JscNamespaces(released))
         }
-        NativeHostApiRequest::GetQuickJsNamespaceSummary => NativeHostApiResponse::success(
-            NativeHostApiResponsePayload::QuickJsNamespaceSummary(registry.summary()),
+        NativeHostApiRequest::GetJscNamespaceSummary => NativeHostApiResponse::success(
+            NativeHostApiResponsePayload::JscNamespaceSummary(registry.summary()),
         ),
-        NativeHostApiRequest::GetQuickJsPackageNamespaceSummary(request) => {
-            NativeHostApiResponse::success(NativeHostApiResponsePayload::QuickJsNamespaceSummary(
+        NativeHostApiRequest::GetJscPackageNamespaceSummary(request) => {
+            NativeHostApiResponse::success(NativeHostApiResponsePayload::JscNamespaceSummary(
                 registry.package_summary(&request.package_id),
             ))
         }

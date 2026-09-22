@@ -406,6 +406,18 @@ function readSharedAsset(assets: QuaAssets, key: string, read: () => Promise<Ass
 }
 
 /** Transient resource accounting; estimates exclude browser/GPU internal caches. */
+export function getWebAssetMemoryEntries(assets: QuaAssets) {
+  const resources: { key: string, name: string, type: string, targetPackageIds: string[], refs: number, estimatedBytes: number }[] = []
+  for (const [key, entry] of assetUrlCache.get(assets) ?? []) {
+    if (resources.length === 10000)
+      break
+    const identity = JSON.parse(key)
+    resources.push({ key, name: identity.name, type: identity.type, targetPackageIds: identity.targetPackageIds, refs: entry.refs, estimatedBytes: entry.estimatedBytes })
+  }
+  return resources
+}
+
+/** Transient resource accounting; estimates exclude browser/GPU internal caches. */
 export function getWebAssetMemoryStats(assets: QuaAssets) {
   const entries = [...(assetUrlCache.get(assets)?.values() || [])]
   const idle = entries.filter(entry => entry.refs === 0)

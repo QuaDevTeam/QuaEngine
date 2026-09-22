@@ -8,7 +8,7 @@ import type {
   ViewEffectProjection,
   ViewUiProjection,
 } from '@quajs/render-core'
-import type { NativeRendererFeatureSurfaceEntry } from './feature-surfaces'
+import type { UiFeatureSurfaceEntry } from '@quajs/render-core'
 import {
   projectAudioProjection,
   projectBackground,
@@ -18,9 +18,10 @@ import {
   projectEffect,
   projectStageMotion,
   projectUiOverlay,
+  resolveBackgroundLayers,
   viewAllowsDialogueChrome,
 } from '@quajs/render-core'
-import { createNativeRendererFeatureSurfaceOverlays } from './feature-surfaces'
+import { createUiFeatureSurfaceOverlays } from '@quajs/render-core'
 
 import { sampleNativeSpriteLayerAnimations } from './sprite-animation'
 
@@ -63,7 +64,7 @@ export type NativeRendererEngineViewProjection = Readonly<JsonRecord & {
 
 export interface CreateNativeRendererJsonFrameInputOptions {
   container?: NativeRendererStageContainerInput
-  featureSurfaces?: readonly NativeRendererFeatureSurfaceEntry[]
+  featureSurfaces?: readonly UiFeatureSurfaceEntry[]
   layout?: unknown
   projectAnimations?: boolean
   now?: number
@@ -92,7 +93,7 @@ export function createNativeRendererJsonFrameInput(
 }
 
 export interface CreateNativeRendererViewProjectionOptions {
-  featureSurfaces?: readonly NativeRendererFeatureSurfaceEntry[]
+  featureSurfaces?: readonly UiFeatureSurfaceEntry[]
   projectAnimations?: boolean
   now?: number
 }
@@ -114,7 +115,10 @@ export function createNativeRendererViewProjection(
   const choices = projectNativeChoices(view.choices, plugins?.choices, animations, now)
   const ui = projectNativeUi(view.ui, animations, now)
   const motion = projectStageMotion({ ...view, plugins: plugins ?? {}, animations } as unknown as QuaViewProjection, now)
-  const featureOverlays = createNativeRendererFeatureSurfaceOverlays(view, options.featureSurfaces)
+  const featureOverlays = createUiFeatureSurfaceOverlays(view, options.featureSurfaces)
+  // Loading is an exclusive resource-free UI scene. The destination remains
+  // engine-owned, but must not demand its images before the loader can present.
+  const loadingOverlay = featureOverlays.find(overlay => overlay.elementId === 'asset-loading' && overlay.visible !== false)
   const sourceUi = asRecord(view.ui)
   const chromeUi = {
     visible: sourceUi?.visible !== false,
@@ -126,7 +130,7 @@ export function createNativeRendererViewProjection(
     ? projectAudioProjection<Record<string, unknown>>({ ...view, plugins: plugins ?? {} } as unknown as Readonly<QuaViewProjection>, now)
     : plugins?.audio
 
-  return omitUndefined({
+  const projected = omitUndefined({
     sceneTransition: cloneJsonValue(view.sceneTransition),
     stage: createNativeMotionProjection(motion.stage),
     camera: createNativeMotionProjection(motion.camera),
@@ -139,13 +143,21 @@ export function createNativeRendererViewProjection(
     effects: effects.length > 0
       ? effects.map(createNativeEffectProjection).filter(isJsonRecord)
       : undefined,
-    choices: createNativeChoiceSetProjection(choices.choices, choices.panel),
-    ui: mergeNativeUiProjection(createNativeUiProjection(ui), featureOverlays),
+    choices: createNativeChoiceSetProjection(chromeUi.visible ? choices.choices : [], choices.panel),
+    ui: chromeUi.visible
+      ? mergeNativeUiProjection(createNativeUiProjection(ui), featureOverlays)
+      : { visible: false, overlays: [] },
     audio: createNativeAudioProjection(audio),
     plugins: createNativePluginProjection(view.plugins),
     animations: cloneJsonValue(view.animations),
     renderer: createNativeRendererOptionsProjection(view.renderer),
   })
+  if (loadingOverlay) {
+    for (const key of ['background', 'characters', 'dialogue', 'choices', 'effects', 'animations', 'sceneTransition'])
+      delete projected[key]
+    projected.ui = mergeNativeUiProjection(undefined, [loadingOverlay])
+  }
+  return projected
 }
 
 function projectNativeEffects(
@@ -288,6 +300,7 @@ function createNativePluginProjection(plugins: unknown): JsonRecord | undefined 
   }
   return omitUndefined({
     fonts: createNativeFontsProjection(record.fonts),
+    'asset-loading': cloneJsonValue(record['asset-loading']),
   })
 }
 
@@ -713,6 +726,8 @@ function createNativeBackgroundProjection(background: unknown): JsonRecord | und
   }
   return omitUndefined({
     mode,
+    preparationId: stringValue(record.preparationId),
+    shaderTransition: cloneJsonValue(record.shaderTransition),
     assetName: stringValue(record.assetName),
     assetType: stringValue(record.assetType),
     fit: stringValue(record.fit),
@@ -726,9 +741,11 @@ function createNativeBackgroundProjection(background: unknown): JsonRecord | und
     opacity: finiteNumber(record.opacity),
     composition: createNativeBackgroundCompositionProjection(record.composition),
     characterLighting: createNativeCharacterLightingProjection(record.characterLighting),
-    layers: Array.isArray(record.layers)
-      ? record.layers.map(createNativeBackgroundLayerProjection).filter(isJsonRecord)
-      : [],
+    layers: mode === 'layered'
+      ? resolveBackgroundLayers(record as unknown as ViewBackgroundProjection).map(createNativeBackgroundLayerProjection).filter(isJsonRecord)
+      : Array.isArray(record.layers)
+        ? record.layers.map(createNativeBackgroundLayerProjection).filter(isJsonRecord)
+        : [],
     video: createNativeBackgroundVideoProjection(record.video),
     provenance: createPackageProvenance(record),
   })

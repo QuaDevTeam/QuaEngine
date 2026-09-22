@@ -11,8 +11,8 @@ pub(super) fn check_native_runtime_info(
     };
 
     check_required_runtime_field(
-        "quickjsVersion",
-        native_runtime.quickjs_version.as_deref(),
+        "jscVersion",
+        native_runtime.jsc_version.as_deref(),
         diagnostics,
     );
     check_required_runtime_field(

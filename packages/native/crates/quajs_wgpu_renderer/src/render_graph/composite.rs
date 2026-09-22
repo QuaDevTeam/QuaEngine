@@ -96,6 +96,7 @@ pub struct CompositeDropShadow {
 /// its complete subtree. Blend is evaluated against its parent's backdrop.
 #[derive(Clone, Debug, PartialEq)]
 pub struct DrawCompositeGroup {
+    pub transition_shader: Option<CompositeTransitionShader>,
     pub character_lighting: Option<CompositeCharacterLighting>,
     /// Local logical affine transform [a,b,c,d,tx,ty], applied after compositing.
     pub transform: [f64; 6],
@@ -117,6 +118,7 @@ pub struct DrawCompositeGroup {
 impl Default for DrawCompositeGroup {
     fn default() -> Self {
         Self {
+            transition_shader: None,
             character_lighting: None,
             transform: [1.0, 0.0, 0.0, 1.0, 0.0, 0.0],
             blur_radius: 0.0,
@@ -146,4 +148,12 @@ pub struct CompositeCharacterLighting {
     pub to: [f32; 2],
     pub bounds: LogicalRect,
     pub rotation_radians: f32,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct CompositeTransitionShader {
+    pub bounds: LogicalRect,
+    pub source: String,
+    pub progress: f32,
+    pub params: [f32; 4],
 }

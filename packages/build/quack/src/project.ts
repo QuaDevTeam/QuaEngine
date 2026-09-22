@@ -4,6 +4,7 @@ import type {
   CocosBuildPlatform,
 } from './core/types'
 import type { QuaProjectNativeBuildConfig } from './project-native-build'
+import type { QuaProjectNativeDistribution } from './project-native-distribution'
 import { access, copyFile, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { basename, dirname, extname, isAbsolute, join, relative, resolve } from 'node:path'
 import { parse as parseYaml } from 'yaml'
@@ -11,13 +12,18 @@ import {
   normalizeQuaProjectNativeBuildConfig,
 
 } from './project-native-build'
+import { normalizeNativeDistribution } from './project-native-distribution'
 
+export { buildQuaProjectProduction } from './production/build'
+export type { QuaProductionBuildOptions, QuaProductionBuildResult } from './production/build'
+export type { QuaProductionBuildProgress, QuaProductionBuildStep, QuaProductionProgressListener } from './production/progress'
 export {
   createQuaProjectNativeArtifactPlans,
   createQuaProjectNativeTargetBundleManifest,
   emitQuaProjectNativeTargetBundleManifest,
   QUA_NATIVE_TARGET_BUNDLE_MANIFEST_FILE,
 } from './project-native'
+
 export type {
   EmitQuaProjectNativeTargetBundleManifestOptions,
   EmittedQuaProjectNativeTargetBundleManifest,
@@ -28,9 +34,10 @@ export {
   hasQuaProjectNativeCargoFeature,
   normalizeQuaProjectNativeBuildConfig,
   normalizeQuaProjectNativeCargoFeatures,
-  QUA_NATIVE_QUICKJS_CARGO_FEATURE,
+  QUA_NATIVE_JSC_CARGO_FEATURE,
   type QuaProjectNativeBuildConfig,
 } from './project-native-build'
+export type { QuaProjectNativeDistribution } from './project-native-distribution'
 export {
   emitQuaTargetBundleManifest,
   QUA_TARGET_BUNDLE_MANIFEST_FILE,
@@ -125,6 +132,7 @@ export interface QuaProjectNativeTargetConfig {
   }
   assetTarget?: AssetBundleTarget
   build?: QuaProjectNativeBuildConfig
+  distribution?: QuaProjectNativeDistribution
 }
 
 export interface QuaProjectTargetsConfig {
@@ -189,6 +197,7 @@ export interface NormalizedQuaProjectNativeTarget {
   }
   assetTarget?: AssetBundleTarget
   build: QuaProjectNativeBuildConfig
+  distribution: QuaProjectNativeDistribution
 }
 
 export interface NormalizedQuaProjectConfig {
@@ -1050,6 +1059,7 @@ function normalizeNativeTarget(
     },
     assetTarget: asRecord(record.assetTarget) as AssetBundleTarget | undefined,
     build: normalizeQuaProjectNativeBuildConfig(record.build),
+    distribution: normalizeNativeDistribution(record.distribution),
   }
 }
 

@@ -1,0 +1,410 @@
+/* Explicit opt-in: the workbench and standalone editor panels own this scope.
+   Never import into the game preview, Monaco, xterm or the writer iframe. */
+@use './themes';
+@use './disclosure';
+
+:where(.editor-ui, .editor-controls) {
+  --editor-radius: 6px;
+  --editor-dialog-radius: 12px;
+  --editor-control-height: 26px;
+  --editor-control-height-comfortable: 32px;
+  --editor-control-transition: 120ms;
+  --editor-space-1: 4px;
+  --editor-space-2: 8px;
+  --editor-space-3: 12px;
+  --editor-space-4: 16px;
+  --editor-label-width: 72px;
+}
+:where(.editor-ui, .editor-controls) :where(dialog, [popover]) {
+  border-radius: var(--editor-dialog-radius);
+}
+:where(.editor-ui, .editor-controls)
+  :where(button, input, select, textarea):not(:where(.monaco-editor *, .xterm *, .qua-stage *)) {
+  box-sizing: border-box;
+  font: inherit;
+  color: var(--editor-text);
+  border: 1px solid var(--editor-border);
+  border-radius: var(--editor-radius);
+  transition: background-color var(--editor-control-transition) ease,
+    border-color var(--editor-control-transition) ease, color var(--editor-control-transition) ease;
+}
+:where(.editor-ui, .editor-controls) :where(button):not(:where(.monaco-editor *, .xterm *, .qua-stage *)) {
+  background: var(--editor-button-bg);
+  padding: 3px 10px;
+  line-height: 18px;
+  cursor: pointer;
+}
+:where(.editor-ui, .editor-controls)
+  :where(button:hover:not(:disabled)):not(:where(.monaco-editor *, .xterm *, .qua-stage *)) {
+  background: var(--editor-hover);
+}
+:where(.editor-ui, .editor-controls)
+  :where(input, select, textarea):not(:where(.monaco-editor *, .xterm *, .qua-stage *)) {
+  min-width: 0;
+  height: var(--editor-control-height);
+  padding: 3px 8px;
+  background-color: var(--editor-input-bg);
+  line-height: 18px;
+}
+:where(.editor-ui, .editor-controls) :where(select):not(:where(.monaco-editor *, .xterm *, .qua-stage *)) {
+  appearance: none;
+  padding-right: 26px;
+  background-image: var(--editor-select-arrow);
+  background-repeat: no-repeat;
+  background-position: right 7px center;
+  cursor: pointer;
+  text-overflow: ellipsis;
+}
+:where(.editor-ui, .editor-controls) :where(textarea):not(:where(.monaco-editor *, .xterm *, .qua-stage *)) {
+  height: auto;
+  min-height: 60px;
+  resize: vertical;
+  line-height: 1.6;
+}
+:where(.editor-ui, .editor-controls)
+  :where(input[type='number']):not(:where(.monaco-editor *, .xterm *, .qua-stage *)) {
+  font-variant-numeric: tabular-nums;
+}
+:where(.editor-ui, .editor-controls)
+  :where(input[type='checkbox'], input[type='radio']):not(:where(.monaco-editor *, .xterm *, .qua-stage *)) {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  padding: 0;
+  flex: 0 0 auto;
+  accent-color: var(--editor-accent);
+  cursor: pointer;
+}
+:where(.editor-ui, .editor-controls) :where(input[type='range']):not(:where(.monaco-editor *, .xterm *, .qua-stage *)) {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  accent-color: var(--editor-accent);
+  cursor: pointer;
+}
+:where(.editor-ui, .editor-controls)
+  :where(input, textarea):not(:where(.monaco-editor *, .xterm *, .qua-stage *))::placeholder {
+  color: var(--editor-placeholder);
+  opacity: 1;
+}
+:where(.editor-ui, .editor-controls)
+  :where(input, textarea):read-only:not(:where(.monaco-editor *, .xterm *, .qua-stage *)) {
+  color: var(--editor-muted);
+}
+:where(.editor-ui, .editor-controls)
+  :where(button, input, select, textarea):disabled:not(:where(.monaco-editor *, .xterm *, .qua-stage *)) {
+  opacity: 0.45;
+  cursor: default;
+}
+:where(.editor-ui, .editor-controls)
+  :where(button, input, select, textarea, summary):focus-visible:not(:where(.monaco-editor *, .xterm *, .qua-stage *)) {
+  outline: 1px solid var(--editor-accent);
+  outline-offset: 1px;
+}
+:where(.editor-ui, .editor-controls)
+  :where(input, select, textarea):is(:user-invalid, [aria-invalid='true']):not(
+    :where(.monaco-editor *, .xterm *, .qua-stage *)
+  ) {
+  border-color: var(--editor-danger);
+}
+.editor-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: var(--editor-control-height);
+  padding: 3px 10px;
+  border: 1px solid var(--editor-border);
+  border-radius: var(--editor-radius);
+  background: var(--editor-button-bg);
+  color: var(--editor-text);
+  font-weight: 500;
+  line-height: 18px;
+  white-space: nowrap;
+}
+.editor-button[data-size='comfortable'] {
+  min-height: var(--editor-control-height-comfortable);
+  padding-inline: 12px;
+}
+:where(.editor-ui, .editor-controls) [data-control-size='comfortable'] {
+  --editor-control-height: var(--editor-control-height-comfortable);
+}
+.editor-button[data-variant='primary'] {
+  background: var(--editor-primary);
+  border-color: var(--editor-primary);
+  color: var(--editor-on-primary);
+}
+.editor-button[data-variant='quiet'] {
+  background: transparent;
+  border-color: transparent;
+}
+.editor-button[data-variant='danger'] {
+  color: var(--editor-danger);
+  background: transparent;
+}
+.editor-button[data-variant='primary']:hover:not(:disabled) {
+  background: var(--editor-primary-hover);
+}
+.editor-button:is([data-variant='default'], [data-variant='quiet']):hover:not(:disabled) {
+  background: var(--editor-hover);
+}
+.editor-button[data-variant='danger']:hover:not(:disabled) {
+  background: var(--editor-danger-bg);
+  border-color: var(--editor-danger);
+}
+.editor-button:active:not(:disabled) {
+  box-shadow: inset 0 1px 3px var(--editor-shadow);
+}
+.editor-button-icon,
+.editor-button-spinner {
+  display: inline-flex;
+  flex: 0 0 14px;
+  width: 14px;
+  height: 14px;
+}
+.editor-button-icon > svg { width: 100%; height: 100%; }
+.editor-button-spinner {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-dasharray: 24 12;
+  animation: editor-button-spin 900ms linear infinite;
+}
+:where(.editor-ui, .editor-controls) .icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: var(--editor-icon-button-size, var(--editor-control-height));
+  height: var(--editor-icon-button-size, var(--editor-control-height));
+  min-width: var(--editor-icon-button-size, var(--editor-control-height));
+  min-height: var(--editor-icon-button-size, var(--editor-control-height));
+  padding: 0;
+  border: 0;
+  border-radius: var(--editor-radius);
+  background: transparent;
+}
+:where(.editor-ui, .editor-controls) .icon-button[data-size='comfortable'] {
+  --editor-icon-button-size: var(--editor-control-height-comfortable);
+  padding: 0;
+}
+:where(.editor-ui, .editor-controls) .icon-button:where(:hover:not(:disabled)) {
+  background: var(--editor-hover);
+}
+.editor-field {
+  display: grid;
+  grid-template-columns: var(--editor-label-width) minmax(0, 1fr);
+  align-items: center;
+  gap: var(--editor-space-2);
+  min-width: 0;
+  margin-bottom: var(--editor-space-2);
+}
+.editor-empty-state {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: safe center;
+  gap: 12px;
+  min-width: 0;
+  min-height: 0;
+  padding: 24px;
+  text-align: center;
+  color: var(--editor-muted);
+  overflow: auto;
+}
+.editor-empty-symbol {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  color: var(--editor-placeholder);
+}
+.editor-empty-symbol > svg {
+  width: 32px;
+  height: 32px;
+}
+.editor-empty-copy {
+  max-width: 320px;
+}
+.editor-empty-copy h3 {
+  margin: 0;
+  color: var(--editor-text);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+.editor-empty-copy p {
+  margin: 6px 0 0;
+  color: var(--editor-muted);
+  font-size: 12px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.editor-empty-actions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.editor-empty-symbol:empty,
+.editor-empty-copy p:empty,
+.editor-empty-actions:empty {
+  display: none;
+}
+.editor-empty-state[data-compact] {
+  gap: 8px;
+  padding: 20px 14px;
+}
+.editor-empty-state[data-compact] .editor-empty-symbol > svg {
+  width: 24px;
+  height: 24px;
+}
+@container editor-panel (height < 190px) {
+  .editor-empty-state {
+    flex-direction: row;
+    gap: 14px;
+    padding: 6px 18px;
+    text-align: left;
+  }
+  .editor-empty-symbol > svg {
+    width: 24px;
+    height: 24px;
+  }
+  .editor-empty-copy {
+    max-width: 440px;
+  }
+  .editor-empty-copy p {
+    margin-top: 4px;
+  }
+}
+.editor-field-label {
+  color: var(--editor-muted);
+  font-size: 11px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.editor-field > :is(input:not([type='checkbox'], [type='radio']), select, textarea) {
+  width: 100%;
+}
+.editor-field[data-layout='row']:has(> button) {
+  grid-template-columns: var(--editor-label-width) minmax(0, 1fr) auto;
+}
+.editor-field[data-layout='stack'] {
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--editor-space-1);
+}
+.editor-field[data-layout='inline'] {
+  display: flex;
+  margin-bottom: 0;
+}
+.editor-field[data-layout='inline'] > :is(input, select) {
+  width: auto;
+}
+.editor-input-unit {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  background: var(--editor-input-bg);
+  border: 1px solid var(--editor-border);
+  border-radius: var(--editor-radius);
+}
+.editor-input-unit > input {
+  flex: 1;
+  width: 0;
+  height: calc(var(--editor-control-height) - 2px);
+  border: 0;
+  background: transparent;
+}
+.editor-input-unit:focus-within {
+  outline: 1px solid var(--editor-accent);
+  outline-offset: 1px;
+}
+.editor-input-unit > input:focus-visible {
+  outline: none;
+}
+.editor-input-unit:has(input:is(:user-invalid, [aria-invalid='true'])) {
+  border-color: var(--editor-danger);
+}
+.editor-input-unit:has(input:disabled) {
+  opacity: 0.45;
+}
+.editor-input-unit > input:disabled {
+  opacity: 1;
+}
+.editor-unit {
+  flex: 0 0 auto;
+  padding-right: 8px;
+  font-size: 10px;
+  color: var(--editor-muted);
+  pointer-events: none;
+}
+.editor-section {
+  padding: var(--editor-space-3);
+  border-bottom: 1px solid var(--editor-divider);
+  min-width: 0;
+}
+.editor-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--editor-text);
+  margin: 0 0 var(--editor-space-3);
+}
+.editor-section > .editor-field:last-child {
+  margin-bottom: 0;
+}
+.editor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--editor-space-2);
+}
+
+qua-property-section {
+  display: block;
+}
+
+/* Shared native switch: keyboard and label activation stay browser-owned. */
+:where(.editor-ui, .editor-controls) input.editor-switch[type='checkbox'] {
+  appearance: none;
+  width: 30px;
+  height: 18px;
+  border: 1px solid var(--editor-border);
+  border-radius: 10px;
+  background: var(--editor-hover);
+  margin: 0;
+  position: relative;
+  flex: 0 0 30px;
+}
+:where(.editor-ui, .editor-controls) input.editor-switch::before {
+  content: '';
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  left: 2px;
+  top: 2px;
+  background: var(--editor-muted);
+}
+:where(.editor-ui, .editor-controls) input.editor-switch:checked {
+  background: var(--editor-accent);
+  border-color: var(--editor-accent);
+}
+:where(.editor-ui, .editor-controls) input.editor-switch:checked::before {
+  left: 14px;
+  background: var(--editor-on-primary);
+}
+
+@keyframes editor-button-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  :where(.editor-ui, .editor-controls) { --editor-control-transition: 0ms; }
+  .editor-button-spinner { animation: none; }
+}
+body[data-reduced-motion='true'] {
+  --editor-control-transition: 0ms;
+  :where(.editor-controls) { --editor-control-transition: 0ms; }
+  .editor-button-spinner { animation: none; }
+}

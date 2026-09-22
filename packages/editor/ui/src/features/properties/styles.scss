@@ -1,0 +1,119 @@
+.source-pane {
+  container-type: inline-size;
+}
+#source-modes {
+  display: flex;
+  gap: 1px;
+  margin-right: 6px;
+}
+#source-modes button {
+  color: var(--editor-muted);
+}
+#source-modes button[aria-pressed='true'] {
+  color: var(--editor-text);
+  background: var(--editor-accent-bg);
+}
+#source-authoring {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  --authoring-ratio: 50%;
+}
+#source-authoring > #editor {
+  min-width: 0;
+}
+#visual-editor {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  background: var(--editor-surface);
+  font-size: 12px;
+}
+.visual-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--editor-divider);
+}
+.visual-toolbar select {
+  flex: 1;
+  min-width: 0;
+}
+.visual-message {
+  padding: 10px 12px;
+  margin: 0;
+  color: var(--editor-text);
+}
+.visual-message:empty {
+  display: none;
+}
+.visual-body {
+  overflow: auto;
+  flex: 1;
+  min-height: 0;
+  padding: 0 12px 14px;
+}
+.visual-body fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+.visual-section {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--editor-divider);
+}
+.visual-section h3 {
+  font-size: 12px;
+  font-weight: 600;
+  margin: 0 0 9px;
+}
+.visual-section-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+}
+.visual-section-heading button {
+  font-size: 11px;
+  border: 0;
+  color: var(--editor-text);
+  background: transparent;
+  padding: 0 3px;
+}
+.visual-field {
+  margin-block: 8px 12px;
+}
+.visual-add select {
+  width: 100%;
+}
+.visual-field textarea[readonly] {
+  font-family: ui-monospace, monospace;
+}
+.visual-field button {
+  align-self: flex-start;
+  font-size: 11px;
+}
+.visual-hint,
+.visual-empty-params {
+  font-size: 11px;
+  color: var(--editor-muted);
+}
+.showing-git-diff #source-authoring {
+  display: none;
+}
+
+#panel-properties {
+  display: flex;
+  min-height: 0;
+}
+.visual-body fieldset {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
+  gap: 0 24px;
+  align-items: start;
+}

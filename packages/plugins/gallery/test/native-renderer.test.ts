@@ -1,18 +1,16 @@
 import type { NativeUiSurfaceNodeProjection } from '@quajs/native-ui-compiler'
-import {
-  createNativeRendererJsonFrameInput,
-  resolveNativeRendererFeatureIntent,
-} from '@quajs/engine-native'
+import { createNativeRendererJsonFrameInput } from '@quajs/engine-native'
+import { resolveUiFeatureIntent } from '@quajs/render-core'
 import { describe, expect, it } from 'vitest'
 import { GalleryRenderToLogicEvents } from '../src/contracts'
 import {
-  createGalleryNativeRendererFeature,
-  GALLERY_NATIVE_SURFACE_KEY,
-} from '../src/native'
+  createGalleryUiSurfaceFeature,
+  GALLERY_UI_SURFACE_KEY,
+} from '../src/surface'
 
 describe('gallery native renderer feature', () => {
   it('does not create a surface outside the engine-owned gallery scene', () => {
-    const feature = createGalleryNativeRendererFeature()
+    const feature = createGalleryUiSurfaceFeature()
     expect(feature.createOverlays({
       logicalHeight: 1080,
       logicalWidth: 1920,
@@ -72,7 +70,7 @@ describe('gallery native renderer feature', () => {
           selectedEntryId: 'arrival',
         },
       },
-    }, { featureSurfaces: [createGalleryNativeRendererFeature()] })
+    }, { featureSurfaces: [createGalleryUiSurfaceFeature()] })
 
     const overlay = (frame.view.ui as { overlays: Array<Record<string, unknown>> }).overlays[0]
     const surface = overlay.surface as { key: string, root: NativeUiSurfaceNodeProjection }
@@ -81,7 +79,7 @@ describe('gallery native renderer feature', () => {
     const panel = findNode(surface.root, 'gallery-panel')
     const title = findNode(surface.root, 'gallery-title')
 
-    expect(surface.key).toBe(GALLERY_NATIVE_SURFACE_KEY)
+    expect(surface.key).toBe(GALLERY_UI_SURFACE_KEY)
     expect(locked?.text).toBe('Locked Record')
     expect(locked?.image).toBeUndefined()
     expect(media?.image).toEqual({ assetName: 'cg/arrival.jpg', assetType: 'images' })
@@ -108,7 +106,7 @@ describe('gallery native renderer feature', () => {
       selectedContentId: 'content-8',
       entries: [{ id: 'safe', title: 'Safe locked preview', unlocked: false, thumbnail: { type: 'images', name: 'safe.png' }, contents }],
     }
-    const feature = createGalleryNativeRendererFeature()
+    const feature = createGalleryUiSurfaceFeature()
     const render = () => {
       const result = feature.createOverlays({ projection, view: {}, logicalWidth: 1920, logicalHeight: 1080, safeArea: { x: 0, y: 0, width: 1920, height: 1080 } })
       return (result as { surface: { root: NativeUiSurfaceNodeProjection } }).surface.root
@@ -128,7 +126,7 @@ describe('gallery native renderer feature', () => {
   })
 
   it('projects the demo grid and an explicitly opened image preview through UI intents', () => {
-    const feature = createGalleryNativeRendererFeature({ layout: 'grid' })
+    const feature = createGalleryUiSurfaceFeature({ layout: 'grid' })
     const result = feature.createOverlays({ logicalWidth: 1920, logicalHeight: 1080, safeArea: { x: 96, y: 0, width: 1728, height: 1080 }, view: { ui: { overlays: { 'gallery-preview': { open: true } } } }, projection: { sceneActive: true, catalogs: [], filter: {}, filteredEntryIds: ['image'], selectedEntryId: 'image', entries: [{ id: 'image', title: 'Image', unlocked: true, contents: [{ id: 'cg', kind: 'image', asset: {
       type: 'images',
       name: 'cg.png',
@@ -144,24 +142,24 @@ describe('gallery native renderer feature', () => {
   })
 
   it('maps only allowlisted actions to gallery-owned events', () => {
-    const entries = [createGalleryNativeRendererFeature()]
-    expect(resolveNativeRendererFeatureIntent(entries, 'gallery-close', {})).toEqual({
+    const entries = [createGalleryUiSurfaceFeature()]
+    expect(resolveUiFeatureIntent(entries, 'gallery-close', {})).toEqual({
       event: GalleryRenderToLogicEvents.CLOSE_REQUEST,
       payload: {},
     })
-    expect(resolveNativeRendererFeatureIntent(entries, 'gallery-select-entry', { entryId: 'arrival' })).toEqual({
+    expect(resolveUiFeatureIntent(entries, 'gallery-select-entry', { entryId: 'arrival' })).toEqual({
       event: GalleryRenderToLogicEvents.SELECT_ENTRY_REQUEST,
       payload: { entryId: 'arrival' },
     })
-    expect(resolveNativeRendererFeatureIntent(entries, 'gallery-select-content', { contentId: 'image' })).toEqual({
+    expect(resolveUiFeatureIntent(entries, 'gallery-select-content', { contentId: 'image' })).toEqual({
       event: GalleryRenderToLogicEvents.SELECT_CONTENT_REQUEST,
       payload: { contentId: 'image' },
     })
-    expect(resolveNativeRendererFeatureIntent(entries, 'gallery-toggle-unlocked', { unlockedOnly: true })).toEqual({
+    expect(resolveUiFeatureIntent(entries, 'gallery-toggle-unlocked', { unlockedOnly: true })).toEqual({
       event: GalleryRenderToLogicEvents.UPDATE_FILTER_REQUEST,
       payload: { filter: { unlockedOnly: true }, replace: false },
     })
-    expect(resolveNativeRendererFeatureIntent(entries, 'gallery/unlock', {})).toBeUndefined()
+    expect(resolveUiFeatureIntent(entries, 'gallery/unlock', {})).toBeUndefined()
   })
 })
 

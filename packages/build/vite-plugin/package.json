@@ -45,6 +45,7 @@
     "vite": "catalog:"
   },
   "dependencies": {
+    "@quajs/assets": "workspace:*",
     "@quajs/assets-web": "workspace:*",
     "@quajs/engine": "workspace:*",
     "@quajs/logger": "workspace:*",

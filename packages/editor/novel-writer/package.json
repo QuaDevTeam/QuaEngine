@@ -1,0 +1,74 @@
+{
+  "name": "@quajs/editor-novel-writer",
+  "type": "module",
+  "version": "0.1.0",
+  "private": true,
+  "description": "QuaEngine editor AI writing plugin and local agent service.",
+  "author": "QuaDevTeam",
+  "license": "MPL-2.0",
+  "exports": {
+    "./handler": "./build/handler.js",
+    "./desktop": "./desktop/server.mjs",
+    ".": {
+      "types": "./dist/editor/index.d.ts",
+      "import": "./dist/editor/index.js"
+    },
+    "./host": {
+      "types": "./dist/editor/host.d.ts",
+      "import": "./dist/editor/host.js"
+    },
+    "./project": {
+      "types": "./dist/editor/project.d.ts",
+      "import": "./dist/editor/project.js"
+    },
+    "./source": {
+      "types": "./dist/editor/source.d.ts",
+      "import": "./dist/editor/source.js"
+    }
+  },
+  "scripts": {
+    "dev": "vite dev --host 127.0.0.1",
+    "build": "tsc -p tsconfig.editor.json && node scripts/build-editor.mjs && vite build && node scripts/verify-build.mjs",
+    "test": "vitest",
+    "typecheck": "tsc -p tsconfig.editor.json --noEmit && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"
+  },
+  "dependencies": {
+    "@internationalized/date": "catalog:",
+    "bits-ui": "catalog:",
+    "clsx": "catalog:",
+    "fflate": "catalog:",
+    "lucide-svelte": "catalog:",
+    "svelte-sonner": "catalog:",
+    "tailwind-merge": "catalog:",
+    "zod": "catalog:",
+    "@quajs/editor-core": "workspace:*",
+    "@quajs/script-compiler": "workspace:*"
+  },
+  "devDependencies": {
+    "@sveltejs/adapter-node": "catalog:",
+    "@sveltejs/kit": "catalog:",
+    "@sveltejs/vite-plugin-svelte": "catalog:",
+    "@tailwindcss/vite": "catalog:",
+    "shadcn-svelte": "catalog:",
+    "svelte": "catalog:",
+    "svelte-check": "catalog:",
+    "tailwind-variants": "catalog:",
+    "tailwindcss": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:",
+    "electron": "catalog:"
+  },
+  "quajs": {
+    "extension": {
+      "schemaVersion": 1,
+      "id": "qua.novel-writer",
+      "title": "Novel Writer",
+      "devtools": {
+        "apiVersion": 1,
+        "entry": "./dist/editor/index.js",
+        "export": "novelWriterEditorPlugin"
+      }
+    }
+  }
+}

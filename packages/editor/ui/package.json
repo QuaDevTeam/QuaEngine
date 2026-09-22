@@ -1,0 +1,29 @@
+{
+  "name": "@quajs/editor-ui",
+  "type": "module",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MPL-2.0",
+  "scripts": {
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@quajs/editor-animation": "workspace:*",
+    "@quajs/editor-character": "workspace:*",
+    "@quajs/editor-controls": "workspace:*",
+    "@quajs/editor-core": "workspace:*",
+    "@quajs/editor-novel-writer": "workspace:*",
+    "@quajs/language-server": "workspace:*",
+    "@xterm/addon-fit": "catalog:",
+    "@xterm/xterm": "catalog:",
+    "lit": "catalog:",
+    "monaco-editor": "catalog:"
+  },
+  "devDependencies": {
+    "sass-embedded": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:"
+  }
+}

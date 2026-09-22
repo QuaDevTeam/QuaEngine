@@ -49,6 +49,17 @@ export class MemoryAssetStorage implements AssetStorage {
     }
   }
 
+  async hasAssets(ids: readonly string[]): Promise<boolean> {
+    return ids.every(id => this.assets.has(id))
+  }
+
+  async commitBundle(bundle: StoredBundle, assets: StoredAsset[]): Promise<void> {
+    // Prepare all copies before changing either table.
+    const copies = assets.map(cloneStoredAsset)
+    for (const asset of copies) this.assets.set(asset.id, asset)
+    await this.storeBundle(bundle)
+  }
+
   async findAssets(criteria: AssetFindCriteria): Promise<StoredAsset[]> {
     return Array.from(this.assets.values())
       .filter(asset => matchesCriteria(asset, criteria))
@@ -149,7 +160,9 @@ export class MemoryAssetStorage implements AssetStorage {
     if (currentSize <= maxSize)
       return 0
 
+    const pinned = new Set(Array.from(this.bundles.values()).filter(bundle => bundle.active !== false).map(getBundleStorageKey))
     const sorted = Array.from(this.assets.values())
+      .filter(asset => !pinned.has(asset.bundleVersionKey || asset.bundleName))
       .sort((a, b) => a.lastAccessed - b.lastAccessed)
 
     let removedSize = 0

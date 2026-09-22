@@ -33,16 +33,15 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use base64::Engine;
-use quajs_native_runtime::InMemoryNativeHostApi;
+use quajs_native_runtime::{InMemoryNativeHostApi, NativeHostApi, NativeRendererIntent};
 use quajs_wgpu_renderer::input::{NativePointerButton, NativePointerEventPhase};
 use quajs_wgpu_renderer::renderer::{NativeRenderBackend, NativeRenderer};
-use quajs_wgpu_renderer::stage_layout::{
-    stage_logical_to_client_point, StageClientPoint, StageClientRectOrigin, StageLogicalPoint,
-};
+use quajs_wgpu_renderer::stage_layout::StageClientPoint;
 use serde_json::{json, Map, Value};
 use sha1::{Digest, Sha1};
 use winit::event_loop::EventLoopProxy;
 
+use super::editor_preview;
 use super::error::NativeWindowSmokeError;
 use super::input::NativeWindowSmokeInputState;
 
@@ -56,6 +55,7 @@ const MAX_WAIT_TIMEOUT_MS: u64 = 60_000;
 const MAX_HTTP_HEAD_BYTES: usize = 16 * 1024;
 
 pub(super) fn native_window_control_addr() -> Option<String> {
+    if crate::packaged_app::enabled() { return None; }
     let value = std::env::var(WINDOW_CONTROL_ENV).ok()?;
     let value = value.trim();
     (!value.is_empty() && value != "0" && !value.eq_ignore_ascii_case("false"))
@@ -88,10 +88,14 @@ struct PendingCapture {
 }
 
 pub(super) struct NativeWindowControl {
+    pub(super) performance: Arc<super::performance::PerformanceMonitor>,
     rx: Receiver<CdpTask>,
     wake_count: Arc<AtomicUsize>,
     pending_waits: Vec<PendingWait>,
     pending_captures: Vec<PendingCapture>,
+    inspector: super::inspector::InspectorSnapshot,
+    editor_error: Option<String>,
+    editor_replies: std::collections::HashMap<String, (Instant, Sender<Result<Value, String>>)>,
 }
 
 impl NativeWindowControl {
@@ -107,6 +111,8 @@ impl NativeWindowControl {
         let (tx, rx) = channel::<CdpTask>();
         let wake_count = Arc::new(AtomicUsize::new(0));
         let thread_wake_count = wake_count.clone();
+        let performance = Arc::new(super::performance::PerformanceMonitor::default());
+        let thread_performance = performance.clone();
         let http_addr = addr.to_string();
         thread::Builder::new()
             .name("qua-native-cdp".to_string())
@@ -119,8 +125,16 @@ impl NativeWindowControl {
                     let proxy = event_loop_proxy.clone();
                     let wake_count = thread_wake_count.clone();
                     let http_addr = http_addr.clone();
+                    let performance = thread_performance.clone();
                     thread::spawn(move || {
-                        handle_connection(stream, &http_addr, tx, proxy, wake_count)
+                        handle_connection(
+                            stream,
+                            &http_addr,
+                            tx,
+                            proxy,
+                            wake_count,
+                            performance,
+                        )
                     });
                 }
             })
@@ -131,10 +145,14 @@ impl NativeWindowControl {
             })?;
         log::info!("native window CDP endpoint listening on http://{addr}/json/version");
         Ok(Self {
+            performance,
             rx,
             wake_count,
             pending_waits: Vec::new(),
             pending_captures: Vec::new(),
+            inspector: Default::default(),
+            editor_error: None,
+            editor_replies: Default::default(),
         })
     }
 
@@ -151,14 +169,23 @@ impl NativeWindowControl {
         renderer: &mut NativeRenderer<B, A, V, F>,
         host: &mut InMemoryNativeHostApi,
         input: &mut NativeWindowSmokeInputState,
+        source: &str,
     ) -> Result<(), NativeWindowSmokeError>
     where
         B: NativeRenderBackend,
     {
         while let Ok(task) = self.rx.try_recv() {
-            self.execute(task, renderer, host, input)?;
+            self.execute(task, renderer, host, input, source)?;
         }
         self.check_waits(renderer);
+        self.editor_replies.retain(|_, (deadline, reply)| {
+            if Instant::now() < *deadline {
+                true
+            } else {
+                let _ = reply.send(Err("Editor command timed out".into()));
+                false
+            }
+        });
         Ok(())
     }
 
@@ -168,6 +195,7 @@ impl NativeWindowControl {
         renderer: &mut NativeRenderer<B, A, V, F>,
         host: &mut InMemoryNativeHostApi,
         input: &mut NativeWindowSmokeInputState,
+        source: &str,
     ) -> Result<(), NativeWindowSmokeError>
     where
         B: NativeRenderBackend,
@@ -205,20 +233,76 @@ impl NativeWindowControl {
                     });
                 }
             }
+            "Qua.getDiagnostics" => {
+                let _ = reply.send(Ok(json!({"error": self.editor_error})));
+            }
+            "Qua.getStorage" => {
+                let result = authorize_editor(&params)
+                    .and_then(|()| super::storage::inspect(host, &params["request"]));
+                let _ = reply.send(result);
+            }
+            "Qua.setAudioMuted" => {
+                let result = authorize_editor(&params).and_then(|()| {
+                    let muted = params["muted"]
+                        .as_bool()
+                        .ok_or_else(|| "muted must be a boolean".to_string())?;
+                    #[cfg(feature = "native-audio-rodio")]
+                    crate::audio_backend::output::set_muted(muted);
+                    // No output device is present in builds without native audio.
+                    Ok(json!({"muted": muted}))
+                });
+                let _ = reply.send(result);
+            }
             "Qua.listCommands" => {
                 let _ = reply.send(Ok(list_commands_result(renderer)));
             }
             "DOM.getDocument" => {
-                let _ = reply.send(Ok(dom_get_document_result(renderer)));
+                self.inspector =
+                    super::inspector::InspectorSnapshot::build(renderer, source, &self.inspector);
+                let _ = reply.send(Ok(json!({"root": self.inspector.root})));
             }
             "DOM.querySelector" => {
-                let _ = reply.send(Ok(dom_query_selector_result(renderer, &params, false)));
+                self.inspector =
+                    super::inspector::InspectorSnapshot::build(renderer, source, &self.inspector);
+                let id = self
+                    .inspector
+                    .query(params["selector"].as_str().unwrap_or_default());
+                let _ = reply.send(Ok(json!({"nodeId":id})));
             }
             "DOM.querySelectorAll" => {
-                let _ = reply.send(Ok(dom_query_selector_result(renderer, &params, true)));
+                self.inspector =
+                    super::inspector::InspectorSnapshot::build(renderer, source, &self.inspector);
+                let id = self
+                    .inspector
+                    .query(params["selector"].as_str().unwrap_or_default());
+                let _ = reply.send(Ok(json!({"nodeIds": if id == 0 {vec![]} else {vec![id]}})));
             }
-            "DOM.getBoxModel" | "DOM.getContentQuads" => {
-                let _ = reply.send(Ok(dom_box_model_result(renderer, &params, &method)));
+            "DOM.getBoxModel" | "DOM.getContentQuads" | "CSS.getComputedStyleForNode" => {
+                let node_id = params["nodeId"]
+                    .as_i64()
+                    .or_else(|| params["backendNodeId"].as_i64())
+                    .unwrap_or(0);
+                let _ = reply.send(self.inspector.details(node_id, &method));
+            }
+            "Qua.editorCommand" => {
+                if self.editor_replies.len() >= 8 {
+                    let _ = reply.send(Err("Too many editor commands".into()));
+                } else {
+                    match editor_command_intent(&params).and_then(|intent| {
+                        host.emit_renderer_intent(intent)
+                            .map_err(|error| format!("{error:?}"))
+                    }) {
+                        Ok(_) => {
+                            self.editor_replies.insert(
+                                params["requestId"].as_str().unwrap_or_default().into(),
+                                (Instant::now() + Duration::from_secs(35), reply),
+                            );
+                        }
+                        Err(error) => {
+                            let _ = reply.send(Err(error));
+                        }
+                    }
+                }
             }
             "Input.dispatchMouseEvent" => {
                 let result = self.dispatch_mouse_event(renderer, host, input, &params);
@@ -253,6 +337,34 @@ impl NativeWindowControl {
             }
         }
         Ok(())
+    }
+
+    pub(super) fn editor_error(&mut self, payload: &str) {
+        if let Ok(value) = serde_json::from_str::<Value>(payload) {
+            self.editor_error = Some(
+                value["message"]
+                    .as_str()
+                    .unwrap_or(payload)
+                    .chars()
+                    .take(8000)
+                    .collect(),
+            );
+        }
+    }
+    pub(super) fn editor_response(&mut self, payload: &str) {
+        if let Ok(value) = serde_json::from_str::<Value>(payload) {
+            if let Some((_, reply)) = value["id"]
+                .as_str()
+                .and_then(|id| self.editor_replies.remove(id))
+            {
+                let result = if let Some(error) = value["error"].as_str() {
+                    Err(error.to_string())
+                } else {
+                    Ok(value["result"].clone())
+                };
+                let _ = reply.send(result);
+            }
+        }
     }
 
     /// Called from the frame capture closure: captures the current frame once
@@ -340,9 +452,7 @@ impl NativeWindowControl {
                 ))
             }
         };
-        result
-            .map(|_| json!({}))
-            .map_err(|error| error.to_string())
+        result.map(|_| json!({})).map_err(|error| error.to_string())
     }
 
     fn check_waits<B, A, V, F>(&mut self, renderer: &mut NativeRenderer<B, A, V, F>)
@@ -355,22 +465,20 @@ impl NativeWindowControl {
         let now = Instant::now();
         let pending = std::mem::take(&mut self.pending_waits);
         for wait in pending {
-            let visible = renderer
-                .state()
-                .frame()
-                .is_some_and(|frame| {
-                    frame
-                        .graph
-                        .commands()
-                        .iter()
-                        .any(|command| command.id == wait.command_id)
-                });
+            let visible = renderer.state().frame().is_some_and(|frame| {
+                frame
+                    .graph
+                    .commands()
+                    .iter()
+                    .any(|command| command.id == wait.command_id)
+            });
             if visible {
                 let _ = wait.reply.send(Ok(json!({ "id": wait.command_id })));
             } else if now >= wait.deadline {
-                let _ = wait
-                    .reply
-                    .send(Err(format!("Qua.waitForCommand '{}' timed out", wait.command_id)));
+                let _ = wait.reply.send(Err(format!(
+                    "Qua.waitForCommand '{}' timed out",
+                    wait.command_id
+                )));
             } else {
                 self.pending_waits.push(wait);
             }
@@ -383,6 +491,99 @@ impl NativeWindowControl {
 }
 
 // ─── Frame-inspection results ────────────────────────────────────────────────
+
+fn authorize_editor(params: &Value) -> Result<(), String> {
+    let expected = std::env::var("QUA_NATIVE_EDITOR_TOKEN")
+        .ok()
+        .filter(|token| !token.is_empty());
+    if !editor_preview::enabled()
+        || expected.is_none()
+        || params.get("token").and_then(Value::as_str) != expected.as_deref()
+    {
+        return Err("Editor preview is not authorized".into());
+    }
+    Ok(())
+}
+
+fn editor_command_intent(params: &Value) -> Result<NativeRendererIntent, String> {
+    authorize_editor(params)?;
+    let id = params
+        .get("requestId")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let command = params.get("command").unwrap_or(&Value::Null);
+    if id.is_empty() || id.len() > 80 || !valid_editor_command(command) {
+        return Err("Invalid editor preview command".into());
+    }
+    Ok(NativeRendererIntent {
+        r#type: "editor/preview/request".into(),
+        payload_json: Some(json!({ "id": id, "command": command }).to_string()),
+    })
+}
+
+fn valid_editor_command(command: &Value) -> bool {
+    match command.get("action").and_then(Value::as_str) {
+        Some("status" | "step") => true,
+        Some("storage") => {
+            let request = &command["request"];
+            let action = request["action"].as_str().unwrap_or_default();
+            ["catalog", "page", "detail"].contains(&action)
+                && (action == "catalog"
+                    || request["source"].as_str().is_some_and(|source| {
+                        ["engine:snapshots", "engine:slots", "engine:payloads"].contains(&source)
+                    }))
+                && (action != "detail"
+                    || request["key"].as_str().is_some_and(|key| key.len() <= 4096))
+                && request
+                    .get("offset")
+                    .is_none_or(|offset| offset.as_u64().is_some_and(|offset| offset <= 100000))
+                && request
+                    .get("filter")
+                    .is_none_or(|filter| filter.as_str().is_some_and(|filter| filter.len() <= 1024))
+        }
+        Some("seek") => {
+            command
+                .get("path")
+                .and_then(Value::as_str)
+                .is_some_and(|path| !path.is_empty() && path.len() <= 4096)
+                && command
+                    .get("stepIndex")
+                    .and_then(Value::as_u64)
+                    .is_some_and(|index| index <= 100000)
+        }
+        _ => false,
+    }
+}
+
+#[cfg(test)]
+mod editor_command_tests {
+    use super::*;
+    #[test]
+    fn rejects_arbitrary_native_editor_commands() {
+        assert!(valid_editor_command(
+            &json!({"action":"storage","request":{"action":"catalog"}})
+        ));
+        assert!(!valid_editor_command(
+            &json!({"action":"storage","request":{"action":"delete","source":"engine:snapshots"}})
+        ));
+        assert!(!valid_editor_command(
+            &json!({"action":"storage","request":{"action":"page","source":"/etc/passwd"}})
+        ));
+        assert!(valid_editor_command(&json!({ "action": "step" })));
+        assert!(valid_editor_command(
+            &json!({ "action": "seek", "path": "scene.qs", "stepIndex": 2 })
+        ));
+        assert!(!valid_editor_command(
+            &json!({ "action": "evaluate", "code": "bad" })
+        ));
+        assert!(!valid_editor_command(
+            &json!({ "action": "seek", "path": "scene.qs", "stepIndex": -1 })
+        ));
+        assert!(!valid_editor_command(
+            &json!({ "action": "seek", "stepIndex": 0 })
+        ));
+    }
+}
 
 fn list_commands_result<B, A, V, F>(renderer: &NativeRenderer<B, A, V, F>) -> Value
 where
@@ -415,7 +616,9 @@ where
     json!({ "commands": commands, "frameReady": true })
 }
 
-fn command_text(command: &quajs_wgpu_renderer::render_graph::DrawCommand) -> Option<String> {
+pub(super) fn command_text(
+    command: &quajs_wgpu_renderer::render_graph::DrawCommand,
+) -> Option<String> {
     match &command.params {
         quajs_wgpu_renderer::render_graph::DrawCommandParams::Text(params) => {
             Some(params.text.clone())
@@ -427,161 +630,7 @@ fn command_text(command: &quajs_wgpu_renderer::render_graph::DrawCommand) -> Opt
     }
 }
 
-/// The synthetic DOM: `#document` → `QUA-STAGE` → one `QUA-COMMAND` element
-/// per draw command (command id exposed as the `id` attribute so `#id`
-/// selectors work), with text content as `#text` child nodes.
-fn dom_get_document_result<B, A, V, F>(renderer: &NativeRenderer<B, A, V, F>) -> Value
-where
-    B: NativeRenderBackend,
-{
-    let mut next_node_id = 3i64;
-    let mut command_children = Vec::new();
-    if let Some(frame) = renderer.state().frame() {
-        for command in frame.graph.commands() {
-            let node_id = next_node_id;
-            next_node_id += 1;
-            let mut node = json!({
-                "nodeId": node_id,
-                "backendNodeId": node_id,
-                "nodeType": 1,
-                "nodeName": "QUA-COMMAND",
-                "localName": "qua-command",
-                "nodeValue": "",
-                "attributes": [
-                    "id", command.id,
-                    "kind", format!("{:?}", command.kind),
-                    "interactive", command.interactive.to_string(),
-                    "z-index", command.z_index.to_string(),
-                ],
-            });
-            if let Some(text) = command_text(command) {
-                let text_node_id = next_node_id;
-                next_node_id += 1;
-                node["children"] = json!([{
-                    "nodeId": text_node_id,
-                    "backendNodeId": text_node_id,
-                    "nodeType": 3,
-                    "nodeName": "#text",
-                    "nodeValue": text,
-                }]);
-                node["childNodeCount"] = json!(1);
-            }
-            command_children.push(node);
-        }
-    }
-    json!({
-        "root": {
-            "nodeId": 1,
-            "backendNodeId": 1,
-            "nodeType": 9,
-            "nodeName": "#document",
-            "localName": "",
-            "nodeValue": "",
-            "childNodeCount": 1,
-            "children": [{
-                "nodeId": 2,
-                "backendNodeId": 2,
-                "nodeType": 1,
-                "nodeName": "QUA-STAGE",
-                "localName": "qua-stage",
-                "nodeValue": "",
-                "attributes": ["width", "1920", "height", "1080"],
-                "childNodeCount": command_children.len(),
-                "children": command_children,
-            }],
-        }
-    })
-}
-
-/// Minimal selector support: `#<command-id>` and `[id="<command-id>"]`.
-fn dom_query_selector_result<B, A, V, F>(
-    renderer: &NativeRenderer<B, A, V, F>,
-    params: &Value,
-    all: bool,
-) -> Value
-where
-    B: NativeRenderBackend,
-{
-    let selector = params
-        .get("selector")
-        .and_then(Value::as_str)
-        .unwrap_or_default();
-    let command_id = selector
-        .strip_prefix('#')
-        .map(str::to_string)
-        .or_else(|| {
-            selector
-                .strip_prefix("[id=\"")
-                .and_then(|rest| rest.strip_suffix("\"]"))
-                .map(str::to_string)
-        });
-    let Some(command_id) = command_id else {
-        return json!({ "nodeId": 0, "nodeIds": [] });
-    };
-    let mut node_ids = Vec::new();
-    if let Some(frame) = renderer.state().frame() {
-        for (index, command) in frame.graph.commands().iter().enumerate() {
-            if command.id == command_id {
-                node_ids.push(3 + index as i64);
-                if !all {
-                    break;
-                }
-            }
-        }
-    }
-    if all {
-        json!({ "nodeIds": node_ids })
-    } else {
-        json!({ "nodeId": node_ids.first().copied().unwrap_or(0) })
-    }
-}
-
-fn dom_box_model_result<B, A, V, F>(
-    renderer: &NativeRenderer<B, A, V, F>,
-    params: &Value,
-    method: &str,
-) -> Value
-where
-    B: NativeRenderBackend,
-{
-    let node_id = params
-        .get("nodeId")
-        .or_else(|| params.get("backendNodeId"))
-        .and_then(Value::as_i64)
-        .unwrap_or(0);
-    let Some(frame) = renderer.state().frame() else {
-        return json!({ "model": box_model_json(0.0, 0.0, 0.0, 0.0), "quads": [] });
-    };
-    let index = node_id.saturating_sub(3) as usize;
-    let Some(command) = frame.graph.commands().get(index) else {
-        return json!({ "model": box_model_json(0.0, 0.0, 0.0, 0.0), "quads": [] });
-    };
-    let top_left = stage_logical_to_client_point(
-        &frame.graph.layout,
-        StageLogicalPoint {
-            x: command.bounds.x,
-            y: command.bounds.y,
-        },
-        StageClientRectOrigin::default(),
-    );
-    let bottom_right = stage_logical_to_client_point(
-        &frame.graph.layout,
-        StageLogicalPoint {
-            x: command.bounds.x + command.bounds.width,
-            y: command.bounds.y + command.bounds.height,
-        },
-        StageClientRectOrigin::default(),
-    );
-    let (x, y) = (top_left.client_x, top_left.client_y);
-    let (width, height) = (bottom_right.client_x - x, bottom_right.client_y - y);
-    if method == "DOM.getContentQuads" {
-        json!({ "quads": [[x, y, x + width, y, x + width, y + height, x, y + height]] })
-    } else {
-        json!({ "model": box_model_json(x, y, width, height) })
-    }
-}
-
-fn box_model_json(x: f64, y: f64, width: f64, height: f64) -> Value {
+pub(super) fn box_model_json(x: f64, y: f64, width: f64, height: f64) -> Value {
     let border = [x, y, x + width, y, x + width, y + height, x, y + height];
     json!({
         "content": border,
@@ -601,6 +650,7 @@ fn handle_connection(
     tx: Sender<CdpTask>,
     proxy: EventLoopProxy<()>,
     wake_count: Arc<AtomicUsize>,
+    performance: Arc<super::performance::PerformanceMonitor>,
 ) {
     let Some(head) = read_http_head(&stream) else {
         return;
@@ -611,16 +661,21 @@ fn handle_connection(
         .nth(1)
         .unwrap_or_default()
         .to_string();
+    if path.starts_with("/qua/preview") {
+        editor_preview::serve(stream, &head, &path);
+        return;
+    }
     if path.starts_with("/json") {
         serve_cdp_discovery(stream, addr, &path);
         return;
     }
-    if path != CDP_WS_PATH {
+    let (route, _query) = path.split_once('?').unwrap_or((&path, ""));
+    if route != CDP_WS_PATH {
         let mut stream = stream;
         let _ = stream.write_all(b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n");
         return;
     }
-    serve_cdp_websocket(stream, &head, tx, proxy, wake_count);
+    serve_cdp_websocket(stream, &head, tx, proxy, wake_count, performance);
 }
 
 fn read_http_head(stream: &TcpStream) -> Option<String> {
@@ -674,6 +729,7 @@ fn serve_cdp_websocket(
     tx: Sender<CdpTask>,
     proxy: EventLoopProxy<()>,
     wake_count: Arc<AtomicUsize>,
+    performance: Arc<super::performance::PerformanceMonitor>,
 ) {
     // Complete the upgrade manually: the request head was already consumed by
     // `read_http_head`, so `tungstenite::accept` would block re-reading it.
@@ -699,11 +755,8 @@ fn serve_cdp_websocket(
     {
         return;
     }
-    let mut socket = tungstenite::WebSocket::from_raw_socket(
-        stream,
-        tungstenite::protocol::Role::Server,
-        None,
-    );
+    let mut socket =
+        tungstenite::WebSocket::from_raw_socket(stream, tungstenite::protocol::Role::Server, None);
     loop {
         let message = match socket.read() {
             Ok(message) => message,
@@ -714,7 +767,7 @@ fn serve_cdp_websocket(
         };
         let parsed = serde_json::from_str::<Value>(&text);
         let response = match parsed {
-            Ok(request) => handle_cdp_request(request, &tx, &proxy, &wake_count),
+            Ok(request) => handle_cdp_request(request, &tx, &proxy, &wake_count, &performance),
             Err(error) => Some(json!({
                 "id": Value::Null,
                 "error": { "code": -32700, "message": format!("Parse error: {error}") },
@@ -740,6 +793,7 @@ fn handle_cdp_request(
     tx: &Sender<CdpTask>,
     proxy: &EventLoopProxy<()>,
     wake_count: &Arc<AtomicUsize>,
+    performance: &super::performance::PerformanceMonitor,
 ) -> Option<Value> {
     let method = request
         .get("method")
@@ -763,12 +817,20 @@ fn handle_cdp_request(
         Value::Object(response)
     };
     let immediate: Option<Result<Value, String>> = match method.as_str() {
+        "Qua.getPerformance" => Some(authorize_editor(&params).map(|_| {
+            performance.sample(
+                params
+                    .get("enabled")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(true),
+            )
+        })),
         "Browser.getVersion" => Some(Ok(json!({
             "protocolVersion": "1.3",
             "product": "QuaEngine Native Renderer",
             "revision": "0",
             "userAgent": "QuaEngine Native CDP",
-            "jsVersion": "QuickJS",
+            "jsVersion": "JavaScriptCore",
         }))),
         "Target.getTargets" => Some(Ok(json!({
             "targetInfos": [target_info_json()],
@@ -781,12 +843,8 @@ fn handle_cdp_request(
             "sessionId": CDP_SESSION_ID,
         }))),
         "Target.detachFromTarget" => Some(Ok(json!({}))),
-        "Page.enable"
-        | "DOM.enable"
-        | "Runtime.enable"
-        | "Input.enable"
-        | "Network.enable"
-        | "Log.enable" => Some(Ok(json!({}))),
+        "CSS.enable" | "Page.enable" | "DOM.enable" | "Runtime.enable" | "Input.enable"
+        | "Network.enable" | "Log.enable" => Some(Ok(json!({}))),
         "Page.getFrameTree" => Some(Ok(json!({
             "frameTree": {
                 "frame": {
@@ -853,7 +911,10 @@ fn handle_cdp_request(
             };
             Some(attach_session(Map::from_iter([
                 ("id".to_string(), id),
-                ("error".to_string(), json!({ "code": code, "message": message })),
+                (
+                    "error".to_string(),
+                    json!({ "code": code, "message": message }),
+                ),
             ])))
         }
         Err(_) => None,

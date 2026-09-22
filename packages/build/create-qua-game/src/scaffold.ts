@@ -95,7 +95,7 @@ export async function scaffoldProject(options: ScaffoldProjectOptions): Promise<
   }
   else {
     await mkdir(targetDirectory, { recursive: true })
-    await copyTemplateFiles(files, variables)
+    await copyTemplateFiles(files, variables, Boolean(options.force))
   }
 
   let installed = false
@@ -112,6 +112,7 @@ export async function scaffoldProject(options: ScaffoldProjectOptions): Promise<
   }
 
   printSuccess(stdout, {
+    plugin: template.name === 'plugin',
     cwd,
     projectTitle,
     targetDirectory,
@@ -226,15 +227,15 @@ async function collectTemplateFiles(templateDirectory: string, targetDirectory: 
   return files.sort((a, b) => a.destination.localeCompare(b.destination))
 }
 
-async function copyTemplateFiles(files: readonly TemplateFile[], variables: TemplateVariables): Promise<void> {
+async function copyTemplateFiles(files: readonly TemplateFile[], variables: TemplateVariables, force: boolean): Promise<void> {
   for (const file of files) {
     await mkdir(dirname(file.destination), { recursive: true })
     if (isTextFile(file.source)) {
       const content = await readFile(file.source, 'utf8')
-      await writeFile(file.destination, renderTemplate(content, variables), 'utf8')
+      await writeFile(file.destination, renderTemplate(content, variables), { encoding: 'utf8', flag: force ? 'w' : 'wx' })
     }
     else {
-      await copyFile(file.source, file.destination)
+      await copyFile(file.source, file.destination, force ? 0 : constants.COPYFILE_EXCL)
     }
   }
 }
@@ -299,10 +300,11 @@ function printSuccess(
     packageManager: PackageManager
     installed: boolean
     dryRun: boolean
+    plugin: boolean
   },
 ): void {
   const relativeTarget = relative(result.cwd, result.targetDirectory) || '.'
-  const devCommand = getRunScriptCommand(result.packageManager, 'dev').join(' ')
+  const devCommand = getRunScriptCommand(result.packageManager, result.plugin ? 'build' : 'dev').join(' ')
   const assetsBuildCommand = `${result.packageManager} run assets:build`
   stdout.log('')
   stdout.log(`${result.dryRun ? 'Planned' : 'Created'} ${result.projectTitle} at ${result.targetDirectory}`)
@@ -313,7 +315,8 @@ function printSuccess(
     stdout.log(`  ${getInstallCommand(result.packageManager).join(' ')}`)
   }
   stdout.log(`  ${devCommand}`)
-  stdout.log(`  ${assetsBuildCommand}`)
+  if (!result.plugin)
+    stdout.log(`  ${assetsBuildCommand}`)
   stdout.log('')
   stdout.log('Tip: install the QuaScript VS Code extension for .qs diagnostics, completions, and story inspection.')
 }

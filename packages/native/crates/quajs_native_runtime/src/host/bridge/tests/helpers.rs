@@ -1,7 +1,6 @@
 use crate::host::{NativeHostInfoBuilder, NativePlatform, NativeProfile};
-use crate::quickjs::{
-    QuickJsEvaluationRequest, QuickJsRuntimeModuleKind, QuickJsRuntimeModuleRecord,
-    QuickJsSandboxLimits,
+use crate::jsc::{
+    JscEvaluationRequest, JscRuntimeModuleKind, JscRuntimeModuleRecord, JscSandboxLimits,
 };
 
 use super::NativeHostInfo;
@@ -16,17 +15,17 @@ pub(super) fn host_info() -> NativeHostInfo {
         .build()
 }
 
-pub(super) fn quickjs_request_for_asset(asset_name: &str) -> QuickJsEvaluationRequest {
-    QuickJsEvaluationRequest {
-        module: QuickJsRuntimeModuleRecord {
+pub(super) fn jsc_request_for_asset(asset_name: &str) -> JscEvaluationRequest {
+    JscEvaluationRequest {
+        module: JscRuntimeModuleRecord {
             asset_name: asset_name.to_string(),
             bundle_name: "runtime.chapter.native-ui".to_string(),
             package_id: "runtime.chapter.native-ui".to_string(),
-            kind: QuickJsRuntimeModuleKind::Script,
+            kind: JscRuntimeModuleKind::Script,
             code: "export default function opening() {}".to_string(),
             bytes: vec![1, 2, 3],
         },
         module_graph: Vec::new(),
-        limits: QuickJsSandboxLimits::default(),
+        limits: JscSandboxLimits::default(),
     }
 }

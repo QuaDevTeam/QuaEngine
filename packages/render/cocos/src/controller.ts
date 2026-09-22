@@ -249,6 +249,10 @@ export class QuaCocosRendererController {
 
   refresh(): void {
     this.revision += 1
+    for (const [id, node] of this.layers) {
+      if (captureRoleForLayer(id) !== 'scene')
+        this.host.nodes.setNodeVisible(node, this.projection.ui.visible !== false)
+    }
     if (this.started)
       this.applyStageLayout()
     this.publish()
@@ -560,6 +564,8 @@ export class QuaCocosRendererController {
     if (existing) {
       this.host.nodes.setNodeTransform(existing, { zIndex: order })
       this.host.nodes.setNodeMetadata?.(existing, { layerId: id, order, captureRole: captureRoleForLayer(id) })
+      if (captureRoleForLayer(id) !== 'scene')
+        this.host.nodes.setNodeVisible(existing, this.projection.ui.visible !== false)
       return existing
     }
     const node = this.host.nodes.createNode(kind, {
@@ -569,6 +575,8 @@ export class QuaCocosRendererController {
     this.host.nodes.setNodeTransform(node, { zIndex: order })
     this.host.nodes.setNodeMetadata?.(node, { layerId: id, order, captureRole: captureRoleForLayer(id) })
     this.layers.set(id, node)
+    if (captureRoleForLayer(id) !== 'scene')
+      this.host.nodes.setNodeVisible(node, this.projection.ui.visible !== false)
     return node
   }
 
@@ -1249,7 +1257,7 @@ export class QuaCocosRendererController {
     }
     finally {
       for (const node of hiddenLayers) {
-        this.host.nodes.setNodeVisible(node, true)
+        this.host.nodes.setNodeVisible(node, this.projection.ui.visible !== false)
       }
     }
   }

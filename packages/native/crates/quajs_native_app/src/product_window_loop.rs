@@ -259,6 +259,10 @@ where
         self.state.target_frame_count()
     }
 
+    pub(crate) fn completed_frame_count(&self) -> usize {
+        self.state.completed_frame_count
+    }
+
     pub(crate) fn present_attempt_count(&self) -> usize {
         self.state.present_attempt_count()
     }
@@ -313,10 +317,9 @@ where
     where
         F: FnOnce(&mut NativeProductWindowRenderer, &mut H) -> Result<(), E>,
         E: Display,
-        A: FnOnce(&NativeProductWindowRuntime<H>) -> Result<(), AE>,
+        A: FnOnce(&NativeProductWindowRuntime<H>, &NativeProductWindowPresentOutcome) -> Result<(), AE>,
         AE: Display,
     {
-        let attempt = self.state.begin_present_attempt();
         let product_frame = self
             .runtime
             .render_projection_json_with_media_teardown(input)
@@ -325,6 +328,28 @@ where
                     "native product window projection frame failed: {error}"
                 ))
             })?;
+        let ready = product_frame.ready_for_presentation().map_err(|error| {
+            NativeProductWindowLoopError::with_product_frame(
+                format!("native frame resource preparation failed: {error}"),
+                product_frame.clone(),
+            )
+        })?;
+        if !ready {
+            // Keep the last complete OS/compositor surface. Rendering and host
+            // sync continue offscreen, but input/capture hooks and finite-frame
+            // completion must not consume an incomplete image frame.
+            return Ok(NativeProductWindowLoopFrameResult {
+                product_frame,
+                present_outcome: NativeProductWindowPresentOutcome {
+                    present_status: "PreparingResources",
+                    presented: false,
+                    surface_refresh_recommended: false,
+                    submitted_command_buffer_count: 0,
+                },
+                shutdown: None,
+            });
+        }
+        let attempt = self.state.begin_present_attempt();
         {
             let (renderer, host) = self.runtime.renderer_and_host_mut();
             before_present(renderer, host).map_err(|error| {
@@ -354,7 +379,7 @@ where
                 ))
             })?;
         }
-        after_present(&self.runtime).map_err(|error| {
+        after_present(&self.runtime, &present_outcome).map_err(|error| {
             NativeProductWindowLoopError::with_product_frame(
                 format!("native product window after-present hook failed: {error}"),
                 product_frame.clone(),

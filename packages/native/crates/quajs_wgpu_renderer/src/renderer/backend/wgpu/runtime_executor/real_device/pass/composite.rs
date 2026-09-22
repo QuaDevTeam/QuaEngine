@@ -16,6 +16,8 @@ use crate::renderer::backend::wgpu::runtime_executor::WgpuNativeRenderRuntimeErr
 /// Sibling groups reuse the same target after their composite draw is encoded.
 #[derive(Clone, Debug)]
 pub(in super::super) struct Compositor {
+    asynchronous: bool,
+    transition_compiler: super::transition::TransitionCompiler,
     layout: wgpu::BindGroupLayout,
     pipeline: wgpu::RenderPipeline,
     targets: Vec<RealRuntimeFrameTarget>,
@@ -23,7 +25,10 @@ pub(in super::super) struct Compositor {
 }
 
 impl Compositor {
-    pub(in super::super) fn new(target: &RealWgpuNativeRenderRuntimeTarget) -> Self {
+    pub(in super::super) fn new(
+        target: &RealWgpuNativeRenderRuntimeTarget,
+        asynchronous: bool,
+    ) -> Self {
         let device = target.device();
         let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("qua-native::composite-layout"),
@@ -118,6 +123,8 @@ impl Compositor {
             cache: None,
         });
         Self {
+            asynchronous,
+            transition_compiler: Default::default(),
             layout,
             pipeline,
             targets: Vec::new(),
@@ -167,7 +174,9 @@ impl Compositor {
                 };
                 let required_bytes = (depth as u64 + 1) * frame_bytes
                     + shadow_bytes
-                    + if group.blend_mode != CompositeBlendMode::Normal {
+                    + if group.blend_mode != CompositeBlendMode::Normal
+                        || group.transition_shader.is_some()
+                    {
                         frame_bytes
                     } else {
                         0
@@ -243,6 +252,10 @@ impl Compositor {
         Ok(())
     }
 
+    pub(in super::super) fn transition_status(&self, source: &str) -> Result<bool, String> {
+        self.transition_compiler.status(source)
+    }
+
     pub(in super::super) fn clear_shadow_blur(&mut self) {
         self.shadow_blur.clear();
     }
@@ -265,8 +278,23 @@ impl Compositor {
         scratch: &mut super::super::resources::backdrop::BackdropResources,
         decoded_textures: &BTreeMap<String, RealRuntimeDecodedTexture>,
     ) {
+        let custom_pipeline = if let Some(shader) = &group.transition_shader {
+            match self.transition_compiler.prepare(
+                target,
+                &self.layout,
+                &shader.source,
+                self.asynchronous,
+            ) {
+                Some(Ok(pipeline)) => Some(pipeline),
+                _ => return, // Leave the already rendered outgoing image visible.
+            }
+        } else {
+            None
+        };
         let captured;
-        let backdrop_view = if group.blend_mode != CompositeBlendMode::Normal {
+        let backdrop_view = if group.blend_mode != CompositeBlendMode::Normal
+            || group.transition_shader.is_some()
+        {
             captured = capture_backdrop_view(target, destination, scratch, encoder);
             &captured
         } else {
@@ -364,7 +392,27 @@ impl Compositor {
             lighting.map_or(1.0, |l| l.rotation_radians.cos()),
             lighting.map_or(0.0, |l| l.rotation_radians.sin()),
         ];
-        let bytes: Vec<u8> = values.into_iter().flat_map(f32::to_le_bytes).collect();
+        let bytes: Vec<u8> = if let Some(shader) = &group.transition_shader {
+            [
+                shader.progress,
+                target.extent().width as f32,
+                target.extent().height as f32,
+                0.0,
+                shader.params[0],
+                shader.params[1],
+                shader.params[2],
+                shader.params[3],
+                shader.bounds.x as f32,
+                shader.bounds.y as f32,
+                shader.bounds.width as f32,
+                shader.bounds.height as f32,
+            ]
+            .into_iter()
+            .flat_map(f32::to_le_bytes)
+            .collect()
+        } else {
+            values.into_iter().flat_map(f32::to_le_bytes).collect()
+        };
         let uniform = target
             .device()
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -421,8 +469,9 @@ impl Compositor {
                 occlusion_query_set: None,
                 multiview_mask: None,
             });
-            pass.set_pipeline(&self.pipeline);
+            pass.set_pipeline(custom_pipeline.as_ref().unwrap_or(&self.pipeline));
             pass.set_bind_group(0, &bind_group, &[]);
+            target.record_draw();
             pass.draw(0..3, 0..1);
         }
         destination.finish_pass();

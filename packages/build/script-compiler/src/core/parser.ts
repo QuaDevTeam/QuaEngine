@@ -457,10 +457,7 @@ export class QuaScriptParser {
     return {
       lines,
       offset: firstLine.offset,
-      range: {
-        start: firstLine.range.start,
-        end: lastLine.range.end,
-      },
+      range: rangeFromOffsets(this.lineStarts, firstLine.offset, lastLine.offset + lastLine.text.length),
       text,
     }
   }
@@ -614,10 +611,20 @@ export class QuaScriptParser {
       case 'NullLiteral':
         return null
       case 'ArrayExpression':
+        // Spreads and holes carry runtime semantics that a plain value array loses.
+        if (node.elements.some(element => !t.isExpression(element))) {
+          return node
+        }
         return node.elements
           .filter((element): element is t.Expression => Boolean(element) && t.isExpression(element))
           .map(element => this.convertExpressionValue(element))
       case 'ObjectExpression':
+        // Keep dynamic keys, spreads and methods as syntax; filtering properties
+        // silently discarded reusable definitions such as { ...transition }.
+        if (node.properties.some(property => !t.isObjectProperty(property)
+          || property.computed || !t.isExpression(property.value))) {
+          return node
+        }
         return Object.fromEntries(node.properties
           .filter((property): property is t.ObjectProperty => t.isObjectProperty(property) && t.isExpression(property.value))
           .map((property) => {

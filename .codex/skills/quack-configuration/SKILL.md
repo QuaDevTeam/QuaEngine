@@ -9,6 +9,8 @@ Use this skill when creating, reviewing, or changing `@quajs/quack` configuratio
 
 ## Entry Points
 
+Production builds expose `onProgress` with versioned stage events (`running`, `completed`, `skipped`). Emit completion only after the operation succeeds, count actual completed resource bundles, and explicitly skip unconfigured notarization. The editor CLI transport is `--progress-fd 3`, a dedicated inherited pipe; ordinary stdout/stderr remain human logs. Preserve the public event contract when changing build stages, editor labels and decoder tests together.
+
 Use `defineConfig` from `@quajs/quack` for TypeScript config:
 
 ```ts
@@ -109,6 +111,8 @@ export default defineConfig({
 ```
 
 Bundle definitions support `name`, `displayName`, `source`, `priority`, `compatibility`, `dependencies`, `loadTrigger`, `description`, `format`, `compression`, `encryption`, `assetTargets`, and `assetTarget`.
+
+Inline `workspace` configs and config files both feed the workspace builder. The archive manifest's `name` is the canonical bundle name; `displayName` belongs to `workspaceBundle` metadata. Explicit `zip`/`qpk` formats must survive normalization, and a QPK without compression settings defaults to `none`, never `deflate`. Runtime `loadWorkspaceBundles(index, names?, options)` consumes `workspace-index.json`, loads dependencies before selected packs, and defaults to `immediate` packs. Revalidate that index and retain each artifact's version/build/archive hash.
 
 ## Qua Project Manifest
 
@@ -324,3 +328,9 @@ quack extract ./dist/game.qpk ./extracted
 ## Vite static bundle output
 
 The Vite integration captures the finished Quack artifact through `postBundle` and emits its bytes through Vite, so `emptyOutDir` cannot remove the only bundle. Production `asset-manifest.json.bundleFile` names the emitted versioned QPK/ZIP at the output root. Clients should resolve that name relative to their deployment base and use `createWebAssetRuntime`; `createViteDevAssetRuntime` requires the development server and is not a production loader. Verify the named file exists after a complete Vite build.
+
+The same manifest includes `bundleIdentity: { name, version, buildNumber, hash, target? }`, where hash is SHA-256 of the final archive. Supply it as `loadBundle(file, { expected: bundleIdentity })` (or a Web runtime `{ filename, expected }` initial entry) for complete-cache reuse before downloading. Read `../quajs-plugin-asset-loading/SKILL.md` for loading scene integration and cache validation.
+
+## Production project distribution
+
+`quack project build --target web|native` runs production Vite and validates the retained module graph through the active target resolver. Native distribution currently builds macOS `.app` on macOS, with staged QPKs, pinned startup metadata, Cargo release executable, icon, signature and optional notarytool submission/stapling. Use `buildQuaProjectProduction` from `@quajs/quack/project`; see `packages/build/quack/docs/production-build.md`. `QuackBundler.bundle(manifestName)` optionally preserves a workspace bundle's identity when staging individual outputs. Never overwrite an existing release/version directory, silently downgrade requested signing/notarization, inject inactive target cores or bundle dev transport into a production app.

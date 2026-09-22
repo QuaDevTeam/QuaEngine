@@ -39,10 +39,10 @@ import { compileQuaScriptModuleToTsAsync } from '@quajs/script-compiler'
 import ts from 'typescript'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
+  createRealNativeJscBridge,
   createRealNativeProductBridge,
-  createRealNativeQuickJsBridge,
   runNativeRendererSmokeFrame,
-} from './real-quickjs-bridge'
+} from './real-jsc-bridge'
 
 describe('@quajs/engine-native runtime product smoke', () => {
   afterEach(() => {
@@ -51,13 +51,13 @@ describe('@quajs/engine-native runtime product smoke', () => {
   })
 
   it('starts real native bridges from the target manifest emitted by Quack packaging', async () => {
-    const probe = await createRealNativeQuickJsBridge()
+    const probe = await createRealNativeJscBridge()
     const emitted = await emitNativeTargetBundleManifestFromHostInfo(probe.startupHostInfo)
     const targetBundleManifest = emitted.manifest
     await probe.close()
 
     try {
-      const bridge = await createRealNativeQuickJsBridge({ targetBundleManifestPath: emitted.manifestPath })
+      const bridge = await createRealNativeJscBridge({ targetBundleManifestPath: emitted.manifestPath })
       try {
         expect(bridge.startupHostInfo.runtime).toEqual(targetBundleManifest.nativeRuntime)
         expect(bridge.startupHostInfo.renderer.capabilityManifestHash).toBe(
@@ -84,17 +84,17 @@ describe('@quajs/engine-native runtime product smoke', () => {
         await productBridge.close()
       }
 
-      await expect(createRealNativeQuickJsBridge({
+      await expect(createRealNativeJscBridge({
         targetBundleManifest: {
           ...targetBundleManifest,
           nativeRuntime: {
             ...targetBundleManifest.nativeRuntime!,
-            quickjsVersion: 'stale-quickjs',
+            jscVersion: 'stale-jsc',
           },
         },
-      })).rejects.toThrow(/nativeRuntime\.quickjsVersion "stale-quickjs" does not match host runtime value/)
+      })).rejects.toThrow(/nativeRuntime\.jscVersion "stale-jsc" does not match host runtime value/)
 
-      await expect(createRealNativeQuickJsBridge({
+      await expect(createRealNativeJscBridge({
         targetBundleManifest: {
           ...targetBundleManifest,
           nativeRenderer: {
@@ -179,7 +179,7 @@ describe('@quajs/engine-native runtime product smoke', () => {
         role: 'protagonist',
       },
     })
-    const bridge = await createRealNativeQuickJsBridge()
+    const bridge = await createRealNativeJscBridge()
     const host = {
       ...bridge.host,
       verifySignature: vi.fn(async () => true),
@@ -263,7 +263,7 @@ describe('@quajs/engine-native runtime product smoke', () => {
     try {
       const adapters = createNativeRuntimeAdapters(host, {
         requireSignature: true,
-        quickJsHelperModules: {
+        jscHelperModules: {
           '@quajs/character': { showWithEngine },
           '@quajs/character/animation': { playCharacterFadeWithEngine },
           '@quajs/plugin-animation': {
@@ -275,7 +275,7 @@ describe('@quajs/engine-native runtime product smoke', () => {
       const animation = new AnimationPlugin()
       const nativeHostPlugin = new NativeHostPlugin({
         host,
-        quickJsPipelineSubscriptionBridge: adapters.quickJsPipelineSubscriptionBridge,
+        jscPipelineSubscriptionBridge: adapters.jscPipelineSubscriptionBridge,
       })
       const engine = new QuaEngine({
         assets: {
@@ -366,8 +366,8 @@ describe('@quajs/engine-native runtime product smoke', () => {
     }
   }, 180_000)
 
-  it('loads a runtime QPK through real native QuickJS and renders the engine projection in Rust', async () => {
-    const bridge = await createRealNativeQuickJsBridge()
+  it('loads a runtime QPK through real native JavaScriptCore and renders the engine projection in Rust', async () => {
+    const bridge = await createRealNativeJscBridge()
     const verifySignature = vi.fn(async () => true)
     const host = {
       ...bridge.host,
@@ -425,8 +425,8 @@ describe('@quajs/engine-native runtime product smoke', () => {
       }
     `
     const sharedCode = `
-      export const sharedLabel = 'real-rquickjs';
-      export const choiceText = 'Stay with native QuickJS';
+      export const sharedLabel = 'real-jsc';
+      export const choiceText = 'Stay with native JavaScriptCore';
     `
     const manifest = createRuntimeBundleManifest({
       id: 'runtime.native.story',
@@ -437,7 +437,7 @@ describe('@quajs/engine-native runtime product smoke', () => {
         version: '1.0.0',
         assetName: 'story.js',
         metadata: {
-          nativeQuickJs: {
+          nativeJsc: {
             imports: ['shared.js'],
           },
         },
@@ -462,13 +462,13 @@ describe('@quajs/engine-native runtime product smoke', () => {
     try {
       const adapters = createNativeRuntimeAdapters(host, {
         requireSignature: true,
-        quickJsHelperModules: {
+        jscHelperModules: {
           '@quajs/plugin-audio': { playBGMWithEngine },
         },
       })
       const nativeHostPlugin = new NativeHostPlugin({
         host,
-        quickJsPipelineSubscriptionBridge: adapters.quickJsPipelineSubscriptionBridge,
+        jscPipelineSubscriptionBridge: adapters.jscPipelineSubscriptionBridge,
       })
       const engine = new QuaEngine({
         assets: {
@@ -504,9 +504,9 @@ describe('@quajs/engine-native runtime product smoke', () => {
         keyId: undefined,
       }))
 
-      const evaluationRequest = bridge.requests.find(request => request.method === 'evaluateQuickJsModule')
+      const evaluationRequest = bridge.requests.find(request => request.method === 'evaluateJscModule')
       expect(evaluationRequest).toEqual(expect.objectContaining({
-        method: 'evaluateQuickJsModule',
+        method: 'evaluateJscModule',
         params: expect.objectContaining({
           module: expect.objectContaining({
             assetName: 'story.js',
@@ -524,34 +524,34 @@ describe('@quajs/engine-native runtime product smoke', () => {
           }],
         }),
       }))
-      const factoryRequest = bridge.requests.find(request => request.method === 'callQuickJsGameStepFactory')
-      const factoryParams = factoryRequest?.method === 'callQuickJsGameStepFactory'
+      const factoryRequest = bridge.requests.find(request => request.method === 'callJscGameStepFactory')
+      const factoryParams = factoryRequest?.method === 'callJscGameStepFactory'
         ? factoryRequest.params
         : undefined
       expect(factoryRequest).toEqual(expect.objectContaining({
-        method: 'callQuickJsGameStepFactory',
+        method: 'callJscGameStepFactory',
         params: expect.objectContaining({
           exportName: 'default',
           scopeJson: '{"playerName":"Mira"}',
         }),
       }))
-      expect(factoryParams?.moduleNamespaceId).toMatch(/^quickjs:rquickjs:/)
-      expect(bridge.requests.some(request => request.method === 'callQuickJsGameStepRun')).toBe(true)
+      expect(factoryParams?.moduleNamespaceId).toMatch(/^jsc:/)
+      expect(bridge.requests.some(request => request.method === 'callJscGameStepRun')).toBe(true)
       expect(bridge.requests.some(request =>
-        request.method === 'resumeQuickJsGameStepRun'
+        request.method === 'resumeJscGameStepRun'
         && request.params.payloadJson === undefined,
       )).toBe(true)
       expect(customPipelineEvents).toEqual([{
         playerName: 'Mira',
-        via: 'real-rquickjs',
+        via: 'real-jsc',
       }])
-      const listenerDispatches = bridge.requests.filter(request => request.method === 'dispatchQuickJsPipelineListener')
+      const listenerDispatches = bridge.requests.filter(request => request.method === 'dispatchJscPipelineListener')
       expect(listenerDispatches).toHaveLength(1)
-      const listenerParams = listenerDispatches[0]?.method === 'dispatchQuickJsPipelineListener'
+      const listenerParams = listenerDispatches[0]?.method === 'dispatchJscPipelineListener'
         ? listenerDispatches[0].params
         : undefined
       expect(listenerParams).toEqual(expect.objectContaining({
-        subscriptionId: expect.stringMatching(/^quickjs:rquickjs:/),
+        subscriptionId: expect.stringMatching(/^jsc:/),
       }))
       expect(JSON.parse(listenerParams?.contextJson ?? '{}')).toEqual(expect.objectContaining({
         event: expect.objectContaining({
@@ -561,15 +561,15 @@ describe('@quajs/engine-native runtime product smoke', () => {
       }))
       await engine.getPipeline().emit('plugin/native_listener_probe', { value: 99 })
       await nextMacrotask()
-      expect(bridge.requests.filter(request => request.method === 'dispatchQuickJsPipelineListener')).toHaveLength(1)
+      expect(bridge.requests.filter(request => request.method === 'dispatchJscPipelineListener')).toHaveLength(1)
 
       expect(engine.getViewState().dialogue).toEqual(expect.objectContaining({
         visible: true,
-        text: 'Native line for Mira via real-rquickjs',
+        text: 'Native line for Mira via real-jsc',
         mode: 'narration',
       }))
       expect(engine.getViewState().choices).toEqual([
-        expect.objectContaining({ id: 'stay', text: 'Stay with native QuickJS', enabled: true }),
+        expect.objectContaining({ id: 'stay', text: 'Stay with native JavaScriptCore', enabled: true }),
         expect.objectContaining({ id: 'leave', text: 'Leave', enabled: false }),
       ])
       expect(engine.getStoryPoint()).toEqual(expect.objectContaining({
@@ -579,7 +579,7 @@ describe('@quajs/engine-native runtime product smoke', () => {
         scriptModuleVersion: '1.0.0',
       }))
 
-      const namespaceSummary = await host.getQuickJsPackageNamespaceSummary!('runtime.native.story')
+      const namespaceSummary = await host.getJscPackageNamespaceSummary!('runtime.native.story')
       expect(namespaceSummary).toEqual(expect.objectContaining({
         namespaceCount: 1,
         packageCount: 1,
@@ -593,7 +593,7 @@ describe('@quajs/engine-native runtime product smoke', () => {
       expect(frame.layout).toEqual(engine.getViewState().layout)
       expect(frame.view.dialogue).toEqual(expect.objectContaining({
         visible: true,
-        text: 'Native line for Mira via real-rquickjs',
+        text: 'Native line for Mira via real-jsc',
         mode: 'narration',
         provenance: {
           contentPackageId: 'runtime.native.story',
@@ -603,7 +603,7 @@ describe('@quajs/engine-native runtime product smoke', () => {
         visible: true,
         choices: [{
           id: 'stay',
-          text: 'Stay with native QuickJS',
+          text: 'Stay with native JavaScriptCore',
           enabled: true,
           provenance: {
             contentPackageId: 'runtime.native.story',
@@ -666,11 +666,11 @@ describe('@quajs/engine-native runtime product smoke', () => {
       }))
 
       await engine.unloadRuntimePackage('runtime.native.story', { force: true })
-      expect(nativeHostPlugin.getReleasedQuickJsPackageNamespaces()).toEqual([expect.objectContaining({
+      expect(nativeHostPlugin.getReleasedJscPackageNamespaces()).toEqual([expect.objectContaining({
         packageId: 'runtime.native.story',
         assetName: 'story.js',
       })])
-      await expect(host.getQuickJsPackageNamespaceSummary!('runtime.native.story')).resolves.toEqual(expect.objectContaining({
+      await expect(host.getJscPackageNamespaceSummary!('runtime.native.story')).resolves.toEqual(expect.objectContaining({
         namespaceCount: 0,
       }))
     }
@@ -679,8 +679,8 @@ describe('@quajs/engine-native runtime product smoke', () => {
     }
   }, 180_000)
 
-  it('runs compiled QuaScript from a runtime QPK through real native QuickJS and Rust rendering', async () => {
-    const bridge = await createRealNativeQuickJsBridge()
+  it('runs compiled QuaScript from a runtime QPK through real native JavaScriptCore and Rust rendering', async () => {
+    const bridge = await createRealNativeJscBridge()
     const verifySignature = vi.fn(async () => true)
     const host = {
       ...bridge.host,
@@ -693,7 +693,7 @@ import { formatRuntimeLabel } from './qs-shared.js'
 
 <script setup lang="ts">
 const displayName = scope.playerName || 'Player'
-const runtimeLabel = formatRuntimeLabel(scope.runtimeLabel || 'native QuickJS')
+const runtimeLabel = formatRuntimeLabel(scope.runtimeLabel || 'native JavaScriptCore')
 </script>
 
 @SetBackground('bg/native-route.png', {
@@ -727,7 +727,7 @@ Mira: Compiled QuaScript is running inside \${runtimeLabel} with \${$t('runtime.
         version: '1.0.0',
         assetName: 'compiled-story.js',
         metadata: {
-          nativeQuickJs: {
+          nativeJsc: {
             imports: ['qs-shared.js'],
           },
         },
@@ -751,14 +751,14 @@ Mira: Compiled QuaScript is running inside \${runtimeLabel} with \${$t('runtime.
     try {
       const adapters = createNativeRuntimeAdapters(host, {
         requireSignature: true,
-        quickJsHelperModules: {
+        jscHelperModules: {
           '@quajs/character': { narrateWithEngine, speakWithEngine },
           '@quajs/plugin-background': { setBackgroundWithEngine },
         },
       })
       const nativeHostPlugin = new NativeHostPlugin({
         host,
-        quickJsPipelineSubscriptionBridge: adapters.quickJsPipelineSubscriptionBridge,
+        jscPipelineSubscriptionBridge: adapters.jscPipelineSubscriptionBridge,
       })
       const engine = new QuaEngine({
         assets: {
@@ -794,11 +794,11 @@ Mira: Compiled QuaScript is running inside \${runtimeLabel} with \${$t('runtime.
       const running = engine.runScriptModule('runtime.native.qs.story', {
         allowStay: true,
         playerName: 'Mira',
-        runtimeLabel: 'real rquickjs',
+        runtimeLabel: 'real JavaScriptCore',
       })
       const runningState = trackRunningScript(running)
       await advancePastDialogue(engine, 'The native route greets Mira.', runningState)
-      await advancePastDialogue(engine, 'Compiled QuaScript is running inside real rquickjs via qs-shared with translated text.', runningState)
+      await advancePastDialogue(engine, 'Compiled QuaScript is running inside real JavaScriptCore via qs-shared with translated text.', runningState)
       const choices = await waitForChoiceProjection(engine, 'stay-with-compiled-qs', runningState)
 
       expect(state).toEqual(expect.objectContaining({
@@ -831,12 +831,12 @@ Mira: Compiled QuaScript is running inside \${runtimeLabel} with \${$t('runtime.
       expect(engine.getViewState().dialogue).toEqual(expect.objectContaining({
         visible: true,
         characterName: 'Mira',
-        text: 'Compiled QuaScript is running inside real rquickjs via qs-shared with translated text.',
+        text: 'Compiled QuaScript is running inside real JavaScriptCore via qs-shared with translated text.',
       }))
 
-      const evaluationRequest = bridge.requests.find(request => request.method === 'evaluateQuickJsModule')
+      const evaluationRequest = bridge.requests.find(request => request.method === 'evaluateJscModule')
       expect(evaluationRequest).toEqual(expect.objectContaining({
-        method: 'evaluateQuickJsModule',
+        method: 'evaluateJscModule',
         params: expect.objectContaining({
           module: expect.objectContaining({
             assetName: 'compiled-story.js',
@@ -854,10 +854,10 @@ Mira: Compiled QuaScript is running inside \${runtimeLabel} with \${$t('runtime.
           }],
         }),
       }))
-      expect(bridge.requests.some(request => request.method === 'callQuickJsGameStepRun')).toBe(true)
-      expect(bridge.requests.some(request => request.method === 'resumeQuickJsGameStepRun')).toBe(true)
+      expect(bridge.requests.some(request => request.method === 'callJscGameStepRun')).toBe(true)
+      expect(bridge.requests.some(request => request.method === 'resumeJscGameStepRun')).toBe(true)
       expect(bridge.requests.some(request =>
-        request.method === 'resumeQuickJsGameStepRun'
+        request.method === 'resumeJscGameStepRun'
         && request.params.payloadJson === '"translated text"',
       )).toBe(true)
       expect(engine.getViewState().background).toEqual(expect.objectContaining({
@@ -883,7 +883,7 @@ Mira: Compiled QuaScript is running inside \${runtimeLabel} with \${$t('runtime.
         },
       }))
       expect(frame.view.dialogue).toEqual(expect.objectContaining({
-        text: 'Compiled QuaScript is running inside real rquickjs via qs-shared with translated text.',
+        text: 'Compiled QuaScript is running inside real JavaScriptCore via qs-shared with translated text.',
         provenance: {
           contentPackageId: 'runtime.native.qs.story',
         },
@@ -929,11 +929,11 @@ Mira: Compiled QuaScript is running inside \${runtimeLabel} with \${$t('runtime.
       }))
 
       await engine.unloadRuntimePackage('runtime.native.qs.story', { force: true })
-      expect(nativeHostPlugin.getReleasedQuickJsPackageNamespaces()).toEqual([expect.objectContaining({
+      expect(nativeHostPlugin.getReleasedJscPackageNamespaces()).toEqual([expect.objectContaining({
         packageId: 'runtime.native.qs.story',
         assetName: 'compiled-story.js',
       })])
-      await expect(host.getQuickJsPackageNamespaceSummary!('runtime.native.qs.story')).resolves.toEqual(expect.objectContaining({
+      await expect(host.getJscPackageNamespaceSummary!('runtime.native.qs.story')).resolves.toEqual(expect.objectContaining({
         namespaceCount: 0,
       }))
     }
@@ -1119,7 +1119,7 @@ function collectScriptAssetNames(runtimePackage: Record<string, any>): string[] 
     if (typeof script.assetName === 'string') {
       assetNames.add(script.assetName)
     }
-    const imports = script.metadata?.nativeQuickJs?.imports
+    const imports = script.metadata?.nativeJsc?.imports
     if (Array.isArray(imports)) {
       for (const entry of imports) {
         const assetName = typeof entry === 'string'
@@ -1214,7 +1214,7 @@ async function emitNativeTargetBundleManifestFromHostInfo(hostInfo: QuaNativeHos
           buildNumber: hostInfo.app.buildNumber,
           icon: 'AppIcon.icns',
         },
-        build: { cargoFeatures: ['quickjs-rquickjs'] },
+        build: { cargoFeatures: ['javascriptcore'] },
       },
     },
   })

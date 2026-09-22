@@ -387,6 +387,12 @@ The current milestone implements the logic layer, stateless renderer contracts, 
 
 ## Development Infrastructure
 
+### IDE Licensing
+
+- First-party source under `packages/editor/**`, including built-in Character Editor and Novel Writer, is MPL-2.0; the repository-root Apache license is not an alternative for these files. Shared packages outside this directory retain their own licenses.
+- Keep IDE package `license` metadata, complete package-local `LICENSE` files and directory-level `NOTICE` scope declarations consistent. Preserve third-party licenses and notices. Moving or copying MPL-covered code does not remove its license obligations.
+- Follow `packages/editor/CONTRIBUTING.md` and its README licensing guide. Distributions must retain required notices and provide corresponding covered source with acquisition instructions. Encourage community contributions without adding noncommercial restrictions or mandatory upstream PRs to MPL.
+
 ### Build System
 - **Monorepo**: pnpm workspaces + Turborepo for package management and task orchestration
 - **TypeScript**: Full type safety across all packages

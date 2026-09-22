@@ -1,5 +1,7 @@
 #[cfg(feature = "native-audio-rodio")]
 mod dsp;
+#[cfg(feature = "native-audio-rodio")]
+pub(crate) mod output;
 mod playback;
 #[cfg(feature = "native-audio-rodio")]
 mod rodio_backend;

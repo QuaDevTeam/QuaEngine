@@ -110,6 +110,7 @@ export interface NativeUiSurfaceVideoProjection {
 }
 
 export interface NativeUiSurfaceNodeProjection {
+  accessibility?: { label?: string, pressed?: boolean, disabled?: boolean }
   bounds: NativeUiSurfaceRect
   children?: NativeUiSurfaceNodeProjection[]
   clipChildren?: boolean

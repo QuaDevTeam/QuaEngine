@@ -1,0 +1,52 @@
+# Novel Writer Development Guardrails
+
+## Scope
+
+- `novel-writer` is the editor-integrated local AI writing application, owned by the built-in `@quajs/editor-novel-writer` plugin. The browser dev server is a development harness only.
+- It must not depend on QuaEngine runtime packages, renderer packages, QPK loading, or execute project code. Its `editor/` adapter uses shared QuaScript parsing for source editing.
+- Output is visual-novel prose in the form `Speaker: content` or localized equivalents such as `人物：内容`; the editor adapter converts it to `.qs` for the current project.
+
+## Architecture
+
+- Keep orchestration code in `src/lib/server`.
+- Keep `src/routes/+page.svelte` as a route shell. Page state belongs in `src/lib/client/workspace-controller.svelte.ts`; derived labels/projections belong in `src/lib/client/workspace.ts`.
+- Keep Svelte UI code in `src/lib/components`. Workspace panes belong under `src/lib/components/workspace`, with subfolders such as `workspace/inspector` for tab panels and other cohesive groups.
+- Prefer feature-sized Svelte components instead of large mixed-responsibility files. Split route pages, workspace panes, inspector tabs, artifact viewers, review controls, and Markdown preview into separate components when they grow independently.
+- Follow `docs/architecture.md` for the current structure and the recommended future split of `src/lib/server/workflow.ts`.
+- Store all runtime user data under `~/.quaengine/novel-writer` unless `NOVEL_WRITER_HOME` overrides it.
+- Persist every agent turn and workflow event as append-only JSONL before reporting it as complete.
+- Realtime workflow updates and generated-content previews should go through the SSE stream at `/api/projects/:projectId/events`; workflow events must be broadcast only after JSONL persistence. Streamed model text is a provisional preview and must not be treated as a saved artifact until the final JSON result is normalized and written.
+- Treat DeepSeek and Tavily adapters as replaceable integrations behind local interfaces.
+- Do not introduce LangChain or another orchestration framework.
+
+## Agent Rules
+
+- Agents may use Tavily search, file tools, and sandbox commands through registered tools only.
+- Tavily search is conditional. Do not perform automatic pre-stage searches; agents should call search only when real-world science, history, news, infrastructure, legal, or other factual references are materially needed for the current artifact.
+- Agents must cite search references in artifact metadata when factual material influenced output.
+- Advanced seed fields do not skip workflow stages. Worldbuilding, character notes, outline seeds, and explicit per-section advanced-input modification instructions must still be processed through the worldbuilding, character, story-background, outline, and review agents in order.
+- Outline review can request missing supporting/side character definitions. When that happens, the workflow must loop back through character design, character review, story background, story background review, and outline before the next outline review.
+- Requirements confirmation must summarize and constrain the writing job; it must not jump straight into manuscript writing.
+- Outline review is a real gate. YOLO may continue automatically only when the review agent passes the outline or after revision loops produce a passing outline.
+- Regenerate is an approval action that immediately reruns the selected artifact stage in the background, marks the replaced artifact rejected, and leaves the regenerated artifact awaiting review. It must not require a separate run click.
+- Thinking traces are protocol data for DeepSeek context handling; do not expose them as user-facing prose.
+- Streaming responses may expose assistant content deltas for the live preview, but must not expose reasoning traces, API keys, or raw private transcripts.
+- Context compaction must preserve user requirements, approved artifacts, unresolved reviewer findings, and tool references.
+
+## UI Rules
+
+- Use shadcn-svelte registry components from `src/lib/components/ui/*` where they are installed; compatibility wrappers such as `Button.svelte`, `Input.svelte`, `Textarea.svelte`, and `Badge.svelte` may preserve the local API and visual style, but must delegate to the registry Root instead of reimplementing the control from scratch.
+- Keep the UI a dense, quiet writing workspace: no landing page, hero, decorative blobs, or card nesting.
+- Use icons through `lucide-svelte` when a button represents an action.
+- Avoid inline styles in Svelte components; add stable class names in `src/lib/styles/*`.
+- Long text, logs, and inspector panels must scroll inside stable containers instead of resizing the layout.
+- The main workspace must expose the workflow timeline so users can open worldbuilding, characters, story background, outline, outline review, scene writing, editing, supervision, and final artifacts directly.
+
+## Security Boundary
+
+- Browser development is a loopback harness for the plugin. The embedded Electron service binds loopback only and requires its host-injected per-process token.
+- Keep API keys redacted in logs, events, and client responses.
+- Store config files with owner-only permissions where the platform supports it.
+- Command execution must go through `SandboxProvider`; do not call shell commands directly from route handlers.
+
+- QS 智能回写由独立 adapter 产生锚点/变量替换方案，支持正文增删和说话人变化。宿主保留脚本、分支与演出结构，复核源码版本并运行项目静态检查；模型不得直接提供任意可执行源码。无法安全对应时报告具体冲突，不能声称静态校验保证所有叙事语义。源稿关联单独保存在任务的 editor-source.json，并在回写后更新。

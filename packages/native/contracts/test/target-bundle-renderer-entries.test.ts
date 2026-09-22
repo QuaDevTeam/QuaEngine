@@ -9,7 +9,7 @@ describe('target bundle renderer entry validation', () => {
   it('rejects renderer entries that declare a different target than the artifact', () => {
     const result = validateTargetBundleManifest(targetBundleManifest({
       rendererEntries: [
-        { specifier: '@quajs/plugin-gallery/native-renderer', pluginId: '@quajs/plugin-gallery', target: 'web' },
+        { specifier: '@quajs/plugin-gallery/surface-renderer', pluginId: '@quajs/plugin-gallery', target: 'web' },
       ],
       runtimePackages: [
         {

@@ -221,28 +221,7 @@ fn parse_rgb_channel(value: &str) -> Option<f32> {
 }
 
 fn parse_alpha_channel(value: &str) -> Option<f32> {
-    if !has_rgb_alpha_channel_syntax(value) {
-        return None;
-    }
-    let number = value.parse::<f32>().ok()?;
-    if number.is_finite() && (0.0..=1.0).contains(&number) {
-        Some(number)
-    } else {
-        None
-    }
-}
-
-fn has_rgb_alpha_channel_syntax(value: &str) -> bool {
-    if matches!(value, "0" | "1") {
-        return true;
-    }
-    if let Some(rest) = value.strip_prefix("0.") {
-        return !rest.is_empty() && rest.chars().all(|char| char.is_ascii_digit());
-    }
-    if let Some(rest) = value.strip_prefix('.') {
-        return !rest.is_empty() && rest.chars().all(|char| char.is_ascii_digit());
-    }
-    false
+    crate::projection::safety::parse_native_color_alpha(value).map(|alpha| alpha as f32)
 }
 
 fn has_unsigned_decimal_syntax(value: &str) -> bool {

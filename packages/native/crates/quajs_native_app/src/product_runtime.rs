@@ -19,6 +19,7 @@ pub(crate) struct NativeProductRuntime<B, A, H, V = (), F = ()> {
     renderer: NativeRenderer<B, A, V, F>,
     host: H,
     product_loop: NativeProductLoop,
+    background_ready_id: Option<String>,
 }
 
 impl<B, A, H, V, F> NativeProductRuntime<B, A, H, V, F>
@@ -34,6 +35,7 @@ where
             renderer,
             host,
             product_loop: NativeProductLoop::new(),
+            background_ready_id: None,
         }
     }
 
@@ -72,7 +74,57 @@ where
             .render_projection_json_with_media_teardown(&mut self.renderer, &self.host, input)?;
         self.emit_audio_backend_renderer_intents()
             .map_err(native_audio_intent_error_to_json_frame_error)?;
+        self.emit_background_ready(input, &result)?;
         Ok(result)
+    }
+
+    fn emit_background_ready(
+        &mut self,
+        input: &str,
+        result: &NativeProductLoopFrameResult,
+    ) -> Result<(), NativeTextureJsonLifecycleFrameError> {
+        if !input.contains("\"preparationId\"") {
+            self.background_ready_id = None;
+            return Ok(());
+        }
+        let frame: serde_json::Value = serde_json::from_str(input).unwrap_or_default();
+        let background = &frame["view"]["background"];
+        let Some(id) = background["preparationId"].as_str() else {
+            return Ok(());
+        };
+        if self.background_ready_id.as_deref() == Some(id) {
+            return Ok(());
+        }
+        let synced = &result.synced_frame.frame;
+        let mut error = synced
+            .texture_upload_report
+            .failures
+            .first()
+            .map(|failure| failure.message.clone());
+        let shader_ready =
+            if let Some(source) = background["shaderTransition"]["shader"]["wgsl"].as_str() {
+                match self.renderer.backend().background_shader_status(source) {
+                    Ok(ready) => ready,
+                    Err(message) => {
+                        error = Some(message);
+                        true
+                    }
+                }
+            } else {
+                true
+            };
+        if error.is_some()
+            || (shader_ready && synced.frame.texture_upload_sync.pending_requests.is_empty())
+        {
+            self.host
+                .emit_renderer_intent(NativeRendererIntent {
+                    r#type: "background/ready".into(),
+                    payload_json: Some(serde_json::json!({ "id": id, "error": error }).to_string()),
+                })
+                .map_err(NativeTextureJsonLifecycleFrameError::Host)?;
+            self.background_ready_id = Some(id.into());
+        }
+        Ok(())
     }
 
     #[allow(dead_code)]

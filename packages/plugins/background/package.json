@@ -53,11 +53,6 @@
     "@quajs/plugin-animation": "workspace:*",
     "@quajs/render-core": "workspace:*"
   },
-  "peerDependenciesMeta": {
-    "@quajs/plugin-animation": {
-      "optional": true
-    }
-  },
   "dependencies": {
     "@babel/types": "catalog:"
   },
@@ -67,6 +62,14 @@
     "@quajs/render-core": "workspace:*"
   },
   "quajs": {
+    "extension": {
+      "schemaVersion": 1,
+      "id": "qua.background.runtime",
+      "title": "Background",
+      "runtime": {
+        "entry": "."
+      }
+    },
     "type": "plugin",
     "category": "visual",
     "description": "Background image, video, layered background, and transition APIs",

@@ -19,6 +19,7 @@ pub(super) const DEFAULT_WINDOW_SMOKE_FRAME: &str =
     include_str!("../../../../test-fixtures/renderer/qui-qss-surface-frame.json");
 
 pub(super) fn native_window_smoke_enabled() -> bool {
+    if crate::packaged_app::enabled() { return true; }
     let Some(value) = std::env::var_os(WINDOW_SMOKE_ENV) else {
         return false;
     };
@@ -28,7 +29,7 @@ pub(super) fn native_window_smoke_enabled() -> bool {
 }
 
 pub(super) fn native_window_dev_enabled() -> bool {
-    env_flag_enabled(WINDOW_DEV_ENV)
+    !crate::packaged_app::enabled() && env_flag_enabled(WINDOW_DEV_ENV)
 }
 
 /// The performance HUD overlay is developer-only diagnostics. It is off by
@@ -38,17 +39,15 @@ pub(super) fn native_window_perf_hud_enabled() -> bool {
 }
 
 pub(super) fn native_window_title() -> String {
-    std::env::var(WINDOW_TITLE_ENV)
-        .ok()
-        .map(|title| title.trim().to_string())
-        .filter(|title| !title.is_empty())
-        .unwrap_or_else(|| {
-            if native_window_dev_enabled() {
-                "Qua Native Renderer Dev".to_string()
-            } else {
-                "Qua Native Renderer Smoke".to_string()
-            }
-        })
+    let name = crate::startup::compile_time_native_app_config().name;
+    if crate::packaged_app::enabled() { return name; }
+    std::env::var(WINDOW_TITLE_ENV).ok().filter(|title| !title.trim().is_empty())
+        .unwrap_or_else(|| format!("{name} (Dev)"))
+}
+
+/// Both developer and packaged game windows keep their normal interactive loop.
+pub(super) fn native_window_interactive() -> bool {
+    crate::packaged_app::enabled() || native_window_dev_enabled()
 }
 
 pub(super) fn native_window_demo_e2e_enabled() -> bool {
@@ -56,6 +55,7 @@ pub(super) fn native_window_demo_e2e_enabled() -> bool {
 }
 
 pub(super) fn load_window_smoke_frame_source() -> Result<String, NativeWindowSmokeError> {
+    if crate::packaged_app::enabled() { return Ok(DEFAULT_WINDOW_SMOKE_FRAME.to_string()); }
     let path = std::env::var_os(WINDOW_SMOKE_FRAME_ENV)
         .or_else(|| std::env::var_os(crate::renderer_smoke::RENDERER_SMOKE_FRAME_ENV));
     let Some(path) = path else {
@@ -71,7 +71,7 @@ pub(super) fn load_window_smoke_frame_source() -> Result<String, NativeWindowSmo
 }
 
 pub(super) fn load_window_smoke_target_frame_count() -> usize {
-    if native_window_dev_enabled() || native_window_demo_e2e_enabled() {
+    if native_window_interactive() || native_window_demo_e2e_enabled() {
         return usize::MAX;
     }
     let Some(value) = std::env::var_os(WINDOW_SMOKE_FRAMES_ENV) else {
@@ -94,6 +94,7 @@ pub(super) fn load_window_smoke_target_frame_count() -> usize {
 /// exists so a developer or a benchmark can pin the cadence without editing
 /// settings. Invalid values fall back to the default cadence.
 pub(super) fn load_window_target_fps_override() -> Option<u32> {
+    if crate::packaged_app::enabled() { return None; }
     let value = std::env::var_os(WINDOW_TARGET_FPS_ENV)?;
     let value = value.to_string_lossy();
     let value = value.trim();
@@ -105,6 +106,7 @@ pub(super) fn load_window_target_fps_override() -> Option<u32> {
 }
 
 fn env_flag_enabled(name: &str) -> bool {
+    if crate::packaged_app::enabled() { return false; }
     let Some(value) = std::env::var_os(name) else {
         return false;
     };
@@ -116,7 +118,7 @@ fn env_flag_enabled(name: &str) -> bool {
 /// Explicit physical capture size for finite GPU audits. Actual window DPR is
 /// still measured by winit and never replaced by a fixture's requested DPR.
 pub(super) fn load_window_capture_size() -> Option<winit::dpi::PhysicalSize<u32>> {
-    if !native_window_smoke_enabled()
+    if crate::packaged_app::enabled() || !native_window_smoke_enabled()
         || native_window_dev_enabled()
         || native_window_demo_e2e_enabled()
     {

@@ -25,7 +25,7 @@ import {
   loadQuaProjectConfig,
   mergeQuaProjectAssetTargets,
   normalizeQuaProjectConfig,
-  QUA_NATIVE_QUICKJS_CARGO_FEATURE,
+  QUA_NATIVE_JSC_CARGO_FEATURE,
   QUA_NATIVE_TARGET_BUNDLE_MANIFEST_FILE,
   QUA_TARGET_BUNDLE_MANIFEST_FILE,
   syncQuaProjectCocos,
@@ -251,7 +251,7 @@ describe('qua project config', () => {
             icon: 'assets/app/icon.png',
           },
           build: {
-            features: `native-window ${QUA_NATIVE_QUICKJS_CARGO_FEATURE} ${QUA_NATIVE_QUICKJS_CARGO_FEATURE}`,
+            features: `native-window ${QUA_NATIVE_JSC_CARGO_FEATURE} ${QUA_NATIVE_JSC_CARGO_FEATURE}`,
           },
         },
       },
@@ -270,7 +270,7 @@ describe('qua project config', () => {
         icon: 'assets/app/icon.png',
       },
       build: {
-        cargoFeatures: ['native-window', QUA_NATIVE_QUICKJS_CARGO_FEATURE],
+        cargoFeatures: ['native-window', QUA_NATIVE_JSC_CARGO_FEATURE],
       },
     })
   })
@@ -297,7 +297,7 @@ describe('qua project config', () => {
           },
           build: {
             hardening: true,
-            cargoFeatures: ['native-window', QUA_NATIVE_QUICKJS_CARGO_FEATURE],
+            cargoFeatures: ['native-window', QUA_NATIVE_JSC_CARGO_FEATURE],
           },
         },
       },
@@ -330,7 +330,7 @@ describe('qua project config', () => {
       },
       build: {
         hardening: true,
-        cargoFeatures: ['native-window', QUA_NATIVE_QUICKJS_CARGO_FEATURE],
+        cargoFeatures: ['native-window', QUA_NATIVE_JSC_CARGO_FEATURE],
       },
     })
     expect(new Set(plans.map(plan => plan.versionSegment))).toEqual(new Set(['1.2.3-beta-build-42']))
@@ -350,7 +350,7 @@ describe('qua project config', () => {
           platforms: ['macos'],
           profiles: ['release'],
           outputDir: 'dist/native-apps',
-          build: nativeQuickJsBuild(),
+          build: nativeJscBuild(),
           app: {
             icon: 'assets/app/AppIcon.icns',
           },
@@ -398,7 +398,7 @@ describe('qua project config', () => {
       selectedCorePluginFamily: 'native-core',
       selectedCoreAdapters: NATIVE_TARGET_BOOTSTRAP.coreAdapters,
       nativeRuntime: {
-        quickjsVersion: '2025-04-26',
+        jscVersion: '2025-04-26',
         nativeRuntimeVersion: '0.1.0',
         assetAdapterVersion: '0.1.0',
         storeAdapterVersion: '0.1.0',
@@ -420,7 +420,7 @@ describe('qua project config', () => {
     })
   })
 
-  it('requires quickjs-rquickjs Cargo feature when a native artifact declares QuickJS support', () => {
+  it('requires javascriptcore Cargo feature when a native artifact declares JavaScriptCore support', () => {
     const project = normalizeQuaProjectConfig({
       ...createProjectConfig(),
       targets: {
@@ -444,10 +444,10 @@ describe('qua project config', () => {
         '@quajs/pipeline',
         ...NATIVE_TARGET_BOOTSTRAP.coreAdapters,
       ],
-    })).toThrow(`targets.native.build.cargoFeatures does not include "${QUA_NATIVE_QUICKJS_CARGO_FEATURE}"`)
+    })).toThrow(`targets.native.build.cargoFeatures does not include "${QUA_NATIVE_JSC_CARGO_FEATURE}"`)
   })
 
-  it('allows no-QuickJS native artifacts to emit unsupported QuickJS runtime metadata', () => {
+  it('allows no-JavaScriptCore native artifacts to emit unsupported JavaScriptCore runtime metadata', () => {
     const project = normalizeQuaProjectConfig({
       ...createProjectConfig(),
       targets: {
@@ -464,7 +464,7 @@ describe('qua project config', () => {
     const [plan] = createQuaProjectNativeArtifactPlans(project)
     const manifest = createQuaProjectNativeTargetBundleManifest(plan, {
       nativeRenderer: createTestNativeRendererInfo(),
-      nativeRuntime: createTestNativeRuntimeInfo({ quickjsVersion: 'unsupported' }),
+      nativeRuntime: createTestNativeRuntimeInfo({ jscVersion: 'unsupported' }),
       dependencies: [
         '@quajs/engine',
         '@quajs/pipeline',
@@ -476,7 +476,7 @@ describe('qua project config', () => {
       ok: true,
       diagnostics: [],
     })
-    expect(manifest.nativeRuntime.quickjsVersion).toBe('unsupported')
+    expect(manifest.nativeRuntime.jscVersion).toBe('unsupported')
   })
 
   it('rejects native project template graphs that redeclare target core adapters', () => {
@@ -487,7 +487,7 @@ describe('qua project config', () => {
           platforms: ['macos'],
           profiles: ['release'],
           outputDir: 'dist/native-apps',
-          build: nativeQuickJsBuild(),
+          build: nativeJscBuild(),
           app: {
             icon: 'assets/app/AppIcon.icns',
           },
@@ -540,7 +540,7 @@ describe('qua project config', () => {
           platforms: ['macos'],
           profiles: ['release'],
           outputDir: join(root, 'dist/native-apps'),
-          build: nativeQuickJsBuild(),
+          build: nativeJscBuild(),
           app: {
             icon: 'assets/app/AppIcon.icns',
           },
@@ -569,7 +569,7 @@ describe('qua project config', () => {
       targetCoreResolver: 'native-core-resolver',
       selectedCorePluginFamily: 'native-core',
       nativeRuntime: {
-        quickjsVersion: '2025-04-26',
+        jscVersion: '2025-04-26',
         nativeRuntimeVersion: '0.1.0',
         assetAdapterVersion: '0.1.0',
         storeAdapterVersion: '0.1.0',
@@ -592,7 +592,7 @@ describe('qua project config', () => {
           platforms: ['macos'],
           profiles: ['release'],
           outputDir: join(root, 'dist/native-apps'),
-          build: nativeQuickJsBuild(),
+          build: nativeJscBuild(),
           app: {
             icon: 'assets/app/AppIcon.icns',
           },
@@ -636,7 +636,7 @@ describe('qua project config', () => {
           platforms: ['macos'],
           profiles: ['debug'],
           outputDir: join(root, 'dist/native-apps'),
-          build: nativeQuickJsBuild(),
+          build: nativeJscBuild(),
           app: {
             icon: 'assets/app/AppIcon.icns',
           },
@@ -680,7 +680,7 @@ describe('qua project config', () => {
           platforms: ['macos'],
           profiles: ['release'],
           outputDir: join(root, 'dist/native-apps'),
-          build: nativeQuickJsBuild(),
+          build: nativeJscBuild(),
           app: {
             icon: 'assets/app/AppIcon.icns',
           },
@@ -1151,13 +1151,13 @@ function createTestNativeRendererInfo() {
 }
 
 function createTestNativeRuntimeInfo(overrides: Partial<{
-  quickjsVersion: string
+  jscVersion: string
   nativeRuntimeVersion: string
   assetAdapterVersion: string
   storeAdapterVersion: string
 }> = {}) {
   return createTargetBundleNativeRuntimeInfo({
-    quickjsVersion: '2025-04-26',
+    jscVersion: '2025-04-26',
     nativeRuntimeVersion: '0.1.0',
     assetAdapterVersion: '0.1.0',
     storeAdapterVersion: '0.1.0',
@@ -1165,8 +1165,8 @@ function createTestNativeRuntimeInfo(overrides: Partial<{
   })
 }
 
-function nativeQuickJsBuild() {
-  return { cargoFeatures: [QUA_NATIVE_QUICKJS_CARGO_FEATURE] }
+function nativeJscBuild() {
+  return { cargoFeatures: [QUA_NATIVE_JSC_CARGO_FEATURE] }
 }
 
 function createTargetBundleManifestFixture(target: QuaTargetBootstrap): TargetBundleManifest {

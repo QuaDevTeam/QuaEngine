@@ -7,14 +7,14 @@ import type {
   RuntimePackageNativeRendererCompatibility,
   TargetBundleManifest,
 } from '@quajs/native-contracts'
-import type { NativeRendererFeatureSurfaceEntry } from './feature-surfaces'
-import type { NativeQuickJsRendererIntentBridge } from './quickjs-renderer-bridge'
-import type { NativeQuickJsHelperCallExecutor, NativeQuickJsHelperModuleRegistry, NativeQuickJsModuleNamespaceResolver, NativeQuickJsPipelineSubscriptionBridge, NativeQuickJsStepContextSerializer, NativeRuntimeModuleEvaluator } from './runtime-module-loader'
+import type { UiFeatureSurfaceEntry } from '@quajs/render-core'
+import type { NativeJscRendererIntentBridge } from './jsc-renderer-bridge'
+import type { NativeJscHelperCallExecutor, NativeJscHelperModuleRegistry, NativeJscModuleNamespaceResolver, NativeJscPipelineSubscriptionBridge, NativeJscStepContextSerializer, NativeRuntimeModuleEvaluator } from './runtime-module-loader'
 import type { NativeSavePreviewCaptureProvider } from './save-preview-capture'
 import { assertNativeRuntimePackageGuard } from '@quajs/native-contracts'
 import { assertNativeRuntimePackageCompatibility } from './compatibility'
 import { NativeHostPlugin } from './native-host-plugin'
-import { createNativeHostQuickJsGameStepModuleNamespaceResolver, createNativeHostQuickJsModuleEvaluator, createNativeQuickJsPipelineSubscriptionBridge, createNativeRuntimeModuleLoader } from './runtime-module-loader'
+import { createNativeHostJscGameStepModuleNamespaceResolver, createNativeHostJscModuleEvaluator, createNativeJscPipelineSubscriptionBridge, createNativeRuntimeModuleLoader } from './runtime-module-loader'
 
 declare const TextEncoder: {
   new(): { encode: (input: string) => Uint8Array }
@@ -22,7 +22,7 @@ declare const TextEncoder: {
 
 export interface NativeRuntimeAdapters {
   host: QuaNativeHostApi
-  quickJsPipelineSubscriptionBridge?: NativeQuickJsPipelineSubscriptionBridge
+  jscPipelineSubscriptionBridge?: NativeJscPipelineSubscriptionBridge
   runtimeModuleLoader?: RuntimeModuleLoader
   trustPolicy: RuntimeTrustPolicy
 }
@@ -35,16 +35,16 @@ export interface NativeEngineBootstrap {
 export interface NativeRuntimeAdaptersOptions {
   allowUnsignedInDevelopment?: boolean
   captureSavePreview?: NativeSavePreviewCaptureProvider
-  featureSurfaces?: readonly NativeRendererFeatureSurfaceEntry[]
+  featureSurfaces?: readonly UiFeatureSurfaceEntry[]
   hostInfo?: QuaNativeHostInfo
   moduleEvaluator?: NativeRuntimeModuleEvaluator
-  moduleNamespaceResolver?: NativeQuickJsModuleNamespaceResolver
-  quickJsHelperCallExecutor?: NativeQuickJsHelperCallExecutor
-  quickJsHelperModules?: NativeQuickJsHelperModuleRegistry
-  quickJsPipelineSubscriptionBridge?: NativeQuickJsPipelineSubscriptionBridge
-  quickJsRendererIntentBridge?: NativeQuickJsRendererIntentBridge
+  moduleNamespaceResolver?: NativeJscModuleNamespaceResolver
+  jscHelperCallExecutor?: NativeJscHelperCallExecutor
+  jscHelperModules?: NativeJscHelperModuleRegistry
+  jscPipelineSubscriptionBridge?: NativeJscPipelineSubscriptionBridge
+  jscRendererIntentBridge?: NativeJscRendererIntentBridge
   rendererId?: string
-  quickJsStepContextSerializer?: NativeQuickJsStepContextSerializer
+  jscStepContextSerializer?: NativeJscStepContextSerializer
   requireSignature?: boolean
   runtimeModuleLoader?: RuntimeModuleLoader
   targetBootstrapPackages?: readonly string[]
@@ -52,27 +52,27 @@ export interface NativeRuntimeAdaptersOptions {
 }
 
 export function createNativeRuntimeAdapters(host: QuaNativeHostApi, options: NativeRuntimeAdaptersOptions = {}): NativeRuntimeAdapters {
-  const pipelineSubscriptionBridge = options.quickJsPipelineSubscriptionBridge
-    || (host.dispatchQuickJsPipelineListener
-      ? createNativeQuickJsPipelineSubscriptionBridge(host)
+  const pipelineSubscriptionBridge = options.jscPipelineSubscriptionBridge
+    || (host.dispatchJscPipelineListener
+      ? createNativeJscPipelineSubscriptionBridge(host)
       : undefined)
   const moduleNamespaceResolver = options.moduleNamespaceResolver
-    || (host.evaluateQuickJsModule && host.callQuickJsGameStepFactory && host.callQuickJsGameStepRun && host.resumeQuickJsGameStepRun
-      ? createNativeHostQuickJsGameStepModuleNamespaceResolver(host, {
-          executeHelperCall: options.quickJsHelperCallExecutor,
-          helperModules: options.quickJsHelperModules,
+    || (host.evaluateJscModule && host.callJscGameStepFactory && host.callJscGameStepRun && host.resumeJscGameStepRun
+      ? createNativeHostJscGameStepModuleNamespaceResolver(host, {
+          executeHelperCall: options.jscHelperCallExecutor,
+          helperModules: options.jscHelperModules,
           pipelineSubscriptionBridge,
-          serializeStepContext: options.quickJsStepContextSerializer,
+          serializeStepContext: options.jscStepContextSerializer,
         })
       : undefined)
   const moduleEvaluator = options.moduleEvaluator
     || (moduleNamespaceResolver
-      ? createNativeHostQuickJsModuleEvaluator(host, moduleNamespaceResolver)
+      ? createNativeHostJscModuleEvaluator(host, moduleNamespaceResolver)
       : undefined)
 
   return {
     host,
-    quickJsPipelineSubscriptionBridge: pipelineSubscriptionBridge,
+    jscPipelineSubscriptionBridge: pipelineSubscriptionBridge,
     runtimeModuleLoader: options.runtimeModuleLoader || (moduleEvaluator
       ? createNativeRuntimeModuleLoader({
           evaluator: moduleEvaluator,
@@ -94,8 +94,8 @@ export function createNativeEngineBootstrap(host: QuaNativeHostApi, options: Nat
       featureSurfaces: options.featureSurfaces,
       host,
       info: options.hostInfo,
-      quickJsPipelineSubscriptionBridge: adapters.quickJsPipelineSubscriptionBridge,
-      quickJsRendererIntentBridge: options.quickJsRendererIntentBridge,
+      jscPipelineSubscriptionBridge: adapters.jscPipelineSubscriptionBridge,
+      jscRendererIntentBridge: options.jscRendererIntentBridge,
       rendererId: options.rendererId,
       targetBootstrapPackages: options.targetBootstrapPackages,
       targetBundleManifest: options.targetBundleManifest,

@@ -1,9 +1,9 @@
 import type { RendererInputCommandPayload, RendererTextInputPayload } from '@quajs/engine'
 import type { NativeRendererIntent, QuaNativeHostApi } from '@quajs/native-contracts'
-import type { NativeRendererFeatureSurfaceEntry } from './feature-surfaces'
+import type { UiFeatureSurfaceEntry } from '@quajs/render-core'
 import { emitRenderToLogic, RenderToLogicEvents } from '@quajs/engine'
 import { parseNativeRendererIntentPayload } from '@quajs/native-contracts'
-import { resolveNativeRendererFeatureIntent } from './feature-surfaces'
+import { resolveUiFeatureIntent } from '@quajs/render-core'
 
 type NativeRendererIntentPipeline = Parameters<typeof emitRenderToLogic>[0]
 const RENDER_TO_LOGIC_UI_INTENT = 'ui/intent'
@@ -28,6 +28,7 @@ const INPUT_COMMANDS = new Set([
   'choice:next',
   'choice:confirm',
   'ui:cancel',
+  'ui:screenshot',
   'ui:menu',
   'ui:save',
   'ui:load',
@@ -48,7 +49,7 @@ export interface NativeRendererIntentDispatchResult {
 }
 
 export interface NativeRendererIntentBridgeOptions {
-  featureSurfaces?: readonly NativeRendererFeatureSurfaceEntry[]
+  featureSurfaces?: readonly UiFeatureSurfaceEntry[]
   onError?: (error: unknown, event: NativeRendererIntent) => void
 }
 
@@ -65,6 +66,22 @@ export async function emitNativeRendererIntentToPipeline(
   options: NativeRendererIntentBridgeOptions = {},
 ): Promise<NativeRendererIntentDispatchResult> {
   switch (event.type) {
+    case 'asset-loading/renderer-progress': {
+      const payload = parseNativeRendererIntentPayload(event)
+      if (!payload || typeof payload !== 'object' || typeof (payload as Record<string, unknown>).id !== 'string')
+        throw new Error('Invalid asset loading progress payload')
+      await pipeline.emit(event.type, payload)
+      return { handled: true, emittedEvents: [{ type: event.type, payload }] }
+    }
+    case RenderToLogicEvents.BACKGROUND_READY: {
+      const payload = parseNativeRendererIntentPayload(event)
+      if (!payload || typeof payload !== 'object' || typeof (payload as Record<string, unknown>).id !== 'string')
+        throw new Error('Invalid background readiness payload')
+      const record = payload as { id: string, error?: unknown }
+      const ready = { id: record.id, ...(typeof record.error === 'string' ? { error: record.error } : {}) }
+      await emitRenderToLogic(pipeline, RenderToLogicEvents.BACKGROUND_READY, ready)
+      return { handled: true, emittedEvents: [{ type: RenderToLogicEvents.BACKGROUND_READY, payload: ready }] }
+    }
     case 'choice/select':
       return await emitNativeChoiceSelectIntent(pipeline, event)
     case 'ui/intent':
@@ -234,7 +251,7 @@ async function emitNativeUiIntent(
     await emitRenderToLogic(pipeline, RenderToLogicEvents.UI_REQUEST_UPDATE, shortcutPayload)
   }
 
-  const featureIntent = resolveNativeRendererFeatureIntent(options.featureSurfaces, action, uiIntentPayload)
+  const featureIntent = resolveUiFeatureIntent(options.featureSurfaces, action, uiIntentPayload)
   if (featureIntent) {
     emittedEvents.push({
       type: featureIntent.event,

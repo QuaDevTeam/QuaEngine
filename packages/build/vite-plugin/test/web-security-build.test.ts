@@ -80,7 +80,14 @@ it('keeps the declared QPK in the final output after Vite empties outDir', async
     const manifest = JSON.parse(await readFile(join(root, 'dist/asset-manifest.json'), 'utf8'))
     expect(manifest.bundleFile).toMatch(/^assets\.[a-z0-9]+\.qpk$/)
     expect(manifest.totalFiles).toBe(1)
-    expect((await readFile(join(root, 'dist', manifest.bundleFile))).length).toBeGreaterThan(100)
+    const bytes = await readFile(join(root, 'dist', manifest.bundleFile))
+    expect(bytes.length).toBeGreaterThan(100)
+    expect(manifest.bundleIdentity).toEqual({
+      name: 'bundle',
+      version: 1,
+      buildNumber: expect.any(String),
+      hash: createHash('sha256').update(bytes).digest('hex'),
+    })
   }
   finally {
     await rm(root, { recursive: true, force: true })

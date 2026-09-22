@@ -182,6 +182,7 @@ fn materialize_draw(
         target.extent(),
     )?;
     set_scissor(render_pass, draw.scissor.unwrap_or(draw.viewport));
+    target.record_draw();
     render_pass.draw_indexed(
         draw.first_index..draw.first_index + draw.index_count,
         draw.first_vertex as i32,

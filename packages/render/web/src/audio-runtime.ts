@@ -26,6 +26,7 @@ interface AudioRuntimeCallbacks {
 }
 
 interface SlotRuntime {
+  durationSeconds?: number
   kind: AudioTrackProjection['kind']
   source?: AudioBufferSourceNode
   gainNode: GainNode
@@ -84,6 +85,19 @@ export class WebAudioAudioRuntime {
 
   get isUnlocked(): boolean {
     return this.unlocked
+  }
+
+  getPlaybackEntries(): import('./audio-playback').WebAudioPlaybackEntry[] {
+    const clock = this.context?.currentTime ?? 0
+    return this.getAllSlots().flatMap((slot) => {
+      const track = slot.currentTrack
+      if (!track)
+        return []
+      const duration = slot.durationSeconds ?? 0
+      const position = slot.startedAt === undefined ? slot.offsetSeconds : Math.max(0, clock - slot.startedAt)
+      const state = track.state === 'paused' ? 'paused' : slot.pendingStart ? 'pending' : !slot.source ? 'stopped' : this.context?.state !== 'running' ? 'suspended' : slot.startedAt !== undefined && clock < slot.startedAt + slot.offsetSeconds ? 'scheduled' : 'playing'
+      return [{ id: track.id, state, durationMs: duration * 1000, positionMs: (track.loop && duration > 0 ? position % duration : Math.min(position, duration || position)) * 1000 }]
+    })
   }
 
   async sync(nextProjection: AudioViewProjection): Promise<void> {
@@ -313,6 +327,8 @@ export class WebAudioAudioRuntime {
 
     const resumingPausedTrack = slot.currentTrack?.state === 'paused'
       && slot.currentTrack.id === projection.id
+      && slot.currentTrack.seekMs === projection.seekMs
+      && slot.currentTrack.playAt === projection.playAt
       && !slot.source
 
     if (projection.state === 'stopping') {
@@ -385,6 +401,7 @@ export class WebAudioAudioRuntime {
 
     const source = context.createBufferSource()
     source.buffer = buffer
+    slot.durationSeconds = buffer.duration
     source.loop = projection.loop ?? false
 
     this.applyTrackFx(slot, projection)

@@ -64,7 +64,7 @@ pub struct NativeRendererInfo {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NativeRuntimeInfo {
-    pub quickjs_version: String,
+    pub jsc_version: String,
     pub native_runtime_version: String,
     pub asset_adapter_version: String,
     pub store_adapter_version: String,

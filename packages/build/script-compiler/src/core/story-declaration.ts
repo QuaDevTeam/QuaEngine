@@ -2,6 +2,7 @@ import type { ParsedQuaScript, QuaScriptChoice, QuaScriptDecoratorValue, QuaScri
 import generateModule from '@babel/generator'
 import * as t from '@babel/types'
 import { parseQuaScriptDocument } from './document'
+import { collectQuaScriptOutline } from './outline'
 import { QuaScriptParser } from './parser'
 
 const generateCode = resolveCallableDefault(generateModule)
@@ -15,7 +16,7 @@ function resolveCallableDefault<T extends (...args: any[]) => unknown>(module: T
 
 export function extractQuaScriptStoryDeclaration(
   source: string,
-  options: { moduleId?: string, runtimePackageId?: string } = {},
+  options: { moduleId?: string, runtimePackageId?: string, includeOutline?: boolean } = {},
 ): StoryDeclaration {
   const document = parseQuaScriptDocument(source)
   const errors = document.diagnostics.filter(diagnostic => diagnostic.severity === 'error')
@@ -33,7 +34,7 @@ export function extractQuaScriptStoryDeclaration(
 
 function createStoryDeclaration(
   parsed: ParsedQuaScript,
-  options: { moduleId?: string, runtimePackageId?: string },
+  options: { moduleId?: string, runtimePackageId?: string, includeOutline?: boolean },
 ): StoryDeclaration {
   const scenes: StoryDeclaration['scenes'] = []
   const entries: NonNullable<StoryDeclaration['entries']> = []
@@ -146,6 +147,7 @@ function createStoryDeclaration(
   })
 
   return {
+    ...(options.includeOutline ? { outline: collectQuaScriptOutline(parsed) } : {}),
     moduleId: options.moduleId,
     runtimePackageId: options.runtimePackageId,
     scenes,

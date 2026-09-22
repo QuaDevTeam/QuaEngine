@@ -1,6 +1,7 @@
 import type { QuaScriptDiagnostic, SourceRange } from '@quajs/script-compiler'
 import type { QuaScriptLanguageOptions } from './index'
 import type { QuaScriptVirtualDocument } from './virtual'
+import { statSync } from 'node:fs'
 import { dirname, isAbsolute, resolve } from 'node:path'
 import ts from 'typescript'
 import {
@@ -13,6 +14,7 @@ import {
 } from './virtual'
 
 export interface QuaScriptTypeScriptContext {
+  dispose: () => void
   fileName: string
   getFileText: (fileName: string) => string | undefined
   service: ts.LanguageService
@@ -32,60 +34,94 @@ export interface QuaScriptDefinition {
 export function createQuaScriptTypeScriptContext(
   source: string,
   options: QuaScriptLanguageOptions = {},
+  virtualDocument = createQuaScriptVirtualDocument(source, options),
 ): QuaScriptTypeScriptContext {
-  const virtualDocument = createQuaScriptVirtualDocument(source, options)
-  const fileName = normalizeFileName(virtualDocument.fileName)
-  const extraFiles = normalizeExtraFiles(options.extraFiles, options.projectRoot || dirname(fileName))
-  const compilerOptions = getCompilerOptions(options.projectRoot)
-  const files = new Map<string, { text: string, version: string }>([
-    [fileName, { text: virtualDocument.text, version: '0' }],
-    ...Array.from(extraFiles.entries()).map(([path, text]) => [path, { text, version: '0' }] as const),
-  ])
+  const session = options.typescriptSession ?? new QuaScriptTypeScriptSession()
+  return { ...session.context(virtualDocument, options), dispose: options.typescriptSession ? () => {} : () => session.dispose() }
+}
 
-  const getFileText = (requestedFileName: string): string | undefined => {
-    const normalized = normalizeFileName(requestedFileName)
-    return files.get(normalized)?.text || ts.sys.readFile(normalized)
+/** One active virtual document; TypeScript retains library and dependency syntax trees. */
+export class QuaScriptTypeScriptSession {
+  private service?: ts.LanguageService
+  private files = new Map<string, { text: string, version: string }>()
+  private root = ''
+  private generation = 0
+  private options: ts.CompilerOptions = {}
+
+  context(virtualDocument: QuaScriptVirtualDocument, options: QuaScriptLanguageOptions): Omit<QuaScriptTypeScriptContext, 'dispose'> {
+    const fileName = normalizeFileName(virtualDocument.fileName)
+    const root = options.projectRoot || dirname(fileName)
+    if (this.root !== root)
+      this.dispose()
+    this.root = root
+    this.options = getCompilerOptions(root)
+    const version = String(++this.generation)
+    this.files = new Map([
+      [fileName, { text: virtualDocument.text, version }],
+      ...Array.from(normalizeExtraFiles(options.extraFiles, root), ([path, text]) => [path, { text, version }] as const),
+    ])
+    const getFileText = (path: string): string | undefined => this.files.get(normalizeFileName(path))?.text ?? ts.sys.readFile(path)
+    if (!this.service) {
+      const host: ts.LanguageServiceHost = {
+        directoryExists: ts.sys.directoryExists,
+        fileExists: path => this.files.has(normalizeFileName(path)) || ts.sys.fileExists(path),
+        getCompilationSettings: () => this.options,
+        getCurrentDirectory: () => this.root,
+        getDefaultLibFileName: ts.getDefaultLibFilePath,
+        getDirectories: ts.sys.getDirectories,
+        getProjectVersion: () => String(this.generation),
+        getScriptFileNames: () => [...this.files.keys()],
+        getScriptSnapshot: (path) => {
+          const text = getFileText(path)
+          return text === undefined ? undefined : ts.ScriptSnapshot.fromString(text)
+        },
+        getScriptVersion: (path) => {
+          const file = this.files.get(normalizeFileName(path))
+          if (file)
+            return file.version
+          try {
+            const stat = statSync(path)
+            return `${stat.mtimeMs}:${stat.size}`
+          }
+          catch { return 'missing' }
+        },
+        readFile: getFileText,
+        readDirectory: ts.sys.readDirectory,
+        realpath: ts.sys.realpath,
+      }
+      this.service = ts.createLanguageService(host)
+    }
+    return { fileName, getFileText, service: this.service, virtualDocument }
   }
 
-  const host: ts.LanguageServiceHost = {
-    directoryExists: ts.sys.directoryExists,
-    fileExists: filePath => files.has(normalizeFileName(filePath)) || ts.sys.fileExists(filePath),
-    getCompilationSettings: () => compilerOptions,
-    getCurrentDirectory: () => options.projectRoot || dirname(fileName),
-    getDefaultLibFileName: ts.getDefaultLibFilePath,
-    getDirectories: ts.sys.getDirectories,
-    getScriptFileNames: () => Array.from(files.keys()),
-    getScriptKind: (scriptFileName) => {
-      if (scriptFileName === fileName) {
-        return ts.ScriptKind.TS
-      }
-      if (scriptFileName.endsWith('.tsx')) {
-        return ts.ScriptKind.TSX
-      }
-      if (scriptFileName.endsWith('.jsx')) {
-        return ts.ScriptKind.JSX
-      }
-      if (scriptFileName.endsWith('.js') || scriptFileName.endsWith('.mjs') || scriptFileName.endsWith('.cjs')) {
-        return ts.ScriptKind.JS
-      }
-      return ts.ScriptKind.TS
-    },
-    getScriptSnapshot: (scriptFileName) => {
-      const text = getFileText(scriptFileName)
-      return text === undefined ? undefined : ts.ScriptSnapshot.fromString(text)
-    },
-    getScriptVersion: scriptFileName => files.get(normalizeFileName(scriptFileName))?.version || '0',
-    readFile: getFileText,
-    readDirectory: ts.sys.readDirectory,
-    realpath: ts.sys.realpath,
+  dispose(): void {
+    this.service?.dispose()
+    this.service = undefined
+    this.files.clear()
   }
+}
 
-  return {
-    fileName,
-    getFileText,
-    service: ts.createLanguageService(host),
-    virtualDocument,
-  }
+/** Checks the actual tsconfig program, including config/syntax/semantic errors. No emit. */
+export function checkTypeScriptProject(projectRoot: string): Array<QuaScriptDiagnostic & { filePath?: string }> {
+  const configPath = ts.findConfigFile(projectRoot, ts.sys.fileExists)
+  if (!configPath)
+    return []
+  const config = ts.readConfigFile(configPath, ts.sys.readFile)
+  const parsed = ts.parseJsonConfigFileContent(config.config || {}, ts.sys, dirname(configPath), { noEmit: true }, configPath)
+  const program = ts.createProgram({ rootNames: parsed.fileNames, options: parsed.options, projectReferences: parsed.projectReferences })
+  return [...(config.error ? [config.error] : []), ...parsed.errors, ...ts.getPreEmitDiagnostics(program)].map(diagnostic => ({
+    code: `TS_${diagnostic.code}`,
+    message: ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'),
+    severity: mapTypeScriptDiagnosticSeverity(diagnostic.category),
+    source: 'quascript/typescript',
+    filePath: diagnostic.file?.fileName || configPath,
+    range: diagnostic.file && diagnostic.start !== undefined
+      ? {
+          start: { ...positionAt(createLineStarts(diagnostic.file.text), diagnostic.start) },
+          end: { ...positionAt(createLineStarts(diagnostic.file.text), diagnostic.start + (diagnostic.length || 1)) },
+        }
+      : undefined,
+  }))
 }
 
 export function collectQuaScriptTypeScriptDiagnostics(context: QuaScriptTypeScriptContext): QuaScriptDiagnostic[] {
@@ -192,7 +228,7 @@ function mapTypeScriptDiagnosticSeverity(category: ts.DiagnosticCategory): QuaSc
   }
 }
 
-function mapDefinition(
+export function mapDefinition(
   context: QuaScriptTypeScriptContext,
   definition: ts.DefinitionInfo,
 ): QuaScriptDefinition | undefined {

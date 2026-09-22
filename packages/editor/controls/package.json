@@ -1,0 +1,30 @@
+{
+  "name": "@quajs/editor-controls",
+  "type": "module",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shared Lit views, native form adapters and design tokens for QuaEngine Editor.",
+  "license": "MPL-2.0",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./styles.scss": "./src/styles.scss",
+    "./themes.scss": "./src/themes.scss"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && node ../scripts/build-styles.mjs src/styles.scss dist/styles.css",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "lit": "catalog:"
+  },
+  "devDependencies": {
+    "sass-embedded": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

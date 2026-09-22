@@ -25,7 +25,7 @@ pnpm --filter demo dev
 pnpm --filter demo typecheck
 pnpm --filter demo assets:build
 pnpm --filter demo build
-pnpm --filter demo exec vite build --config vite.native-quickjs.config.ts
+pnpm --filter demo exec vite build --config vite.native-jsc.config.ts
 pnpm dev:native
 ```
 
@@ -47,8 +47,9 @@ pnpm dev:native
 | `src/game/settings-storage.ts` | Web 阅读偏好存储适配器，与剧情存档分离 |
 | `src/game/content/` | 已实现内容的图库、章节定义 |
 | `src/game/runtime*.ts` | 共用插件与 Web 平台适配 |
-| `src/game/bootstrap.ts` | Web/Vue 界面与 pipeline 接线 |
-| `src/targets/native/` | 原生界面、会话与 QuickJS 入口 |
+| `src/game/ui/` | Web / Native 共用的 TSX、QSS、插件皮肤与导航会话 |
+| `src/game/bootstrap.ts` | Vue 舞台与共享 QUI Web 适配器接线 |
+| `src/targets/native/` | Native 帧投影、宿主接线与 JavaScriptCore 入口 |
 | `assets/` | 发布资源，目前仅通用字体；原生脚本由构建生成 |
 | `scripts/` | 运行与验证工具 |
 
@@ -71,3 +72,19 @@ Engine source packages outside `demo/` keep their own package licenses.
 
 QuaEngine names, logos, icons, badges, and related brand assets are not licensed
 for reuse. See `../TRADEMARKS.md`.
+
+## 场景叠图与截图模式
+
+阅读工具条的“截图”或 H 键隐藏全部 UI，保留背景、角色与场景图片。按 H、Esc 或点击画面恢复；恢复点击不会推进剧情。进入时停止自动阅读/快进，退出后手动继续。截图模式用于系统截图，不会自动导出文件。
+
+任意位置叠图使用 `BackgroundPlugin.addLayer({ id, assetName, x, y, width, height, fit: 'contain', zIndex })`，或 QuaScript 的 `@BackgroundLayer(id, asset, options)`。坐标使用逻辑舞台单位，横屏为 1920×1080，原点在左上。多个图片可同时显示，位于角色后方；`zIndex` 决定图片之间的顺序。清除图层保留原背景。详见 [背景插件文档](../packages/plugins/background/README.md)。
+
+叠图可以通过 `backgroundLayer:<素材ID>` 接入现有动画时间轴，支持位置、尺寸、缩放、旋转和透明度；播放完成后默认保留最终状态。截图模式下场景动画继续播放。TypeScript 与 QuaScript 示例见 [背景插件文档](../packages/plugins/background/README.md#animate-placed-images)。
+
+运行 Demo 开发服务器后，`QUA_STORY_URL=http://127.0.0.1:4186/ node demo/scripts/scene-screenshot-smoke.mjs`（从仓库根目录）检查实际图片解码、指定坐标、动画中间帧与最终状态、暂停/恢复、截图模式下播放和 UI 恢复。证据写入 `.codex-tmp/scene-screenshot/`。
+
+## 共享 UI
+
+Demo 的标题菜单、阅读工具条、章节选择、存读档、确认框、设置与记录面板统一由 `src/game/ui` 定义。两端使用同一份 TSX/QSS、逻辑坐标和导航意图；Web 用可选的 `@quajs/renderer-web/qui` DOM 适配器，Native 继续用 WGPU。基础对白、角色和场景由各自的引擎渲染器投影。
+
+同构是项目可选能力：Web-only 项目仍可使用自定义 Vue/React/Svelte 页面。Demo 必须保持一份产品 UI，不再另外维护 Vue 页面。详见 [共享 UI 开发说明](src/game/ui/README.md)。

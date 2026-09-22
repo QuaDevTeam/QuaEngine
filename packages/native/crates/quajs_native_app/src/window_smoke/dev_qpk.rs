@@ -20,7 +20,7 @@ struct NativeDevQpk {
 }
 
 pub(super) fn mount_native_dev_qpk(
-    mut host: InMemoryNativeHostApi,
+    host: InMemoryNativeHostApi,
     path: OsString,
 ) -> Result<InMemoryNativeHostApi, NativeWindowSmokeError> {
     let path = Path::new(&path);
@@ -49,17 +49,13 @@ pub(super) fn mount_native_dev_qpk(
             path.display()
         ))
     })?;
-    let qpk = parse_native_dev_qpk(&bytes)?;
-    log::info!(
-        "mounted dev QPK \"{}\": bundle={} assets={} bytes={}",
-        path.display(),
-        qpk.bundle.name,
-        qpk.assets.len(),
-        metadata.len()
-    );
+    mount_qpk_bytes(host, &bytes)
+}
+
+pub(super) fn mount_qpk_bytes(mut host: InMemoryNativeHostApi, bytes: &[u8]) -> Result<InMemoryNativeHostApi, NativeWindowSmokeError> {
+    let qpk = parse_native_dev_qpk(bytes)?;
     host = host.with_mounted_bundle(qpk.bundle);
     for (asset_name, bytes) in qpk.assets {
-        log::trace!("dev QPK asset: {asset_name} ({} bytes)", bytes.len());
         host = host.with_asset(asset_name, bytes);
     }
     Ok(host)

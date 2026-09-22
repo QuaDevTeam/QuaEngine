@@ -108,9 +108,9 @@ export function checkNativeRuntimeManifestCompatibility(
   if (!manifestRuntime)
     return diagnostics
 
-  if (manifestRuntime.quickjsVersion !== hostInfo.runtime.quickjsVersion) {
+  if (manifestRuntime.jscVersion !== hostInfo.runtime.jscVersion) {
     diagnostics.push(
-      `Native target bundle manifest QuickJS version "${manifestRuntime.quickjsVersion}" does not match host QuickJS version "${hostInfo.runtime.quickjsVersion}".`,
+      `Native target bundle manifest JavaScriptCore version "${manifestRuntime.jscVersion}" does not match host JavaScriptCore version "${hostInfo.runtime.jscVersion}".`,
     )
   }
   if (manifestRuntime.nativeRuntimeVersion !== hostInfo.runtime.nativeRuntimeVersion) {

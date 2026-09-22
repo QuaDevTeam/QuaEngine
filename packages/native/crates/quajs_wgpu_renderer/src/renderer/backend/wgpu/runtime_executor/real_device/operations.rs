@@ -17,11 +17,10 @@ impl WgpuNativeRenderRuntimeDevice for RealWgpuNativeRenderRuntimeDevice {
     ) -> Result<(), WgpuNativeRenderRuntimeError> {
         self.composite_groups = plan.composite_groups.clone();
         self.backdrop_resources.radii = plan.backdrop_blur_radii.clone();
-        let has_blend = self
-            .composite_groups
-            .values()
-            .flatten()
-            .any(|group| group.blend_mode != crate::render_graph::CompositeBlendMode::Normal);
+        let has_blend = self.composite_groups.values().flatten().any(|group| {
+            group.blend_mode != crate::render_graph::CompositeBlendMode::Normal
+                || group.transition_shader.is_some()
+        });
         let has_blurred_shadow = self.composite_groups.values().flatten().any(|group| {
             group
                 .drop_shadow
@@ -69,7 +68,14 @@ impl WgpuNativeRenderRuntimeDevice for RealWgpuNativeRenderRuntimeDevice {
         }
         if plan.render_pass_count > 0 {
             if !self.composite_groups.is_empty() && self.compositor.is_none() {
-                self.compositor = Some(super::pass::composite::Compositor::new(&self.target));
+                #[cfg(feature = "image-decode")]
+                let asynchronous = self.async_textures.is_some();
+                #[cfg(not(feature = "image-decode"))]
+                let asynchronous = false;
+                self.compositor = Some(super::pass::composite::Compositor::new(
+                    &self.target,
+                    asynchronous,
+                ));
             }
             self.frame_target.begin_frame(&self.target);
         }
@@ -110,11 +116,11 @@ impl WgpuNativeRenderRuntimeDevice for RealWgpuNativeRenderRuntimeDevice {
     fn diagnostic_note(&self) -> &'static str {
         #[cfg(feature = "image-decode")]
         {
-            "real-wgpu feature is enabled and applies runtime plans to an attached wgpu::Device/Queue for buffer creation, queue writes, retained offscreen frame-target render passes, no-bind-group color fallback indexed drawing, uploaded decoded RGBA texture sampling, optional host-provided PNG/JPEG image byte decoding into RGBA textures, deterministic placeholder fallback, uploaded-or-built-in TextAtlas sampling for TextPlaceholder draws including per-character CJK/fullwidth atlas slots, and command submission; swapchain presentation, automatic QuaAssets texture lookup/sync, real text shaping, full font fallback/layout, advanced CJK typography, video decode, and audio playback remain future backend work."
+            "real-wgpu feature is enabled and applies runtime plans to an attached wgpu::Device/Queue for buffer creation, queue writes, retained offscreen frame-target render passes, no-bind-group color fallback indexed drawing, uploaded decoded RGBA texture sampling, optional host-provided PNG/JPEG image byte decoding into RGBA textures, transparent missing-image fallback, uploaded-or-built-in TextAtlas sampling for TextPlaceholder draws including per-character CJK/fullwidth atlas slots, and command submission; swapchain presentation, automatic QuaAssets texture lookup/sync, real text shaping, full font fallback/layout, advanced CJK typography, video decode, and audio playback remain future backend work."
         }
         #[cfg(not(feature = "image-decode"))]
         {
-            "real-wgpu feature is enabled and applies runtime plans to an attached wgpu::Device/Queue for buffer creation, queue writes, retained offscreen frame-target render passes, no-bind-group color fallback indexed drawing, uploaded decoded RGBA texture sampling with deterministic placeholder fallback, uploaded-or-built-in TextAtlas sampling for TextPlaceholder draws including per-character CJK/fullwidth atlas slots, and command submission; swapchain presentation, automatic QuaAssets texture lookup/sync, encoded image decoding, real text shaping, full font fallback/layout, advanced CJK typography, video decode, and audio playback remain future backend work."
+            "real-wgpu feature is enabled and applies runtime plans to an attached wgpu::Device/Queue for buffer creation, queue writes, retained offscreen frame-target render passes, no-bind-group color fallback indexed drawing, uploaded decoded RGBA texture sampling with transparent missing-image fallback, uploaded-or-built-in TextAtlas sampling for TextPlaceholder draws including per-character CJK/fullwidth atlas slots, and command submission; swapchain presentation, automatic QuaAssets texture lookup/sync, encoded image decoding, real text shaping, full font fallback/layout, advanced CJK typography, video decode, and audio playback remain future backend work."
         }
     }
 }

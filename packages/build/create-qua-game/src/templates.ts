@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url'
 
 export const DEFAULT_TEMPLATE_NAME = 'visual-novel-vue'
 
-export type TemplateName = typeof DEFAULT_TEMPLATE_NAME
+export type TemplateName = typeof DEFAULT_TEMPLATE_NAME | 'plugin'
 
 export interface TemplateDefinition {
   name: TemplateName
@@ -20,6 +20,12 @@ const templates: Record<TemplateName, TemplateDefinition> = {
     title: 'Visual Novel Vue',
     description: 'Vue + Vite starter with QuaEngine, QuaScript, renderer preset, and Quack asset builds.',
     directory: resolve(packageRoot, 'templates/visual-novel-vue'),
+  },
+  'plugin': {
+    name: 'plugin',
+    title: 'QuaEngine Plugin',
+    description: 'TypeScript runtime plugin and editor panel with publication metadata.',
+    directory: resolve(packageRoot, 'templates/plugin'),
   },
 }
 

@@ -1,0 +1,156 @@
+#panel-scene-debugger {
+  min-height: 0;
+  overflow: auto;
+}
+.scene-debug-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--editor-divider);
+  flex-wrap: wrap;
+}
+.scene-debug-toolbar button,
+.scene-debug-details button {
+  font-size: 11px;
+}
+.scene-debug-toolbar input {
+  width: 72px;
+}
+.scene-debug-message {
+  color: var(--editor-muted);
+  font-size: 11px;
+}
+.scene-debug-toolbar [aria-pressed='true'] {
+  background: var(--editor-accent-bg);
+  border-color: var(--editor-accent);
+}
+.scene-timeline-viewport {
+  overflow: auto;
+  max-height: 260px;
+  min-height: 100px;
+}
+.scene-timeline {
+  min-width: 100%;
+  width: max-content;
+  font-size: 11px;
+}
+.scene-ruler {
+  position: relative;
+  margin-left: 140px;
+  height: 24px;
+  color: var(--editor-muted);
+}
+.scene-ruler span {
+  position: absolute;
+  border-left: 1px solid var(--editor-border);
+  padding-left: 4px;
+  height: 24px;
+}
+.scene-track {
+  display: flex;
+  border-top: 1px solid var(--editor-divider);
+  min-height: 32px;
+}
+.scene-track-label {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  flex: 0 0 140px;
+  width: 140px;
+  box-sizing: border-box;
+  background: var(--editor-surface);
+  padding: 8px 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.scene-track-clips {
+  position: relative;
+  background: repeating-linear-gradient(90deg, transparent, transparent 39px, var(--editor-guide) 40px);
+}
+.scene-clip {
+  position: absolute;
+  height: 23px;
+  padding: 2px 6px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-align: left;
+  font-size: 11px;
+  background: var(--editor-info-bg);
+  border: 1px solid var(--editor-info);
+  border-radius: 3px;
+}
+.scene-clip[data-kind='voice'] {
+  background: var(--editor-success-bg);
+  border-color: var(--editor-success);
+}
+.scene-clip[data-kind='bgm'] {
+  background: var(--editor-purple-bg);
+  border-color: var(--editor-purple);
+}
+.scene-clip[data-kind='ambient'],
+.scene-clip[data-kind='sfx'] {
+  background: var(--editor-warning-bg);
+  border-color: var(--editor-warning);
+}
+.scene-clip[aria-pressed='true'] {
+  outline: 1px solid var(--editor-accent);
+  outline-offset: 1px;
+}
+.scene-debug-details {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(320px, 1fr);
+  border-top: 1px solid var(--editor-divider);
+}
+.scene-dialogue-list {
+  max-height: 170px;
+  overflow: auto;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.scene-dialogue-list button {
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: transparent;
+  border-color: transparent;
+}
+.scene-audio-list {
+  max-height: 170px;
+  overflow: auto;
+  padding: 6px;
+  border-left: 1px solid var(--editor-divider);
+}
+.scene-audio-row {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+.scene-audio-row > button:first-child {
+  max-width: 250px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.scene-audio-row output {
+  color: var(--editor-muted);
+  font-size: 11px;
+}
+.scene-audio-row input {
+  min-width: 120px;
+  width: 100%;
+  height: 12px;
+}
+.scene-debug-note {
+  grid-column: 1 / -1;
+  color: var(--editor-muted);
+  font-size: 10px;
+  margin: 4px 10px 8px;
+}

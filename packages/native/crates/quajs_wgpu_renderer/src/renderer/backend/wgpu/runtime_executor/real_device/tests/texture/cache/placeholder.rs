@@ -103,7 +103,7 @@ fn noop_device_recreates_placeholder_sampler_when_resource_ids_change() {
         recreated_sampler.placeholder_rgba8,
         placeholder_texture_rgba8(&["images:second.png".to_string()])
     );
-    assert_ne!(recreated_sampler.placeholder_rgba8, first_placeholder);
+    assert_eq!(recreated_sampler.placeholder_rgba8, first_placeholder);
     assert_eq!(report.bind_group_create_count, 1);
     assert_eq!(report.bind_group_recreate_count, 1);
     let snapshot = device.snapshot();

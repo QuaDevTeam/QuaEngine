@@ -61,6 +61,8 @@ Use the source portrait to export app/tab sizes, rather than redrawing the chara
 
 ## Validation
 
+`create-qua-game` exposes `visual-novel-vue` and `plugin` templates to both CLI and IDE. The plugin template declares `quajs.extension` with independent runtime/editor entries, TypeScript build scripts, and no game manifest or preview. Keep its CLI next steps as build/typecheck instead of game asset commands. Non-force scaffolding uses exclusive text and binary copies; retain PNG bytes. IDE-owned SDK archives are authoring dependencies, not Runtime QPK activation. The game starter opens directly into dialogue without an empty HUD overlay or stale startup message; keep explicit renderer CSS imports and typed runtime trust keys. Validate an installed standalone starter with both typecheck and an actual Web preview.
+
 Prefer targeted checks after changes:
 
 ```bash
@@ -84,3 +86,7 @@ Also run affected `typecheck` and `build` commands. If `@quajs/renderer-web type
 - Do native artifact plans isolate debug/release outputs and release versions before packaging writes files?
 - Do native release manifest writes reject accidental overwrites of an existing version/platform artifact while debug remains regeneratable?
 - Are Quack workspace asset targets merged without losing explicit bundle target overrides?
+
+## Production builds
+
+`targets.native.build` accepts `cargoManifest`, `cargoPackage`, `viteConfig`, `appAsset`, `workspaceConfig` and `cargoFeatures`. Release packaging requires native-window and javascriptcore. `targets.native.distribution.macos` contains `minimumSystemVersion`, `signing: { mode: adhoc | developer-id, identity?, entitlements? }` and `notarization: { enabled, keychainProfile? }`. Enabled notarization requires Developer ID signing and a Keychain profile; never store secrets in the manifest. `name` is the OS window/application display name, with `(Dev)` only in development. See `packages/build/quack/docs/production-build.md` for the full example, host-only macOS scope, numeric Apple version fields, output immutability and validation. The editor and CLI use the same `buildQuaProjectProduction` pipeline.

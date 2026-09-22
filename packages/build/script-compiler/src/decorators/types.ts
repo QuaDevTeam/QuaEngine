@@ -20,6 +20,8 @@ export interface DecoratorCompileInput {
 }
 
 export interface DecoratorCompilationResult {
+  /** Static, advisory only. Never evaluate an authored expression for preloading. */
+  assetHints?: Array<{ type: string, name: string, expression?: string, sprite?: string }>
   call?: t.CallExpression
   characterName?: string
   characterRef?: t.Expression

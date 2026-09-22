@@ -29,6 +29,7 @@ export interface NativeStoreBackendOptions {
 export { createNativeStoreNamespace } from './storage-keys'
 
 export class NativeStoreBackend implements StorageBackend {
+  get storageInfo() { return { driver: 'native-host', persistence: 'host-defined', namespace: this.namespace } as const }
   private readonly namespace: string
 
   constructor(private readonly options: NativeStoreBackendOptions) {

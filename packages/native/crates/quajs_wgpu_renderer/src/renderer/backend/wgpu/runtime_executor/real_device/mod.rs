@@ -1,7 +1,10 @@
+#[cfg(feature = "image-decode")]
+mod async_textures;
 mod bind_group;
 mod buffer;
 mod capture;
 mod device;
+mod image_cache;
 mod draw;
 mod encoder;
 mod error;
