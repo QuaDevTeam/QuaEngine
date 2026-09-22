@@ -163,6 +163,8 @@ export interface StoredBundle {
   runtimePackageId?: string
   priority?: number
   loadedAt?: number
+  /** Exact committed members; absent on records not committed by the bundle loader. */
+  assetIds?: string[]
 }
 
 export interface BundleIndexRecord {
@@ -242,6 +244,10 @@ export interface AssetStorage {
   getAsset: (id: string) => Promise<StoredAsset | undefined>
   storeAsset: (asset: StoredAsset) => Promise<void>
   storeAssets: (assets: StoredAsset[]) => Promise<void>
+  /** Publish bytes and the active bundle together. Persistent adapters should use a transaction. */
+  commitBundle?: (bundle: StoredBundle, assets: StoredAsset[]) => Promise<void>
+  /** Metadata-only completeness check; must not materialize every cached payload. */
+  hasAssets?: (ids: readonly string[]) => Promise<boolean>
   findAssets: (criteria: AssetFindCriteria) => Promise<StoredAsset[]>
   getAssetWithLocaleFallback: (
     bundleName: string,
@@ -293,10 +299,11 @@ export interface AssetFetcher {
     options?: {
       cache?: boolean
       signal?: unknown
+      timeout?: number
       onProgress?: (loaded: number, total: number) => void
     },
   ) => Promise<AssetFetchResult | Uint8Array>
-  fetchJSON?: <T = unknown>(url: string, options?: { cache?: boolean, signal?: unknown }) => Promise<T>
+  fetchJSON?: <T = unknown>(url: string, options?: { cache?: boolean, signal?: unknown, timeout?: number }) => Promise<T>
 }
 
 export interface AssetCrypto {
@@ -648,6 +655,34 @@ export interface LoadBundleOptions {
   onProgress?: (loaded: number, total: number) => void
   signal?: unknown
   format?: BundleFormat
+  /** Immutable identity from a freshly revalidated deployment/workspace manifest. */
+  expected?: BundleIdentity
+  onState?: (state: BundleLoadProgress) => void
+}
+
+export interface BundleIdentity {
+  name: string
+  version: number
+  buildNumber: string
+  target?: string
+  /** SHA-256 of the complete archive, not the internal manifest or Merkle root. */
+  hash: string
+}
+
+export interface BundleLoadProgress {
+  bundleName: string
+  phase: 'checking-cache' | 'downloading' | 'verifying' | 'caching' | 'ready'
+  /** Null means the server has not supplied a reliable byte total. */
+  progress: number | null
+  loaded: number
+  total: number
+  cacheHit: boolean
+}
+
+export interface LoadWorkspaceBundlesOptions extends LoadBundleOptions {
+  /** Explicit artifact target name, e.g. web-modern. */
+  target?: string
+  onBundleState?: (state: BundleLoadProgress & { bundleIndex: number, bundleCount: number }) => void
 }
 
 export interface LoadDynamicBundleOptions extends LoadBundleOptions {

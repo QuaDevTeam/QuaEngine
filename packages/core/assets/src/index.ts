@@ -86,10 +86,12 @@ export type {
 
   AssetVariantInfo,
   BundleFormat,
+  BundleIdentity,
   BundleIndex,
   BundleIndexRecord,
   BundleInfo,
   BundleLoadError,
+  BundleLoadProgress,
   BundleManifest,
   // Results and status
   BundleStatus,
@@ -107,8 +109,9 @@ export type {
   LoadAssetOptions,
   LoadBundleOptions,
   LoadDynamicBundleOptions,
-
   LoadingState,
+
+  LoadWorkspaceBundlesOptions,
   PatchOperation,
   // Configuration
   QuaAssetsConfig,

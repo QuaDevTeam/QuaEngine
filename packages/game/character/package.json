@@ -65,6 +65,12 @@
     "@quajs/render-core": "workspace:*"
   },
   "quajs": {
+    "extension": {
+      "schemaVersion": 1,
+      "id": "qua.character.runtime",
+      "title": "Character",
+      "runtime": { "entry": "." }
+    },
     "type": "feature",
     "category": "visual",
     "description": "Character sprite, expression, and dialogue helpers for QuaEngine",
@@ -96,6 +102,10 @@
       },
       "HideCharacter": {
         "function": "hide",
+        "module": "@quajs/character"
+      },
+      "HideAllCharacters": {
+        "function": "hideAllCharacters",
         "module": "@quajs/character"
       },
       "MoveCharacter": {
@@ -188,6 +198,10 @@
               "detail": "Character name"
             }
           ]
+        },
+        "HideAllCharacters": {
+          "description": "Hide every currently visible character, preserving their sprite, expression, position and package metadata. Leaves background, dialogue and audio unchanged.",
+          "args": []
         },
         "MoveCharacter": {
           "description": "Move a character projection",

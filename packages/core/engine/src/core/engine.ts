@@ -109,6 +109,7 @@ import { SceneManager } from '../managers/scene-manager'
 import { PluginContextImpl } from '../plugins/core/context'
 import { getPluginRegistry } from '../plugins/core/registry'
 import { RuntimeContentManager } from '../runtime-content/manager'
+import { collectUpcomingAssetHints } from './asset-hints'
 import { createRollbackConfig, isSerializedRollbackJournal, RollbackController } from './rollback'
 import { resolveGameStepsAsync } from './script'
 import { assertSerializableSceneState, isChoiceTarget } from './story-targets'
@@ -581,9 +582,17 @@ export class QuaEngine {
     try {
       const resolvedSteps = await resolveGameStepsAsync(steps, scope)
       const navigationVersion = this.navigationVersion
-      for (const step of resolvedSteps) {
+      let previousAssetHints = ''
+      for (const [index, step] of resolvedSteps.entries()) {
         if (this.navigationVersion !== navigationVersion) {
           break
+        }
+        const hints = collectUpcomingAssetHints(resolvedSteps, index)
+        const hintKey = JSON.stringify(hints)
+        if (hintKey !== previousAssetHints) {
+          previousAssetHints = hintKey
+          // Preparation is optional and must never decide or delay progression.
+          void this.pipeline.emit('assets/preload', { hints }).catch(() => {})
         }
         await this.executeStep(step)
         if (this.navigationVersion !== navigationVersion) {
@@ -1067,6 +1076,13 @@ export class QuaEngine {
     if (this.getEngineState().view.flowControl.mode === 'fast-forward') {
       await this.setFlowControlMode('normal')
     }
+  }
+
+  async setUiVisible(visible: boolean): Promise<void> {
+    this.assertInitialized()
+    this.store.commit('setUiVisible', visible)
+    this.scheduleFlowControlAdvance()
+    await this.emitViewUpdate()
   }
 
   async setLayoutProjection(layout: ViewLayoutInput): Promise<void> {
@@ -2660,7 +2676,7 @@ export class QuaEngine {
     }
     this.clearFlowControlAdvance()
     const view = this.getEngineState().view
-    if (!view.dialogue.visible || view.choices.length > 0) {
+    if (!view.ui.visible || !view.dialogue.visible || view.choices.length > 0) {
       return
     }
 
@@ -3315,6 +3331,9 @@ function createEngineMutations() {
       }
       state.engine.view.plugins = plugins
     },
+    setUiVisible(state: any, visible: boolean) {
+      state.engine.view.ui = { ...state.engine.view.ui, visible }
+    },
     upsertUiOverlay(state: any, payload: { elementId: string, config?: Record<string, unknown> }) {
       const overlays = {
         ...(state.engine.view.ui.overlays || {}),
@@ -3322,7 +3341,6 @@ function createEngineMutations() {
       }
       state.engine.view.ui = {
         ...state.engine.view.ui,
-        visible: true,
         overlays,
       } satisfies UiIntent
     },
@@ -3770,6 +3788,7 @@ function cloneViewProjection(view: QuaViewProjection): QuaViewProjection {
             : undefined,
           layers: view.background.layers?.map(layer => ({
             ...layer,
+            video: layer.video ? cloneUnknownValue(layer.video) as typeof layer.video : undefined,
             composition: layer.composition ? cloneUnknownRecord(layer.composition) : undefined,
             transition: layer.transition ? { ...layer.transition } : undefined,
             metadata: layer.metadata ? cloneUnknownRecord(layer.metadata) : undefined,

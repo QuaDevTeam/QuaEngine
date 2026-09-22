@@ -120,6 +120,14 @@
           ]
         }
       }
+    },
+    "extension": {
+      "schemaVersion": 1,
+      "id": "qua.story-graph.runtime",
+      "title": "Story Graph",
+      "runtime": {
+        "entry": "."
+      }
     }
   }
 }

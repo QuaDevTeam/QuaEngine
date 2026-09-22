@@ -4,8 +4,9 @@ export function createBundleVersionKey(
   logicalName: string,
   bundleVersion: number | undefined,
   buildNumber: string | undefined,
+  target?: string,
 ): string {
-  return `${logicalName}@${bundleVersion ?? 1}#${buildNumber || 'unknown'}`
+  return `${logicalName}@${bundleVersion ?? 1}#${buildNumber || 'unknown'}${target ? `:${target}` : ''}`
 }
 
 export function getBundleLogicalName(bundle: Pick<StoredBundle, 'name' | 'logicalName'>): string {

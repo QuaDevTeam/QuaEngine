@@ -9,6 +9,7 @@ import type {
   StoredBundle,
 } from './types'
 import { createLogger } from '@quajs/logger'
+import { commitBundle } from './bundle-cache'
 import { createBundleVersionKey, getBundleLogicalName } from './bundle-identity'
 import { assertCompatibleGameVersion, assertValidAppVersion } from './compatibility'
 import { bytesToUtf8, utf8ToBytes } from './encoding'
@@ -60,8 +61,7 @@ export class PatchManager {
         return { success: false, changes, errors }
       }
 
-      await this.storage.storeAssets(staged.assets)
-      await this.storage.storeBundle(staged.bundle)
+      await commitBundle(this.storage, staged.bundle, staged.assets)
       changes.added = staged.added
       changes.modified = staged.modified
       changes.deleted = staged.deleted
@@ -240,7 +240,7 @@ export class PatchManager {
     deleted: number
   } | undefined> {
     const logicalName = getBundleLogicalName(targetBundle)
-    const targetVersionKey = targetBundle.versionKey || createBundleVersionKey(logicalName, targetBundle.version, targetBundle.buildNumber)
+    const targetVersionKey = targetBundle.versionKey || createBundleVersionKey(logicalName, targetBundle.version, targetBundle.buildNumber, targetBundle.manifest.assetTarget?.name)
     const compatibility = patchManifest.compatibility || targetBundle.compatibility || targetBundle.manifest.compatibility
     let existingAssets = await this.storage.findAssets({
       bundleName: logicalName,
@@ -328,7 +328,7 @@ export class PatchManager {
       return undefined
     }
 
-    const bundleVersionKey = createBundleVersionKey(logicalName, toVersion, patchManifest.buildNumber || targetBundle.buildNumber)
+    const bundleVersionKey = createBundleVersionKey(logicalName, toVersion, patchManifest.buildNumber || targetBundle.buildNumber, targetBundle.manifest.assetTarget?.name)
     const stagedAssets: StoredAsset[] = []
 
     for (const asset of existingAssets) {
