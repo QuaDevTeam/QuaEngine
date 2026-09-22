@@ -1,0 +1,62 @@
+{
+  "adapter": "Apple M5 Max",
+  "backend": "Metal",
+  "resources": [
+    {
+      "asyncEnqueueMs": 0.048083,
+      "backgroundPreparationMs": 311.671583,
+      "coldPreparationMs": 312.818375,
+      "dimensions": [
+        1672,
+        941
+      ],
+      "encodedBytes": 525722,
+      "file": "demo/assets/images/backgrounds/town-bus-rain.webp",
+      "outgoingImageGpuBytesDuringPreparation": 8387888,
+      "pressureKeepsActiveImage": true,
+      "pressureRetiredImageBytes": 0,
+      "recoveryPreloadMs": 306.148583,
+      "reservedPreparationPeakBytes": 44049428,
+      "residentGpuBytesIncludingMips": 8387888,
+      "warmSwitchP99Ms": 0.001209
+    },
+    {
+      "asyncEnqueueMs": 0.03925,
+      "backgroundPreparationMs": 132.638042,
+      "coldPreparationMs": 123.577667,
+      "dimensions": [
+        768,
+        1536
+      ],
+      "encodedBytes": 700375,
+      "file": "demo/assets/characters/mara/outfits/rain/neutral.png",
+      "outgoingImageGpuBytesDuringPreparation": 6291448,
+      "pressureKeepsActiveImage": true,
+      "pressureRetiredImageBytes": 0,
+      "recoveryPreloadMs": 132.301667,
+      "reservedPreparationPeakBytes": 33906590,
+      "residentGpuBytesIncludingMips": 6291448,
+      "warmSwitchP99Ms": 0.0015409999999999998
+    },
+    {
+      "asyncEnqueueMs": 0.637875,
+      "backgroundPreparationMs": 984.50525,
+      "coldPreparationMs": 980.4361670000001,
+      "dimensions": [
+        3840,
+        2160
+      ],
+      "encodedBytes": 9620346,
+      "file": "synthetic 3840x2160 RGBA PNG resized from Demo town-bus-rain.webp",
+      "outgoingImageGpuBytesDuringPreparation": 44236220,
+      "pressureKeepsActiveImage": true,
+      "pressureRetiredImageBytes": 0,
+      "recoveryPreloadMs": 924.6935,
+      "reservedPreparationPeakBytes": 241472108,
+      "residentGpuBytesIncludingMips": 44236220,
+      "warmSwitchP99Ms": 0.002333
+    }
+  ],
+  "profile": "dev (workspace unoptimized, external dependencies opt-level 3)",
+  "scope": "Real Metal, with an outgoing full-size image resident while the next prepares. Injected budget shrink/recovery checks renderer residency; not OS memory exhaustion, process peak, complete-frame latency or visible-window acceptance."
+}

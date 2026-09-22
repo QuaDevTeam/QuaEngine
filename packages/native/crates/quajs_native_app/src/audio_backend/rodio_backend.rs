@@ -11,6 +11,7 @@ use quajs_wgpu_renderer::projection::audio::AudioTrackPlaybackState;
 use rodio::{Decoder, DeviceSinkBuilder, MixerDeviceSink, Player};
 
 use super::dsp::{ProcessedSource, ProcessingControls};
+use super::output::OutputSource;
 use super::playback::{NativeAudioPlaybackBackend, NativeAudioPlaybackDriver};
 
 pub(crate) type RodioNativeAudioBackend = NativeAudioPlaybackBackend<RodioAudioPlaybackDriver>;
@@ -93,19 +94,19 @@ impl NativeAudioPlaybackDriver for RodioAudioPlaybackDriver {
         if track.looped {
             let source = Decoder::new_looped(Cursor::new(load.bytes.clone()))
                 .map_err(|error| format!("failed to decode looped native audio asset: {error}"))?;
-            player.append(ProcessedSource::new(
+            player.append(OutputSource::new(ProcessedSource::new(
                 source,
                 &track.processing,
                 self.processing.clone(),
-            ));
+            )));
         } else {
             let source = Decoder::try_from(Cursor::new(load.bytes.clone()))
                 .map_err(|error| format!("failed to decode native audio asset: {error}"))?;
-            player.append(ProcessedSource::new(
+            player.append(OutputSource::new(ProcessedSource::new(
                 source,
                 &track.processing,
                 self.processing.clone(),
-            ));
+            )));
         }
         Self::apply_track_seek(&player, track, true)?;
         let now_ms = current_native_audio_timestamp_ms();

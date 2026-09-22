@@ -2,13 +2,27 @@ import type { BackgroundIntent, EngineContext, QuaEngineInterface } from '@quajs
 import type { AnimationTimeline } from '@quajs/plugin-animation'
 import type {
   AnimationTimingFunction,
+  BackgroundTransitionIntent,
+  BackgroundTransitionTracks,
   TransitionIntent,
   ViewBackgroundLayerProjection,
   ViewBackgroundProjection,
   ViewVideoBackgroundProjection,
 } from '@quajs/render-core'
 import { BaseEnginePlugin } from '@quajs/engine'
+import { applyTrackValues, emitLogicToRender, LogicToRenderEvents, onRenderToLogic, RenderToLogicEvents, resolveBackgroundLayers } from '@quajs/render-core'
 import { backgroundDecoratorMappings } from './decorators'
+
+export { backgroundDecoratorMappings } from './decorators'
+
+let transitionSequence = 0
+const operationEpochs = new WeakMap<QuaEngineInterface, number>()
+function nextBackgroundOperation(engine: QuaEngineInterface): number {
+  const epoch = (operationEpochs.get(engine) ?? 0) + 1
+  operationEpochs.set(engine, epoch)
+  return epoch
+}
+const pendingTransitions = new WeakMap<QuaEngineInterface, { id: string, cancel: () => void }>()
 
 export const BACKGROUND_WEB_RENDERER_ENTRY = '@quajs/renderer-web/plugins/background' as const
 export const BACKGROUND_VUE_RENDERER_ENTRY = '@quajs/renderer-vue/plugins/background' as const
@@ -22,7 +36,7 @@ export type BackgroundLayerInput = Omit<ViewBackgroundLayerProjection, 'id' | 'a
 
 export interface BackgroundOptions extends Omit<ViewBackgroundProjection, 'mode' | 'assetName' | 'video' | 'layers'> {}
 
-export interface VideoBackgroundOptions extends Omit<ViewVideoBackgroundProjection, 'assetName'>, BackgroundOptions {}
+export interface VideoBackgroundOptions extends Omit<ViewVideoBackgroundProjection, 'assetName' | 'transition'>, BackgroundOptions {}
 
 export interface LayeredBackgroundOptions extends Omit<ViewBackgroundProjection, 'mode' | 'assetName' | 'video' | 'layers'> {}
 
@@ -88,12 +102,39 @@ export class BackgroundPlugin extends BaseEnginePlugin {
     return hideCgOverlayWithEngine(this.getEngine(), options)
   }
 
-  transitionBackground(transition: TransitionIntent): Promise<void> {
+  transitionBackground(transition: BackgroundTransitionIntent): Promise<void> {
     return transitionBackgroundWithEngine(this.getEngine(), transition)
   }
 
   transitionLayer(layerId: string, transition: TransitionIntent): Promise<void> {
     return transitionBackgroundLayerWithEngine(this.getEngine(), layerId, transition)
+  }
+
+  override async destroy(): Promise<void> {
+    if (this.ctx) {
+      nextBackgroundOperation(this.ctx.engine)
+      await cancelBackgroundTransition(this.ctx.engine)
+    }
+    await super.destroy?.()
+  }
+
+  override async onBeforeRollback(ctx: EngineContext): Promise<void> { await this.onBeforeJump(ctx) }
+  override async onAfterRollback(ctx: EngineContext): Promise<void> { await this.onAfterJump(ctx) }
+
+  override async onBeforeJump(ctx: EngineContext): Promise<void> {
+    nextBackgroundOperation(ctx.engine)
+    await cancelBackgroundTransition(ctx.engine)
+  }
+
+  override async onAfterJump(ctx: EngineContext): Promise<void> {
+    const target = ctx.engine.getViewState().background?.transitionTarget
+    if (!target)
+      return
+    for (const animation of ctx.engine.getViewState().animations) {
+      if (animation.definitionId?.startsWith('background.transition:'))
+        await ctx.engine.removeAnimationProjection(animation.id)
+    }
+    await setBackgroundProjectionWithTransition(ctx.engine, { ...target, transition: { type: 'instant' } })
   }
 
   override async onRuntimePackageUnload(ctx: EngineContext): Promise<void> {
@@ -139,7 +180,10 @@ export async function setBackgroundWithEngine(
 }
 
 export async function clearBackgroundWithEngine(engine: QuaEngineInterface): Promise<void> {
-  await engine.setBackgroundProjection(undefined)
+  const epoch = nextBackgroundOperation(engine)
+  await cancelBackgroundTransition(engine)
+  if (operationEpochs.get(engine) === epoch)
+    await engine.setBackgroundProjection(undefined)
 }
 
 export async function clearRuntimePackageBackgroundWithEngine(
@@ -149,6 +193,9 @@ export async function clearRuntimePackageBackgroundWithEngine(
   const current = engine.getViewState().background
   if (!current) {
     return
+  }
+  if (metadataRequiresPackage(current.metadata, packageId) || current.layers?.some(layer => backgroundLayerRequiresPackage(layer, packageId))) {
+    await cancelBackgroundTransition(engine)
   }
   if (metadataOwnedByPackage(current.metadata, packageId) || metadataRequiresPackage(current.video?.metadata, packageId)) {
     await engine.setBackgroundProjection(undefined)
@@ -160,6 +207,9 @@ export async function clearRuntimePackageBackgroundWithEngine(
       await engine.setBackgroundProjection({
         ...cloneBackground(current),
         layers,
+        preparationId: undefined,
+        transitionTarget: undefined,
+        shaderTransition: undefined,
         metadata: removeRuntimePackageFromMetadata(current.metadata, packageId),
       })
       return
@@ -330,7 +380,7 @@ export async function hideCgOverlayWithEngine(
 
 export async function transitionBackgroundWithEngine(
   engine: QuaEngineInterface,
-  transition: TransitionIntent,
+  transition: BackgroundTransitionIntent,
 ): Promise<void> {
   const current = engine.getViewState().background
   if (!current) {
@@ -341,6 +391,10 @@ export async function transitionBackgroundWithEngine(
     return
   }
 
+  if (transition.shader || transition.incoming || transition.outgoing) {
+    await setBackgroundProjectionWithTransition(engine, { ...current, transition })
+    return
+  }
   if (isAnimatedTransition(transition)) {
     await playBackgroundVisibilityTransitionWithEngine(engine, current, transition)
     return
@@ -368,7 +422,7 @@ export async function transitionBackgroundLayerWithEngine(
   await playTransitionTimeline(engine, createLayerVisibilityTimeline(layer, transition))
 }
 
-export { backgroundDecoratorMappings } from './decorators'
+export { decorators } from './decorators'
 
 function getLayeredBackground(engine: QuaEngineInterface): BackgroundIntent & { mode: 'layered', layers: ViewBackgroundLayerProjection[] } {
   const current = engine.getViewState().background
@@ -380,6 +434,7 @@ function getLayeredBackground(engine: QuaEngineInterface): BackgroundIntent & { 
     }
   }
   return {
+    ...(current ? cloneBackground(current) : {}),
     mode: 'layered',
     layers: [],
   }
@@ -396,6 +451,7 @@ function normalizeLayer(layer: BackgroundLayerInput | Readonly<ViewBackgroundLay
     ...layer,
     assetType: layer.assetType || 'images',
     visible: layer.visible !== false,
+    video: layer.video ? cloneUnknownValue(layer.video) as ViewVideoBackgroundProjection : undefined,
     composition: layer.composition ? normalizeComposition(layer.composition) : undefined,
     metadata: layer.metadata ? cloneUnknownRecord(layer.metadata) : undefined,
     transition: layer.transition ? { ...layer.transition } : undefined,
@@ -405,8 +461,10 @@ function normalizeLayer(layer: BackgroundLayerInput | Readonly<ViewBackgroundLay
 function normalizeBackground(background: Readonly<ViewBackgroundProjection>): ViewBackgroundProjection {
   return {
     ...background,
+    ...(background.transitionTarget ? { transitionTarget: normalizeBackground(background.transitionTarget) } : {}),
     ...(background.characterLighting ? { characterLighting: cloneUnknownValue(background.characterLighting) as typeof background.characterLighting } : {}),
-    transition: background.transition ? { ...background.transition } : undefined,
+    transition: background.transition ? cloneUnknownValue(background.transition) as BackgroundTransitionIntent : undefined,
+    shaderTransition: background.shaderTransition ? cloneUnknownValue(background.shaderTransition) as ViewBackgroundProjection['shaderTransition'] : undefined,
     video: background.video
       ? {
           ...background.video,
@@ -555,60 +613,169 @@ function mergeRequiredRuntimePackages(...groups: Array<readonly string[] | undef
   return Array.from(new Set(groups.flatMap(group => group || []).filter(Boolean)))
 }
 
+async function cancelBackgroundTransition(engine: QuaEngineInterface): Promise<void> {
+  const pending = pendingTransitions.get(engine)
+  if (!pending)
+    return
+  pendingTransitions.delete(engine)
+  pending.cancel()
+  const { stopAnimationWithEngine } = await import('@quajs/plugin-animation')
+  await stopAnimationWithEngine(engine, undefined, pending.id)
+}
+
+/** Definitions can be imported by QuaScript and reused with different durations/params. */
+export function defineBackgroundTransition(definition: BackgroundTransitionIntent): BackgroundTransitionIntent {
+  if (definition.duration !== undefined && (!Number.isFinite(definition.duration) || definition.duration < 0))
+    throw new Error('Background transition duration must be finite and non-negative')
+  for (const tracks of [definition.incoming, definition.outgoing]) {
+    for (const [property, frames] of Object.entries(tracks || {})) {
+      if (!/^(?:opacity|x|y|scale|rotation|composition\.filter\.(?:blur|brightness|contrast|saturate|grayscale|sepia|hueRotate|invert))$/.test(property)
+        || !frames?.length || frames.some((frame, index) => !Number.isFinite(frame.value)
+          || !Number.isFinite(frame.offset) || frame.offset < 0 || frame.offset > 1
+          || (index > 0 && frame.offset <= frames[index - 1]!.offset))) {
+        throw new Error(`Invalid background transition track: ${property}`)
+      }
+    }
+  }
+  if (definition.shader && (definition.incoming || definition.outgoing))
+    throw new Error('Use numeric tracks or a shader in one transition definition; shader code owns its per-pixel transform')
+  if (definition.shader) {
+    for (const source of [definition.shader.wgsl, definition.shader.glsl]) {
+      if (typeof source !== 'string' || !source.trim() || source.length > 65536)
+        throw new Error('Background shaders require WGSL and GLSL sources, at most 64 KiB each')
+    }
+    if (definition.shader.params && (definition.shader.params.length !== 4 || definition.shader.params.some(v => !Number.isFinite(v))))
+      throw new Error('Background shader params must contain four finite numbers')
+  }
+  return cloneUnknownValue(definition) as BackgroundTransitionIntent
+}
+
 async function setBackgroundProjectionWithTransition(
   engine: QuaEngineInterface,
   background: ViewBackgroundProjection,
 ): Promise<void> {
-  if (!isAnimatedTransition(background.transition)) {
-    await engine.setBackgroundProjection(background)
-    return
-  }
-
-  await replaceBackgroundWithTransition(engine, background, background.transition)
+  const transition = defineBackgroundTransition(background.transition ?? { type: 'crossfade', duration: 300 })
+  const epoch = nextBackgroundOperation(engine)
+  await cancelBackgroundTransition(engine)
+  if (operationEpochs.get(engine) === epoch)
+    await replaceBackgroundWithTransition(engine, background, transition)
 }
 
 async function replaceBackgroundWithTransition(
   engine: QuaEngineInterface,
   next: Readonly<ViewBackgroundProjection>,
-  transition: TransitionIntent,
+  transition: BackgroundTransitionIntent,
 ): Promise<void> {
   const current = engine.getViewState().background
-  const oldLayers = current ? flattenBackgroundForTransition(current, 'old', 0, 0) : []
-  const newLayers = flattenBackgroundForTransition(next, 'new', 1000, 0)
-  const kind = resolveTransitionKind(transition)
-  const slide = kind === 'slide' ? resolveSlideDeltas(engine, transition.type) : undefined
-
-  const tempLayers = [
-    ...oldLayers.map(record => record.layer),
-    ...newLayers.map((record) => {
-      if (!slide) {
-        return {
-          ...record.layer,
-          opacity: 0,
+  const id = `background.transition:${++transitionSequence}`
+  const animated = Boolean(current && isAnimatedTransition(transition))
+  const oldLayers = current ? flattenBackgroundForTransition(current, `old_${transitionSequence}`, 0, undefined) : []
+  const newLayers = flattenBackgroundForTransition(next, `new_${transitionSequence}`, 1000, undefined)
+  const slide = animated && resolveTransitionKind(transition) === 'slide' ? resolveSlideDeltas(engine, transition.type) : undefined
+  const pipeline = engine.getPipeline?.()
+  const timers = globalThis as unknown as { setTimeout: (fn: () => void, ms: number) => unknown, clearTimeout: (id: unknown) => void }
+  let disposeReady = () => {}
+  let cancelWait = () => {}
+  const ready = pipeline?.getListenerCount(LogicToRenderEvents.BACKGROUND_PREPARE)
+    ? new Promise<string | undefined>((resolve) => {
+        const timer = timers.setTimeout(() => {
+          disposeReady()
+          resolve('Background preparation timed out')
+        }, 30000)
+        disposeReady = onRenderToLogic(pipeline, RenderToLogicEvents.BACKGROUND_READY, (payload) => {
+          if (payload.id !== id)
+            return
+          timers.clearTimeout(timer)
+          disposeReady()
+          resolve(payload.error)
+        })
+        cancelWait = () => {
+          timers.clearTimeout(timer)
+          disposeReady()
+          resolve(undefined)
         }
-      }
-      return {
-        ...record.layer,
-        x: (record.layer.x ?? 0) + slide.newX,
-        y: (record.layer.y ?? 0) + slide.newY,
-      }
-    }),
-  ]
-
-  await engine.setBackgroundProjection(normalizeBackground({
+      })
+    : Promise.resolve(undefined)
+  pendingTransitions.set(engine, { id, cancel: cancelWait })
+  const isCurrent = () => pendingTransitions.get(engine)?.id === id && engine.getViewState().background?.preparationId === id
+  const temp = normalizeBackground({
     mode: 'layered',
-    layers: tempLayers,
+    preparationId: id,
+    transitionTarget: stripBackgroundTransitions(next),
+    layers: [...oldLayers.map(record => record.layer), ...newLayers.map(record => ({ ...record.layer, opacity: transition.shader && animated ? record.targetOpacity : 0 }))],
     characterLighting: next.characterLighting,
-    metadata: {
-      transition: {
-        type: transition.type,
-        phase: 'running',
-      },
-    },
-  }))
+    shaderTransition: transition.shader && animated ? { shader: transition.shader, progress: 0, incomingLayerIds: newLayers.map(r => r.layer.id) } : undefined,
+    metadata: { ...next.metadata, requiredRuntimePackages: mergeRequiredRuntimePackages(
+      getRequiredRuntimePackages(current?.metadata),
+      getRequiredRuntimePackages(next.metadata),
+      typeof current?.metadata?.contentPackageId === 'string' ? [current.metadata.contentPackageId] : [],
+      typeof next.metadata?.contentPackageId === 'string' ? [next.metadata.contentPackageId] : [],
+    ) },
+  })
+  try {
+    await engine.setBackgroundProjection(temp)
+    const notification = pipeline?.getListenerCount(LogicToRenderEvents.BACKGROUND_PREPARE)
+      ? emitLogicToRender(pipeline, LogicToRenderEvents.BACKGROUND_PREPARE, { id, background: temp }).then(() => ready)
+      : ready
+    const error = await Promise.race([ready, notification])
+    if (!isCurrent())
+      return
+    if (error)
+      throw new Error(error)
+    if (animated) {
+      const timeline = createReplacementTimeline(oldLayers, newLayers, transition, slide)
+      timeline.id = id
+      timeline.commit = 'none'
+      // The destination replaces this temporary composition after completion.
+      // A retained forwards sample would recreate shaderTransition.progress on
+      // the settled image without its shader definition (invalid Native JSON).
+      timeline.fill = 'none'
+      if (transition.shader) {
+        timeline.tracks = [createNumberTrack('background:main', 'shaderTransition.progress', 0, 1, timeline.duration, transition.easing)]
+      }
+      else if (transition.incoming || transition.outgoing) {
+        timeline.tracks = [
+          ...customTransitionTracks(oldLayers, transition.outgoing ?? { opacity: [{ offset: 0, value: 1 }, { offset: 1, value: 0 }] }, timeline.duration, transition.easing),
+          ...customTransitionTracks(newLayers, transition.incoming ?? { opacity: [{ offset: 0, value: 0 }, { offset: 1, value: 1 }] }, timeline.duration, transition.easing),
+        ]
+      }
+      const starting = normalizeBackground(temp)
+      for (const layer of starting.layers ?? []) {
+        if ((slide || transition.incoming) && newLayers.some(record => record.layer.id === layer.id))
+          (layer as ViewBackgroundLayerProjection).opacity = newLayers.find(record => record.layer.id === layer.id)!.targetOpacity
+        applyTrackValues(layer as unknown as Record<string, unknown>, timeline.tracks
+          .filter(track => track.target === `backgroundLayer:${layer.id}`)
+          .map(track => ({ property: track.property, value: track.keyframes[0]!.value })))
+      }
+      if (!isCurrent())
+        return
+      await engine.setBackgroundProjection(starting)
+      if (!isCurrent())
+        return
+      await playTransitionTimeline(engine, timeline)
+    }
+    if (isCurrent())
+      await engine.setBackgroundProjection(stripBackgroundTransitions(next))
+  }
+  catch (error) {
+    if (isCurrent())
+      await engine.setBackgroundProjection(current)
+    throw error
+  }
+  finally {
+    cancelWait()
+    if (pendingTransitions.get(engine)?.id === id)
+      pendingTransitions.delete(engine)
+  }
+}
 
-  await playTransitionTimeline(engine, createReplacementTimeline(oldLayers, newLayers, transition, slide))
-  await engine.setBackgroundProjection(stripBackgroundTransitions(next))
+function customTransitionTracks(records: readonly TransitionLayerRecord[], definition: BackgroundTransitionTracks, duration: number, easing?: AnimationTimingFunction): AnimationTimeline['tracks'] {
+  return records.flatMap(record => Object.entries(definition).map(([property, frames]) => ({
+    target: record.target,
+    property,
+    interpolation: 'number' as const,
+    keyframes: frames!.map(frame => ({ at: frame.offset * duration, value: property === 'opacity' ? frame.value * record.targetOpacity : frame.value, easing: frame.easing ?? easing })),
+  })))
 }
 
 async function playBackgroundVisibilityTransitionWithEngine(
@@ -748,7 +915,7 @@ function flattenBackgroundForTransition(
   initialOpacity: number | undefined,
 ): TransitionLayerRecord[] {
   if (background.mode === 'layered') {
-    return (background.layers || []).map((layer, index) => {
+    return resolveBackgroundLayers(background).filter(layer => layer.visible !== false && (layer.opacity ?? 1) > 0).map((layer, index) => {
       const targetOpacity = layer.opacity ?? 1
       const id = `__qua_transition_${scope}_${sanitizeLayerId(layer.id || String(index))}`
       return {
@@ -781,6 +948,7 @@ function flattenBackgroundForTransition(
       id,
       assetName,
       assetType: background.mode === 'video' ? 'video' : 'images',
+      video: background.video,
       visible: true,
       fit: background.fit,
       origin: background.origin,
@@ -801,6 +969,9 @@ function flattenBackgroundForTransition(
 function stripBackgroundTransitions(background: Readonly<ViewBackgroundProjection>): ViewBackgroundProjection {
   const next = normalizeBackground(background)
   next.transition = undefined
+  delete next.preparationId
+  delete next.transitionTarget
+  delete next.shaderTransition
   if (next.video) {
     next.video = {
       ...next.video,
@@ -853,5 +1024,5 @@ export const metadata = {
   category: 'visual',
 } as const
 
-export { decorators } from './decorators'
+export type { BackgroundTransitionIntent, BackgroundTransitionShader, BackgroundTransitionTracks } from '@quajs/render-core'
 export const Plugin = BackgroundPlugin

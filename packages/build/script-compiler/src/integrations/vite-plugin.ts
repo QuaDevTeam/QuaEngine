@@ -34,6 +34,7 @@ export function quaScriptPlugin(options: QuaScriptPluginOptions = {}): Plugin {
   let server: ViteDevServer | undefined
   const hotReloadManager = getHotReloadManager(projectRoot)
   let resolvedProjectRoot = projectRoot || process.cwd()
+  let editorPreview = false
 
   async function refreshTransformerConfig(root: string): Promise<void> {
     const toolingConfig = loadQuaScriptToolingConfig(root)
@@ -49,6 +50,7 @@ export function quaScriptPlugin(options: QuaScriptPluginOptions = {}): Plugin {
       transformer = createHotReloadAwareTransformer(resolvedDecoratorMappings, {
         autoCollectDecorators: resolvedAutoCollectDecorators,
         projectRoot: root,
+        editorPreview,
       })
       await transformer.updateDecoratorMappings({
         autoCollectDecorators: resolvedAutoCollectDecorators,
@@ -67,6 +69,7 @@ export function quaScriptPlugin(options: QuaScriptPluginOptions = {}): Plugin {
     name: 'qua-script',
 
     async configResolved(config) {
+      editorPreview = config.command === 'serve' && (config.env?.VITE_QUA_EDITOR_PREVIEW === '1' || process.env.VITE_QUA_EDITOR_PREVIEW === '1')
       resolvedProjectRoot = projectRoot || config.root
       await refreshTransformerConfig(resolvedProjectRoot)
 

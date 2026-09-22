@@ -408,6 +408,14 @@ function surfaceNodeFromQuiNode(
   const surfaceNode: NativeUiCompilerSurfaceNodeProjection = {
     id,
     kind: projectedSurfaceKind(node.kind),
+    ...(typeof props.role === 'string' ? { role: props.role } : {}),
+    ...(props.ariaLabel !== undefined || props.ariaPressed !== undefined || props.disabled !== undefined
+      ? { accessibility: {
+          ...(typeof props.ariaLabel === 'string' ? { label: props.ariaLabel } : {}),
+          ...(typeof props.ariaPressed === 'boolean' ? { pressed: props.ariaPressed } : {}),
+          ...(typeof props.disabled === 'boolean' ? { disabled: props.disabled } : {}),
+        } }
+      : {}),
     bounds,
     visible: show ?? resolvedStyle.visible ?? true,
     clipChildren: resolvedStyle.clipChildren,

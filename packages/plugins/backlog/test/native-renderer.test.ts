@@ -1,18 +1,16 @@
 import type { NativeUiSurfaceNodeProjection } from '@quajs/native-ui-compiler'
-import {
-  createNativeRendererJsonFrameInput,
-  resolveNativeRendererFeatureIntent,
-} from '@quajs/engine-native'
+import { createNativeRendererJsonFrameInput } from '@quajs/engine-native'
+import { resolveUiFeatureIntent } from '@quajs/render-core'
 import { describe, expect, it } from 'vitest'
 import { BacklogRenderToLogicEvents } from '../src/contracts'
 import {
-  BACKLOG_NATIVE_SURFACE_KEY,
-  createBacklogNativeRendererFeature,
-} from '../src/native'
+  BACKLOG_UI_SURFACE_KEY,
+  createBacklogUiSurfaceFeature,
+} from '../src/surface'
 
 describe('backlog native renderer feature', () => {
   it('does not create a native overlay while the engine-owned projection is hidden', () => {
-    const feature = createBacklogNativeRendererFeature()
+    const feature = createBacklogUiSurfaceFeature()
     const result = feature.createOverlays({
       logicalWidth: 1920,
       logicalHeight: 1080,
@@ -25,7 +23,7 @@ describe('backlog native renderer feature', () => {
   })
 
   it('grows long history rows without truncating text or overlapping the next entry', () => {
-    const result = createBacklogNativeRendererFeature().createOverlays({
+    const result = createBacklogUiSurfaceFeature().createOverlays({
       logicalWidth: 1920,
       logicalHeight: 1080,
       view: {},
@@ -44,7 +42,7 @@ describe('backlog native renderer feature', () => {
 
   it('supports product placement and compact rows while preserving intents and long text', () => {
     const bounds = { x: 470, y: 107, width: 980, height: 660 }
-    const result = createBacklogNativeRendererFeature({ density: 'compact', resolvePanelBounds: () => bounds }).createOverlays({
+    const result = createBacklogUiSurfaceFeature({ density: 'compact', resolvePanelBounds: () => bounds }).createOverlays({
       logicalWidth: 1920,
       logicalHeight: 1080,
       view: {},
@@ -67,7 +65,7 @@ describe('backlog native renderer feature', () => {
   })
 
   it('serializes recent entries in logical safe-area coordinates with package provenance', () => {
-    const feature = createBacklogNativeRendererFeature()
+    const feature = createBacklogUiSurfaceFeature()
     const frame = createNativeRendererJsonFrameInput({
       layout: {
         width: 1920,
@@ -113,7 +111,7 @@ describe('backlog native renderer feature', () => {
     const jump = findNode(surface.root, 'backlog-entry-0-jump')
     const voice = findNode(surface.root, 'backlog-entry-0-voice')
 
-    expect(surface.key).toBe(BACKLOG_NATIVE_SURFACE_KEY)
+    expect(surface.key).toBe(BACKLOG_UI_SURFACE_KEY)
     expect(overlay.provenance).toEqual({
       contentPackageId: 'runtime.backlog',
       requiredRuntimePackages: ['runtime.base'],
@@ -145,21 +143,21 @@ describe('backlog native renderer feature', () => {
   })
 
   it('allowlists native actions to existing backlog pipeline events', () => {
-    const entries = [createBacklogNativeRendererFeature()]
+    const entries = [createBacklogUiSurfaceFeature()]
 
-    expect(resolveNativeRendererFeatureIntent(entries, 'backlog-close', {})).toEqual({
+    expect(resolveUiFeatureIntent(entries, 'backlog-close', {})).toEqual({
       event: BacklogRenderToLogicEvents.CLOSE_REQUEST,
       payload: { source: 'native' },
     })
-    expect(resolveNativeRendererFeatureIntent(entries, 'backlog-jump', { entryId: 'line-1' })).toEqual({
+    expect(resolveUiFeatureIntent(entries, 'backlog-jump', { entryId: 'line-1' })).toEqual({
       event: BacklogRenderToLogicEvents.JUMP_REQUEST,
       payload: { entryId: 'line-1' },
     })
-    expect(resolveNativeRendererFeatureIntent(entries, 'backlog-replay-voice', { entryId: 'line-1' })).toEqual({
+    expect(resolveUiFeatureIntent(entries, 'backlog-replay-voice', { entryId: 'line-1' })).toEqual({
       event: BacklogRenderToLogicEvents.REPLAY_VOICE_REQUEST,
       payload: { entryId: 'line-1' },
     })
-    expect(resolveNativeRendererFeatureIntent(entries, 'arbitrary-event', {})).toBeUndefined()
+    expect(resolveUiFeatureIntent(entries, 'arbitrary-event', {})).toBeUndefined()
   })
 })
 

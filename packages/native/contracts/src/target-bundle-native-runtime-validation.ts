@@ -2,7 +2,7 @@ import type { QuaTargetBootstrap } from './bootstrap'
 import type { TargetBundleManifest } from './target-bundle'
 
 export interface TargetBundleNativeRuntimeInfo {
-  quickjsVersion: string
+  jscVersion: string
   nativeRuntimeVersion: string
   assetAdapterVersion: string
   storeAdapterVersion: string
@@ -22,7 +22,7 @@ export interface TargetBundleNativeRuntimeDiagnostic {
 }
 
 const NATIVE_RUNTIME_FIELDS = [
-  'quickjsVersion',
+  'jscVersion',
   'nativeRuntimeVersion',
   'assetAdapterVersion',
   'storeAdapterVersion',
@@ -47,7 +47,7 @@ export function checkTargetBundleNativeRuntimeInfo(
     return [{
       code: 'TARGET_BUNDLE_NATIVE_RUNTIME_MISSING',
       target,
-      message: 'Native target bundle manifest must include native runtime, QuickJS, asset adapter, and store adapter version metadata.',
+      message: 'Native target bundle manifest must include native runtime, JavaScriptCore, asset adapter, and store adapter version metadata.',
     }]
   }
 

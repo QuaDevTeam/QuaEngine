@@ -1,30 +1,51 @@
-import type { EngineConfig } from '@quajs/engine'
-import { QuaEngine, UiOverlayPlugin } from '@quajs/engine'
+import type { EditorPreviewRuntimeOptions } from '@quajs/editor-core/runtime'
+import type { EngineConfig, EnginePlugin } from '@quajs/engine'
+import type { BacklogEntry, BacklogFilterContext } from '@quajs/plugin-backlog'
+import type { SettingsStorageAdapter } from '@quajs/plugin-settings'
+import { QuaEngine, ScreenshotModePlugin, UiOverlayPlugin } from '@quajs/engine'
 import { AchievementPlugin } from '@quajs/plugin-achievement'
 import { AnimationPlugin } from '@quajs/plugin-animation'
 import { AudioPlugin } from '@quajs/plugin-audio'
-import { BacklogPlugin, getBacklogProjection, type BacklogEntry, type BacklogFilterContext } from '@quajs/plugin-backlog'
 import { BackgroundPlugin } from '@quajs/plugin-background'
+import { BacklogPlugin, getBacklogProjection } from '@quajs/plugin-backlog'
 import { FontsPlugin } from '@quajs/plugin-fonts'
 import { GalleryPlugin } from '@quajs/plugin-gallery'
-import { SettingsPlugin, type SettingsStorageAdapter } from '@quajs/plugin-settings'
+import { SettingsPlugin } from '@quajs/plugin-settings'
 import { StoryGraphPlugin } from '@quajs/story-graph'
 import { DEMO_SUPPORTED_LOCALES } from './config'
-import { registerDemoGallery } from './content/gallery'
 import { registerDemoCharacters } from './content/characters'
+import { registerDemoGallery } from './content/gallery'
 import { registerDemoStoryGraph } from './content/story-tree'
-import { DemoStoryPlugin } from './story/prologue-state'
 import { shouldRecordDemoBacklog } from './story/backlog-policy'
+import { DemoStoryPlugin } from './story/prologue-state'
 
 export interface DemoEngineRuntimeOptions {
+  editorResources?: EditorPreviewRuntimeOptions['getResources']
   engine: EngineConfig
+  plugins?: EnginePlugin[]
+  prepareAssets?: (engine: QuaEngine) => Promise<void>
   systemLocale?: string
   settingsStorage?: SettingsStorageAdapter
 }
 
 export async function createDemoEngineRuntime(options: DemoEngineRuntimeOptions) {
   registerDemoCharacters()
-  const engine = new QuaEngine(options.engine)
+  const engine = new QuaEngine({
+    ...options.engine,
+    saves: {
+      ...options.engine.saves,
+      preview: {
+        ...options.engine.saves?.preview,
+        defaults: {
+          // All demo save cards are text-only, including chapter/continue slots.
+          // A capture request before the opening step or title navigation would
+          // stall native until timeout because this host has no preview provider.
+          mode: 'disabled',
+          ...options.engine.saves?.preview?.defaults,
+        },
+      },
+    },
+  })
   const animation = new AnimationPlugin()
   const achievement = new AchievementPlugin({
     profileId: 'call-me-tomorrow',
@@ -66,8 +87,11 @@ export async function createDemoEngineRuntime(options: DemoEngineRuntimeOptions)
     .use(achievement)
     .use(fonts)
     .use(new UiOverlayPlugin())
+    .use(new ScreenshotModePlugin())
 
+  for (const plugin of options.plugins || []) engine.use(plugin)
   await engine.init()
+  await options.prepareAssets?.(engine)
   await fonts.registerFont('Noto Sans', 'NotoSansCJKsc-Regular.otf', {
     id: 'demo-noto-sans-regular',
     weight: 400,
@@ -88,7 +112,12 @@ export async function createDemoEngineRuntime(options: DemoEngineRuntimeOptions)
   await registerDemoStoryGraph(storyGraph)
   await engine.getPluginById<DemoStoryPlugin>('demo-story')?.refreshLibrary()
 
+  const editorPreview = (import.meta.env.DEV || import.meta.env.SSR) && import.meta.env.VITE_QUA_EDITOR_PREVIEW === '1'
+    ? await (await import('./story/editor-preview')).installDemoEditorPreview(engine, options.editorResources)
+    : undefined
+
   return {
+    editorPreview,
     achievement,
     animation,
     audio,

@@ -10,7 +10,7 @@
 use std::sync::{mpsc, Arc, Mutex};
 use std::thread::JoinHandle;
 
-use quajs_native_runtime::{NativeRendererIntent, QuickJsPipelineMessage};
+use quajs_native_runtime::{JscPipelineMessage, NativeRendererIntent};
 use quajs_wgpu_renderer::projection_runtime::NativeRendererProjectionRuntime;
 use winit::event_loop::EventLoopProxy;
 
@@ -18,8 +18,8 @@ use super::error::NativeWindowSmokeError;
 
 /// Work handed to the projection worker thread.
 enum ProjectionRequest {
-    /// Apply resident-QuickJS pipeline events to the projection runtime.
-    PipelineEvents(Vec<QuickJsPipelineMessage>),
+    /// Apply resident-JavaScriptCore pipeline events to the projection runtime.
+    PipelineEvents(Vec<JscPipelineMessage>),
     /// Re-project the current frame so time-driven local work advances.
     Tick,
     Shutdown,
@@ -102,12 +102,12 @@ impl NativeProjectionWorker {
         })
     }
 
-    /// Queues resident-QuickJS pipeline events for the worker to apply. Events
+    /// Queues resident-JavaScriptCore pipeline events for the worker to apply. Events
     /// are applied off-thread, so failures surface from the next
     /// [`Self::take_latest_projection`].
     pub(super) fn apply_pipeline_events(
         &self,
-        messages: Vec<QuickJsPipelineMessage>,
+        messages: Vec<JscPipelineMessage>,
     ) -> Result<(), NativeWindowSmokeError> {
         if messages.is_empty() {
             return Ok(());

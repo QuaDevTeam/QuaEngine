@@ -21,7 +21,12 @@
     "typecheck": "tsc --noEmit",
     "test:story": "node scripts/story-smoke.mjs",
     "test:ui": "node scripts/ui-review.mjs",
-    "test:backlog": "node --experimental-strip-types --test scripts/backlog-policy.test.mjs"
+    "test:quit": "node scripts/quit-smoke.mjs",
+    "test:navigation": "node scripts/navigation-smoke.mjs",
+    "test:backlog": "node --experimental-strip-types --test scripts/backlog-policy.test.mjs",
+    "test:asset-loading": "node scripts/asset-loading-smoke.mjs",
+    "test:asset-loading:native": "node scripts/native-loading-smoke.mjs",
+    "test:ui-surfaces": "vitest run --config vitest.config.ts"
   },
   "dependencies": {
     "@quajs/assets": "workspace:*",
@@ -49,7 +54,9 @@
     "@quajs/story-graph": "workspace:*",
     "@quajs/store-web": "workspace:*",
     "vue": "^3.5.34",
-    "@quajs/native-ui": "workspace:*"
+    "@quajs/native-ui": "workspace:*",
+    "@quajs/editor-core": "workspace:*",
+    "@quajs/plugin-asset-loading": "workspace:*"
   },
   "devDependencies": {
     "@quajs/quack": "workspace:*",

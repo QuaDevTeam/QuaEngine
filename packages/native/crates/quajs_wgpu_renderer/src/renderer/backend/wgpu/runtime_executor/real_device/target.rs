@@ -1,5 +1,11 @@
+use std::sync::{
+    atomic::{AtomicU64, Ordering},
+    Arc,
+};
+
 #[derive(Clone, Debug)]
 pub struct RealWgpuNativeRenderRuntimeTarget {
+    encoded_draws: Arc<AtomicU64>,
     device: wgpu::Device,
     queue: wgpu::Queue,
     color_format: wgpu::TextureFormat,
@@ -16,6 +22,7 @@ impl RealWgpuNativeRenderRuntimeTarget {
         extent: wgpu::Extent3d,
     ) -> Self {
         Self {
+            encoded_draws: Default::default(),
             device,
             queue,
             color_format,
@@ -58,6 +65,14 @@ impl RealWgpuNativeRenderRuntimeTarget {
                 depth_or_array_layers: 1,
             },
         )
+    }
+
+    pub(super) fn record_draw(&self) {
+        self.encoded_draws.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub(super) fn encoded_draw_count(&self) -> u64 {
+        self.encoded_draws.load(Ordering::Relaxed)
     }
 
     pub fn device(&self) -> &wgpu::Device {

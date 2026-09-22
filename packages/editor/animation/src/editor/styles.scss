@@ -1,0 +1,280 @@
+.animation-editor {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  color: var(--editor-text);
+  font-size: 12px;
+}
+.animation-toolbar,
+.animation-transport {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 6px;
+  align-items: center;
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--editor-divider);
+}
+.animation-toolbar {
+  flex-wrap: wrap;
+}
+.animation-toolbar > select {
+  min-width: 140px;
+  max-width: 260px;
+}
+.animation-context {
+  flex: 0 0 auto;
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--editor-divider);
+}
+.animation-context-fields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+}
+.animation-context .animation-field {
+  display: flex;
+  gap: 6px;
+  margin: 0;
+}
+.animation-context .editor-field-label {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.animation-context .animation-field select {
+  width: auto;
+  max-width: 240px;
+}
+.animation-context input[type='checkbox'] {
+  width: 14px;
+  min-height: 14px;
+}
+.animation-context-status {
+  display: block;
+  margin-top: 4px;
+  color: var(--editor-muted);
+}
+.animation-context-status:empty {
+  display: none;
+}
+.animation-body {
+  display: grid;
+  grid-template-columns: minmax(200px, 1fr) 280px;
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+}
+.animation-workspace {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.animation-preview {
+  flex: 1 1 180px;
+  position: relative;
+  min-height: 0;
+  background: var(--editor-inset);
+  overflow: hidden;
+}
+.animation-preview .qua-stage {
+  background-color: var(--editor-stage);
+  background-image:
+    linear-gradient(var(--editor-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--editor-grid) 1px, transparent 1px);
+  background-size: 120px 120px;
+}
+.animation-preview .qua-character-layer {
+  position: absolute;
+  inset: 0;
+}
+.animation-preview .qua-character {
+  position: absolute;
+  left: var(--qua-character-left);
+  top: var(--qua-character-top);
+  transform: translate(var(--qua-character-anchor-x, -50%), -50%) rotate(calc(var(--qua-character-rotation, 0) * 1deg))
+    scale(var(--qua-character-scale, 1));
+  opacity: var(--qua-character-opacity, 1);
+  transform-origin: center;
+}
+.animation-preview .qua-character.is-hidden {
+  display: none;
+}
+.animation-subject {
+  display: block;
+  width: 360px;
+  height: 600px;
+  object-fit: contain;
+  pointer-events: none;
+}
+.animation-placeholder {
+  display: grid;
+  place-items: center;
+  height: 480px;
+  border: 3px solid var(--editor-info);
+  border-radius: 32px;
+  background: var(--editor-info-bg);
+  color: var(--editor-text);
+  font:
+    40px ui-monospace,
+    monospace;
+}
+.animation-inspector {
+  overflow: auto;
+  min-width: 0;
+  background: var(--editor-surface);
+  border-left: 1px solid var(--editor-divider);
+  scrollbar-gutter: stable;
+}
+.animation-settings {
+  margin-top: 12px;
+}
+.animation-settings summary {
+  cursor: pointer;
+  font-size: 11px;
+  color: var(--editor-muted);
+}
+.animation-settings[open] summary {
+  margin-bottom: 10px;
+}
+.animation-inline-actions {
+  padding: 12px;
+}
+.animation-transport {
+  border-top: 1px solid var(--editor-divider);
+}
+.animation-transport input[type='range'] {
+  min-width: 70px;
+  flex: 1;
+  accent-color: var(--editor-accent);
+}
+.animation-time {
+  min-width: 126px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.animation-tracks {
+  flex: 0 1 144px;
+  min-height: 70px;
+  overflow: auto;
+}
+.animation-timeline {
+  position: relative;
+  min-height: 100%;
+  width: calc(190px + var(--timeline-width) + 16px);
+  padding-right: 16px;
+  box-sizing: border-box;
+}
+.animation-ruler,
+.animation-track {
+  display: flex;
+  height: 28px;
+  border-bottom: 1px solid var(--editor-divider);
+}
+.animation-ruler {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: var(--editor-surface);
+  height: 26px;
+}
+.animation-track.is-selected {
+  background: var(--editor-accent-bg);
+}
+.animation-editor .animation-track-label {
+  display: block;
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  flex: 0 0 190px;
+  box-sizing: border-box;
+  text-align: left;
+  padding: 5px 8px;
+  border: 0;
+  border-right: 1px solid var(--editor-divider);
+  border-radius: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background: var(--editor-surface);
+}
+.animation-lane {
+  position: relative;
+  flex: 0 0 var(--timeline-width);
+  background-image: linear-gradient(90deg, var(--editor-guide) 1px, transparent 1px);
+  background-size: 10% 100%;
+  touch-action: none;
+}
+.animation-tick {
+  position: absolute;
+  top: 5px;
+  padding-left: 3px;
+  font-size: 10px;
+  white-space: nowrap;
+  color: var(--editor-muted);
+}
+.animation-tick:last-child {
+  transform: translateX(-100%);
+}
+.animation-editor .animation-key {
+  position: absolute;
+  top: 9px;
+  width: 10px;
+  height: 10px;
+  min-height: 0;
+  padding: 0;
+  border-radius: 1px;
+  border: 1px solid var(--editor-border);
+  background: var(--editor-muted);
+  transform: translateX(-50%) rotate(45deg);
+  z-index: 1;
+  touch-action: none;
+}
+.animation-editor .animation-key.is-selected {
+  background: var(--editor-accent);
+  border-color: var(--editor-accent);
+}
+.animation-playhead {
+  position: absolute;
+  width: 1px;
+  top: 26px;
+  bottom: 0;
+  background: var(--editor-orange);
+  pointer-events: none;
+  z-index: 1;
+}
+.animation-message {
+  flex: 0 0 auto;
+  min-height: 18px;
+  padding: 3px 8px;
+  color: var(--editor-muted);
+  border-top: 1px solid var(--editor-divider);
+}
+.animation-message button {
+  margin-left: 8px;
+}
+.animation-issues {
+  position: relative;
+  margin-left: auto;
+  color: var(--editor-warning);
+}
+.animation-issues pre {
+  position: absolute;
+  right: 0;
+  width: 400px;
+  max-height: 200px;
+  overflow: auto;
+  padding: 10px;
+  background: var(--editor-surface);
+  border: 1px solid var(--editor-border);
+  z-index: 6;
+  white-space: pre-wrap;
+}
+@media (max-width: 800px) {
+  .animation-body {
+    grid-template-columns: minmax(140px, 1fr) 250px;
+  }
+  .animation-transport {
+    flex-wrap: wrap;
+  }
+}

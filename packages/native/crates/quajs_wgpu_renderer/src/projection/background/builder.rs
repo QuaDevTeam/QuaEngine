@@ -129,6 +129,35 @@ pub fn build_background_commands_with_video_frame_resources(
             }
         }
     }
+    if let Some(transition) = &background.shader_transition {
+        for command in &mut commands {
+            let incoming = transition
+                .incoming_layer_ids
+                .iter()
+                .any(|id| command.id == format!("background:layer:{id}"));
+            command.composite_groups.insert(
+                1.min(command.composite_groups.len()),
+                DrawCompositeGroup {
+                    id: if incoming {
+                        "background:transition:new"
+                    } else {
+                        "background:transition:old"
+                    }
+                    .into(),
+                    z_index: if incoming { 1000 } else { 0 },
+                    transition_shader: incoming.then(|| {
+                        crate::render_graph::CompositeTransitionShader {
+                            bounds: full_stage_rect(layout),
+                            source: transition.shader.wgsl.clone(),
+                            progress: transition.progress,
+                            params: transition.shader.params,
+                        }
+                    }),
+                    ..Default::default()
+                },
+            );
+        }
+    }
     commands
 }
 
@@ -411,6 +440,7 @@ fn composition_group(
         .cloned()
         .unwrap_or_default();
     DrawCompositeGroup {
+        transition_shader: None,
         character_lighting: None,
         transform: [1.0, 0.0, 0.0, 1.0, 0.0, 0.0],
         id: id.to_string(),

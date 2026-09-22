@@ -1,4 +1,5 @@
 export { PluginContextImpl } from './core/context'
+export { ScreenshotModePlugin } from './screenshot-mode-plugin'
 export { getDiscoveredDecoratorMappings, getPluginDiscovery, PluginDiscovery } from './core/plugin-discovery'
 export type {
   CustomPluginRegistry,

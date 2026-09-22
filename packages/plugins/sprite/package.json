@@ -66,6 +66,14 @@
       "web": "@quajs/renderer-web/plugins/sprite",
       "vue": "@quajs/renderer-vue/plugins/sprite",
       "cocos": "@quajs/renderer-cocos/plugins/sprite"
+    },
+    "extension": {
+      "schemaVersion": 1,
+      "id": "qua.sprite.runtime",
+      "title": "Sprite",
+      "runtime": {
+        "entry": "."
+      }
     }
   },
   "dependencies": {

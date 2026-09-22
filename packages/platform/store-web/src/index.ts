@@ -38,6 +38,7 @@ class QuaStoreIndexedDB extends Dexie {
 }
 
 export class IndexedDBBackend implements StorageBackend {
+  get storageInfo() { return { driver: 'indexeddb', persistence: 'persistent', namespace: this.db.name } as const }
   private db: QuaStoreIndexedDB
 
   constructor(options?: IndexedDBBackendOptions) {

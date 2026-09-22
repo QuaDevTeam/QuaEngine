@@ -25,7 +25,9 @@ export const QuaStage = defineComponent({
     const renderer = useQuaRenderer()
     const actions = props.actions
     const slotProps = () => ({ ...useProjectionProps(), actions })
-    const layers = computed(() => props.layers || [])
+    const layers = computed(() => (props.layers || []).filter(layer =>
+      props.view?.ui?.visible !== false || !['safe', 'overlay', 'screen'].includes(layer.plane || 'scene'),
+    ))
     const sceneLayers = computed(() => layers.value.filter(layer => (layer.plane || 'scene') === 'scene'))
     const subjectLayers = computed(() => layers.value.filter(layer => layer.plane === 'subject'))
     const stageLayers = computed(() => layers.value.filter(layer => layer.plane === 'stage'))

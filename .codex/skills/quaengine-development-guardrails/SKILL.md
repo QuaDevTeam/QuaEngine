@@ -35,6 +35,8 @@ description: QuaEngine architecture guardrails for renderer statelessness, dynam
 
 ### Renderer
 
+- Remote resource preparation uses the optional `@quajs/plugin-asset-loading` logic plugin and `@quajs/renderer-web/plugins/asset-loading` UI scene (also re-exported by framework adapters). Mount before remote manifest/QPK loading, keep progress in engine projection, and await preparation before narrative continuation. Read `../quajs-plugin-asset-loading/SKILL.md` for retry, versioned cache identity, dependency planning and browser verification.
+
 - For Web image/byte lifecycle changes, read `../quaassets-web-memory.md`. Keep shared IndexedDB byte storage and bounded URL/read resources in Web adapters, never in core/store. Resource statistics describe implementation allocations, not narrative state or a browser/GPU hard memory cap. Validate queued cancellation, active-reference pinning and actual production QPK decoding.
 - Treat the renderer as a projection canvas.
 - Consume pipeline events and engine view state.
@@ -83,6 +85,7 @@ description: QuaEngine architecture guardrails for renderer statelessness, dynam
 - Keep `@quajs/render-core` universal and framework-free. It defines event contracts, projection types, typed pipeline helpers, and renderer plugin contracts only.
 - Put browser/Web implementation details in `@quajs/renderer-web`, not in Vue, React, or engine packages. This includes Web renderer lifecycle control, object URL handles, animation projection helpers, native DOM projection utilities, WebAudio runtime primitives, and framework-neutral renderer actions.
 - Build MVVM/framework renderers such as `@quajs/renderer-vue` as adapters over `@quajs/renderer-web`. Framework packages may own component/composable ergonomics, slots, context injection, framework plugin layer declarations, and framework-specific cleanup, but should not duplicate Web runtime behavior.
+- Vue library builds externalize every `@quajs/*` root/subentry and Vue. An incomplete explicit subentry list can inline Web asset runtime and Dexie into a component chunk, causing two Dexie versions when a freshly installed project loads its own assets adapter. Verify a scaffolded project's actual stage/dialogue and runtime errors, not just Vite HTTP readiness.
 - Preserve React compatibility by exposing framework-neutral snapshot/subscribe APIs from `@quajs/renderer-web` that can back `useSyncExternalStore`. Do not add a React dependency to `@quajs/renderer-web`.
 - Split reusable Web renderer features into explicit `@quajs/renderer-web` sub-entries. DOM projection features belong under `@quajs/renderer-web/plugins/*`; presets belong under `@quajs/renderer-web/plugins/preset`; WebAudio primitives belong under `@quajs/renderer-web/audio`; and audio renderer plugin wiring belongs under `@quajs/renderer-web/plugins/audio`.
 - Keep Web framework adapter helper entries aligned when they are framework-neutral re-exports. Vue, React, and Svelte renderer packages should expose matching visual-novel feature plugin entries plus `plugins/shared` and `save-preview` helper entries when the underlying implementation is shared Web runtime behavior. Web-only platform entries such as `platform-guard` and `pwa` stay in `@quajs/renderer-web`; native-only entries such as Cocos `plugins/save-preview` stay on the native renderer.
@@ -138,6 +141,7 @@ description: QuaEngine architecture guardrails for renderer statelessness, dynam
 - Do not create `legacy`, `old`, `new`, `temp`, or generic catch-all folders for code that should be moved or removed.
 
 ### Engine and Web APIs
+- Storage adapters may expose readonly `storageInfo` metadata (stable driver, persistence lifetime, namespace) for developer diagnostics. Missing metadata means unknown persistence. Memory is session-only, IndexedDB is persistent within its browser partition, and native persistence is defined by the injected Host. Editor queries read actual backend records; they must not restore checkpoints, mutate narrative state, or turn debug projections into a second storage authority.
 - Do not use Web APIs directly in engine/core packages.
 - If a feature needs browser behavior, add an adapter, abstraction, or pipeline metadata path.
 - Let the renderer perform the real Web-side implementation.
@@ -195,3 +199,29 @@ Quack-created static bundles must be emitted through Vite/Rollup, not only writt
 ## Web panel keyboard dismissal
 
 The shared Web input runtime permits `ui:cancel` and `ui:menu` keyboard bindings from focused non-editable controls and history lists. Other narrative bindings remain filtered inside interactive panels so Enter, Space and PageDown do not advance the story. Editable fields keep their existing keyboard handling. Keep this in the pipeline-backed input runtime; products must not add a second global keyboard bus just to make Escape close a panel.
+
+## Screenshot mode
+
+`ScreenshotModePlugin` is an optional engine plugin exported by `@quajs/engine`. Install with `engine.use(new ScreenshotModePlugin())` before init. Its `setEnabled(boolean)` and `toggle()` call the low-level engine-owned `setUiVisible(boolean)` projection API. `view.ui.visible === false` hides all safe/overlay/screen UI planes, including dialogue, choices, panels and toasts; scene/subject/stage artwork and audio remain. Put custom HUDs on UI planes. Shared `viewAllows*Chrome` helpers must respect visibility. React/Svelte reuse Web; Vue consumes the same projection; Cocos uses capture-role nodes; Native drops UI/choice draws at the frame boundary.
+
+Renderer input emits `ui:screenshot` through `USER_INPUT_COMMAND` (default H). The plugin consumes toggle/exit commands in removable pipeline middleware, stops auto/skip/fast-forward when entering, blocks hidden choice/UI/save/load intents, and exits on H, Escape/menu or manual advance. A click used to exit must not also advance or reveal dialogue: input runtimes remember whether UI was hidden before dispatch. Repeated/released toggle keys do nothing. Enter/exit preserves dialogue, choices, overlays, assets and package metadata; it does not capture a PNG or freeze authored animation/audio. Do not delete UI projections or introduce renderer-owned screenshot state. Late overlay updates must not reset visibility. Destroy removes middleware and restores visibility.
+
+Validate engine projection/flow tests, Web/Vue/Cocos rendering and exit input tests, Native frame serialization and H-key mapping. Actual Demo browser smoke should check toolbar entry, H, Escape, click restore without progression and restoration of an already-open panel. Unit tests do not prove Native GPU screenshot parity.
+
+### Advisory script asset lookahead
+
+`GameStep.metadata.assetHints` contains static, package-owned resource hints. `collectUpcomingAssetHints` bounds the next-step window to 64 steps / 12 unique hints and carries runtime-package provenance. `QuaEngine.dialogue` emits changed windows through the existing `assets/preload` pipeline event without awaiting resource preparation. Hints are optional, may be wrong, must not run future steps/expressions, select branches, mount packages, or affect saves/progression. Renderers own only the replaceable resource cache; the real projection remains authoritative.
+
+## Production packaging graph boundaries
+
+Post-bundle dependency graphs must describe modules retained in emitted chunks, excluding tree-shaken input modules. Do not hide retained inactive target adapters. Shared Web/native UI uses `@quajs/native-ui-compiler/runtime`; the root compiler's Sass and native compatibility tooling must stay outside Web runtime output. Platform-neutral package resource-path and forbidden-code-asset predicates live in `@quajs/utils`, with native contract aliases preserving one shared implementation.
+
+## Optional shared product UI
+
+Shared Web/native product pages may use pure TSX/QSS compiled with `@quajs/native-ui-compiler/runtime` into logical-stage QUI projections. Contracts and pure feature registration belong to `@quajs/render-core` (`UiFeatureSurfaceEntry`); official feature factories use plugin `/surface` subentries. Shared code must not import target bootstrap/host adapters. Web consumes these roots with optional `@quajs/renderer-web/qui`; native consumes the same roots through frame serialization. The default Web preset remains independent, so Web-only framework surfaces remain supported.
+
+The demo is the mandatory shared implementation: `demo/src/game/ui/{screens,app.scss,session.ts}` is the single source for custom product UI and navigation. Do not recreate a Vue page beside a native TSX page. Renderer-owned DOM identity, focus, hover, scrolling and asset URLs are transient; all actions use pipeline intents and engine/plugin state. Build SCSS only at build time, preserving the browser-safe compiler runtime subentry and target isolation.
+
+Demo save/load panels are entered through their respective menu actions. Clicking a filled card in load mode restores it immediately; empty load slots are inactive. Do not add a separate load/confirmation button or redundant save/load mode tabs inside the panel. Save mode keeps its overwrite confirmation.
+
+Starting a story executes and projects the first authored step automatically; user advance is only for subsequent progression/reveal. Do not require or synthesize a second click to initialize background/dialogue. Demo text-only save cards use `saves.preview.defaults.mode: 'disabled'` in `createDemoEngineRuntime`, covering chapter, continue, manual and quick saves on both targets. Unused renderer capture requests must not block opening playback or return-to-title navigation. Test real compiled QS and the shared UI session without a preview capture responder (`demo/scripts/navigation.test.ts`); run `node demo/scripts/navigation-smoke.mjs` against Web and `--native` against a native dev window initially at title. Both must render the first line without extra input, return promptly, resume the saved line and restart from the first line.

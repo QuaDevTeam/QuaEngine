@@ -1,4 +1,3 @@
-// Global APIs (main exports)
 export {
   activateRuntimePackage,
   autoSave,
@@ -74,6 +73,8 @@ export {
   unregisterRollbackStore,
   waitFor,
 } from './api/global'
+// Global APIs (main exports)
+export { collectUpcomingAssetHints } from './core/asset-hints'
 
 // Core Engine
 export { QuaEngine } from './core/engine'
@@ -123,6 +124,7 @@ export type {
   FlowControlRuntimeOptions,
   GameSaveData,
   GameStep,
+  GameStepAssetHint,
   GameStepFactory,
   GameStepList,
   GameStepScope,
@@ -331,6 +333,7 @@ export type {
   PluginConstructor,
   PluginConstructorOptions,
 } from './plugins'
+export { ScreenshotModePlugin } from './plugins/screenshot-mode-plugin'
 export {
   getUiOverlayHostProjection,
   releaseUiOverlayHostWithEngine,

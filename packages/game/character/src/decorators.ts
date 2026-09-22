@@ -23,6 +23,10 @@ export const characterDecoratorMappings = {
     function: 'hide',
     module: '@quajs/character',
   },
+  HideAllCharacters: {
+    function: 'hideAllCharacters',
+    module: '@quajs/character',
+  },
   MoveCharacter: {
     function: 'move',
     module: '@quajs/character',

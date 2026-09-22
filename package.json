@@ -26,8 +26,8 @@
     "build:core": "turbo build --filter='@quajs/engine' --filter='@quajs/assets' --filter='@quajs/store'",
     "dev": "turbo dev",
     "dev:native": "pnpm --filter demo dev:native",
+    "dev:editor": "turbo build --filter=@quajs/editor-electron... && pnpm --filter @quajs/editor-electron start",
     "native:e2e": "pnpm --filter demo native:e2e",
-    "dev:novel-writer": "pnpm --filter novel-writer dev",
     "lint": "turbo lint",
     "lint:affected": "turbo lint --filter='...[HEAD^1]'",
     "lint:fix": "turbo lint:fix",
@@ -56,18 +56,23 @@
     "release:publish": "changeset publish",
     "ci": "turbo build test lint typecheck",
     "ci:affected": "turbo build test lint typecheck --filter='...[HEAD^1]'",
-    "clean": "turbo clean && rm -rf node_modules/.cache/turbo"
+    "clean": "turbo clean && rm -rf node_modules/.cache/turbo",
+    "docs:dev": "pnpm --dir docs dev",
+    "docs:build": "pnpm --dir docs build",
+    "docs:check": "pnpm --dir docs check"
   },
   "workspaces": [
     "ai/*",
     "packages/build/*",
     "packages/core/*",
+    "packages/editor/*",
     "packages/game/*",
     "packages/native/*",
     "packages/platform/*",
     "packages/render/*",
     "packages/utils/*",
-    "packages/plugins/*"
+    "packages/plugins/*",
+    "services/*"
   ],
   "devDependencies": {
     "@antfu/eslint-config": "^9.0.0",

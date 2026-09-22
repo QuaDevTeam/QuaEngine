@@ -1,0 +1,86 @@
+.plugin-project #content {
+  grid-template-columns: minmax(0, 1fr);
+}
+.plugin-project .preview-pane,
+.plugin-project #editor-splitter {
+  display: none;
+}
+.source-pane #editor-empty {
+  pointer-events: auto;
+  z-index: 2;
+}
+.welcome-actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 16px;
+}
+#project-create-dialog {
+  width: 450px;
+  max-width: 90vw;
+  padding: 24px;
+  background: var(--editor-surface);
+  color: var(--editor-text);
+  border: 1px solid var(--editor-border);
+  border-radius: var(--editor-dialog-radius);
+}
+#project-create-dialog::backdrop {
+  background: var(--editor-backdrop);
+}
+#project-create-dialog h2 {
+  font-size: 17px;
+  margin: 0 0 20px;
+}
+.project-fields .editor-field {
+  margin-block: 14px;
+}
+.project-location input {
+  flex: 1;
+}
+.project-location button {
+  flex-shrink: 0;
+}
+.project-location {
+  display: flex;
+  gap: 8px;
+}
+.project-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.project-error {
+  color: var(--editor-danger);
+  font-size: 12px;
+  white-space: pre-wrap;
+}
+#project-runtime {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--editor-divider);
+  font-size: 12px;
+  background: var(--editor-button-bg);
+}
+.runtime-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.runtime-row span {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.runtime-row progress {
+  width: 42px;
+  height: 4px;
+}
+#project-runtime pre {
+  max-height: 160px;
+  overflow: auto;
+  white-space: pre-wrap;
+  user-select: text;
+}
+#project-runtime[data-phase='error'] .runtime-row span {
+  color: var(--editor-danger);
+}

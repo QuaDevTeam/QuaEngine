@@ -140,6 +140,7 @@ const DEFAULT_KEYBOARD_BINDINGS: readonly RendererInputKeyboardBinding[] = [
   { source: 'keyboard', code: 'KeyA', command: 'auto:toggle', preventDefault: true },
   { source: 'keyboard', code: 'ArrowUp', command: 'choice:previous', preventDefault: true },
   { source: 'keyboard', code: 'Escape', command: 'ui:cancel', preventDefault: true },
+  { source: 'keyboard', code: 'KeyH', command: 'ui:screenshot', preventDefault: true },
 ]
 
 const DEFAULT_POINTER_BINDINGS: readonly RendererInputPointerBinding[] = [
@@ -268,7 +269,10 @@ class RendererInputControllerImpl implements RendererInputController {
       timestamp: Date.now(),
       metadata: dispatch.metadata,
     }
+    const uiHidden = this.options.getViewState().ui.visible === false
     await this.options.actions.inputCommand(payload)
+    if (uiHidden || this.options.getViewState().ui.visible === false)
+      return
     await this.dispatchBuiltInIntent(dispatch.command, dispatch.source, dispatch.metadata)
   }
 
@@ -851,7 +855,7 @@ function shouldDispatchKeyboardBindingFromInteractiveTarget(
   target: Element,
 ): boolean {
   // Panel controls keep activation/navigation keys, but must still allow dismissal.
-  if (binding.command === 'ui:cancel' || binding.command === 'ui:menu') {
+  if (binding.command === 'ui:cancel' || binding.command === 'ui:menu' || binding.command === 'ui:screenshot') {
     return true
   }
   if (!target.closest('.qua-choice-panel')) {

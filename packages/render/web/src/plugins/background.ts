@@ -1,6 +1,7 @@
 import type { BackgroundMaskProjection, ViewBackgroundProjection } from '@quajs/render-core'
 import type { WebAssetTargetPackageId } from '../assets'
 import type { QuaWebDomLayerContext, QuaWebDomRendererPlugin } from './core'
+import { resolveBackgroundLayers } from '@quajs/render-core'
 import { runtimePackageCandidatesFromMetadata } from '../assets'
 import {
   backgroundLayerProjectionVars,
@@ -9,15 +10,18 @@ import {
   normalizeBackgroundLayerAssetType,
   projectBackground,
 } from '../projection'
+import { projectBackgroundShaderCanvas, setupBackgroundPreparation } from './background-runtime'
 import { defineWebRendererPlugin } from './core'
 import { applyStyleVars } from './shared'
+
+export { projectBackgroundShaderCanvas, setupBackgroundPreparation } from './background-runtime'
 
 const backgroundMaskDisposers = new WeakMap<HTMLElement, () => void>()
 
 export function createBackgroundWebRendererPlugin(): QuaWebDomRendererPlugin {
   return defineWebRendererPlugin({
     name: '@quajs/renderer-web/background',
-    setup() {},
+    setup: setupBackgroundPreparation,
     layers: [{
       id: 'background',
       order: 10,
@@ -42,6 +46,13 @@ function renderBackgroundLayer(context: QuaWebDomLayerContext): Node {
 }
 
 function renderBackgroundProjection(context: QuaWebDomLayerContext, background: ViewBackgroundProjection): Node | undefined {
+  if (background.shaderTransition) {
+    const canvas = projectBackgroundShaderCanvas(context.controller.getPipeline(), background)
+    if (canvas)
+      return canvas
+    const incoming = new Set(background.shaderTransition.incomingLayerIds)
+    return renderBackgroundProjection(context, { ...background, shaderTransition: undefined, layers: background.layers?.filter(layer => !incoming.has(layer.id)) })
+  }
   if (background.mode === 'video' && background.video) {
     const video = context.document.createElement('video')
     video.className = 'qua-background qua-background--video'
@@ -69,7 +80,7 @@ function renderBackgroundProjection(context: QuaWebDomLayerContext, background: 
     root.className = 'qua-layered-background'
     applyStyleVars(root, backgroundProjectionVars(background))
     syncBackgroundMask(context, root, background.composition?.mask, runtimePackageCandidatesFromMetadata(background.metadata))
-    for (const item of background.layers || []) {
+    for (const item of resolveBackgroundLayers(background)) {
       const assetType = normalizeBackgroundLayerAssetType(item.assetType)
       const element = item.assetType === 'video'
         ? context.document.createElement('video')
@@ -88,8 +99,11 @@ function renderBackgroundProjection(context: QuaWebDomLayerContext, background: 
       else {
         element.autoplay = true
         element.playsInline = true
-        element.loop = true
-        element.muted = true
+        element.loop = item.video?.loop !== false
+        element.muted = item.video?.muted !== false
+        element.volume = item.video?.volume ?? 1
+        element.playbackRate = item.video?.playbackRate ?? 1
+        context.bindAssetUrl(element, 'images', item.video?.poster, 'poster', runtimePackageCandidatesFromMetadata(item.metadata))
       }
       applyStyleVars(element, backgroundLayerProjectionVars(item))
       const targetPackageIds = runtimePackageCandidatesFromMetadata(item.metadata)
@@ -120,6 +134,12 @@ function updateBackgroundLayer(context: QuaWebDomLayerContext, node: Node): void
     return
   }
   const background = projectBackground(context.view.background, context.view.animations, Date.now())
+  if (background?.shaderTransition) {
+    const canvas = projectBackgroundShaderCanvas(context.controller.getPipeline(), background)
+    if (canvas && node.firstElementChild !== canvas)
+      node.replaceChildren(canvas)
+    return
+  }
   const projection = node.firstElementChild
   if (!background || !(projection instanceof HTMLElement)) {
     return
@@ -127,7 +147,7 @@ function updateBackgroundLayer(context: QuaWebDomLayerContext, node: Node): void
   if (background.mode === 'layered') {
     applyStyleVars(projection, backgroundProjectionVars(background))
     syncBackgroundMask(context, projection, background.composition?.mask, runtimePackageCandidatesFromMetadata(background.metadata))
-    for (const item of background.layers || []) {
+    for (const item of resolveBackgroundLayers(background)) {
       const element = findBackgroundLayerElement(projection, item.id)
       if (element instanceof HTMLElement) {
         element.classList.toggle('is-hidden', item.visible === false)

@@ -20,6 +20,7 @@ export default defineConfig({
       formats: ['es'],
     },
     target: 'node20',
+    rollupOptions: { external: ['@quajs/utils'] },
   },
   resolve: {
     alias: {

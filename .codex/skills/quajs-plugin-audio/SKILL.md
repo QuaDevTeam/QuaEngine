@@ -157,3 +157,10 @@ Also run affected renderer audio package tests/builds when renderer projection c
 - Are EQ bands and automation points validated for finite ranges, bounded counts, and supported property paths before reaching a native backend?
 - Does native audio keep processing controls renderer-local and avoid restarting sources for parameter updates?
 - If audio API, decorator, settings, or projection behavior changed, was this skill updated?
+
+
+## Development playback inspection
+
+The Web renderer's optional audio sub-entry exports `getWebAudioPlaybackEntries(pipeline)`: copied handle metadata for position, decoded duration and playing/scheduled/paused/pending/suspended states. Sampling must never create/unlock a context, decode an asset, restart playback or write engine state. Registrations are scoped to each pipeline and removed on renderer teardown. Editor debug controls call injected plugin helpers through the preview runtime and existing pipeline; never mutate WebAudio handles directly.
+
+`seekAudioWithEngine` republishes an immediate `playAt` along with `seekMs` so repeated seeks/replay at the same offset restart the source. Web resume preserves the held offset only if seek/scheduling intent is unchanged; an explicit seek from paused state uses the requested offset. The scene debugger smoke checks real PCM duration, all four channels, pause and seek. These checks do not establish native playback parity or subjective audio quality.

@@ -110,6 +110,8 @@ Decorator placement:
 - Decorators without a following dialogue are action-only steps.
 - Multi-line decorator calls are allowed as long as parentheses are balanced.
 
+The editor's Code / Split / Visual modes expose current-step forms through `analyzeQuaScript(source, { authoring: true })`. Authoring metadata reuses the compiler AST and active decorator catalog, with UTF-16 ranges into the original buffer. A missing background directive inherits prior state; `@ClearBackground()` clears it explicitly. Literal arguments and static object properties may be edited in forms; expressions and choice blocks remain code-authored. Keep parser diagnostics, blank-line attachment, Unicode/CRLF ranges and unknown parameters intact. Validate authoring changes with language-server `test/authoring.test.ts` and the editor's `visual-authoring-smoke.mjs`.
+
 ### Choice Sugar
 
 Choice sugar lines start with `- `:
@@ -147,6 +149,10 @@ Use `@Choice(text, target?, options?)` for structured targets, metadata, present
 ```
 
 Do not mix `@Choice` with non-choice decorators in the same decorator block. Multiple consecutive `@Choice` decorators become one choice step.
+
+Targetless choices are valid: `@Choice('Stay', undefined, { id: 'stay' })` (or an omitted/null target) records the selection without jumping. Shared story inspection must not report these as unstructured targets. `@Choice` forms its own step, so a blank line before the following dialogue is valid and must not trigger decorator-attachment lint. Concrete malformed targets must still produce diagnostics.
+
+Editor character colors must come from shared `analyzeQuaScript(...).dialogueHighlights` AST ranges, not a second editor parser. Only speaker labels and literal dialogue text are colored; expressions, narration, comments and choice text keep their syntax treatment. The language helper can reuse a caller-owned `QuaScriptTypeScriptSession`; callers must dispose it on workspace replacement. Project checking combines `.qs` compiler/semantic diagnostics with `checkTypeScriptProject` for tsconfig and unopened TypeScript errors.
 
 ## Built-In Helpers
 
@@ -199,7 +205,7 @@ Decorator availability is explicit. A plugin decorator is usable only if it is a
 
 Common package decorators:
 
-- `@quajs/character`: `Speaker`, `SpeakerName`, `SpeakerStyle`, `SetSprite`, `ShowCharacter`, `HideCharacter`, `MoveCharacter`, `SetExpression`, `CharacterFade`, `CharacterEnter`, `CharacterExit`
+- `@quajs/character`: `Speaker`, `SpeakerName`, `SpeakerStyle`, `SetSprite`, `ShowCharacter`, `HideCharacter`, `HideAllCharacters`, `MoveCharacter`, `SetExpression`, `CharacterFade`, `CharacterEnter`, `CharacterExit`
 - `@quajs/story-graph`: `Chapter`, `Scene`, `Entry`, `Node`, `Label`, `Lane`, `Route`, `StoryTimeline`, `Protagonist`, `Interaction`, `EmitStoryEvent`, `ChapterSelect`
 - `@quajs/plugin-background`: `SetBackground`, `ClearBackground`, `VideoBackground`, `SetLayeredBackground`, `BackgroundLayer`, `RemoveBackgroundLayer`, `ClearBackgroundLayers`, `BackgroundTransition`, `BackgroundLayerTransition`, `ShowCgOverlay`, `HideCgOverlay`
 - `@quajs/plugin-audio`: `AudioChapter`, `LineId`, `PlayVoice`, `PlayBGM`, `PlaySFX`, `PlayAmbient`, `SetAudioGain`, `SetAudioEq`, `SetAudioAutomation`, `StopAudio`, `PauseAudio`, `ResumeAudio`, `SeekAudio`, `StopVoice`, `StopBGM`, `StopSFX`, `StopAmbient`
@@ -210,6 +216,8 @@ Common package decorators:
 - `@quajs/plugin-inventory`: `GrantInventoryItem`, `ConsumeInventoryItem`, `SetInventoryItemQuantity`
 
 For detailed package usage, load the matching project skill such as `quajs-plugin-audio`, `quajs-plugin-background`, `quajs-character`, or `quajs-story-graph`.
+
+Use `@HideAllCharacters()` for a cast-wide exit before a scene change or full-screen insert instead of listing every character. It hides the currently visible engine-projected cast, takes no arguments and needs no speaker context. It preserves character presentation/package metadata and leaves backgrounds, dialogue, choices and audio unchanged. Keep `@HideCharacter('id')` for selective exits; use background/audio decorators explicitly when those should also change.
 
 ## Decorator Activation
 
@@ -445,7 +453,7 @@ The latest demo authoring baseline also includes `demo/.agents/narrative-foundat
 
 For manuscript expansion, use `demo/.agents/scene-plan.md` and `story-review.md`: the 89 main scenes (114.5k target) and three early-handoff scenes define the current expansion budget. The revised narrative chain is integrated but the 90–120k complete-route length is not achieved. New scene steps and the redesigned last two choices require updating current-version regression assertions. The unpublished demo explicitly permits breaking changes: no legacy step/save compatibility, migrations or revision-specific save databases. Never keep the old injury consequence behind the new early-handoff text, or count planned chapter budgets as existing QS prose.
 
-For demo prose, follow `demo/.agents/writing-guide.md` including the current editing notes. Keep narrator observations separate from author commentary and UI instructions. Preserve evidence/branch semantics when simplifying choice labels. Demo prose can freely replace steps and IDs; old saves and implementations impose no compatibility requirements. Validate shared QS changes with the demo Web and native QuickJS builds and the existing three-ending story regression.
+For demo prose, follow `demo/.agents/writing-guide.md` including the current editing notes. Keep narrator observations separate from author commentary and UI instructions. Preserve evidence/branch semantics when simplifying choice labels. Demo prose can freely replace steps and IDs; old saves and implementations impose no compatibility requirements. Validate shared QS changes with the demo Web and native JavaScriptCore builds and the existing three-ending story regression.
 
 The demo now includes two independent, eight-scene minor mysteries before the death warning. Follow `demo/.agents/minor-mysteries.md` for source-date, human-origin and physical-object checks; the user authorizes additional low-stakes events within the established echo rules. Keep their scene prose in QS and preserve the normal-reading browser checks for discovery, investigation and closure.
 
@@ -465,7 +473,7 @@ Four additional scene cards are integrated: June11 Rin with the landlord after w
 
 June16's first personal invitation is now at Rin's lodging; its six-minute backup is her own project. June18 Rin hears an ordinary public web broadcast at home, and June19 the substitute editor forwards the service desk’s completed umbrella collection notice; no extra temporal reception or compulsory holiday office work. June20 noodles follow17:30 departure. June21's personal editing is17:45–18:45, so Rin cannot know that evening's future audio yet. June25 Rin submits her own application from home after work; June26 returns a privately borrowed record catalog, not station adapters. Maintain June19 name change, June20 first entry into Rin's room and June27 mutual confession. June23 remains an exceptional emergency, followed by actual rest.
 
-The current19-case production story suite normally reads the new off-duty scenes and revised home/phone transitions, preserving all three endings and save/navigation checks. Its click bound is2400 for the longer sections, not a bypass of expected prose order. Recount QS, update current status and validate native QuickJS→remove generated native bootstrap→Web build→story regression after further changes.
+The current19-case production story suite normally reads the new off-duty scenes and revised home/phone transitions, preserving all three endings and save/navigation checks. Its click bound is2400 for the longer sections, not a bypass of expected prose order. Recount QS, update current status and validate native JavaScriptCore→remove generated native bootstrap→Web build→story regression after further changes.
 
 ## Near-future demo media logic
 
@@ -523,4 +531,46 @@ Read `demo/.agents/dialogue-coherence-2026-09-12.md` for the latest all-14-modul
 
 Preserve both material-custody choices: witnessed preservation transfers originals to the designated custodian after comparing copies, while formal follow-up records the original custodian and retains authorized copies. No new safety outcome or romance condition follows from this wording. The added June27 film scene follows the agreed outing, uses existing night-room art, retains Mara’s date outfit and commits the seated logical position.
 
-Current validation uses the existing three-ending production story suite with 46 authored acting/image checkpoints, including the film scene, rather than the historical 19-case counts in earlier revision notes. Update prose anchors without weakening behavior checks. Recount all 48 reachable choice combinations, update current manuscript documents, compile the shared native QuickJS script, remove its generated bootstrap from Web assets, build Web and run the production story suite on the final text. Old demo save compatibility is not required.
+Current validation uses the existing three-ending production story suite with 46 authored acting/image checkpoints, including the film scene, rather than the historical 19-case counts in earlier revision notes. Update prose anchors without weakening behavior checks. Recount all 48 reachable choice combinations, update current manuscript documents, compile the shared native JavaScriptCore script, remove its generated bootstrap from Web assets, build Web and run the production story suite on the final text. Old demo save compatibility is not required.
+
+The shared `analyzeQuaScript` result includes AST-derived `previewSteps` for waiting dialogue/choice steps, with original compiler step indexes and zero-based source ranges. Editor adapters convert these to one-based Monaco lines for preview-to-cursor. Action-only steps execute during replay but are not independent waiting targets. Reuse the existing parse; this does not introduce editor-specific grammar.
+
+## Source outline tooling
+
+- `extractQuaScriptStoryDeclaration(source, { includeOutline: true }).outline` returns compiler-derived static chapter/scene/entry/node/label/choice symbols; `collectQuaScriptOutline(parsed)` reuses an existing AST. Each symbol carries its original zero-based UTF-16 `SourceRange` and optional parent index. Literal ids/titles are read without evaluating metadata expressions; TypeScript blocks and comments never become story declarations.
+- Preserve multiline and indented decorator locations, including CRLF source. Decorator ranges begin at `@`, not at the start of indentation. The inspector uses these ranges for definition destinations, including repeated ids and choice options, instead of line-based regular expressions.
+- Project-inspector exposes source documents through `storyTree.outline` and accepts an explicit `files` index to share host scan limits. Parse failures are reported as `story.source_parse_failed`; do not silently equate a failed parse with an empty story. Source hierarchy does not establish runtime execution order or infer branches controlled by host TypeScript.
+- Validate outline/range changes with compiler, language-server and project-inspector tests/typechecks and the editor's Demo outline unit/Electron smoke checks. The editor source tree groups equal chapter ids with different titles separately and indexes saved editable files only.
+
+- Outline generation is opt-in for tooling; default story extraction used by Quack must not add source-outline payload to shipped runtime package metadata. Monaco capture-array rules must capture leading whitespace as their own token to avoid runtime tokenization exceptions on indented declarations/dialogue.
+
+## Editor AI writing source adapter
+
+The built-in `@quajs/editor-novel-writer` uses compiler document parsing and dialogue text ranges for current-project authoring. Prose conversion encodes structural and interpolation-like text as literal JSON string expressions, never executable model code. Intelligent rewrite maps every revised paragraph to an original AST anchor and supports count/speaker changes. It restores existing dynamic expressions through validated manuscript spans, retaining expression identity, order and source execution location. Decorated anchors, occupied control-flow zones, choices, TypeScript and metadata are preserved; incompatible changes block rather than silently changing executable contracts. The project compiler checks preview/application, and source/selection/revision snapshots persist with writing tasks. It produces guarded Monaco drafts, not runtime QPK content or direct disk writes. Validate selection offsets (including CRLF/Unicode), code-looking literal text, round trips, conflicts and actual Electron source/save integration.
+
+## Shared decorator language service
+
+`@quajs/language-server` indexes active decorator bindings with the compiler resolver. Completion and hover include package descriptions and DSL parameter names; completion edits preserve `@` and replace the entire existing name or quoted value. The tolerant lexical index handles multiline/incomplete arguments, nested expressions, strings, templates and comments while excluding embedded script blocks. `getQuaScriptSignatureHelp` and LSP `textDocument/signatureHelp` expose the active DSL parameter from language metadata. Missing metadata does not imply that the runtime helper has the same argument list.
+
+`getQuaScriptDefinitions` resolves decorator bindings through TypeScript, including local re-exports and caller-provided unsaved files. Keep editor navigation scoped to its project file policy. LSP clients may navigate dependency definitions. The standalone LSP uses the Node ESM `vscode-languageserver/node.js` entry, keeps it external in the library build, reuses a disposable TypeScript session and discards superseded diagnostic results. Validate the built stdio entry with `node packages/build/language-server/test/lsp-smoke.mjs` as well as the language-server tests.
+
+## Positioned scene image example
+
+`@BackgroundLayer('letter', 'inserts/letter.png', { x: 320, y: 180, width: 480, height: 320, fit: 'contain', zIndex: 10 })` adds/replaces an image by id without discarding the existing image/video background. Values use logical stage units. Multiple ids coexist behind characters; `zIndex` orders the background composition. `@RemoveBackgroundLayer('letter')` removes one; `@ClearBackgroundLayers()` preserves the retained base. See `../quajs-plugin-background/SKILL.md` for runtime updates, transitions and package provenance. Screenshot mode is an optional engine/UI plugin (`ScreenshotModePlugin`, H toggle), not new QuaScript grammar.
+
+To animate a placed image, enable animation decorators and target `backgroundLayer:letter` with `@AnimationTimeline` / `@Key`. Layer tracks use `x`, `y`, numeric `width`/`height`, `scale`, `rotation`, `opacity`; positions are logical stage units. For example, group `@Key('backgroundLayer:letter', 'x', 0, 320)` and `@Key('backgroundLayer:letter', 'x', 800, 700, 'easeOutCubic')` under `@AnimationTimeline(800, true)` after adding the layer. The `true` waits for completion; omit it for simultaneous dialogue. Default final values persist in engine state. A reusable definition targeting `self` can play with `@PlayAnimation('letter.slide', 'self=backgroundLayer:letter', true)`. Screenshot mode does not pause the animation.
+
+
+## Development source markers
+
+`QuaScriptTransformer({ ... }, { editorPreview: true })` may prepend a pipeline source marker to standalone QS steps for authoring tools. Ranges are the compiler's original UTF-16 ranges (including attached decorators), with one-based display lines and an exact source slice; preserve CRLF and Unicode. The Vite adapter enables this only for `serve` with `VITE_QUA_EDITOR_PREVIEW=1`, bypassing shared transform caches so instrumented code cannot leak into production. Default compiler output and all Vite builds contain no marker or duplicated source text. Embedded `qs` templates are not editable through this preview protocol. Keep shared parser/language-server semantics and no editor-specific syntax. Validate with the compiler serve/build cache regression and the Electron scene debugger's final production-bundle scan.
+
+## Reusable background transitions
+
+`@SetBackground(asset, { transition: definition })` accepts `defineBackgroundTransition` values imported from a TypeScript module in a script block. Definitions use normalized incoming/outgoing numeric keyframes or a custom shader pair (`glsl`, `wgsl`, vec4 `params`); durations and parameters can be overridden with ordinary object spread. `@BackgroundTransition(definition)` accepts the object form for the current picture. This is package-owned decorator lowering, not new QuaScript syntax. Replacement without options now performs a 300 ms crossfade after assets are prepared; `{ type: 'instant' }` opts out. Keep shader/program logic in imported TypeScript and consult `docs/design/background-transitions.md` for the shared Web/native contract.
+
+Decorator parsing must preserve Babel expression nodes for object spreads, computed properties, methods and array spreads/holes. Do not reduce those expressions to static records/arrays: doing so silently loses transition definitions and parameter overrides. Plain literal records remain available to static authoring tools.
+
+## Static resource hints
+
+Decorator compilers may return `assetHints` alongside their runtime call. The generic compiler stores these as `GameStep.metadata.assetHints` while preserving story-point metadata. Background/character compilers extract literal assets and literal character/expression/sprite selections only; dynamic calls, getters and interpolated expressions stay deferred to the step's `run`. Native uses the engine's bounded `assets/preload` lookahead to prepare images before use. This is advisory and never executes later code or commits a branch. Validate `transformer.test.ts` and the engine asset-hint tests when changing this boundary.

@@ -160,7 +160,7 @@ pub struct NativeRendererProjectionRuntime {
     /// Renderer-local scroll offsets keyed by `"<elementId>/<nodeId>"`. The
     /// engine owns scroll *content*; the pointer-driven offset is transient
     /// renderer state, like the typewriter reveal, so wheel input does not need
-    /// a round trip through QuickJS to move a scroll panel.
+    /// a round trip through JavaScriptCore to move a scroll panel.
     scroll_offsets: BTreeMap<String, (f64, f64)>,
 }
 
@@ -205,9 +205,11 @@ impl NativeRendererProjectionRuntime {
         match event {
             "view/update" => {
                 let view = payload.get("view").cloned().unwrap_or(Value::Null);
+                let preload = self.base_frame.get("preload").cloned();
                 self.base_frame = json!({
                     "layout": view.get("layout").cloned().unwrap_or(Value::Null),
                     "view": view,
+                    "preload": preload,
                 });
                 self.received_at = Instant::now();
                 self.received_epoch_ms = current_epoch_ms();
@@ -215,6 +217,11 @@ impl NativeRendererProjectionRuntime {
                 self.prune_scroll_offsets();
                 self.sync_dialogue(self.received_epoch_ms);
                 self.sync_presence(self.received_epoch_ms);
+                Ok(true)
+            }
+            "assets/preload" => {
+                self.base_frame["preload"] = payload;
+                self.cached_static_projection_json = None;
                 Ok(true)
             }
             "native-ui/scroll" => Ok(self.scroll_to_edge(&payload)),
@@ -627,6 +634,14 @@ impl NativeRendererProjectionRuntime {
     /// starts enter/exit transitions for dialogue, characters, and overlays.
     /// Must be called after `base_frame` is updated.
     fn sync_presence(&mut self, now_ms: f64) {
+        // A resource loading scene is a complete presentation boundary, not a
+        // modal fade. Retaining exiting destination snapshots would demand the
+        // very images that this scene is meant to prepare before presentation.
+        let loading_boundary = self.presence.known_overlays.contains_key("asset-loading")
+            || self.base_frame.pointer("/view/ui/overlays").and_then(Value::as_array)
+                .is_some_and(|overlays| overlays.iter().any(|overlay|
+                    overlay.get("elementId").and_then(Value::as_str) == Some("asset-loading")
+                    && overlay.get("visible").and_then(Value::as_bool) != Some(false)));
         // --- Dialogue ---
         let new_dialogue_visible = self
             .base_frame
@@ -773,6 +788,11 @@ impl NativeRendererProjectionRuntime {
             }
         }
         self.presence.known_overlays = new_overlays;
+        if loading_boundary {
+            self.presence.dialogue = None;
+            self.presence.characters.clear();
+            self.presence.overlays.clear();
+        }
     }
 
     /// Injects `presenceOpacity` into dialogue, characters, and overlays that

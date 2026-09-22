@@ -7,8 +7,8 @@ import { QPKBundler, readQpkBundle } from '../../packages/build/quack/dist/index
 // Deterministic raster fixtures are bundled by Quack, then read back for both
 // renderers. No test-only loose asset path is added to the native runtime.
 export async function backgroundAuditAssets(demoQpk, output, assetType = 'images', additionalAssets = new Map()) {
-  const original = await readQpkBundle(demoQpk)
-  const files = new Map(['backgrounds/morning-city.jpg', 'cg/title.webp'].map(name => {
+  const original = demoQpk ? await readQpkBundle(demoQpk) : undefined
+  const files = new Map((original ? ['backgrounds/morning-city.jpg', 'cg/title.webp'] : []).map(name => {
     const bytes = original.assets.get(`assets/images/${name}`)
     if (!bytes) throw new Error(`Missing QPK asset: ${name}`)
     return [name, bytes]

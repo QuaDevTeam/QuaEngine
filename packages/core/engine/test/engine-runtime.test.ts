@@ -21,6 +21,7 @@ import {
   QuaEngine,
   RenderToLogicEvents,
   Scene,
+  ScreenshotModePlugin,
   UI_OVERLAY_HOST_SCENE_ID,
   UiOverlayPlugin,
 } from '../src'
@@ -45,6 +46,64 @@ describe('quaEngine runtime architecture', () => {
   afterEach(async () => {
     vi.useRealTimers()
     QuaEngine.resetInstance()
+  })
+
+  it('hides UI without losing story projections, blocks progression, and restores on intent', async () => {
+    vi.useFakeTimers()
+    const engine = createEngine()
+    const screenshot = new ScreenshotModePlugin()
+    engine.use(screenshot)
+    await engine.init()
+    await engine.setBackgroundProjection({ mode: 'image', assetName: 'room.png' })
+    await engine.showCharacter({ id: 'alice', sprite: 'alice.png' })
+    await engine.showDialogue({ text: 'Keep this line' })
+    await engine.showUI('menu', { open: true, title: 'Menu' })
+    await engine.startAuto()
+    const original = engine.getViewState()
+    const pipeline = engine.getPipeline()
+    const advances = vi.fn()
+    const choices = vi.fn()
+    const commands = vi.fn()
+    pipeline.on(RenderToLogicEvents.USER_ADVANCE, advances)
+    pipeline.on(RenderToLogicEvents.USER_CHOICE_SELECT, choices)
+    pipeline.on(RenderToLogicEvents.USER_INPUT_COMMAND, commands)
+    await screenshot.setEnabled(true)
+    expect(engine.getViewState()).toMatchObject({
+      ui: { visible: false, overlays: original.ui.overlays },
+      background: original.background, characters: original.characters, dialogue: original.dialogue,
+      flowControl: { mode: 'normal' },
+    })
+    await engine.showUI('toast', { message: 'Late event' })
+    expect(engine.getViewState().ui.visible).toBe(false)
+    await vi.advanceTimersByTimeAsync(10_000)
+    await pipeline.emit(RenderToLogicEvents.USER_CHOICE_SELECT, { choiceId: 'a' })
+    await pipeline.emit(RenderToLogicEvents.USER_ADVANCE, { source: 'flow-control:auto' })
+    expect(advances).not.toHaveBeenCalled()
+    expect(choices).not.toHaveBeenCalled()
+    expect(engine.getViewState().ui.visible).toBe(false)
+    await pipeline.emit(RenderToLogicEvents.USER_INPUT_COMMAND, { command: 'ui:cancel' })
+    expect(commands).not.toHaveBeenCalled()
+    expect(engine.getViewState().ui.visible).toBe(true)
+    expect(engine.getViewState().dialogue).toEqual(original.dialogue)
+    await screenshot.setEnabled(true)
+    await pipeline.emit(RenderToLogicEvents.USER_ADVANCE, { source: 'pointer' })
+    expect(advances).not.toHaveBeenCalled()
+    expect(engine.getViewState().ui.visible).toBe(true)
+    await engine.showChoices([{ id: 'a', text: 'Keep this choice', enabled: true }])
+    const choiceState = engine.getViewState().choices
+    await screenshot.toggle()
+    await pipeline.emit(RenderToLogicEvents.USER_INPUT_COMMAND, { command: 'ui:screenshot', repeat: true })
+    expect(engine.getViewState().ui.visible).toBe(false)
+    await screenshot.toggle()
+    expect(engine.getViewState().choices).toEqual(choiceState)
+    await screenshot.setEnabled(true)
+    await pipeline.emit(RenderToLogicEvents.USER_INPUT_COMMAND, { command: 'advance', device: 'pointer', pressed: false })
+    expect(engine.getViewState().ui.visible).toBe(true)
+    expect(advances).not.toHaveBeenCalled()
+    await screenshot.destroy()
+    await pipeline.emit(RenderToLogicEvents.USER_INPUT_COMMAND, { command: 'ui:screenshot' })
+    expect(commands).toHaveBeenCalledTimes(1)
+    await engine.destroy()
   })
 
   it('requires explicit assets adapter injection', () => {

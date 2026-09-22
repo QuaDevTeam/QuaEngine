@@ -78,45 +78,45 @@ export function createNativeHostApiFromBridge(dispatch: NativeHostBridgeDispatch
       method: 'verifySignature',
       params: createNativeSignatureVerifyWireRequest(request),
     }, 'signatureValid'),
-    evaluateQuickJsModule: request => call({
-      method: 'evaluateQuickJsModule',
+    evaluateJscModule: request => call({
+      method: 'evaluateJscModule',
       params: request,
-    }, 'quickJsEvaluation'),
-    callQuickJsModuleExport: request => call({
-      method: 'callQuickJsModuleExport',
+    }, 'jscEvaluation'),
+    callJscModuleExport: request => call({
+      method: 'callJscModuleExport',
       params: request,
-    }, 'quickJsExportCall'),
-    callQuickJsGameStepFactory: request => call({
-      method: 'callQuickJsGameStepFactory',
+    }, 'jscExportCall'),
+    callJscGameStepFactory: request => call({
+      method: 'callJscGameStepFactory',
       params: request,
-    }, 'quickJsGameStepFactoryCall'),
-    callQuickJsGameStepRun: request => call({
-      method: 'callQuickJsGameStepRun',
+    }, 'jscGameStepFactoryCall'),
+    callJscGameStepRun: request => call({
+      method: 'callJscGameStepRun',
       params: request,
-    }, 'quickJsGameStepRun'),
-    resumeQuickJsGameStepRun: request => call({
-      method: 'resumeQuickJsGameStepRun',
+    }, 'jscGameStepRun'),
+    resumeJscGameStepRun: request => call({
+      method: 'resumeJscGameStepRun',
       params: request,
-    }, 'quickJsGameStepRun'),
-    dispatchQuickJsPipelineListener: request => call({
-      method: 'dispatchQuickJsPipelineListener',
+    }, 'jscGameStepRun'),
+    dispatchJscPipelineListener: request => call({
+      method: 'dispatchJscPipelineListener',
       params: request,
-    }, 'quickJsPipelineListenerDispatch'),
-    releaseQuickJsModuleNamespace: moduleNamespaceId => call({
-      method: 'releaseQuickJsModuleNamespace',
+    }, 'jscPipelineListenerDispatch'),
+    releaseJscModuleNamespace: moduleNamespaceId => call({
+      method: 'releaseJscModuleNamespace',
       params: { moduleNamespaceId },
-    }, 'quickJsNamespace').then(value => value ?? undefined),
-    releaseQuickJsPackageNamespaces: packageId => call({
-      method: 'releaseQuickJsPackageNamespaces',
+    }, 'jscNamespace').then(value => value ?? undefined),
+    releaseJscPackageNamespaces: packageId => call({
+      method: 'releaseJscPackageNamespaces',
       params: { packageId },
-    }, 'quickJsNamespaces'),
-    getQuickJsNamespaceSummary: () => call({
-      method: 'getQuickJsNamespaceSummary',
-    }, 'quickJsNamespaceSummary'),
-    getQuickJsPackageNamespaceSummary: packageId => call({
-      method: 'getQuickJsPackageNamespaceSummary',
+    }, 'jscNamespaces'),
+    getJscNamespaceSummary: () => call({
+      method: 'getJscNamespaceSummary',
+    }, 'jscNamespaceSummary'),
+    getJscPackageNamespaceSummary: packageId => call({
+      method: 'getJscPackageNamespaceSummary',
       params: { packageId },
-    }, 'quickJsNamespaceSummary'),
+    }, 'jscNamespaceSummary'),
     emitRendererIntent(event) {
       void callVoid(dispatch, { method: 'emitRendererIntent', params: event })
     },

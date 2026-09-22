@@ -1,0 +1,22 @@
+{
+  "name": "@quajs/plugin-registry",
+  "type": "module",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Cloudflare plugin registry with npm ownership verification and review",
+  "scripts": {
+    "dev": "npx --yes wrangler@4.135.0 dev",
+    "build": "npx --yes wrangler@4.135.0 deploy --dry-run --outdir dist",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "lint": "eslint .",
+    "deploy": "node scripts/deploy.mjs"
+  },
+  "dependencies": {
+    "@quajs/editor-core": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

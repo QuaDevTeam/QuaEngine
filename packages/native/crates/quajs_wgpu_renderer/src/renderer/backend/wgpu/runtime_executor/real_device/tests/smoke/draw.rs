@@ -157,6 +157,7 @@ fn materializes_draw(samples: u32) {
     assert_eq!(report.pipeline_create_count, 1);
     assert_eq!(report.queue_write_count, 2);
     assert_eq!(report.draw_indexed_count, 1);
+    assert_eq!(executor.device().last_draw_calls(), 1);
     assert_eq!(report.resident_buffer_count, 2);
     assert_eq!(report.resident_pipeline_count, 1);
     assert_eq!(report.submitted_command_buffer_count, 1);

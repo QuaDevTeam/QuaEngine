@@ -1,0 +1,29 @@
+QuaEngine Editor
+Copyright (c) 2026 QuaDevTeam and contributors
+SPDX-License-Identifier: MPL-2.0
+
+This Source Code Form is subject to the terms of the Mozilla Public
+License, v. 2.0. If a copy of the MPL was not distributed with this
+file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+This notice applies to the first-party source files in this directory and
+its subdirectories, including code, tests, build scripts, configuration,
+documentation, and bundled agent instructions. The MPL text is included
+in LICENSE. The repository-root Apache-2.0 license is not an alternative
+license for these IDE files. This is a directory-level application of the
+notice permitted by MPL Exhibit A.
+
+Third-party materials retain their own licenses and notices. QuaEngine
+names, logos, and brand assets are not licensed by this source-code grant;
+see https://github.com/QuaDevTeam/QuaEngine/blob/main/TRADEMARKS.md.
+Using the editor to create games, stories, or other output does not, by
+itself, place that output under MPL. Any covered source included in the
+output remains subject to its license.
+
+MPL permits commercial use, modification, and redistribution. Distributors
+must comply with its source-availability and notice requirements. When
+shipping executable forms, tell recipients how to obtain the corresponding
+MPL-covered source, including your modifications. Sending changes upstream
+is welcome but is not required by MPL.
+
+Upstream project: https://github.com/QuaDevTeam/QuaEngine

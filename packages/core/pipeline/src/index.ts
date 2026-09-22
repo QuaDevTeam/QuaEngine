@@ -209,6 +209,11 @@ export class Pipeline {
     }
   }
 
+  removeMiddleware(middleware: MiddlewareFunction): this {
+    this.middlewares = this.middlewares.filter(item => item !== middleware)
+    return this
+  }
+
   // Install plugin
   use(plugin: Plugin): this {
     if (this.plugins.has(plugin)) {

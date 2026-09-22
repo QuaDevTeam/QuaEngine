@@ -1,27 +1,28 @@
-import { NATIVE_TARGET_BOOTSTRAP } from '@quajs/native-contracts'
-import { ACHIEVEMENT_NATIVE_RENDERER_ENTRY } from '@quajs/plugin-achievement/native'
-import { BACKLOG_NATIVE_RENDERER_ENTRY } from '@quajs/plugin-backlog/native'
-import { GALLERY_NATIVE_RENDERER_ENTRY } from '@quajs/plugin-gallery/native'
-import { SETTINGS_NATIVE_RENDERER_ENTRY } from '@quajs/plugin-settings/native'
-import {
-  createQuaProjectNativeArtifactPlans,
-  emitQuaProjectNativeTargetBundleManifest,
-  loadQuaProjectConfig,
-} from '@quajs/quack/project'
 import { spawn } from 'node:child_process'
 import { readFileSync, watch } from 'node:fs'
 import { readFile, rm, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { NATIVE_TARGET_BOOTSTRAP } from '@quajs/native-contracts'
+import { ACHIEVEMENT_UI_SURFACE_ENTRY } from '@quajs/plugin-achievement/surface'
+import { ASSET_LOADING_UI_SURFACE_ENTRY } from '@quajs/plugin-asset-loading/surface'
+import { BACKLOG_UI_SURFACE_ENTRY } from '@quajs/plugin-backlog/surface'
+import { GALLERY_UI_SURFACE_ENTRY } from '@quajs/plugin-gallery/surface'
+import { SETTINGS_UI_SURFACE_ENTRY } from '@quajs/plugin-settings/surface'
+import {
+  createQuaProjectNativeArtifactPlans,
+  emitQuaProjectNativeTargetBundleManifest,
+  loadQuaProjectConfig,
+} from '@quajs/quack/project'
 
 const DEMO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const REPO_ROOT = resolve(DEMO_ROOT, '..')
 const CAPTURE_PATH = resolve(DEMO_ROOT, 'dist/native/dev/e2e-final.png')
 const CHECKPOINT_DIR = resolve(DEMO_ROOT, 'dist/native/dev/e2e-checkpoints')
-const QUICKJS_APP_ASSET = 'assets/scripts/native-app.mjs'
-const GENERATED_QUICKJS_APP_WATCH_PATH = 'scripts/native-app.mjs'
+const JSC_APP_ASSET = 'assets/scripts/native-app.mjs'
+const GENERATED_JSC_APP_WATCH_PATH = 'scripts/native-app.mjs'
 const ASSET_INDEX_PATH = resolve(DEMO_ROOT, 'dist/assets/index.json')
-const NATIVE_FEATURES = 'native-window,native-audio-rodio,quickjs-rquickjs'
+const NATIVE_FEATURES = 'native-window,native-audio-rodio,javascriptcore'
 const e2e = process.argv.includes('--e2e')
 const unsupportedArguments = process.argv.slice(2).filter(argument => argument !== '--e2e')
 
@@ -38,6 +39,7 @@ let rebuildQueued = false
 let stopped = false
 let debounceTimer
 const watchers = []
+const nativeStopped = new Promise(resolveDone => process.once('native-dev-stop', resolveDone))
 
 try {
   await rebuildAndLaunch()
@@ -49,9 +51,14 @@ try {
     process.exitCode = code
   }
   else {
-    installWatchers()
-    console.log('Native demo is running and watching demo/src, demo/assets, and native renderer sources.')
-    await new Promise(resolveDone => process.once('native-dev-stop', resolveDone))
+    if (process.env.QUA_NATIVE_EDITOR_MANAGED_RELOAD !== '1') {
+      installWatchers()
+      console.warn('Native demo is running and watching demo/src, demo/assets, and native renderer sources.')
+    }
+    else {
+      console.warn('Native demo is running; source reload is managed by the editor.')
+    }
+    await nativeStopped
   }
 }
 catch (error) {
@@ -75,15 +82,17 @@ async function rebuildAndLaunch() {
   rebuilding = true
   try {
     await stopNativeWindow()
-    console.log('Building native TypeScript renderer contracts...')
-    await buildNativeTypeScriptPackages()
-    console.log('Bundling the complete native demo engine for QuickJS...')
+    if (process.env.QUA_NATIVE_EDITOR_FAST_REBUILD !== '1') {
+      console.warn('Building native TypeScript renderer contracts...')
+      await buildNativeTypeScriptPackages()
+    }
+    console.warn('Bundling the complete native demo engine for JavaScriptCore...')
     await run(resolveBin('vite'), [
       'build',
       '--config',
-      resolve(DEMO_ROOT, 'vite.native-quickjs.config.ts'),
+      resolve(DEMO_ROOT, 'vite.native-jsc.config.ts'),
     ], { cwd: DEMO_ROOT })
-    console.log('Building native demo assets and resident QuickJS app QPK...')
+    console.warn('Building native demo assets and resident JavaScriptCore app QPK...')
     await run(resolveBin('quack'), ['workspace:bundle', '--all'], { cwd: DEMO_ROOT })
 
     const project = await loadQuaProjectConfig({ cwd: DEMO_ROOT })
@@ -120,14 +129,15 @@ async function rebuildAndLaunch() {
         specifier: '@quajs/native-renderer/builtin',
         target: 'native',
       }, ...[
-        ACHIEVEMENT_NATIVE_RENDERER_ENTRY,
-        BACKLOG_NATIVE_RENDERER_ENTRY,
-        GALLERY_NATIVE_RENDERER_ENTRY,
-        SETTINGS_NATIVE_RENDERER_ENTRY,
+        ACHIEVEMENT_UI_SURFACE_ENTRY,
+        ASSET_LOADING_UI_SURFACE_ENTRY,
+        BACKLOG_UI_SURFACE_ENTRY,
+        GALLERY_UI_SURFACE_ENTRY,
+        SETTINGS_UI_SURFACE_ENTRY,
       ].map(specifier => ({ specifier, target: 'native' }))],
     })
     const qpkPath = await resolveLatestQpk(plan.platform)
-    console.log(`Launching complete native demo from ${qpkPath}`)
+    console.warn(`Launching complete native demo from ${qpkPath}`)
     nativeOutput = ''
     if (e2e) {
       await rm(CAPTURE_PATH, { force: true })
@@ -145,7 +155,7 @@ async function rebuildAndLaunch() {
         QUA_NATIVE_TARGET_BUNDLE_MANIFEST: emitted.manifestPath,
         QUA_NATIVE_RENDERER_WINDOW_SMOKE: '1',
         QUA_NATIVE_RENDERER_WINDOW_DEV_QPK: qpkPath,
-        QUA_NATIVE_RENDERER_WINDOW_DEV_QUICKJS_APP_ASSET: QUICKJS_APP_ASSET,
+        QUA_NATIVE_RENDERER_WINDOW_DEV_JSC_APP_ASSET: JSC_APP_ASSET,
         ...(e2e
           ? {
               QUA_NATIVE_RENDERER_WINDOW_CAPTURE_PATH: CAPTURE_PATH,
@@ -172,10 +182,16 @@ async function rebuildAndLaunch() {
     }
     nativeWindow.on('error', error => console.error(`Native demo failed to start: ${error.message}`))
     if (!e2e) {
-      console.log(`Native CDP endpoint: http://${process.env.QUA_NATIVE_RENDERER_CONTROL ?? '127.0.0.1:4789'}/json/version`)
+      console.warn(`Native CDP endpoint: http://${process.env.QUA_NATIVE_RENDERER_CONTROL ?? '127.0.0.1:4789'}/json/version`)
       nativeWindow.on('exit', (code, signal) => {
         if (!stopped && !rebuilding) {
-          console.log(`Native demo window closed (code=${code ?? 'none'}, signal=${signal ?? 'none'}). Waiting for a source change.`)
+          if (code === 0) {
+            stopped = true
+            console.warn('Native demo closed normally.')
+            process.emit('native-dev-stop')
+            return
+          }
+          console.warn(`Native demo window closed (code=${code ?? 'none'}, signal=${signal ?? 'none'}). Waiting for a source change.`)
         }
       })
     }
@@ -198,6 +214,7 @@ function installWatchers() {
     resolve(REPO_ROOT, 'packages/native/crates/quajs_wgpu_renderer/src'),
     resolve(REPO_ROOT, 'packages/native/crates/quajs_native_app/src'),
     resolve(REPO_ROOT, 'packages/plugins/achievement/src'),
+    resolve(REPO_ROOT, 'packages/plugins/asset-loading/src'),
     resolve(REPO_ROOT, 'packages/plugins/backlog/src'),
     resolve(REPO_ROOT, 'packages/plugins/gallery/src'),
     resolve(REPO_ROOT, 'packages/plugins/settings/src'),
@@ -208,7 +225,7 @@ function installWatchers() {
       }
       clearTimeout(debounceTimer)
       debounceTimer = setTimeout(() => {
-        console.log(`Native demo reload: ${filename}`)
+        console.warn(`Native demo reload: ${filename}`)
         void rebuildAndLaunch().catch(error => console.error(error))
       }, 180)
     }))
@@ -217,7 +234,8 @@ function installWatchers() {
     let contents = readFileSync(resolve(DEMO_ROOT, file), 'utf8')
     watchers.push(watch(resolve(DEMO_ROOT, file), () => {
       const next = readFileSync(resolve(DEMO_ROOT, file), 'utf8')
-      if (next === contents) return
+      if (next === contents)
+        return
       contents = next
       if (rebuilding || stopped) {
         return
@@ -233,7 +251,7 @@ function shouldIgnoreNativeDevWatchEvent(filename) {
     return true
   }
   const normalized = filename.replaceAll('\\', '/')
-  return normalized === GENERATED_QUICKJS_APP_WATCH_PATH
+  return normalized === GENERATED_JSC_APP_WATCH_PATH
     || normalized.includes('/dist/')
     || normalized.endsWith('.tmp')
     || normalized.endsWith('.qpk')
@@ -324,6 +342,7 @@ async function buildNativeTypeScriptPackages() {
     '@quajs/native-ui',
     '@quajs/native-ui-compiler',
     '@quajs/plugin-achievement',
+    '@quajs/plugin-asset-loading',
     '@quajs/plugin-backlog',
     '@quajs/plugin-gallery',
     '@quajs/plugin-settings',
@@ -422,9 +441,21 @@ async function validateNativeE2eOutput(output) {
     failures.push('the HUD skip toggle did not return to normal reading')
   }
   const expectedCheckpoints = [
-    'title-menu', 'story-main', 'story-mara', 'story-street', 'story-studio', 'story-team',
-    'story-choice', 'story-branch', 'game-menu', 'title-confirmation', 'title-return',
-    'settings', 'settings-return', 'chapters', 'chapters-return',
+    'title-menu',
+    'story-main',
+    'story-mara',
+    'story-street',
+    'story-studio',
+    'story-team',
+    'story-choice',
+    'story-branch',
+    'game-menu',
+    'title-confirmation',
+    'title-return',
+    'settings',
+    'settings-return',
+    'chapters',
+    'chapters-return',
   ]
   const checkpoints = e2eReport.visualCheckpoints ?? []
   const expectedScenes = {
@@ -446,6 +477,9 @@ async function validateNativeE2eOutput(output) {
     }
     if (!(checkpoint.brightFraction >= 0.25 && checkpoint.meanLuma >= 20 && checkpoint.lumaStddev >= 8)) {
       failures.push(`${checkpoint.name}: black or blank scene pixels`)
+    }
+    if (checkpoint.presented !== true || !['Presented', 'Suboptimal'].includes(checkpoint.presentStatus)) {
+      failures.push(`${checkpoint.name}: the checkpoint did not reach the window surface (${checkpoint.presentStatus || 'unknown'})`)
     }
     if (checkpoint.name.startsWith('story-') && (!checkpoint.sceneRegion || !checkpoint.background || !checkpoint.dialogue)) {
       failures.push(`${checkpoint.name}: scene acceptance did not inspect the background above the dialogue box`)
@@ -478,10 +512,7 @@ async function validateNativeE2eOutput(output) {
   if (report.pointerProbeCount < expectedSteps.length || report.pointerIntentEmitCount < expectedSteps.length) {
     failures.push('the native render-command clicks did not all emit through the renderer intent bridge')
   }
-  const occludedWithValidCapture = report.presentStatus === 'OccludedAfterRetry'
-    && report.frameCapturePngSignatureValid === true
-    && report.frameCaptureVisiblePixelCount > 0
-  if ((report.presented !== true || report.presentStatus !== 'Presented') && !occludedWithValidCapture) {
+  if (report.presented !== true || !['Presented', 'Suboptimal'].includes(report.presentStatus)) {
     failures.push(`surface was not presented (${report.presentStatus || 'unknown'})`)
   }
   if (report.textureUploadErrorCount !== 0) {
@@ -545,9 +576,9 @@ async function validateNativeE2eOutput(output) {
     throw new Error(`Native demo E2E failed: ${failures.join('; ')}.`)
   }
   await writeFile(resolve(CHECKPOINT_DIR, 'report.json'), JSON.stringify({ flow: e2eReport, window: report }, null, 2))
-  const escape = value => String(value ?? '').replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character])
+  const escape = value => String(value ?? '').replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', '\'': '&#39;' })[character])
   await writeFile(resolve(CHECKPOINT_DIR, 'review.html'), `<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>Native smoke 场景验收</title><style>body{margin:32px;background:#162021;color:#e8efed;font:16px system-ui}main{max-width:1200px;margin:auto}figure{margin:24px 0 48px}img{width:100%;display:block;border-radius:8px}figcaption{line-height:1.7;margin:12px 0;color:#b8ccca}h2{font-size:20px}code{font-size:14px}</style><main><h1>Native smoke 场景验收</h1><p>${e2eReport.dialogueLineCount} 条完整对白身份 · ${checkpoints.length} 个真实 WGPU 截图检查点。场景像素检查避开底部对白框，拒绝黑屏与纯色空白画面。</p>${checkpoints.map(checkpoint => `<figure><h2>${escape(checkpoint.name)}</h2><img loading="lazy" src="${escape(checkpoint.file)}"><figcaption>${escape(checkpoint.dialogue || checkpoint.name)}<br><code>${escape(checkpoint.background || 'UI')} · ${escape(checkpoint.characters.join(', '))}</code><br>亮像素比例 ${(checkpoint.brightFraction * 100).toFixed(1)}% · 平均亮度 ${checkpoint.meanLuma.toFixed(1)} · 亮度标准差 ${checkpoint.lumaStddev.toFixed(1)}</figcaption></figure>`).join('')}</main></html>`)
-  console.log(`Native demo E2E validated ${e2eReport.dialogueLineCount} complete dialogue identities, ${checkpoints.length} visual checkpoints, choice ${e2eReport.selectedChoiceId}, settings, chapters, ${report.passCount} WGPU pass(es), and a ${report.frameCaptureWidth}x${report.frameCaptureHeight} PNG readback.`)
+  console.warn(`Native demo E2E validated ${e2eReport.dialogueLineCount} complete dialogue identities, ${checkpoints.length} visual checkpoints, choice ${e2eReport.selectedChoiceId}, settings, chapters, ${report.passCount} WGPU pass(es), and a ${report.frameCaptureWidth}x${report.frameCaptureHeight} PNG readback.`)
 }
 
 for (const signal of ['SIGINT', 'SIGTERM']) {

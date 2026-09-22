@@ -6,7 +6,8 @@ export function createDemoSettingsStorage(storage: Storage): SettingsStorageAdap
   return {
     async loadProfile(profileId) {
       const raw = storage.getItem(key(profileId))
-      if (!raw) return undefined
+      if (!raw)
+        return undefined
       try {
         const profile = JSON.parse(raw) as SettingsStoredProfile
         return profile?.profileId === profileId ? profile : undefined

@@ -7,6 +7,8 @@ import {
   createCharacter,
   expressionWithEngine,
   hide,
+  hideAllCharacters,
+  hideAllCharactersWithEngine,
   hideWithEngine,
   move,
   moveWithEngine,
@@ -123,6 +125,55 @@ describe('@quajs/character', () => {
     expect(engine.moveCharacter).toHaveBeenCalledWith('Alice', { x: 60, y: 20 })
     expect(engine.setCharacterExpression).toHaveBeenCalledWith('Alice', 'happy')
     expect(engine.hideCharacter).toHaveBeenCalledWith('Alice')
+  })
+
+  it('hides the projected cast without registration and preserves presentation and unrelated state', async () => {
+    const characters = [
+      {
+        id: 'runtime-guest',
+        name: 'Guest',
+        visible: true,
+        sprite: 'guest.png',
+        expression: 'smile',
+        position: { x: 700, y: 640 },
+        contentPackageId: 'extra-cast',
+        requiredRuntimePackages: ['extra-cast'],
+      },
+      { id: 'Alice', name: 'Alice', visible: true, opacity: 0 },
+      { id: 'offstage', name: 'Offstage', visible: false },
+    ]
+    const unrelatedState = {
+      background: { type: 'image', asset: 'room.png' },
+      dialogue: { visible: true, characterId: 'Alice', text: 'Still speaking.' },
+      choices: [{ id: 'stay', text: 'Stay' }],
+      audio: { bgm: { asset: 'music.ogg', playing: true } },
+    }
+    const engine = createEngine({ characters, ...unrelatedState })
+    const otherEngine = createEngine({ characters: [{ id: 'other', visible: true }] })
+    configureCharacterRuntime({ engine: otherEngine as any })
+    registerCharacter({ id: 'registered-only', displayName: 'Not on stage' })
+
+    await hideAllCharactersWithEngine(engine as any)
+
+    expect(engine.getViewState()).toEqual(expect.objectContaining({
+      ...unrelatedState,
+      characters: characters.map(character => ({ ...character, visible: false })),
+    }))
+    expect(engine.hideCharacter.mock.calls).toEqual([['runtime-guest'], ['Alice']])
+    expect(otherEngine.hideCharacter).not.toHaveBeenCalled()
+
+    await hideAllCharactersWithEngine(engine as any)
+    expect(engine.hideCharacter).toHaveBeenCalledTimes(2)
+    await hideAllCharacters()
+    expect(otherEngine.hideCharacter).toHaveBeenCalledWith('other')
+  })
+
+  it('can hide an empty stage without creating character projections', async () => {
+    const engine = createEngine()
+    await hideAllCharactersWithEngine(engine as any)
+    expect(engine.hideCharacter).not.toHaveBeenCalled()
+    expect(engine.showCharacter).not.toHaveBeenCalled()
+    await expect(hideAllCharacters()).rejects.toThrow('Character runtime is not configured')
   })
 
   it('stages multiple characters by position without auto-scaling by default', async () => {

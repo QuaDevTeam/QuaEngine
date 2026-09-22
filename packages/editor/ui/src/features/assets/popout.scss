@@ -1,0 +1,83 @@
+:root {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: var(--editor-text);
+  background: var(--editor-inset);
+}
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: var(--editor-inset);
+}
+.asset-titlebar {
+  display: flex;
+  align-items: center;
+  height: 38px;
+  padding: 0 10px 0 16px;
+  border-bottom: 1px solid var(--editor-divider);
+  background: var(--editor-surface);
+  -webkit-app-region: drag;
+  user-select: none;
+}
+.asset-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--editor-text);
+  font-size: 12px;
+}
+#asset-close {
+  margin-left: auto;
+  -webkit-app-region: no-drag;
+}
+#asset-stage {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: calc(100% - 38px);
+  padding: 28px;
+  background: var(--editor-inset);
+  background-image:
+    linear-gradient(45deg, var(--editor-checker) 25%, transparent 25%),
+    linear-gradient(-45deg, var(--editor-checker) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, var(--editor-checker) 75%),
+    linear-gradient(-45deg, transparent 75%, var(--editor-checker) 75%);
+  background-size: 28px 28px;
+  background-position:
+    0 0,
+    0 14px,
+    14px -14px,
+    -14px 0;
+}
+.asset-preview-media {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  box-shadow: 0 10px 40px var(--editor-shadow);
+}
+img.asset-preview-media {
+  width: auto;
+  height: auto;
+}
+audio.asset-preview-media {
+  width: min(640px, 100%);
+}
+video.asset-preview-media {
+  width: 100%;
+  height: 100%;
+}
+#asset-empty {
+  color: var(--editor-muted);
+  font-size: 14px;
+}
+
+#app {
+  display: contents;
+}

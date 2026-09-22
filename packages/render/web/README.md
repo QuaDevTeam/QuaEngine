@@ -158,3 +158,25 @@ Browser autoplay policy blocks are handled as normal Web runtime behavior, not e
 The character plugin projects `view.background.characterLighting` as an optional, per-character SVG material. `ambient` contains sRGB channel multipliers; `shade.color` is the far-end multiplier of a gradient from `shade.from` to `shade.to`, in normalized sprite-box coordinates. It grades the composed sprite and restores source alpha once. Absent/identity profiles use no filter. No PNG copies, object URLs, normal maps or rendering loops are created; browser/GPU filter surfaces are additional transient memory, outside the asset URL cache budget.
 
 Author the profile with `@quajs/plugin-background` options. Do not infer it from an asset name or scene ID in a renderer. `characterLightingSvg` and `createCharacterLightingSvgElement`, exported from `./plugins/character`, share implementation with the Vue adapter. React/Svelte DOM plugins reuse Web. Native/Cocos currently render the original colors. This is 2D color/shade grading, not depth lighting or AO. See `demo/.agents/environment-lighting.md` for the reviewed profiles and boundaries.
+
+## Optional shared QUI surfaces
+
+Install `@quajs/native-ui-compiler` when using the optional QUI entry (it supplies the public projection types). `@quajs/renderer-web/qui` projects the same resolved logical-stage TSX/QSS trees consumed by native WGPU. It is an explicit opt-in; default Web plugins and custom Vue/React/Svelte components remain available.
+
+```ts
+import { createQuiWebOverlayHost } from '@quajs/renderer-web/qui'
+
+const ui = createQuiWebOverlayHost({
+  container: logicalStageOverlayElement,
+  pipeline: engine.getPipeline(),
+  assets: engine.getAssets(),
+  surfaceKeys: ['my-game/app'],
+  features: sharedFeatureSurfaces,
+})
+ui.update(engine.getViewState())
+// Subscribe updates through the renderer/pipeline, then call ui.dispose() on unmount.
+```
+
+Author pure components with `@quajs/native-ui`; compile using the browser-safe `@quajs/native-ui-compiler/runtime` and build-time QSS. Publish resolved roots through engine-owned UI overlays. Pure settings/backlog/gallery/achievement factories are exported from their plugin `/surface` entries; allowlisted intent resolution belongs in the logic session. See `demo/src/game/ui` for a complete application.
+
+The DOM adapter supports panels, text, buttons, package-backed images, clipping, scroll regions, range/select/switch controls and resolved QSS paint/state styles. It preserves node/focus identity, transient scroll offsets, canonical pipeline payload fields and package-aware asset leases. Use stable unique ids. This is the supported shared UI subset, not full arbitrary CSS/HTML or every native media primitive: video, canvas/custom drawing, nine-slice borders and custom shader surfaces need their target-specific plugins. Browser select popups use OS/browser chrome. No native host or target bootstrap is bundled by this entry.

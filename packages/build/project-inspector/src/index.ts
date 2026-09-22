@@ -25,6 +25,7 @@ export type {
   QuaStoryEntryRef,
   QuaStoryLabelRef,
   QuaStoryNodeRef,
+  QuaStoryOutlineDocument,
   QuaStoryPackageRef,
   QuaStoryPointInspection,
   QuaStoryPointInspectionKind,

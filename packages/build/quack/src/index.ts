@@ -109,7 +109,7 @@ export {
   normalizeQuaProjectConfig,
   normalizeQuaProjectNativeBuildConfig,
   normalizeQuaProjectNativeCargoFeatures,
-  QUA_NATIVE_QUICKJS_CARGO_FEATURE,
+  QUA_NATIVE_JSC_CARGO_FEATURE,
   QUA_NATIVE_TARGET_BUNDLE_MANIFEST_FILE,
   QUA_PROJECT_CONFIG_CANDIDATES,
   QUA_TARGET_BUNDLE_MANIFEST_FILE,

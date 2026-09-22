@@ -1,19 +1,17 @@
 import type { NativeUiSurfaceNodeProjection } from '@quajs/native-ui-compiler'
 import { RenderToLogicEvents } from '@quajs/engine'
-import {
-  createNativeRendererJsonFrameInput,
-  resolveNativeRendererFeatureIntent,
-} from '@quajs/engine-native'
+import { createNativeRendererJsonFrameInput } from '@quajs/engine-native'
+import { resolveUiFeatureIntent } from '@quajs/render-core'
 import { describe, expect, it } from 'vitest'
 import { SettingsRenderToLogicEvents } from '../src/contracts'
 import {
-  createSettingsNativeRendererFeature,
-  SETTINGS_NATIVE_SURFACE_KEY,
-} from '../src/native'
+  createSettingsUiSurfaceFeature,
+  SETTINGS_UI_SURFACE_KEY,
+} from '../src/surface'
 
 describe('settings native renderer feature', () => {
   it('does not replace the engine UI overlay while settings is closed', () => {
-    const feature = createSettingsNativeRendererFeature()
+    const feature = createSettingsUiSurfaceFeature()
     expect(feature.createOverlays({
       logicalHeight: 1080,
       logicalWidth: 1920,
@@ -26,7 +24,7 @@ describe('settings native renderer feature', () => {
   it('allows product bounds without modifying engine projections', () => {
     const bounds = { x: 470, y: 115, width: 980, height: 642 }
     const view = { ui: { overlays: { settings: { open: true } } } }
-    const result = createSettingsNativeRendererFeature({ resolvePanelBounds: () => bounds }).createOverlays({
+    const result = createSettingsUiSurfaceFeature({ resolvePanelBounds: () => bounds }).createOverlays({
       logicalWidth: 1920,
       logicalHeight: 1080,
       view,
@@ -83,7 +81,7 @@ describe('settings native renderer feature', () => {
           updatedAt: 1,
         },
       },
-    }, { featureSurfaces: [createSettingsNativeRendererFeature()] })
+    }, { featureSurfaces: [createSettingsUiSurfaceFeature()] })
 
     const overlay = (frame.view.ui as { overlays: Array<Record<string, unknown>> }).overlays[0]
     const surface = overlay.surface as { key: string, root: NativeUiSurfaceNodeProjection }
@@ -103,7 +101,7 @@ describe('settings native renderer feature', () => {
     const skip = findNode(surface.root, 'settings-field--quajs-plugin-settings-skipMode-select')
     const skipChevron = findNode(surface.root, 'settings-field--quajs-plugin-settings-skipMode-select-chevron')
 
-    expect(surface.key).toBe(SETTINGS_NATIVE_SURFACE_KEY)
+    expect(surface.key).toBe(SETTINGS_UI_SURFACE_KEY)
     expect(overlay).toEqual(expect.objectContaining({
       overlayStack: 'modal',
       stackPriority: 2,
@@ -167,7 +165,7 @@ describe('settings native renderer feature', () => {
         defaults: {},
         values: { value0: 5000 },
       } }, revision: 1 } },
-    }, { featureSurfaces: [createSettingsNativeRendererFeature()] })
+    }, { featureSurfaces: [createSettingsUiSurfaceFeature()] })
     const overlays = (frame.view.ui as { overlays: Array<{ surface: { root: NativeUiSurfaceNodeProjection } }> }).overlays
     const root = overlays[0].surface.root
     expect(findNode(root, 'settings-panel')?.bounds.height).toBe(720)
@@ -182,26 +180,26 @@ describe('settings native renderer feature', () => {
   })
 
   it('maps update, reset, and close actions without arbitrary event dispatch', () => {
-    const entries = [createSettingsNativeRendererFeature()]
-    expect(resolveNativeRendererFeatureIntent(entries, 'settings-update', {
+    const entries = [createSettingsUiSurfaceFeature()]
+    expect(resolveUiFeatureIntent(entries, 'settings-update', {
       patchJson: '{"audio":{"enabled":false}}',
       scope: '@quajs/plugin-audio',
     })).toEqual({
       event: SettingsRenderToLogicEvents.UPDATE_REQUEST,
       payload: { scope: '@quajs/plugin-audio', patch: { audio: { enabled: false } } },
     })
-    expect(resolveNativeRendererFeatureIntent(entries, 'settings-reset-scope', {
+    expect(resolveUiFeatureIntent(entries, 'settings-reset-scope', {
       scope: '@quajs/plugin-audio',
     })).toEqual({
       event: SettingsRenderToLogicEvents.RESET_SCOPE_REQUEST,
       payload: { scope: '@quajs/plugin-audio' },
     })
-    expect(resolveNativeRendererFeatureIntent(entries, 'settings-close', { targetId: 'settings' })).toEqual({
+    expect(resolveUiFeatureIntent(entries, 'settings-close', { targetId: 'settings' })).toEqual({
       event: RenderToLogicEvents.UI_REQUEST_CLOSE,
       payload: { elementId: 'settings' },
     })
-    expect(resolveNativeRendererFeatureIntent(entries, 'settings/apply-hook', {})).toBeUndefined()
-    expect(() => resolveNativeRendererFeatureIntent(entries, 'settings-update', {
+    expect(resolveUiFeatureIntent(entries, 'settings/apply-hook', {})).toBeUndefined()
+    expect(() => resolveUiFeatureIntent(entries, 'settings-update', {
       patchJson: '{"__proto__":{"polluted":true}}',
       scope: 'unsafe',
     })).toThrow('must contain a safe object patch')

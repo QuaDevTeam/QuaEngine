@@ -50,6 +50,8 @@ function resolveCallableDefault<T extends (...args: any[]) => unknown>(module: T
 }
 
 export interface QuaScriptTransformerOptions {
+  /** Editor preview only. The Vite adapter enables this exclusively during serve. */
+  editorPreview?: boolean
   autoCollectDecorators?: boolean
   availableDecoratorMappings?: DecoratorMapping
   decoratorCompilers?: readonly DecoratorCompiler[]
@@ -67,6 +69,7 @@ export interface QuaScriptTransformerOptions {
  * decorator lowering is delegated to registered decorator compilers.
  */
 export class QuaScriptTransformer {
+  private stepAssetHints: Array<{ type: string, name: string, expression?: string, sprite?: string }> = []
   protected decoratorMappings: DecoratorMapping
   private explicitDecoratorMappings: DecoratorMapping
   private availableDecoratorMappings: DecoratorMapping
@@ -77,6 +80,7 @@ export class QuaScriptTransformer {
   private handledDecoratorModules: Set<string> = new Set()
   protected decoratorCompilerRegistry: DecoratorCompilerRegistry
   private runtimeModule?: NonNullable<QuaScriptTransformerOptions['runtimeModule']>
+  private readonly editorPreview: boolean
 
   constructor(
     decoratorMappings: DecoratorMapping = {},
@@ -93,6 +97,7 @@ export class QuaScriptTransformer {
     this.decoratorCompilerRegistry = createDefaultDecoratorCompilerRegistry()
     this.registerDecoratorCompilers(options.decoratorCompilers || [])
     this.runtimeModule = options.runtimeModule
+    this.editorPreview = options.editorPreview === true
   }
 
   registerDecoratorCompilers(compilers: readonly DecoratorCompiler[]): void {
@@ -265,6 +270,7 @@ export class QuaScriptTransformer {
         : t.assignmentPattern(scopeIdentifier, t.objectExpression([]))
       const stepsArray = this.transformToGameSteps(parsed, {
         scopeIdentifier,
+        editorSource: this.editorPreview ? { path: filePath, source: document.source } : undefined,
       })
       const imports = this.generateImports(moduleAst)
       const body: t.Statement[] = [
@@ -405,10 +411,12 @@ export class QuaScriptTransformer {
       quasi?: t.TemplateLiteral
       sourceRangeOffset?: SourceRangeOffset
       scopeIdentifier?: t.Identifier
+      editorSource?: { path: string, source: string }
     } = {},
   ): t.ArrayExpression {
     const compileState: Record<string, unknown> = {}
     const elements = parsed.steps.map((step, index) => {
+      this.stepAssetHints = []
       const stepUuid = this.resolveStepUuid(step, index)
       const metadataPoint = this.updateStoryPointCompileState(compileState, step)
       let stepExpression: t.ObjectExpression
@@ -420,6 +428,37 @@ export class QuaScriptTransformer {
       }
       else {
         stepExpression = this.createActionStep(step.content, stepUuid, index, compileState, options, metadataPoint)
+      }
+      if (this.stepAssetHints.length) {
+        let metadata = stepExpression.properties.find(item => t.isObjectProperty(item) && t.isIdentifier(item.key, { name: 'metadata' }))
+        if (!metadata) {
+          metadata = t.objectProperty(t.identifier('metadata'), t.objectExpression([]))
+          stepExpression.properties.push(metadata)
+        }
+        if (t.isObjectProperty(metadata) && t.isObjectExpression(metadata.value))
+          metadata.value.properties.push(t.objectProperty(t.identifier('assetHints'), t.valueToNode(this.stepAssetHints)))
+      }
+      if (options.editorSource && step.range) {
+        const start = Math.min(step.range.start.offset, ...(step.content.type === 'choice' ? [] : step.content.decorators.map(item => item.range?.start.offset ?? step.range!.start.offset)))
+        const end = step.range.end.offset
+        const source = {
+          path: options.editorSource.path.split('?', 1)[0],
+          stepIndex: index,
+          line: options.editorSource.source.slice(0, start).split('\n').length,
+          start,
+          end,
+          expectedText: options.editorSource.source.slice(start, end),
+        }
+        const run = stepExpression.properties.find(item => t.isObjectProperty(item) && t.isIdentifier(item.key, { name: 'run' }))
+        if (t.isObjectProperty(run) && t.isArrowFunctionExpression(run.value) && t.isBlockStatement(run.value.body)) {
+          run.value.body.body.unshift(t.expressionStatement(t.awaitExpression(t.callExpression(
+            t.memberExpression(t.memberExpression(t.identifier('ctx'), t.identifier('pipeline')), t.identifier('emit')),
+            [t.stringLiteral('editor/preview/step'), t.objectExpression([
+              t.objectProperty(t.identifier('source'), t.valueToNode(source)),
+              t.objectProperty(t.identifier('stepId'), t.memberExpression(t.identifier('ctx'), t.identifier('stepId'))),
+            ])],
+          ))))
+        }
       }
       return inheritSourceRange(stepExpression, step.range, options.sourceRangeOffset)
     })
@@ -927,6 +966,7 @@ export class QuaScriptTransformer {
       })
 
       if (compiled) {
+        this.stepAssetHints.push(...compiled.result.assetHints || [])
         this.handledDecoratorModules.add(compiled.compiler.module)
         this.handledDecoratorModules.add(mapping.module)
         compiled.result.runtimeHelpers?.forEach(helper => this.usedRuntimeHelpers.add(helper))

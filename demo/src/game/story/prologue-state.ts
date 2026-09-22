@@ -1,20 +1,22 @@
-import { BaseEnginePlugin, LogicToRenderEvents, onLogicToRender, type EngineContext, type GameStep, type QuaEngine } from '@quajs/engine'
-import { STORY_GRAPH_PLUGIN_ID, type StoryGraphPlugin } from '@quajs/story-graph'
-import arrival from '../scenes/prologue-arrival.qs'
-import commission from '../scenes/prologue-commission.qs'
-import restoration from '../scenes/prologue-restoration.qs'
-import returnLine from '../scenes/prologue-return-line.qs'
+import type { EngineContext, GameStep, QuaEngine } from '@quajs/engine'
+import type { StoryGraphPlugin } from '@quajs/story-graph'
+import { BaseEnginePlugin, LogicToRenderEvents, onLogicToRender } from '@quajs/engine'
+import { STORY_GRAPH_PLUGIN_ID } from '@quajs/story-graph'
+import { STORY_TREE_NODES } from '../content/story-tree'
 import chapter01 from '../scenes/chapter-01.qs'
 import chapter02 from '../scenes/chapter-02.qs'
 import chapter03 from '../scenes/chapter-03.qs'
 import chapter04 from '../scenes/chapter-04.qs'
-import chapter05 from '../scenes/chapter-05.qs'
 import inspection from '../scenes/chapter-05-inspection.qs'
-import handoff from '../scenes/ending-handoff.qs'
+import chapter05 from '../scenes/chapter-05.qs'
 import chapter06 from '../scenes/chapter-06.qs'
 import chapter07 from '../scenes/chapter-07.qs'
+import handoff from '../scenes/ending-handoff.qs'
 import epilogue from '../scenes/epilogue.qs'
-import { STORY_TREE_NODES } from '../content/story-tree'
+import arrival from '../scenes/prologue-arrival.qs'
+import commission from '../scenes/prologue-commission.qs'
+import restoration from '../scenes/prologue-restoration.qs'
+import returnLine from '../scenes/prologue-return-line.qs'
 
 export const DEMO_STORY_PLUGIN_ID = 'demo-story'
 export const DEMO_LIBRARY_PLUGIN_ID = 'demo-library'
@@ -28,8 +30,8 @@ export interface StoryState extends PrologueState {
   status: 'reading' | 'paused' | 'ended'
   ending?: 'tomorrow' | 'letter' | 'handoff'
 }
-export interface StoryLibrary { canContinue: boolean; chapters: string[] }
-export interface StoryRequest { action: 'start' | 'continue' | 'pause' | 'chapter'; nodeId?: string }
+export interface StoryLibrary { canContinue: boolean, chapters: string[] }
+export interface StoryRequest { action: 'start' | 'continue' | 'pause' | 'chapter', nodeId?: string }
 export interface PrologueScope extends Record<string, unknown> {
   response: (listening: string, catalog: string) => string
 }
@@ -38,9 +40,12 @@ export interface StoryScope extends PrologueScope {
 }
 
 const choiceGroups = [
-  ['listen-first', 'catalog-first'], ['verify-audio', 'verify-notice'],
-  ['tell-now', 'admit-fear'], ['investigate-station', 'investigate-office'],
-  ['continue-inquiry', 'early-handoff'], ['external-preservation', 'formal-followup'],
+  ['listen-first', 'catalog-first'],
+  ['verify-audio', 'verify-notice'],
+  ['tell-now', 'admit-fear'],
+  ['investigate-station', 'investigate-office'],
+  ['continue-inquiry', 'early-handoff'],
+  ['external-preservation', 'formal-followup'],
 ]
 const endings = {
   tomorrow: { title: '明天，请再一次呼唤我', message: '感谢游玩。' },
@@ -65,7 +70,8 @@ export class DemoStoryPlugin extends BaseEnginePlugin {
   protected override setup(ctx: EngineContext): void {
     this.disposeLoad = onLogicToRender(ctx.pipeline, LogicToRenderEvents.GAME_LOAD, async () => {
       const point = this.engine.getStoryPoint()
-      if (point?.sceneId !== DEMO_SCENE_ID) return
+      if (point?.sceneId !== DEMO_SCENE_ID)
+        return
       this.restoringSave = true
       for (const id of ['menu', 'saveLoad', 'settings', 'titleConfirm', 'confirm', 'gameOver']) await this.engine.hideUI(id)
       await this.engine.stopAuto()
@@ -78,16 +84,25 @@ export class DemoStoryPlugin extends BaseEnginePlugin {
     const listener = (context: { event: { payload: unknown } }) => {
       const request = context.event.payload as StoryRequest
       const command = this.commandQueue.then(async () => {
-        if (request.action === 'start') await this.start()
-        else if (request.action === 'pause') await this.pause()
-        else if (request.action === 'continue') await this.engine.loadFromSlot('continue', { force: true })
+        if (request.action === 'start') {
+          await this.start()
+        }
+        else if (request.action === 'pause') {
+          await this.pause()
+        }
+        else if (request.action === 'continue') {
+          await this.engine.loadFromSlot('continue', { force: true })
+        }
         else if (request.action === 'chapter') {
           const library = await this.refreshLibrary()
-          if (!request.nodeId || !library.chapters.includes(request.nodeId)) throw new Error('请先阅读并解锁这一章。')
+          if (!request.nodeId || !library.chapters.includes(request.nodeId))
+            throw new Error('请先阅读并解锁这一章。')
           await this.engine.loadFromSlot(`chapter-${request.nodeId}`, { force: true })
         }
       })
-      this.commandQueue = command.catch(async error => { await ctx.pipeline.emit(DEMO_STORY_ERROR, { message: error instanceof Error ? error.message : String(error) }) })
+      this.commandQueue = command.catch(async (error) => {
+        await ctx.pipeline.emit(DEMO_STORY_ERROR, { message: error instanceof Error ? error.message : String(error) })
+      })
       return this.commandQueue
     }
     ctx.pipeline.on(DEMO_STORY_REQUEST, listener)
@@ -153,16 +168,15 @@ export class DemoStoryPlugin extends BaseEnginePlugin {
   }
 
   private launch(stepId?: string) {
-    void this.play(stepId).catch(async error => {
+    void this.play(stepId).catch(async (error) => {
       await this.engine.getPipeline().emit(DEMO_STORY_ERROR, { message: '剧本读取失败，请读取存档或重新开始。' })
       await this.engine.reportError(error, { source: 'script', phase: 'story:play' })
     })
   }
 
-  private async play(startStepId?: string): Promise<void> {
-    const generation = ++this.playbackGeneration
+  private sources() {
     const scope = prologueScope(this.engine)
-    const sources = [
+    return [
       { key: 'arrival', chapter: '00', entry: 'prologue-arrival', create: () => arrival() },
       { key: 'commission', chapter: '00', create: () => commission(scope) },
       { key: 'restoration', chapter: '00', create: () => restoration(scope) },
@@ -178,42 +192,81 @@ export class DemoStoryPlugin extends BaseEnginePlugin {
       { key: 'chapter-07', chapter: '07', entry: 'chapter-07', only: 'continuation', create: () => chapter07(scope) },
       { key: 'epilogue', chapter: '08', entry: 'epilogue', only: 'continuation', create: () => epilogue(scope) },
     ]
-    const sections = await Promise.all(sources.map(async (source) => ({
+  }
+
+  editorPreviewFile(path: string): () => Promise<GameStep[]> {
+    const names = ['prologue-arrival', 'prologue-commission', 'prologue-restoration', 'prologue-return-line', 'chapter-01', 'chapter-02', 'chapter-03', 'chapter-04', 'chapter-05', 'ending-handoff', 'chapter-05-inspection', 'chapter-06', 'chapter-07', 'epilogue']
+    const index = names.findIndex(name => path === `src/game/scenes/${name}.qs`)
+    if (index < 0)
+      throw new Error('此文件不是已注册的 Demo 剧本模块。')
+    return async () => {
+      const source = this.sources()[index]
+      const steps = await source.create()
+      return steps.map((step: GameStep, index: number): GameStep => ({
+        ...step,
+        uuid: `editor:${source.key}:${index}`,
+        metadata: { ...step.metadata, point: { ...step.metadata?.point, storyId: 'call-me-tomorrow', sceneId: DEMO_SCENE_ID, chapterId: source.chapter, stepId: `editor:${source.key}:${index}` } },
+        run: async (ctx) => {
+          await step.run(ctx)
+          if (!ctx.signal.aborted && ctx.choice)
+            await this.rememberChoice(ctx.choice.choiceId)
+        },
+      }))
+    }
+  }
+
+  async editorPreviewStart(): Promise<void> {
+    await this.patch({ status: 'reading', ending: undefined })
+  }
+
+  private async play(startStepId?: string): Promise<void> {
+    const generation = ++this.playbackGeneration
+    const sources = this.sources()
+    const sections = await Promise.all(sources.map(async source => ({
       ...source,
       steps: (await source.create()).map((step: GameStep, index: number): GameStep => {
         const uuid = index === 0 && source.entry ? source.entry : `story:${source.key}:${index}`
         return {
-          ...step, uuid,
+          ...step,
+          uuid,
           metadata: { ...step.metadata, point: { ...step.metadata?.point, storyId: 'call-me-tomorrow', sceneId: DEMO_SCENE_ID, chapterId: source.chapter, stepId: uuid } },
-          run: async ctx => {
-            if (generation !== this.playbackGeneration || ctx.signal.aborted) return
+          run: async (ctx) => {
+            if (generation !== this.playbackGeneration || ctx.signal.aborted)
+              return
             if (source.entry && index === 0) {
               await this.engine.saveToSlot(`chapter-${source.entry}`, { name: STORY_TREE_NODES.find(node => node.id === source.entry)?.title })
               await this.engine.saveToSlot('continue', { name: '继续阅读' })
               await this.refreshLibrary()
             }
-            if (ctx.signal.aborted) return
+            if (ctx.signal.aborted)
+              return
             await step.run(ctx)
-            if (!ctx.signal.aborted && ctx.choice) await this.rememberChoice(ctx.choice.choiceId)
+            if (!ctx.signal.aborted && ctx.choice)
+              await this.rememberChoice(ctx.choice.choiceId)
           },
         }
       }),
     })))
     let starting = !startStepId
-    if (startStepId && !sections.some(section => section.steps.some(step => step.uuid === startStepId))) throw new Error('找不到对应的剧本位置。')
+    if (startStepId && !sections.some(section => section.steps.some(step => step.uuid === startStepId)))
+      throw new Error('找不到对应的剧本位置。')
     for (const section of sections) {
-      if (generation !== this.playbackGeneration) return
+      if (generation !== this.playbackGeneration)
+        return
       let start = 0
       if (!starting) {
         start = section.steps.findIndex(step => step.uuid === startStepId)
-        if (start < 0) continue
+        if (start < 0)
+          continue
         starting = true
       }
       const handedOff = this.state().choices.includes('early-handoff')
-      if ((section.only === 'handoff' && !handedOff) || (section.only === 'continuation' && handedOff)) continue
+      if ((section.only === 'handoff' && !handedOff) || (section.only === 'continuation' && handedOff))
+        continue
       await this.engine.dialogue(section.steps.slice(start))
     }
-    if (generation !== this.playbackGeneration) return
+    if (generation !== this.playbackGeneration)
+      return
     const ending = this.state().choices.includes('early-handoff') ? 'handoff' : this.state().choices.includes('formal-followup') ? 'letter' : 'tomorrow'
     await this.patch({ status: 'ended', ending })
     await this.engine.endGame({ ...endings[ending], ending, reason: 'story-complete' })
@@ -221,7 +274,8 @@ export class DemoStoryPlugin extends BaseEnginePlugin {
 
   async rememberChoice(choiceId: string): Promise<void> {
     const group = choiceGroups.find(group => group.includes(choiceId))
-    if (!group) return
+    if (!group)
+      return
     const choices = [...this.state().choices.filter(choice => !group.includes(choice)), choiceId]
     await this.patch({ choices, ...(group === choiceGroups[0] ? { workApproach: choiceId as WorkApproach } : {}) })
   }

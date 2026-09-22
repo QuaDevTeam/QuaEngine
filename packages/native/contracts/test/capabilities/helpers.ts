@@ -19,7 +19,7 @@ export function createHostInfo() {
       capabilities: [],
     },
     runtime: {
-      quickjsVersion: 'unsupported',
+      jscVersion: 'unsupported',
       nativeRuntimeVersion: '0.1.0',
       assetAdapterVersion: '0.1.0',
       storeAdapterVersion: '0.1.0',

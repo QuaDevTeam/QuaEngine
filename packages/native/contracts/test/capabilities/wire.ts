@@ -81,40 +81,40 @@ describe('native host wire contracts', () => {
     })
 
     expect(createNativeHostApiRequest({
-      method: 'callQuickJsModuleExport',
+      method: 'callJscModuleExport',
       params: {
-        moduleNamespaceId: 'quickjs:rquickjs:1',
+        moduleNamespaceId: 'jsc:1',
         exportName: 'default',
         argsJson: '[{"scene":"opening"}]',
       },
     })).toEqual({
-      method: 'callQuickJsModuleExport',
+      method: 'callJscModuleExport',
       params: {
-        moduleNamespaceId: 'quickjs:rquickjs:1',
+        moduleNamespaceId: 'jsc:1',
         exportName: 'default',
         argsJson: '[{"scene":"opening"}]',
       },
     })
 
     expect(createNativeHostApiRequest({
-      method: 'releaseQuickJsModuleNamespace',
+      method: 'releaseJscModuleNamespace',
       params: {
-        moduleNamespaceId: 'quickjs:module:1',
+        moduleNamespaceId: 'jsc:module:1',
       },
     })).toEqual({
-      method: 'releaseQuickJsModuleNamespace',
+      method: 'releaseJscModuleNamespace',
       params: {
-        moduleNamespaceId: 'quickjs:module:1',
+        moduleNamespaceId: 'jsc:module:1',
       },
     })
 
     expect(createNativeHostApiRequest({
-      method: 'getQuickJsPackageNamespaceSummary',
+      method: 'getJscPackageNamespaceSummary',
       params: {
         packageId: 'runtime.chapter.native-ui',
       },
     })).toEqual({
-      method: 'getQuickJsPackageNamespaceSummary',
+      method: 'getJscPackageNamespaceSummary',
       params: {
         packageId: 'runtime.chapter.native-ui',
       },

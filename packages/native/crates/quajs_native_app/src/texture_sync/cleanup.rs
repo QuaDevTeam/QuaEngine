@@ -21,6 +21,7 @@ pub struct NativeTextureHostCleanupSyncReport {
     pub cleanup_record_count: usize,
     pub texture_release_candidate_count: usize,
     pub released_count: usize,
+    pub retained_count: usize,
     pub missing_count: usize,
     pub ignored_count: usize,
     pub release_error_count: usize,
@@ -129,6 +130,32 @@ pub fn sync_texture_releases_from_host_cleanup<S>(
 where
     S: NativeTextureUploadSink,
 {
+    sync_texture_cleanup(sink, cleanup, &Default::default(), false)
+}
+
+pub(super) fn sync_frame_texture_releases<S: NativeTextureUploadSink>(
+    sink: &mut S,
+    update: &quajs_wgpu_renderer::renderer::NativeRendererFrameUpdate,
+) -> NativeTextureHostCleanupSyncReport {
+    let active: BTreeSet<String> = update
+        .texture_uploads
+        .requests
+        .iter()
+        .map(|request| request.resource_id.as_str().to_string())
+        .collect();
+    sink.touch_texture_resources(&active);
+    for request in &update.texture_uploads.requests {
+        sink.prepare_texture_request(request);
+    }
+    sync_texture_cleanup(sink, &update.host_cleanup, &active, true)
+}
+
+fn sync_texture_cleanup<S: NativeTextureUploadSink>(
+    sink: &mut S,
+    cleanup: &[NativeRendererHostCleanupRecord],
+    active: &BTreeSet<String>,
+    retire: bool,
+) -> NativeTextureHostCleanupSyncReport {
     let mut report = NativeTextureHostCleanupSyncReport {
         cleanup_record_count: cleanup.len(),
         ..Default::default()
@@ -142,12 +169,20 @@ where
         }
 
         report.texture_release_candidate_count += 1;
-        match sink.release_texture_resource(&record.resource_id) {
+        let result = if retire && !active.contains(record.resource_id.as_str()) {
+            sink.retire_texture_resource(&record.resource_id)
+        } else {
+            sink.release_texture_resource(&record.resource_id)
+        };
+        match result {
             Ok(true) => {
                 report.released_count += 1;
                 report
                     .released_resource_ids
                     .push(record.resource_id.clone());
+            }
+            Ok(false) if retire && sink.texture_is_resident(&record.resource_id) => {
+                report.retained_count += 1;
             }
             Ok(false) => {
                 report.missing_count += 1;
@@ -179,6 +214,11 @@ where
         &package_release.host_cleanup,
     );
     restore_failed_texture_cleanup_resources(renderer, &package_release, &texture_cleanup_report);
+    if package_release.summary.blocked_count == 0 && texture_cleanup_report.is_ok() {
+        renderer
+            .backend_mut()
+            .release_cached_package_textures(package_id);
+    }
 
     NativeTextureCleanedPackageReleaseResult {
         package_release,
@@ -206,6 +246,11 @@ where
         &package_release.host_cleanup,
     );
     restore_failed_texture_cleanup_resources(renderer, &package_release, &texture_cleanup_report);
+    if package_release.summary.blocked_count == 0 && texture_cleanup_report.is_ok() {
+        renderer
+            .backend_mut()
+            .release_cached_package_textures(package_id);
+    }
     let video_frame_texture_report = sync_video_frame_textures_for_backend(renderer);
     let font_atlas_report = sync_font_atlas_textures_for_backend(renderer);
 
@@ -228,6 +273,7 @@ where
     let texture_cleanup_report =
         sync_texture_releases_from_host_cleanup(renderer.backend_mut(), &host_cleanup);
 
+    renderer.backend_mut().clear_cached_textures();
     NativeTextureCleanedClearResult {
         released_resources,
         host_cleanup,
@@ -254,6 +300,7 @@ where
     let video_frame_texture_report = sync_video_frame_textures_for_backend(renderer);
     let font_atlas_report = sync_font_atlas_textures_for_backend(renderer);
 
+    renderer.backend_mut().clear_cached_textures();
     Ok(NativeTextureCleanedClearResult {
         released_resources,
         host_cleanup,

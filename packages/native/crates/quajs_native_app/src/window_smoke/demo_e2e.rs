@@ -17,19 +17,19 @@ use visual::{
 const DEMO_E2E_MAX_DURATION: Duration = Duration::from_secs(8 * 60);
 const DEMO_E2E_STALL_TIMEOUT: Duration = Duration::from_secs(30);
 
-const TITLE_START: &str = "ui:native-app-shell:native-main-menu-start";
-const TITLE_CONFIG: &str = "ui:native-app-shell:native-main-menu-config";
-const TITLE_CHAPTERS: &str = "ui:native-app-shell:native-main-menu-story-tree";
+const TITLE_START: &str = "ui:demo-app-shell:native-main-menu-start";
+const TITLE_CONFIG: &str = "ui:demo-app-shell:native-main-menu-config";
+const TITLE_CHAPTERS: &str = "ui:demo-app-shell:native-main-menu-story-tree";
 const DIALOGUE_PANEL: &str = "dialogue:panel";
 const FIRST_STORY_CHOICE: &str = "choice:catalog-first";
-const GAME_HUD_SKIP: &str = "ui:native-app-shell:native-game-hud-skip";
-const GAME_HUD_MENU: &str = "ui:native-app-shell:native-game-hud-menu";
-const GAME_MENU_TITLE: &str = "ui:native-app-shell:native-game-menu-title-action";
-const TITLE_CONFIRM: &str = "ui:native-app-shell:native-title-confirm-confirm";
+const GAME_HUD_SKIP: &str = "ui:demo-app-shell:native-game-hud-skip";
+const GAME_HUD_MENU: &str = "ui:demo-app-shell:native-game-hud-menu";
+const GAME_MENU_TITLE: &str = "ui:demo-app-shell:native-game-menu-title-action";
+const TITLE_CONFIRM: &str = "ui:demo-app-shell:native-title-confirm-confirm";
 const SETTINGS_CLOSE: &str = "ui:settings:settings-close";
-const CHAPTERS_CLOSE: &str = "ui:native-app-shell:native-story-tree-close";
+const CHAPTERS_CLOSE: &str = "ui:demo-app-shell:native-story-tree-close";
 const SETTINGS_ELEMENT_ID: &str = "settings";
-const CHAPTERS_ELEMENT_ID: &str = "native-app-shell";
+const CHAPTERS_ELEMENT_ID: &str = "demo-app-shell";
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -142,8 +142,9 @@ impl NativeDemoE2eState {
     pub(super) fn capture_checkpoint(
         &mut self,
         capture: &quajs_wgpu_renderer::renderer::RealWgpuEncodedFrameCapture,
+        presentation: &crate::product_window::NativeProductWindowPresentOutcome,
     ) -> Result<(), NativeWindowSmokeError> {
-        self.visuals.capture(capture)
+        self.visuals.capture(capture, presentation)
     }
 
     pub(super) fn tick<B, A, V, F>(

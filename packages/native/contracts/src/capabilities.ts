@@ -1,20 +1,20 @@
 import type {
-  NativeQuickJsEvaluationRequest,
-  NativeQuickJsEvaluationResponse,
-  NativeQuickJsGameStepFactoryCallRequest,
-  NativeQuickJsGameStepFactoryCallResponse,
-  NativeQuickJsGameStepResumeRequest,
-  NativeQuickJsGameStepRunRequest,
-  NativeQuickJsGameStepRunResponse,
-  NativeQuickJsModuleExportCallRequest,
-  NativeQuickJsModuleExportCallResponse,
-  NativeQuickJsModuleNamespaceRecord,
-  NativeQuickJsModuleNamespaceSummary,
-  NativeQuickJsPipelineListenerDispatchRequest,
-  NativeQuickJsPipelineListenerDispatchResponse,
-  NativeQuickJsReleaseNamespaceRequest,
-  NativeQuickJsReleasePackageRequest,
-} from './quickjs'
+  NativeJscEvaluationRequest,
+  NativeJscEvaluationResponse,
+  NativeJscGameStepFactoryCallRequest,
+  NativeJscGameStepFactoryCallResponse,
+  NativeJscGameStepResumeRequest,
+  NativeJscGameStepRunRequest,
+  NativeJscGameStepRunResponse,
+  NativeJscModuleExportCallRequest,
+  NativeJscModuleExportCallResponse,
+  NativeJscModuleNamespaceRecord,
+  NativeJscModuleNamespaceSummary,
+  NativeJscPipelineListenerDispatchRequest,
+  NativeJscPipelineListenerDispatchResponse,
+  NativeJscReleaseNamespaceRequest,
+  NativeJscReleasePackageRequest,
+} from './jsc'
 
 export {
   createNativeHostApiFromBridge,
@@ -65,7 +65,7 @@ export interface QuaNativeRendererInfo {
 }
 
 export interface QuaNativeRuntimeInfo {
-  quickjsVersion: string
+  jscVersion: string
   nativeRuntimeVersion: string
   assetAdapterVersion: string
   storeAdapterVersion: string
@@ -126,16 +126,16 @@ export type NativeHostApiRequest
     | { method: 'listStorageKeys', params: NativeHostApiListStorageKeysRequest }
     | { method: 'hashBytes', params: NativeHostApiHashBytesRequest }
     | { method: 'verifySignature', params: NativeSignatureVerifyWireRequest }
-    | { method: 'evaluateQuickJsModule', params: NativeQuickJsEvaluationRequest }
-    | { method: 'callQuickJsModuleExport', params: NativeQuickJsModuleExportCallRequest }
-    | { method: 'callQuickJsGameStepFactory', params: NativeQuickJsGameStepFactoryCallRequest }
-    | { method: 'callQuickJsGameStepRun', params: NativeQuickJsGameStepRunRequest }
-    | { method: 'resumeQuickJsGameStepRun', params: NativeQuickJsGameStepResumeRequest }
-    | { method: 'dispatchQuickJsPipelineListener', params: NativeQuickJsPipelineListenerDispatchRequest }
-    | { method: 'releaseQuickJsModuleNamespace', params: NativeQuickJsReleaseNamespaceRequest }
-    | { method: 'releaseQuickJsPackageNamespaces', params: NativeQuickJsReleasePackageRequest }
-    | { method: 'getQuickJsNamespaceSummary' }
-    | { method: 'getQuickJsPackageNamespaceSummary', params: NativeQuickJsReleasePackageRequest }
+    | { method: 'evaluateJscModule', params: NativeJscEvaluationRequest }
+    | { method: 'callJscModuleExport', params: NativeJscModuleExportCallRequest }
+    | { method: 'callJscGameStepFactory', params: NativeJscGameStepFactoryCallRequest }
+    | { method: 'callJscGameStepRun', params: NativeJscGameStepRunRequest }
+    | { method: 'resumeJscGameStepRun', params: NativeJscGameStepResumeRequest }
+    | { method: 'dispatchJscPipelineListener', params: NativeJscPipelineListenerDispatchRequest }
+    | { method: 'releaseJscModuleNamespace', params: NativeJscReleaseNamespaceRequest }
+    | { method: 'releaseJscPackageNamespaces', params: NativeJscReleasePackageRequest }
+    | { method: 'getJscNamespaceSummary' }
+    | { method: 'getJscPackageNamespaceSummary', params: NativeJscReleasePackageRequest }
     | { method: 'emitRendererIntent', params: NativeRendererIntent }
     | { method: 'drainRendererIntents' }
 
@@ -173,14 +173,14 @@ export interface NativeHostApiResponseValueByType {
   storageKeys: string[]
   hash: string
   signatureValid: boolean
-  quickJsEvaluation: NativeQuickJsEvaluationResponse
-  quickJsExportCall: NativeQuickJsModuleExportCallResponse
-  quickJsGameStepFactoryCall: NativeQuickJsGameStepFactoryCallResponse
-  quickJsGameStepRun: NativeQuickJsGameStepRunResponse
-  quickJsPipelineListenerDispatch: NativeQuickJsPipelineListenerDispatchResponse
-  quickJsNamespace: NativeQuickJsModuleNamespaceRecord | null | undefined
-  quickJsNamespaces: NativeQuickJsModuleNamespaceRecord[]
-  quickJsNamespaceSummary: NativeQuickJsModuleNamespaceSummary
+  jscEvaluation: NativeJscEvaluationResponse
+  jscExportCall: NativeJscModuleExportCallResponse
+  jscGameStepFactoryCall: NativeJscGameStepFactoryCallResponse
+  jscGameStepRun: NativeJscGameStepRunResponse
+  jscPipelineListenerDispatch: NativeJscPipelineListenerDispatchResponse
+  jscNamespace: NativeJscModuleNamespaceRecord | null | undefined
+  jscNamespaces: NativeJscModuleNamespaceRecord[]
+  jscNamespaceSummary: NativeJscModuleNamespaceSummary
   rendererIntents: NativeRendererIntent[]
 }
 
@@ -209,16 +209,16 @@ export interface QuaNativeHostApi {
   listStorageKeys?: (prefix: string) => Promise<string[]>
   hashBytes: (bytes: Uint8Array, algorithm: 'sha256') => Promise<string>
   verifySignature?: (request: NativeSignatureVerifyRequest) => Promise<boolean>
-  evaluateQuickJsModule?: (request: NativeQuickJsEvaluationRequest) => Promise<NativeQuickJsEvaluationResponse>
-  callQuickJsModuleExport?: (request: NativeQuickJsModuleExportCallRequest) => Promise<NativeQuickJsModuleExportCallResponse>
-  callQuickJsGameStepFactory?: (request: NativeQuickJsGameStepFactoryCallRequest) => Promise<NativeQuickJsGameStepFactoryCallResponse>
-  callQuickJsGameStepRun?: (request: NativeQuickJsGameStepRunRequest) => Promise<NativeQuickJsGameStepRunResponse>
-  resumeQuickJsGameStepRun?: (request: NativeQuickJsGameStepResumeRequest) => Promise<NativeQuickJsGameStepRunResponse>
-  dispatchQuickJsPipelineListener?: (request: NativeQuickJsPipelineListenerDispatchRequest) => Promise<NativeQuickJsPipelineListenerDispatchResponse>
-  releaseQuickJsModuleNamespace?: (moduleNamespaceId: string) => Promise<NativeQuickJsModuleNamespaceRecord | undefined>
-  releaseQuickJsPackageNamespaces?: (packageId: string) => Promise<NativeQuickJsModuleNamespaceRecord[]>
-  getQuickJsNamespaceSummary?: () => Promise<NativeQuickJsModuleNamespaceSummary>
-  getQuickJsPackageNamespaceSummary?: (packageId: string) => Promise<NativeQuickJsModuleNamespaceSummary>
+  evaluateJscModule?: (request: NativeJscEvaluationRequest) => Promise<NativeJscEvaluationResponse>
+  callJscModuleExport?: (request: NativeJscModuleExportCallRequest) => Promise<NativeJscModuleExportCallResponse>
+  callJscGameStepFactory?: (request: NativeJscGameStepFactoryCallRequest) => Promise<NativeJscGameStepFactoryCallResponse>
+  callJscGameStepRun?: (request: NativeJscGameStepRunRequest) => Promise<NativeJscGameStepRunResponse>
+  resumeJscGameStepRun?: (request: NativeJscGameStepResumeRequest) => Promise<NativeJscGameStepRunResponse>
+  dispatchJscPipelineListener?: (request: NativeJscPipelineListenerDispatchRequest) => Promise<NativeJscPipelineListenerDispatchResponse>
+  releaseJscModuleNamespace?: (moduleNamespaceId: string) => Promise<NativeJscModuleNamespaceRecord | undefined>
+  releaseJscPackageNamespaces?: (packageId: string) => Promise<NativeJscModuleNamespaceRecord[]>
+  getJscNamespaceSummary?: () => Promise<NativeJscModuleNamespaceSummary>
+  getJscPackageNamespaceSummary?: (packageId: string) => Promise<NativeJscModuleNamespaceSummary>
   emitRendererIntent?: (event: NativeRendererIntent) => void
   drainRendererIntents?: () => Promise<NativeRendererIntent[]>
 }

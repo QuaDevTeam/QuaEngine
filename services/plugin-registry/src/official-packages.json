@@ -1,0 +1,15 @@
+[
+  "@quajs/character",
+  "@quajs/editor-character",
+  "@quajs/plugin-achievement",
+  "@quajs/plugin-animation",
+  "@quajs/plugin-audio",
+  "@quajs/plugin-background",
+  "@quajs/plugin-backlog",
+  "@quajs/plugin-fonts",
+  "@quajs/plugin-gallery",
+  "@quajs/plugin-inventory",
+  "@quajs/plugin-settings",
+  "@quajs/plugin-sprite",
+  "@quajs/story-graph"
+]

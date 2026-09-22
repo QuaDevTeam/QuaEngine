@@ -1,6 +1,6 @@
 use std::cell::Cell;
 
-use quajs_native_runtime::{quickjs_runtime_version, NativeHostInfoBuilder};
+use quajs_native_runtime::{jsc_runtime_version, NativeHostInfoBuilder};
 
 use crate::target_bundle::tests::native_manifest;
 
@@ -34,8 +34,8 @@ fn host_info_uses_signed_app_config_and_rust_renderer_capabilities() {
         .renderer
         .capability_manifest_hash
         .starts_with("sha256:"));
-    assert_eq!(host_info.runtime.quickjs_version, quickjs_runtime_version());
-    assert_ne!(host_info.runtime.quickjs_version, "pending");
+    assert_eq!(host_info.runtime.jsc_version, jsc_runtime_version());
+    assert_ne!(host_info.runtime.jsc_version, "pending");
     assert_eq!(
         host_info.runtime.native_runtime_version,
         env!("CARGO_PKG_VERSION")
@@ -170,7 +170,7 @@ fn rejects_renderer_backend_version_drift_after_building_host_info() {
                 .build_number(config.build_number)
                 .renderer_version(env!("CARGO_PKG_VERSION"))
                 .backend_version(Some("wgpu-host"))
-                .quickjs_version(quickjs_runtime_version())
+                .jsc_version(jsc_runtime_version())
                 .native_runtime_version(env!("CARGO_PKG_VERSION"))
                 .asset_adapter_version(env!("CARGO_PKG_VERSION"))
                 .store_adapter_version(env!("CARGO_PKG_VERSION"))
@@ -192,7 +192,7 @@ fn rejects_runtime_manifest_drift_after_building_host_info() {
         .native_runtime
         .as_mut()
         .expect("native runtime metadata exists");
-    native_runtime.quickjs_version = Some("quickjs-manifest".to_string());
+    native_runtime.jsc_version = Some("jsc-manifest".to_string());
     native_runtime.asset_adapter_version = Some("assets-manifest".to_string());
     native_runtime.store_adapter_version = Some("store-manifest".to_string());
     let created = Cell::new(false);
@@ -203,7 +203,7 @@ fn rejects_runtime_manifest_drift_after_building_host_info() {
                 .app_version(config.version)
                 .build_number(config.build_number)
                 .renderer_version(env!("CARGO_PKG_VERSION"))
-                .quickjs_version("quickjs-host")
+                .jsc_version("jsc-host")
                 .native_runtime_version(env!("CARGO_PKG_VERSION"))
                 .asset_adapter_version("assets-host")
                 .store_adapter_version("store-host")
@@ -214,7 +214,7 @@ fn rejects_runtime_manifest_drift_after_building_host_info() {
 
     assert!(created.get());
     assert!(error.to_string().contains(
-        "nativeRuntime.quickjsVersion \"quickjs-manifest\" does not match host runtime value \"quickjs-host\""
+        "nativeRuntime.jscVersion \"jsc-manifest\" does not match host runtime value \"jsc-host\""
     ));
     assert!(error.to_string().contains(
         "nativeRuntime.assetAdapterVersion \"assets-manifest\" does not match host runtime value \"assets-host\""

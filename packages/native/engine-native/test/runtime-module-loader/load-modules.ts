@@ -76,7 +76,6 @@ describe('@quajs/engine-native runtime module loader module loading', () => {
             packageId: 'runtime.chapter.native-ui',
           },
           limits: expect.objectContaining({
-            maxHeapBytes: 64 * 1024 * 1024,
             maxModuleBytes: 1024,
           }),
         },

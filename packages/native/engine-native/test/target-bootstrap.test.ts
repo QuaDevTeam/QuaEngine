@@ -194,7 +194,7 @@ describe('@quajs/engine-native target bootstrap', () => {
   it('rejects emitted native runtime metadata that drifts from host info', async () => {
     const hostInfo = createHostInfo()
     hostInfo.runtime = {
-      quickjsVersion: 'unsupported',
+      jscVersion: 'unsupported',
       nativeRuntimeVersion: '0.2.0',
       assetAdapterVersion: '0.3.0',
       storeAdapterVersion: '0.4.0',
@@ -206,7 +206,7 @@ describe('@quajs/engine-native target bootstrap', () => {
     })
 
     await expect(plugin.init({} as any)).rejects.toThrow(
-      /Native manifest compatibility validation failed.*QuickJS version "2025-04-26" does not match host QuickJS version "unsupported".*native runtime version "0\.1\.0" does not match host native runtime version "0\.2\.0".*asset adapter version "0\.1\.0" does not match host asset adapter version "0\.3\.0".*store adapter version "0\.1\.0" does not match host store adapter version "0\.4\.0"/,
+      /Native manifest compatibility validation failed.*JavaScriptCore version "2025-04-26" does not match host JavaScriptCore version "unsupported".*native runtime version "0\.1\.0" does not match host native runtime version "0\.2\.0".*asset adapter version "0\.1\.0" does not match host asset adapter version "0\.3\.0".*store adapter version "0\.1\.0" does not match host store adapter version "0\.4\.0"/,
     )
     expect(plugin.getTargetBundleManifestValidation()?.ok).toBe(true)
     expect(host.getHostInfo).toHaveBeenCalledTimes(1)

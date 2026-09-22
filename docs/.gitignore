@@ -1,0 +1,9 @@
+.svelte-kit/
+.generated/
+build/
+static/brand/
+static/_svedocs/
+static/og/
+.wrangler/
+.dev.vars*
+.env*

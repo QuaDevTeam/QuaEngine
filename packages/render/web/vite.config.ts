@@ -15,8 +15,10 @@ export default defineConfig({
   build: {
     lib: {
       entry: {
+        'qui': resolve(import.meta.dirname, 'src/qui.ts'),
         'index': resolve(import.meta.dirname, 'src/index.ts'),
         'audio': resolve(import.meta.dirname, 'src/audio.ts'),
+        'devtools': resolve(import.meta.dirname, 'src/devtools.ts'),
         'dom': resolve(import.meta.dirname, 'src/dom.ts'),
         'framework-host': resolve(import.meta.dirname, 'src/framework-host.ts'),
         'input': resolve(import.meta.dirname, 'src/input.ts'),
@@ -33,6 +35,7 @@ export default defineConfig({
         'plugins/core': resolve(import.meta.dirname, 'src/plugins/core.ts'),
         'plugins/dialogue': resolve(import.meta.dirname, 'src/plugins/dialogue.ts'),
         'plugins/effects': resolve(import.meta.dirname, 'src/plugins/effects.ts'),
+        'plugins/asset-loading': resolve(import.meta.dirname, 'src/plugins/asset-loading.ts'),
         'plugins/fonts': resolve(import.meta.dirname, 'src/plugins/fonts.ts'),
         'plugins/input': resolve(import.meta.dirname, 'src/plugins/input.ts'),
         'plugins/platform-guard': resolve(import.meta.dirname, 'src/plugins/platform-guard.ts'),
@@ -55,6 +58,7 @@ export default defineConfig({
         '@quajs/assets-web',
         '@quajs/pipeline',
         '@quajs/plugin-audio/contracts',
+        '@quajs/plugin-asset-loading/contracts',
         '@quajs/plugin-achievement/contracts',
         '@quajs/plugin-backlog/contracts',
         '@quajs/plugin-gallery/contracts',

@@ -1,0 +1,181 @@
+// Qua shares the docs' paper and sakura palette, with quieter editor surfaces.
+// Import explicitly. These tokens never enter a game preview or Novel Writer.
+@mixin light {
+  color-scheme: light;
+  --editor-bg: #f3f0ee;
+  --editor-surface: #fffcfa;
+  --editor-raised: #ffffff;
+  --editor-inset: #eeeae8;
+  --editor-input-bg: #fffefd;
+  --editor-button-bg: #f1edeb;
+  --editor-hover: #e9e3e3;
+  --editor-border: #c5bcbf;
+  --editor-divider: #ddd5d7;
+  --editor-text: #39323a;
+  --editor-muted: #685d69;
+  --editor-placeholder: #7b707c;
+  --editor-accent: #a34566;
+  --editor-accent-bg: #f2e4ea;
+  --editor-selection: #eee0e7;
+  --editor-primary: #a34566;
+  --editor-primary-hover: #8e3c59;
+  --editor-on-primary: #ffffff;
+  --editor-danger: #b33d46;
+  --editor-danger-bg: #f9e6e6;
+  --editor-warning: #886018;
+  --editor-warning-bg: #f7edda;
+  --editor-success: #34745b;
+  --editor-success-bg: #e3efe8;
+  --editor-info: #356b9d;
+  --editor-info-bg: #e5edf6;
+  --editor-purple: #77579d;
+  --editor-purple-bg: #eee7f5;
+  --editor-cyan: #276e79;
+  --editor-orange: #98602e;
+  --editor-shadow: #30232d24;
+  --editor-backdrop: #28202c59;
+  --editor-scrollbar: #b4a9b380;
+  --editor-scrollbar-hover: #948493aa;
+  --editor-guide: #5041511c;
+  --editor-grid: #50415114;
+  --editor-checker: #ddd9d7;
+  --editor-stage: #e8e5e3;
+  --editor-code-bg: #fffcfa;
+  --editor-line-highlight: #f3eeef;
+  --editor-line-number: #776b7a;
+  --editor-comment: #786d79;
+  --editor-keyword: #9a486e;
+  --editor-string: #39735b;
+  --editor-number: #925c2e;
+  --editor-function: #526e9d;
+  --editor-type: #795a9d;
+  --editor-terminal-bg: #fffcfa;
+  --editor-ansi-black: #39323a;
+  --editor-ansi-white: #716672;
+  --editor-ansi-bright-black: #827685;
+  --editor-ansi-bright-white: #39323a;
+  --editor-speaker-saturation: 48%;
+  --editor-speaker-lightness: 31%;
+  --editor-dialogue-saturation: 25%;
+  --editor-dialogue-lightness: 32%;
+  --editor-select-arrow: url('data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12"%3E%3Cpath d="m3 4.5 3 3 3-3" fill="none" stroke="%23716672" stroke-width="1.2"/%3E%3C/svg%3E');
+}
+
+@mixin dark {
+  color-scheme: dark;
+  --editor-bg: #1e1c20;
+  --editor-surface: #242126;
+  --editor-raised: #2c282e;
+  --editor-inset: #19171b;
+  --editor-input-bg: #201d22;
+  --editor-button-bg: #302c33;
+  --editor-hover: #39333d;
+  --editor-border: #504853;
+  --editor-divider: #39323c;
+  --editor-text: #e6e0e5;
+  --editor-muted: #b0a5b1;
+  --editor-placeholder: #9b8f9e;
+  --editor-accent: #d49aac;
+  --editor-accent-bg: #3b2d37;
+  --editor-selection: #453341;
+  --editor-primary: #d49aac;
+  --editor-primary-hover: #e5adbe;
+  --editor-on-primary: #261c24;
+  --editor-danger: #e99a9d;
+  --editor-danger-bg: #432b31;
+  --editor-warning: #d6b77b;
+  --editor-warning-bg: #3b3326;
+  --editor-success: #93c2a8;
+  --editor-success-bg: #293a32;
+  --editor-info: #9bbce0;
+  --editor-info-bg: #2b3443;
+  --editor-purple: #bea5dc;
+  --editor-purple-bg: #362f43;
+  --editor-cyan: #90c3cb;
+  --editor-orange: #d1aa87;
+  --editor-shadow: #0b080d66;
+  --editor-backdrop: #0e0b1266;
+  --editor-scrollbar: #84768766;
+  --editor-scrollbar-hover: #a899aaa0;
+  --editor-guide: #ddc8e026;
+  --editor-grid: #ddc8e014;
+  --editor-checker: #302c33;
+  --editor-stage: #201e23;
+  --editor-code-bg: #242126;
+  --editor-line-highlight: #2d2830;
+  --editor-line-number: #998e9f;
+  --editor-comment: #a095a6;
+  --editor-keyword: #d6a3bc;
+  --editor-string: #a4c5ac;
+  --editor-number: #d6b18e;
+  --editor-function: #aac3e3;
+  --editor-type: #c2adde;
+  --editor-terminal-bg: #242126;
+  --editor-ansi-black: #29242d;
+  --editor-ansi-white: #d8cedb;
+  --editor-ansi-bright-black: #a294a6;
+  --editor-ansi-bright-white: #f4edf6;
+  --editor-speaker-saturation: 55%;
+  --editor-speaker-lightness: 74%;
+  --editor-dialogue-saturation: 28%;
+  --editor-dialogue-lightness: 80%;
+  --editor-select-arrow: url('data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12"%3E%3Cpath d="m3 4.5 3 3 3-3" fill="none" stroke="%23b0a5b1" stroke-width="1.2"/%3E%3C/svg%3E');
+}
+
+:root {
+  @include light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    @include dark;
+  }
+}
+:root[data-theme='dark'] {
+  @include dark;
+}
+
+// An optional neutral alternative keeps the same semantic status colors.
+:root[data-color-theme='graphite'][data-theme='light'] {
+  --editor-bg: #f0f2f4;
+  --editor-surface: #ffffff;
+  --editor-inset: #e9edf0;
+  --editor-input-bg: #ffffff;
+  --editor-button-bg: #eef1f4;
+  --editor-hover: #e3e8ed;
+  --editor-border: #b8c2cc;
+  --editor-divider: #d8dee5;
+  --editor-text: #303944;
+  --editor-muted: #596675;
+  --editor-placeholder: #657282;
+  --editor-accent: #3d6e9a;
+  --editor-accent-bg: #e4edf6;
+  --editor-selection: #dfe9f2;
+  --editor-primary: #3d6e9a;
+  --editor-primary-hover: #315b81;
+  --editor-code-bg: #ffffff;
+  --editor-terminal-bg: #ffffff;
+  --editor-line-highlight: #f0f3f6;
+}
+:root[data-color-theme='graphite'][data-theme='dark'] {
+  --editor-bg: #1c1f24;
+  --editor-surface: #23272d;
+  --editor-raised: #2b3038;
+  --editor-inset: #181b20;
+  --editor-input-bg: #1e2228;
+  --editor-button-bg: #2e343c;
+  --editor-hover: #383f49;
+  --editor-border: #4a5462;
+  --editor-divider: #343c47;
+  --editor-text: #dfe5ed;
+  --editor-muted: #a6b2c2;
+  --editor-placeholder: #94a0b1;
+  --editor-accent: #9dbde0;
+  --editor-accent-bg: #2b3a4b;
+  --editor-selection: #2e4156;
+  --editor-primary: #9dbde0;
+  --editor-primary-hover: #b1cfed;
+  --editor-on-primary: #1a2533;
+  --editor-code-bg: #23272d;
+  --editor-terminal-bg: #23272d;
+  --editor-line-highlight: #2c323b;
+}

@@ -618,6 +618,8 @@ function backgroundFilterValue(filter: Readonly<BackgroundFilterProjection> | un
   if (filter.sepia !== undefined) {
     parts.push(`sepia(${filter.sepia})`)
   }
+  if (filter.invert !== undefined)
+    parts.push(`invert(${filter.invert})`)
   if (filter.dropShadow) {
     parts.push(`drop-shadow(${filter.dropShadow})`)
   }

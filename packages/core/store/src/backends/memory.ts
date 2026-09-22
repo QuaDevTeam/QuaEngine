@@ -13,6 +13,7 @@ import { clonePreviewRecord, cloneSaveSlotIndex, cloneSaveSlotPayload } from '..
  * WARNING: Data will be lost when the application is closed!
  */
 export class MemoryBackend implements StorageBackend {
+  readonly storageInfo = { driver: 'memory', persistence: 'session' } as const
   private snapshots: Map<string, QuaSnapshot> = new Map()
   private gameSlotIndexes: Map<string, QuaGameSaveSlotIndex> = new Map()
   private gameSlotPayloads: Map<string, QuaGameSaveSlotPayload> = new Map()

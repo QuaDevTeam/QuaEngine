@@ -38,7 +38,7 @@ Renderer entries:
 - `@quajs/renderer-web/plugins/backlog`
 - `@quajs/renderer-vue/plugins/backlog`
 - `@quajs/renderer-cocos/plugins/backlog`
-- `@quajs/plugin-backlog/native` through `createBacklogNativeRendererFeature()`
+- `@quajs/plugin-backlog/surface` through `createBacklogUiSurfaceFeature()`
 
 ## Runtime API
 
@@ -103,7 +103,7 @@ Decorators:
 
 Renderer UI emits open, close, jump, and voice replay requests through backlog render-to-logic events. It does not decide whether an entry is rewindable; it reads `entry.rewindable` from projection.
 
-Native products explicitly register `createBacklogNativeRendererFeature()` in the same feature-surface entry list used by native frame serialization and `NativeHostPlugin`. The surface is resolved in logical stage coordinates from the native safe area, preserves entry/runtime-package provenance, and maps only `backlog-close`, `backlog-jump`, and `backlog-replay-voice` to the existing backlog pipeline events.
+Native products explicitly register `createBacklogUiSurfaceFeature()` in the same feature-surface entry list used by native frame serialization and `NativeHostPlugin`. The surface is resolved in logical stage coordinates from the native safe area, preserves entry/runtime-package provenance, and maps only `backlog-close`, `backlog-jump`, and `backlog-replay-voice` to the existing backlog pipeline events.
 
 The official native backlog surface uses structured `boxShadow` and `textShadow` style IR for Web-aligned panel/title depth. Shadows remain renderer projection metadata and do not change backlog retention, rewind, voice replay, or provenance authority.
 
@@ -139,8 +139,12 @@ Run engine rollback/save-load tests when checkpoint or runtime dependency behavi
 
 The native panel is centered and bounded to 1040×660 logical pixels. History rows grow to accommodate newline-preserving wrapped text, keep metadata and replay/rewind controls separate, and overflow through the enclosing Scroll node. Do not use ellipsis as the only path to read long history entries. Row sizing is a projection estimate; test long CJK text and adjacent-row non-overlap without changing retention or rewind policy.
 
-`createBacklogNativeRendererFeature({ resolvePanelBounds, density })` permits pure product-owned logical bounds and optional `density: 'compact'`. Compact mode separates index/time from speaker/body and retains long-row growth, scrolling, rewind/voice allowlists and package provenance. The default comfortable layout remains available. Bounds callbacks only project UI and must not write engine state. Test both densities, long text, adjacent-row non-overlap and callback placement.
+`createBacklogUiSurfaceFeature({ resolvePanelBounds, density })` permits pure product-owned logical bounds and optional `density: 'compact'`. Compact mode separates index/time from speaker/body and retains long-row growth, scrolling, rewind/voice allowlists and package provenance. The default comfortable layout remains available. Bounds callbacks only project UI and must not write engine state. Test both densities, long text, adjacent-row non-overlap and callback placement.
 
 ## Product recording filters
 
 `BacklogPlugin({ filter(entry, { engine, checkpoint }) })` can exclude a candidate at the logic boundary using the existing engine-owned backlog projection. Do not implement equivalent history mutation in a renderer. The linear demo uses this hook to retain the original tail record when restoring the same authored point and identical content; different steps, speakers, choices and runtime package provenance remain distinct. This is demo policy, not a global deduplication default for games that intentionally loop at the same point.
+
+## Shared surface consumers
+
+The `/surface` export is a pure, optional Web/native UI factory backed by `UiFeatureSurfaceEntry` from `@quajs/render-core`. Register it with native frame serialization and native intent handling, or the Web `createQuiWebOverlayHost` plus logic-side `resolveUiFeatureIntent`. Use the same skin and registration list on both targets. It must not import `@quajs/engine-native`; target adapters supply resource and presentation behavior. Existing Web framework plugin UI remains available independently.

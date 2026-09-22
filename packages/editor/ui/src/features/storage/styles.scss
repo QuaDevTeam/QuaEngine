@@ -1,0 +1,282 @@
+#panel-storage {
+  --storage-resident: var(--editor-success-bg);
+  --storage-resident-hover: color-mix(in srgb, var(--editor-success) 18%, var(--editor-surface));
+  --storage-resident-selected: color-mix(in srgb, var(--editor-success) 24%, var(--editor-surface));
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+#panel-storage[hidden] {
+  display: none;
+}
+.storage-toolbar,
+.storage-detail-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 29px;
+  flex-shrink: 0;
+  padding: 2px 6px;
+  border-bottom: 1px solid var(--editor-divider);
+  font-size: 11px;
+}
+#storage-target {
+  color: var(--editor-muted);
+  margin-right: 4px;
+  white-space: nowrap;
+}
+#panel-storage .icon-button {
+  --editor-icon-button-size: 24px;
+  color: var(--editor-text);
+  background: transparent;
+}
+#panel-storage .icon-button .icon,
+.storage-search .icon {
+  width: 14px;
+  height: 14px;
+}
+#panel-storage .icon-button:hover:not(:disabled) {
+  color: var(--editor-text);
+  background: var(--editor-hover);
+}
+#panel-storage .icon-button:focus-visible {
+  outline-offset: -1px;
+}
+#panel-storage .icon-button[aria-pressed='true'] {
+  color: var(--editor-text);
+  background: var(--editor-accent-bg);
+}
+#storage-previous .icon {
+  transform: rotate(180deg);
+}
+#panel-storage[aria-busy='true'] #storage-refresh .icon {
+  animation: storage-refresh 1s linear infinite;
+}
+@keyframes storage-refresh {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #panel-storage[aria-busy='true'] #storage-refresh .icon {
+    animation: none;
+  }
+}
+.storage-search {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex: 0 1 178px;
+  min-width: 100px;
+  height: 22px;
+  padding: 0 6px;
+  margin: 0 4px;
+  border: 1px solid transparent;
+  border-radius: var(--editor-radius);
+  background: var(--editor-hover);
+  color: var(--editor-muted);
+}
+.storage-search:hover {
+  background: var(--editor-hover);
+}
+.storage-search:focus-within {
+  border-color: var(--editor-accent);
+}
+#storage-filter {
+  min-width: 0;
+  width: 100%;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  outline: none;
+  font-size: 11px;
+}
+#storage-filter::placeholder {
+  color: var(--editor-muted);
+}
+#storage-page {
+  margin-left: auto;
+  padding: 0 3px;
+  color: var(--editor-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+#storage-resident-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--editor-muted);
+  white-space: nowrap;
+  margin: 0 4px;
+}
+#storage-resident-legend i {
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+  background: var(--editor-success);
+}
+#storage-status {
+  min-width: 0;
+  color: var(--editor-warning);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.storage-layout {
+  display: grid;
+  grid-template-columns: 156px minmax(200px, 1.3fr) minmax(190px, 1fr);
+  flex: 1;
+  min-height: 0;
+}
+#storage-sources {
+  overflow: auto;
+  border-right: 1px solid var(--editor-divider);
+  padding: 4px;
+}
+#storage-sources h4 {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--editor-muted);
+  margin: 8px 6px 3px;
+  overflow-wrap: anywhere;
+}
+#storage-sources section:first-child h4 {
+  margin-top: 2px;
+}
+#storage-sources button {
+  display: block;
+  border: 0;
+  border-radius: var(--editor-radius);
+  width: 100%;
+  height: 23px;
+  font-size: 11px;
+  text-align: left;
+  padding: 0 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: transparent;
+}
+#storage-sources button:hover {
+  background: var(--editor-hover);
+}
+#storage-sources button.active {
+  background: var(--editor-accent-bg);
+  color: var(--editor-text);
+}
+.storage-records {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.storage-table-scroll {
+  overflow: auto;
+  flex: 1;
+}
+#storage-table {
+  width: 100%;
+  border-collapse: collapse;
+  font:
+    11px/22px ui-monospace,
+    SFMono-Regular,
+    Consolas,
+    monospace;
+  table-layout: fixed;
+}
+#storage-table th {
+  position: sticky;
+  top: 0;
+  background: var(--editor-surface);
+  color: var(--editor-muted);
+  text-align: left;
+  font:
+    11px/24px -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+}
+#storage-table td,
+#storage-table th {
+  padding: 0 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-bottom: 1px solid var(--editor-divider);
+}
+#storage-table th:first-child {
+  width: 46%;
+}
+#storage-table td button {
+  padding: 0;
+  display: block;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#storage-table tbody tr:hover {
+  background: var(--editor-hover);
+}
+#storage-table tbody tr.selected {
+  background: var(--editor-accent-bg);
+}
+#storage-table tr[data-resident='true'] {
+  background: var(--storage-resident);
+}
+#storage-table tr[data-resident='true']:hover {
+  background: var(--storage-resident-hover);
+}
+#storage-table tr[data-resident='true'].selected {
+  background: var(--storage-resident-selected);
+}
+#storage-table tr[data-resident='true'] td:first-child {
+  box-shadow: inset 2px 0 var(--editor-success);
+}
+#storage-table tr.selected td:first-child {
+  box-shadow: inset 2px 0 var(--editor-accent);
+}
+.storage-value {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  border-left: 1px solid var(--editor-divider);
+}
+#storage-detail-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--editor-muted);
+}
+.storage-view-toggle {
+  display: flex;
+  gap: 1px;
+  padding-right: 5px;
+  margin-right: 1px;
+  border-right: 1px solid var(--editor-divider);
+}
+#storage-detail {
+  padding: 7px 8px;
+  overflow: auto;
+  font:
+    11px/18px ui-monospace,
+    SFMono-Regular,
+    Consolas,
+    monospace;
+}
+#storage-detail pre {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

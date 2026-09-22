@@ -1,0 +1,118 @@
+#file-search {
+  width: 100%;
+}
+
+#files {
+  flex: 1;
+}
+
+.explorer-empty {
+  position: absolute;
+  inset: 0;
+}
+
+#explorer-actions,
+#outline-actions {
+  display: flex;
+}
+
+.file-filter {
+  padding: 2px 8px 6px;
+  flex-shrink: 0;
+}
+
+.file-filter input {
+  height: var(--editor-control-height);
+  font-size: 11px;
+}
+
+.tree-row {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  text-align: left;
+  padding: 0 6px;
+  color: var(--editor-text);
+}
+
+.tree-row:hover {
+  background: var(--editor-button-bg);
+}
+
+.tree-row.selected {
+  background: var(--editor-accent-bg);
+}
+
+[role='tree']:focus-within .tree-row.selected {
+  background: var(--editor-accent-bg);
+  outline: 1px solid var(--editor-accent);
+  outline-offset: -1px;
+}
+
+.tree-row.active-file .tree-label {
+  color: var(--editor-text);
+}
+
+.tree-chevron {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 12px;
+  flex: 0 0 12px;
+  color: var(--editor-muted);
+}
+
+.tree-chevron .icon {
+  width: 11px;
+  height: 11px;
+}
+
+.tree-chevron.expanded .icon {
+  transform: rotate(90deg);
+}
+
+.tree-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-icon {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 16px;
+  margin-right: 4px;
+}
+
+.file-icon .icon {
+  width: 16px;
+  height: 16px;
+}
+
+#file-operation-dialog {
+  width: min(420px, 80vw);
+  padding: 18px;
+}
+
+#file-operation-dialog h2 {
+  margin: 0 0 14px;
+  font-size: 14px;
+}
+
+#file-operation-name {
+  width: 100%;
+}
+
+#file-operation-error {
+  color: var(--editor-danger);
+  min-height: 16px;
+}
+
+#file-operation-dialog form > div {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}

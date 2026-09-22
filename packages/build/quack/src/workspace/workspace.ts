@@ -35,7 +35,12 @@ export class WorkspaceManager {
   /**
    * Load workspace configuration from file
    */
-  async loadConfig(configPath?: string, options: { projectConfig?: string | false } = {}): Promise<WorkspaceConfig> {
+  async loadConfig(configPath?: string | WorkspaceConfig, options: { projectConfig?: string | false } = {}): Promise<WorkspaceConfig> {
+    if (configPath && typeof configPath === 'object') {
+      const config = await this.validateAndNormalizeConfig(configPath)
+      this.config = await this.applyProjectConfig(config, options.projectConfig)
+      return this.config
+    }
     const configFile = configPath || this.findConfigFile()
 
     if (!configFile) {
@@ -204,6 +209,7 @@ export class WorkspaceManager {
    * Normalize individual bundle definition
    */
   private normalizeBundleDefinition(bundle: BundleDefinition, workspaceConfig: WorkspaceConfig): BundleDefinition {
+    const format = bundle.format || (workspaceConfig.globalSettings?.compression?.algorithm === 'lzma' ? 'qpk' : 'zip')
     return {
       ...bundle,
       displayName: bundle.displayName || bundle.name,
@@ -213,10 +219,10 @@ export class WorkspaceManager {
       description: bundle.description || `Bundle: ${bundle.name}`,
 
       // Inherit from global settings if not specified
-      format: bundle.format || workspaceConfig.globalSettings?.compression?.algorithm === 'lzma' ? 'qpk' : 'zip',
+      format,
       compression: {
         level: bundle.compression?.level ?? workspaceConfig.globalSettings?.compression?.level ?? 6,
-        algorithm: bundle.compression?.algorithm ?? workspaceConfig.globalSettings?.compression?.algorithm ?? 'deflate',
+        algorithm: bundle.compression?.algorithm ?? workspaceConfig.globalSettings?.compression?.algorithm ?? (format === 'qpk' ? 'none' : 'deflate'),
       },
       encryption: {
         enabled: bundle.encryption?.enabled ?? workspaceConfig.globalSettings?.encryption?.enabled ?? false,
@@ -359,8 +365,8 @@ export class WorkspaceManager {
       output: resolve(this.config.output || resolve(this.workspaceRoot, 'dist'), `${bundle.name}.${bundle.format || 'zip'}`),
       format: bundle.format || 'zip',
       compression: {
-        level: bundle.compression?.level || 6,
-        algorithm: bundle.compression?.algorithm || 'deflate',
+        level: bundle.compression?.level ?? 6,
+        algorithm: bundle.compression?.algorithm ?? (bundle.format === 'qpk' ? 'none' : 'deflate'),
       },
       compatibility: bundle.compatibility || this.config.globalSettings?.compatibility,
       encryption: {

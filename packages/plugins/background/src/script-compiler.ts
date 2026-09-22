@@ -53,6 +53,7 @@ export function createBackgroundDecoratorCompiler() {
               asset,
               args[1],
             ].filter(Boolean) as t.Expression[]),
+            assetHints: t.isStringLiteral(asset) ? [{ type: 'images', name: asset.value }] : [],
             runtimeHelpers: [mapping.function],
           }
         }
@@ -89,6 +90,7 @@ export function createBackgroundDecoratorCompiler() {
               engineArg,
               createBackgroundLayerObject(id, asset, args[2]),
             ]),
+            assetHints: t.isStringLiteral(asset) ? [{ type: 'images', name: asset.value }] : [],
             runtimeHelpers: [mapping.function],
           }
         }
@@ -108,7 +110,7 @@ export function createBackgroundDecoratorCompiler() {
           return {
             call: t.callExpression(helper, [
               engineArg,
-              createTransitionObject(args, true),
+              args.length === 1 && args[0] && !t.isStringLiteral(args[0]) ? args[0] : createTransitionObject(args, true),
             ]),
             runtimeHelpers: [mapping.function],
           }
@@ -131,6 +133,7 @@ export function createBackgroundDecoratorCompiler() {
               asset,
               args[1],
             ].filter(Boolean) as t.Expression[]),
+            assetHints: t.isStringLiteral(asset) ? [{ type: 'images', name: asset.value }] : [],
             runtimeHelpers: [mapping.function],
           }
         }

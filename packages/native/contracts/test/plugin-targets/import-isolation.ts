@@ -14,7 +14,7 @@ describe('target plugin manifest import isolation', () => {
             imports: ['@quajs/renderer-web/plugins/settings'],
           },
           {
-            specifier: '@quajs/plugin-settings/native',
+            specifier: '@quajs/plugin-settings/surface',
             target: 'native',
             imports: ['@quajs/engine-native'],
           },
@@ -47,7 +47,7 @@ describe('target plugin manifest import isolation', () => {
             ],
           },
           {
-            specifier: '@quajs/plugin-settings/native',
+            specifier: '@quajs/plugin-settings/surface',
             target: 'native',
             imports: [
               {

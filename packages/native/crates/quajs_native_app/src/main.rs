@@ -8,7 +8,10 @@ mod font_backend;
 mod font_sync;
 #[cfg(any(test, feature = "image-decode"))]
 mod host_assets;
+#[cfg(feature = "javascriptcore")]
+mod jsc_bridge;
 mod logging;
+mod packaged_app;
 #[cfg(any(test, feature = "image-decode"))]
 mod product_app_loop;
 #[cfg(feature = "native-window")]
@@ -29,8 +32,6 @@ mod product_runtime;
 mod product_window;
 #[cfg(feature = "native-window")]
 mod product_window_loop;
-#[cfg(feature = "quickjs-rquickjs")]
-mod quickjs_bridge;
 mod renderer_smoke;
 #[cfg(any(test, feature = "image-decode"))]
 mod sprite_resources;
@@ -61,45 +62,53 @@ fn main() {
 }
 
 fn run() -> Result<(), Box<dyn std::error::Error>> {
-    if env_flag_enabled("QUA_NATIVE_QUICKJS_BRIDGE")
-        && env_flag_enabled("QUA_NATIVE_PRODUCT_BRIDGE")
-    {
-        return Err(std::io::Error::new(
+    packaged_app::initialize()?;
+    if !packaged_app::enabled() {
+        if env_flag_enabled("QUA_NATIVE_JSC_BRIDGE")
+            && env_flag_enabled("QUA_NATIVE_PRODUCT_BRIDGE")
+        {
+            return Err(std::io::Error::new(
             std::io::ErrorKind::InvalidInput,
-            "Native bridge modes are exclusive; set only one of QUA_NATIVE_QUICKJS_BRIDGE or QUA_NATIVE_PRODUCT_BRIDGE.",
+            "Native bridge modes are exclusive; set only one of QUA_NATIVE_JSC_BRIDGE or QUA_NATIVE_PRODUCT_BRIDGE.",
         )
         .into());
-    }
+        }
 
-    #[cfg(feature = "quickjs-rquickjs")]
-    if quickjs_bridge::is_quickjs_bridge_requested() {
-        quickjs_bridge::run_quickjs_bridge_from_stdio()?;
-        return Ok(());
-    }
-    #[cfg(not(feature = "quickjs-rquickjs"))]
-    if std::env::var_os("QUA_NATIVE_QUICKJS_BRIDGE").is_some() {
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::Unsupported,
-            "Native QuickJS bridge requires the quickjs-rquickjs Cargo feature.",
-        )
-        .into());
-    }
+        #[cfg(feature = "javascriptcore")]
+        if jsc_bridge::is_jsc_bridge_requested() {
+            jsc_bridge::run_jsc_bridge_from_stdio()?;
+            return Ok(());
+        }
+        #[cfg(not(feature = "javascriptcore"))]
+        if std::env::var_os("QUA_NATIVE_JSC_BRIDGE").is_some() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::Unsupported,
+                "Native JavaScriptCore bridge requires the javascriptcore Cargo feature.",
+            )
+            .into());
+        }
 
-    #[cfg(feature = "image-decode")]
-    if product_bridge::is_product_bridge_requested() {
-        product_bridge::run_product_bridge_from_stdio()?;
-        return Ok(());
+        #[cfg(feature = "image-decode")]
+        if product_bridge::is_product_bridge_requested() {
+            product_bridge::run_product_bridge_from_stdio()?;
+            return Ok(());
+        }
+        #[cfg(not(feature = "image-decode"))]
+        if env_flag_enabled("QUA_NATIVE_PRODUCT_BRIDGE") {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::Unsupported,
+                "Native product bridge requires the image-decode Cargo feature.",
+            )
+            .into());
+        }
     }
-    #[cfg(not(feature = "image-decode"))]
-    if env_flag_enabled("QUA_NATIVE_PRODUCT_BRIDGE") {
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::Unsupported,
-            "Native product bridge requires the image-decode Cargo feature.",
-        )
-        .into());
-    }
-
-    let manifest_path = std::env::var_os("QUA_NATIVE_TARGET_BUNDLE_MANIFEST");
+    let manifest_path = packaged_app::config()
+        .map(|app| {
+            app.resources
+                .join("target-bundle-manifest.json")
+                .into_os_string()
+        })
+        .or_else(|| std::env::var_os("QUA_NATIVE_TARGET_BUNDLE_MANIFEST"));
     match &manifest_path {
         Some(path) => log::debug!(
             "loading native target bundle manifest from {}",
@@ -107,12 +116,17 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         ),
         None => log::debug!("no QUA_NATIVE_TARGET_BUNDLE_MANIFEST set; using compile-time config"),
     }
-    let target_bundle_manifest = manifest_path
-        .map(load_native_target_bundle_manifest)
-        .transpose()
-        .inspect_err(|error| {
-            log::error!("native target bundle manifest failed to load: {error}")
-        })?;
+    let target_bundle_manifest = if let Some(app) = packaged_app::config() {
+        let bytes = packaged_app::read_verified(
+            &app.resources.join("target-bundle-manifest.json"),
+            &app.target_manifest_sha256,
+        )?;
+        Some(serde_json::from_slice(&bytes)?)
+    } else {
+        manifest_path
+            .map(load_native_target_bundle_manifest)
+            .transpose()?
+    };
     let host_info = create_native_startup_host_info(
         compile_time_native_app_config(),
         target_bundle_manifest.as_ref(),
@@ -131,8 +145,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         host_info.renderer.capabilities.len()
     );
     println!("{}", serde_json::to_string(&host_info)?);
-    if let Some(summary) = run_renderer_smoke_from_env()? {
-        println!(
+    if !packaged_app::enabled() {
+        if let Some(summary) = run_renderer_smoke_from_env()? {
+            println!(
             "Qua native renderer smoke: revision={} passes={} batches={} commands={} resources={} missingResources={} textureUploadRequests={} textureUploadSkippedResources={} textureUploadNonTextureResources={} audioBackendPlans={} audioBackendCommands={} audioBackendTracks={}",
             summary.revision,
             summary.pass_count,
@@ -147,10 +162,11 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             summary.audio_backend.applied_command_count,
             summary.audio_backend.active_track_count
         );
-        println!(
-            "Qua native renderer smoke json: {}",
-            serde_json::to_string(&summary)?
-        );
+            println!(
+                "Qua native renderer smoke json: {}",
+                serde_json::to_string(&summary)?
+            );
+        }
     }
     #[cfg(feature = "native-window")]
     if let Some(report) = run_native_window_smoke_from_env()? {

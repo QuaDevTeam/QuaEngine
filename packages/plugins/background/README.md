@@ -25,6 +25,64 @@ Renderer entries:
 - `@quajs/renderer-vue/plugins/background`
 - React/Svelte preset wrappers through their renderer packages
 
+## Images at arbitrary stage positions
+
+```ts
+await background.setBackground('backgrounds/room.webp')
+await background.addLayer({
+  id: 'letter', assetName: 'inserts/letter.png',
+  x: 320, y: 180, width: 480, height: 320,
+  fit: 'contain', rotation: -6, opacity: 0.9, zIndex: 10,
+})
+await background.updateLayer('letter', { x: 700 })
+await background.removeLayer('letter')
+```
+
+Coordinates and dimensions are logical stage units, measured from the top-left (1920 × 1080 for landscape). Multiple ids add multiple images; reusing an id replaces that image. These images belong to the background composition, behind characters; `zIndex` orders that composition. Adding or clearing layers preserves the original image/video background. `clearBackground()` removes everything. Scene images remain visible in screenshot mode.
+
+QuaScript uses the same options:
+
+```qs
+@BackgroundLayer('letter', 'inserts/letter.png', { x: 320, y: 180, width: 480, height: 320, fit: 'contain', zIndex: 10 })
+Narrator: A letter rests on the desk.
+
+@RemoveBackgroundLayer('letter')
+Narrator: She puts it away.
+```
+
+## Animate placed images
+
+Register `AnimationPlugin` from `@quajs/plugin-animation` before `engine.init()`. Each placed image is an animation target named `backgroundLayer:<id>`:
+
+```ts
+import { createBackgroundMotionTimeline } from '@quajs/plugin-background/animation'
+
+await background.addLayer({
+  id: 'letter', assetName: 'inserts/letter.png',
+  x: 320, y: 180, width: 480, height: 320, fit: 'contain',
+})
+const playback = await animation.playTimeline(createBackgroundMotionTimeline('backgroundLayer:letter', [
+  { at: 0, x: 320, y: 180, width: 480, height: 320, scale: 1, rotation: -6, opacity: 0 },
+  { at: 800, x: 700, y: 260, width: 600, height: 400, scale: 1.1, rotation: 0, opacity: 1, easing: 'easeOutCubic' },
+], { duration: 800 }))
+await animation.wait(playback.id)
+```
+
+Position and numeric dimensions use logical stage units; rotation is in degrees and opacity is 0–1. The ordinary animation controls apply: `pause`, `resume`, `seek`, `stop`, playback rate and loops. Named timelines can bind `self` to `backgroundLayer:letter`. The default `commit: 'final'` writes completed values into engine state, preserving the base background and other layers. Use `{ wait: true }` as the second `playTimeline` argument to wait inline, or leave it unset to continue dialogue during playback. Screenshot mode hides UI while these scene animations keep playing.
+
+QuaScript with background and animation decorators enabled:
+
+```qs
+@BackgroundLayer('letter', 'inserts/letter.png', { x: 320, y: 180, width: 480, height: 320, fit: 'contain', opacity: 0 })
+
+@AnimationTimeline(800, true)
+@Key('backgroundLayer:letter', 'x', 0, 320)
+@Key('backgroundLayer:letter', 'x', 800, 700, 'easeOutCubic')
+@Key('backgroundLayer:letter', 'opacity', 0, 0)
+@Key('backgroundLayer:letter', 'opacity', 800, 1)
+Narrator: The letter slides into view.
+```
+
 ## Image And Video Backgrounds
 
 ```ts
@@ -123,3 +181,9 @@ Decorators include `@SetBackground`, `@ClearBackground`, `@VideoBackground`, `@S
 ## Runtime Packages
 
 Background projections preserve package provenance where asset references come from runtime packages. Unloading a runtime package clears background content that depends on the package unless the unload is explicitly forced by engine lifecycle code.
+
+## Default and custom background transitions
+
+Replacing a picture defaults to a 300 ms crossfade after the incoming assets are ready. The old picture remains visible during preparation. Use `transition: { type: 'instant' }` for an immediate replacement, or import `defineBackgroundTransition` to author reusable incoming/outgoing keyframes and custom GLSL/WGSL shaders. QuaScript accepts the same definitions and shader parameters through `@SetBackground(asset, { transition })`.
+
+See [Background transitions](../../../docs/design/background-transitions.md) for numeric properties, shader sampling/uniforms, cancellation, runtime package ownership, and validation.

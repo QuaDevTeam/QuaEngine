@@ -33,6 +33,7 @@ import {
   projectUiOverlay,
   RenderToLogicEvents,
   resolveActiveUiSceneProjection,
+  resolveBackgroundLayers,
   resolveUiChoiceSkinReference,
   resolveUiOverlaySkinReference,
   uiOverlayIsInteractive,
@@ -105,7 +106,7 @@ export async function renderCocosBackground(context: CocosRendererHostContext): 
     return
   }
   if (background.mode === 'layered') {
-    await renderLayeredBackground(context, layer, background.layers || [])
+    await renderLayeredBackground(context, layer, resolveBackgroundLayers(background))
     return
   }
   if (background.mode === 'video' && background.video) {

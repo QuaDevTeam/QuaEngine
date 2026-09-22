@@ -1,5 +1,10 @@
 # create-qua-game
 
+Templates: `visual-novel-vue` creates a game, while `--template plugin` creates a
+TypeScript runtime plugin and optional editor panel with `quajs.extension` metadata.
+Plugin projects use `npm run build` and have no game preview. QuaEngine Editor reuses
+these templates and supplies portable SDK archives for local dependency installation.
+
 Project scaffolding CLI for QuaEngine visual novel games.
 
 ```bash

@@ -49,6 +49,12 @@ const highlighter = await createHighlighter({
 
 The editor sub-entry intentionally does not depend on Monaco or Shiki. It only publishes QuaScript language ids, file extensions, Monaco language configuration, Monaco Monarch rules, TextMate/Shiki grammar, and shared snippets. Full semantic tooling still comes from the LSP server or helper APIs exported by the root package.
 
+The root `analyzeQuaScript` helper returns `dialogueHighlights` alongside diagnostics. Each highlight contains a character label, its speaker range, and literal text ranges from the compiler AST. Ranges use zero-based line/column and UTF-16 offsets. Interpolation expressions and their delimiters are excluded; narration, comments and choices are not dialogue highlights. Hosts choose colors and convert ranges to their editor coordinate convention.
+
+Long-lived hosts may pass `typescriptSession: new QuaScriptTypeScriptSession()` to analysis, completion, hover and definition helpers. This retains TypeScript library/dependency syntax trees across sequential requests within one project; it holds one active virtual document at a time. Dispose the session when replacing a workspace or invalidating its source index. Helpers without a supplied session dispose their temporary language service automatically. Analysis also reuses its parsed document when generating virtual TypeScript.
+
+`checkTypeScriptProject(projectRoot)` performs a no-emit check of the actual tsconfig program, including configuration, syntax and semantic errors in unopened TypeScript files. Returned diagnostics include file paths and source ranges. Hosts should run it off the UI thread and combine it with per-file QuaScript checks; it reads saved files, not editor buffers.
+
 ## Plugin Language Contributions
 
 Feature packages can contribute editor behavior through package metadata:
@@ -98,3 +104,13 @@ The language server respects QuaScript tooling config from `quascript.config.jso
   }
 }
 ```
+
+`analyzeQuaScript` also returns `previewSteps` from the same parsed AST: original compiler step indexes with zero-based source ranges for waiting dialogue/choice steps. Hosts use these for preview-to-cursor, retaining action indexes in the compiled sequence without offering action-only steps as waiting targets. Replay and checkpoint restoration remain engine responsibilities.
+
+### Decorator intelligence
+
+Decorator names use the compiler's active mapping resolution, including value imports, auto-collection and explicit overrides. Completion items include descriptions and source replacement ranges that preserve `@`; hover shows the declared DSL parameters and runtime binding. Parameter help supports multiline/incomplete calls and nested expressions through `getQuaScriptSignatureHelp` and LSP `textDocument/signatureHelp`. Plugin parameter names/descriptions come from `quajs.language.decorators`; no runtime argument signature is guessed when compiler lowering may change the call.
+
+Definitions resolve the mapped implementation through TypeScript, including re-exports and `extraFiles` drafts. The standalone server retains one TypeScript session and invalidates it on configuration/file changes. Closed or superseded documents do not publish stale diagnostics.
+
+After building, run `node packages/build/language-server/test/lsp-smoke.mjs` from the repository root to exercise the actual stdio transport, capability negotiation, completion edits/documentation, signatures, hover and definitions.

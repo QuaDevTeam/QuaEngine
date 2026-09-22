@@ -103,10 +103,20 @@ export interface SaveToSlotOptions {
   preview?: SavePreviewOptions
 }
 
+export interface GameStepAssetHint {
+  type: string
+  name: string
+  expression?: string
+  sprite?: string
+  contentPackageId?: string
+  requiredRuntimePackages?: string[]
+}
+
 export interface GameStep {
   uuid: string
   run: (ctx: StepContext) => void | Promise<void>
   metadata?: {
+    assetHints?: GameStepAssetHint[]
     title?: string
     description?: string
     tags?: string[]
@@ -384,6 +394,8 @@ export interface QuaEngineInterface {
   setCharacterExpression: (id: string, expression?: string) => Promise<void>
   setCharacterSprite: (id: string, sprite?: string) => Promise<void>
   showUI: (elementId: string, config?: Record<string, unknown>) => Promise<void>
+  /** Project UI visibility without discarding dialogue, choices or overlays. */
+  setUiVisible: (visible: boolean) => Promise<void>
   hideUI: (elementId: string) => Promise<void>
   updateUI: (elementId: string, config: Record<string, unknown>) => Promise<void>
   saveToSlot: (slotId: string, metadata?: SlotMetadata, options?: SaveToSlotOptions) => Promise<void>

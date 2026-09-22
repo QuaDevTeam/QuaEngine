@@ -1,4 +1,5 @@
 import type { QuaVueRendererPlugin } from '../core'
+import { setupBackgroundPreparation } from '@quajs/renderer-web/plugins/background'
 import { defineVueRendererPlugin } from '../core'
 import { QuaBackgroundLayer } from './components'
 
@@ -14,7 +15,7 @@ export {
 export function createBackgroundRendererPlugin(): QuaVueRendererPlugin {
   return defineVueRendererPlugin({
     name: '@quajs/renderer-vue/background',
-    setup() {},
+    setup: setupBackgroundPreparation,
     layers: [{
       id: 'background',
       slot: 'background',

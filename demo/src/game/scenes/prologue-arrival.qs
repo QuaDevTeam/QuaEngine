@@ -2,12 +2,7 @@
 @Scene('call-me-tomorrow-prologue')
 @Node('prologue-arrival', { title: '雨没有停' })
 @Protagonist('rin')
-@HideCharacter('mara')
-@HideCharacter('rin')
-@HideCharacter('haruka')
-@HideCharacter('mayu')
-@HideCharacter('reiko')
-@HideCharacter('yumi')
+@HideAllCharacters()
 @SetBackground('backgrounds/town-bus-rain.webp', { transition: { type: 'crossfade', duration: 320 } })
 2019 年 6 月 10 日，青叶市。
 巴士开走以后，神代凛才发现雨棚漏了一处水。
@@ -49,12 +44,7 @@ Mara: 小心，别压。
 凛腾出另一只手，托稳纸袋。
 神代凛: 设备？
 Mara: 奶油面包。比设备娇气。
-@HideCharacter('rin')
-@HideCharacter('mara')
-@HideCharacter('haruka')
-@HideCharacter('mayu')
-@HideCharacter('reiko')
-@HideCharacter('yumi')
+@HideAllCharacters()
 @SetBackground('inserts/rain-paper-bag.webp', { transition: { type: 'crossfade', duration: 400 } })
 纸袋贴着手心，还暖着。凛低头看，开口里露出两只面包，其中一只的顶已经瘪了。
 神代凛: 那它可能已经受伤了。
@@ -65,7 +55,7 @@ Mara: 没关系。那个本来就准备给我。
 神代凛: 你早就挑好了？
 Mara: 刚挑的。
 @SetExpression('rain-smile', 'mara')
-雨水从伞骨尽头滴下来。凛没忍住笑了一下，把纸袋靠近胸前。
+雨水从伞骨尽头滴下来。凛没忍住笑，把纸袋靠近胸前。
 Mara: 大箱子我来吧。
 神代凛: 不重。里面大半是空的。
 Mara: 来的时候就给伴手礼留地方了？
@@ -87,12 +77,7 @@ Mara: 那条近。等晴天再信它吧。
 凛收起手机，拉着箱子跟上她。
 
 @Node('prologue-street', { title: '商店街' })
-@HideCharacter('mara')
-@HideCharacter('rin')
-@HideCharacter('haruka')
-@HideCharacter('mayu')
-@HideCharacter('reiko')
-@HideCharacter('yumi')
+@HideAllCharacters()
 @SetBackground('backgrounds/town-street-rain-anime-v3.webp', { characterLighting: { ambient: [0.94, 0.97, 1.02], shade: { color: [0.92, 0.95, 1], from: [0.6, 0], to: [0.2, 1] } }, transition: { type: 'crossfade', duration: 320 } })
 @ShowCharacter('mara', { expression: 'rain-neutral', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })
 商店街的遮雨棚把雨声压低了。烤鱼的味道从一家小店的门帘后面飘出来。
@@ -101,11 +86,11 @@ Mara: 那条近。等晴天再信它吧。
 隔着半开的车窗，广播正在说下午渡船改从哪个码头上客。鱼店里的人隔窗叮嘱司机，下次来时顺路捎两只空箱。
 车载收音机亮着海岸台的频率。司机伸手拧小音量，探出头去问货卸在哪边。
 神代凛: 这就是你们台？
-Mara: 嗯，他车里收的是 FM。手机也能听，我们有网络直播。
+Mara: 嗯，他车里收的是 FM。手机也能听哦，我们有网络直播。
 她打开台里的网站给凛看。播放键下面是节目表，旁边贴着昨天的更正和港务处的通知链接。
 Mara: 离开这一带，FM信号就不太好了。到东京用这个网页就行，不用抱台收音机回去。
 神代凛: 我的箱子还得装磁带机。
-Mara: 那就只给你发链接。
+Mara: 那就只给你发链接咯。
 神代凛: 他平常也听你们的节目？
 Mara: 车里一直开着。早上听港口路况，下午就什么都有。上周跟着节目猜歌，猜错了，来送货还找我争。
 神代凛: 手机上的通知不是更快？
@@ -130,7 +115,7 @@ Mara: 这次按这张念？
 面包店老板: 对。上次少写了一个字。是我外孙的名字，麻烦你们改一下。
 Mara: 我交给春香。播之前再跟你核对一次。
 面包店老板: 你们月底是不是就没了？
-Mara: 是换地址。市民中心三楼，节目还在。
+Mara: 是换地址啦。市民中心三楼，节目还在。
 面包店老板: 电话呢？
 Mara: 点歌的号码不变。门牌会变。
 老板点点头，看见凛手里的纸袋，又叮嘱她们趁热吃，才转身回柜台。
@@ -138,7 +123,7 @@ Mara: 点歌的号码不变。门牌会变。
 修表店店主: 去那边以后，窗户总不会再漏水了吧。
 Mara: 新楼物业说不会。
 修表店店主: 让他写下来。
-Mara应了声好，催凛往前走。凛低头看了看还湿着的鞋尖。
+Mara 应了声好，催凛往前走。凛低头看了看还湿着的鞋尖。
 往前走了两家店，送货员推着一辆平板车挤到门前，前轮被卷起的地垫卡住了。
 店里的人出来扶住纸箱。送货员弯腰拉平地垫，两人才把车推进去。
 神代凛: 这里的人好像都认识你。
@@ -153,24 +138,24 @@ Mara: 由美姐希望我顺便卖。但我到现在只买过他的咖啡。
 Mara: 磁带，硬盘，老手机。配套的机器和转接头也在，得花点时间找。
 神代凛: 没跟带子放一起？
 Mara: 搬过几回，放乱了。有几盘上面只写着“用黑色的那个”。
-凛打开备忘录，记下“黑色的那个——待确认”。Mara 瞥见屏幕，笑了一下。
+凛打开备忘录，记下“黑色的那个——待确认”。Mara 瞥见屏幕，笑了。
 神代凛: 那我第一天先找黑色的那个。
 Mara: 我陪你找。那几箱是我搬的，至少知道哪一箱比较重。
 神代凛: 接下来都由你帮我认这些文件？
 Mara: 由美是这么说的。普通设备也找我。特别旧的采访，我得再去问本人。
 神代凛: 本人也有认不出来的时候？
-Mara: 有。我昨天就听不出来自己录的是哪条街。
+Mara: 有啊。我昨天就听不出来自己录的是哪条街。
 神代凛: 没记？
 Mara: 是我自己随手录的。文件名就叫“路上”，也没记路线。
 凛看了 Mara 一眼，又在备忘录里添上一行。
 Mara: 这份也要查？那我得想想，是哪天走的。
 神代凛: 先记着。至少这份还能找到录音的人。
-由美的邮件里写着：有事问Mara，她知道地方。
+由美的邮件里写着：有事问 Mara，她知道地方。
 凛看看备忘录里的“路上”，把它挪到了最后。
 走到街尾，房子之间露出一小块灰蓝色的海。没有凛想象中的沙滩，只有湿漉漉的防波墙。
 Mara 带凛过街，顺着短坡往上走。坡下是旧港池，靠东的一排白色仓库挡住了出海口；再往里，岸线折过去，凛就看不清了。
 神代凛: 刚才下车的地方，晚上还有车回车站吗？
-Mara: 有，末班九点四十。错过的话，只能打车。别信导航说可以走回去，最后那段上坡很长。
+Mara: 有啊，末班九点四十。错过的话，只能打车了。别信导航说可以走回去，最后那段上坡很长。
 神代凛: 我已经不太信它了。
 Mara 回头看了看行李箱。凛换了只手，示意还拉得动。坡顶有人在收窗外的衣架，空衣架一只只碰着铁栏杆。
 Mara 指向海边第二幢楼。蓝色信箱上面贴着迁址预告，纸角被透明胶带重新压过。
