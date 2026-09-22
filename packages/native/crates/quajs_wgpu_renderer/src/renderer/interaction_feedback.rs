@@ -686,10 +686,7 @@ fn parse_color(value: &str) -> Option<RgbaColor> {
             .map(|value| value / 255.0)
     };
     let alpha = if parts.len() == 4 {
-        parts[3]
-            .parse::<f64>()
-            .ok()
-            .filter(|value| (0.0..=1.0).contains(value))?
+        crate::projection::safety::parse_native_color_alpha(parts[3])?
     } else {
         1.0
     };
@@ -1277,6 +1274,94 @@ mod tests {
             depth <= 9,
             "superseded chain depth {depth} must stay capped after 32 interruptions"
         );
+    }
+
+    #[cfg(feature = "wgpu-backend")]
+    #[test]
+    fn every_hover_transition_frame_keeps_button_and_label_drawable() {
+        use crate::renderer::backend::{
+            NativeRenderBackend, NativeRenderFrameRef, WgpuNativeRenderBackend,
+        };
+
+        // Exercise the consumer, not just the interpolated string. The old
+        // producer emitted alpha=1.0000, which the GPU paint parser rejected.
+        for background in ["#315e53", "transparent", "rgba(49,94,83,0.5)"] {
+            let mut frame = fixture_frame();
+            let command = &mut frame.graph.commands_mut()[0];
+            if let DrawCommandParams::UiButton(params) = &mut command.params {
+                params.background_color = background.to_string();
+            }
+            let mut hover = DrawCommandVariant::from_command(command);
+            if let DrawCommandParams::UiButton(params) = &mut hover.params {
+                params.background_color = "#23483f".to_string();
+                params.text_color = "#ffe8b3".to_string();
+            }
+            command.interaction_group_id = Some("button".to_string());
+            command
+                .interaction_variants
+                .insert(DrawInteractionState::Hover, hover);
+            command.interaction_transitions = vec![DrawTransition {
+                property: DrawTransitionProperty::All,
+                duration_ms: 160.0,
+                delay_ms: 0.0,
+                easing: DrawTransitionEasing::Ease,
+            }];
+            let mut interaction = NativePointerInteractionState::new();
+            let started = Instant::now();
+            let resources = Default::default();
+            let mut backend = WgpuNativeRenderBackend::new(Default::default());
+            let mut clock_ms = 0;
+            // Include settled entry/exit and interrupted reversals, sampling
+            // faster than a 60Hz frame rather than testing only the endpoints.
+            for (hovered, duration_ms) in [
+                (true, 200),
+                (false, 48),
+                (true, 16),
+                (false, 16),
+                (true, 200),
+                (false, 200),
+            ] {
+                let mut pointer = fixture_pointer();
+                if !hovered {
+                    pointer.intent = None;
+                }
+                resolve_pointer_event_with_interaction(
+                    &mut interaction,
+                    NativePointerEvent::new(
+                        NativePointerEventPhase::Move,
+                        StageClientPoint::default(),
+                        StageClientRectOrigin::default(),
+                    ),
+                    pointer,
+                );
+                interaction.visual_transition.as_mut().unwrap().started_at =
+                    started + Duration::from_millis(clock_ms);
+                for elapsed in (0..=duration_ms).step_by(8) {
+                    let time_ms = clock_ms + elapsed;
+                    let feedback = frame_with_interaction_feedback_at(
+                        &frame,
+                        &interaction,
+                        started + Duration::from_millis(time_ms),
+                    );
+                    backend
+                        .submit_frame(NativeRenderFrameRef {
+                            revision: time_ms,
+                            frame: feedback.as_ref().unwrap_or(&frame),
+                            resources: &resources,
+                        })
+                        .unwrap();
+                    let mesh = backend.mesh_plans().last().unwrap();
+                    assert_eq!(mesh.invalid_paint_count, 0, "{background} at {time_ms}ms");
+                    let button = &mesh.passes[0].quads[0];
+                    assert!(button.is_visible(), "button disappeared at {time_ms}ms");
+                    assert!(
+                        button.text_overlay.is_some(),
+                        "label disappeared at {time_ms}ms"
+                    );
+                }
+                clock_ms += duration_ms;
+            }
+        }
     }
 
     fn fixture_frame() -> PreparedNativeFrame {

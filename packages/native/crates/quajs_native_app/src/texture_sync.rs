@@ -3,6 +3,8 @@ mod frame;
 mod host;
 mod lifecycle;
 mod metadata;
+mod preload;
+pub(crate) use preload::NativeTexturePreloader;
 #[cfg(test)]
 mod tests;
 mod types;

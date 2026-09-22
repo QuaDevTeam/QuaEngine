@@ -1,6 +1,8 @@
 mod bind_group;
 pub(super) mod decoded;
 mod placeholder;
+#[cfg(feature = "image-decode")]
+pub(super) mod preparation;
 pub(super) mod sampler;
 
 pub(super) use bind_group::{

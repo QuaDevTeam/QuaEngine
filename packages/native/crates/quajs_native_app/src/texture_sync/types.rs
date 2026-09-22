@@ -11,6 +11,42 @@ pub struct NativeTextureUploadMetadata {
 }
 
 pub trait NativeTextureUploadSink {
+    fn texture_preload_budget_generation(&self) -> u64 {
+        0
+    }
+    fn request_texture_preload(
+        &mut self,
+        request: &NativeTextureUploadRequest,
+        bytes: &[u8],
+        metadata: NativeTextureUploadMetadata,
+    ) -> Result<bool, Self::Error> {
+        self.request_texture_upload(request, bytes, metadata)
+    }
+    fn has_pending_texture_preloads(&self) -> bool {
+        false
+    }
+    fn texture_is_resident(&self, _id: &ResourceId) -> bool {
+        false
+    }
+    fn touch_texture_resources(&mut self, _ids: &BTreeSet<String>) {}
+    fn prepare_texture_request(&mut self, _request: &NativeTextureUploadRequest) {}
+    fn set_texture_preloads(&mut self, _ids: BTreeSet<String>) {}
+    fn set_required_texture_preparations(&mut self, _ids: BTreeSet<String>) {}
+    fn poll_texture_preload(
+        &mut self,
+        _request: &NativeTextureUploadRequest,
+    ) -> Option<Result<bool, Self::Error>> {
+        Some(Ok(false))
+    }
+    fn clear_cached_textures(&mut self) {}
+    fn release_cached_package_textures(&mut self, _package: &str) {}
+    fn retire_texture_resource(&mut self, id: &ResourceId) -> Result<bool, Self::Error> {
+        self.release_texture_resource(id)
+    }
+    fn retain_pending_texture_uploads(&mut self, _ids: &std::collections::BTreeSet<String>) {}
+    fn background_shader_status(&self, _source: &str) -> Result<bool, String> {
+        Ok(true)
+    }
     type Error: Display;
 
     fn upload_texture_bytes(
@@ -19,6 +55,24 @@ pub trait NativeTextureUploadSink {
         bytes: &[u8],
         metadata: NativeTextureUploadMetadata,
     ) -> Result<(), Self::Error>;
+
+    /// None means no queued upload; false means still preparing, true means adopted.
+    fn poll_texture_upload(
+        &mut self,
+        _resource_id: &ResourceId,
+    ) -> Option<Result<bool, Self::Error>> {
+        None
+    }
+
+    fn request_texture_upload(
+        &mut self,
+        request: &NativeTextureUploadRequest,
+        bytes: &[u8],
+        metadata: NativeTextureUploadMetadata,
+    ) -> Result<bool, Self::Error> {
+        self.upload_texture_bytes(request, bytes, metadata)
+            .map(|_| true)
+    }
 
     fn upload_decoded_texture_rgba8(
         &mut self,

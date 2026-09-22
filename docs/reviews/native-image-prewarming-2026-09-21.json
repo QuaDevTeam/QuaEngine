@@ -1,0 +1,47 @@
+{
+  "adapter": "Apple M4",
+  "backend": "Metal",
+  "resources": [
+    {
+      "asyncEnqueueMs": 0.01825,
+      "backgroundPreparationMs": 413.548625,
+      "coldPreparationMs": 388.299917,
+      "dimensions": [
+        1672,
+        941
+      ],
+      "encodedBytes": 525722,
+      "file": "demo/assets/images/backgrounds/town-bus-rain.webp",
+      "residentGpuBytesIncludingMips": 8387888,
+      "warmSwitchP99Ms": 0.0024590000000000002
+    },
+    {
+      "asyncEnqueueMs": 0.030583999999999997,
+      "backgroundPreparationMs": 164.262375,
+      "coldPreparationMs": 166.329167,
+      "dimensions": [
+        768,
+        1536
+      ],
+      "encodedBytes": 700375,
+      "file": "demo/assets/characters/mara/outfits/rain/neutral.png",
+      "residentGpuBytesIncludingMips": 6291448,
+      "warmSwitchP99Ms": 0.007916
+    },
+    {
+      "asyncEnqueueMs": 0.189083,
+      "backgroundPreparationMs": 1175.481875,
+      "coldPreparationMs": 1200.3116249999998,
+      "dimensions": [
+        3840,
+        2160
+      ],
+      "encodedBytes": 2204007,
+      "file": "synthetic 3840x2160 PNG, resized Demo paper-grain texture",
+      "residentGpuBytesIncludingMips": 44236220,
+      "warmSwitchP99Ms": 0.000875
+    }
+  ],
+  "profile": "dev (workspace unoptimized, external dependencies opt-level 3)",
+  "scope": "Real Metal resource preparation/residency selection; not complete frame or OS presentation latency."
+}

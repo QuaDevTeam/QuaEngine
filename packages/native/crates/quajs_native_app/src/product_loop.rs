@@ -17,6 +17,7 @@ use crate::texture_sync::{
 
 #[derive(Debug, Default)]
 pub(crate) struct NativeProductLoop {
+    texture_preloader: crate::texture_sync::NativeTexturePreloader,
     sprite_resources: crate::sprite_resources::NativeSpriteResources,
     texture_bundle_registry: NativeTextureBundleMountRegistry,
     rendered_frame_count: usize,
@@ -26,9 +27,37 @@ pub(crate) struct NativeProductLoop {
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct NativeProductLoopFrameResult {
+    pub(crate) asset_preparation_update: Option<serde_json::Value>,
+    pub(crate) preload_work_pending: bool,
     pub(crate) frame_number: usize,
     pub(crate) projection_reused: bool,
     pub(crate) synced_frame: NativeTextureLifecycleSyncedFrameResult,
+}
+
+impl NativeProductLoopFrameResult {
+    /// Only current projection resources gate presentation. Advisory lookahead
+    /// must never delay startup, input or a completed frame.
+    pub(crate) fn ready_for_presentation(&self) -> Result<bool, String> {
+        let synced = &self.synced_frame.frame;
+        if let Some(failure) = synced.texture_upload_report.failures.first() {
+            return Err(format!(
+                "image {}: {}", failure.resource_id.as_str(), failure.message
+            ));
+        }
+        if let Some(failure) = synced
+            .font_asset_report.as_ref().and_then(|r| r.failures.first())
+        {
+            return Err(format!("font: {}", failure.message));
+        }
+        if let Some(failure) = synced
+            .font_atlas_report.as_ref().and_then(|r| r.failures.first())
+        {
+            return Err(format!(
+                "font atlas {}: {}", failure.resource_id.as_str(), failure.message
+            ));
+        }
+        Ok(synced.frame.texture_upload_sync.pending_requests.is_empty())
+    }
 }
 
 impl NativeProductLoop {
@@ -53,7 +82,14 @@ impl NativeProductLoop {
         F: NativeFontBackend,
         H: NativeHostApi,
     {
-        if self.cached_projection_json.as_deref() == Some(input) {
+        if self.cached_projection_json.as_deref() == Some(input)
+            && self.cached_frame_update.as_ref().is_some_and(|update| {
+                renderer
+                    .texture_upload_sync_for_update(update)
+                    .pending_requests
+                    .is_empty()
+            })
+        {
             if let Some(update) = self.cached_frame_update.clone() {
                 let frame = render_cached_frame_with_media_texture_sync(renderer, update).map_err(
                     |error| {
@@ -62,8 +98,12 @@ impl NativeProductLoop {
                         )
                     },
                 )?;
+                self.texture_preloader.tick(host, renderer.backend_mut());
                 self.rendered_frame_count = self.rendered_frame_count.saturating_add(1);
                 return Ok(NativeProductLoopFrameResult {
+                    asset_preparation_update: self.texture_preloader.take_progress(),
+                    preload_work_pending: renderer.backend().has_pending_texture_preloads()
+                        || self.texture_preloader.needs_tick(),
                     frame_number: self.rendered_frame_count,
                     projection_reused: true,
                     synced_frame: NativeTextureLifecycleSyncedFrameResult {
@@ -74,6 +114,7 @@ impl NativeProductLoop {
             }
         }
 
+        self.texture_preloader.update(host, input);
         let resolved = self
             .sprite_resources
             .resolve_frame(host, input)
@@ -84,11 +125,15 @@ impl NativeProductLoop {
             host,
             resolved.as_deref().unwrap_or(input),
         )?;
+        self.texture_preloader.tick(host, renderer.backend_mut());
         self.cached_projection_json = Some(input.to_string());
         self.cached_frame_update = Some(synced_frame.frame.frame.update.clone());
         self.rendered_frame_count = self.rendered_frame_count.saturating_add(1);
 
         Ok(NativeProductLoopFrameResult {
+            asset_preparation_update: self.texture_preloader.take_progress(),
+            preload_work_pending: renderer.backend().has_pending_texture_preloads()
+                || self.texture_preloader.needs_tick(),
             frame_number: self.rendered_frame_count,
             projection_reused: false,
             synced_frame,
@@ -122,6 +167,13 @@ impl NativeProductLoop {
             || !report.removed_package_ids.is_empty()
         {
             self.sprite_resources.clear();
+            self.texture_preloader = Default::default();
+            // A blocked host unmount must not evict the active package's GPU handles.
+            if report.blocked_package_ids.is_empty()
+                && report.retained_blocked_package_ids.is_empty()
+            {
+                renderer.backend_mut().clear_cached_textures();
+            }
             self.cached_projection_json = None;
             self.cached_frame_update = None;
         }
@@ -141,6 +193,7 @@ impl NativeProductLoop {
     {
         self.sprite_resources.clear();
         let result = clear_renderer_with_host_texture_cleanup_and_media_teardown(renderer)?;
+        self.texture_preloader = Default::default();
         self.texture_bundle_registry = NativeTextureBundleMountRegistry::new();
         self.cached_projection_json = None;
         self.cached_frame_update = None;
@@ -184,6 +237,68 @@ mod tests {
       "container": { "width": 1600, "height": 1000 },
       "view": {}
     }"#;
+
+    #[test]
+    fn presentation_waits_for_demanded_images_but_not_speculative_preloads() {
+        let host = ProductLoopHost::default();
+        let mut renderer = NativeRenderer::with_null_audio_backend(ProductLoopBackend {
+            preload_pending: true,
+            delayed_upload_polls: Some(2),
+            ..Default::default()
+        });
+        let mut product_loop = NativeProductLoop::new();
+        let image = r#"{"view":{"background":{"mode":"image","assetName":"title.webp","layers":[]}}}"#;
+        for _ in 0..2 {
+            let frame = product_loop
+                .render_projection_json_with_media_teardown(&mut renderer, &host, image)
+                .unwrap();
+            assert!(!frame.ready_for_presentation().unwrap());
+        }
+        let ready = product_loop
+            .render_projection_json_with_media_teardown(&mut renderer, &host, image)
+            .unwrap();
+        assert!(ready.ready_for_presentation().unwrap());
+        assert!(ready.preload_work_pending);
+        // A new screen with no images must not inherit a previous loading gate.
+        let empty = product_loop
+            .render_projection_json_with_media_teardown(&mut renderer, &host, EMPTY_FRAME_JSON)
+            .unwrap();
+        assert!(empty.ready_for_presentation().unwrap());
+    }
+
+    #[test]
+    fn missing_required_images_report_failure_instead_of_waiting_forever() {
+        let mut renderer = NativeRenderer::with_null_audio_backend(ProductLoopBackend::default());
+        let frame = NativeProductLoop::new().render_projection_json_with_media_teardown(
+            &mut renderer, &ProductLoopHost::default(),
+            r#"{"view":{"background":{"mode":"image","assetName":"missing.webp","layers":[]}}}"#,
+        ).unwrap();
+        assert!(frame
+            .ready_for_presentation().unwrap_err().contains("missing.webp"));
+    }
+
+    #[test]
+    fn stable_frames_keep_preload_work_scheduled_until_the_worker_is_drained() {
+        let host = ProductLoopHost::default();
+        let mut renderer = NativeRenderer::with_null_audio_backend(ProductLoopBackend::default());
+        let mut product_loop = NativeProductLoop::new();
+        renderer.backend_mut().preload_pending = true;
+        let first = product_loop
+            .render_projection_json_with_media_teardown(&mut renderer, &host, EMPTY_FRAME_JSON)
+            .unwrap();
+        assert!(first.preload_work_pending);
+        let second = product_loop
+            .render_projection_json_with_media_teardown(&mut renderer, &host, EMPTY_FRAME_JSON)
+            .unwrap();
+        assert!(second.projection_reused && second.preload_work_pending);
+        renderer.backend_mut().preload_pending = false;
+        assert!(
+            !product_loop
+                .render_projection_json_with_media_teardown(&mut renderer, &host, EMPTY_FRAME_JSON)
+                .unwrap()
+                .preload_work_pending
+        );
+    }
 
     #[test]
     fn successful_projection_frames_advance_the_product_loop_counter() {
@@ -432,6 +547,8 @@ mod tests {
 
     #[derive(Default)]
     struct ProductLoopBackend {
+        delayed_upload_polls: Option<usize>,
+        preload_pending: bool,
         submissions: Vec<NativeRenderSubmission>,
         resident_resource_ids: Vec<String>,
         released_resource_ids: Vec<ResourceId>,
@@ -450,6 +567,18 @@ mod tests {
     }
 
     impl NativeTextureUploadSink for ProductLoopBackend {
+        fn poll_texture_upload(&mut self, id: &ResourceId) -> Option<Result<bool, Self::Error>> {
+            let remaining = self.delayed_upload_polls.as_mut()?;
+            if *remaining > 0 {
+                *remaining -= 1;
+                return Some(Ok(false));
+            }
+            self.resident_resource_ids.push(id.as_str().to_string());
+            Some(Ok(true))
+        }
+        fn has_pending_texture_preloads(&self) -> bool {
+            self.preload_pending
+        }
         type Error = String;
 
         fn upload_texture_bytes(

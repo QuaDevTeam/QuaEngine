@@ -72,6 +72,12 @@ impl WgpuNativeRenderRuntimePlan {
                                     tx * scale + ox - a * ox - c * oy,
                                     ty * scale + oy - b * ox - d * oy,
                                 ];
+                                if let Some(shader) = &mut g.transition_shader {
+                                    shader.bounds.x = shader.bounds.x * scale + ox;
+                                    shader.bounds.y = shader.bounds.y * scale + oy;
+                                    shader.bounds.width *= scale;
+                                    shader.bounds.height *= scale;
+                                }
                                 g.blur_radius *= scale;
                                 if let Some(lighting) = &mut g.character_lighting {
                                     lighting.bounds.x = lighting.bounds.x * scale + ox;

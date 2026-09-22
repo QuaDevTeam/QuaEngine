@@ -14,6 +14,16 @@ impl
         InMemoryWgpuNativeRenderRuntimeExecutor<RealWgpuNativeRenderRuntimeDevice>,
     >
 {
+    /// Propagate residency changes made by cache maintenance to device-plan reuse.
+    pub fn sync_image_cache_bindings(&mut self) {
+        let changed = self
+            .runtime_executor_mut()
+            .device_mut()
+            .take_image_cache_changes();
+        for id in changed {
+            self.invalidate_texture_sampler_cache_entries_for_resource(&id);
+        }
+    }
     pub fn upload_decoded_texture_rgba8(
         &mut self,
         resource_id: impl Into<String>,
@@ -70,6 +80,39 @@ impl
             )?;
         self.invalidate_texture_sampler_cache_entries_for_resource(&resource_id);
         Ok(())
+    }
+
+    #[cfg(feature = "image-decode")]
+    pub fn request_image_texture_upload(
+        &mut self,
+        id: &str,
+        bytes: &[u8],
+        metadata: RealWgpuDecodedTextureMetadata,
+    ) -> Result<bool, WgpuNativeRenderRuntimeError> {
+        let ready = self
+            .runtime_executor_mut()
+            .device_mut()
+            .request_image_texture_upload(id, bytes, metadata)?;
+        self.sync_image_cache_bindings();
+        if ready {
+            self.invalidate_texture_sampler_cache_entries_for_resource(id);
+        }
+        Ok(ready)
+    }
+
+    #[cfg(feature = "image-decode")]
+    pub fn poll_image_texture_upload(
+        &mut self,
+        id: &str,
+    ) -> Option<Result<bool, WgpuNativeRenderRuntimeError>> {
+        let result = self
+            .runtime_executor_mut()
+            .device_mut()
+            .poll_image_texture_upload(id)?;
+        if matches!(result, Ok(true)) {
+            self.invalidate_texture_sampler_cache_entries_for_resource(id);
+        }
+        Some(result)
     }
 
     pub fn release_decoded_texture(&mut self, resource_id: &str) -> bool {

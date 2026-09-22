@@ -588,6 +588,7 @@ fn resolve_keyboard_command(
         (KeyCode::KeyF, ElementState::Pressed) => Some("fastForward:start"),
         (KeyCode::KeyF, ElementState::Released) => Some("fastForward:stop"),
         (KeyCode::KeyA, ElementState::Pressed) => Some("auto:toggle"),
+        (KeyCode::KeyH, ElementState::Pressed) => Some("ui:screenshot"),
         (KeyCode::ArrowUp, ElementState::Pressed) => Some("choice:previous"),
         (KeyCode::Escape, ElementState::Pressed) => Some("ui:cancel"),
         _ => None,
@@ -605,6 +606,7 @@ fn key_code_name(code: KeyCode) -> Option<&'static str> {
         KeyCode::ControlRight => Some("ControlRight"),
         KeyCode::KeyF => Some("KeyF"),
         KeyCode::KeyA => Some("KeyA"),
+        KeyCode::KeyH => Some("KeyH"),
         KeyCode::ArrowUp => Some("ArrowUp"),
         KeyCode::Escape => Some("Escape"),
         _ => None,
@@ -727,6 +729,21 @@ mod tests {
             42,
         )
         .is_none());
+    }
+
+    #[test]
+    fn screenshot_key_is_a_single_press_pipeline_command() {
+        let payload = build_keyboard_input_command_payload(
+            KeyCode::KeyH, ElementState::Pressed, false, 42,
+        ).expect("H toggles screenshot mode");
+        assert_eq!(payload["command"], "ui:screenshot");
+        assert_eq!(payload["source"], "keyboard:KeyH");
+        assert!(build_keyboard_input_command_payload(
+            KeyCode::KeyH, ElementState::Pressed, true, 43,
+        ).is_none());
+        assert!(build_keyboard_input_command_payload(
+            KeyCode::KeyH, ElementState::Released, false, 44,
+        ).is_none());
     }
 
     #[test]

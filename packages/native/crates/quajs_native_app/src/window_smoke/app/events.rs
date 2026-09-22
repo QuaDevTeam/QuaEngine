@@ -12,20 +12,53 @@ use crate::product_window::{
     NativeProductWindowPhysicalSize, NativeProductWindowPresentFailure,
     NativeProductWindowPresentFailureKind,
 };
-use crate::window_smoke::config::native_window_dev_enabled;
+use crate::window_smoke::config::native_window_interactive;
 use crate::window_smoke::frame::normalized_physical_size;
 use crate::window_smoke::input::{pointer_button_from_winit, pointer_phase_from_element_state};
 
 impl ApplicationHandler for NativeWindowSmokeApp {
-    fn new_events(&mut self, _event_loop: &ActiveEventLoop, cause: winit::event::StartCause) {
+    fn new_events(&mut self, event_loop: &ActiveEventLoop, cause: winit::event::StartCause) {
         if matches!(cause, winit::event::StartCause::ResumeTimeReached { .. })
             && self.needs_more_frames()
         {
-            self.request_redraw();
+            // Hidden editor hosts may never receive RedrawRequested. A control
+            // request arriving before the pacing deadline must still be served
+            // when that deadline expires, without another client wake-up.
+            if !self.first_frame_ready || crate::window_smoke::editor_preview::enabled() {
+                if let Some(shell) = self.product_shell.as_mut() {
+                    shell.record_redraw_dispatch_started();
+                }
+                self.redraw_once_or_schedule_retry(event_loop);
+            } else {
+                self.request_redraw();
+            }
         }
     }
 
-    fn user_event(&mut self, _event_loop: &ActiveEventLoop, _event: ()) {
+    fn user_event(&mut self, event_loop: &ActiveEventLoop, _event: ()) {
+        self.maintain_image_memory();
+        if !self.first_frame_ready || crate::window_smoke::editor_preview::enabled() {
+            if let Some(control) = &self.control {
+                control.take_wake_pending();
+            }
+            #[cfg(feature = "javascriptcore")]
+            self.ingest_jsc_pipeline_updates(event_loop);
+            if event_loop.exiting() {
+                return;
+            }
+            if self.product_shell.is_some()
+                && self.needs_more_frames()
+                && !self
+                    .next_frame_deadline()
+                    .is_some_and(|deadline| deadline > std::time::Instant::now())
+            {
+                if let Some(shell) = self.product_shell.as_mut() {
+                    shell.record_redraw_dispatch_started();
+                }
+                self.redraw_once_or_schedule_retry(event_loop);
+            }
+            return;
+        }
         // Control-channel clients wake the loop after queueing a request;
         // process it on a fresh frame instead of waiting for user input.
         if self
@@ -35,9 +68,12 @@ impl ApplicationHandler for NativeWindowSmokeApp {
         {
             self.request_redraw();
         }
-        #[cfg(feature = "quickjs-rquickjs")]
+        #[cfg(feature = "javascriptcore")]
         {
-            self.ingest_quickjs_pipeline_updates();
+            self.ingest_jsc_pipeline_updates(event_loop);
+            if event_loop.exiting() {
+                return;
+            }
             // The projection worker also wakes the loop after publishing a
             // frame. Draw it instead of waiting for the next input event.
             if self
@@ -101,6 +137,19 @@ impl ApplicationHandler for NativeWindowSmokeApp {
             return;
         }
 
+        // The OS still shows the previous complete surface while new images
+        // prepare. Do not hit-test/advance the not-yet-visible projection.
+        // Close, resize, focus and worker wake-ups must remain responsive.
+        if self.frame_resources_pending && matches!(event,
+            WindowEvent::CursorMoved { .. }
+                | WindowEvent::MouseInput { .. }
+                | WindowEvent::MouseWheel { .. }
+                | WindowEvent::KeyboardInput { .. }
+                | WindowEvent::Ime(_)
+        ) {
+            return;
+        }
+
         match event {
             WindowEvent::CloseRequested => event_loop.exit(),
             WindowEvent::Resized(size) => {
@@ -125,6 +174,10 @@ impl ApplicationHandler for NativeWindowSmokeApp {
             }
             WindowEvent::Moved(_) => self.refresh_display_refresh_rate(),
             WindowEvent::Occluded(occluded) => {
+                // The host window is hidden; the editor owns display visibility.
+                if !self.first_frame_ready || crate::window_smoke::editor_preview::enabled() {
+                    return;
+                }
                 if occluded {
                     if let Err(error) = self.cancel_window_ime_composition() {
                         self.fail_and_exit(event_loop, error);
@@ -166,10 +219,6 @@ impl ApplicationHandler for NativeWindowSmokeApp {
                     return;
                 }
                 if !focused {
-                    #[cfg(target_os = "macos")]
-                    {
-                        self.window_modifiers = winit::keyboard::ModifiersState::empty();
-                    }
                     if let Err(error) = self.cancel_window_ime_composition() {
                         self.fail_and_exit(event_loop, error);
                         return;
@@ -185,39 +234,12 @@ impl ApplicationHandler for NativeWindowSmokeApp {
                     self.fail_and_exit(event_loop, error);
                 }
             }
-            #[cfg(target_os = "macos")]
-            WindowEvent::ModifiersChanged(modifiers) => {
-                self.window_modifiers = modifiers.state();
-            }
             WindowEvent::Ime(event) => {
                 if let Err(error) = self.dispatch_window_ime_event(&event) {
                     self.fail_and_exit(event_loop, error);
                 }
             }
             WindowEvent::MouseInput { state, button, .. } => {
-                // Keep borderless macOS windows movable without reserving a
-                // strip of the logical stage or stealing ordinary game clicks.
-                #[cfg(target_os = "macos")]
-                if button == winit::event::MouseButton::Left {
-                    if state == winit::event::ElementState::Released
-                        && std::mem::take(&mut self.window_drag_pending_release)
-                    {
-                        return;
-                    }
-                    if state == winit::event::ElementState::Pressed {
-                        // AppKit may consume the previous drag's release itself.
-                        self.window_drag_pending_release = self.window_modifiers.alt_key();
-                        if self.window_drag_pending_release {
-                            if let Some(window) = self.window.clone() {
-                                self.cancel_window_pointer_interaction();
-                                if let Err(error) = window.drag_window() {
-                                    log::warn!("Failed to drag native window: {error}");
-                                }
-                            }
-                            return;
-                        }
-                    }
-                }
                 self.last_input_at = Some(std::time::Instant::now());
                 let phase = pointer_phase_from_element_state(state);
                 let button = pointer_button_from_winit(button);
@@ -270,7 +292,7 @@ impl ApplicationHandler for NativeWindowSmokeApp {
                     return;
                 }
                 if !self.needs_more_frames() {
-                    if native_window_dev_enabled() {
+                    if native_window_interactive() {
                         return;
                     }
                     event_loop.exit();
@@ -285,8 +307,8 @@ impl ApplicationHandler for NativeWindowSmokeApp {
                 // Dev windows stay interactive after a frame that does not
                 // schedule another redraw. Smoke runs exit once their target
                 // frame count has been reached, while dev runs must wait for
-                // user input, resize, or a QuickJS pipeline update.
-                if self.demo_e2e.is_finished() || !native_window_dev_enabled() {
+                // user input, resize, or a JavaScriptCore pipeline update.
+                if self.demo_e2e.is_finished() || !native_window_interactive() {
                     event_loop.exit();
                 }
             }
@@ -295,8 +317,12 @@ impl ApplicationHandler for NativeWindowSmokeApp {
     }
 
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
-        #[cfg(feature = "quickjs-rquickjs")]
-        self.ingest_quickjs_pipeline_updates();
+        self.maintain_image_memory();
+        #[cfg(feature = "javascriptcore")]
+        self.ingest_jsc_pipeline_updates(event_loop);
+        if event_loop.exiting() {
+            return;
+        }
         // Continuous windows sleep until the next frame deadline so the cadence
         // matches the configured target frame rate instead of running as fast as
         // the display refresh rate allows. Windows that owe no frame — hidden,
@@ -324,13 +350,13 @@ impl NativeWindowSmokeApp {
         if self.demo_e2e.is_finished() {
             return false;
         }
-        #[cfg(feature = "quickjs-rquickjs")]
-        if self.quickjs_product.is_some() {
+        #[cfg(feature = "javascriptcore")]
+        if self.jsc_product.is_some() {
             let product_needs_frames = self
                 .product_shell
                 .as_ref()
                 .is_some_and(|shell| shell.needs_more_frames());
-            return native_window_dev_enabled()
+            return native_window_interactive()
                 || product_needs_frames
                 || self.renderer_redraw_pending
                 || self.renderer_local_work_active
@@ -361,8 +387,8 @@ impl NativeWindowSmokeApp {
                 };
                 match action {
                     Ok(action) => {
-                        #[cfg(feature = "quickjs-rquickjs")]
-                        let request_redraw = if self.quickjs_product.is_some() {
+                        #[cfg(feature = "javascriptcore")]
+                        let request_redraw = if self.jsc_product.is_some() {
                             self.product_shell
                                 .as_ref()
                                 .is_some_and(|shell| shell.needs_more_frames())
@@ -374,7 +400,7 @@ impl NativeWindowSmokeApp {
                         } else {
                             action.request_redraw
                         };
-                        #[cfg(not(feature = "quickjs-rquickjs"))]
+                        #[cfg(not(feature = "javascriptcore"))]
                         let request_redraw = action.request_redraw;
                         let request_redraw = request_redraw && !self.demo_e2e.is_finished();
                         let applied = self.apply_product_shell_action(event_loop, action);
@@ -425,7 +451,7 @@ impl NativeWindowSmokeApp {
                 self.apply_product_shell_action(event_loop, action) && progressed
             }
             Ok(NativeProductAppShellRedrawDecision::Fail { .. }) => {
-                if native_window_dev_enabled()
+                if native_window_interactive()
                     && matches!(
                         present_failure.kind(),
                         NativeProductWindowPresentFailureKind::Occluded
@@ -439,6 +465,10 @@ impl NativeWindowSmokeApp {
                     present_failure.kind()
                 );
                 self.error = Some(error);
+                // A hidden startup window cannot leave a failed preparation
+                // loop running invisibly; fatal presentation failures also end
+                // the app instead of retrying the same broken frame forever.
+                event_loop.exit();
                 false
             }
             Err(recovery_error) => {

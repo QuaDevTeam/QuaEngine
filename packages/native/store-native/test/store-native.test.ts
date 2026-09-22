@@ -49,7 +49,7 @@ function createHostInfo(profile: QuaNativeHostInfo['app']['profile'] = 'debug'):
       capabilities: [],
     },
     runtime: {
-      quickjsVersion: '2025-04-26',
+      jscVersion: '2025-04-26',
       nativeRuntimeVersion: '0.1.0',
       assetAdapterVersion: '0.1.0',
       storeAdapterVersion: '0.1.0',

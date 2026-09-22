@@ -60,7 +60,98 @@ impl RealWgpuNativeRenderRuntimeDevice {
         self.upload_decoded_texture_rgba8_with_metadata(resource_id, decoded, metadata)
     }
 
+    /// Opt in for interactive hosts. Synchronous upload APIs remain available
+    /// for captures/tests whose caller explicitly waits for a complete frame.
+    #[cfg(feature = "image-decode")]
+    pub fn enable_async_image_uploads(&mut self) -> std::io::Result<()> {
+        self.image_cache.budget = 256 * 1024 * 1024;
+        self.image_cache.preparation_budget = 256 * 1024 * 1024;
+        if self.async_textures.is_none() {
+            self.async_textures = Some(std::sync::Arc::new(
+                super::async_textures::AsyncTextures::new(self.target.clone())?,
+            ));
+        }
+        Ok(())
+    }
+
+    #[cfg(feature = "image-decode")]
+    pub fn request_image_texture_upload(
+        &mut self,
+        id: &str,
+        bytes: &[u8],
+        metadata: RealWgpuDecodedTextureMetadata,
+    ) -> Result<bool, WgpuNativeRenderRuntimeError> {
+        let peak = super::texture::preparation::estimate(bytes)?;
+        // An on-screen request displaces speculative work and idle residency.
+        if let Some(worker) = &self.async_textures {
+            worker.retain(&self.image_cache.active.union(&self.image_cache.required).cloned().collect());
+        }
+        self.trim_image_cache(peak);
+        if let Some(worker) = &self.async_textures {
+            worker.request(id, bytes, metadata, peak);
+            Ok(false)
+        } else {
+            self.upload_image_texture_bytes_with_metadata(id, bytes, metadata)?;
+            Ok(true)
+        }
+    }
+
+    #[cfg(feature = "image-decode")]
+    pub fn request_image_preload(
+        &mut self,
+        id: &str,
+        bytes: &[u8],
+        metadata: RealWgpuDecodedTextureMetadata,
+    ) -> Result<bool, WgpuNativeRenderRuntimeError> {
+        let peak = super::texture::preparation::estimate(bytes)?;
+        if !self.image_cache.preloads.contains(id) || !self.can_prepare_image_preload(peak) {
+            self.image_cache.deferred.insert(id.into(), peak);
+            return Ok(false);
+        }
+        if let Some(worker) = &self.async_textures {
+            // No speculative work may compete with an existing visible upload.
+            if worker.job_count() == 0 {
+                worker.request(id, bytes, metadata, peak);
+            }
+        }
+        Ok(false)
+    }
+
+    #[cfg(feature = "image-decode")]
+    pub fn poll_image_texture_upload(
+        &mut self,
+        id: &str,
+    ) -> Option<Result<bool, WgpuNativeRenderRuntimeError>> {
+        let result = self.async_textures.as_ref()?.poll(id)?;
+        Some(match result {
+            None => Ok(false),
+            Some(Ok(texture)) => {
+                self.decoded_textures.insert(id.into(), texture);
+                self.invalidate_texture_sampler_bind_groups_for_resource(id);
+                Ok(true)
+            }
+            Some(Err(error)) => Err(error),
+        })
+    }
+
+    #[cfg(feature = "image-decode")]
+    pub fn retain_pending_texture_uploads(&self, ids: &std::collections::BTreeSet<String>) {
+        if let Some(worker) = &self.async_textures {
+            let mut retained = ids.clone();
+            retained.extend(self.image_cache.preloads.iter().cloned());
+            worker.retain(&retained);
+        }
+    }
+
     pub fn release_decoded_texture(&mut self, resource_id: &str) -> bool {
+        #[cfg(feature = "image-decode")]
+        if let Some(worker) = &self.async_textures {
+            worker.release(resource_id);
+        }
+        self.image_cache.scopes.remove(resource_id);
+        self.image_cache.deferred.remove(resource_id);
+        self.image_cache.used.remove(resource_id);
+        self.image_cache.preloads.remove(resource_id);
         let released = self.decoded_textures.remove(resource_id).is_some();
         if released {
             self.invalidate_texture_sampler_bind_groups_for_resource(resource_id);
@@ -69,8 +160,15 @@ impl RealWgpuNativeRenderRuntimeDevice {
     }
 
     pub fn release_decoded_textures_for_package(&mut self, package_id: &str) -> usize {
+        #[cfg(feature = "image-decode")]
+        if let Some(worker) = &self.async_textures {
+            worker.release_package(package_id);
+        }
         let resource_ids = self.decoded_texture_resource_ids_for_package(package_id);
         for resource_id in &resource_ids {
+            self.image_cache.scopes.remove(resource_id);
+            self.image_cache.used.remove(resource_id);
+            self.image_cache.preloads.remove(resource_id);
             self.decoded_textures.remove(resource_id);
             self.invalidate_texture_sampler_bind_groups_for_resource(resource_id);
         }

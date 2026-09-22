@@ -14,7 +14,7 @@ pub use command::{
 };
 pub use composite::{
     CompositeBlendMode, CompositeColorFilter, CompositeDropShadow, CompositeMaskMode,
-    DrawCompositeGroup,
+    CompositeTransitionShader, DrawCompositeGroup,
 };
 pub use graph::RenderGraph;
 pub use pass::{plan_render_passes, RenderPass, RenderPassPlan, RenderViewport};

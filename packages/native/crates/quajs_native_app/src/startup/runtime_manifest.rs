@@ -28,9 +28,9 @@ fn check_manifest_runtime_metadata(
     diagnostics: &mut Vec<String>,
 ) {
     check_runtime_field(
-        "quickjsVersion",
-        runtime.quickjs_version.as_deref(),
-        host_info.runtime.quickjs_version.as_str(),
+        "jscVersion",
+        runtime.jsc_version.as_deref(),
+        host_info.runtime.jsc_version.as_str(),
         diagnostics,
     );
     check_runtime_field(
