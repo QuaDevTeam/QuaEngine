@@ -1,0 +1,85 @@
+/* Embedded desktop workspace: compact, quiet, and independent of host CSS. */
+html:has(.desktop-shell) {
+  color-scheme: dark;
+  --background: #17191d;
+  --surface: #1d2026;
+  --surface-muted: #262b33;
+  --surface-subtle: #202329;
+  --surface-inset: #191c21;
+  --border: #30343d;
+  --border-strong: #444b58;
+  --text: #d4d7df;
+  --text-muted: #a0a8b7;
+  --text-soft: #7f899a;
+  --accent: #99c2b2;
+  --accent-strong: #b5d4c8;
+  --accent-soft: #293e38;
+  --accent-muted: #304b42;
+  --accent-ring: #99c2b24d;
+  --success-soft: #193a30;
+  --warning-soft: #392e1d;
+  --danger-soft: #3a2229;
+  --radius-xs: 3px;
+  --radius-sm: 4px;
+  --radius: 6px;
+  --radius-lg: 8px;
+  --space-4: 12px;
+  --space-5: 16px;
+  --space-6: 20px;
+  --space-8: 24px;
+}
+
+.desktop-shell {
+  --nw-icon-button-size: 28px;
+  grid-template-rows: 36px minmax(0, 1fr);
+}
+
+.desktop-shell .topbar {
+  padding: 0 12px;
+}
+
+.desktop-shell .topbar-mark {
+  display: none;
+}
+
+.desktop-shell .topbar-title h1 {
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+}
+
+.desktop-shell .topbar .nw-button-icon {
+  --nw-icon-button-size: 26px;
+}
+
+.desktop-shell .workspace {
+  grid-template-columns: 224px minmax(0, 1fr) 288px;
+}
+
+.desktop-shell .inspector {
+  display: flex;
+}
+
+.desktop-shell .main-scroll {
+  padding: 16px;
+}
+
+@media (max-width: 1120px) {
+  .desktop-shell .workspace {
+    grid-template-columns: 200px minmax(0, 1fr) 256px;
+  }
+}
+
+html:has(.desktop-shell) .nw-button-default {
+  color: #15251f;
+}
+.desktop-shell .nw-button {
+  font-size: 12px;
+}
+.desktop-shell .nw-button:not(.nw-button-icon) {
+  min-height: 28px;
+  padding: 0 10px;
+}
+.desktop-shell .run-actions {
+  flex-wrap: wrap;
+}

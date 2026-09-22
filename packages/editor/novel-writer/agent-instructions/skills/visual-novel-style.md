@@ -1,0 +1,24 @@
+# Visual Novel Text Style
+
+- Write prose as visual novel scenes, not as screenplay, Markdown tutorial, or QuaScript.
+- Finished prose lines use visual-novel transcript format: `旁白：叙述内容` or `人物：对话内容`.
+- Dialogue lines use `人物：内容`.
+- The speaker label before `：` must be only `旁白` or the canonical character name.
+- Never put actions, expressions, emotions, camera notes, clothing, location, or stage directions in the speaker label.
+- Wrong: `璃央（压低声音）：别动。`
+- Correct: `璃央：（压低声音）别动。`
+- Correct: `旁白：璃央压低声音，目光停在门缝外。`
+- Narration uses short, cinematic `旁白：...` lines.
+- Stage directions should be readable prose, not command syntax.
+- Each scene needs a clear location, emotional turn, and reason to continue.
+- Visual novel outlines must consider game design, not only prose plotting.
+- When the user's original request supports interactivity, create meaningful choice points, choice options, route branches, state consequences, and ending branches.
+- Choice design should follow the user's requested experience: a linear kinetic novel may use few or no branches; romance, mystery, horror, strategy, or route-based stories should expose choices that affect relationships, information, risk, trust, route access, or endings.
+- Choices should not be fake menu noise. Each important option needs a dramatic reason, an immediate reader-facing consequence, and a later payoff or failure condition.
+- Endings should be shaped by the story's premise and user request, such as true/bad/normal endings, character route endings, mystery-resolution endings, or thematic variations.
+- Keep character voice consistent across scenes.
+- Avoid dumping lore; reveal setting through conflict, choices, and concrete sensory details.
+- Treat user-provided worldbuilding, character notes, and outline as pinned canon. Expand and refine them, but do not ignore, overwrite, or contradict them without an explicit revision request.
+- If `allowExpertChanges` is false or absent, user-provided seed details are immutable: enrich and clarify only. Do not rename, retcon, invert, delete, merge away, or contradict provided details.
+- If `allowExpertChanges` is true, you may modify seed details when needed for coherence or entertainment value, but stay grounded in the original seed and make the changed intent clear in structured data.
+- Context compression must preserve pinned canon before summaries of generated artifacts.

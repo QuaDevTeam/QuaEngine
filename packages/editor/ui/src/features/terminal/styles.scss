@@ -1,0 +1,126 @@
+#panel-terminal {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--editor-terminal-bg);
+}
+.terminal-toolbar {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 4px;
+  height: 30px;
+  padding: 0 8px 0 10px;
+  border-bottom: 1px solid var(--editor-divider);
+  background: var(--editor-bg);
+}
+.terminal-body {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+.terminal-tabs {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 160px;
+  padding-top: 4px;
+  border-left: 1px solid var(--editor-divider);
+  overflow-y: auto;
+  background: var(--editor-bg);
+}
+.terminal-tab {
+  display: flex;
+  align-items: center;
+  flex: 0 0 28px;
+  gap: 7px;
+  min-width: 0;
+  width: 100%;
+  padding: 0 10px;
+  border: 0;
+  border-left: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--editor-muted);
+  font-size: 11px;
+  text-align: left;
+  white-space: nowrap;
+}
+.terminal-tab:hover {
+  background: var(--editor-surface);
+  color: var(--editor-text);
+}
+.terminal-tab[aria-selected='true'] {
+  border-left-color: var(--editor-accent);
+  background: var(--editor-accent-bg);
+  color: var(--editor-text);
+}
+.terminal-tab.is-exited {
+  color: var(--editor-orange);
+}
+.terminal-tab-icon {
+  flex: 0 0 auto;
+  color: var(--editor-info);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+}
+.terminal-tab-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#terminal-sessions {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+.terminal-toolbar-actions {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 2px;
+  margin-left: auto;
+}
+.terminal-cwd {
+  flex: 1;
+  font-size: 11px;
+  color: var(--editor-muted);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  padding-left: 5px;
+}
+.terminal-viewport {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  margin: 8px 10px 8px 12px;
+}
+.terminal-instance {
+  position: absolute;
+  inset: 0;
+}
+.terminal-instance > .xterm {
+  height: 100%;
+}
+.terminal-empty {
+  position: absolute;
+  inset: 0;
+}
+.terminal-instance .xterm .xterm-screen {
+  outline: none;
+}
+
+.terminal-instance .xterm .xterm-viewport {
+  background-color: var(--editor-terminal-bg);
+}
+.terminal-instance .xterm {
+  padding: 2px 0 0;
+}
+.terminal-instance .xterm .xterm-screen {
+  padding-right: 4px;
+}

@@ -1,0 +1,45 @@
+#story {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 0;
+}
+
+.outline-filter {
+  padding: 4px 10px 7px;
+}
+
+.outline-filter input {
+  width: 100%;
+}
+
+.outline-message {
+  margin: 8px 12px;
+  color: var(--editor-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.outline-detail {
+  margin-left: auto;
+  padding: 0 8px;
+  color: var(--editor-muted);
+  font-size: 11px;
+}
+
+.outline-chapter {
+  color: var(--editor-warning);
+}
+
+.outline-node,
+.outline-scene {
+  color: var(--editor-info);
+}
+
+.outline-choice {
+  color: var(--editor-purple);
+}
+
+.outline-file {
+  color: var(--editor-muted);
+}
