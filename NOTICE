@@ -4,6 +4,12 @@ Copyright (c) 2026 QuaDevTeam
 QuaEngine source code is licensed under the Apache License, Version 2.0,
 unless a file, package, or directory states otherwise.
 
+The standalone QuaEngine Editor first-party source under packages/editor/,
+including core, ui, electron, character, and novel-writer, is licensed under
+the Mozilla Public License, Version 2.0 (MPL-2.0) instead. See packages/editor/LICENSE
+and packages/editor/NOTICE. The root Apache license is not an alternative
+license for this IDE code. Third-party materials retain their own licenses.
+
 QuaEngine, QuaScript, Quack, @quajs, the QuaEngine name, logos, icons,
 badges, and related brand assets are trademarks, service marks, or trade
 dress of QuaDevTeam. Open-source software licenses for QuaEngine source code do
