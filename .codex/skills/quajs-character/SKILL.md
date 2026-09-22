@@ -38,6 +38,7 @@ await showWithEngine(engine, 'Yuki', {
 await expressionWithEngine(engine, 'Yuki', 'surprised')
 await moveWithEngine(engine, 'Yuki', { x: 1100, y: 640, scale: 1.05 })
 await hideWithEngine(engine, 'Yuki')
+await hideAllCharactersWithEngine(engine)
 
 await speakWithEngine(engine, 'Yuki', 'I can speak off-screen.', {
   avatar: { type: 'characters', name: 'yuki/avatar.png' },
@@ -60,9 +61,9 @@ Character identity can be registered with `registerCharacter(s)` profiles. Strin
 
 Dialogue avatars are optional projection assets for the dialogue box, useful when a character speaks off-screen. `avatar` accepts an asset object such as `{ type: 'images' | 'characters', name, runtimePackageId?, alt?, metadata? }` or a string shorthand for an `images` asset. Avatars do not show/hide characters, do not change sprite state, and are omitted by default.
 
-## Native QuickJS
+## Native JavaScriptCore
 
-Native QPK scripts import the same `@quajs/character` helpers, but the Rust QuickJS evaluator must suspend with `pendingHelperCall`. The TS product host registers `speakWithEngine`, `narrateWithEngine`, `showWithEngine`, `hideWithEngine`, `moveWithEngine`, `expressionWithEngine`, and `spriteWithEngine` through `quickJsHelperModules`; `@quajs/engine-native` invokes them with the real `StepContext.engine`. Do not duplicate character profiles, aliases, or sprite-key resolution in Rust. Product smoke must register a profile and verify the resulting native character projection/command graph.
+Native QPK scripts import the same `@quajs/character` helpers, but the Rust JavaScriptCore evaluator must suspend with `pendingHelperCall`. The TS product host registers `speakWithEngine`, `narrateWithEngine`, `showWithEngine`, `hideWithEngine`, `hideAllCharactersWithEngine`, `moveWithEngine`, `expressionWithEngine`, and `spriteWithEngine` through `jscHelperModules`; `@quajs/engine-native` invokes them with the real `StepContext.engine`. Do not duplicate character profiles, aliases, or sprite-key resolution in Rust. Product smoke must register a profile and verify the resulting native character projection/command graph.
 
 ## QuaScript Decorators
 
@@ -90,6 +91,7 @@ Decorators:
 - `@SetSprite(asset, character?)`: sets sprite for explicit character or current dialogue speaker.
 - `@ShowCharacter()`, `@ShowCharacter(options)`, `@ShowCharacter(character)`, `@ShowCharacter(character, options)`: shows a character projection. The zero-arg/options forms require dialogue context and use the resolved current speaker. Do not use `undefined` placeholders.
 - `@HideCharacter(character?)`: hides explicit character or current speaker.
+- `@HideAllCharacters()`: hides all currently visible engine-projected characters, including runtime-package cast, without requiring speaker context or a registered cast list. Takes no arguments; background, dialogue, choices and audio stay unchanged. Keeps each character's sprite, expression, position, opacity and package metadata for later show/save/load. Already hidden characters are skipped. Use `hideAllCharactersWithEngine(engine)` or configured-runtime `hideAllCharacters()` from TypeScript. Prefer it over enumerating every character for scene transitions or object inserts; keep individual `HideCharacter` calls for selective exits.
 - `@MoveCharacter(character?, x?, y?, scale?, rotation?, anchor?)`: moves explicit character or current speaker.
 - `@SetExpression(expression, character?)`: sets expression for explicit character or current speaker.
 - `@CharacterFade(character?, from, to, duration?, optionsOrWait?)`
@@ -116,6 +118,8 @@ Native resolved sprite layers share a character stacking context. Compose layers
 
 ## Validation
 
+The IDE counterpart is `@quajs/editor-character` (`packages/editor/character`), using the editor plugin contracts to browse statically authored profiles and navigate/edit their source. Runtime imports never activate editor code. Keep new profile forms aligned with its AST indexer where feasible, and surface unsupported dynamic definitions instead of executing registration code. Read `qua-editor-character` for editor work.
+
 ```bash
 pnpm --filter @quajs/character test -- --run
 pnpm --filter @quajs/character typecheck
@@ -139,3 +143,12 @@ Run renderer tests when character projection contracts change.
 `ViewBackgroundProjection.characterLighting` is optional engine-owned presentation data set through background options/QS. It has sRGB `ambient` RGB multipliers and an optional `shade` with RGB `color` and normalized sprite-box `from/to` coordinates. The background plugin deep-copies it, carries destination lighting during replacement transitions and removes it for unlit/cleared backgrounds; engine snapshots must deep-copy nested vectors. It is authored content, not an inferred renderer policy or player preference.
 
 Web's character subentry owns SVG matrix/gradient rendering and masks the final composed character once with SourceAlpha. Vue only converts shared descriptors to VNodes; DOM React/Svelte reuse Web. Identity profiles create no filter. Do not add duplicate PNG/Canvas caches, alpha-derived fake normals, scene-filename heuristics or another event bus. Source images keep normal QuaAssets ownership. GPU intermediate surfaces are real overhead outside URL budgets. Native/Cocos currently retain original sprite colors; do not claim parity. Validate transition reset, detached snapshots, real browser alpha edges and current-version save/load. See `demo/.agents/environment-lighting.md` and `demo/scripts/lighting-pixels.mjs`.
+
+The package declares `quajs.extension.runtime` for marketplace discovery. This is
+package metadata only: installing `@quajs/character` does not bootstrap it or execute
+game code. Its editor counterpart is the devtools-only `@quajs/editor-character`;
+see `qua-editor-character` and `qua-editor-marketplace` for authoring and installation.
+
+## Native image preparation hints
+
+The package's QuaScript compiler emits static `character` asset hints for literal `ShowCharacter`, `SetSprite`, and `SetExpression` references, honoring the resolved dialogue speaker. `resolveCharacterRef(id).getSpriteAssets(options)` resolves registered sprite/expression keys without showing a character or writing engine state. Native bridge hosts can inject it as `assetPreload.resolveCharacter`; Rust then resolves the existing package-aware sprite manifest to base/expression/mask images. Runtime expressions are not evaluated early.

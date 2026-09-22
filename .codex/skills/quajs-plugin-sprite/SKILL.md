@@ -125,6 +125,8 @@ QSS border-image now draws numeric source-texel slices with logical destination 
 
 ## Validation
 
+The character editor plugin reads source version-1 JSON manifests, previews individual layer images through the bounded editor asset host, and creates guarded source edits for expression insertion/removal and asset paths. It does not own sprite runtime state, compose atlas/mask transforms, unpack QPKs or inject loose game assets. Keep manifest changes aligned with `packages/editor/character`; see `qua-editor-character`.
+
 ```bash
 pnpm --filter @quajs/plugin-sprite test -- --run
 pnpm --filter @quajs/plugin-sprite typecheck

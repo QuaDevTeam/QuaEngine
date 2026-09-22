@@ -83,7 +83,23 @@ Use `step` or discrete interpolation for non-continuous fields such as `fit`, `o
 
 Developer-facing animation timing functions accept common CSS-style names and QuaEngine aliases, including `linear`, `ease`, `ease-in`, `ease-out`, `ease-in-out`, `quad-in/out/in-out`, `cubic-in/out/in-out`, camelCase aliases such as `easeOutCubic`, and `cubic-bezier(...)`. Use the same timing function strings in timeline keyframes, scene/background/audio/character motion helpers, and renderer character transition options.
 
+## Placed Scene Images
+
+Images added by `BackgroundPlugin.addLayer` or `@BackgroundLayer` animate through `backgroundLayer:<id>`. Use layer properties `x`, `y`, `width`, `height`, `scale`, `rotation`, `opacity` (not character `position.x`/`position.y`). Numeric position/dimensions use logical stage units, rotation is degrees, and opacity is 0–1. The background `/animation` helper `createBackgroundMotionTimeline` builds these ordinary tracks. Add the layer before playback, then use existing pause/resume/seek/wait/loop controls. Reusable definitions can bind `self=backgroundLayer:letter`.
+
+```qs
+@AnimationTimeline(800, true)
+@Key('backgroundLayer:letter', 'x', 0, 320)
+@Key('backgroundLayer:letter', 'x', 800, 700, 'easeOutCubic')
+@Key('backgroundLayer:letter', 'opacity', 0, 0)
+@Key('backgroundLayer:letter', 'opacity', 800, 1)
+```
+
+The built-in background-layer adapter supports default final commit: completed values persist in engine-owned background state while keeping the retained base image, sibling layers and package provenance. Projection and commits must clone nested layer video options. Screenshot mode leaves scene timelines running while hiding UI. Verify intermediate samples, pause/resume and settled values; `demo/scripts/scene-screenshot-smoke.mjs` exercises actual browser image playback with hidden UI. Native frame tests cover fixed-time samples and unchanged live Rust timeline handoff; they do not establish GPU parity.
+
 ## Reusable Animations
+
+The editor's built-in **动画** panel (`@quajs/editor-animation`) authors ordinary `AnimationTimeline` JSON in `*.animation.json`. Import the file, register it through `AnimationPlugin.registerAnimation`, and bind `self` on playback. The current visual subset is numeric character position/scale/rotation/opacity with absolute ms keyframes; the panel uses the actual Web renderer for isolated character preview or the project Web scene. Literal QuaScript `@PlayAnimation` calls provide automatic scene association; users can also choose a scene/step and hide its dialogue. Scene scrubbing publishes a temporary engine-owned paused projection with `commit: none` through the development preview pipeline and releases it on exit. It does not automatically register definitions or change production bootstrap. See `qua-editor-animation` for source/lifecycle constraints and real Electron validation.
 
 ```ts
 import { defineAnimation } from '@quajs/plugin-animation'
