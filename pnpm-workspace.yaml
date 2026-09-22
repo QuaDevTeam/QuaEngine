@@ -1,8 +1,16 @@
+minimumReleaseAgeExclude:
+  - electron@44.4.2
+shellEmulator: true
+
+trustPolicy: no-downgrade
+
 packages:
+  - services/*
   - ai/*
   - demo
   - packages/build/*
   - packages/core/*
+  - packages/editor/*
   - packages/game/*
   - packages/native/*
   - packages/platform/*
@@ -14,10 +22,12 @@ packages:
 allowBuilds:
   '@parcel/watcher': true
   '@vscode/vsce-sign': true
+  electron: true
   keytar: true
   lzma-native: true
-  sharp: true
+  node-pty: true
 
+  sharp: true
 overrides:
   ajv@>=7.0.0-alpha.0 <9.0.0: 8.20.0
   minimatch@<3.1.4: 3.1.4
@@ -25,17 +35,16 @@ overrides:
   tmp: 0.2.7
   ws: 8.21.0
 
+patchedDependencies:
+  '@xterm/xterm@6.0.0': patches/@xterm__xterm@6.0.0.patch
 catalog:
-  '@sveltejs/adapter-node': ^5.5.4
-  '@sveltejs/kit': ^2.63.0
-  '@sveltejs/vite-plugin-svelte': ^7.1.2
   '@antfu/eslint-config': ^9.0.0
   '@babel/generator': ^7.29.1
   '@babel/parser': ^7.29.3
   '@babel/traverse': ^7.29.0
   '@babel/types': ^7.29.0
-  '@internationalized/date': ^3.12.2
   '@changesets/cli': ^2.31.0
+  '@internationalized/date': ^3.12.2
   '@microsoft/api-extractor': 7.58.7
   '@quajs/assets': ^0.1.0
   '@quajs/assets-web': ^0.1.0
@@ -57,25 +66,35 @@ catalog:
   '@quajs/security-web': ^0.1.0
   '@quajs/store-web': ^0.1.0
   '@quajs/vite-plugin': ^0.1.0
+  '@sveltejs/adapter-node': ^5.5.4
+  '@sveltejs/kit': ^2.63.0
+  '@sveltejs/vite-plugin-svelte': ^7.1.2
+  '@tailwindcss/vite': ^4.3.0
   '@types/babel__generator': ^7.27.0
   '@types/babel__traverse': ^7.28.0
+  '@types/markdown-it': ^14.2.0
   '@types/mime-types': ^3.0.1
   '@types/node': ^25.6.2
   '@types/react': ^19.2.15
   '@types/react-dom': ^19.2.3
+  '@types/semver': ^7.7.1
   '@types/vscode': ^1.118.0
   '@types/yauzl': ^2.10.3
   '@types/yazl': ^3.3.1
   '@vitejs/plugin-vue': ^6.0.7
   '@vitest/coverage-v8': 4.1.8
   '@vitest/ui': ^4.1.8
+  '@vscode/ripgrep': ^1.18.0
   '@vscode/vsce': ^3.9.1
+  '@xterm/addon-fit': ^0.11.0
+  '@xterm/xterm': 6.0.0
   ag-psd: ^30.1.1
   bits-ui: ^2.18.1
+  clsx: ^2.1.1
   commander: ^14.0.3
   conventional-changelog-conventionalcommits: ^9.3.1
-  clsx: ^2.1.1
   dexie: ^4.4.2
+  electron: 44.4.2
   eslint: ^10.3.0
   eslint-plugin-format: ^2.0.1
   fake-indexeddb: ^6.2.5
@@ -83,20 +102,27 @@ catalog:
   glob: ^13.0.6
   happy-dom: ^20.9.0
   inquirer: ^13.4.3
+  lit: 3.3.1
+  lucide-svelte: ^1.0.1
   lzma-native: ^8.0.6
   lzma-web: ^3.0.1
-  lucide-svelte: ^1.0.1
+  markdown-it: ^15.0.2
   mediabunny: ^1.45.4
   mime-types: ^3.0.2
+  monaco-editor: ^0.55.1
+  node-pty: ^1.1.0
   playwright: ^1.59.1
+  prettier: ^3.9.8
   react: ^19.2.6
   react-dom: ^19.2.6
   rollup: 4.60.3
   sass-embedded: ^1.70.0
-  sharp: ^0.34.5
+  semver: ^7.7.2
   shadcn-svelte: ^1.3.0
+  sharp: ^0.34.5
   svelte: ^5.55.9
   svelte-check: ^4.6.0
+  svelte-sonner: ^1.1.1
   tailwind-merge: ^3.6.0
   tailwind-variants: ^3.2.2
   tailwindcss: ^4.3.0
@@ -106,14 +132,19 @@ catalog:
   vite: ^8.0.12
   vite-plugin-dts: ^5.0.0
   vitest: ^4.1.8
-  zod: ^4.4.3
+  vscode-json-languageservice: 6.0.0-next.3
   vscode-languageclient: ^9.0.1
   vscode-languageserver: ^9.0.1
   vscode-languageserver-textdocument: ^1.0.12
+  vscode-languageserver-types: ^3.18.3
+  vscode-markdown-languageservice: ^0.5.0
+  vscode-uri: ^3.2.0
   vue: ^3.5.34
   yaml: ^2.8.4
+  yaml-language-server: ^1.24.0
   yauzl: ^3.3.0
   yazl: ^3.3.1
+  zod: ^4.4.3
 catalogs:
   conflicts_@vitejs/plugin-vue_h6_0_7:
     '@vitejs/plugin-vue': ^6.0.7
