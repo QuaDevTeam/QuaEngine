@@ -96,6 +96,10 @@
     "./save-preview": {
       "types": "./dist/save-preview.d.ts",
       "import": "./dist/save-preview.js"
+    },
+    "./plugins/asset-loading": {
+      "types": "./dist/plugins/asset-loading.d.ts",
+      "import": "./dist/plugins/asset-loading.js"
     }
   },
   "main": "./dist/index.js",

@@ -12,6 +12,7 @@ export type { WebAssetTargetPackageId, WebAssetUrlHandleOptions, WebAssetUrlStat
 export {
   getAssetWithTargetPackages,
   getJSONWithTargetPackages,
+  getWebAssetMemoryEntries,
   getWebAssetMemoryStats,
   runtimePackageCandidatesFromMetadata,
   WebAssetUrlHandle,

@@ -1,4 +1,5 @@
 import type { WebAssetTargetPackageId } from '@quajs/renderer-web'
+import { resolveBackgroundLayers } from '@quajs/render-core'
 import {
   backgroundLayerProjectionVars,
   backgroundMaskImageVars,
@@ -8,9 +9,11 @@ import {
   projectBackground,
   runtimePackageCandidatesFromMetadata,
 } from '@quajs/renderer-web'
-import { computed, defineComponent, h } from 'vue'
+import { projectBackgroundShaderCanvas } from '@quajs/renderer-web/plugins/background'
+import { computed, defineComponent, h, onMounted, ref, watchEffect } from 'vue'
 import { useProjectionProps } from '../../components/projection'
 import { useAnimationClock, useAnimations, useAssetUrl, useBackground, useRendererActions } from '../../composables'
+import { useQuaRenderer } from '../../context'
 
 export const QuaBackground = defineComponent({
   name: 'QuaBackground',
@@ -76,6 +79,7 @@ export const QuaBackgroundLayerItem = defineComponent({
     const assetType = computed(() => normalizeBackgroundLayerAssetType(props.layer.assetType))
     const targetPackageIds = () => runtimePackageCandidatesFromMetadata(props.layer.metadata)
     const asset = useAssetUrl(assetType, () => props.layer.assetName, targetPackageIds)
+    const poster = useAssetUrl('images', () => props.layer.video?.poster, targetPackageIds)
     const maskStyle = useBackgroundMaskStyle(() => props.layer.composition?.mask, targetPackageIds)
     return () => props.layer.assetType === 'video'
       ? h('video', {
@@ -83,8 +87,11 @@ export const QuaBackgroundLayerItem = defineComponent({
           'src': asset.url.value,
           'autoplay': true,
           'playsinline': true,
-          'loop': true,
-          'muted': true,
+          'loop': props.layer.video?.loop !== false,
+          'muted': props.layer.video?.muted !== false,
+          'volume': props.layer.video?.volume,
+          'playbackRate': props.layer.video?.playbackRate,
+          'poster': poster.url.value,
           'data-background-layer-id': props.layer.id,
           'data-background-layer-type': props.layer.assetType || 'images',
           'style': mergeStyles(backgroundLayerProjectionVars(props.layer), maskStyle.value),
@@ -122,6 +129,32 @@ export const QuaLayeredBackground = defineComponent({
   },
 })
 
+const QuaBackgroundShader = defineComponent({
+  props: { background: { type: Object, required: true } },
+  setup(props) {
+    const { pipeline, view } = useQuaRenderer()
+    const root = ref<HTMLElement>()
+    const ready = ref(false)
+    const sync = () => {
+      void view.value
+      const canvas = projectBackgroundShaderCanvas(pipeline.value, props.background as any)
+      if (canvas && root.value?.firstChild !== canvas)
+        root.value?.replaceChildren(canvas)
+      ready.value = Boolean(canvas)
+    }
+    onMounted(sync)
+    watchEffect(sync, { flush: 'post' })
+    return () => {
+      const background = props.background as any
+      const incoming = new Set(background.shaderTransition?.incomingLayerIds)
+      return h('div', { class: 'qua-background-transition' }, [
+        ready.value ? null : h(QuaLayeredBackground, { layers: background.layers?.filter((layer: any) => !incoming.has(layer.id)) ?? [], background }),
+        h('div', { ref: root, class: 'qua-background-shader' }),
+      ])
+    }
+  },
+})
+
 export const QuaBackgroundProjection = defineComponent({
   name: 'QuaBackgroundProjection',
   props: {
@@ -133,11 +166,14 @@ export const QuaBackgroundProjection = defineComponent({
   setup(props: any) {
     return () => {
       const background = props.background
+      if (background.shaderTransition) {
+        return h(QuaBackgroundShader, { key: background.preparationId, background })
+      }
       if (background.mode === 'video' && background.video) {
         return h(QuaVideoBackground, { video: background.video, background })
       }
       if (background.mode === 'layered') {
-        return h(QuaLayeredBackground, { layers: background.layers || [], background })
+        return h(QuaLayeredBackground, { layers: [...resolveBackgroundLayers(background)], background })
       }
       return background.assetName
         ? h(QuaBackground, { assetName: background.assetName, background })

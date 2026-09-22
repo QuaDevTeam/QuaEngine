@@ -99,7 +99,11 @@
     },
     "./styles/base.scss": "./src/styles/base.scss",
     "./styles/default.scss": "./src/styles/default.scss",
-    "./styles/story-tree.scss": "./src/styles/story-tree.scss"
+    "./styles/story-tree.scss": "./src/styles/story-tree.scss",
+    "./plugins/asset-loading": {
+      "types": "./dist/plugins/asset-loading/index.d.ts",
+      "import": "./dist/plugins/asset-loading/index.js"
+    }
   },
   "main": "./dist/index.js",
   "module": "./dist/index.js",

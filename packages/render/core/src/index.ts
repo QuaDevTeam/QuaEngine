@@ -92,6 +92,7 @@ export enum LogicToRenderEvents {
   GAME_OVER = 'game/over',
   VIEW_UPDATE = 'view/update',
   BACKGROUND_SET = 'background/set',
+  BACKGROUND_PREPARE = 'background/prepare',
   BACKGROUND_CLEAR = 'background/clear',
   UI_SHOW = 'ui/show',
   UI_HIDE = 'ui/hide',
@@ -152,6 +153,7 @@ export enum RenderToLogicEvents {
   RENDER_READY = 'render/ready',
   RENDER_DESTROYED = 'render/destroyed',
   SCENE_READY = 'scene/ready',
+  BACKGROUND_READY = 'background/ready',
 }
 
 export type EngineEvents = LogicToRenderEvents | RenderToLogicEvents
@@ -260,6 +262,7 @@ export interface BackgroundFilterProjection {
   grayscale?: number
   sepia?: number
   dropShadow?: string
+  invert?: number
 }
 
 export interface BackgroundMaskProjection {
@@ -295,6 +298,7 @@ export interface ViewBackgroundLayerProjection {
   id: string
   assetName: string
   assetType?: BackgroundLayerAssetType
+  video?: Readonly<ViewVideoBackgroundProjection>
   visible?: boolean
   fit?: BackgroundFit
   origin?: string
@@ -311,6 +315,27 @@ export interface ViewBackgroundLayerProjection {
   metadata?: Readonly<Record<string, unknown>>
 }
 
+/** Include a retained image/video base underneath independently authored layers. */
+export function resolveBackgroundLayers(background: Readonly<ViewBackgroundProjection>): readonly ViewBackgroundLayerProjection[] {
+  const layers = background.layers || []
+  const assetName = background.video?.assetName || background.assetName
+  if (!assetName)
+    return layers
+  let baseId = 'qua-background-base'
+  while (layers.some(layer => layer.id === baseId))
+    baseId += '-base'
+  return [{
+    id: baseId,
+    assetName,
+    assetType: background.video ? 'video' : 'images',
+    video: background.video,
+    fit: background.fit,
+    origin: background.origin,
+    metadata: background.video?.metadata || background.metadata,
+    zIndex: Math.min(0, ...layers.map(layer => layer.zIndex ?? 0)) - 1,
+  }, ...layers]
+}
+
 /** Authored 2D subject grading; no inferred geometry, normals or game state. */
 export interface CharacterLightingProjection {
   /** sRGB channel multipliers; 1 is unchanged. Web clamps each to [0, 1.5]. */
@@ -324,7 +349,45 @@ export interface CharacterLightingProjection {
   }
 }
 
+/** Reusable, serializable transition. Coordinates and filter values use stage units. */
+export interface BackgroundTransitionKeyframe {
+  /** Normalized time in [0, 1]. */
+  offset: number
+  value: number
+  easing?: AnimationTimingFunction
+}
+export type BackgroundTransitionProperty = 'opacity' | 'x' | 'y' | 'scale' | 'rotation'
+  | 'composition.filter.blur' | 'composition.filter.brightness' | 'composition.filter.contrast'
+  | 'composition.filter.saturate' | 'composition.filter.grayscale' | 'composition.filter.sepia'
+  | 'composition.filter.hueRotate' | 'composition.filter.invert'
+export type BackgroundTransitionTracks = Partial<Record<BackgroundTransitionProperty, readonly BackgroundTransitionKeyframe[]>>
+/**
+ * Both backends expose sampleFrom(uv), sampleTo(uv), progress and params (vec4).
+ * UV origin is top-left. Colors and outputs are premultiplied RGBA.
+ * Sources define transition(uv): WGSL vec2<f32> -> vec4<f32>, GLSL vec2 -> vec4.
+ */
+export interface BackgroundTransitionShader {
+  wgsl: string
+  glsl: string
+  params?: readonly [number, number, number, number]
+}
+export interface BackgroundTransitionIntent extends TransitionIntent {
+  incoming?: BackgroundTransitionTracks
+  outgoing?: BackgroundTransitionTracks
+  shader?: BackgroundTransitionShader
+}
+export interface BackgroundShaderProjection {
+  shader: BackgroundTransitionShader
+  progress: number
+  incomingLayerIds: readonly string[]
+}
+
 export interface ViewBackgroundProjection {
+  /** Temporary readiness token; engine owns its lifetime. */
+  preparationId?: string
+  /** Engine-owned destination used to settle interrupted save/load transitions. */
+  transitionTarget?: Readonly<ViewBackgroundProjection>
+  shaderTransition?: BackgroundShaderProjection
   mode: BackgroundMode
   /** Scene-authored character material; absent means the original sprite colors. */
   characterLighting?: Readonly<CharacterLightingProjection>
@@ -339,7 +402,7 @@ export interface ViewBackgroundProjection {
   rotation?: number
   opacity?: number
   composition?: Readonly<BackgroundCompositionProjection>
-  transition?: TransitionIntent
+  transition?: BackgroundTransitionIntent
   video?: Readonly<ViewVideoBackgroundProjection>
   layers?: readonly Readonly<ViewBackgroundLayerProjection>[]
   metadata?: Readonly<Record<string, unknown>>
@@ -604,6 +667,7 @@ export interface ViewChoiceProjection {
 }
 
 export interface ViewUiProjection {
+  /** False hides all UI planes while retaining scene artwork and UI state. */
   visible: boolean
   host?: Readonly<ViewUiSceneHostProjection>
   overlays?: Readonly<Record<string, ViewUiOverlayProjection>>
@@ -791,15 +855,15 @@ export function uiSceneAllowsHudChrome(scene: Readonly<ViewUiSceneProjection> | 
 }
 
 export function viewAllowsDefaultChrome(view: Readonly<{ ui?: Readonly<ViewUiProjection> }>): boolean {
-  return uiSceneAllowsDefaultChrome(resolveActiveUiSceneProjection(view.ui?.overlays))
+  return view.ui?.visible !== false && uiSceneAllowsDefaultChrome(resolveActiveUiSceneProjection(view.ui?.overlays))
 }
 
 export function viewAllowsDialogueChrome(view: Readonly<{ ui?: Readonly<ViewUiProjection> }>): boolean {
-  return uiSceneAllowsDialogueChrome(resolveActiveUiSceneProjection(view.ui?.overlays))
+  return view.ui?.visible !== false && uiSceneAllowsDialogueChrome(resolveActiveUiSceneProjection(view.ui?.overlays))
 }
 
 export function viewAllowsHudChrome(view: Readonly<{ ui?: Readonly<ViewUiProjection> }>): boolean {
-  return uiSceneAllowsHudChrome(resolveActiveUiSceneProjection(view.ui?.overlays))
+  return view.ui?.visible !== false && uiSceneAllowsHudChrome(resolveActiveUiSceneProjection(view.ui?.overlays))
 }
 
 export interface ViewEffectProjection {
@@ -1097,6 +1161,7 @@ export type RendererInputCommand
     | 'choice:next'
     | 'choice:confirm'
     | 'ui:cancel'
+    | 'ui:screenshot'
     | 'ui:menu'
     | 'ui:save'
     | 'ui:load'
@@ -1277,6 +1342,7 @@ export interface LogicToRenderEventPayloadMap {
   [LogicToRenderEvents.SCENE_DESTROY]: { sceneId: string }
   [LogicToRenderEvents.GAME_OVER]: GameOverPayload
   [LogicToRenderEvents.VIEW_UPDATE]: { view: QuaViewProjection }
+  [LogicToRenderEvents.BACKGROUND_PREPARE]: { id: string, background: Readonly<ViewBackgroundProjection> }
   [LogicToRenderEvents.BACKGROUND_SET]: BackgroundSetPayload
   [LogicToRenderEvents.BACKGROUND_CLEAR]: Record<string, never>
   [LogicToRenderEvents.UI_SHOW]: { elementId: string, config?: Record<string, unknown> }
@@ -1337,6 +1403,7 @@ export interface RenderToLogicEventPayloadMap {
   [RenderToLogicEvents.RENDER_ERROR]: RenderErrorPayload
   [RenderToLogicEvents.RENDER_READY]: RendererLifecyclePayload
   [RenderToLogicEvents.RENDER_DESTROYED]: RendererLifecyclePayload
+  [RenderToLogicEvents.BACKGROUND_READY]: { id: string, error?: string }
   [RenderToLogicEvents.SCENE_READY]: RendererLifecyclePayload & { sceneId?: string }
 }
 
@@ -1854,3 +1921,5 @@ function createFlowControlControls(policy: ResolvedFlowControlPolicy): FlowContr
 
 export { createMenuActionPresentation, createSaveSlotGrid, isFilledSaveSlot, previewStatusLabel, saveSlotDisplayName, saveSlotMeta } from './ui-presentation'
 export type { MenuActionId, SaveSlotGridOptions, SaveSlotProjection } from './ui-presentation'
+
+export * from './ui-feature-surfaces'

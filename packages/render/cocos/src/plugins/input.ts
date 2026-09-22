@@ -86,6 +86,7 @@ const DEFAULT_KEYBOARD_BINDINGS: readonly CocosRendererInputKeyboardBinding[] = 
   { source: 'keyboard', code: 'KeyA', command: 'auto:toggle' },
   { source: 'keyboard', code: 'ArrowUp', command: 'choice:previous' },
   { source: 'keyboard', code: 'Escape', command: 'ui:cancel' },
+  { source: 'keyboard', code: 'KeyH', command: 'ui:screenshot' },
 ]
 
 const DEFAULT_POINTER_BINDINGS: readonly CocosRendererInputPointerBinding[] = [
@@ -209,7 +210,7 @@ class CocosInputController {
     for (const binding of this.bindings) {
       if (binding.source !== 'keyboard' || (binding.phase || 'press') !== phase)
         continue
-      if (binding.code !== code && binding.code !== key)
+      if (binding.code !== code)
         continue
       const repeat = event.repeat || (phase === 'press' && wasPressed)
       if (repeat && binding.repeat !== true)
@@ -308,6 +309,7 @@ class CocosInputController {
     metadata?: Record<string, unknown>
   }): Promise<void> {
     const task = this.dispatchQueue.then(async () => {
+      const uiHidden = this.context.getViewState().ui.visible === false
       await this.context.cocos.getActions().inputCommand({
         command: dispatch.command,
         device: dispatch.device,
@@ -317,7 +319,8 @@ class CocosInputController {
         timestamp: this.context.cocos.host.runtime.now(),
         metadata: dispatch.metadata,
       })
-      await this.dispatchBuiltInIntent(dispatch.command, dispatch.source, dispatch.metadata)
+      if (!uiHidden && this.context.getViewState().ui.visible !== false)
+        await this.dispatchBuiltInIntent(dispatch.command, dispatch.source, dispatch.metadata)
     })
     this.dispatchQueue = task.catch(() => {})
     await task

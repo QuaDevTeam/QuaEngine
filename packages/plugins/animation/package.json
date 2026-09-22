@@ -64,6 +64,14 @@
     "@quajs/render-core": "workspace:*"
   },
   "quajs": {
+    "extension": {
+      "schemaVersion": 1,
+      "id": "qua.animation.runtime",
+      "title": "Animation",
+      "runtime": {
+        "entry": "."
+      }
+    },
     "type": "plugin",
     "category": "visual",
     "description": "Cross-plugin timeline animation APIs and QuaScript decorators",
@@ -115,7 +123,7 @@
             },
             {
               "name": "property",
-              "values": ["x", "y", "scale", "rotation", "opacity", "composition.filter.blur", "composition.filter.brightness", "composition.blendMode"],
+              "values": ["x", "y", "width", "height", "scale", "rotation", "opacity", "composition.filter.blur", "composition.filter.brightness", "composition.blendMode"],
               "detail": "Animated property"
             }
           ]

@@ -133,6 +133,14 @@
           ]
         }
       }
+    },
+    "extension": {
+      "schemaVersion": 1,
+      "id": "qua.inventory.runtime",
+      "title": "Inventory",
+      "runtime": {
+        "entry": "."
+      }
     }
   }
 }

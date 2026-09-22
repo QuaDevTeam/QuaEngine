@@ -79,6 +79,14 @@
     "@quajs/store": "workspace:*"
   },
   "quajs": {
+    "extension": {
+      "schemaVersion": 1,
+      "id": "qua.audio.runtime",
+      "title": "Audio",
+      "runtime": {
+        "entry": "."
+      }
+    },
     "type": "plugin",
     "category": "audio",
     "description": "Audio playback, gain, EQ, automation, and QuaScript decorators",

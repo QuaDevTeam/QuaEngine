@@ -1,7 +1,7 @@
 import type { QuaEngineInterface } from '@quajs/engine'
 import type { QuaViewProjection } from '@quajs/render-core'
 import { getSettingsDeveloperValues, getSettingsProjection, SettingsPlugin } from '@quajs/plugin-settings'
-import { createFlowControlProjection, createViewLayoutProjection } from '@quajs/render-core'
+import { createFlowControlProjection, createViewLayoutProjection, projectBackground } from '@quajs/render-core'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   ANIMATION_SETTINGS_SCOPE,
@@ -673,6 +673,24 @@ describe('@quajs/plugin-animation', () => {
         filter: { blur: 8, brightness: 1 },
       },
     }))
+  })
+
+  it('detaches nested layer video state during sampling and final commit', async () => {
+    const engine = createEngine({ background: {
+      mode: 'layered',
+      layers: [{ id: 'rain', assetName: 'rain.mp4', assetType: 'video', video: { assetName: 'rain.mp4', volume: 1 } }],
+    } })
+    const original = engine.getViewState().background!
+    await playTimelineWithEngine(engine, {
+      duration: 1000,
+      tracks: [{ target: 'backgroundLayer:rain', property: 'video.volume', keyframes: [{ at: 0, value: 1 }, { at: 1000, value: 0 }] }],
+    })
+    const sampled = projectBackground(original, engine.getViewState().animations, 1500)
+    expect(sampled?.layers?.[0].video?.volume).toBe(0.5)
+    expect(original.layers?.[0].video?.volume).toBe(1)
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(engine.getViewState().background?.layers?.[0].video?.volume).toBe(0)
+    expect(original.layers?.[0].video?.volume).toBe(1)
   })
 
   it('warns for missing adapters by default and supports strict adapter mode', async () => {

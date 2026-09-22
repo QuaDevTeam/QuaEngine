@@ -1,12 +1,12 @@
-import { isForbiddenNativeAssetReference, isForbiddenNativePayload } from '@quajs/native-contracts'
+import { isForbiddenCodeAsset, isUnsafePackageAssetReference } from '@quajs/utils'
 
 export function isSafeNativeAssetType(value: string): boolean {
   return /^[a-z][a-z0-9-]*$/i.test(value)
 }
 
 export function isSafePackageAssetName(value: string): boolean {
-  return !isForbiddenNativeAssetReference(value)
-    && !isForbiddenNativePayload(value)
+  return !isUnsafePackageAssetReference(value)
+    && !isForbiddenCodeAsset(value)
 }
 
 export function literalStringValue(value: string | undefined): string | undefined {

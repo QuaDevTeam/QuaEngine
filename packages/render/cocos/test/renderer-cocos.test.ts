@@ -27,6 +27,28 @@ import { createVisualNovelCocosRendererPlugins } from '../src/plugins/preset'
 import { createSavePreviewCocosRendererPlugin } from '../src/plugins/save-preview'
 
 describe('@quajs/renderer-cocos', () => {
+  it('hides UI nodes while retaining the scene and consumes screenshot exit input', async () => {
+    const host = createFakeCocosHost()
+    const pipeline = new Pipeline()
+    const initial = createView({ background: { mode: 'layered', assetName: 'room.png', layers: [{ id: 'photo', assetName: 'photo.png', x: 370, y: 240 }] }, uiOverlay: { visible: true } })
+    const renderer = new QuaCocosRendererController({ host, pipeline, initialView: initial, plugins: createVisualNovelCocosRendererPlugins() })
+    await renderer.start()
+    renderer.setView({ ...initial, ui: { ...initial.ui, visible: false } })
+    await flushAsync()
+    expect(findNode(host, 'qua-ui')?.visible).toBe(false)
+    expect(findNode(host, 'qua-background')?.visible).toBe(true)
+    expect(findNode(host, 'qua-background-base')).toBeDefined()
+    expect(findNode(host, 'photo')).toBeDefined()
+    const advances = vi.fn()
+    pipeline.on(RenderToLogicEvents.USER_ADVANCE, advances)
+    pipeline.on(RenderToLogicEvents.USER_INPUT_COMMAND, () => renderer.setView(initial))
+    await host.emitInput({ kind: 'keyboard', phase: 'down', code: 'Space', key: ' ' })
+    await flushAsync()
+    expect(findNode(host, 'qua-ui')?.visible).toBe(true)
+    expect(advances).not.toHaveBeenCalled()
+    await renderer.destroy()
+  })
+
   it('resolves stage layout and cleans transient nodes on destroy', async () => {
     const host = createFakeCocosHost({ containerSize: { width: 1280, height: 720 } })
     const renderer = new QuaCocosRendererController({

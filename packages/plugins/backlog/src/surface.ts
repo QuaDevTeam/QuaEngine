@@ -1,28 +1,28 @@
-import type { NativeRendererFeatureSurfaceContext, NativeRendererFeatureSurfaceEntry } from '@quajs/engine-native'
 import type {
   NativePackageProvenance,
   NativeUiSurfaceNodeProjection,
   NativeUiSurfaceRect,
 } from '@quajs/native-ui-compiler'
+import type { UiFeatureSurfaceContext, UiFeatureSurfaceEntry } from '@quajs/render-core'
 import type { BacklogEntry, BacklogProjection } from './contracts'
 import { BACKLOG_PLUGIN_ID, BacklogRenderToLogicEvents } from './contracts'
 
-export const BACKLOG_NATIVE_RENDERER_ENTRY = '@quajs/plugin-backlog/native' as const
-export const BACKLOG_NATIVE_SURFACE_KEY = 'plugin-backlog/native' as const
+export const BACKLOG_UI_SURFACE_ENTRY = '@quajs/plugin-backlog/surface' as const
+export const BACKLOG_UI_SURFACE_KEY = 'plugin-backlog/surface' as const
 
 const BACKLOG_CLOSE_ACTION = 'backlog-close'
 const BACKLOG_JUMP_ACTION = 'backlog-jump'
 const BACKLOG_REPLAY_VOICE_ACTION = 'backlog-replay-voice'
 const MAX_VISIBLE_ENTRIES = 6
 
-export interface BacklogNativeRendererOptions {
+export interface BacklogUiSurfaceOptions {
   /** Dense two-column history rows with metadata alongside dialogue. */
   density?: 'comfortable' | 'compact'
   /** Product-owned layout policy; receives logical bounds only. */
-  resolvePanelBounds?: (context: NativeRendererFeatureSurfaceContext, preferred: NativeUiSurfaceRect) => NativeUiSurfaceRect
+  resolvePanelBounds?: (context: UiFeatureSurfaceContext, preferred: NativeUiSurfaceRect) => NativeUiSurfaceRect
 }
 
-export function createBacklogNativeRendererFeature(options: BacklogNativeRendererOptions = {}): NativeRendererFeatureSurfaceEntry {
+export function createBacklogUiSurfaceFeature(options: BacklogUiSurfaceOptions = {}): UiFeatureSurfaceEntry {
   return {
     pluginId: BACKLOG_PLUGIN_ID,
     createOverlays: context => createBacklogNativeOverlays(context, options),
@@ -46,7 +46,7 @@ export function createBacklogNativeRendererFeature(options: BacklogNativeRendere
   }
 }
 
-function createBacklogNativeOverlays(context: NativeRendererFeatureSurfaceContext, options: BacklogNativeRendererOptions) {
+function createBacklogNativeOverlays(context: UiFeatureSurfaceContext, options: BacklogUiSurfaceOptions) {
   const projection = context.projection as unknown as BacklogProjection & Record<string, unknown>
   if (projection.visible !== true) {
     return undefined
@@ -62,7 +62,7 @@ function createBacklogNativeOverlays(context: NativeRendererFeatureSurfaceContex
     stackPriority: finiteInteger(projection.ui?.stackPriority),
     zIndex: finiteInteger(projection.ui?.zIndex) ?? 50,
     surface: {
-      key: BACKLOG_NATIVE_SURFACE_KEY,
+      key: BACKLOG_UI_SURFACE_KEY,
       root: createBacklogRoot(context, projection.entries || [], overlayProvenance, options),
     },
     ...overlayProvenance,
@@ -70,10 +70,10 @@ function createBacklogNativeOverlays(context: NativeRendererFeatureSurfaceContex
 }
 
 function createBacklogRoot(
-  context: NativeRendererFeatureSurfaceContext,
+  context: UiFeatureSurfaceContext,
   entries: readonly BacklogEntry[],
   provenance: NativePackageProvenance,
-  options: BacklogNativeRendererOptions,
+  options: BacklogUiSurfaceOptions,
 ): NativeUiSurfaceNodeProjection {
   const compact = options.density === 'compact'
   const edge = compact ? 31 : Math.max(28, Math.min(context.safeArea.width, context.logicalHeight) * 0.035)
@@ -329,7 +329,7 @@ function titleShadow() {
   }
 }
 
-function stageRect(context: NativeRendererFeatureSurfaceContext): NativeUiSurfaceRect {
+function stageRect(context: UiFeatureSurfaceContext): NativeUiSurfaceRect {
   return { x: 0, y: 0, width: context.logicalWidth, height: context.logicalHeight }
 }
 

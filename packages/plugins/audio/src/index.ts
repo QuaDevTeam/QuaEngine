@@ -484,7 +484,7 @@ export async function seekAudioWithEngine(
 ): Promise<void> {
   const projection = getAudioProjection(engine)
   const next = cloneAudioProjection(projection)
-  mutateTracks(next, target, track => ({ ...track, seekMs: positionMs, state: 'playing' }))
+  mutateTracks(next, target, track => ({ ...track, seekMs: positionMs, playAt: Date.now(), state: 'playing' }))
   next.revision += 1
   await setAudioProjection(engine, next)
 }

@@ -17,6 +17,9 @@ export interface BackgroundMotionKeyframe {
   at: AnimationTime
   x?: number
   y?: number
+  /** Numeric dimensions in logical stage units, interpolated before viewport scaling. */
+  width?: number
+  height?: number
   scale?: number
   rotation?: number
   opacity?: number
@@ -175,6 +178,8 @@ function createTracks(
   return [
     createTrack(target, 'x', keyframes),
     createTrack(target, 'y', keyframes),
+    createTrack(target, 'width', keyframes),
+    createTrack(target, 'height', keyframes),
     createTrack(target, 'scale', keyframes),
     createTrack(target, 'rotation', keyframes),
     createTrack(target, 'opacity', keyframes),

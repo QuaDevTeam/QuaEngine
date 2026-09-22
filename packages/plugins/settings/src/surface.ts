@@ -1,10 +1,10 @@
-import type { NativeRendererFeatureSurfaceContext, NativeRendererFeatureSurfaceEntry } from '@quajs/engine-native'
 import type {
   NativePackageProvenance,
   NativeUiSurfaceControlOptionProjection,
   NativeUiSurfaceNodeProjection,
   NativeUiSurfaceRect,
 } from '@quajs/native-ui-compiler'
+import type { UiFeatureSurfaceContext, UiFeatureSurfaceEntry } from '@quajs/render-core'
 import type { SettingsProjection } from './contracts'
 import type { SettingsFieldFormProjection, SettingsScopeFormProjection } from './form'
 import { RenderToLogicEvents } from '@quajs/engine'
@@ -18,8 +18,8 @@ import {
   stringifySettingsInputValue,
 } from './form'
 
-export const SETTINGS_NATIVE_RENDERER_ENTRY = '@quajs/plugin-settings/native' as const
-export const SETTINGS_NATIVE_SURFACE_KEY = 'plugin-settings/native' as const
+export const SETTINGS_UI_SURFACE_ENTRY = '@quajs/plugin-settings/surface' as const
+export const SETTINGS_UI_SURFACE_KEY = 'plugin-settings/surface' as const
 
 const SETTINGS_ELEMENT_ID = 'settings'
 const ACTIONS = {
@@ -29,12 +29,12 @@ const ACTIONS = {
   update: 'settings-update',
 } as const
 
-export interface SettingsNativeRendererOptions {
+export interface SettingsUiSurfaceOptions {
   /** Product-owned layout policy; receives logical bounds only. */
-  resolvePanelBounds?: (context: NativeRendererFeatureSurfaceContext, preferred: NativeUiSurfaceRect) => NativeUiSurfaceRect
+  resolvePanelBounds?: (context: UiFeatureSurfaceContext, preferred: NativeUiSurfaceRect) => NativeUiSurfaceRect
 }
 
-export function createSettingsNativeRendererFeature(options: SettingsNativeRendererOptions = {}): NativeRendererFeatureSurfaceEntry {
+export function createSettingsUiSurfaceFeature(options: SettingsUiSurfaceOptions = {}): UiFeatureSurfaceEntry {
   return {
     pluginId: SETTINGS_PLUGIN_ID,
     createOverlays: context => createSettingsNativeOverlay(context, options),
@@ -66,7 +66,7 @@ export function createSettingsNativeRendererFeature(options: SettingsNativeRende
   }
 }
 
-function createSettingsNativeOverlay(context: NativeRendererFeatureSurfaceContext, options: SettingsNativeRendererOptions) {
+function createSettingsNativeOverlay(context: UiFeatureSurfaceContext, options: SettingsUiSurfaceOptions) {
   const projection = context.projection as unknown as SettingsProjection & Record<string, unknown>
   const overlay = settingsOverlay(context.view)
   if (!overlay || overlay.open === false || overlay.visible === false) {
@@ -83,7 +83,7 @@ function createSettingsNativeOverlay(context: NativeRendererFeatureSurfaceContex
     stackPriority: finiteInteger(overlay.stackPriority) ?? finiteInteger(sceneOverlay?.stackPriority),
     zIndex: finiteInteger(overlay.zIndex) ?? finiteInteger(sceneOverlay?.zIndex) ?? 60,
     surface: {
-      key: SETTINGS_NATIVE_SURFACE_KEY,
+      key: SETTINGS_UI_SURFACE_KEY,
       root: createSettingsRoot(context, projection, provenance, options),
     },
     ...provenance,
@@ -91,10 +91,10 @@ function createSettingsNativeOverlay(context: NativeRendererFeatureSurfaceContex
 }
 
 function createSettingsRoot(
-  context: NativeRendererFeatureSurfaceContext,
+  context: UiFeatureSurfaceContext,
   projection: SettingsProjection,
   provenance: NativePackageProvenance,
-  options: SettingsNativeRendererOptions,
+  options: SettingsUiSurfaceOptions,
 ): NativeUiSurfaceNodeProjection {
   const form = createSettingsFormProjection(projection)
   const edge = Math.max(24, Math.min(context.safeArea.width, context.logicalHeight) * 0.03)
@@ -754,7 +754,7 @@ function titleShadow() {
   }
 }
 
-function stage(context: NativeRendererFeatureSurfaceContext): NativeUiSurfaceRect {
+function stage(context: UiFeatureSurfaceContext): NativeUiSurfaceRect {
   return { x: 0, y: 0, width: context.logicalWidth, height: context.logicalHeight }
 }
 

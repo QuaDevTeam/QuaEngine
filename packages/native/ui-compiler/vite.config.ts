@@ -16,16 +16,15 @@ export default defineConfig({
   ],
   build: {
     lib: {
-      entry: resolve(import.meta.dirname, 'src/index.ts'),
+      entry: { index: resolve(import.meta.dirname, 'src/index.ts'), runtime: resolve(import.meta.dirname, 'src/runtime.ts') },
       name: 'nativeUiCompiler',
-      fileName: 'index',
       formats: ['es'],
     },
     target: 'node20',
     minify: false,
     sourcemap: true,
     rollupOptions: {
-      external: ['@quajs/native-contracts', '@quajs/native-ui', 'sass-embedded'],
+      external: ['@quajs/utils', '@quajs/native-contracts', '@quajs/native-ui', 'sass-embedded'],
       output: { globals: {} },
     },
   },

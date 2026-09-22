@@ -1,19 +1,17 @@
 import type { NativeUiSurfaceNodeProjection } from '@quajs/native-ui-compiler'
-import {
-  createNativeRendererJsonFrameInput,
-  resolveNativeRendererFeatureIntent,
-} from '@quajs/engine-native'
+import { createNativeRendererJsonFrameInput } from '@quajs/engine-native'
+import { resolveUiFeatureIntent } from '@quajs/render-core'
 import { describe, expect, it } from 'vitest'
 import { AchievementRenderToLogicEvents } from '../src/contracts'
 import {
   ACHIEVEMENT_NATIVE_BOARD_SURFACE_KEY,
   ACHIEVEMENT_NATIVE_TOAST_SURFACE_KEY,
-  createAchievementNativeRendererFeature,
-} from '../src/native'
+  createAchievementUiSurfaceFeature,
+} from '../src/surface'
 
 describe('achievement native renderer feature', () => {
   it('keeps notifications visible independently from the board scene', () => {
-    const feature = createAchievementNativeRendererFeature()
+    const feature = createAchievementUiSurfaceFeature()
     const overlays = feature.createOverlays({
       logicalHeight: 1080,
       logicalWidth: 1920,
@@ -79,7 +77,7 @@ describe('achievement native renderer feature', () => {
           selectedAchievementId: 'secret',
         },
       },
-    }, { featureSurfaces: [createAchievementNativeRendererFeature()] })
+    }, { featureSurfaces: [createAchievementUiSurfaceFeature()] })
 
     const overlays = (frame.view.ui as { overlays: Array<Record<string, unknown>> }).overlays
     const board = overlays.find(item => item.elementId === 'achievement-board')!
@@ -108,23 +106,23 @@ describe('achievement native renderer feature', () => {
   })
 
   it('maps only allowlisted actions to achievement-owned events', () => {
-    const entries = [createAchievementNativeRendererFeature()]
-    expect(resolveNativeRendererFeatureIntent(entries, 'achievement-select-item', { achievementId: 'first' })).toEqual({
+    const entries = [createAchievementUiSurfaceFeature()]
+    expect(resolveUiFeatureIntent(entries, 'achievement-select-item', { achievementId: 'first' })).toEqual({
       event: AchievementRenderToLogicEvents.SELECT_ACHIEVEMENT_REQUEST,
       payload: { achievementId: 'first' },
     })
-    expect(resolveNativeRendererFeatureIntent(entries, 'achievement-toggle-hidden', { includeHidden: true })).toEqual({
+    expect(resolveUiFeatureIntent(entries, 'achievement-toggle-hidden', { includeHidden: true })).toEqual({
       event: AchievementRenderToLogicEvents.UPDATE_FILTER_REQUEST,
       payload: { filter: { includeHidden: true }, replace: false },
     })
-    expect(resolveNativeRendererFeatureIntent(entries, 'achievement-dismiss-notification', {
+    expect(resolveUiFeatureIntent(entries, 'achievement-dismiss-notification', {
       achievementId: 'first',
       notificationId: 'toast-1',
     })).toEqual({
       event: AchievementRenderToLogicEvents.DISMISS_NOTIFICATION_REQUEST,
       payload: { achievementId: 'first', notificationId: 'toast-1' },
     })
-    expect(resolveNativeRendererFeatureIntent(entries, 'achievement-unlock', {})).toBeUndefined()
+    expect(resolveUiFeatureIntent(entries, 'achievement-unlock', {})).toBeUndefined()
   })
 })
 
