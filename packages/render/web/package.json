@@ -17,6 +17,10 @@
     "visual-novel"
   ],
   "exports": {
+    "./devtools": {
+      "types": "./dist/devtools.d.ts",
+      "import": "./dist/devtools.js"
+    },
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
@@ -132,6 +136,14 @@
     "./react": {
       "types": "./dist/react.d.ts",
       "import": "./dist/react.js"
+    },
+    "./plugins/asset-loading": {
+      "types": "./dist/plugins/asset-loading.d.ts",
+      "import": "./dist/plugins/asset-loading.js"
+    },
+    "./qui": {
+      "types": "./dist/qui.d.ts",
+      "import": "./dist/qui.js"
     }
   },
   "main": "./dist/index.js",
@@ -157,6 +169,7 @@
     "@quajs/assets-web": "workspace:*",
     "@quajs/pipeline": "workspace:*",
     "@quajs/plugin-achievement": "workspace:*",
+    "@quajs/plugin-asset-loading": "workspace:*",
     "@quajs/plugin-audio": "workspace:*",
     "@quajs/plugin-backlog": "workspace:*",
     "@quajs/plugin-fonts": "workspace:*",
@@ -164,10 +177,14 @@
     "@quajs/plugin-settings": "workspace:*",
     "@quajs/plugin-sprite": "workspace:*",
     "@quajs/render-core": "workspace:*",
-    "@quajs/store": "workspace:*"
+    "@quajs/store": "workspace:*",
+    "@quajs/native-ui-compiler": "workspace:*"
   },
   "peerDependenciesMeta": {
     "@quajs/plugin-achievement": {
+      "optional": true
+    },
+    "@quajs/plugin-asset-loading": {
       "optional": true
     },
     "@quajs/plugin-audio": {
@@ -187,6 +204,9 @@
     },
     "@quajs/plugin-sprite": {
       "optional": true
+    },
+    "@quajs/native-ui-compiler": {
+      "optional": true
     }
   },
   "devDependencies": {
@@ -194,6 +214,7 @@
     "@quajs/assets-web": "workspace:*",
     "@quajs/pipeline": "workspace:*",
     "@quajs/plugin-achievement": "workspace:*",
+    "@quajs/plugin-asset-loading": "workspace:*",
     "@quajs/plugin-audio": "workspace:*",
     "@quajs/plugin-backlog": "workspace:*",
     "@quajs/plugin-fonts": "workspace:*",
@@ -201,6 +222,7 @@
     "@quajs/plugin-settings": "workspace:*",
     "@quajs/plugin-sprite": "workspace:*",
     "@quajs/render-core": "workspace:*",
-    "@quajs/store": "workspace:*"
+    "@quajs/store": "workspace:*",
+    "@quajs/native-ui-compiler": "workspace:*"
   }
 }

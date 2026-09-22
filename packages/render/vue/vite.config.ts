@@ -24,6 +24,7 @@ export default defineConfig({
         'plugins/sprite/index': resolve(import.meta.dirname, 'src/plugins/sprite/index.ts'),
         'plugins/character/index': resolve(import.meta.dirname, 'src/plugins/character/index.ts'),
         'plugins/effects/index': resolve(import.meta.dirname, 'src/plugins/effects/index.ts'),
+        'plugins/asset-loading/index': resolve(import.meta.dirname, 'src/plugins/asset-loading/index.ts'),
         'plugins/fonts/index': resolve(import.meta.dirname, 'src/plugins/fonts/index.ts'),
         'plugins/dialogue/index': resolve(import.meta.dirname, 'src/plugins/dialogue/index.ts'),
         'plugins/choices/index': resolve(import.meta.dirname, 'src/plugins/choices/index.ts'),
@@ -41,7 +42,8 @@ export default defineConfig({
       formats: ['es'],
     },
     rollupOptions: {
-      external: ['vue', '@quajs/pipeline', '@quajs/render-core', '@quajs/renderer-web', '@quajs/renderer-web/audio', '@quajs/renderer-web/plugins/achievement', '@quajs/renderer-web/plugins/fonts', '@quajs/renderer-web/plugins/gallery', '@quajs/renderer-web/plugins/input', '@quajs/renderer-web/plugins/settings', '@quajs/renderer-web/plugins/shared', '@quajs/renderer-web/save-preview', '@quajs/renderer-web/skin', '@quajs/plugin-audio', '@quajs/plugin-achievement/contracts', '@quajs/plugin-backlog/contracts', '@quajs/plugin-fonts/contracts', '@quajs/plugin-gallery/contracts', '@quajs/plugin-settings/contracts', '@quajs/plugin-sprite', '@quajs/plugin-sprite/contracts'],
+      // Framework adapters must not inline Web runtime subentries or their resources.
+      external: id => id === 'vue' || id.startsWith('@quajs/'),
       output: {
         globals: {},
       },

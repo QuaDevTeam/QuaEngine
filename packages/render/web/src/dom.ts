@@ -190,6 +190,8 @@ export class QuaWebDomRenderer {
     }
 
     for (const layer of this.layers) {
+      if (!snapshot.view.ui.visible && ['safe', 'overlay', 'screen'].includes(layer.plane || 'scene'))
+        continue
       try {
         const node = layer.render(context)
         if (node) {

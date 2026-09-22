@@ -1,3 +1,5 @@
 export { WebAudioRendererController } from './audio-controller'
 export type { WebAudioRendererControllerOptions } from './audio-controller'
+export { getWebAudioPlaybackEntries } from './audio-playback'
+export type { WebAudioPlaybackEntry } from './audio-playback'
 export { WebAudioAudioRuntime } from './audio-runtime'

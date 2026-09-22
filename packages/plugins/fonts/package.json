@@ -61,6 +61,14 @@
       "web": "@quajs/renderer-web/plugins/fonts",
       "vue": "@quajs/renderer-vue/plugins/fonts",
       "cocos": "@quajs/renderer-cocos/plugins/fonts"
+    },
+    "extension": {
+      "schemaVersion": 1,
+      "id": "qua.fonts.runtime",
+      "title": "Fonts",
+      "runtime": {
+        "entry": "."
+      }
     }
   }
 }

@@ -36,6 +36,7 @@ import {
   createRendererInputController,
   DEFAULT_DIALOGUE_PRESENCE_EXIT_MS,
   evaluateWebPlatformSupport,
+  getWebAssetMemoryEntries,
   getWebAssetMemoryStats,
   mountUnsupportedPlatformUi,
   projectAudioProjection,
@@ -48,7 +49,7 @@ import {
   stageViewportStyle,
   WebAssetUrlHandle,
 } from '../src'
-import { WebAudioRendererController } from '../src/audio'
+import { getWebAudioPlaybackEntries, WebAudioRendererController } from '../src/audio'
 import { WebFontFaceRegistry } from '../src/plugins/fonts'
 import { createGalleryProjectionModel, getGalleryProjectionFromView } from '../src/plugins/gallery'
 import { createVisualNovelWebRendererPlugins } from '../src/plugins/preset'
@@ -60,6 +61,36 @@ describe('@quajs/renderer-web', () => {
     vi.restoreAllMocks()
     vi.unstubAllGlobals()
     document.body.innerHTML = ''
+  })
+
+  it('hides every UI plane, retains scene images and restores the same line and choices', async () => {
+    const pipeline = new Pipeline()
+    const initial = view({
+      background: { mode: 'layered', assetName: 'room.png', layers: [{ id: 'photo', assetName: 'photo.png', x: 370, y: 240, width: 420, height: 280 }] },
+      characters: [{ id: 'alice', name: 'Alice', sprite: 'alice.png', visible: true }],
+      dialogue: { visible: true, text: 'Keep this line' },
+      choices: [{ id: 'a', text: 'Keep this choice', enabled: true }],
+      ui: { visible: true, overlays: { menu: { visible: true, title: 'Menu' } } },
+    })
+    const root = document.createElement('div')
+    document.body.append(root)
+    const renderer = createQuaWebDomRenderer({ container: root, pipeline, initialView: initial, plugins: createVisualNovelWebRendererPlugins({ input: false }) })
+    await renderer.mount()
+    await flushDom()
+    expect(root.querySelectorAll('[data-background-layer-id]')).toHaveLength(2)
+    expect(root.textContent).toContain('Keep this line')
+    renderer.controller.setView({ ...initial, ui: { ...initial.ui, visible: false } })
+    await flushDom()
+    for (const selector of ['.qua-stage-safe', '.qua-stage-overlay', '.qua-screen-plane'])
+      expect(root.querySelector(selector)?.childElementCount).toBe(0)
+    expect(root.querySelectorAll('[data-background-layer-id]')).toHaveLength(2)
+    expect(root.querySelector('.qua-character')).not.toBeNull()
+    expect(root.textContent).not.toContain('Keep this line')
+    renderer.controller.setView(initial)
+    await flushDom()
+    expect(root.textContent).toContain('Keep this line')
+    expect(root.textContent).toContain('Keep this choice')
+    await renderer.unmount()
   })
 
   it('classifies Web device classes from browser environment fixtures', () => {
@@ -1474,8 +1505,10 @@ describe('@quajs/renderer-web', () => {
     expect(revoke).not.toHaveBeenCalledWith('blob:budget-0')
     await vi.advanceTimersByTimeAsync(250)
     expect(getWebAssetMemoryStats(assets).idleUrls).toBe(0)
+    expect(getWebAssetMemoryEntries(assets)).toEqual([expect.objectContaining({ name: '0.png', refs: 1, estimatedBytes: expect.any(Number) })])
     handles[0].dispose()
     expect(getWebAssetMemoryStats(assets).estimatedResidentBytes).toBe(0)
+    expect(getWebAssetMemoryEntries(assets)).toEqual([])
     await assets.cleanup()
   })
 
@@ -1972,6 +2005,26 @@ describe('@quajs/renderer-web', () => {
       'command:choice:confirm:gamepad:0:button:0',
     ])
 
+    input.dispose()
+  })
+
+  it('consumes the input that restores screenshot UI without also advancing', async () => {
+    const controller = createQuaWebRendererController({ pipeline: new Pipeline(), initialView: view({ ui: { visible: false } }) })
+    const advance = vi.fn()
+    const input = createRendererInputController({
+      actions: { ...controller.actions, advance, inputCommand: async () => controller.setView(view()) },
+      getViewState: () => controller.getViewState(),
+      keyboard: false,
+      pointer: false,
+      wheel: false,
+      gamepad: false,
+    })
+    input.start()
+    await input.dispatchCommand({ command: 'advance', device: 'pointer', source: 'pointer' })
+    expect(controller.getViewState().ui.visible).toBe(true)
+    expect(advance).not.toHaveBeenCalled()
+    await input.dispatchCommand({ command: 'advance', device: 'pointer', source: 'pointer' })
+    expect(advance).toHaveBeenCalledTimes(1)
     input.dispose()
   })
 
@@ -3935,6 +3988,35 @@ describe('@quajs/renderer-web', () => {
     expect(FakeAudioContext.sources[0]?.start).toHaveBeenCalledWith(0.75, 0)
 
     await controller.destroy()
+    await assets.cleanup()
+  })
+
+  it('reports device playback and honors a seek while paused without retaining the old offset', async () => {
+    installFakeAudioContext({ initialState: 'running' })
+    vi.spyOn(FakeAudioContext.prototype, 'decodeAudioData').mockResolvedValue({ duration: 30 } as AudioBuffer)
+    const assets = await createAudioAssets()
+    const pipeline = new Pipeline()
+    const audio = createInitialAudioProjection()
+    audio.bgm = { id: 'debug-bgm', kind: 'bgm', assetKey: 'bgm.ogg', state: 'playing', loop: true }
+    const controller = new WebAudioRendererController({
+      getPipeline: () => pipeline,
+      getAssets: () => assets,
+      getViewState: () => view({ plugins: { [AUDIO_PLUGIN_ID]: audio } }),
+      document,
+    })
+    expect(getWebAudioPlaybackEntries(pipeline)).toEqual([])
+    controller.start()
+    await controller.sync()
+    expect(getWebAudioPlaybackEntries(pipeline)[0]).toMatchObject({ state: 'playing', durationMs: 30000 })
+    audio.bgm = { ...audio.bgm, state: 'paused' }
+    await controller.sync()
+    expect(getWebAudioPlaybackEntries(pipeline)[0].state).toBe('paused')
+    audio.bgm = { ...audio.bgm, state: 'playing', seekMs: 5000, playAt: Date.now() }
+    await controller.sync()
+    expect(FakeAudioContext.sources.at(-1)?.start).toHaveBeenCalledWith(0, 5)
+    expect(getWebAudioPlaybackEntries(pipeline)[0].positionMs).toBe(5000)
+    await controller.destroy()
+    expect(getWebAudioPlaybackEntries(pipeline)).toEqual([])
     await assets.cleanup()
   })
 

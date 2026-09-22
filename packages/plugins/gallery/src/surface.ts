@@ -1,9 +1,9 @@
-import type { NativeRendererFeatureSurfaceContext, NativeRendererFeatureSurfaceEntry } from '@quajs/engine-native'
 import type {
   NativePackageProvenance,
   NativeUiSurfaceNodeProjection,
   NativeUiSurfaceRect,
 } from '@quajs/native-ui-compiler'
+import type { UiFeatureSurfaceContext, UiFeatureSurfaceEntry } from '@quajs/render-core'
 import type {
   GalleryContentBlock,
   GalleryEntryProjectionItem,
@@ -12,8 +12,8 @@ import type {
 import { RenderToLogicEvents } from '@quajs/engine'
 import { GALLERY_PLUGIN_ID, GalleryRenderToLogicEvents } from './contracts'
 
-export const GALLERY_NATIVE_RENDERER_ENTRY = '@quajs/plugin-gallery/native' as const
-export const GALLERY_NATIVE_SURFACE_KEY = 'plugin-gallery/native' as const
+export const GALLERY_UI_SURFACE_ENTRY = '@quajs/plugin-gallery/surface' as const
+export const GALLERY_UI_SURFACE_KEY = 'plugin-gallery/surface' as const
 
 const ACTIONS = {
   close: 'gallery-close',
@@ -24,14 +24,14 @@ const ACTIONS = {
   toggleUnlocked: 'gallery-toggle-unlocked',
 } as const
 const MAX_CATALOGS = 5
-export interface GalleryNativeRendererOptions {
+export interface GalleryUiSurfaceOptions {
   /** Logical stage panel size; content overflows through native Scroll nodes. */
   maxWidth?: number
   maxHeight?: number
   layout?: 'grid' | 'split'
 }
 
-export function createGalleryNativeRendererFeature(options: GalleryNativeRendererOptions = {}): NativeRendererFeatureSurfaceEntry {
+export function createGalleryUiSurfaceFeature(options: GalleryUiSurfaceOptions = {}): UiFeatureSurfaceEntry {
   return {
     pluginId: GALLERY_PLUGIN_ID,
     createOverlays: context => createGalleryNativeOverlay(context, options),
@@ -73,7 +73,7 @@ export function createGalleryNativeRendererFeature(options: GalleryNativeRendere
   }
 }
 
-function createGalleryNativeOverlay(context: NativeRendererFeatureSurfaceContext, options: GalleryNativeRendererOptions) {
+function createGalleryNativeOverlay(context: UiFeatureSurfaceContext, options: GalleryUiSurfaceOptions) {
   const projection = context.projection as unknown as GalleryProjection & Record<string, unknown>
   if (projection.sceneActive !== true) {
     return undefined
@@ -91,7 +91,7 @@ function createGalleryNativeOverlay(context: NativeRendererFeatureSurfaceContext
     stackPriority: finiteInteger(projection.stackPriority),
     zIndex: finiteInteger(projection.zIndex) ?? 70,
     surface: {
-      key: GALLERY_NATIVE_SURFACE_KEY,
+      key: GALLERY_UI_SURFACE_KEY,
       root: createGalleryRoot(context, projection, provenance, options),
     },
     ...provenance,
@@ -99,10 +99,10 @@ function createGalleryNativeOverlay(context: NativeRendererFeatureSurfaceContext
 }
 
 function createGalleryRoot(
-  context: NativeRendererFeatureSurfaceContext,
+  context: UiFeatureSurfaceContext,
   projection: GalleryProjection,
   provenance: NativePackageProvenance,
-  options: GalleryNativeRendererOptions,
+  options: GalleryUiSurfaceOptions,
 ): NativeUiSurfaceNodeProjection {
   const edge = 28
   const available = inset(context.safeArea, edge)
@@ -305,7 +305,7 @@ function previewVisible(view: Readonly<Record<string, unknown>>): boolean {
 }
 
 function createLightbox(
-  context: NativeRendererFeatureSurfaceContext,
+  context: UiFeatureSurfaceContext,
   entry: GalleryEntryProjectionItem | undefined,
   content: GalleryContentBlock | undefined,
   inherited: NativePackageProvenance,
@@ -655,7 +655,7 @@ function titleShadow() {
   }
 }
 
-function stage(context: NativeRendererFeatureSurfaceContext): NativeUiSurfaceRect {
+function stage(context: UiFeatureSurfaceContext): NativeUiSurfaceRect {
   return { x: 0, y: 0, width: context.logicalWidth, height: context.logicalHeight }
 }
 

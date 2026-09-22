@@ -1,13 +1,9 @@
 import type {
-  NativeRendererFeatureSurfaceContext,
-  NativeRendererFeatureSurfaceEntry,
-  NativeRendererFeatureSurfaceOverlay,
-} from '@quajs/engine-native'
-import type {
   NativePackageProvenance,
   NativeUiSurfaceNodeProjection,
   NativeUiSurfaceRect,
 } from '@quajs/native-ui-compiler'
+import type { UiFeatureSurfaceContext, UiFeatureSurfaceEntry, UiFeatureSurfaceOverlay } from '@quajs/render-core'
 import type {
   AchievementNotificationProjection,
   AchievementProjection,
@@ -15,9 +11,9 @@ import type {
 } from './contracts'
 import { ACHIEVEMENT_PLUGIN_ID, AchievementRenderToLogicEvents } from './contracts'
 
-export const ACHIEVEMENT_NATIVE_RENDERER_ENTRY = '@quajs/plugin-achievement/native' as const
-export const ACHIEVEMENT_NATIVE_BOARD_SURFACE_KEY = 'plugin-achievement/native-board' as const
-export const ACHIEVEMENT_NATIVE_TOAST_SURFACE_KEY = 'plugin-achievement/native-toast' as const
+export const ACHIEVEMENT_UI_SURFACE_ENTRY = '@quajs/plugin-achievement/surface' as const
+export const ACHIEVEMENT_NATIVE_BOARD_SURFACE_KEY = 'plugin-achievement/surface-board' as const
+export const ACHIEVEMENT_NATIVE_TOAST_SURFACE_KEY = 'plugin-achievement/surface-toast' as const
 
 const ACTIONS = {
   close: 'achievement-close',
@@ -30,7 +26,7 @@ const ACTIONS = {
 const MAX_GROUPS = 5
 const MAX_ACHIEVEMENTS = 7
 
-export function createAchievementNativeRendererFeature(): NativeRendererFeatureSurfaceEntry {
+export function createAchievementUiSurfaceFeature(): UiFeatureSurfaceEntry {
   return {
     pluginId: ACHIEVEMENT_PLUGIN_ID,
     createOverlays: createAchievementNativeOverlays,
@@ -72,13 +68,13 @@ export function createAchievementNativeRendererFeature(): NativeRendererFeatureS
   }
 }
 
-function createAchievementNativeOverlays(context: NativeRendererFeatureSurfaceContext) {
+function createAchievementNativeOverlays(context: UiFeatureSurfaceContext) {
   const projection = context.projection as unknown as AchievementProjection & Record<string, unknown>
   const rootProvenance = normalizeProvenance(
     stringValue(projection.contentPackageId),
     projection.requiredRuntimePackages || [],
   )
-  const overlays: NativeRendererFeatureSurfaceOverlay[] = projection.notifications.map((notification, index) => createToastOverlay(
+  const overlays: UiFeatureSurfaceOverlay[] = projection.notifications.map((notification, index) => createToastOverlay(
     context,
     notification,
     index,
@@ -91,7 +87,7 @@ function createAchievementNativeOverlays(context: NativeRendererFeatureSurfaceCo
 }
 
 function createBoardOverlay(
-  context: NativeRendererFeatureSurfaceContext,
+  context: UiFeatureSurfaceContext,
   projection: AchievementProjection,
   provenance: NativePackageProvenance,
 ) {
@@ -112,7 +108,7 @@ function createBoardOverlay(
 }
 
 function createBoardRoot(
-  context: NativeRendererFeatureSurfaceContext,
+  context: UiFeatureSurfaceContext,
   projection: AchievementProjection,
   provenance: NativePackageProvenance,
 ): NativeUiSurfaceNodeProjection {
@@ -360,7 +356,7 @@ function createAchievementDetail(
 }
 
 function createToastOverlay(
-  context: NativeRendererFeatureSurfaceContext,
+  context: UiFeatureSurfaceContext,
   notification: AchievementNotificationProjection,
   index: number,
   inherited: NativePackageProvenance,
@@ -469,7 +465,7 @@ function titleShadow() {
   }
 }
 
-function stage(context: NativeRendererFeatureSurfaceContext): NativeUiSurfaceRect {
+function stage(context: UiFeatureSurfaceContext): NativeUiSurfaceRect {
   return { x: 0, y: 0, width: context.logicalWidth, height: context.logicalHeight }
 }
 

@@ -7,6 +7,7 @@ import {
   emitAudioRenderToLogic,
 } from '@quajs/plugin-audio/contracts'
 import { onRenderToLogic, RenderToLogicEvents } from '@quajs/render-core'
+import { registerAudioPlayback } from './audio-playback'
 import { WebAudioAudioRuntime } from './audio-runtime'
 import { projectAudioProjection } from './projection'
 
@@ -30,6 +31,7 @@ export class WebAudioRendererController {
   private animationFrame?: number
   private animationTimeout?: ReturnType<typeof setTimeout>
   private started = false
+  private unregisterPlayback?: () => void
 
   private readonly handleAssetChange = (change: AssetChange) => {
     this.runtime.handleAssetChange(change)
@@ -68,6 +70,7 @@ export class WebAudioRendererController {
     }
 
     this.started = true
+    this.unregisterPlayback = registerAudioPlayback(this.options.getPipeline(), this.runtime)
     this.syncAssetSubscription()
     this.stopAdvanceSubscription = onRenderToLogic(
       this.options.getPipeline(),
@@ -115,6 +118,8 @@ export class WebAudioRendererController {
 
   async destroy(): Promise<void> {
     this.started = false
+    this.unregisterPlayback?.()
+    this.unregisterPlayback = undefined
     this.stopAdvanceSubscription?.()
     this.stopAdvanceSubscription = undefined
     this.cancelAnimationSync()

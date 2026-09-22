@@ -42,6 +42,34 @@ describe('@quajs/renderer-vue', () => {
     document.body.innerHTML = ''
   })
 
+  it('hides every UI plane, retains scene images and restores the same line and choices', async () => {
+    const pipeline = new Pipeline()
+    const initial = view({
+      background: { mode: 'layered', assetName: 'room.png', layers: [{ id: 'photo', assetName: 'photo.png', x: 370, y: 240, width: 420, height: 280 }] },
+      characters: [{ id: 'alice', name: 'Alice', sprite: 'alice.png', visible: true }],
+      dialogue: { visible: true, text: 'Keep this line' },
+      choices: [{ id: 'a', text: 'Keep this choice', enabled: true }],
+      ui: { visible: true, overlays: { menu: { visible: true, title: 'Menu' } } },
+    })
+    const host = mount(QuaRenderer, { pipeline, initialView: initial, plugins: createVisualNovelRendererPlugins({ input: false }) })
+    const root = host.el
+    await flushVue()
+    expect(root.querySelectorAll('[data-background-layer-id]')).toHaveLength(2)
+    expect(root.textContent).toContain('Keep this line')
+    await emitLogicToRender(pipeline, LogicToRenderEvents.VIEW_UPDATE, { view: { ...initial, ui: { ...initial.ui, visible: false } } })
+    await flushVue()
+    for (const selector of ['.qua-stage-safe', '.qua-stage-overlay', '.qua-screen-plane'])
+      expect(root.querySelector(selector)?.childElementCount).toBe(0)
+    expect(root.querySelectorAll('[data-background-layer-id]')).toHaveLength(2)
+    expect(root.querySelector('.qua-character')).not.toBeNull()
+    expect(root.textContent).not.toContain('Keep this line')
+    await emitLogicToRender(pipeline, LogicToRenderEvents.VIEW_UPDATE, { view: initial })
+    await flushVue()
+    expect(root.textContent).toContain('Keep this line')
+    expect(root.textContent).toContain('Keep this choice')
+    host.app.unmount()
+  })
+
   it('mounts, emits renderer lifecycle intents, and unsubscribes on unmount', async () => {
     const pipeline = new Pipeline()
     const received: string[] = []

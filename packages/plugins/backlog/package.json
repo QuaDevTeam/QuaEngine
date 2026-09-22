@@ -25,9 +25,9 @@
       "types": "./dist/contracts.d.ts",
       "import": "./dist/contracts.js"
     },
-    "./native": {
-      "types": "./dist/native.d.ts",
-      "import": "./dist/native.js"
+    "./surface": {
+      "types": "./dist/surface.d.ts",
+      "import": "./dist/surface.js"
     },
     "./script-compiler": {
       "types": "./dist/script-compiler.d.ts",
@@ -54,16 +54,13 @@
   },
   "peerDependencies": {
     "@quajs/engine": "workspace:*",
-    "@quajs/engine-native": "workspace:*",
     "@quajs/native-ui-compiler": "workspace:*",
     "@quajs/pipeline": "workspace:*",
     "@quajs/plugin-audio": "workspace:*",
-    "@quajs/plugin-settings": "workspace:*"
+    "@quajs/plugin-settings": "workspace:*",
+    "@quajs/render-core": "workspace:*"
   },
   "peerDependenciesMeta": {
-    "@quajs/engine-native": {
-      "optional": true
-    },
     "@quajs/native-ui-compiler": {
       "optional": true
     },
@@ -85,7 +82,8 @@
     "@quajs/pipeline": "workspace:*",
     "@quajs/plugin-audio": "workspace:*",
     "@quajs/plugin-settings": "workspace:*",
-    "@quajs/store": "workspace:*"
+    "@quajs/store": "workspace:*",
+    "@quajs/render-core": "workspace:*"
   },
   "quajs": {
     "type": "plugin",
@@ -95,7 +93,7 @@
       "web": "@quajs/renderer-web/plugins/backlog",
       "vue": "@quajs/renderer-vue/plugins/backlog",
       "cocos": "@quajs/renderer-cocos/plugins/backlog",
-      "native": "@quajs/plugin-backlog/native"
+      "native": "@quajs/plugin-backlog/surface"
     },
     "decorators": {
       "Backlog": {
@@ -105,6 +103,14 @@
       "NoBacklog": {
         "function": "setBacklogPolicyWithEngine",
         "module": "@quajs/plugin-backlog"
+      }
+    },
+    "extension": {
+      "schemaVersion": 1,
+      "id": "qua.backlog.runtime",
+      "title": "Backlog",
+      "runtime": {
+        "entry": "."
       }
     }
   }

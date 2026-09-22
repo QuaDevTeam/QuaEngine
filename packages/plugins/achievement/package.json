@@ -25,9 +25,9 @@
       "types": "./dist/contracts.d.ts",
       "import": "./dist/contracts.js"
     },
-    "./native": {
-      "types": "./dist/native.d.ts",
-      "import": "./dist/native.js"
+    "./surface": {
+      "types": "./dist/surface.d.ts",
+      "import": "./dist/surface.js"
     },
     "./script-compiler": {
       "types": "./dist/script-compiler.d.ts",
@@ -54,17 +54,14 @@
   },
   "peerDependencies": {
     "@quajs/engine": "workspace:*",
-    "@quajs/engine-native": "workspace:*",
     "@quajs/native-ui-compiler": "workspace:*",
     "@quajs/pipeline": "workspace:*",
     "@quajs/plugin-gallery": "workspace:*",
     "@quajs/plugin-settings": "workspace:*",
-    "@quajs/store": "workspace:*"
+    "@quajs/store": "workspace:*",
+    "@quajs/render-core": "workspace:*"
   },
   "peerDependenciesMeta": {
-    "@quajs/engine-native": {
-      "optional": true
-    },
     "@quajs/native-ui-compiler": {
       "optional": true
     },
@@ -87,7 +84,8 @@
     "@quajs/plugin-gallery": "workspace:*",
     "@quajs/plugin-settings": "workspace:*",
     "@quajs/store": "workspace:*",
-    "@quajs/story-graph": "workspace:*"
+    "@quajs/story-graph": "workspace:*",
+    "@quajs/render-core": "workspace:*"
   },
   "quajs": {
     "type": "plugin",
@@ -97,7 +95,7 @@
       "web": "@quajs/renderer-web/plugins/achievement",
       "vue": "@quajs/renderer-vue/plugins/achievement",
       "cocos": "@quajs/renderer-cocos/plugins/achievement",
-      "native": "@quajs/plugin-achievement/native"
+      "native": "@quajs/plugin-achievement/surface"
     },
     "decorators": {
       "UnlockAchievement": {
@@ -133,6 +131,14 @@
             }
           ]
         }
+      }
+    },
+    "extension": {
+      "schemaVersion": 1,
+      "id": "qua.achievement.runtime",
+      "title": "Achievement",
+      "runtime": {
+        "entry": "."
       }
     }
   }
