@@ -9,11 +9,11 @@ const root = fileURLToPath(new URL('.', import.meta.url))
 export default defineConfig({
   publicDir: false,
   // qssScssPlugin must come before quaScriptPlugin so .scss?raw imports are
-  // compiled to flat QSS before the QuickJS bundle is assembled.
+  // compiled to flat QSS before the JavaScriptCore bundle is assembled.
   plugins: [qssScssPlugin(), quaScriptPlugin()],
   ssr: { noExternal: true },
   build: {
-    ssr: resolve(root, 'src/targets/native/quickjs.ts'),
+    ssr: resolve(root, 'src/targets/native/jsc.ts'),
     outDir: resolve(root, 'assets/scripts'),
     emptyOutDir: false,
     rollupOptions: {

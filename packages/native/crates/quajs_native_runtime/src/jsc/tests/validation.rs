@@ -5,7 +5,7 @@ use super::support::request_for_asset;
 fn accepts_package_relative_runtime_module_assets_under_limits() {
     let request = request_for_asset("scripts/opening.js", vec![1, 2, 3]);
 
-    assert_eq!(validate_quickjs_evaluation_request(&request), Ok(()));
+    assert_eq!(validate_jsc_evaluation_request(&request), Ok(()));
 
     for asset_name in [
         "scripts/opening.mjs",
@@ -15,25 +15,25 @@ fn accepts_package_relative_runtime_module_assets_under_limits() {
         "scripts/opening.cjs?cache=1#runtime",
     ] {
         let request = request_for_asset(asset_name, vec![1]);
-        assert_eq!(validate_quickjs_evaluation_request(&request), Ok(()));
+        assert_eq!(validate_jsc_evaluation_request(&request), Ok(()));
     }
 }
 
 #[test]
 fn rejects_runtime_module_graph_entry_that_duplicates_entry_module_asset() {
     let mut request = request_for_asset("scripts/opening.js", vec![1]);
-    request.module_graph.push(QuickJsRuntimeModuleRecord {
+    request.module_graph.push(JscRuntimeModuleRecord {
         asset_name: "scripts/opening.js?cache=1".to_string(),
         bundle_name: request.module.bundle_name.clone(),
         package_id: request.module.package_id.clone(),
-        kind: QuickJsRuntimeModuleKind::Script,
+        kind: JscRuntimeModuleKind::Script,
         code: "export const duplicate = true;".to_string(),
         bytes: vec![1],
     });
 
-    let error = validate_quickjs_evaluation_request(&request).unwrap_err();
+    let error = validate_jsc_evaluation_request(&request).unwrap_err();
 
-    assert_eq!(error.code, QuickJsEvaluationErrorCode::ForbiddenAssetName);
+    assert_eq!(error.code, JscEvaluationErrorCode::ForbiddenAssetName);
     assert_eq!(
         error.asset_name,
         Some("scripts/opening.js?cache=1".to_string())
@@ -59,18 +59,17 @@ fn rejects_absolute_uri_parent_and_oversized_runtime_module_assets() {
         "file:///tmp/opening.js",
     ] {
         let request = request_for_asset(asset_name, vec![1]);
-        let error = validate_quickjs_evaluation_request(&request).unwrap_err();
+        let error = validate_jsc_evaluation_request(&request).unwrap_err();
         assert!(matches!(
             error.code,
-            QuickJsEvaluationErrorCode::MissingAssetName
-                | QuickJsEvaluationErrorCode::ForbiddenAssetName
+            JscEvaluationErrorCode::MissingAssetName | JscEvaluationErrorCode::ForbiddenAssetName
         ));
     }
 
     let mut request = request_for_asset("scripts/large.js", vec![0; 4]);
     request.limits.max_module_bytes = 3;
-    let error = validate_quickjs_evaluation_request(&request).unwrap_err();
-    assert_eq!(error.code, QuickJsEvaluationErrorCode::ModuleTooLarge);
+    let error = validate_jsc_evaluation_request(&request).unwrap_err();
+    assert_eq!(error.code, JscEvaluationErrorCode::ModuleTooLarge);
     assert_eq!(error.asset_name, Some("scripts/large.js".to_string()));
 }
 
@@ -89,11 +88,8 @@ fn rejects_native_payload_and_non_js_runtime_module_assets() {
         "native/helper.class?raw",
     ] {
         let request = request_for_asset(asset_name, vec![1]);
-        let error = validate_quickjs_evaluation_request(&request).unwrap_err();
-        assert_eq!(
-            error.code,
-            QuickJsEvaluationErrorCode::ForbiddenNativePayload
-        );
+        let error = validate_jsc_evaluation_request(&request).unwrap_err();
+        assert_eq!(error.code, JscEvaluationErrorCode::ForbiddenNativePayload);
         assert_eq!(error.asset_name, Some(asset_name.to_string()));
     }
 
@@ -103,24 +99,21 @@ fn rejects_native_payload_and_non_js_runtime_module_assets() {
         "data/plugin.json",
     ] {
         let request = request_for_asset(asset_name, vec![1]);
-        let error = validate_quickjs_evaluation_request(&request).unwrap_err();
-        assert_eq!(
-            error.code,
-            QuickJsEvaluationErrorCode::UnsupportedModuleAsset
-        );
+        let error = validate_jsc_evaluation_request(&request).unwrap_err();
+        assert_eq!(error.code, JscEvaluationErrorCode::UnsupportedModuleAsset);
         assert_eq!(error.asset_name, Some(asset_name.to_string()));
     }
 }
 
 #[test]
-fn rejects_code_bytes_over_quickjs_module_limit() {
+fn rejects_code_bytes_over_jsc_module_limit() {
     let mut request = request_for_asset("scripts/opening.js", vec![1]);
     request.module.code = "export const label = \"序章\"".to_string();
     request.limits.max_module_bytes = 4;
 
-    let error = validate_quickjs_evaluation_request(&request).unwrap_err();
+    let error = validate_jsc_evaluation_request(&request).unwrap_err();
 
-    assert_eq!(error.code, QuickJsEvaluationErrorCode::ModuleTooLarge);
+    assert_eq!(error.code, JscEvaluationErrorCode::ModuleTooLarge);
     assert_eq!(error.asset_name, Some("scripts/opening.js".to_string()));
     assert_eq!(
         error.detail,
@@ -130,47 +123,44 @@ fn rejects_code_bytes_over_quickjs_module_limit() {
 
 #[test]
 fn validates_module_export_call_requests() {
-    let request = QuickJsModuleExportCallRequest {
-        module_namespace_id: "quickjs:rquickjs:1".to_string(),
+    let request = JscModuleExportCallRequest {
+        module_namespace_id: "jsc:1".to_string(),
         export_name: "default".to_string(),
         args_json: Some("[{\"scene\":\"opening\"}]".to_string()),
     };
 
-    assert_eq!(
-        validate_quickjs_module_export_call_request(&request),
-        Ok(())
-    );
+    assert_eq!(validate_jsc_module_export_call_request(&request), Ok(()));
 
-    let missing_namespace = QuickJsModuleExportCallRequest {
+    let missing_namespace = JscModuleExportCallRequest {
         module_namespace_id: " ".to_string(),
         ..request.clone()
     };
     assert_eq!(
-        validate_quickjs_module_export_call_request(&missing_namespace)
+        validate_jsc_module_export_call_request(&missing_namespace)
             .unwrap_err()
             .code,
-        QuickJsEvaluationErrorCode::MissingModuleNamespace
+        JscEvaluationErrorCode::MissingModuleNamespace
     );
 
-    let blocked_export = QuickJsModuleExportCallRequest {
+    let blocked_export = JscModuleExportCallRequest {
         export_name: "constructor".to_string(),
         ..request.clone()
     };
     assert_eq!(
-        validate_quickjs_module_export_call_request(&blocked_export)
+        validate_jsc_module_export_call_request(&blocked_export)
             .unwrap_err()
             .code,
-        QuickJsEvaluationErrorCode::MissingExport
+        JscEvaluationErrorCode::MissingExport
     );
 
-    let invalid_args = QuickJsModuleExportCallRequest {
+    let invalid_args = JscModuleExportCallRequest {
         args_json: Some("{\"not\":\"array\"}".to_string()),
         ..request
     };
     assert_eq!(
-        validate_quickjs_module_export_call_request(&invalid_args)
+        validate_jsc_module_export_call_request(&invalid_args)
             .unwrap_err()
             .code,
-        QuickJsEvaluationErrorCode::InvalidArguments
+        JscEvaluationErrorCode::InvalidArguments
     );
 }

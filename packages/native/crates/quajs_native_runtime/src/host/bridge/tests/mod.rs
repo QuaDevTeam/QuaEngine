@@ -2,5 +2,5 @@ use super::*;
 
 mod dispatch;
 mod helpers;
-mod quickjs;
+mod jsc;
 mod serialization;

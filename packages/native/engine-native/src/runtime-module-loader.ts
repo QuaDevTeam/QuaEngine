@@ -13,44 +13,44 @@ import type {
   StepContext,
 } from '@quajs/engine'
 import type {
-  NativeQuickJsEvaluationRequest,
-  NativeQuickJsEvaluationResponse,
-  NativeQuickJsGameStepCommand,
-  NativeQuickJsGameStepDescriptor,
-  NativeQuickJsGameStepFactoryCallRequest,
-  NativeQuickJsGameStepFactoryCallResponse,
-  NativeQuickJsGameStepHelperCallRequest,
-  NativeQuickJsGameStepResumeRequest,
-  NativeQuickJsGameStepRunRequest,
-  NativeQuickJsGameStepRunResponse,
-  NativeQuickJsModuleExportCallRequest,
-  NativeQuickJsModuleExportCallResponse,
-  NativeQuickJsModuleNamespaceRecord,
-  NativeQuickJsModuleNamespaceSummary,
-  NativeQuickJsPipelineListenerDispatchRequest,
-  NativeQuickJsPipelineListenerDispatchResponse,
-  NativeQuickJsPipelineSubscriptionChange,
-  NativeQuickJsRuntimeModuleKind,
-  NativeQuickJsSandboxLimits,
+  NativeJscEvaluationRequest,
+  NativeJscEvaluationResponse,
+  NativeJscGameStepCommand,
+  NativeJscGameStepDescriptor,
+  NativeJscGameStepFactoryCallRequest,
+  NativeJscGameStepFactoryCallResponse,
+  NativeJscGameStepHelperCallRequest,
+  NativeJscGameStepResumeRequest,
+  NativeJscGameStepRunRequest,
+  NativeJscGameStepRunResponse,
+  NativeJscModuleExportCallRequest,
+  NativeJscModuleExportCallResponse,
+  NativeJscModuleNamespaceRecord,
+  NativeJscModuleNamespaceSummary,
+  NativeJscPipelineListenerDispatchRequest,
+  NativeJscPipelineListenerDispatchResponse,
+  NativeJscPipelineSubscriptionChange,
+  NativeJscRuntimeModuleKind,
+  NativeJscSandboxLimits,
   QuaNativeHostApi,
 } from '@quajs/native-contracts'
 import {
-  assertNativeQuickJsEvaluationRequest,
-  assertNativeQuickJsEvaluationResponse,
-  assertNativeQuickJsGameStepCommand,
-  assertNativeQuickJsGameStepFactoryCallResponse,
-  assertNativeQuickJsGameStepHelperCallRequest,
-  assertNativeQuickJsGameStepRunResponse,
-  assertNativeQuickJsPipelineListenerDispatchResponse,
-  createNativeQuickJsEvaluationRequest,
-  createNativeQuickJsGameStepFactoryCallRequest,
-  createNativeQuickJsGameStepResumeRequest,
-  createNativeQuickJsGameStepRunRequest,
-  createNativeQuickJsModuleExportCallRequest,
-  createNativeQuickJsPipelineListenerDispatchRequest,
+  assertNativeJscEvaluationRequest,
+  assertNativeJscEvaluationResponse,
+  assertNativeJscGameStepCommand,
+  assertNativeJscGameStepFactoryCallResponse,
+  assertNativeJscGameStepHelperCallRequest,
+  assertNativeJscGameStepRunResponse,
+  assertNativeJscPipelineListenerDispatchResponse,
+  createNativeJscEvaluationRequest,
+  createNativeJscGameStepFactoryCallRequest,
+  createNativeJscGameStepResumeRequest,
+  createNativeJscGameStepRunRequest,
+  createNativeJscModuleExportCallRequest,
+  createNativeJscPipelineListenerDispatchRequest,
   isForbiddenNativeAssetReference,
   isForbiddenNativePayload,
-  parseNativeQuickJsModuleExportCallResponse,
+  parseNativeJscModuleExportCallResponse,
 } from '@quajs/native-contracts'
 
 declare const TextDecoder: {
@@ -75,9 +75,9 @@ interface NativeRuntimeModuleRecordWithVariants {
   variants?: Record<string, NativeRuntimeModuleVariantRecord>
 }
 
-interface NativeRuntimeModuleRecordWithNativeQuickJsMetadata {
+interface NativeRuntimeModuleRecordWithNativeJscMetadata {
   metadata?: {
-    nativeQuickJs?: {
+    nativeJsc?: {
       imports?: readonly (string | { assetName?: string, module?: string, path?: string, relativePath?: string })[]
     }
   }
@@ -90,7 +90,7 @@ export interface NativeRuntimeModuleEvaluationContext {
   code: string
   kind: NativeRuntimeModuleKind
   packageId: string
-  request: NativeQuickJsEvaluationRequest
+  request: NativeJscEvaluationRequest
   record: NativeRuntimeModuleRecord
 }
 
@@ -102,136 +102,136 @@ export type NativeRuntimeModuleEvaluator = (
 
 export interface NativeRuntimeModuleLoaderOptions {
   evaluator: NativeRuntimeModuleEvaluator
-  limits?: Partial<NativeQuickJsSandboxLimits>
+  limits?: Partial<NativeJscSandboxLimits>
   moduleKinds?: readonly NativeRuntimeModuleKind[]
 }
 
-export type NativeQuickJsModuleNamespaceResolver = (
+export type NativeJscModuleNamespaceResolver = (
   moduleNamespaceId: string,
   ctx: NativeRuntimeModuleEvaluationContext,
-  response: NativeQuickJsEvaluationResponse,
+  response: NativeJscEvaluationResponse,
 ) => unknown | Promise<unknown>
 
-export type NativeQuickJsJsonExportFunction = (...args: readonly unknown[]) => Promise<unknown>
+export type NativeJscJsonExportFunction = (...args: readonly unknown[]) => Promise<unknown>
 
-export type NativeQuickJsGameStepFactoryFunction = (scope?: unknown) => Promise<GameStep[]>
+export type NativeJscGameStepFactoryFunction = (scope?: unknown) => Promise<GameStep[]>
 
-export type NativeQuickJsStepContextSerializer = (ctx: StepContext) => Record<string, unknown> | undefined
+export type NativeJscStepContextSerializer = (ctx: StepContext) => Record<string, unknown> | undefined
 
-export type NativeQuickJsStepCommandExecutor = (
+export type NativeJscStepCommandExecutor = (
   ctx: StepContext,
-  command: NativeQuickJsGameStepCommand,
+  command: NativeJscGameStepCommand,
 ) => Promise<void>
 
-export type NativeQuickJsHelperFunction = (
+export type NativeJscHelperFunction = (
   engine: StepContext['engine'],
   ...args: readonly unknown[]
 ) => unknown | Promise<unknown>
 
-export type NativeQuickJsHelperModuleRegistry = Readonly<Record<string, Readonly<Record<string, NativeQuickJsHelperFunction>>>>
+export type NativeJscHelperModuleRegistry = Readonly<Record<string, Readonly<Record<string, NativeJscHelperFunction>>>>
 
-export type NativeQuickJsHelperCallExecutor = (
+export type NativeJscHelperCallExecutor = (
   ctx: StepContext,
-  request: NativeQuickJsGameStepHelperCallRequest,
+  request: NativeJscGameStepHelperCallRequest,
 ) => Promise<unknown>
 
-export type NativeQuickJsPipelineListenerDispatcher = (
-  request: NativeQuickJsPipelineListenerDispatchRequest,
-) => Promise<NativeQuickJsPipelineListenerDispatchResponse>
+export type NativeJscPipelineListenerDispatcher = (
+  request: NativeJscPipelineListenerDispatchRequest,
+) => Promise<NativeJscPipelineListenerDispatchResponse>
 
-interface NativeQuickJsPipelineSubscriptionRecord {
+interface NativeJscPipelineSubscriptionRecord {
   event: string
   listener: (context: any) => Promise<void>
   moduleNamespaceId: string
   pipeline: StepContext['pipeline']
 }
 
-export interface NativeQuickJsPipelineSubscriptionBridge {
+export interface NativeJscPipelineSubscriptionBridge {
   apply: (
     ctx: StepContext,
-    changes: readonly NativeQuickJsPipelineSubscriptionChange[] | undefined,
+    changes: readonly NativeJscPipelineSubscriptionChange[] | undefined,
   ) => void
   releaseModuleNamespace: (moduleNamespaceId: string) => void
   dispose: () => void
 }
 
-export function createNativeHostQuickJsModuleEvaluator(
-  host: Pick<QuaNativeHostApi, 'evaluateQuickJsModule'>,
-  resolveModuleNamespace: NativeQuickJsModuleNamespaceResolver,
+export function createNativeHostJscModuleEvaluator(
+  host: Pick<QuaNativeHostApi, 'evaluateJscModule'>,
+  resolveModuleNamespace: NativeJscModuleNamespaceResolver,
 ): NativeRuntimeModuleEvaluator {
   return async (ctx) => {
-    if (!host.evaluateQuickJsModule) {
-      throw new Error('Native host does not provide QuickJS module evaluation.')
+    if (!host.evaluateJscModule) {
+      throw new Error('Native host does not provide JavaScriptCore module evaluation.')
     }
-    assertNativeQuickJsEvaluationRequest(ctx.request)
-    const response = await host.evaluateQuickJsModule(ctx.request)
-    const moduleNamespaceId = assertNativeQuickJsEvaluationResponse(response)
+    assertNativeJscEvaluationRequest(ctx.request)
+    const response = await host.evaluateJscModule(ctx.request)
+    const moduleNamespaceId = assertNativeJscEvaluationResponse(response)
     return await resolveModuleNamespace(moduleNamespaceId, ctx, response)
   }
 }
 
-export async function callNativeQuickJsModuleExport(
-  host: Pick<QuaNativeHostApi, 'callQuickJsModuleExport'>,
-  request: NativeQuickJsModuleExportCallRequest,
+export async function callNativeJscModuleExport(
+  host: Pick<QuaNativeHostApi, 'callJscModuleExport'>,
+  request: NativeJscModuleExportCallRequest,
 ): Promise<unknown> {
-  if (!host.callQuickJsModuleExport) {
-    throw new Error('Native host does not provide QuickJS module export calls.')
+  if (!host.callJscModuleExport) {
+    throw new Error('Native host does not provide JavaScriptCore module export calls.')
   }
-  const response: NativeQuickJsModuleExportCallResponse = await host.callQuickJsModuleExport(request)
-  return parseNativeQuickJsModuleExportCallResponse(response)
+  const response: NativeJscModuleExportCallResponse = await host.callJscModuleExport(request)
+  return parseNativeJscModuleExportCallResponse(response)
 }
 
-export async function callNativeQuickJsGameStepFactory(
-  host: Pick<QuaNativeHostApi, 'callQuickJsGameStepFactory'>,
-  request: NativeQuickJsGameStepFactoryCallRequest,
-): Promise<NativeQuickJsGameStepDescriptor[]> {
-  if (!host.callQuickJsGameStepFactory) {
-    throw new Error('Native host does not provide QuickJS GameStep factory calls.')
+export async function callNativeJscGameStepFactory(
+  host: Pick<QuaNativeHostApi, 'callJscGameStepFactory'>,
+  request: NativeJscGameStepFactoryCallRequest,
+): Promise<NativeJscGameStepDescriptor[]> {
+  if (!host.callJscGameStepFactory) {
+    throw new Error('Native host does not provide JavaScriptCore GameStep factory calls.')
   }
-  const response: NativeQuickJsGameStepFactoryCallResponse = await host.callQuickJsGameStepFactory(request)
-  return assertNativeQuickJsGameStepFactoryCallResponse(response)
+  const response: NativeJscGameStepFactoryCallResponse = await host.callJscGameStepFactory(request)
+  return assertNativeJscGameStepFactoryCallResponse(response)
 }
 
-export async function callNativeQuickJsGameStepRun(
-  host: Pick<QuaNativeHostApi, 'callQuickJsGameStepRun'>,
-  request: NativeQuickJsGameStepRunRequest,
-): Promise<NativeQuickJsGameStepRunResponse> {
-  if (!host.callQuickJsGameStepRun) {
-    throw new Error('Native host does not provide QuickJS GameStep run calls.')
+export async function callNativeJscGameStepRun(
+  host: Pick<QuaNativeHostApi, 'callJscGameStepRun'>,
+  request: NativeJscGameStepRunRequest,
+): Promise<NativeJscGameStepRunResponse> {
+  if (!host.callJscGameStepRun) {
+    throw new Error('Native host does not provide JavaScriptCore GameStep run calls.')
   }
-  const response: NativeQuickJsGameStepRunResponse = await host.callQuickJsGameStepRun(request)
-  return assertNativeQuickJsGameStepRunResponse(response)
+  const response: NativeJscGameStepRunResponse = await host.callJscGameStepRun(request)
+  return assertNativeJscGameStepRunResponse(response)
 }
 
-export async function callNativeQuickJsGameStepResume(
-  host: Pick<QuaNativeHostApi, 'resumeQuickJsGameStepRun'>,
-  request: NativeQuickJsGameStepResumeRequest,
-): Promise<NativeQuickJsGameStepRunResponse> {
-  if (!host.resumeQuickJsGameStepRun) {
-    throw new Error('Native host does not provide QuickJS GameStep continuation resume calls.')
+export async function callNativeJscGameStepResume(
+  host: Pick<QuaNativeHostApi, 'resumeJscGameStepRun'>,
+  request: NativeJscGameStepResumeRequest,
+): Promise<NativeJscGameStepRunResponse> {
+  if (!host.resumeJscGameStepRun) {
+    throw new Error('Native host does not provide JavaScriptCore GameStep continuation resume calls.')
   }
-  const response: NativeQuickJsGameStepRunResponse = await host.resumeQuickJsGameStepRun(request)
-  return assertNativeQuickJsGameStepRunResponse(response)
+  const response: NativeJscGameStepRunResponse = await host.resumeJscGameStepRun(request)
+  return assertNativeJscGameStepRunResponse(response)
 }
 
-export async function callNativeQuickJsPipelineListenerDispatch(
-  host: Pick<QuaNativeHostApi, 'dispatchQuickJsPipelineListener'>,
-  request: NativeQuickJsPipelineListenerDispatchRequest,
-): Promise<NativeQuickJsPipelineListenerDispatchResponse> {
-  if (!host.dispatchQuickJsPipelineListener) {
-    throw new Error('Native host does not provide QuickJS pipeline listener dispatch calls.')
+export async function callNativeJscPipelineListenerDispatch(
+  host: Pick<QuaNativeHostApi, 'dispatchJscPipelineListener'>,
+  request: NativeJscPipelineListenerDispatchRequest,
+): Promise<NativeJscPipelineListenerDispatchResponse> {
+  if (!host.dispatchJscPipelineListener) {
+    throw new Error('Native host does not provide JavaScriptCore pipeline listener dispatch calls.')
   }
-  const response: NativeQuickJsPipelineListenerDispatchResponse = await host.dispatchQuickJsPipelineListener(request)
-  return assertNativeQuickJsPipelineListenerDispatchResponse(response)
+  const response: NativeJscPipelineListenerDispatchResponse = await host.dispatchJscPipelineListener(request)
+  return assertNativeJscPipelineListenerDispatchResponse(response)
 }
 
-export function createNativeQuickJsJsonExportFunction(
-  host: Pick<QuaNativeHostApi, 'callQuickJsModuleExport'>,
+export function createNativeJscJsonExportFunction(
+  host: Pick<QuaNativeHostApi, 'callJscModuleExport'>,
   moduleNamespaceId: string,
   exportName: string,
-): NativeQuickJsJsonExportFunction {
+): NativeJscJsonExportFunction {
   return async (...args: readonly unknown[]) => {
-    return await callNativeQuickJsModuleExport(host, createNativeQuickJsModuleExportCallRequest({
+    return await callNativeJscModuleExport(host, createNativeJscModuleExportCallRequest({
       moduleNamespaceId,
       exportName,
       args,
@@ -239,19 +239,19 @@ export function createNativeQuickJsJsonExportFunction(
   }
 }
 
-export function createNativeHostQuickJsJsonModuleNamespaceResolver(
-  host: Pick<QuaNativeHostApi, 'callQuickJsModuleExport'>,
-): NativeQuickJsModuleNamespaceResolver {
+export function createNativeHostJscJsonModuleNamespaceResolver(
+  host: Pick<QuaNativeHostApi, 'callJscModuleExport'>,
+): NativeJscModuleNamespaceResolver {
   return (moduleNamespaceId) => {
     return new Proxy(Object.create(null), {
       get(_target, property) {
         if (property === Symbol.toStringTag)
-          return 'NativeQuickJsJsonModuleNamespace'
+          return 'NativeJscJsonModuleNamespace'
         if (property === 'then')
           return undefined
         if (typeof property !== 'string')
           return undefined
-        return createNativeQuickJsJsonExportFunction(host, moduleNamespaceId, property)
+        return createNativeJscJsonExportFunction(host, moduleNamespaceId, property)
       },
       has(_target, property) {
         return typeof property === 'string' && property !== 'then'
@@ -260,47 +260,47 @@ export function createNativeHostQuickJsJsonModuleNamespaceResolver(
   }
 }
 
-export interface CreateNativeHostQuickJsGameStepModuleNamespaceResolverOptions {
-  executeStepCommand?: NativeQuickJsStepCommandExecutor
-  executeHelperCall?: NativeQuickJsHelperCallExecutor
-  helperModules?: NativeQuickJsHelperModuleRegistry
-  pipelineSubscriptionBridge?: NativeQuickJsPipelineSubscriptionBridge
-  serializeStepContext?: NativeQuickJsStepContextSerializer
+export interface CreateNativeHostJscGameStepModuleNamespaceResolverOptions {
+  executeStepCommand?: NativeJscStepCommandExecutor
+  executeHelperCall?: NativeJscHelperCallExecutor
+  helperModules?: NativeJscHelperModuleRegistry
+  pipelineSubscriptionBridge?: NativeJscPipelineSubscriptionBridge
+  serializeStepContext?: NativeJscStepContextSerializer
 }
 
-export function createNativeQuickJsGameStepFactoryFunction(
-  host: Pick<QuaNativeHostApi, 'callQuickJsGameStepFactory' | 'callQuickJsGameStepRun' | 'resumeQuickJsGameStepRun'>,
+export function createNativeJscGameStepFactoryFunction(
+  host: Pick<QuaNativeHostApi, 'callJscGameStepFactory' | 'callJscGameStepRun' | 'resumeJscGameStepRun'>,
   moduleNamespaceId: string,
   exportName: string,
-  options: CreateNativeHostQuickJsGameStepModuleNamespaceResolverOptions = {},
-): NativeQuickJsGameStepFactoryFunction {
+  options: CreateNativeHostJscGameStepModuleNamespaceResolverOptions = {},
+): NativeJscGameStepFactoryFunction {
   return async (scope?: unknown) => {
-    const descriptors = await callNativeQuickJsGameStepFactory(host, createNativeQuickJsGameStepFactoryCallRequest({
+    const descriptors = await callNativeJscGameStepFactory(host, createNativeJscGameStepFactoryCallRequest({
       moduleNamespaceId,
       exportName,
       scope,
     }))
-    return descriptors.map(descriptor => createNativeQuickJsGameStepProxy(host, descriptor, options))
+    return descriptors.map(descriptor => createNativeJscGameStepProxy(host, descriptor, options))
   }
 }
 
-export function createNativeHostQuickJsGameStepModuleNamespaceResolver(
-  host: Pick<QuaNativeHostApi, 'callQuickJsGameStepFactory' | 'callQuickJsGameStepRun' | 'resumeQuickJsGameStepRun'>,
-  options: CreateNativeHostQuickJsGameStepModuleNamespaceResolverOptions = {},
-): NativeQuickJsModuleNamespaceResolver {
+export function createNativeHostJscGameStepModuleNamespaceResolver(
+  host: Pick<QuaNativeHostApi, 'callJscGameStepFactory' | 'callJscGameStepRun' | 'resumeJscGameStepRun'>,
+  options: CreateNativeHostJscGameStepModuleNamespaceResolverOptions = {},
+): NativeJscModuleNamespaceResolver {
   return (moduleNamespaceId, ctx) => {
     if (ctx.kind !== 'script') {
-      throw new Error(`Native QuickJS GameStep namespace resolver can only load script modules, not ${ctx.kind} modules.`)
+      throw new Error(`Native JavaScriptCore GameStep namespace resolver can only load script modules, not ${ctx.kind} modules.`)
     }
     return new Proxy(Object.create(null), {
       get(_target, property) {
         if (property === Symbol.toStringTag)
-          return 'NativeQuickJsGameStepModuleNamespace'
+          return 'NativeJscGameStepModuleNamespace'
         if (property === 'then')
           return undefined
         if (typeof property !== 'string')
           return undefined
-        return createNativeQuickJsGameStepFactoryFunction(host, moduleNamespaceId, property, options)
+        return createNativeJscGameStepFactoryFunction(host, moduleNamespaceId, property, options)
       },
       has(_target, property) {
         return typeof property === 'string' && property !== 'then'
@@ -309,28 +309,28 @@ export function createNativeHostQuickJsGameStepModuleNamespaceResolver(
   }
 }
 
-function createNativeQuickJsGameStepProxy(
-  host: Pick<QuaNativeHostApi, 'callQuickJsGameStepRun' | 'resumeQuickJsGameStepRun'>,
-  descriptor: NativeQuickJsGameStepDescriptor,
-  options: CreateNativeHostQuickJsGameStepModuleNamespaceResolverOptions,
+function createNativeJscGameStepProxy(
+  host: Pick<QuaNativeHostApi, 'callJscGameStepRun' | 'resumeJscGameStepRun'>,
+  descriptor: NativeJscGameStepDescriptor,
+  options: CreateNativeHostJscGameStepModuleNamespaceResolverOptions,
 ): GameStep {
   if (!descriptor.uuid || typeof descriptor.uuid !== 'string') {
-    throw new TypeError('Native QuickJS GameStep descriptor requires a uuid.')
+    throw new TypeError('Native JavaScriptCore GameStep descriptor requires a uuid.')
   }
   if (!descriptor.runHandleId || typeof descriptor.runHandleId !== 'string') {
-    throw new TypeError(`Native QuickJS GameStep descriptor "${descriptor.uuid}" requires a runHandleId.`)
+    throw new TypeError(`Native JavaScriptCore GameStep descriptor "${descriptor.uuid}" requires a runHandleId.`)
   }
   return {
     uuid: descriptor.uuid,
     ...(descriptor.metadataJson !== undefined ? { metadata: JSON.parse(descriptor.metadataJson) } : {}),
     run: async (ctx) => {
-      let response = await callNativeQuickJsGameStepRun(host, createNativeQuickJsGameStepRunRequest({
+      let response = await callNativeJscGameStepRun(host, createNativeJscGameStepRunRequest({
         runHandleId: descriptor.runHandleId,
-        ctx: (options.serializeStepContext || defaultNativeQuickJsStepContextSerializer)(ctx),
+        ctx: (options.serializeStepContext || defaultNativeJscStepContextSerializer)(ctx),
       }))
-      const executeStepCommand = options.executeStepCommand || executeNativeQuickJsGameStepCommand
+      const executeStepCommand = options.executeStepCommand || executeNativeJscGameStepCommand
       const executeHelperCall = options.executeHelperCall
-        || ((ctx, request) => executeNativeQuickJsGameStepHelperCall(ctx, request, options.helperModules))
+        || ((ctx, request) => executeNativeJscGameStepHelperCall(ctx, request, options.helperModules))
       const pipelineSubscriptions = options.pipelineSubscriptionBridge
       while (true) {
         for (const command of response.commands || []) {
@@ -338,13 +338,13 @@ function createNativeQuickJsGameStepProxy(
         }
         if (response.pipelineSubscriptions?.length) {
           if (!pipelineSubscriptions) {
-            throw new Error('Native QuickJS GameStep returned pipeline subscription changes, but no pipeline subscription bridge is installed.')
+            throw new Error('Native JavaScriptCore GameStep returned pipeline subscription changes, but no pipeline subscription bridge is installed.')
           }
           pipelineSubscriptions.apply(ctx, response.pipelineSubscriptions)
         }
         if (response.pendingWait) {
           const payload = await ctx.engine.waitFor(response.pendingWait.event as never)
-          response = await callNativeQuickJsGameStepResume(host, createNativeQuickJsGameStepResumeRequest({
+          response = await callNativeJscGameStepResume(host, createNativeJscGameStepResumeRequest({
             resumeHandleId: response.pendingWait.resumeHandleId,
             payload,
           }))
@@ -355,7 +355,7 @@ function createNativeQuickJsGameStepProxy(
             ? undefined
             : JSON.parse(response.pendingTranslation.optionsJson)
           const payload = await ctx.t(response.pendingTranslation.key, options)
-          response = await callNativeQuickJsGameStepResume(host, createNativeQuickJsGameStepResumeRequest({
+          response = await callNativeJscGameStepResume(host, createNativeJscGameStepResumeRequest({
             resumeHandleId: response.pendingTranslation.resumeHandleId,
             payload,
           }))
@@ -366,14 +366,14 @@ function createNativeQuickJsGameStepProxy(
             ? undefined
             : JSON.parse(response.pendingPipelineEmit.payloadJson)
           await ctx.pipeline.emit(response.pendingPipelineEmit.event, payload)
-          response = await callNativeQuickJsGameStepResume(host, createNativeQuickJsGameStepResumeRequest({
+          response = await callNativeJscGameStepResume(host, createNativeJscGameStepResumeRequest({
             resumeHandleId: response.pendingPipelineEmit.resumeHandleId,
           }))
           continue
         }
         if (response.pendingHelperCall) {
           const payload = await executeHelperCall(ctx, response.pendingHelperCall)
-          response = await callNativeQuickJsGameStepResume(host, createNativeQuickJsGameStepResumeRequest({
+          response = await callNativeJscGameStepResume(host, createNativeJscGameStepResumeRequest({
             resumeHandleId: response.pendingHelperCall.resumeHandleId,
             payload,
           }))
@@ -385,16 +385,16 @@ function createNativeQuickJsGameStepProxy(
   }
 }
 
-export function createNativeQuickJsPipelineSubscriptionBridge(
-  host: Pick<QuaNativeHostApi, 'dispatchQuickJsPipelineListener'>,
+export function createNativeJscPipelineSubscriptionBridge(
+  host: Pick<QuaNativeHostApi, 'dispatchJscPipelineListener'>,
   options: {
-    executeStepCommand?: NativeQuickJsStepCommandExecutor
+    executeStepCommand?: NativeJscStepCommandExecutor
     serializePipelineContext?: (context: any) => Record<string, unknown>
   } = {},
-): NativeQuickJsPipelineSubscriptionBridge {
-  const subscriptions = new Map<string, NativeQuickJsPipelineSubscriptionRecord>()
-  const executeStepCommand = options.executeStepCommand || executeNativeQuickJsGameStepCommand
-  const serializePipelineContext = options.serializePipelineContext || defaultNativeQuickJsPipelineContextSerializer
+): NativeJscPipelineSubscriptionBridge {
+  const subscriptions = new Map<string, NativeJscPipelineSubscriptionRecord>()
+  const executeStepCommand = options.executeStepCommand || executeNativeJscGameStepCommand
+  const serializePipelineContext = options.serializePipelineContext || defaultNativeJscPipelineContextSerializer
 
   const unsubscribe = (subscriptionId: string): void => {
     const existing = subscriptions.get(subscriptionId)
@@ -406,7 +406,7 @@ export function createNativeQuickJsPipelineSubscriptionBridge(
 
   const applyChanges = (
     ctx: StepContext,
-    changes: readonly NativeQuickJsPipelineSubscriptionChange[] | undefined,
+    changes: readonly NativeJscPipelineSubscriptionChange[] | undefined,
   ): void => {
     if (!changes?.length)
       return
@@ -416,9 +416,9 @@ export function createNativeQuickJsPipelineSubscriptionBridge(
         continue
       }
       const listener = async (context: any) => {
-        const response = await callNativeQuickJsPipelineListenerDispatch(
+        const response = await callNativeJscPipelineListenerDispatch(
           host,
-          createNativeQuickJsPipelineListenerDispatchRequest({
+          createNativeJscPipelineListenerDispatchRequest({
             subscriptionId: change.subscriptionId,
             context: serializePipelineContext(context),
           }),
@@ -459,54 +459,54 @@ export function createNativeQuickJsPipelineSubscriptionBridge(
   }
 }
 
-export async function executeNativeQuickJsGameStepCommand(
+export async function executeNativeJscGameStepCommand(
   ctx: StepContext,
-  command: NativeQuickJsGameStepCommand,
+  command: NativeJscGameStepCommand,
 ): Promise<void> {
-  assertNativeQuickJsGameStepCommand(command)
+  assertNativeJscGameStepCommand(command)
   const args = command.argsJson === undefined ? [] : JSON.parse(command.argsJson)
   if (!Array.isArray(args)) {
-    throw new TypeError(`Native QuickJS GameStep command ${command.target}.${command.method} argsJson must be a JSON array.`)
+    throw new TypeError(`Native JavaScriptCore GameStep command ${command.target}.${command.method} argsJson must be a JSON array.`)
   }
   const method = ctx.engine?.[command.method as keyof typeof ctx.engine]
   if (typeof method !== 'function') {
-    throw new TypeError(`Native QuickJS GameStep command ${command.target}.${command.method} is not available on StepContext.`)
+    throw new TypeError(`Native JavaScriptCore GameStep command ${command.target}.${command.method} is not available on StepContext.`)
   }
   await (method as (...args: unknown[]) => unknown).apply(ctx.engine, args)
 }
 
-export function createNativeQuickJsHelperCallExecutor(
-  helperModules: NativeQuickJsHelperModuleRegistry,
-): NativeQuickJsHelperCallExecutor {
-  return (ctx, request) => executeNativeQuickJsGameStepHelperCall(ctx, request, helperModules)
+export function createNativeJscHelperCallExecutor(
+  helperModules: NativeJscHelperModuleRegistry,
+): NativeJscHelperCallExecutor {
+  return (ctx, request) => executeNativeJscGameStepHelperCall(ctx, request, helperModules)
 }
 
-export async function executeNativeQuickJsGameStepHelperCall(
+export async function executeNativeJscGameStepHelperCall(
   ctx: StepContext,
-  request: NativeQuickJsGameStepHelperCallRequest,
-  helperModules: NativeQuickJsHelperModuleRegistry = {},
+  request: NativeJscGameStepHelperCallRequest,
+  helperModules: NativeJscHelperModuleRegistry = {},
 ): Promise<unknown> {
-  assertNativeQuickJsGameStepHelperCallRequest(request)
+  assertNativeJscGameStepHelperCallRequest(request)
   const helperModule = helperModules[request.module]
   const helper = helperModule?.[request.exportName]
   if (typeof helper !== 'function') {
-    throw new TypeError(`Native QuickJS helper ${request.module}.${request.exportName} is not registered in the host helper resolver.`)
+    throw new TypeError(`Native JavaScriptCore helper ${request.module}.${request.exportName} is not registered in the host helper resolver.`)
   }
   const args = request.argsJson === undefined ? [] : JSON.parse(request.argsJson)
   if (!Array.isArray(args)) {
-    throw new TypeError(`Native QuickJS helper ${request.module}.${request.exportName} argsJson must be a JSON array.`)
+    throw new TypeError(`Native JavaScriptCore helper ${request.module}.${request.exportName} argsJson must be a JSON array.`)
   }
   return await helper(ctx.engine, ...args)
 }
 
-function defaultNativeQuickJsStepContextSerializer(ctx: StepContext): Record<string, unknown> {
+function defaultNativeJscStepContextSerializer(ctx: StepContext): Record<string, unknown> {
   return {
     stepId: ctx.stepId,
     ...(ctx.previousStepId ? { previousStepId: ctx.previousStepId } : {}),
   }
 }
 
-function defaultNativeQuickJsPipelineContextSerializer(context: any): Record<string, unknown> {
+function defaultNativeJscPipelineContextSerializer(context: any): Record<string, unknown> {
   return {
     event: {
       type: context.event?.type,
@@ -519,31 +519,31 @@ function defaultNativeQuickJsPipelineContextSerializer(context: any): Record<str
   }
 }
 
-export async function releaseNativeQuickJsModuleNamespace(
-  host: Pick<QuaNativeHostApi, 'releaseQuickJsModuleNamespace'>,
+export async function releaseNativeJscModuleNamespace(
+  host: Pick<QuaNativeHostApi, 'releaseJscModuleNamespace'>,
   moduleNamespaceId: string,
-): Promise<NativeQuickJsModuleNamespaceRecord | undefined> {
-  return await host.releaseQuickJsModuleNamespace?.(moduleNamespaceId)
+): Promise<NativeJscModuleNamespaceRecord | undefined> {
+  return await host.releaseJscModuleNamespace?.(moduleNamespaceId)
 }
 
-export async function releaseNativeQuickJsPackageNamespaces(
-  host: Pick<QuaNativeHostApi, 'releaseQuickJsPackageNamespaces'>,
+export async function releaseNativeJscPackageNamespaces(
+  host: Pick<QuaNativeHostApi, 'releaseJscPackageNamespaces'>,
   packageId: string,
-): Promise<NativeQuickJsModuleNamespaceRecord[]> {
-  return await host.releaseQuickJsPackageNamespaces?.(packageId) || []
+): Promise<NativeJscModuleNamespaceRecord[]> {
+  return await host.releaseJscPackageNamespaces?.(packageId) || []
 }
 
-export async function getNativeQuickJsNamespaceSummary(
-  host: Pick<QuaNativeHostApi, 'getQuickJsNamespaceSummary'>,
-): Promise<NativeQuickJsModuleNamespaceSummary | undefined> {
-  return await host.getQuickJsNamespaceSummary?.()
+export async function getNativeJscNamespaceSummary(
+  host: Pick<QuaNativeHostApi, 'getJscNamespaceSummary'>,
+): Promise<NativeJscModuleNamespaceSummary | undefined> {
+  return await host.getJscNamespaceSummary?.()
 }
 
-export async function getNativeQuickJsPackageNamespaceSummary(
-  host: Pick<QuaNativeHostApi, 'getQuickJsPackageNamespaceSummary'>,
+export async function getNativeJscPackageNamespaceSummary(
+  host: Pick<QuaNativeHostApi, 'getJscPackageNamespaceSummary'>,
   packageId: string,
-): Promise<NativeQuickJsModuleNamespaceSummary | undefined> {
-  return await host.getQuickJsPackageNamespaceSummary?.(packageId)
+): Promise<NativeJscModuleNamespaceSummary | undefined> {
+  return await host.getJscPackageNamespaceSummary?.(packageId)
 }
 
 export function createNativeRuntimeModuleLoader(options: NativeRuntimeModuleLoaderOptions): RuntimeModuleLoader {
@@ -562,13 +562,13 @@ export function createNativeRuntimeModuleLoader(options: NativeRuntimeModuleLoad
       locale: ctx.locale,
     })
     const code = new TextDecoder().decode(asset.data)
-    const moduleGraph = await loadNativeQuickJsModuleGraph(record, kind, ctx)
-    const request = createNativeQuickJsEvaluationRequest({
+    const moduleGraph = await loadNativeJscModuleGraph(record, kind, ctx)
+    const request = createNativeJscEvaluationRequest({
       assetName,
       bundleName: ctx.bundle.bundleName,
       bytes: asset.data,
       code,
-      kind: toQuickJsRuntimeModuleKind(kind),
+      kind: toJscRuntimeModuleKind(kind),
       limits: options.limits,
       moduleGraph,
       packageId: ctx.package.id,
@@ -602,16 +602,16 @@ export function createNativeRuntimeModuleLoader(options: NativeRuntimeModuleLoad
   }
 }
 
-async function loadNativeQuickJsModuleGraph(
+async function loadNativeJscModuleGraph(
   record: NativeRuntimeModuleRecord,
   kind: NativeRuntimeModuleKind,
   ctx: RuntimeModuleLoadContext,
-): Promise<NativeQuickJsEvaluationRequest['moduleGraph']> {
-  const assetNames = getNativeQuickJsModuleGraphAssetNames(record, kind)
+): Promise<NativeJscEvaluationRequest['moduleGraph']> {
+  const assetNames = getNativeJscModuleGraphAssetNames(record, kind)
   if (assetNames.length === 0) {
     return undefined
   }
-  const modules: NonNullable<NativeQuickJsEvaluationRequest['moduleGraph']> = []
+  const modules: NonNullable<NativeJscEvaluationRequest['moduleGraph']> = []
   const seen = new Set<string>()
   for (const assetName of assetNames) {
     if (seen.has(assetName))
@@ -626,7 +626,7 @@ async function loadNativeQuickJsModuleGraph(
       assetName,
       bundleName: ctx.bundle.bundleName,
       packageId: ctx.package.id,
-      kind: toQuickJsRuntimeModuleKind(kind),
+      kind: toJscRuntimeModuleKind(kind),
       code: new TextDecoder().decode(asset.data),
       bytes: Array.from(asset.data),
     })
@@ -634,21 +634,21 @@ async function loadNativeQuickJsModuleGraph(
   return modules
 }
 
-function getNativeQuickJsModuleGraphAssetNames(
+function getNativeJscModuleGraphAssetNames(
   record: NativeRuntimeModuleRecord,
   kind: NativeRuntimeModuleKind,
 ): string[] {
-  const imports = (record as NativeRuntimeModuleRecordWithNativeQuickJsMetadata).metadata?.nativeQuickJs?.imports || []
+  const imports = (record as NativeRuntimeModuleRecordWithNativeJscMetadata).metadata?.nativeJsc?.imports || []
   return imports.map((entry, index) => {
     const assetName = typeof entry === 'string'
       ? entry
       : entry.assetName || entry.module || entry.path || entry.relativePath || ''
-    assertNativeRuntimeModuleAssetName(assetName, kind, `metadata.nativeQuickJs.imports.${index}`)
+    assertNativeRuntimeModuleAssetName(assetName, kind, `metadata.nativeJsc.imports.${index}`)
     return assetName
   })
 }
 
-function toQuickJsRuntimeModuleKind(kind: NativeRuntimeModuleKind): NativeQuickJsRuntimeModuleKind {
+function toJscRuntimeModuleKind(kind: NativeRuntimeModuleKind): NativeJscRuntimeModuleKind {
   switch (kind) {
     case 'engine-plugin':
       return 'enginePlugin'

@@ -8,11 +8,11 @@ pub use api::{
     NativeRendererIntent, NativeSignatureVerifyRequest,
 };
 pub use bridge::{
-    dispatch_native_host_api_request, dispatch_native_host_api_request_with_quickjs,
-    dispatch_native_host_api_request_with_quickjs_registry, NativeHostApiHashBytesRequest,
+    dispatch_native_host_api_request, dispatch_native_host_api_request_with_jsc,
+    dispatch_native_host_api_request_with_jsc_registry, NativeHostApiHashBytesRequest,
     NativeHostApiListStorageKeysRequest, NativeHostApiRequest, NativeHostApiResponse,
     NativeHostApiResponsePayload, NativeHostApiStorageKeyRequest, NativeHostApiWriteStorageRequest,
-    NativeQuickJsReleaseNamespaceRequest, NativeQuickJsReleasePackageRequest,
+    NativeJscReleaseNamespaceRequest, NativeJscReleasePackageRequest,
 };
 pub use info::{
     capability_manifest_hash, current_platform, current_profile, NativeAppInfo, NativeHostInfo,

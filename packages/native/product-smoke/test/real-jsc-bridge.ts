@@ -23,14 +23,14 @@ interface PendingBridgeRequest<TResponse> {
   resolve: (response: TResponse) => void
 }
 
-export interface RealNativeQuickJsBridge {
+export interface RealNativeJscBridge {
   close: () => Promise<void>
   host: QuaNativeHostApi
   requests: NativeHostApiRequest[]
   startupHostInfo: QuaNativeHostInfo
 }
 
-export interface CreateRealNativeQuickJsBridgeOptions {
+export interface CreateRealNativeJscBridgeOptions {
   targetBundleManifest?: TargetBundleManifest
   targetBundleManifestPath?: string
 }
@@ -49,7 +49,7 @@ export interface CreateRealNativeProductBridgeOptions {
 
 const CURRENT_DIR = fileURLToPath(new URL('.', import.meta.url))
 const REPO_ROOT = resolve(CURRENT_DIR, '../../../..')
-const NATIVE_QUICKJS_CARGO_ARGS = [
+const NATIVE_JSC_CARGO_ARGS = [
   'run',
   '--quiet',
   '--manifest-path',
@@ -57,7 +57,7 @@ const NATIVE_QUICKJS_CARGO_ARGS = [
   '-p',
   'quajs_native_app',
   '--features',
-  'quickjs-rquickjs',
+  'javascriptcore',
 ]
 const NATIVE_PRODUCT_CARGO_ARGS = [
   'run',
@@ -67,19 +67,19 @@ const NATIVE_PRODUCT_CARGO_ARGS = [
   '-p',
   'quajs_native_app',
   '--features',
-  'image-decode,quickjs-rquickjs',
+  'image-decode,javascriptcore',
 ]
 const RENDERER_SMOKE_JSON_PREFIX = 'Qua native renderer smoke json: '
 
-export async function createRealNativeQuickJsBridge(
-  options: CreateRealNativeQuickJsBridgeOptions = {},
-): Promise<RealNativeQuickJsBridge> {
+export async function createRealNativeJscBridge(
+  options: CreateRealNativeJscBridgeOptions = {},
+): Promise<RealNativeJscBridge> {
   const ownedManifestPath = !options.targetBundleManifestPath && options.targetBundleManifest
     ? await writeNativeTargetBundleManifest(options.targetBundleManifest)
     : undefined
   const manifestPath = options.targetBundleManifestPath || ownedManifestPath
   const child = spawnNativeApp({
-    QUA_NATIVE_QUICKJS_BRIDGE: '1',
+    QUA_NATIVE_JSC_BRIDGE: '1',
     ...(manifestPath ? { QUA_NATIVE_TARGET_BUNDLE_MANIFEST: manifestPath } : {}),
   })
   const stderr: string[] = []
@@ -91,7 +91,7 @@ export async function createRealNativeQuickJsBridge(
   child.stderr.on('data', chunk => stderr.push(chunk))
   child.on('error', (error) => {
     closed = true
-    rejectPending(pending, new Error(`Native QuickJS bridge failed to start: ${error.message}`))
+    rejectPending(pending, new Error(`Native JavaScriptCore bridge failed to start: ${error.message}`))
   })
 
   const stdout = createInterface({ input: child.stdout })
@@ -103,19 +103,19 @@ export async function createRealNativeQuickJsBridge(
       next.resolve(JSON.parse(line) as NativeHostApiResponse)
     }
     catch (error) {
-      next.reject(new Error(`Native QuickJS bridge returned invalid JSON: ${String(error)}. Line: ${line}`))
+      next.reject(new Error(`Native JavaScriptCore bridge returned invalid JSON: ${String(error)}. Line: ${line}`))
     }
   })
 
   child.on('exit', (code, signal) => {
     closed = true
-    const error = new Error(`Native QuickJS bridge exited before replying: code=${code ?? 'none'} signal=${signal ?? 'none'} stderr=${stderr.join('').trim()}`)
+    const error = new Error(`Native JavaScriptCore bridge exited before replying: code=${code ?? 'none'} signal=${signal ?? 'none'} stderr=${stderr.join('').trim()}`)
     rejectPending(pending, error)
   })
 
   const dispatch = (request: NativeHostApiRequest): Promise<NativeHostApiResponse> => {
     if (closed) {
-      return Promise.reject(new Error(`Native QuickJS bridge is closed. stderr=${stderr.join('').trim()}`))
+      return Promise.reject(new Error(`Native JavaScriptCore bridge is closed. stderr=${stderr.join('').trim()}`))
     }
     requests.push(request)
     return new Promise((resolve, reject) => {
@@ -272,7 +272,7 @@ export async function runNativeRendererSmokeFrame(frame: unknown): Promise<Recor
 
 function spawnNativeApp(
   extraEnv: Record<string, string>,
-  cargoArgs: string[] = NATIVE_QUICKJS_CARGO_ARGS,
+  cargoArgs: string[] = NATIVE_JSC_CARGO_ARGS,
 ): ChildProcessWithoutNullStreams {
   const env = nativeAppEnv(extraEnv)
   // Allow a fixed, already-built test app so parallel feature builds cannot

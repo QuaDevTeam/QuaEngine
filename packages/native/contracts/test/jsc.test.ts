@@ -1,31 +1,31 @@
 import { describe, expect, it } from 'vitest'
 import {
-  assertNativeQuickJsEvaluationResponse,
-  assertNativeQuickJsGameStepCommand,
-  assertNativeQuickJsGameStepFactoryCallRequest,
-  assertNativeQuickJsGameStepFactoryCallResponse,
-  assertNativeQuickJsGameStepHelperCallRequest,
-  assertNativeQuickJsGameStepResumeRequest,
-  assertNativeQuickJsGameStepRunRequest,
-  assertNativeQuickJsGameStepRunResponse,
-  assertNativeQuickJsModuleExportCallRequest,
-  assertNativeQuickJsPipelineListenerDispatchRequest,
-  assertNativeQuickJsPipelineListenerDispatchResponse,
-  assertNativeQuickJsPipelineSubscriptionChange,
-  createNativeQuickJsEvaluationRequest,
-  createNativeQuickJsGameStepFactoryCallRequest,
-  createNativeQuickJsGameStepResumeRequest,
-  createNativeQuickJsGameStepRunRequest,
-  createNativeQuickJsModuleExportCallRequest,
-  createNativeQuickJsPipelineListenerDispatchRequest,
-  DEFAULT_NATIVE_QUICKJS_SANDBOX_LIMITS,
-  parseNativeQuickJsModuleExportCallResponse,
-  validateNativeQuickJsEvaluationRequest,
+  assertNativeJscEvaluationResponse,
+  assertNativeJscGameStepCommand,
+  assertNativeJscGameStepFactoryCallRequest,
+  assertNativeJscGameStepFactoryCallResponse,
+  assertNativeJscGameStepHelperCallRequest,
+  assertNativeJscGameStepResumeRequest,
+  assertNativeJscGameStepRunRequest,
+  assertNativeJscGameStepRunResponse,
+  assertNativeJscModuleExportCallRequest,
+  assertNativeJscPipelineListenerDispatchRequest,
+  assertNativeJscPipelineListenerDispatchResponse,
+  assertNativeJscPipelineSubscriptionChange,
+  createNativeJscEvaluationRequest,
+  createNativeJscGameStepFactoryCallRequest,
+  createNativeJscGameStepResumeRequest,
+  createNativeJscGameStepRunRequest,
+  createNativeJscModuleExportCallRequest,
+  createNativeJscPipelineListenerDispatchRequest,
+  DEFAULT_NATIVE_JSC_SANDBOX_LIMITS,
+  parseNativeJscModuleExportCallResponse,
+  validateNativeJscEvaluationRequest,
 } from '../src'
 
-describe('native QuickJS contracts', () => {
-  it('creates evaluation requests matching the Rust QuickJsEvaluationRequest wire shape', () => {
-    expect(createNativeQuickJsEvaluationRequest({
+describe('native JavaScriptCore contracts', () => {
+  it('creates evaluation requests matching the Rust JscEvaluationRequest wire shape', () => {
+    expect(createNativeJscEvaluationRequest({
       assetName: 'scripts/opening.js',
       bundleName: 'runtime.chapter.native-ui',
       packageId: 'runtime.chapter.native-ui',
@@ -41,12 +41,12 @@ describe('native QuickJS contracts', () => {
         code: 'export default function opening() {}',
         bytes: [1, 2, 3],
       },
-      limits: DEFAULT_NATIVE_QUICKJS_SANDBOX_LIMITS,
+      limits: DEFAULT_NATIVE_JSC_SANDBOX_LIMITS,
     })
   })
 
   it('allows sandbox limit overrides while preserving defaults', () => {
-    expect(createNativeQuickJsEvaluationRequest({
+    expect(createNativeJscEvaluationRequest({
       assetName: 'scripts/opening.js',
       bundleName: 'runtime.chapter.native-ui',
       packageId: 'runtime.chapter.native-ui',
@@ -57,13 +57,13 @@ describe('native QuickJS contracts', () => {
         maxModuleBytes: 1024,
       },
     }).limits).toEqual({
-      ...DEFAULT_NATIVE_QUICKJS_SANDBOX_LIMITS,
+      ...DEFAULT_NATIVE_JSC_SANDBOX_LIMITS,
       maxModuleBytes: 1024,
     })
   })
 
-  it('creates and validates package-local QuickJS module graphs', () => {
-    const request = createNativeQuickJsEvaluationRequest({
+  it('creates and validates package-local JavaScriptCore module graphs', () => {
+    const request = createNativeJscEvaluationRequest({
       assetName: 'scripts/opening.js',
       bundleName: 'runtime.chapter.native-ui',
       packageId: 'runtime.chapter.native-ui',
@@ -88,9 +88,9 @@ describe('native QuickJS contracts', () => {
       code: 'export const title = "Opening"',
       bytes: [2],
     }])
-    expect(validateNativeQuickJsEvaluationRequest(request)).toEqual({ ok: true, errors: [] })
+    expect(validateNativeJscEvaluationRequest(request)).toEqual({ ok: true, errors: [] })
 
-    expect(validateNativeQuickJsEvaluationRequest({
+    expect(validateNativeJscEvaluationRequest({
       ...request,
       moduleGraph: [{
         ...request.moduleGraph![0],
@@ -98,7 +98,7 @@ describe('native QuickJS contracts', () => {
       }],
     }).errors.map(error => error.code)).toContain('forbiddenAssetName')
 
-    expect(validateNativeQuickJsEvaluationRequest({
+    expect(validateNativeJscEvaluationRequest({
       ...request,
       moduleGraph: [{
         ...request.moduleGraph![0],
@@ -106,7 +106,7 @@ describe('native QuickJS contracts', () => {
       }],
     }).errors.map(error => error.code)).toContain('forbiddenAssetName')
 
-    expect(validateNativeQuickJsEvaluationRequest({
+    expect(validateNativeJscEvaluationRequest({
       ...request,
       moduleGraph: [{
         ...request.moduleGraph![0],
@@ -117,7 +117,7 @@ describe('native QuickJS contracts', () => {
 
   it('accepts JavaScript module assets with inert query or hash suffixes', () => {
     for (const assetName of ['scripts/opening.js?cache=1', 'scripts/opening.mjs#runtime', 'scripts/opening.cjs?cache=1#runtime']) {
-      const result = validateNativeQuickJsEvaluationRequest(createNativeQuickJsEvaluationRequest({
+      const result = validateNativeJscEvaluationRequest(createNativeJscEvaluationRequest({
         assetName,
         bundleName: 'runtime.chapter.native-ui',
         packageId: 'runtime.chapter.native-ui',
@@ -133,8 +133,8 @@ describe('native QuickJS contracts', () => {
     }
   })
 
-  it('rejects unsafe QuickJS evaluation request asset names at the wire boundary', () => {
-    const base = createNativeQuickJsEvaluationRequest({
+  it('rejects unsafe JavaScriptCore evaluation request asset names at the wire boundary', () => {
+    const base = createNativeJscEvaluationRequest({
       assetName: 'scripts/opening.js',
       bundleName: 'runtime.chapter.native-ui',
       packageId: 'runtime.chapter.native-ui',
@@ -143,7 +143,7 @@ describe('native QuickJS contracts', () => {
       bytes: new Uint8Array(),
     })
 
-    expect(validateNativeQuickJsEvaluationRequest({
+    expect(validateNativeJscEvaluationRequest({
       ...base,
       module: {
         ...base.module,
@@ -151,7 +151,7 @@ describe('native QuickJS contracts', () => {
       },
     }).errors.map(error => error.code)).toContain('missingAssetName')
 
-    expect(validateNativeQuickJsEvaluationRequest({
+    expect(validateNativeJscEvaluationRequest({
       ...base,
       module: {
         ...base.module,
@@ -159,7 +159,7 @@ describe('native QuickJS contracts', () => {
       },
     }).errors.map(error => error.code)).toContain('forbiddenAssetName')
 
-    expect(validateNativeQuickJsEvaluationRequest({
+    expect(validateNativeJscEvaluationRequest({
       ...base,
       module: {
         ...base.module,
@@ -167,7 +167,7 @@ describe('native QuickJS contracts', () => {
       },
     }).errors.map(error => error.code)).toContain('forbiddenAssetName')
 
-    expect(validateNativeQuickJsEvaluationRequest({
+    expect(validateNativeJscEvaluationRequest({
       ...base,
       module: {
         ...base.module,
@@ -175,7 +175,7 @@ describe('native QuickJS contracts', () => {
       },
     }).errors.map(error => error.code)).toContain('forbiddenNativePayload')
 
-    expect(validateNativeQuickJsEvaluationRequest({
+    expect(validateNativeJscEvaluationRequest({
       ...base,
       module: {
         ...base.module,
@@ -184,8 +184,8 @@ describe('native QuickJS contracts', () => {
     }).errors.map(error => error.code)).toContain('unsupportedModuleAsset')
   })
 
-  it('rejects QuickJS evaluation requests that exceed sandbox module byte limits', () => {
-    const request = createNativeQuickJsEvaluationRequest({
+  it('rejects JavaScriptCore evaluation requests that exceed sandbox module byte limits', () => {
+    const request = createNativeJscEvaluationRequest({
       assetName: 'scripts/opening.js',
       bundleName: 'runtime.chapter.native-ui',
       packageId: 'runtime.chapter.native-ui',
@@ -193,7 +193,7 @@ describe('native QuickJS contracts', () => {
       code: 'export const label = "序章"',
       bytes: new Uint8Array([1, 2, 3]),
     })
-    const result = validateNativeQuickJsEvaluationRequest({
+    const result = validateNativeJscEvaluationRequest({
       ...request,
       limits: {
         ...request.limits,
@@ -211,66 +211,66 @@ describe('native QuickJS contracts', () => {
   })
 
   it('unwraps successful evaluation responses and throws structured errors', () => {
-    expect(assertNativeQuickJsEvaluationResponse({
+    expect(assertNativeJscEvaluationResponse({
       ok: true,
       moduleNamespaceId: 'runtime.chapter.native-ui:scripts/opening.js',
     })).toBe('runtime.chapter.native-ui:scripts/opening.js')
 
-    expect(() => assertNativeQuickJsEvaluationResponse({
+    expect(() => assertNativeJscEvaluationResponse({
       ok: false,
       error: {
         code: 'unsupportedRuntime',
-        message: 'QuickJS host is not initialized.',
+        message: 'JavaScriptCore host is not initialized.',
         assetName: 'scripts/opening.js',
       },
-    })).toThrow('QuickJS host is not initialized.')
+    })).toThrow('JavaScriptCore host is not initialized.')
 
-    expect(() => assertNativeQuickJsEvaluationResponse({
+    expect(() => assertNativeJscEvaluationResponse({
       ok: true,
-    })).toThrow('Native QuickJS module evaluation succeeded without a module namespace id.')
+    })).toThrow('Native JavaScriptCore module evaluation succeeded without a module namespace id.')
   })
 
   it('creates and validates JSON-safe module export call requests', () => {
-    expect(createNativeQuickJsModuleExportCallRequest({
-      moduleNamespaceId: 'quickjs:rquickjs:1',
+    expect(createNativeJscModuleExportCallRequest({
+      moduleNamespaceId: 'jsc:1',
       exportName: 'default',
       args: [{ scene: 'opening' }],
     })).toEqual({
-      moduleNamespaceId: 'quickjs:rquickjs:1',
+      moduleNamespaceId: 'jsc:1',
       exportName: 'default',
       argsJson: '[{"scene":"opening"}]',
     })
 
-    expect(() => assertNativeQuickJsModuleExportCallRequest({
-      moduleNamespaceId: ' quickjs:rquickjs:1',
+    expect(() => assertNativeJscModuleExportCallRequest({
+      moduleNamespaceId: ' jsc:1',
       exportName: 'default',
       argsJson: '[]',
     })).toThrow(/moduleNamespaceId/)
 
-    expect(() => assertNativeQuickJsModuleExportCallRequest({
-      moduleNamespaceId: 'quickjs:rquickjs:1',
+    expect(() => assertNativeJscModuleExportCallRequest({
+      moduleNamespaceId: 'jsc:1',
       exportName: 'constructor',
       argsJson: '[]',
     })).toThrow(/blocked/)
 
-    expect(() => assertNativeQuickJsModuleExportCallRequest({
-      moduleNamespaceId: 'quickjs:rquickjs:1',
+    expect(() => assertNativeJscModuleExportCallRequest({
+      moduleNamespaceId: 'jsc:1',
       exportName: 'default',
       argsJson: '{"not":"array"}',
     })).toThrow(/JSON array/)
   })
 
   it('parses JSON-safe module export call responses', () => {
-    expect(parseNativeQuickJsModuleExportCallResponse({
+    expect(parseNativeJscModuleExportCallResponse({
       ok: true,
       valueJson: '{"value":5}',
     })).toEqual({ value: 5 })
 
-    expect(parseNativeQuickJsModuleExportCallResponse({
+    expect(parseNativeJscModuleExportCallResponse({
       ok: true,
     })).toBeUndefined()
 
-    expect(() => parseNativeQuickJsModuleExportCallResponse({
+    expect(() => parseNativeJscModuleExportCallResponse({
       ok: false,
       error: {
         code: 'missingExport',
@@ -280,79 +280,79 @@ describe('native QuickJS contracts', () => {
   })
 
   it('creates and validates GameStep factory and run bridge requests', () => {
-    expect(createNativeQuickJsGameStepFactoryCallRequest({
-      moduleNamespaceId: 'quickjs:rquickjs:1',
+    expect(createNativeJscGameStepFactoryCallRequest({
+      moduleNamespaceId: 'jsc:1',
       scope: { title: 'Opening' },
     })).toEqual({
-      moduleNamespaceId: 'quickjs:rquickjs:1',
+      moduleNamespaceId: 'jsc:1',
       exportName: 'default',
       scopeJson: '{"title":"Opening"}',
     })
 
-    expect(createNativeQuickJsGameStepRunRequest({
-      runHandleId: 'quickjs:rquickjs:step:1',
+    expect(createNativeJscGameStepRunRequest({
+      runHandleId: 'jsc:step:1',
       ctx: { stepId: 'intro.1' },
     })).toEqual({
-      runHandleId: 'quickjs:rquickjs:step:1',
+      runHandleId: 'jsc:step:1',
       ctxJson: '{"stepId":"intro.1"}',
     })
 
-    expect(createNativeQuickJsGameStepResumeRequest({
-      resumeHandleId: 'quickjs:rquickjs:resume:1',
+    expect(createNativeJscGameStepResumeRequest({
+      resumeHandleId: 'jsc:resume:1',
       payload: { choiceId: 'go' },
     })).toEqual({
-      resumeHandleId: 'quickjs:rquickjs:resume:1',
+      resumeHandleId: 'jsc:resume:1',
       payloadJson: '{"choiceId":"go"}',
     })
 
-    expect(() => assertNativeQuickJsGameStepFactoryCallRequest({
-      moduleNamespaceId: 'quickjs:rquickjs:1',
+    expect(() => assertNativeJscGameStepFactoryCallRequest({
+      moduleNamespaceId: 'jsc:1',
       exportName: 'constructor',
       scopeJson: '{}',
     })).toThrow(/blocked/)
 
-    expect(() => assertNativeQuickJsGameStepFactoryCallRequest({
-      moduleNamespaceId: 'quickjs:rquickjs:1',
+    expect(() => assertNativeJscGameStepFactoryCallRequest({
+      moduleNamespaceId: 'jsc:1',
       exportName: 'default',
       scopeJson: '[]',
     })).toThrow(/JSON object/)
 
-    expect(() => assertNativeQuickJsGameStepRunRequest({
-      runHandleId: ' quickjs:rquickjs:step:1',
+    expect(() => assertNativeJscGameStepRunRequest({
+      runHandleId: ' jsc:step:1',
       ctxJson: '{}',
     })).toThrow(/runHandleId/)
 
-    expect(() => assertNativeQuickJsGameStepRunRequest({
-      runHandleId: 'quickjs:rquickjs:step:1',
+    expect(() => assertNativeJscGameStepRunRequest({
+      runHandleId: 'jsc:step:1',
       ctxJson: 'null',
     })).toThrow(/JSON object/)
 
-    expect(() => assertNativeQuickJsGameStepResumeRequest({
-      resumeHandleId: ' quickjs:rquickjs:resume:1',
+    expect(() => assertNativeJscGameStepResumeRequest({
+      resumeHandleId: ' jsc:resume:1',
       payloadJson: '{}',
     })).toThrow(/resumeHandleId/)
 
-    expect(() => assertNativeQuickJsGameStepResumeRequest({
-      resumeHandleId: 'quickjs:rquickjs:resume:1',
+    expect(() => assertNativeJscGameStepResumeRequest({
+      resumeHandleId: 'jsc:resume:1',
       payloadJson: '{',
     })).toThrow(/JSON/)
   })
 
   it('unwraps GameStep factory and run responses', () => {
-    expect(assertNativeQuickJsGameStepFactoryCallResponse({
+    expect(assertNativeJscGameStepFactoryCallResponse({
       ok: true,
       steps: [{
         uuid: 'intro.1',
-        runHandleId: 'quickjs:rquickjs:step:1',
+        runHandleId: 'jsc:step:1',
         metadataJson: '{"title":"Opening"}',
       }],
     })).toEqual([{
       uuid: 'intro.1',
-      runHandleId: 'quickjs:rquickjs:step:1',
+      runHandleId: 'jsc:step:1',
       metadataJson: '{"title":"Opening"}',
     }])
 
-    expect(() => assertNativeQuickJsGameStepFactoryCallResponse({
+    expect(() => assertNativeJscGameStepFactoryCallResponse({
       ok: false,
       error: {
         code: 'invalidStepFactoryResult',
@@ -360,16 +360,16 @@ describe('native QuickJS contracts', () => {
       },
     })).toThrow('Factory did not return steps.')
 
-    expect(() => assertNativeQuickJsGameStepFactoryCallResponse({ ok: true }))
+    expect(() => assertNativeJscGameStepFactoryCallResponse({ ok: true }))
       .toThrow(/without step descriptors/)
 
-    expect(assertNativeQuickJsGameStepRunResponse({ ok: true })).toEqual({
+    expect(assertNativeJscGameStepRunResponse({ ok: true })).toEqual({
       ok: true,
       commands: [],
       pipelineSubscriptions: [],
     })
 
-    expect(assertNativeQuickJsGameStepRunResponse({
+    expect(assertNativeJscGameStepRunResponse({
       ok: true,
       commands: [{
         target: 'engine',
@@ -377,7 +377,7 @@ describe('native QuickJS contracts', () => {
         argsJson: '[[{"id":"go","text":"Go"}]]',
       }],
       pendingWait: {
-        resumeHandleId: 'quickjs:rquickjs:resume:1',
+        resumeHandleId: 'jsc:resume:1',
         event: 'user/choice_select',
       },
     })).toEqual({
@@ -388,16 +388,16 @@ describe('native QuickJS contracts', () => {
         argsJson: '[[{"id":"go","text":"Go"}]]',
       }],
       pendingWait: {
-        resumeHandleId: 'quickjs:rquickjs:resume:1',
+        resumeHandleId: 'jsc:resume:1',
         event: 'user/choice_select',
       },
       pipelineSubscriptions: [],
     })
 
-    expect(assertNativeQuickJsGameStepRunResponse({
+    expect(assertNativeJscGameStepRunResponse({
       ok: true,
       pendingTranslation: {
-        resumeHandleId: 'quickjs:rquickjs:resume:2',
+        resumeHandleId: 'jsc:resume:2',
         key: 'runtime.greeting',
         optionsJson: '{"values":{"name":"Mira"}}',
       },
@@ -405,26 +405,26 @@ describe('native QuickJS contracts', () => {
       ok: true,
       commands: [],
       pendingTranslation: {
-        resumeHandleId: 'quickjs:rquickjs:resume:2',
+        resumeHandleId: 'jsc:resume:2',
         key: 'runtime.greeting',
         optionsJson: '{"values":{"name":"Mira"}}',
       },
       pipelineSubscriptions: [],
     })
 
-    expect(assertNativeQuickJsGameStepRunResponse({
+    expect(assertNativeJscGameStepRunResponse({
       ok: true,
       pendingTranslation: {
-        resumeHandleId: 'quickjs:rquickjs:resume:3',
+        resumeHandleId: 'jsc:resume:3',
         key: 'runtime.indexed',
         optionsJson: '["Mira"]',
       },
     }).pendingTranslation?.optionsJson).toBe('["Mira"]')
 
-    expect(assertNativeQuickJsGameStepRunResponse({
+    expect(assertNativeJscGameStepRunResponse({
       ok: true,
       pendingPipelineEmit: {
-        resumeHandleId: 'quickjs:rquickjs:resume:5',
+        resumeHandleId: 'jsc:resume:5',
         event: 'plugin/custom_event',
         payloadJson: '{"ok":true}',
       },
@@ -432,17 +432,17 @@ describe('native QuickJS contracts', () => {
       ok: true,
       commands: [],
       pendingPipelineEmit: {
-        resumeHandleId: 'quickjs:rquickjs:resume:5',
+        resumeHandleId: 'jsc:resume:5',
         event: 'plugin/custom_event',
         payloadJson: '{"ok":true}',
       },
       pipelineSubscriptions: [],
     })
 
-    expect(assertNativeQuickJsGameStepRunResponse({
+    expect(assertNativeJscGameStepRunResponse({
       ok: true,
       pendingHelperCall: {
-        resumeHandleId: 'quickjs:rquickjs:resume:7',
+        resumeHandleId: 'jsc:resume:7',
         module: '@quajs/plugin-background',
         exportName: 'setBackgroundWithEngine',
         argsJson: '["bg/opening.png",{"transition":{"type":"fade"}}]',
@@ -451,7 +451,7 @@ describe('native QuickJS contracts', () => {
       ok: true,
       commands: [],
       pendingHelperCall: {
-        resumeHandleId: 'quickjs:rquickjs:resume:7',
+        resumeHandleId: 'jsc:resume:7',
         module: '@quajs/plugin-background',
         exportName: 'setBackgroundWithEngine',
         argsJson: '["bg/opening.png",{"transition":{"type":"fade"}}]',
@@ -459,81 +459,81 @@ describe('native QuickJS contracts', () => {
       pipelineSubscriptions: [],
     })
 
-    expect(assertNativeQuickJsGameStepRunResponse({
+    expect(assertNativeJscGameStepRunResponse({
       ok: true,
       pipelineSubscriptions: [{
         op: 'subscribe',
-        subscriptionId: 'quickjs:rquickjs:1:pipeline:1',
-        moduleNamespaceId: 'quickjs:rquickjs:1',
+        subscriptionId: 'jsc:1:pipeline:1',
+        moduleNamespaceId: 'jsc:1',
         event: 'plugin/custom_event',
       }],
     }).pipelineSubscriptions).toEqual([{
       op: 'subscribe',
-      subscriptionId: 'quickjs:rquickjs:1:pipeline:1',
-      moduleNamespaceId: 'quickjs:rquickjs:1',
+      subscriptionId: 'jsc:1:pipeline:1',
+      moduleNamespaceId: 'jsc:1',
       event: 'plugin/custom_event',
     }])
 
-    expect(() => assertNativeQuickJsGameStepHelperCallRequest({
-      resumeHandleId: 'quickjs:rquickjs:resume:8',
+    expect(() => assertNativeJscGameStepHelperCallRequest({
+      resumeHandleId: 'jsc:resume:8',
       module: '@quajs/plugin-background',
       exportName: 'constructor',
       argsJson: '[]',
     })).toThrow(/blocked/)
 
-    expect(() => assertNativeQuickJsGameStepHelperCallRequest({
-      resumeHandleId: 'quickjs:rquickjs:resume:9',
+    expect(() => assertNativeJscGameStepHelperCallRequest({
+      resumeHandleId: 'jsc:resume:9',
       module: ' @quajs/plugin-background',
       exportName: 'setBackgroundWithEngine',
       argsJson: '[]',
     })).toThrow(/module name/)
 
-    expect(() => assertNativeQuickJsGameStepHelperCallRequest({
-      resumeHandleId: 'quickjs:rquickjs:resume:10',
+    expect(() => assertNativeJscGameStepHelperCallRequest({
+      resumeHandleId: 'jsc:resume:10',
       module: '@quajs/plugin-background',
       exportName: 'setBackgroundWithEngine',
       argsJson: '{"not":"array"}',
     })).toThrow(/JSON array/)
 
-    expect(() => assertNativeQuickJsGameStepRunResponse({
+    expect(() => assertNativeJscGameStepRunResponse({
       ok: true,
       pendingWait: {
-        resumeHandleId: 'quickjs:rquickjs:resume:1',
+        resumeHandleId: 'jsc:resume:1',
         event: 'user/choice_select',
       },
       pendingTranslation: {
-        resumeHandleId: 'quickjs:rquickjs:resume:2',
+        resumeHandleId: 'jsc:resume:2',
         key: 'runtime.greeting',
       },
       pendingPipelineEmit: {
-        resumeHandleId: 'quickjs:rquickjs:resume:5',
+        resumeHandleId: 'jsc:resume:5',
         event: 'plugin/custom_event',
       },
       pendingHelperCall: {
-        resumeHandleId: 'quickjs:rquickjs:resume:7',
+        resumeHandleId: 'jsc:resume:7',
         module: '@quajs/plugin-background',
         exportName: 'setBackgroundWithEngine',
       },
     })).toThrow(/one pending continuation/)
 
-    expect(() => assertNativeQuickJsGameStepRunResponse({
+    expect(() => assertNativeJscGameStepRunResponse({
       ok: true,
       pendingTranslation: {
-        resumeHandleId: 'quickjs:rquickjs:resume:4',
+        resumeHandleId: 'jsc:resume:4',
         key: 'runtime.greeting',
         optionsJson: '"Mira"',
       },
     })).toThrow(/JSON object or array/)
 
-    expect(() => assertNativeQuickJsGameStepRunResponse({
+    expect(() => assertNativeJscGameStepRunResponse({
       ok: true,
       pendingPipelineEmit: {
-        resumeHandleId: 'quickjs:rquickjs:resume:6',
+        resumeHandleId: 'jsc:resume:6',
         event: ' plugin/custom_event',
       },
     })).toThrow(/event name/)
 
-    expect(() => assertNativeQuickJsGameStepRunResponse({
+    expect(() => assertNativeJscGameStepRunResponse({
       ok: false,
       error: {
         code: 'missingRunHandle',
@@ -543,37 +543,37 @@ describe('native QuickJS contracts', () => {
   })
 
   it('validates GameStep run command descriptors', () => {
-    expect(() => assertNativeQuickJsGameStepCommand({
+    expect(() => assertNativeJscGameStepCommand({
       target: 'engine',
       method: 'clearChoices',
       argsJson: '[]',
     })).not.toThrow()
 
-    expect(() => assertNativeQuickJsGameStepCommand({
+    expect(() => assertNativeJscGameStepCommand({
       target: 'engine',
       method: 'quickSave',
       argsJson: '[{"name":"Before choice"}]',
     })).not.toThrow()
 
-    expect(() => assertNativeQuickJsGameStepCommand({
+    expect(() => assertNativeJscGameStepCommand({
       target: 'engine',
       method: 'markRollbackBoundary',
       argsJson: '["no-rollback"]',
     })).not.toThrow()
 
-    expect(() => assertNativeQuickJsGameStepCommand({
+    expect(() => assertNativeJscGameStepCommand({
       target: 'pipeline' as any,
       method: 'clearChoices',
       argsJson: '[]',
     })).toThrow(/target/)
 
-    expect(() => assertNativeQuickJsGameStepCommand({
+    expect(() => assertNativeJscGameStepCommand({
       target: 'engine',
       method: 'waitFor' as any,
       argsJson: '["user/choice_select"]',
     })).toThrow(/allowlisted/)
 
-    expect(() => assertNativeQuickJsGameStepCommand({
+    expect(() => assertNativeJscGameStepCommand({
       target: 'engine',
       method: 'showChoices',
       argsJson: '{"not":"array"}',
@@ -581,8 +581,8 @@ describe('native QuickJS contracts', () => {
   })
 
   it('creates and validates pipeline listener dispatch wire payloads', () => {
-    expect(createNativeQuickJsPipelineListenerDispatchRequest({
-      subscriptionId: 'quickjs:rquickjs:1:pipeline:1',
+    expect(createNativeJscPipelineListenerDispatchRequest({
+      subscriptionId: 'jsc:1:pipeline:1',
       context: {
         event: {
           type: 'plugin/custom_event',
@@ -590,18 +590,18 @@ describe('native QuickJS contracts', () => {
         },
       },
     })).toEqual({
-      subscriptionId: 'quickjs:rquickjs:1:pipeline:1',
+      subscriptionId: 'jsc:1:pipeline:1',
       contextJson: '{"event":{"type":"plugin/custom_event","payload":{"value":42}}}',
     })
 
-    expect(() => assertNativeQuickJsPipelineSubscriptionChange({
+    expect(() => assertNativeJscPipelineSubscriptionChange({
       op: 'subscribe',
-      subscriptionId: 'quickjs:rquickjs:1:pipeline:1',
-      moduleNamespaceId: 'quickjs:rquickjs:1',
+      subscriptionId: 'jsc:1:pipeline:1',
+      moduleNamespaceId: 'jsc:1',
       event: 'plugin/custom_event',
     })).not.toThrow()
 
-    expect(assertNativeQuickJsPipelineListenerDispatchResponse({
+    expect(assertNativeJscPipelineListenerDispatchResponse({
       ok: true,
       commands: [{
         target: 'engine',
@@ -610,8 +610,8 @@ describe('native QuickJS contracts', () => {
       }],
       pipelineSubscriptions: [{
         op: 'unsubscribe',
-        subscriptionId: 'quickjs:rquickjs:1:pipeline:1',
-        moduleNamespaceId: 'quickjs:rquickjs:1',
+        subscriptionId: 'jsc:1:pipeline:1',
+        moduleNamespaceId: 'jsc:1',
         event: 'plugin/custom_event',
       }],
     })).toEqual({
@@ -623,26 +623,26 @@ describe('native QuickJS contracts', () => {
       }],
       pipelineSubscriptions: [{
         op: 'unsubscribe',
-        subscriptionId: 'quickjs:rquickjs:1:pipeline:1',
-        moduleNamespaceId: 'quickjs:rquickjs:1',
+        subscriptionId: 'jsc:1:pipeline:1',
+        moduleNamespaceId: 'jsc:1',
         event: 'plugin/custom_event',
       }],
     })
 
-    expect(() => assertNativeQuickJsPipelineSubscriptionChange({
+    expect(() => assertNativeJscPipelineSubscriptionChange({
       op: 'replace' as any,
-      subscriptionId: 'quickjs:rquickjs:1:pipeline:1',
-      moduleNamespaceId: 'quickjs:rquickjs:1',
+      subscriptionId: 'jsc:1:pipeline:1',
+      moduleNamespaceId: 'jsc:1',
       event: 'plugin/custom_event',
     })).toThrow(/subscribe.*unsubscribe/)
 
-    expect(() => assertNativeQuickJsPipelineListenerDispatchRequest({
-      subscriptionId: ' quickjs:rquickjs:1:pipeline:1',
+    expect(() => assertNativeJscPipelineListenerDispatchRequest({
+      subscriptionId: ' jsc:1:pipeline:1',
       contextJson: '{}',
     })).toThrow(/subscriptionId/)
 
-    expect(() => assertNativeQuickJsPipelineListenerDispatchRequest({
-      subscriptionId: 'quickjs:rquickjs:1:pipeline:1',
+    expect(() => assertNativeJscPipelineListenerDispatchRequest({
+      subscriptionId: 'jsc:1:pipeline:1',
       contextJson: '[]',
     })).toThrow(/JSON object/)
   })

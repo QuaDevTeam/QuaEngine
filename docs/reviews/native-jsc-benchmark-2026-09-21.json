@@ -1,0 +1,73 @@
+{
+  "profile": "dev (unoptimized + debuginfo)",
+  "host": "macOS arm64, Apple M4",
+  "fixture": "quajs_native_runtime/examples/jsc_performance.rs",
+  "before": {
+    "backend": "rquickjs",
+    "samples": [
+      {
+        "sample": 0,
+        "step_us": 31.317,
+        "projection_32k_us": 91.887
+      },
+      {
+        "sample": 1,
+        "step_us": 31.756,
+        "projection_32k_us": 91.832
+      },
+      {
+        "sample": 2,
+        "step_us": 30.962,
+        "projection_32k_us": 90.182
+      },
+      {
+        "sample": 3,
+        "step_us": 31.002,
+        "projection_32k_us": 91.61
+      },
+      {
+        "sample": 4,
+        "step_us": 33.263,
+        "projection_32k_us": 99.963
+      }
+    ],
+    "median": {
+      "step_us": 31.317,
+      "projection_32k_us": 91.832
+    }
+  },
+  "after": {
+    "backend": "JavaScriptCore",
+    "samples": [
+      {
+        "sample": 0,
+        "step_us": 21.911,
+        "projection_32k_us": 38.381
+      },
+      {
+        "sample": 1,
+        "step_us": 20.469,
+        "projection_32k_us": 36.458
+      },
+      {
+        "sample": 2,
+        "step_us": 20.013,
+        "projection_32k_us": 36.062
+      },
+      {
+        "sample": 3,
+        "step_us": 19.777,
+        "projection_32k_us": 34.903
+      },
+      {
+        "sample": 4,
+        "step_us": 19.58,
+        "projection_32k_us": 36.456
+      }
+    ],
+    "median": {
+      "step_us": 20.013,
+      "projection_32k_us": 36.456
+    }
+  }
+}

@@ -1,10 +1,11 @@
+import type { NativeJscPipelineBridge, NativeJscRendererIntentBridge } from '@quajs/engine-native'
+import type { DemoNativeSession } from './session'
 import {
-  resolveNativeQuickJsPipelineBridge,
-  resolveNativeQuickJsRendererIntentBridge,
-  type NativeQuickJsPipelineBridge,
-  type NativeQuickJsRendererIntentBridge,
+
+  resolveNativeJscPipelineBridge,
+  resolveNativeJscRendererIntentBridge,
 } from '@quajs/engine-native'
-import { createDemoNativeSession, type DemoNativeSession } from './session'
+import { createDemoNativeSession } from './session'
 
 let session: DemoNativeSession | undefined
 let disposePipelineBridge: (() => void) | undefined
@@ -39,18 +40,18 @@ export async function destroy(): Promise<void> {
   await activeSession?.destroy()
 }
 
-function requirePipelineBridge(): NativeQuickJsPipelineBridge {
-  const bridge = resolveNativeQuickJsPipelineBridge()
+function requirePipelineBridge(): NativeJscPipelineBridge {
+  const bridge = resolveNativeJscPipelineBridge()
   if (!bridge) {
-    throw new Error('Native QuickJS pipeline bridge is unavailable.')
+    throw new Error('Native JavaScriptCore pipeline bridge is unavailable.')
   }
   return bridge
 }
 
-function requireRendererBridge(): NativeQuickJsRendererIntentBridge {
-  const bridge = resolveNativeQuickJsRendererIntentBridge()
+function requireRendererBridge(): NativeJscRendererIntentBridge {
+  const bridge = resolveNativeJscRendererIntentBridge()
   if (!bridge) {
-    throw new Error('Native QuickJS renderer intent bridge is unavailable.')
+    throw new Error('Native JavaScriptCore renderer intent bridge is unavailable.')
   }
   return bridge
 }

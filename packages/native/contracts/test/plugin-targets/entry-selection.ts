@@ -27,10 +27,10 @@ describe('target plugin manifest entry selection', () => {
       manifest: createPluginManifest({
         entries: [
           { specifier: '@quajs/plugin-gallery/shared', target: 'shared' },
-          { specifier: '@quajs/plugin-gallery/native', target: 'desktop-native' as any },
+          { specifier: '@quajs/plugin-gallery/surface', target: 'desktop-native' as any },
         ],
       }),
-      selectedEntries: ['@quajs/plugin-gallery/native'],
+      selectedEntries: ['@quajs/plugin-gallery/surface'],
     })
 
     expect(result.ok).toBe(false)
@@ -38,7 +38,7 @@ describe('target plugin manifest entry selection', () => {
       expect.objectContaining({
         code: 'TARGET_PLUGIN_ENTRY_TARGET_INVALID',
         target: 'native',
-        specifier: '@quajs/plugin-gallery/native',
+        specifier: '@quajs/plugin-gallery/surface',
         entryTarget: 'desktop-native',
       }),
     ]))

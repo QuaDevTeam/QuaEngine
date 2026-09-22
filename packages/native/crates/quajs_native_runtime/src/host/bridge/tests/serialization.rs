@@ -1,11 +1,11 @@
 use crate::host::bridge::{
     NativeAssetReadRequest, NativeHostApiRequest, NativeHostApiResponse,
-    NativeHostApiResponsePayload, NativeQuickJsReleaseNamespaceRequest,
-    NativeQuickJsReleasePackageRequest, NativeRendererIntent,
+    NativeHostApiResponsePayload, NativeJscReleaseNamespaceRequest, NativeJscReleasePackageRequest,
+    NativeRendererIntent,
 };
-use crate::quickjs::{QuickJsModuleExportCallRequest, QuickJsModuleExportCallResponse};
+use crate::jsc::{JscModuleExportCallRequest, JscModuleExportCallResponse};
 
-use super::helpers::quickjs_request_for_asset;
+use super::helpers::jsc_request_for_asset;
 
 #[test]
 fn serializes_bridge_requests_and_responses_with_ts_field_names() {
@@ -28,66 +28,58 @@ fn serializes_bridge_requests_and_responses_with_ts_field_names() {
     assert_eq!(response_json["payload"]["type"], "storageKeys");
     assert_eq!(response_json["payload"]["value"][0], "profile/save-1");
 
-    let quickjs_request = NativeHostApiRequest::EvaluateQuickJsModule(quickjs_request_for_asset(
-        "scripts/opening.js",
-    ));
-    let quickjs_json = serde_json::to_value(quickjs_request).unwrap();
-    assert_eq!(quickjs_json["method"], "evaluateQuickJsModule");
+    let jsc_request =
+        NativeHostApiRequest::EvaluateJscModule(jsc_request_for_asset("scripts/opening.js"));
+    let jsc_json = serde_json::to_value(jsc_request).unwrap();
+    assert_eq!(jsc_json["method"], "evaluateJscModule");
     assert_eq!(
-        quickjs_json["params"]["module"]["assetName"],
+        jsc_json["params"]["module"]["assetName"],
         "scripts/opening.js"
     );
 
-    let call_export = serde_json::to_value(NativeHostApiRequest::CallQuickJsModuleExport(
-        QuickJsModuleExportCallRequest {
-            module_namespace_id: "quickjs:rquickjs:1".to_string(),
+    let call_export = serde_json::to_value(NativeHostApiRequest::CallJscModuleExport(
+        JscModuleExportCallRequest {
+            module_namespace_id: "jsc:1".to_string(),
             export_name: "default".to_string(),
             args_json: Some("[{\"scene\":\"opening\"}]".to_string()),
         },
     ))
     .unwrap();
-    assert_eq!(call_export["method"], "callQuickJsModuleExport");
-    assert_eq!(
-        call_export["params"]["moduleNamespaceId"],
-        "quickjs:rquickjs:1"
-    );
+    assert_eq!(call_export["method"], "callJscModuleExport");
+    assert_eq!(call_export["params"]["moduleNamespaceId"], "jsc:1");
     assert_eq!(call_export["params"]["exportName"], "default");
 
     let call_response = serde_json::to_value(NativeHostApiResponse::success(
-        NativeHostApiResponsePayload::QuickJsExportCall(QuickJsModuleExportCallResponse::success(
-            Some("{\"ok\":true}".to_string()),
-        )),
+        NativeHostApiResponsePayload::JscExportCall(JscModuleExportCallResponse::success(Some(
+            "{\"ok\":true}".to_string(),
+        ))),
     ))
     .unwrap();
-    assert_eq!(call_response["payload"]["type"], "quickJsExportCall");
+    assert_eq!(call_response["payload"]["type"], "jscExportCall");
     assert_eq!(
         call_response["payload"]["value"]["valueJson"],
         "{\"ok\":true}"
     );
 
-    let release_namespace = serde_json::to_value(
-        NativeHostApiRequest::ReleaseQuickJsModuleNamespace(NativeQuickJsReleaseNamespaceRequest {
-            module_namespace_id: "quickjs:module:1".to_string(),
+    let release_namespace = serde_json::to_value(NativeHostApiRequest::ReleaseJscModuleNamespace(
+        NativeJscReleaseNamespaceRequest {
+            module_namespace_id: "jsc:module:1".to_string(),
+        },
+    ))
+    .unwrap();
+    assert_eq!(release_namespace["method"], "releaseJscModuleNamespace");
+    assert_eq!(
+        release_namespace["params"]["moduleNamespaceId"],
+        "jsc:module:1"
+    );
+
+    let package_summary = serde_json::to_value(
+        NativeHostApiRequest::GetJscPackageNamespaceSummary(NativeJscReleasePackageRequest {
+            package_id: "runtime.chapter.native-ui".to_string(),
         }),
     )
     .unwrap();
-    assert_eq!(release_namespace["method"], "releaseQuickJsModuleNamespace");
-    assert_eq!(
-        release_namespace["params"]["moduleNamespaceId"],
-        "quickjs:module:1"
-    );
-
-    let package_summary =
-        serde_json::to_value(NativeHostApiRequest::GetQuickJsPackageNamespaceSummary(
-            NativeQuickJsReleasePackageRequest {
-                package_id: "runtime.chapter.native-ui".to_string(),
-            },
-        ))
-        .unwrap();
-    assert_eq!(
-        package_summary["method"],
-        "getQuickJsPackageNamespaceSummary"
-    );
+    assert_eq!(package_summary["method"], "getJscPackageNamespaceSummary");
     assert_eq!(
         package_summary["params"]["packageId"],
         "runtime.chapter.native-ui"

@@ -55,18 +55,18 @@ describe('target bundle native metadata validation', () => {
 
   it('creates native runtime manifest metadata from host runtime info', () => {
     expect(nativeRuntimeInfo()).toEqual({
-      quickjsVersion: '2025-04-26',
+      jscVersion: '2025-04-26',
       nativeRuntimeVersion: '0.1.0',
       assetAdapterVersion: '0.1.0',
       storeAdapterVersion: '0.1.0',
     })
     expect(createTargetBundleNativeRuntimeInfo({
-      quickjsVersion: 'unsupported',
+      jscVersion: 'unsupported',
       nativeRuntimeVersion: '0.2.0',
       assetAdapterVersion: '0.3.0',
       storeAdapterVersion: '0.4.0',
     })).toEqual({
-      quickjsVersion: 'unsupported',
+      jscVersion: 'unsupported',
       nativeRuntimeVersion: '0.2.0',
       assetAdapterVersion: '0.3.0',
       storeAdapterVersion: '0.4.0',
@@ -87,7 +87,7 @@ describe('target bundle native metadata validation', () => {
     ]))
   })
 
-  it('requires native artifacts to record native runtime, QuickJS, asset adapter, and store adapter metadata', () => {
+  it('requires native artifacts to record native runtime, JavaScriptCore, asset adapter, and store adapter metadata', () => {
     const manifest = targetBundleManifest()
     delete manifest.nativeRuntime
     const result = validateTargetBundleManifest(manifest)
@@ -182,7 +182,7 @@ describe('target bundle native metadata validation', () => {
   it('rejects incomplete native runtime metadata on native artifacts', () => {
     const result = validateTargetBundleManifest(targetBundleManifest({
       nativeRuntime: {
-        quickjsVersion: '',
+        jscVersion: '',
         nativeRuntimeVersion: 42,
       } as unknown as NonNullable<TargetBundleManifest['nativeRuntime']>,
     }))
@@ -191,7 +191,7 @@ describe('target bundle native metadata validation', () => {
     expect(result.diagnostics).toEqual(expect.arrayContaining([
       expect.objectContaining({
         code: 'TARGET_BUNDLE_NATIVE_RUNTIME_FIELD_EMPTY',
-        field: 'quickjsVersion',
+        field: 'jscVersion',
       }),
       expect.objectContaining({
         code: 'TARGET_BUNDLE_NATIVE_RUNTIME_FIELD_INVALID',

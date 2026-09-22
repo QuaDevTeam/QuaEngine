@@ -1,10 +1,10 @@
-//! Reproducible in-process bridge costs; run with --features quickjs-rquickjs.
+//! Reproducible in-process bridge costs; run with --features javascriptcore.
 //! This measures bridge work, not a full game's frame rate.
 use quajs_native_runtime::*;
 use std::time::Instant;
 
 fn main() {
-    let mut evaluator = RquickJsModuleEvaluator::new().unwrap();
+    let mut evaluator = JavaScriptCoreEvaluator::new().unwrap();
     let code = r#"
         export default function story() {
             return [{ uuid: 'bench.dialogue', async run(ctx) {
@@ -17,23 +17,23 @@ fn main() {
         }
     "#;
     let namespace = evaluator
-        .evaluate_module(&QuickJsEvaluationRequest {
-            module: QuickJsRuntimeModuleRecord {
+        .evaluate_module(&JscEvaluationRequest {
+            module: JscRuntimeModuleRecord {
                 asset_name: "scripts/performance.js".into(),
                 bundle_name: "benchmark".into(),
                 package_id: "benchmark".into(),
-                kind: QuickJsRuntimeModuleKind::Script,
+                kind: JscRuntimeModuleKind::Script,
                 code: code.into(),
                 bytes: code.as_bytes().to_vec(),
             },
             module_graph: vec![],
-            limits: QuickJsSandboxLimits::default(),
+            limits: JscSandboxLimits::default(),
         })
         .unwrap()
         .module_namespace_id
         .unwrap();
     let steps = evaluator
-        .call_game_step_factory(&QuickJsGameStepFactoryCallRequest {
+        .call_game_step_factory(&JscGameStepFactoryCallRequest {
             module_namespace_id: namespace.clone(),
             export_name: "default".into(),
             scope_json: None,
@@ -41,11 +41,11 @@ fn main() {
         .unwrap()
         .steps
         .unwrap();
-    let request = QuickJsGameStepRunRequest {
+    let request = JscGameStepRunRequest {
         run_handle_id: steps[0].run_handle_id.clone(),
         ctx_json: None,
     };
-    let projection = QuickJsModuleExportCallRequest {
+    let projection = JscModuleExportCallRequest {
         module_namespace_id: namespace,
         export_name: "project".into(),
         args_json: None,

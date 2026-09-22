@@ -35,7 +35,7 @@ describe('native runtime package guard target core isolation', () => {
     const result = checkNativeRuntimePackageGuard({
       package: createRuntimePackage({
         rendererEntries: [
-          '@quajs/plugin-gallery/native',
+          '@quajs/plugin-gallery/surface',
           '@quajs/renderer-cocos/plugins/dialogue',
           { specifier: '@quajs/assets-native/runtime' },
         ],

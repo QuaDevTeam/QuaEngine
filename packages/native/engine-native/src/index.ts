@@ -1,21 +1,26 @@
+export { createNativeAssetPreloadProjection } from './asset-preload'
+export type { NativeAssetPreloadOptions } from './asset-preload'
 export {
   assertNativeRuntimePackageCompatibility,
   checkNativeRuntimePackageCompatibility,
 } from './compatibility'
 export type { NativeRuntimePackageCompatibilityInput } from './compatibility'
 export {
-  createNativeRendererFeatureSurfaceOverlays,
-  resolveNativeRendererFeatureIntent,
-} from './feature-surfaces'
+  installNativeJscPipelineBridge,
+  resolveNativeJscPipelineBridge,
+} from './jsc-pipeline-bridge'
 export type {
-  NativeRendererFeatureIntentAction,
-  NativeRendererFeatureJsonRecord,
-  NativeRendererFeatureSurfaceContext,
-  NativeRendererFeatureSurfaceEntry,
-  NativeRendererFeatureSurfaceOverlay,
-  NativeRendererFeatureSurfaceRect,
-  ResolvedNativeRendererFeatureIntent,
-} from './feature-surfaces'
+  NativeJscPipelineBridge,
+  NativeJscPipelineBridgeOptions,
+} from './jsc-pipeline-bridge'
+export {
+  installNativeJscRendererIntentBridge,
+  resolveNativeJscRendererIntentBridge,
+} from './jsc-renderer-bridge'
+export type {
+  NativeJscRendererIntentBridge,
+  NativeJscRendererIntentSubscriptionOptions,
+} from './jsc-renderer-bridge'
 export {
   NativeHostPlugin,
   readNativeHostInfo,
@@ -30,22 +35,6 @@ export {
   checkNativeTargetBootstrap,
   checkNativeTargetBundleManifest,
 } from './native-manifest-validation'
-export {
-  installNativeQuickJsPipelineBridge,
-  resolveNativeQuickJsPipelineBridge,
-} from './quickjs-pipeline-bridge'
-export type {
-  NativeQuickJsPipelineBridge,
-  NativeQuickJsPipelineBridgeOptions,
-} from './quickjs-pipeline-bridge'
-export {
-  installNativeQuickJsRendererIntentBridge,
-  resolveNativeQuickJsRendererIntentBridge,
-} from './quickjs-renderer-bridge'
-export type {
-  NativeQuickJsRendererIntentBridge,
-  NativeQuickJsRendererIntentSubscriptionOptions,
-} from './quickjs-renderer-bridge'
 export {
   createNativeRendererJsonFrameInput,
   createNativeRendererViewProjection,
@@ -81,36 +70,36 @@ export type {
   NativeRuntimeAdaptersOptions,
 } from './runtime-adapters'
 export {
-  callNativeQuickJsGameStepFactory,
-  callNativeQuickJsGameStepRun,
-  callNativeQuickJsModuleExport,
-  callNativeQuickJsPipelineListenerDispatch,
-  createNativeHostQuickJsGameStepModuleNamespaceResolver,
-  createNativeHostQuickJsJsonModuleNamespaceResolver,
-  createNativeHostQuickJsModuleEvaluator,
-  createNativeQuickJsGameStepFactoryFunction,
-  createNativeQuickJsHelperCallExecutor,
-  createNativeQuickJsJsonExportFunction,
-  createNativeQuickJsPipelineSubscriptionBridge,
+  callNativeJscGameStepFactory,
+  callNativeJscGameStepRun,
+  callNativeJscModuleExport,
+  callNativeJscPipelineListenerDispatch,
+  createNativeHostJscGameStepModuleNamespaceResolver,
+  createNativeHostJscJsonModuleNamespaceResolver,
+  createNativeHostJscModuleEvaluator,
+  createNativeJscGameStepFactoryFunction,
+  createNativeJscHelperCallExecutor,
+  createNativeJscJsonExportFunction,
+  createNativeJscPipelineSubscriptionBridge,
   createNativeRuntimeModuleLoader,
-  executeNativeQuickJsGameStepCommand,
-  executeNativeQuickJsGameStepHelperCall,
-  getNativeQuickJsNamespaceSummary,
-  getNativeQuickJsPackageNamespaceSummary,
-  releaseNativeQuickJsModuleNamespace,
-  releaseNativeQuickJsPackageNamespaces,
+  executeNativeJscGameStepCommand,
+  executeNativeJscGameStepHelperCall,
+  getNativeJscNamespaceSummary,
+  getNativeJscPackageNamespaceSummary,
+  releaseNativeJscModuleNamespace,
+  releaseNativeJscPackageNamespaces,
 } from './runtime-module-loader'
 export type {
-  NativeQuickJsGameStepFactoryFunction,
-  NativeQuickJsHelperCallExecutor,
-  NativeQuickJsHelperFunction,
-  NativeQuickJsHelperModuleRegistry,
-  NativeQuickJsJsonExportFunction,
-  NativeQuickJsModuleNamespaceResolver,
-  NativeQuickJsPipelineListenerDispatcher,
-  NativeQuickJsPipelineSubscriptionBridge,
-  NativeQuickJsStepCommandExecutor,
-  NativeQuickJsStepContextSerializer,
+  NativeJscGameStepFactoryFunction,
+  NativeJscHelperCallExecutor,
+  NativeJscHelperFunction,
+  NativeJscHelperModuleRegistry,
+  NativeJscJsonExportFunction,
+  NativeJscModuleNamespaceResolver,
+  NativeJscPipelineListenerDispatcher,
+  NativeJscPipelineSubscriptionBridge,
+  NativeJscStepCommandExecutor,
+  NativeJscStepContextSerializer,
   NativeRuntimeModuleEvaluationContext,
   NativeRuntimeModuleEvaluator,
   NativeRuntimeModuleKind,

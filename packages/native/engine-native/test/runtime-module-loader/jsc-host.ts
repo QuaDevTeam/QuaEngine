@@ -2,26 +2,26 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   createHost,
   createModuleLoadContext,
-  createNativeHostQuickJsGameStepModuleNamespaceResolver,
-  createNativeHostQuickJsJsonModuleNamespaceResolver,
-  createNativeHostQuickJsModuleEvaluator,
-  createNativeQuickJsGameStepFactoryFunction,
-  createNativeQuickJsJsonExportFunction,
-  createNativeQuickJsPipelineSubscriptionBridge,
+  createNativeHostJscGameStepModuleNamespaceResolver,
+  createNativeHostJscJsonModuleNamespaceResolver,
+  createNativeHostJscModuleEvaluator,
+  createNativeJscGameStepFactoryFunction,
+  createNativeJscJsonExportFunction,
+  createNativeJscPipelineSubscriptionBridge,
   createNativeRuntimeAdapters,
   createNativeRuntimeModuleLoader,
-  executeNativeQuickJsGameStepCommand,
-  executeNativeQuickJsGameStepHelperCall,
+  executeNativeJscGameStepCommand,
+  executeNativeJscGameStepHelperCall,
 } from './helpers'
 
-describe('@quajs/engine-native runtime module loader QuickJS host bridge', () => {
-  it('can evaluate native runtime modules through the host QuickJS bridge with an explicit namespace resolver', async () => {
+describe('@quajs/engine-native runtime module loader JavaScriptCore host bridge', () => {
+  it('can evaluate native runtime modules through the host JavaScriptCore bridge with an explicit namespace resolver', async () => {
     const { ctx } = createModuleLoadContext({
       'scripts/opening.js': 'export default function opening() {}',
     })
     const host = {
       ...createHost(),
-      evaluateQuickJsModule: vi.fn(async request => ({
+      evaluateJscModule: vi.fn(async request => ({
         ok: true,
         moduleNamespaceId: `${request.module.packageId}:${request.module.assetName}`,
       })),
@@ -43,7 +43,7 @@ describe('@quajs/engine-native runtime module loader QuickJS host bridge', () =>
       default: 'runtime.chapter.native-ui:scripts/opening.js',
       assetName: 'scripts/opening.js',
     })
-    expect(host.evaluateQuickJsModule).toHaveBeenCalledWith(expect.objectContaining({
+    expect(host.evaluateJscModule).toHaveBeenCalledWith(expect.objectContaining({
       module: expect.objectContaining({
         assetName: 'scripts/opening.js',
         code: 'export default function opening() {}',
@@ -57,9 +57,9 @@ describe('@quajs/engine-native runtime module loader QuickJS host bridge', () =>
     ])
   })
 
-  it('requires native host QuickJS evaluation and a real module namespace object', async () => {
+  it('requires native host JavaScriptCore evaluation and a real module namespace object', async () => {
     const { ctx } = createModuleLoadContext()
-    const evaluator = createNativeHostQuickJsModuleEvaluator(createHost(), () => ({ default: undefined }))
+    const evaluator = createNativeHostJscModuleEvaluator(createHost(), () => ({ default: undefined }))
     const loader = createNativeRuntimeModuleLoader({ evaluator })
 
     await expect(loader.loadScriptModule?.({
@@ -67,37 +67,37 @@ describe('@quajs/engine-native runtime module loader QuickJS host bridge', () =>
       packageId: 'runtime.chapter.native-ui',
       bundleName: 'runtime.chapter.native-ui',
       assetName: 'scripts/opening.js',
-    }, ctx)).rejects.toThrow(/does not provide QuickJS module evaluation/)
+    }, ctx)).rejects.toThrow(/does not provide JavaScriptCore module evaluation/)
 
     const failingHost = {
       ...createHost(),
-      evaluateQuickJsModule: vi.fn(async () => ({
+      evaluateJscModule: vi.fn(async () => ({
         ok: false,
         error: {
           code: 'evaluationFailed' as const,
-          message: 'QuickJS failed.',
+          message: 'JavaScriptCore failed.',
         },
       })),
     }
     const failingLoader = createNativeRuntimeModuleLoader({
-      evaluator: createNativeHostQuickJsModuleEvaluator(failingHost, () => ({ default: undefined })),
+      evaluator: createNativeHostJscModuleEvaluator(failingHost, () => ({ default: undefined })),
     })
     await expect(failingLoader.loadScriptModule?.({
       id: 'opening',
       packageId: 'runtime.chapter.native-ui',
       bundleName: 'runtime.chapter.native-ui',
       assetName: 'scripts/opening.js',
-    }, ctx)).rejects.toThrow(/QuickJS failed/)
+    }, ctx)).rejects.toThrow(/JavaScriptCore failed/)
 
     const nonObjectHost = {
       ...createHost(),
-      evaluateQuickJsModule: vi.fn(async () => ({
+      evaluateJscModule: vi.fn(async () => ({
         ok: true,
         moduleNamespaceId: 'runtime.chapter.native-ui:scripts/opening.js',
       })),
     }
     const nonObjectLoader = createNativeRuntimeModuleLoader({
-      evaluator: createNativeHostQuickJsModuleEvaluator(nonObjectHost, () => undefined),
+      evaluator: createNativeHostJscModuleEvaluator(nonObjectHost, () => undefined),
     })
     await expect(nonObjectLoader.loadScriptModule?.({
       id: 'opening',
@@ -107,15 +107,15 @@ describe('@quajs/engine-native runtime module loader QuickJS host bridge', () =>
     }, ctx)).rejects.toThrow(/did not evaluate to a module namespace object/)
   })
 
-  it('validates QuickJS evaluation requests before calling the native host', async () => {
+  it('validates JavaScriptCore evaluation requests before calling the native host', async () => {
     const host = {
       ...createHost(),
-      evaluateQuickJsModule: vi.fn(async () => ({
+      evaluateJscModule: vi.fn(async () => ({
         ok: true,
         moduleNamespaceId: 'runtime.chapter.native-ui:scripts/opening.js',
       })),
     }
-    const evaluator = createNativeHostQuickJsModuleEvaluator(host, () => ({ default: undefined }))
+    const evaluator = createNativeHostJscModuleEvaluator(host, () => ({ default: undefined }))
 
     await expect(evaluator({
       assetName: '../escape.js',
@@ -138,25 +138,23 @@ describe('@quajs/engine-native runtime module loader QuickJS host bridge', () =>
           bytes: [],
         },
         limits: {
-          maxExecutionTicks: 1_000_000,
-          maxHeapBytes: 64 * 1024 * 1024,
+          maxExecutionTimeMs: 1_000,
           maxModuleBytes: 4 * 1024 * 1024,
-          maxStackBytes: 2 * 1024 * 1024,
         },
       },
     })).rejects.toThrow(/must be package-relative/)
 
-    expect(host.evaluateQuickJsModule).not.toHaveBeenCalled()
+    expect(host.evaluateJscModule).not.toHaveBeenCalled()
   })
 
-  it('loads declared package-local QuickJS module graph imports from QPK script assets', async () => {
+  it('loads declared package-local JavaScriptCore module graph imports from QPK script assets', async () => {
     const { ctx } = createModuleLoadContext({
       'scripts/opening.js': 'import { helper } from "./helper.js"; export default helper',
       'scripts/helper.js': 'export const helper = []',
     })
     const host = {
       ...createHost(),
-      evaluateQuickJsModule: vi.fn(async request => ({
+      evaluateJscModule: vi.fn(async request => ({
         ok: true,
         moduleNamespaceId: `${request.module.packageId}:${request.module.assetName}`,
       })),
@@ -173,13 +171,13 @@ describe('@quajs/engine-native runtime module loader QuickJS host bridge', () =>
       bundleName: 'runtime.chapter.native-ui',
       assetName: 'scripts/opening.js',
       metadata: {
-        nativeQuickJs: {
+        nativeJsc: {
           imports: ['scripts/helper.js'],
         },
       },
     }, ctx)
 
-    expect(host.evaluateQuickJsModule).toHaveBeenCalledWith(expect.objectContaining({
+    expect(host.evaluateJscModule).toHaveBeenCalledWith(expect.objectContaining({
       moduleGraph: [{
         assetName: 'scripts/helper.js',
         bundleName: 'runtime.chapter.native-ui',
@@ -191,13 +189,13 @@ describe('@quajs/engine-native runtime module loader QuickJS host bridge', () =>
     }))
   })
 
-  it('rejects unsafe declared QuickJS module graph imports before host evaluation', async () => {
+  it('rejects unsafe declared JavaScriptCore module graph imports before host evaluation', async () => {
     const { ctx } = createModuleLoadContext({
       'scripts/opening.js': 'export default []',
     })
     const host = {
       ...createHost(),
-      evaluateQuickJsModule: vi.fn(async request => ({
+      evaluateJscModule: vi.fn(async request => ({
         ok: true,
         moduleNamespaceId: `${request.module.packageId}:${request.module.assetName}`,
       })),
@@ -214,19 +212,19 @@ describe('@quajs/engine-native runtime module loader QuickJS host bridge', () =>
       bundleName: 'runtime.chapter.native-ui',
       assetName: 'scripts/opening.js',
       metadata: {
-        nativeQuickJs: {
+        nativeJsc: {
           imports: ['../escape.js'],
         },
       },
     }, ctx)).rejects.toThrow(/must be a package-relative script asset/)
 
-    expect(host.evaluateQuickJsModule).not.toHaveBeenCalled()
+    expect(host.evaluateJscModule).not.toHaveBeenCalled()
   })
 
-  it('creates JSON-safe export proxy functions over native QuickJS namespace handles', async () => {
+  it('creates JSON-safe export proxy functions over native JavaScriptCore namespace handles', async () => {
     const host = {
       ...createHost(),
-      callQuickJsModuleExport: vi.fn(async request => ({
+      callJscModuleExport: vi.fn(async request => ({
         ok: true,
         valueJson: JSON.stringify({
           namespace: request.moduleNamespaceId,
@@ -236,37 +234,37 @@ describe('@quajs/engine-native runtime module loader QuickJS host bridge', () =>
       })),
     }
 
-    const callDefault = createNativeQuickJsJsonExportFunction(host, 'quickjs:rquickjs:1', 'default')
+    const callDefault = createNativeJscJsonExportFunction(host, 'jsc:1', 'default')
     await expect(callDefault({ scene: 'opening' })).resolves.toEqual({
-      namespace: 'quickjs:rquickjs:1',
+      namespace: 'jsc:1',
       exportName: 'default',
       args: [{ scene: 'opening' }],
     })
 
-    const resolver = createNativeHostQuickJsJsonModuleNamespaceResolver(host)
-    const namespace = await resolver('quickjs:rquickjs:2', {} as any, {
+    const resolver = createNativeHostJscJsonModuleNamespaceResolver(host)
+    const namespace = await resolver('jsc:2', {} as any, {
       ok: true,
-      moduleNamespaceId: 'quickjs:rquickjs:2',
+      moduleNamespaceId: 'jsc:2',
     }) as Record<string, unknown>
 
     expect('default' in namespace).toBe(true)
     expect(typeof namespace.default).toBe('function')
     await expect((namespace.default as (...args: unknown[]) => Promise<unknown>)('hello')).resolves.toEqual({
-      namespace: 'quickjs:rquickjs:2',
+      namespace: 'jsc:2',
       exportName: 'default',
       args: ['hello'],
     })
-    expect(host.callQuickJsModuleExport).toHaveBeenCalledWith({
-      moduleNamespaceId: 'quickjs:rquickjs:2',
+    expect(host.callJscModuleExport).toHaveBeenCalledWith({
+      moduleNamespaceId: 'jsc:2',
       exportName: 'default',
       argsJson: '["hello"]',
     })
   })
 
-  it('creates GameStep factories over native QuickJS step handles', async () => {
+  it('creates GameStep factories over native JavaScriptCore step handles', async () => {
     const host = {
       ...createHost(),
-      callQuickJsGameStepFactory: vi.fn(async request => ({
+      callJscGameStepFactory: vi.fn(async request => ({
         ok: true,
         steps: [{
           uuid: 'intro.1',
@@ -277,7 +275,7 @@ describe('@quajs/engine-native runtime module loader QuickJS host bridge', () =>
           }),
         }],
       })),
-      callQuickJsGameStepRun: vi.fn(async () => ({
+      callJscGameStepRun: vi.fn(async () => ({
         ok: true,
         commands: [{
           target: 'engine' as const,
@@ -289,13 +287,13 @@ describe('@quajs/engine-native runtime module loader QuickJS host bridge', () =>
           argsJson: '[]',
         }],
       })),
-      resumeQuickJsGameStepRun: vi.fn(async () => ({
+      resumeJscGameStepRun: vi.fn(async () => ({
         ok: true,
         commands: [],
       })),
     }
 
-    const factory = createNativeQuickJsGameStepFactoryFunction(host, 'quickjs:rquickjs:1', 'default')
+    const factory = createNativeJscGameStepFactoryFunction(host, 'jsc:1', 'default')
     const steps = await factory({ title: 'Opening' })
 
     expect(steps).toHaveLength(1)
@@ -320,30 +318,30 @@ describe('@quajs/engine-native runtime module loader QuickJS host bridge', () =>
       },
     } as any)
 
-    expect(host.callQuickJsGameStepFactory).toHaveBeenCalledWith({
-      moduleNamespaceId: 'quickjs:rquickjs:1',
+    expect(host.callJscGameStepFactory).toHaveBeenCalledWith({
+      moduleNamespaceId: 'jsc:1',
       exportName: 'default',
       scopeJson: '{"title":"Opening"}',
     })
-    expect(host.callQuickJsGameStepRun).toHaveBeenCalledWith({
-      runHandleId: 'quickjs:rquickjs:1:run:1',
+    expect(host.callJscGameStepRun).toHaveBeenCalledWith({
+      runHandleId: 'jsc:1:run:1',
       ctxJson: '{"stepId":"intro.1","previousStepId":"intro.0"}',
     })
     expect(showChoices).toHaveBeenCalledWith([{ id: 'go', text: 'Go' }])
     expect(clearChoices).toHaveBeenCalledWith()
   })
 
-  it('resumes native QuickJS GameSteps through real engine waits', async () => {
+  it('resumes native JavaScriptCore GameSteps through real engine waits', async () => {
     const host = {
       ...createHost(),
-      callQuickJsGameStepFactory: vi.fn(async request => ({
+      callJscGameStepFactory: vi.fn(async request => ({
         ok: true,
         steps: [{
           uuid: 'intro.wait',
           runHandleId: `${request.moduleNamespaceId}:run:wait`,
         }],
       })),
-      callQuickJsGameStepRun: vi.fn(async () => ({
+      callJscGameStepRun: vi.fn(async () => ({
         ok: true,
         commands: [{
           target: 'engine' as const,
@@ -351,11 +349,11 @@ describe('@quajs/engine-native runtime module loader QuickJS host bridge', () =>
           argsJson: '[[{"id":"go","text":"Go"}]]',
         }],
         pendingWait: {
-          resumeHandleId: 'quickjs:rquickjs:resume:1',
+          resumeHandleId: 'jsc:resume:1',
           event: 'user/choice_select',
         },
       })),
-      resumeQuickJsGameStepRun: vi.fn(async request => request.payloadJson === '{"choiceId":"retry"}'
+      resumeJscGameStepRun: vi.fn(async request => request.payloadJson === '{"choiceId":"retry"}'
         ? {
             ok: true,
             pendingWait: {
@@ -372,7 +370,7 @@ describe('@quajs/engine-native runtime module loader QuickJS host bridge', () =>
             }],
           }),
     }
-    const factory = createNativeQuickJsGameStepFactoryFunction(host, 'quickjs:rquickjs:1', 'default')
+    const factory = createNativeJscGameStepFactoryFunction(host, 'jsc:1', 'default')
     const [step] = await factory()
     const showChoices = vi.fn(async () => {})
     const clearChoices = vi.fn(async () => {})
@@ -392,36 +390,36 @@ describe('@quajs/engine-native runtime module loader QuickJS host bridge', () =>
     expect(showChoices).toHaveBeenCalledWith([{ id: 'go', text: 'Go' }])
     expect(waitFor).toHaveBeenCalledTimes(2)
     expect(waitFor).toHaveBeenNthCalledWith(1, 'user/choice_select')
-    expect(host.resumeQuickJsGameStepRun).toHaveBeenNthCalledWith(1, {
-      resumeHandleId: 'quickjs:rquickjs:resume:1',
+    expect(host.resumeJscGameStepRun).toHaveBeenNthCalledWith(1, {
+      resumeHandleId: 'jsc:resume:1',
       payloadJson: '{"choiceId":"retry"}',
     })
-    expect(host.resumeQuickJsGameStepRun).toHaveBeenNthCalledWith(2, {
-      resumeHandleId: 'quickjs:rquickjs:resume:1',
+    expect(host.resumeJscGameStepRun).toHaveBeenNthCalledWith(2, {
+      resumeHandleId: 'jsc:resume:1',
       payloadJson: '{"choiceId":"go"}',
     })
     expect(clearChoices).toHaveBeenCalledTimes(1)
   })
 
-  it('resumes native QuickJS GameSteps through real StepContext translations', async () => {
+  it('resumes native JavaScriptCore GameSteps through real StepContext translations', async () => {
     const host = {
       ...createHost(),
-      callQuickJsGameStepFactory: vi.fn(async request => ({
+      callJscGameStepFactory: vi.fn(async request => ({
         ok: true,
         steps: [{
           uuid: 'intro.translate',
           runHandleId: `${request.moduleNamespaceId}:run:translate`,
         }],
       })),
-      callQuickJsGameStepRun: vi.fn(async () => ({
+      callJscGameStepRun: vi.fn(async () => ({
         ok: true,
         pendingTranslation: {
-          resumeHandleId: 'quickjs:rquickjs:resume:t1',
+          resumeHandleId: 'jsc:resume:t1',
           key: 'runtime.greeting',
           optionsJson: '{"values":{"name":"Mira"}}',
         },
       })),
-      resumeQuickJsGameStepRun: vi.fn(async request => ({
+      resumeJscGameStepRun: vi.fn(async request => ({
         ok: true,
         commands: [{
           target: 'engine' as const,
@@ -430,7 +428,7 @@ describe('@quajs/engine-native runtime module loader QuickJS host bridge', () =>
         }],
       })),
     }
-    const factory = createNativeQuickJsGameStepFactoryFunction(host, 'quickjs:rquickjs:1', 'default')
+    const factory = createNativeJscGameStepFactoryFunction(host, 'jsc:1', 'default')
     const [step] = await factory()
     const showDialogue = vi.fn(async () => {})
     const t = vi.fn(async () => 'Hello, Mira')
@@ -445,32 +443,32 @@ describe('@quajs/engine-native runtime module loader QuickJS host bridge', () =>
     } as any)
 
     expect(t).toHaveBeenCalledWith('runtime.greeting', { values: { name: 'Mira' } })
-    expect(host.resumeQuickJsGameStepRun).toHaveBeenCalledWith({
-      resumeHandleId: 'quickjs:rquickjs:resume:t1',
+    expect(host.resumeJscGameStepRun).toHaveBeenCalledWith({
+      resumeHandleId: 'jsc:resume:t1',
       payloadJson: '"Hello, Mira"',
     })
     expect(showDialogue).toHaveBeenCalledWith({ text: 'Hello, Mira' })
   })
 
-  it('resumes native QuickJS GameSteps through real pipeline emits', async () => {
+  it('resumes native JavaScriptCore GameSteps through real pipeline emits', async () => {
     const host = {
       ...createHost(),
-      callQuickJsGameStepFactory: vi.fn(async request => ({
+      callJscGameStepFactory: vi.fn(async request => ({
         ok: true,
         steps: [{
           uuid: 'intro.pipeline',
           runHandleId: `${request.moduleNamespaceId}:run:pipeline`,
         }],
       })),
-      callQuickJsGameStepRun: vi.fn(async () => ({
+      callJscGameStepRun: vi.fn(async () => ({
         ok: true,
         pendingPipelineEmit: {
-          resumeHandleId: 'quickjs:rquickjs:resume:p1',
+          resumeHandleId: 'jsc:resume:p1',
           event: 'plugin/custom_event',
           payloadJson: '{"value":42}',
         },
       })),
-      resumeQuickJsGameStepRun: vi.fn(async () => ({
+      resumeJscGameStepRun: vi.fn(async () => ({
         ok: true,
         commands: [{
           target: 'engine' as const,
@@ -479,7 +477,7 @@ describe('@quajs/engine-native runtime module loader QuickJS host bridge', () =>
         }],
       })),
     }
-    const factory = createNativeQuickJsGameStepFactoryFunction(host, 'quickjs:rquickjs:1', 'default')
+    const factory = createNativeJscGameStepFactoryFunction(host, 'jsc:1', 'default')
     const [step] = await factory()
     const emit = vi.fn(async () => {})
     const clearChoices = vi.fn(async () => {})
@@ -495,17 +493,17 @@ describe('@quajs/engine-native runtime module loader QuickJS host bridge', () =>
     } as any)
 
     expect(emit).toHaveBeenCalledWith('plugin/custom_event', { value: 42 })
-    expect(host.resumeQuickJsGameStepRun).toHaveBeenCalledWith({
-      resumeHandleId: 'quickjs:rquickjs:resume:p1',
+    expect(host.resumeJscGameStepRun).toHaveBeenCalledWith({
+      resumeHandleId: 'jsc:resume:p1',
     })
     expect(clearChoices).toHaveBeenCalledTimes(1)
   })
 
-  it('bridges long-lived native QuickJS pipeline listeners through the real StepContext pipeline', async () => {
+  it('bridges long-lived native JavaScriptCore pipeline listeners through the real StepContext pipeline', async () => {
     const subscription = {
       op: 'subscribe' as const,
-      subscriptionId: 'quickjs:rquickjs:1:pipeline:1',
-      moduleNamespaceId: 'quickjs:rquickjs:1',
+      subscriptionId: 'jsc:1:pipeline:1',
+      moduleNamespaceId: 'jsc:1',
       event: 'plugin/custom_event',
     }
     const unsubscribe = {
@@ -514,20 +512,20 @@ describe('@quajs/engine-native runtime module loader QuickJS host bridge', () =>
     }
     const host = {
       ...createHost(),
-      callQuickJsGameStepFactory: vi.fn(async request => ({
+      callJscGameStepFactory: vi.fn(async request => ({
         ok: true,
         steps: [{
           uuid: 'intro.listener',
           runHandleId: `${request.moduleNamespaceId}:run:listener`,
         }],
       })),
-      callQuickJsGameStepRun: vi.fn(async () => ({
+      callJscGameStepRun: vi.fn(async () => ({
         ok: true,
         commands: [],
         pipelineSubscriptions: [subscription],
       })),
-      resumeQuickJsGameStepRun: vi.fn(async () => ({ ok: true })),
-      dispatchQuickJsPipelineListener: vi.fn(async request => ({
+      resumeJscGameStepRun: vi.fn(async () => ({ ok: true })),
+      dispatchJscPipelineListener: vi.fn(async request => ({
         ok: true,
         commands: [{
           target: 'engine' as const,
@@ -566,8 +564,8 @@ describe('@quajs/engine-native runtime module loader QuickJS host bridge', () =>
         await Promise.all(Array.from(listeners.get(event) || []).map(listener => listener(context)))
       }),
     }
-    const bridge = createNativeQuickJsPipelineSubscriptionBridge(host)
-    const factory = createNativeQuickJsGameStepFactoryFunction(host, 'quickjs:rquickjs:1', 'default', {
+    const bridge = createNativeJscPipelineSubscriptionBridge(host)
+    const factory = createNativeJscGameStepFactoryFunction(host, 'jsc:1', 'default', {
       pipelineSubscriptionBridge: bridge,
     })
     const [step] = await factory()
@@ -586,39 +584,39 @@ describe('@quajs/engine-native runtime module loader QuickJS host bridge', () =>
     expect(pipeline.on).toHaveBeenCalledWith('plugin/custom_event', expect.any(Function))
     await pipeline.emit('plugin/custom_event', { value: 42 })
 
-    expect(host.dispatchQuickJsPipelineListener).toHaveBeenCalledWith({
-      subscriptionId: 'quickjs:rquickjs:1:pipeline:1',
+    expect(host.dispatchJscPipelineListener).toHaveBeenCalledWith({
+      subscriptionId: 'jsc:1:pipeline:1',
       contextJson: '{"event":{"type":"plugin/custom_event","payload":{"value":42},"timestamp":123,"id":"evt-1"},"handled":false,"stopPropagation":false}',
     })
     expect(showDialogue).toHaveBeenCalledWith({ text: '42', mode: 'narration' })
     expect(pipeline.off).toHaveBeenCalledWith('plugin/custom_event', expect.any(Function))
 
     await pipeline.emit('plugin/custom_event', { value: 99 })
-    expect(host.dispatchQuickJsPipelineListener).toHaveBeenCalledTimes(1)
+    expect(host.dispatchJscPipelineListener).toHaveBeenCalledTimes(1)
   })
 
-  it('fails clearly when QuickJS returns pipeline subscriptions without a TS bridge', async () => {
+  it('fails clearly when JavaScriptCore returns pipeline subscriptions without a TS bridge', async () => {
     const host = {
       ...createHost(),
-      callQuickJsGameStepFactory: vi.fn(async request => ({
+      callJscGameStepFactory: vi.fn(async request => ({
         ok: true,
         steps: [{
           uuid: 'intro.listener',
           runHandleId: `${request.moduleNamespaceId}:run:listener`,
         }],
       })),
-      callQuickJsGameStepRun: vi.fn(async () => ({
+      callJscGameStepRun: vi.fn(async () => ({
         ok: true,
         pipelineSubscriptions: [{
           op: 'subscribe' as const,
-          subscriptionId: 'quickjs:rquickjs:1:pipeline:1',
-          moduleNamespaceId: 'quickjs:rquickjs:1',
+          subscriptionId: 'jsc:1:pipeline:1',
+          moduleNamespaceId: 'jsc:1',
           event: 'plugin/custom_event',
         }],
       })),
-      resumeQuickJsGameStepRun: vi.fn(async () => ({ ok: true })),
+      resumeJscGameStepRun: vi.fn(async () => ({ ok: true })),
     }
-    const factory = createNativeQuickJsGameStepFactoryFunction(host, 'quickjs:rquickjs:1', 'default')
+    const factory = createNativeJscGameStepFactoryFunction(host, 'jsc:1', 'default')
     const [step] = await factory()
 
     await expect(step.run({
@@ -635,26 +633,26 @@ describe('@quajs/engine-native runtime module loader QuickJS host bridge', () =>
     } as any)).rejects.toThrow(/no pipeline subscription bridge/)
   })
 
-  it('resumes native QuickJS GameSteps through registered helper modules', async () => {
+  it('resumes native JavaScriptCore GameSteps through registered helper modules', async () => {
     const host = {
       ...createHost(),
-      callQuickJsGameStepFactory: vi.fn(async request => ({
+      callJscGameStepFactory: vi.fn(async request => ({
         ok: true,
         steps: [{
           uuid: 'intro.helper',
           runHandleId: `${request.moduleNamespaceId}:run:helper`,
         }],
       })),
-      callQuickJsGameStepRun: vi.fn(async () => ({
+      callJscGameStepRun: vi.fn(async () => ({
         ok: true,
         pendingHelperCall: {
-          resumeHandleId: 'quickjs:rquickjs:resume:h1',
+          resumeHandleId: 'jsc:resume:h1',
           module: '@quajs/plugin-background',
           exportName: 'setBackgroundWithEngine',
           argsJson: '["bg/opening.png",{"transition":{"type":"fade"}}]',
         },
       })),
-      resumeQuickJsGameStepRun: vi.fn(async request => ({
+      resumeJscGameStepRun: vi.fn(async request => ({
         ok: true,
         commands: [{
           target: 'engine' as const,
@@ -664,7 +662,7 @@ describe('@quajs/engine-native runtime module loader QuickJS host bridge', () =>
       })),
     }
     const helper = vi.fn(async (_engine, assetName, options) => `${assetName}:${options.transition.type}`)
-    const factory = createNativeQuickJsGameStepFactoryFunction(host, 'quickjs:rquickjs:1', 'default', {
+    const factory = createNativeJscGameStepFactoryFunction(host, 'jsc:1', 'default', {
       helperModules: {
         '@quajs/plugin-background': {
           setBackgroundWithEngine: helper,
@@ -686,31 +684,31 @@ describe('@quajs/engine-native runtime module loader QuickJS host bridge', () =>
     } as any)
 
     expect(helper).toHaveBeenCalledWith(engine, 'bg/opening.png', { transition: { type: 'fade' } })
-    expect(host.resumeQuickJsGameStepRun).toHaveBeenCalledWith({
-      resumeHandleId: 'quickjs:rquickjs:resume:h1',
+    expect(host.resumeJscGameStepRun).toHaveBeenCalledWith({
+      resumeHandleId: 'jsc:resume:h1',
       payloadJson: '"bg/opening.png:fade"',
     })
     expect(showDialogue).toHaveBeenCalledWith({ text: 'bg/opening.png:fade' })
   })
 
-  it('requires native QuickJS helper calls to be registered on the host side', async () => {
-    await expect(executeNativeQuickJsGameStepHelperCall({
+  it('requires native JavaScriptCore helper calls to be registered on the host side', async () => {
+    await expect(executeNativeJscGameStepHelperCall({
       stepId: 'intro.helper',
       engine: {
         waitFor: vi.fn(),
       },
     } as any, {
-      resumeHandleId: 'quickjs:rquickjs:resume:h2',
+      resumeHandleId: 'jsc:resume:h2',
       module: '@quajs/plugin-background',
       exportName: 'setBackgroundWithEngine',
       argsJson: '[]',
     })).rejects.toThrow(/not registered/)
   })
 
-  it('rejects unsupported native QuickJS GameStep commands before dispatching to engine', async () => {
+  it('rejects unsupported native JavaScriptCore GameStep commands before dispatching to engine', async () => {
     const quickSave = vi.fn()
     const markRollbackBoundary = vi.fn()
-    await executeNativeQuickJsGameStepCommand({
+    await executeNativeJscGameStepCommand({
       stepId: 'intro.1',
       engine: {
         quickSave,
@@ -721,7 +719,7 @@ describe('@quajs/engine-native runtime module loader QuickJS host bridge', () =>
       method: 'quickSave',
       argsJson: '[{"name":"Before choice"}]',
     })
-    await executeNativeQuickJsGameStepCommand({
+    await executeNativeJscGameStepCommand({
       stepId: 'intro.1',
       engine: {
         quickSave,
@@ -736,7 +734,7 @@ describe('@quajs/engine-native runtime module loader QuickJS host bridge', () =>
     expect(quickSave).toHaveBeenCalledWith({ name: 'Before choice' })
     expect(markRollbackBoundary).toHaveBeenCalledWith('no-rollback')
 
-    await expect(executeNativeQuickJsGameStepCommand({
+    await expect(executeNativeJscGameStepCommand({
       stepId: 'intro.1',
       engine: {
         waitFor: vi.fn(),
@@ -754,21 +752,21 @@ describe('@quajs/engine-native runtime module loader QuickJS host bridge', () =>
     })
     const host = {
       ...createHost(),
-      evaluateQuickJsModule: vi.fn(async request => ({
+      evaluateJscModule: vi.fn(async request => ({
         ok: true,
         moduleNamespaceId: `${request.module.packageId}:${request.module.assetName}`,
       })),
-      callQuickJsGameStepFactory: vi.fn(async request => ({
+      callJscGameStepFactory: vi.fn(async request => ({
         ok: true,
         steps: [{
           uuid: 'intro.1',
           runHandleId: `${request.moduleNamespaceId}:run:1`,
         }],
       })),
-      callQuickJsGameStepRun: vi.fn(async () => ({
+      callJscGameStepRun: vi.fn(async () => ({
         ok: true,
       })),
-      resumeQuickJsGameStepRun: vi.fn(async () => ({
+      resumeJscGameStepRun: vi.fn(async () => ({
         ok: true,
       })),
     }
@@ -787,8 +785,8 @@ describe('@quajs/engine-native runtime module loader QuickJS host bridge', () =>
     const steps = await loaded?.default?.({ route: 'main' })
 
     expect(steps?.map(step => step.uuid)).toEqual(['intro.1'])
-    expect(host.evaluateQuickJsModule).toHaveBeenCalled()
-    expect(host.callQuickJsGameStepFactory).toHaveBeenCalledWith({
+    expect(host.evaluateJscModule).toHaveBeenCalled()
+    expect(host.callJscGameStepFactory).toHaveBeenCalledWith({
       moduleNamespaceId: 'runtime.chapter.native-ui:scripts/opening.js',
       exportName: 'default',
       scopeJson: '{"route":"main"}',
@@ -796,17 +794,17 @@ describe('@quajs/engine-native runtime module loader QuickJS host bridge', () =>
   })
 
   it('keeps the GameStep namespace resolver scoped to script modules', async () => {
-    const resolver = createNativeHostQuickJsGameStepModuleNamespaceResolver({
-      callQuickJsGameStepFactory: vi.fn(),
-      callQuickJsGameStepRun: vi.fn(),
-      resumeQuickJsGameStepRun: vi.fn(),
+    const resolver = createNativeHostJscGameStepModuleNamespaceResolver({
+      callJscGameStepFactory: vi.fn(),
+      callJscGameStepRun: vi.fn(),
+      resumeJscGameStepRun: vi.fn(),
     })
 
-    expect(() => resolver('quickjs:rquickjs:1', {
+    expect(() => resolver('jsc:1', {
       kind: 'engine-plugin',
     } as any, {
       ok: true,
-      moduleNamespaceId: 'quickjs:rquickjs:1',
+      moduleNamespaceId: 'jsc:1',
     })).toThrow(/only load script modules/)
   })
 })
