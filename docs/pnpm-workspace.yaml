@@ -1,0 +1,21 @@
+packages:
+  - .
+trustPolicy: no-downgrade
+allowBuilds:
+  esbuild: true
+  sharp: true
+  workerd: true
+# svelte-check accepts the same watch API; v5 requires the Node 20.19+ used by Vite 8.
+# v4 is rejected by the registry trust policy. Keep the policy enabled.
+overrides:
+  chokidar: 5.0.0
+minimumReleaseAgeExclude:
+  - '@cloudflare/unenv-preset@2.16.2'
+  - '@cloudflare/workerd-darwin-64@1.20260921.1'
+  - '@cloudflare/workerd-darwin-arm64@1.20260921.1'
+  - '@cloudflare/workerd-linux-64@1.20260921.1'
+  - '@cloudflare/workerd-linux-arm64@1.20260921.1'
+  - '@cloudflare/workerd-windows-64@1.20260921.1'
+  - miniflare@5.20260921.0-alpha
+  - workerd@1.20260921.1
+  - wrangler@4.136.1
