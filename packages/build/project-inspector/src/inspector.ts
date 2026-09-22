@@ -143,6 +143,7 @@ function createSnapshot(index: StoryIndex): QuaProjectInspectorSnapshot {
     packageGraph,
     risks: index.risks,
     storyTree: {
+      outline: index.outline,
       choices: index.choices,
       edges: index.edges,
       entries: index.entries,
@@ -183,6 +184,7 @@ function emptySnapshot(): QuaProjectInspectorSnapshot {
     packageGraph: { packages: [], risks: [] },
     risks: [],
     storyTree: {
+      outline: [],
       choices: [],
       edges: [],
       entries: [],

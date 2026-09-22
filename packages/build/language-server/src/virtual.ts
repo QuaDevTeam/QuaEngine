@@ -1,4 +1,4 @@
-import type { ParsedQuaScript, QuaScriptDiagnostic, SourceRange } from '@quajs/script-compiler'
+import type { ParsedQuaScript, ParsedQuaScriptDocument, QuaScriptDiagnostic, SourceRange } from '@quajs/script-compiler'
 import { dirname, join } from 'node:path'
 import {
   createLineStarts,
@@ -42,11 +42,12 @@ interface TypeScriptRegion {
 export function createQuaScriptVirtualDocument(
   source: string,
   options: QuaScriptVirtualDocumentOptions = {},
+  syntax?: { document: ParsedQuaScriptDocument, parsed: ParsedQuaScript },
 ): QuaScriptVirtualDocument {
   const sourceLineStarts = createLineStarts(source)
-  const document = parseQuaScriptDocument(source)
+  const document = syntax?.document ?? parseQuaScriptDocument(source)
   const parser = new QuaScriptParser()
-  const parsed = parser.parse(document.dslBody)
+  const parsed = syntax?.parsed ?? parser.parse(document.dslBody)
   const diagnostics = [...document.diagnostics, ...parsed.diagnostics]
   const regions = collectTypeScriptRegions(source, document.dslBody, parsed)
   const fileName = options.filePath

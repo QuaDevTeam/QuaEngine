@@ -11,7 +11,6 @@ import { existsSync, readFileSync } from 'node:fs'
 import { extname, resolve } from 'node:path'
 import { readQpkSummary } from '@quajs/quack/qpk-reader'
 import {
-  createLineStarts,
   extractQuaScriptStoryDeclaration,
   parseQuaScriptDocument,
   QuaScriptParser,
@@ -22,11 +21,9 @@ import {
   arrayOfRecords,
   arrayOfStrings,
   asRecord,
-  findLast,
   listProjectFiles,
   moduleIdFromFilePath,
   numberValue,
-  rangeForLineSubstring,
   runtimePackageFromJson,
   safeParseJson,
   storyAssetExists,
@@ -46,7 +43,7 @@ export async function buildProjectIndex(options: QuaProjectInspectorOptions = {}
 
   if (options.projectRoot) {
     const projectRoot = resolve(options.projectRoot)
-    for (const filePath of listProjectFiles(projectRoot)) {
+    for (const filePath of (options.files || listProjectFiles(projectRoot))) {
       if (options.filePath && resolve(filePath) === resolve(options.filePath) && currentSource !== undefined) {
         continue
       }
@@ -86,7 +83,7 @@ export function buildProjectIndexSync(options: QuaProjectInspectorOptions = {}):
   }
   if (options.projectRoot) {
     const projectRoot = resolve(options.projectRoot)
-    for (const filePath of listProjectFiles(projectRoot)) {
+    for (const filePath of (options.files || listProjectFiles(projectRoot))) {
       if (options.filePath && resolve(filePath) === resolve(options.filePath) && options.source !== undefined) {
         continue
       }
@@ -110,6 +107,7 @@ export function buildProjectIndexSync(options: QuaProjectInspectorOptions = {}):
 
 export function createEmptyIndex(): StoryIndex {
   return {
+    outline: [],
     assetLineage: [],
     choices: [],
     edges: [],
@@ -128,9 +126,17 @@ export function createEmptyIndex(): StoryIndex {
 
 function addQuaScriptSource(index: StoryIndex, source: string, filePath?: string): void {
   const moduleId = moduleIdFromFilePath(filePath)
-  const declaration = safeExtractStoryDeclaration(source, { moduleId })
+  let declaration: StoryDeclarationWithEntries
+  try {
+    declaration = extractQuaScriptStoryDeclaration(source, { moduleId, includeOutline: true })
+  }
+  catch (error) {
+    index.risks.push({ code: 'story.source_parse_failed', filePath, severity: 'error', message: `无法解析故事大纲：${error instanceof Error ? error.message : String(error)}` })
+    return
+  }
+  index.outline.push({ filePath, symbols: declaration.outline || [] })
   addStoryDeclaration(index, declaration, { filePath })
-  attachQuaScriptDeclarationRanges(index, source, filePath)
+  attachQuaScriptDeclarationRanges(index, declaration, filePath)
   collectQuaScriptAssetLineage(index, source, filePath)
 }
 
@@ -383,42 +389,15 @@ function addStoryGraphDelta(index: StoryIndex, delta: Record<string, unknown>, p
   }
 }
 
-function attachQuaScriptDeclarationRanges(index: StoryIndex, source: string, filePath?: string): void {
-  if (!filePath) {
-    return
+function attachQuaScriptDeclarationRanges(index: StoryIndex, declaration: StoryDeclarationWithEntries, filePath?: string): void {
+  const collections = { scene: index.scenes, entry: index.entries, node: index.nodes, label: index.labels, choice: index.choices }
+  for (const symbol of declaration.outline || []) {
+    if (symbol.kind === 'chapter')
+      continue
+    const item = collections[symbol.kind].find(item => item.sourceLocation?.filePath === filePath && !item.sourceLocation?.range && item.id === symbol.id)
+    if (item)
+      item.sourceLocation = { filePath, range: symbol.range }
   }
-  const lineStarts = createLineStarts(source)
-  source.split(/\r?\n/).forEach((line, lineIndex) => {
-    const match = line.match(/^\s*@(Scene|Entry|Node|Label)\s*\(\s*(['"])(.*?)\2/)
-    if (!match) {
-      return
-    }
-    const range = rangeForLineSubstring(source, lineStarts, lineIndex, match[3])
-    if (match[1] === 'Scene') {
-      const scene = findLast(index.scenes, item => item.sourceLocation?.filePath === filePath && item.id === match[3] && !item.sourceLocation?.range)
-      if (scene) {
-        scene.sourceLocation = { filePath, range }
-      }
-    }
-    else if (match[1] === 'Entry') {
-      const entry = findLast(index.entries, item => item.sourceLocation?.filePath === filePath && item.id === match[3] && !item.sourceLocation?.range)
-      if (entry) {
-        entry.sourceLocation = { filePath, range }
-      }
-    }
-    else if (match[1] === 'Node') {
-      const node = findLast(index.nodes, item => item.sourceLocation?.filePath === filePath && item.id === match[3] && !item.sourceLocation?.range)
-      if (node) {
-        node.sourceLocation = { filePath, range }
-      }
-    }
-    else {
-      const label = findLast(index.labels, item => item.sourceLocation?.filePath === filePath && item.id === match[3] && !item.sourceLocation?.range)
-      if (label) {
-        label.sourceLocation = { filePath, range }
-      }
-    }
-  })
 }
 
 function collectQuaScriptAssetLineage(index: StoryIndex, source: string, filePath?: string): void {
@@ -555,15 +534,6 @@ function finalizePackageDependencyRisks(index: StoryIndex): void {
       packageRecord.risks.push(risk)
       index.risks.push(risk)
     }
-  }
-}
-
-function safeExtractStoryDeclaration(source: string, options: { moduleId?: string, runtimePackageId?: string } = {}): StoryDeclarationWithEntries | undefined {
-  try {
-    return extractQuaScriptStoryDeclaration(source, options) as StoryDeclarationWithEntries
-  }
-  catch {
-    return undefined
   }
 }
 

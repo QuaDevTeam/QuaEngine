@@ -8,6 +8,9 @@ import {
 } from '../src'
 
 describe('quaScript formatter', () => {
+  it('does not diagnose a completed choice step as a detached dialogue decorator', () => {
+    expect(lintQuaScriptSource('@Choice("Stay", undefined, { id: "stay" })\n\nYuki: Hello\n').diagnostics).toEqual([])
+  })
   it('trims trailing whitespace and ensures final newline', () => {
     expect(formatQuaScript('Yuki: Hello   ')).toBe('Yuki: Hello\n')
   })

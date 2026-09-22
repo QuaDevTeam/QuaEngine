@@ -188,6 +188,7 @@ export interface ParsedQuaScript {
 }
 
 export interface StoryDeclaration {
+  outline?: import('./outline').QuaScriptOutlineSymbol[]
   moduleId?: string
   runtimePackageId?: string
   scenes: Array<{ id: string, metadata?: Record<string, unknown> }>

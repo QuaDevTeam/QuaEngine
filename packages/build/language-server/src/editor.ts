@@ -113,10 +113,10 @@ export const quascriptMonarchLanguage = {
     root: [
       ['^\\s*//.*$', 'comment'],
       ['<script\\b(?=[^>]*\\blang\\s*=\\s*([\\\'"]ts[\\\'"]|ts\\b))[^>]*>', { token: 'tag', next: '@script', nextEmbedded: 'typescript' }],
-      ['^\\s*(@)([A-Z_$][\\w$]*)', ['delimiter.annotation', 'annotation']],
+      ['^(\\s*)(@)([A-Z_$][\\w$]*)', ['white', 'delimiter.annotation', 'annotation']],
       ['^\\s*(-)(\\s+)', { token: 'delimiter', next: '@choice' }],
       ['\\b(node|label|scene|script|packageNode|checkpoint|image|Entry)(?=\\s*\\()', 'predefined'],
-      ['^\\s*([^:@-][^:]*)(:)', ['type.identifier', 'delimiter']],
+      ['^(\\s*)([^:@\\s-][^:]*)(:)', ['white', 'type.identifier', 'delimiter']],
       ['\\$\\{', { token: 'delimiter.bracket', next: '@typescriptInterpolation', nextEmbedded: 'typescript' }],
       ['"', { token: 'string.quote', next: '@stringDouble' }],
       ['\'', { token: 'string.quote', next: '@stringSingle' }],

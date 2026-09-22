@@ -22,6 +22,7 @@ async function getPluginDecorators(projectRoot?: string): Promise<DecoratorMappi
  * Supports incremental compilation, caching, and plugin hot-reload
  */
 export class HotReloadAwareTransformer extends QuaScriptTransformer {
+  private readonly bypassPreviewCache: boolean
   private projectRoot?: string
   private hotReloadManager = getHotReloadManager()
 
@@ -38,6 +39,7 @@ export class HotReloadAwareTransformer extends QuaScriptTransformer {
       ],
     })
     this.projectRoot = options?.projectRoot
+    this.bypassPreviewCache = options?.editorPreview === true
 
     // Enable hot-reload in development
     if (process.env.NODE_ENV !== 'production') {
@@ -56,7 +58,7 @@ export class HotReloadAwareTransformer extends QuaScriptTransformer {
   }
 
   transformSourceWithMap(source: string, filePath?: string): QuaScriptTransformResult {
-    if (!this.hotReloadManager.isHotReloadEnabled() || !filePath) {
+    if (this.bypassPreviewCache || !this.hotReloadManager.isHotReloadEnabled() || !filePath) {
       return super.transformSourceWithMap(source, filePath)
     }
 
@@ -84,7 +86,7 @@ export class HotReloadAwareTransformer extends QuaScriptTransformer {
   }
 
   transformModuleSourceWithMap(source: string, filePath?: string): QuaScriptTransformResult {
-    if (!this.hotReloadManager.isHotReloadEnabled() || !filePath) {
+    if (this.bypassPreviewCache || !this.hotReloadManager.isHotReloadEnabled() || !filePath) {
       return super.transformModuleSourceWithMap(source, filePath)
     }
 

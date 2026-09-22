@@ -165,7 +165,8 @@ function collectDecoratorSpacingDiagnostics(source: string): QuaScriptDiagnostic
     }
 
     if (trimmed.startsWith('@')) {
-      pendingDecoratorIndex = index
+      // @Choice is a complete choice step, not a decorator attached to dialogue.
+      pendingDecoratorIndex = /^@Choice(?:\s*\(|\s*$)/u.test(trimmed) ? undefined : index
       firstBlankIndex = undefined
       continue
     }

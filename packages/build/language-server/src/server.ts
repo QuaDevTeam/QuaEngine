@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import type { QuaScriptTextEdit, QuaScriptToolingConfig, SourceRange } from '@quajs/script-compiler'
-import type { InitializeParams, Range, TextEdit } from 'vscode-languageserver/node'
+import type { InitializeParams, Range, TextEdit } from 'vscode-languageserver/node.js'
 import { pathToFileURL } from 'node:url'
 import { loadQuaScriptToolingConfig, mergeQuaScriptToolingConfig } from '@quajs/script-compiler'
 import { TextDocument } from 'vscode-languageserver-textdocument'
@@ -15,25 +15,29 @@ import {
   ProposedFeatures,
   TextDocuments,
   TextDocumentSyncKind,
-} from 'vscode-languageserver/node'
+} from 'vscode-languageserver/node.js'
 import {
   formatQuaScriptDocumentEdits,
   getQuaScriptCodeActions,
   getQuaScriptCompletions,
   getQuaScriptDefinitions,
   getQuaScriptHover,
+  getQuaScriptSignatureHelp,
   lintQuaScript,
+  QuaScriptTypeScriptSession,
   uriToFilePath,
 } from './index'
 
 const connection = createConnection(ProposedFeatures.all)
 const documents = new TextDocuments(TextDocument)
+const typescriptSession = new QuaScriptTypeScriptSession()
 let projectRoot: string | undefined
 let initializationToolingConfig: QuaScriptToolingConfig = {}
 let initializationWorkspaceConfig: QuaScriptToolingConfig = {}
 let workspaceConfig: QuaScriptToolingConfig | undefined
 
 connection.onInitialize((params: InitializeParams) => {
+  typescriptSession.dispose()
   projectRoot = resolveProjectRoot(params)
   const initializationConfig = resolveInitializationConfig(params)
   initializationToolingConfig = initializationConfig.toolingConfig
@@ -43,8 +47,9 @@ connection.onInitialize((params: InitializeParams) => {
     capabilities: {
       textDocumentSync: TextDocumentSyncKind.Incremental,
       completionProvider: {
-        triggerCharacters: ['@', '$', '{', '.', ' '],
+        triggerCharacters: ['@', '$', '{', '.', ' ', '(', ',', '"', '\'', '/'],
       },
+      signatureHelpProvider: { triggerCharacters: ['(', ','], retriggerCharacters: [')'] },
       hoverProvider: true,
       definitionProvider: true,
       documentFormattingProvider: true,
@@ -87,8 +92,16 @@ connection.onCompletion(async (params) => {
     kind: toCompletionKind(item.kind),
     detail: item.detail,
     insertText: item.insertText,
+    insertTextFormat: (item.snippet ?? /\$\{\d+(?::[^}]*)?\}/.test(item.insertText || '')) ? 2 : 1,
+    documentation: item.documentation ? { kind: MarkupKind.Markdown, value: item.documentation } : undefined,
+    textEdit: item.range ? { range: toLspRange(item.range), newText: item.insertText || item.label } : undefined,
     sortText: item.sortText,
   }))
+})
+
+connection.onSignatureHelp(async (params) => {
+  const document = documents.get(params.textDocument.uri)
+  return document ? await getQuaScriptSignatureHelp(document.getText(), params.position, documentOptions(document)) ?? null : null
 })
 
 connection.onHover(async (params) => {
@@ -125,13 +138,13 @@ connection.onHover(async (params) => {
   }
 })
 
-connection.onDefinition((params) => {
+connection.onDefinition(async (params) => {
   const document = documents.get(params.textDocument.uri)
   if (!document) {
     return []
   }
 
-  const definitions = getQuaScriptDefinitions(document.getText(), {
+  const definitions = await getQuaScriptDefinitions(document.getText(), {
     line: params.position.line,
     character: params.position.character,
   }, documentOptions(document))
@@ -188,19 +201,27 @@ connection.onDocumentFormatting((params) => {
 })
 
 connection.onDidChangeConfiguration((params) => {
+  typescriptSession.dispose()
   workspaceConfig = normalizeToolingConfig((params.settings as { quascript?: unknown } | undefined)?.quascript)
   validateAllOpenDocuments()
 })
 
 connection.onDidChangeWatchedFiles(() => {
+  typescriptSession.dispose()
   validateAllOpenDocuments()
 })
+
+documents.onDidClose(({ document }) => connection.sendDiagnostics({ uri: document.uri, diagnostics: [] }))
+connection.onShutdown(() => typescriptSession.dispose())
 
 documents.listen(connection)
 connection.listen()
 
 async function validateDocument(document: TextDocument): Promise<void> {
+  const version = document.version
   const lint = await lintQuaScript(document.getText(), documentOptions(document))
+  if (documents.get(document.uri)?.version !== version)
+    return
   connection.sendDiagnostics({
     uri: document.uri,
     diagnostics: lint.diagnostics.map(toLspDiagnostic),
@@ -217,6 +238,7 @@ function validateAllOpenDocuments(): void {
 
 function documentOptions(document: TextDocument) {
   return {
+    typescriptSession,
     filePath: uriToFilePath(document.uri),
     projectRoot,
     toolingConfig: currentToolingConfig(),

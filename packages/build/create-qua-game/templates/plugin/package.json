@@ -1,0 +1,56 @@
+{
+  "name": "__PROJECT_NAME__",
+  "version": "0.1.0",
+  "description": "__PROJECT_TITLE__ \u2014 QuaEngine plugin",
+  "type": "module",
+  "license": "MIT",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./editor": {
+      "types": "./dist/editor.d.ts",
+      "import": "./dist/editor.js"
+    }
+  },
+  "scripts": {
+    "build": "vite build && tsc --emitDeclarationOnly",
+    "typecheck": "tsc --noEmit",
+    "dev": "vite build --watch"
+  },
+  "peerDependencies": {
+    "@quajs/engine": "^0.1.0"
+  },
+  "devDependencies": {
+    "@quajs/engine": "^0.1.0",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.12",
+    "sass-embedded": "^1.70.0"
+  },
+  "quajs": {
+    "extension": {
+      "schemaVersion": 1,
+      "id": "__PROJECT_BUNDLE_ID__",
+      "title": "__PROJECT_TITLE__",
+      "runtime": {
+        "entry": "./dist/index.js"
+      },
+      "devtools": {
+        "apiVersion": 1,
+        "entry": "./dist/editor.js",
+        "export": "editorPlugin",
+        "styles": [
+          "./dist/editor.css"
+        ]
+      }
+    }
+  },
+  "dependencies": {
+    "lit": "^3.3.1"
+  }
+}

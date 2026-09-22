@@ -2,11 +2,20 @@ import type { AssetInfo, BundleManifest } from '../../quack/src/core/types'
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { parseQuaScriptDocument, QuaScriptParser } from '@quajs/script-compiler'
 import { describe, expect, it } from 'vitest'
 import { QPKBundler } from '../../quack/src/bundlers/qpk-bundler'
 import { createQuaProjectInspector } from '../src'
+import { collectQuaScriptStoryDiagnostics } from '../src/diagnostics'
 
 describe('@quajs/project-inspector', () => {
+  it('accepts targetless choices but still rejects malformed and missing story targets', () => {
+    const source = '@Choice("A", undefined, { id: "a" })\n@Choice("B")\n@Choice("C", null)\n\nYuki: Continue\n'
+    const parsed = new QuaScriptParser().parse(parseQuaScriptDocument(source).dslBody)
+    expect(collectQuaScriptStoryDiagnostics(source, parsed)).toEqual([])
+    const invalid = '@Choice("Bad", 42)\n'
+    expect(collectQuaScriptStoryDiagnostics(invalid, new QuaScriptParser().parse(invalid)).some(item => item.code === 'QS_STORY_UNSTRUCTURED_CHOICE_TARGET')).toBe(true)
+  })
   it('aggregates story tree declarations from multiple QuaScript files', async () => {
     const projectRoot = mkdtempSync(join(tmpdir(), 'qua-inspector-'))
     writeFileSync(join(projectRoot, 'start.qs'), '@Scene("school")\n@Node("start")\nYuki: Hi\n- Go -> library')

@@ -94,7 +94,7 @@ export class QuackBundler extends EventEmitter {
   /**
    * Create bundle from source directory
    */
-  async bundle(): Promise<BundleStats> {
+  async bundle(manifestName = 'bundle'): Promise<BundleStats> {
     const startTime = Date.now()
 
     try {
@@ -102,14 +102,14 @@ export class QuackBundler extends EventEmitter {
 
       if (normalizedConfig.assetTargets.length > 0) {
         return await this.bundleAssetTargets(normalizedConfig, {
-          manifestName: 'bundle',
+          manifestName,
           startTime,
           allowEmpty: false,
         })
       }
 
       return await this.bundleNormalizedConfig(normalizedConfig, {
-        manifestName: 'bundle',
+        manifestName,
         startTime,
         allowEmpty: false,
       })
@@ -137,9 +137,12 @@ export class QuackBundler extends EventEmitter {
 
     try {
       // Load workspace configuration
-      const workspaceConfig = await this.workspaceManager.loadConfig(this.config.workspaceConfig, {
+      const workspaceConfig = await this.workspaceManager.loadConfig(this.config.workspace || this.config.workspaceConfig, {
         projectConfig: this.config.projectConfig,
       })
+
+      // The workspace owns its artifact directory, including its mutable index.
+      this.versionManager = new VersionManager(resolve(workspaceConfig.output || 'dist'), true)
 
       // Initialize or update workspace index
       await this.versionManager.initializeWorkspaceIndex(workspaceConfig.name, workspaceConfig.version || '1.0.0')
@@ -188,7 +191,7 @@ export class QuackBundler extends EventEmitter {
 
       if (normalizedConfig.assetTargets.length > 0) {
         return await this.bundleAssetTargets(normalizedConfig, {
-          manifestName: bundleDefinition.displayName || bundleDefinition.name,
+          manifestName: bundleDefinition.name,
           startTime,
           allowEmpty: true,
           workspaceBundle: bundleDefinition,
@@ -196,7 +199,7 @@ export class QuackBundler extends EventEmitter {
       }
 
       return await this.bundleNormalizedConfig(normalizedConfig, {
-        manifestName: bundleDefinition.displayName || bundleDefinition.name,
+        manifestName: bundleDefinition.name,
         startTime,
         allowEmpty: true,
         workspaceBundle: bundleDefinition,

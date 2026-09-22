@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-
 import type { BundleFormat, QuackConfig, QuackPlugin } from '../core/types'
-import { existsSync } from 'node:fs'
+
+import { existsSync, writeSync } from 'node:fs'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -11,6 +11,7 @@ import { QPKBundler } from '../bundlers/qpk-bundler'
 import { ZipBundler } from '../bundlers/zip-bundler'
 import { QuackBundler } from '../core/bundler'
 import { buildLocalePack } from '../i18n/locale-pack'
+import { buildQuaProjectProduction } from '../production/build'
 import { doctorQuaProjectConfig, findQuaProjectConfigFile, loadQuaProjectConfig, syncQuaProjectCocos } from '../project'
 import { readKeyFile, signQpkFile, verifyQpkFile } from '../security/signature'
 import { assertQuackPluginSpecifiersTargetIsolation } from '../target-plugin-isolation'
@@ -1101,13 +1102,39 @@ project
   .description('Build project targets from the Qua project manifest')
   .option('-c, --config <path>', 'Qua project configuration file path')
   .option('--workspace-config <path>', 'Quack workspace configuration file path')
-  .option('-t, --target <target>', 'Target platform to build (cocos)', 'cocos')
+  .option('-t, --target <target>', 'Target platform to build (web, native, cocos)', 'cocos')
   .option('--platform <platform>', 'Specific Cocos platform to build')
+  .option('--result-file <path>', 'Write the production result as JSON')
+  .option('--progress-fd <fd>', 'Stream structured production progress to inherited descriptor 3')
   .option('-b, --bundle <name>', 'Build specific workspace bundle')
   .option('-a, --all', 'Build all workspace bundles')
   .option('-v, --verbose', 'Verbose output')
   .action(async (options) => {
     try {
+      if (options.target === 'web' || options.target === 'native') {
+        if (options.progressFd !== undefined && options.progressFd !== '3')
+          throw new Error('Production progress must use inherited descriptor 3.')
+        if (options.platform && (options.target !== 'native' || options.platform !== 'macos'))
+          throw new Error('Production native application packaging supports the macOS host only.')
+        const { projectRoot } = await loadProjectConfigForCli({ config: options.config })
+        const controller = new AbortController()
+        const abort = () => controller.abort()
+        process.once('SIGTERM', abort)
+        process.once('SIGINT', abort)
+        try {
+          const result = await buildQuaProjectProduction({ cwd: projectRoot, configPath: options.config, target: options.target, signal: controller.signal, onLog: text => process.stdout.write(text), onProgress: options.progressFd ? event => writeSync(3, `${JSON.stringify(event)}\n`) : undefined })
+          if (options.resultFile) {
+            const { writeFile } = await import('node:fs/promises')
+            await writeFile(resolve(options.resultFile), JSON.stringify(result))
+          }
+          console.log(`Production artifact: ${result.artifact}`)
+        }
+        finally {
+          process.removeListener('SIGTERM', abort)
+          process.removeListener('SIGINT', abort)
+        }
+        return
+      }
       if (options.target !== 'cocos') {
         throw new Error(`Unsupported project build target "${options.target}". Use Vite for Web builds.`)
       }

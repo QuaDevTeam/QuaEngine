@@ -65,6 +65,23 @@ describe('create-qua-game scaffold', () => {
     expect(logs.lines.join('\n')).toContain('pnpm run assets:build')
   })
 
+  it('creates a scoped plugin with bundled Lit devtools and scoped Sass', async () => {
+    const cwd = await createTempDir()
+    const result = await scaffoldProject({ projectName: '@studio/story-tools', targetDirectory: 'plugin', template: 'plugin', cwd, install: false, stdout: createLogger() })
+    const root = result.targetDirectory
+    const manifest = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'))
+    expect(manifest.dependencies.lit).toBeDefined()
+    expect(manifest.devDependencies['sass-embedded']).toBeDefined()
+    expect(manifest.quajs.extension.devtools.styles).toEqual(['./dist/editor.css'])
+    const component = await readFile(join(root, 'src/editor.ts'), 'utf8')
+    const style = await readFile(join(root, 'src/editor.scss'), 'utf8')
+    expect(component).not.toContain('__PROJECT_')
+    expect(style).not.toContain('__PROJECT_')
+    expect(component).toContain(`const tag = 'qua-${manifest.quajs.extension.id}-panel'`)
+    expect(style).toContain(`[data-qua-plugin="${manifest.quajs.extension.id}"]`)
+    expect(await readFile(join(root, 'vite.config.ts'), 'utf8')).toContain('entry: { index: \'src/index.ts\', editor: \'src/editor.ts\' }')
+  })
+
   it('normalizes and rejects project names', () => {
     expect(normalizeProjectName('My VN Game!')).toBe('my-vn-game')
     expect(inferProjectName('/tmp/Qua Starter')).toBe('qua-starter')

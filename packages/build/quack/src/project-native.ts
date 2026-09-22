@@ -23,7 +23,7 @@ import { isDeepStrictEqual } from 'node:util'
 import { createTargetCoreSelection } from '@quajs/native-contracts'
 import {
   hasQuaProjectNativeCargoFeature,
-  QUA_NATIVE_QUICKJS_CARGO_FEATURE,
+  QUA_NATIVE_JSC_CARGO_FEATURE,
 
 } from './project-native-build'
 import {
@@ -100,7 +100,7 @@ export function createQuaProjectNativeTargetBundleManifest(
   plan: QuaProjectNativeArtifactPlan,
   options: QuaProjectNativeTargetBundleManifestOptions,
 ): TargetBundleManifest {
-  assertNativeQuickJsCargoFeature(plan, options.nativeRuntime)
+  assertNativeJscCargoFeature(plan, options.nativeRuntime)
   const targetCore = createTargetCoreSelection('native')
   const dependencies = options.dependencies || []
   const rendererEntries = options.rendererEntries || []
@@ -143,18 +143,18 @@ export async function emitQuaProjectNativeTargetBundleManifest(
   })
 }
 
-function assertNativeQuickJsCargoFeature(
+function assertNativeJscCargoFeature(
   plan: QuaProjectNativeArtifactPlan,
   nativeRuntime: TargetBundleNativeRuntimeInfo,
 ): void {
-  if (nativeRuntime.quickjsVersion === 'unsupported') {
+  if (nativeRuntime.jscVersion === 'unsupported') {
     return
   }
-  if (hasQuaProjectNativeCargoFeature(plan.build, QUA_NATIVE_QUICKJS_CARGO_FEATURE)) {
+  if (hasQuaProjectNativeCargoFeature(plan.build, QUA_NATIVE_JSC_CARGO_FEATURE)) {
     return
   }
   throw new Error(
-    `Native ${plan.profile}/${plan.platform} artifact declares QuickJS runtime "${nativeRuntime.quickjsVersion}" but targets.native.build.cargoFeatures does not include "${QUA_NATIVE_QUICKJS_CARGO_FEATURE}". Add that Cargo feature or emit nativeRuntime.quickjsVersion: "unsupported" for no-QuickJS builds.`,
+    `Native ${plan.profile}/${plan.platform} artifact declares JavaScriptCore runtime "${nativeRuntime.jscVersion}" but targets.native.build.cargoFeatures does not include "${QUA_NATIVE_JSC_CARGO_FEATURE}". Add that Cargo feature or emit nativeRuntime.jscVersion: "unsupported" for no-JavaScriptCore builds.`,
   )
 }
 

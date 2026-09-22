@@ -525,6 +525,25 @@ Yuki: Hello
     expect(result).not.toMatch(/import.*show,.*from.*@quajs\/character/s)
   })
 
+  it.each([
+    '@HideAllCharacters()',
+    '@HideAllCharacters()\n\nJack: Still speaking off-screen.',
+    '@HideAllCharacters()\nJack: Still speaking off-screen.',
+    '@HideAllCharacters()\nThe room goes quiet.',
+  ])('compiles cast-wide hiding without a speaker: %s', (script) => {
+    const result = createCharacterTransformer().transformSource(`const steps = qs\`${script}\``)
+
+    expect(result).toContain('await hideAllCharactersWithEngine(ctx.engine)')
+    expect(result).toMatch(/import.*hideAllCharactersWithEngine.*from.*@quajs\/character/s)
+    expect(result).not.toContain('hideWithEngine(')
+  })
+
+  it('rejects arguments to cast-wide hiding instead of silently hiding extra characters', () => {
+    expect(() => createCharacterTransformer().transformSource(`const steps = qs\`
+      @HideAllCharacters('Jack')
+    \``)).toThrow('@HideAllCharacters does not accept arguments')
+  })
+
   it('should show the current speaker with object options', () => {
     const transformer = createCharacterTransformer()
     const source = `
@@ -690,6 +709,31 @@ Yuki: Hello
     expect(result).toContain('clearBackgroundWithEngine(ctx.engine)')
     expect(result).toMatch(/import.*setBackgroundWithEngine.*clearBackgroundWithEngine.*setVideoBackgroundWithEngine.*setLayeredBackgroundWithEngine.*addBackgroundLayerWithEngine.*transitionBackgroundWithEngine.*transitionBackgroundLayerWithEngine.*from.*@quajs\/plugin-background/s)
     expect(result).toContain('speakWithEngine(ctx.engine, "Jack", "Hello world!")')
+  })
+
+  it('passes reusable background shader definitions and parameters through QuaScript', () => {
+    const result = createBackgroundTransformer().transformSource(`
+      function scene1() { dialogue(qs\`
+        @SetBackground('room.png', { transition: { ...wipe, shader: { ...wipe.shader, params: [0.1, 0, 0, 0] } } })
+        @BackgroundTransition(drift)
+        Narrator: Ready.
+      \`) }
+    `)
+    expect(result).toContain('...wipe.shader')
+    expect(result).toContain('...wipe,')
+    expect(result).toContain('params: [0.1, 0, 0, 0]')
+    expect(result).toContain('transitionBackgroundWithEngine(ctx.engine, drift)')
+  })
+
+  it('preserves computed transition tracks and spread keyframe arrays', () => {
+    const result = createBackgroundTransformer().transformSource(`
+      function scene1() { dialogue(qs\`
+        @SetBackground('room.png', { transition: { incoming: { [property]: [...frames, { offset: 1, value: 1 }] } } })
+        Narrator: Ready.
+      \`) }
+    `)
+    expect(result).toContain('[property]: [...frames, {')
+    expect(result).toContain('offset: 1')
   })
 
   it('should require a background asset for set background decorators', () => {
@@ -979,6 +1023,28 @@ const canEnterLibrary = scope.hasKey
     expect(result).toContain('speakWithEngine(ctx.engine, "Jack", "Hello world!")')
   })
 
+  it('should compile placed image timelines with explicit layer targets and numeric dimensions', () => {
+    const transformer = createAnimationTransformer()
+    const result = transformer.transformSource(`
+      function scene1() {
+        dialogue(qs\`
+          @AnimationTimeline(800, true)
+          @Key('backgroundLayer:letter', 'x', 0, 320)
+          @Key('backgroundLayer:letter', 'x', 800, 700, 'easeOutCubic')
+          @Key('backgroundLayer:letter', 'width', 0, 480)
+          @Key('backgroundLayer:letter', 'width', 800, 600)
+          Jack: The letter moves.
+        \`)
+      }
+    `)
+    expect(result).toContain('playTimelineWithEngine(ctx.engine, {')
+    expect(result).toContain('target: "backgroundLayer:letter"')
+    expect(result).toContain('property: "x"')
+    expect(result).toContain('property: "width"')
+    expect(result).toContain('easing: "easeOutCubic"')
+    expect(result).toContain('wait: true')
+  })
+
   it('should use resolved speaker ids for omitted animation self targets', () => {
     const transformer = createCharacterAnimationTransformer()
     const source = `
@@ -1109,3 +1175,36 @@ function createTestProjectRootWithDependencies(packages: readonly string[]): str
   }), 'utf-8')
   return projectRoot
 }
+
+it('emits only static package-owned image hints and preserves story metadata', async () => {
+  const transformer = await createTestPluginAwareTransformer()
+  const code = transformer.transformSource(`const steps = qs\`
+@Scene('rain')
+@SetBackground('bg/rain.webp')
+@ShowCharacter('mara', { expression: 'smile' })
+Mara: Hello.
+@SetBackground(scope.nextImage())
+A dynamic image.
+\``)
+  const ast = parse(code, { sourceType: 'module', plugins: ['typescript'] })
+  const hints: unknown[] = []
+  const walk = (node: any) => {
+    if (!node || typeof node !== 'object')
+      return
+    if (node.type === 'ObjectProperty' && node.key.name === 'assetHints')
+      hints.push(node.value)
+    for (const value of Object.values(node)) {
+      if (Array.isArray(value))
+        value.forEach(walk)
+      else if (value && typeof value === 'object')
+        walk(value)
+    }
+  }
+  walk(ast)
+  expect(hints).toHaveLength(1)
+  expect(code).toContain('assetHints:')
+  expect(code).toContain('name: "bg/rain.webp"')
+  expect(code).toContain('name: "mara"')
+  expect(code).toContain('expression: "smile"')
+  expect(code).toContain('sceneId: "rain"')
+})
