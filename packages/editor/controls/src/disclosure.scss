@@ -1,0 +1,50 @@
+.editor-disclosure {
+  min-width: 0;
+  > summary {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-height: var(--editor-control-height);
+    list-style: none;
+    cursor: pointer;
+    border-radius: var(--editor-radius);
+    &::-webkit-details-marker { display: none; }
+    &::marker { content: ''; }
+  }
+  > summary > .editor-disclosure-chevron {
+    width: 12px;
+    height: 12px;
+    flex: 0 0 12px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  &[open] > summary > .editor-disclosure-chevron { transform: rotate(90deg); }
+  > .editor-disclosure-content {
+    min-width: 0;
+    display: flow-root;
+  }
+  &[data-transition='true'] > summary > .editor-disclosure-chevron {
+    transition: transform var(--editor-disclosure-duration, 180ms) ease;
+  }
+}
+
+// Unsupported hosts retain instantaneous, accessible native details behavior.
+@supports (interpolate-size: allow-keywords) and (transition-behavior: allow-discrete) {
+  .editor-disclosure[data-transition='true'] {
+    interpolate-size: allow-keywords;
+    &::details-content {
+      block-size: 0;
+      overflow: clip;
+      transition: block-size var(--editor-disclosure-duration, 180ms) ease,
+        content-visibility var(--editor-disclosure-duration, 180ms) allow-discrete;
+    }
+    &[open]::details-content { block-size: auto; }
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .editor-disclosure { --editor-disclosure-duration: 0ms; }
+}
+body[data-reduced-motion='true'] .editor-disclosure { --editor-disclosure-duration: 0ms; }

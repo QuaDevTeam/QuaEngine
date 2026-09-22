@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "plugins": [
+    { "name": "@quajs/character", "title": "Character", "description": "角色身份、对话、立绘与表情。", "tags": ["runtime", "角色"] },
+    { "name": "@quajs/editor-character", "title": "Character Browser", "description": "角色与差分的可视化源码管理。", "tags": ["devtools", "角色"] },
+    { "name": "@quajs/editor-animation", "title": "Animation Editor", "description": "关键帧时间轴编辑与 Web renderer 实时预览。", "tags": ["devtools", "动画"] },
+    { "name": "@quajs/plugin-sprite", "title": "Sprite", "description": "立绘差分、图集与 UI 皮肤。", "tags": ["runtime", "资源"] },
+    { "name": "@quajs/plugin-background", "title": "Background", "description": "场景背景、视频与分层过渡。", "tags": ["runtime", "场景"] },
+    { "name": "@quajs/plugin-audio", "title": "Audio", "description": "背景音乐、语音和音效。", "tags": ["runtime", "音频"] },
+    { "name": "@quajs/plugin-animation", "title": "Animation", "description": "角色与场景时间线动画。", "tags": ["runtime", "动画"] },
+    { "name": "@quajs/plugin-gallery", "title": "Gallery", "description": "游戏内 CG 鉴赏。", "tags": ["runtime", "界面"] },
+    { "name": "@quajs/plugin-backlog", "title": "Backlog", "description": "对话回溯与语音重播。", "tags": ["runtime", "界面"] }
+  ]
+}

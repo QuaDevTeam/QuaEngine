@@ -1,0 +1,212 @@
+qua-workbench-shell {
+  display: contents;
+}
+#app.docked {
+  grid-template-rows: 36px minmax(0, 1fr) 26px;
+  min-width: 720px;
+  .workspace {
+    grid-template-columns: 44px var(--sidebar-width) 4px minmax(0, 1fr);
+  }
+  #cursor-position,
+  #check-indicator {
+    display: inline-flex;
+  }
+}
+#dock-workspace {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.dock-surface,
+.dock-split,
+.dock-group,
+.dock-content {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+.dock-split {
+  display: grid;
+  &[data-axis='horizontal'] {
+    grid-template-columns: minmax(0, var(--dock-ratio)) 4px minmax(0, var(--dock-rest));
+  }
+  &[data-axis='vertical'] {
+    grid-template-rows: minmax(0, var(--dock-ratio)) 4px minmax(0, var(--dock-rest));
+  }
+}
+.dock-group {
+  display: grid;
+  grid-template-rows: 33px minmax(0, 1fr);
+  background: var(--editor-surface);
+  overflow: hidden;
+}
+.dock-header {
+  display: flex;
+  min-width: 0;
+  background: var(--editor-bg);
+  border-bottom: 1px solid var(--editor-divider);
+}
+.dock-tabs {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  overflow: auto hidden;
+  scrollbar-width: none;
+}
+.dock-tab {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  border-bottom: 2px solid transparent;
+  padding: 0 2px 0 8px;
+  &.active {
+    background: var(--editor-accent-bg);
+    border-bottom-color: var(--editor-accent);
+  }
+  &:hover {
+    background: var(--editor-button-bg);
+  }
+  .dock-tab-button {
+    border: 0;
+    background: transparent;
+    padding: 0 4px;
+    height: 29px;
+    white-space: nowrap;
+  }
+  .dock-tab-close {
+    --editor-icon-button-size: 20px;
+    opacity: 0;
+    margin: 0 2px;
+  }
+  &.active .dock-tab-close,
+  &:hover .dock-tab-close,
+  &:focus-within .dock-tab-close {
+    opacity: 1;
+  }
+}
+.dock-actions {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 0 4px;
+  flex-shrink: 0;
+  .icon-button {
+    --editor-icon-button-size: 24px;
+  }
+}
+.dock-actions > div {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.dock-content {
+  position: relative;
+  overflow: hidden;
+}
+.dock-content > .dock-view {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+.dock-content > :is(#panel-console, #panel-problems) {
+  overflow: auto;
+}
+.dock-content > :is(#panel-properties, #panel-performance, #panel-scene-debugger) {
+  display: flex;
+  flex-direction: column;
+}
+.dock-separator {
+  display: block;
+  background: var(--editor-button-bg);
+  touch-action: none;
+  z-index: 2;
+  &[aria-orientation='vertical'] {
+    cursor: col-resize;
+  }
+  &[aria-orientation='horizontal'] {
+    cursor: row-resize;
+  }
+  &:hover,
+  &:focus-visible {
+    background: var(--editor-accent);
+    outline: none;
+  }
+}
+.dock-empty {
+  position: absolute;
+  inset: 0;
+}
+.dock-drop-indicator {
+  position: absolute;
+  background: color-mix(in srgb, var(--editor-accent) 20%, transparent);
+  border: 2px solid var(--editor-accent);
+  pointer-events: none;
+  z-index: 10;
+}
+.dock-dialog {
+  width: min(460px, 90vw);
+  max-height: 85vh;
+  padding: 20px;
+  border: 1px solid var(--editor-border);
+  border-radius: var(--editor-dialog-radius);
+  background: var(--editor-surface);
+  color: var(--editor-text);
+  &::backdrop {
+    background: var(--editor-backdrop);
+  }
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  h2 {
+    font-size: 15px;
+    margin: 0;
+  }
+  > select {
+    width: 100%;
+    margin-bottom: 8px;
+  }
+  > button {
+    margin-right: 8px;
+  }
+}
+.dock-view-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 16px;
+  button {
+    text-align: left;
+  }
+}
+.dock-interacting {
+  user-select: none;
+}
+#workbench-views {
+  --editor-icon-button-size: 26px;
+  margin-left: auto;
+  margin-right: 8px;
+  border: 0;
+  background: transparent;
+  color: var(--editor-muted);
+  &:hover {
+    color: var(--editor-text);
+    background: var(--editor-hover);
+  }
+}
+#app.docked #plugin-marketplace,
+#app.docked #novel-writer {
+  grid-column: auto;
+  grid-row: auto;
+}
+#app.docked .panel-toolbar {
+  padding-inline: 8px;
+}
+.dock-content {
+  container: editor-panel / size;
+}

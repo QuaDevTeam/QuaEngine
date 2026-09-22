@@ -1,0 +1,112 @@
+#disk-change {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--editor-warning);
+  background: var(--editor-warning-bg);
+  color: var(--editor-warning);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+#disk-change > div {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.document-context {
+  display: flex;
+  min-height: 25px;
+  align-items: center;
+  overflow: hidden;
+}
+
+#dialogue-legend {
+  display: flex;
+  flex-shrink: 1;
+  gap: 10px;
+  padding-right: 12px;
+  overflow: hidden;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+#dialogue-legend span::before {
+  content: '•';
+  margin-right: 4px;
+}
+
+.showing-git-diff .document-actions,
+.showing-git-diff #dialogue-legend,
+.showing-git-diff #disk-change {
+  display: none;
+}
+
+.document-bar {
+  display: flex;
+  min-height: 36px;
+  background: var(--editor-bg);
+  border-bottom: 1px solid var(--editor-divider);
+}
+
+#document-tabs {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.document-tab {
+  display: flex;
+  flex-shrink: 0;
+  border-right: 1px solid var(--editor-divider);
+  border-top: 2px solid transparent;
+  color: var(--editor-muted);
+}
+
+.document-tab.active {
+  border-top-color: var(--editor-accent);
+  background: var(--editor-code-bg);
+  color: var(--editor-text);
+}
+
+.document-tab button {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  color: inherit;
+}
+
+.document-tab [role='tab'] {
+  padding: 6px 8px 6px 12px;
+  max-width: 190px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.document-tab .tab-close {
+  --editor-icon-button-size: 22px;
+  align-self: center;
+  margin-right: 2px;
+  font-size: 12px;
+}
+
+.document-tab .tab-close:hover {
+  background: var(--editor-hover);
+}
+
+.document-actions {
+  display: flex;
+  align-items: center;
+  padding: 0 4px;
+}
+
+#dialogue-legend:empty {
+  display: none;
+}
+
+#dialogue-legend:not(:empty) {
+  min-height: 22px;
+  padding: 2px 10px;
+}

@@ -1,0 +1,50 @@
+{
+  "name": "@quajs/editor-character",
+  "type": "module",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Character and sprite authoring plugin for QuaEngine Editor.",
+  "license": "MPL-2.0",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./indexer": {
+      "types": "./dist/indexing/indexer.d.ts",
+      "import": "./dist/indexing/indexer.js"
+    },
+    "./styles.scss": "./src/editor/styles.scss"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && node ../scripts/build-styles.mjs src/editor/styles.scss dist/styles.css",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@quajs/editor-controls": "workspace:*",
+    "@quajs/editor-core": "workspace:*",
+    "@quajs/plugin-sprite": "workspace:*",
+    "typescript": "catalog:"
+  },
+  "devDependencies": {
+    "sass-embedded": "catalog:",
+    "vitest": "catalog:"
+  },
+  "quajs": {
+    "extension": {
+      "schemaVersion": 1,
+      "id": "qua.character",
+      "title": "Character Browser",
+      "devtools": {
+        "apiVersion": 1,
+        "entry": "./dist/index.js",
+        "export": "characterEditorPlugin",
+        "indexer": "./dist/indexing/indexer.js",
+        "indexerExport": "characterEditorIndexer",
+        "style": "./dist/styles.css"
+      }
+    }
+  }
+}
