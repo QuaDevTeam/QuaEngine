@@ -69,6 +69,10 @@ export interface QuiBaseProps {
   height?: number
   id?: string
   class?: string
+  /** Semantic role; projection metadata, independent of the platform widget. */
+  role?: string
+  ariaLabel?: string
+  ariaPressed?: boolean
   show?: boolean
   opacity?: number
   /** Horizontal scroll offset in pixels (layout via QSS, offset via prop). */
