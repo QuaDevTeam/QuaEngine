@@ -34,7 +34,7 @@ Renderer entries:
 - `@quajs/renderer-web/plugins/achievement`
 - `@quajs/renderer-vue/plugins/achievement`
 - `@quajs/renderer-cocos/plugins/achievement`
-- `@quajs/plugin-achievement/native` through `createAchievementNativeRendererFeature()`
+- `@quajs/plugin-achievement/surface` through `createAchievementUiSurfaceFeature()`
 
 ## Register Definitions
 
@@ -115,7 +115,7 @@ Decorators:
 
 Achievement board selection, filter updates, close requests, and notification dismissal are render-to-logic intents. The plugin updates engine-owned projection; renderer components do not decide unlock/progress state.
 
-Native products explicitly register `createAchievementNativeRendererFeature()` in the same feature-surface list used for frame serialization and `NativeHostPlugin`. It emits separate safe-area board and toast overlays, preserves QPK provenance, masks locked hidden achievement details, and allowlists only existing board/filter/notification pipeline intents.
+Native products explicitly register `createAchievementUiSurfaceFeature()` in the same feature-surface list used for frame serialization and `NativeHostPlugin`. It emits separate safe-area board and toast overlays, preserves QPK provenance, masks locked hidden achievement details, and allowlists only existing board/filter/notification pipeline intents.
 
 The official native achievement surface uses structured `boxShadow` and `textShadow` style IR for Web-aligned board/title depth. Shadows remain render-only and must not affect unlock state, hidden-detail masking, progress, rewards, or toast authority.
 
@@ -142,3 +142,7 @@ Run gallery tests when gallery condition/reward behavior changes.
 - Are rewards/conditions package-aware where assets/runtime content are involved?
 - Does renderer emit intents rather than owning unlock/progress state?
 - If achievement API, decorator, conditions/rewards, settings, or projection behavior changed, was this skill updated?
+
+## Shared surface consumers
+
+The `/surface` export is a pure, optional Web/native UI factory backed by `UiFeatureSurfaceEntry` from `@quajs/render-core`. Register it with native frame serialization and native intent handling, or the Web `createQuiWebOverlayHost` plus logic-side `resolveUiFeatureIntent`. Use the same skin and registration list on both targets. It must not import `@quajs/engine-native`; target adapters supply resource and presentation behavior. Existing Web framework plugin UI remains available independently.
