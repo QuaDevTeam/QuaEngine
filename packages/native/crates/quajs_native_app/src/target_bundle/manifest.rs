@@ -65,7 +65,7 @@ pub struct TargetBundleNativeRendererInfo {
 #[serde(rename_all = "camelCase")]
 pub struct TargetBundleNativeRuntimeInfo {
     #[serde(default)]
-    pub quickjs_version: Option<String>,
+    pub jsc_version: Option<String>,
     #[serde(default)]
     pub native_runtime_version: Option<String>,
     #[serde(default)]

@@ -21,7 +21,7 @@ use crate::audio_sync::{sync_audio_assets_from_host, NativeAudioAssetHostSyncRep
 use crate::font_sync::{sync_font_assets_from_host, NativeFontAssetHostSyncReport};
 use crate::video_sync::{sync_video_assets_from_host, NativeVideoAssetHostSyncReport};
 
-use super::cleanup::{sync_texture_releases_from_host_cleanup, NativeTextureHostCleanupSyncReport};
+use super::cleanup::{sync_frame_texture_releases, NativeTextureHostCleanupSyncReport};
 use super::host::sync_pending_texture_uploads_from_host;
 use super::lifecycle::{
     sync_mounted_texture_bundle_lifecycle_from_host,
@@ -213,8 +213,7 @@ where
     H: NativeHostApi,
 {
     let update = renderer.prepare_frame(layout, view);
-    let texture_host_cleanup_report =
-        sync_texture_releases_from_host_cleanup(renderer.backend_mut(), &update.host_cleanup);
+    let texture_host_cleanup_report = sync_frame_texture_releases(renderer.backend_mut(), &update);
     let submission = renderer.render_frame()?;
     let texture_upload_sync = renderer.texture_upload_sync_for_update(&update);
     finish_texture_synced_frame(
@@ -274,8 +273,7 @@ where
 {
     let previous_state = renderer.state().clone();
     let update = renderer.prepare_frame(layout, view);
-    let texture_host_cleanup_report =
-        sync_texture_releases_from_host_cleanup(renderer.backend_mut(), &update.host_cleanup);
+    let texture_host_cleanup_report = sync_frame_texture_releases(renderer.backend_mut(), &update);
     let submission = match renderer.render_frame() {
         Ok(submission) => submission,
         Err(error) => {
@@ -436,6 +434,16 @@ where
     V: NativeVideoBackend,
     F: NativeFontBackend,
 {
+    // A demanded upload may have completed at the end of the previous frame.
+    // Enforce idle-image eviction even when the projection itself is unchanged.
+    renderer.backend_mut().touch_texture_resources(
+        &update
+            .texture_uploads
+            .requests
+            .iter()
+            .map(|request| request.resource_id.as_str().to_string())
+            .collect(),
+    );
     let video_frame_texture_report = sync_video_frame_textures_for_backend(renderer);
     let font_atlas_report = sync_font_atlas_textures_for_backend(renderer);
     let submission = renderer.render_frame()?;

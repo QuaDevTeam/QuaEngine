@@ -1,6 +1,27 @@
 use super::*;
 
 #[test]
+fn projection_and_gpu_agree_on_generated_alpha_literals() {
+    use crate::projection::safety::is_safe_native_color_literal;
+    for alpha in ["0", "0.0000", ".5", "0.9999", "1", "1.0", "1.0000"] {
+        let color = format!("rgba(49,94,83,{alpha})");
+        assert!(
+            is_safe_native_color_literal(&color),
+            "projection rejected {color}"
+        );
+        assert!(parse_color_literal(&color).is_some(), "GPU rejected {color}");
+    }
+    for alpha in ["-0.1", "1.00001", "2", "NaN", "inf", "1e0", "1.", ""] {
+        let color = format!("rgba(49,94,83,{alpha})");
+        assert!(
+            !is_safe_native_color_literal(&color),
+            "projection accepted {color}"
+        );
+        assert!(parse_color_literal(&color).is_none(), "GPU accepted {color}");
+    }
+}
+
+#[test]
 fn parses_safe_native_color_literals() {
     assert_eq!(
         parse_color_literal("#369c"),

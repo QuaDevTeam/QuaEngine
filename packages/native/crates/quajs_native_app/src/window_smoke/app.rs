@@ -7,9 +7,9 @@ use winit::event_loop::{ActiveEventLoop, EventLoopProxy};
 use winit::window::Window;
 
 use super::config::{
-    load_window_capture_size, load_window_smoke_target_frame_count, load_window_target_fps_override,
-    native_window_demo_e2e_enabled, native_window_dev_enabled, native_window_perf_hud_enabled,
-    native_window_title,
+    load_window_capture_size, load_window_smoke_target_frame_count,
+    load_window_target_fps_override, native_window_demo_e2e_enabled, native_window_interactive,
+    native_window_perf_hud_enabled, native_window_title,
 };
 use super::control::{native_window_control_addr, NativeWindowControl};
 use super::demo_e2e::NativeDemoE2eState;
@@ -17,14 +17,14 @@ use super::error::NativeWindowSmokeError;
 use super::frame::{normalized_physical_size, window_frame_dimensions};
 use super::frame_composer::NativeWindowFrameComposer;
 use super::input::NativeWindowSmokeInputState;
+#[cfg(feature = "javascriptcore")]
+use super::jsc_product::NativeWindowJscProduct;
 use super::metrics::{
     NativeWindowSmokeAudioMetrics, NativeWindowSmokeTextureMetrics, NativeWindowSmokeVideoMetrics,
 };
 use super::performance_hud::NativeWindowPerformanceHud;
-#[cfg(feature = "quickjs-rquickjs")]
+#[cfg(feature = "javascriptcore")]
 use super::projection_worker::NativeProjectionWorker;
-#[cfg(feature = "quickjs-rquickjs")]
-use super::quickjs_product::NativeWindowQuickJsProduct;
 use super::report::NativeWindowSmokeReport;
 use super::report_builder::{build_window_smoke_report, NativeWindowSmokeReportInput};
 use super::texture_host::create_window_smoke_texture_host_from_env;
@@ -33,7 +33,7 @@ use crate::product_frame_pacer::{NativeProductFramePacer, DEFAULT_TARGET_FPS};
 use crate::product_loop::NativeProductLoopFrameResult;
 use crate::product_window::{NativeProductWindowInMemoryRuntime, NativeProductWindowPhysicalSize};
 use crate::product_window_loop::NativeProductWindowInMemoryLoop;
-#[cfg(feature = "quickjs-rquickjs")]
+#[cfg(feature = "javascriptcore")]
 use quajs_wgpu_renderer::projection_runtime::NativeRendererProjectionRuntime;
 use quajs_wgpu_renderer::renderer::RealWgpuEncodedFrameCapture;
 
@@ -42,14 +42,16 @@ mod events;
 pub(super) struct NativeWindowSmokeApp {
     frame_source: String,
     window: Option<Arc<Window>>,
-    #[cfg(target_os = "macos")]
-    window_modifiers: winit::keyboard::ModifiersState,
-    #[cfg(target_os = "macos")]
-    window_drag_pending_release: bool,
+    first_frame_ready: bool,
+    frame_resources_pending: bool,
     product_shell: Option<NativeProductAppShell<NativeProductWindowInMemoryLoop>>,
+    // Declared after product_shell so WGPU releases the surface first.
+    #[cfg(target_os = "macos")]
+    editor_surface: Option<super::editor_surface::EditorSurface>,
     input: NativeWindowSmokeInputState,
     texture_metrics: NativeWindowSmokeTextureMetrics,
     performance_hud: NativeWindowPerformanceHud,
+    memory_budget: super::memory_budget::MemoryBudgetMonitor,
     /// Caches the composed frame JSON (projection + container + HUD overlay)
     /// keyed by projection identity, window dimensions, and HUD revision.
     /// Reusing it skips two JSON parse+serialize round trips per frame when
@@ -67,23 +69,23 @@ pub(super) struct NativeWindowSmokeApp {
     /// When the most recent input event (pointer/keyboard/wheel) arrived.
     /// Used to compute input-to-first-frame latency in the HUD.
     last_input_at: Option<Instant>,
-    #[cfg(feature = "quickjs-rquickjs")]
-    quickjs_product: Option<NativeWindowQuickJsProduct>,
-    #[cfg(feature = "quickjs-rquickjs")]
-    quickjs_pipeline_sequence: u64,
-    #[cfg(feature = "quickjs-rquickjs")]
+    #[cfg(feature = "javascriptcore")]
+    jsc_product: Option<NativeWindowJscProduct>,
+    #[cfg(feature = "javascriptcore")]
+    jsc_pipeline_sequence: u64,
+    #[cfg(feature = "javascriptcore")]
     renderer_redraw_pending: bool,
-    #[cfg(feature = "quickjs-rquickjs")]
+    #[cfg(feature = "javascriptcore")]
     renderer_local_work_active: bool,
     /// Owns the JS-shaped projection work on a dedicated thread so the winit
     /// event thread only encodes and presents wgpu frames.
-    #[cfg(feature = "quickjs-rquickjs")]
+    #[cfg(feature = "javascriptcore")]
     projection_worker: Option<NativeProjectionWorker>,
     /// Last projection the render thread consumed. Reused whenever the worker
     /// has not published a newer frame yet, so present never waits on JS work.
-    #[cfg(feature = "quickjs-rquickjs")]
+    #[cfg(feature = "javascriptcore")]
     last_projection_json: Option<Arc<str>>,
-    #[cfg(feature = "quickjs-rquickjs")]
+    #[cfg(feature = "javascriptcore")]
     last_projection_font_prewarm_texts: Vec<String>,
     demo_e2e: NativeDemoE2eState,
     control: Option<NativeWindowControl>,
@@ -97,18 +99,26 @@ impl NativeWindowSmokeApp {
         let target_fps_env_override = load_window_target_fps_override();
         // Exercise the product at its normal cadence. Unbounded E2E redraws
         // compete with resource loading and hide the player's actual timing.
-        let pacing_enabled = native_window_dev_enabled() || native_window_demo_e2e_enabled();
+        let pacing_enabled = native_window_interactive() || native_window_demo_e2e_enabled();
         Self {
             frame_source,
             window: None,
-            #[cfg(target_os = "macos")]
-            window_modifiers: winit::keyboard::ModifiersState::empty(),
-            #[cfg(target_os = "macos")]
-            window_drag_pending_release: false,
+            first_frame_ready: false,
+            frame_resources_pending: true,
             product_shell: None,
+            #[cfg(target_os = "macos")]
+            editor_surface: None,
             input: NativeWindowSmokeInputState::default(),
             texture_metrics: NativeWindowSmokeTextureMetrics::default(),
             performance_hud: NativeWindowPerformanceHud::default(),
+            memory_budget: if env::var_os("QUA_NATIVE_RENDERER_WINDOW_SMOKE_FRAME").is_none() {
+                let proxy = event_loop_proxy.clone();
+                super::memory_budget::MemoryBudgetMonitor::start(move || {
+                    let _ = proxy.send_event(());
+                })
+            } else {
+                Default::default()
+            },
             frame_composer: NativeWindowFrameComposer::default(),
             pacer: NativeProductFramePacer::new(
                 target_fps_env_override.unwrap_or(DEFAULT_TARGET_FPS),
@@ -116,33 +126,60 @@ impl NativeWindowSmokeApp {
             pacing_enabled,
             target_fps_env_override,
             last_input_at: None,
-            #[cfg(feature = "quickjs-rquickjs")]
-            quickjs_product: None,
-            #[cfg(feature = "quickjs-rquickjs")]
-            quickjs_pipeline_sequence: 0,
-            #[cfg(feature = "quickjs-rquickjs")]
+            #[cfg(feature = "javascriptcore")]
+            jsc_product: None,
+            #[cfg(feature = "javascriptcore")]
+            jsc_pipeline_sequence: 0,
+            #[cfg(feature = "javascriptcore")]
             renderer_redraw_pending: false,
-            #[cfg(feature = "quickjs-rquickjs")]
+            #[cfg(feature = "javascriptcore")]
             renderer_local_work_active: false,
-            #[cfg(feature = "quickjs-rquickjs")]
+            #[cfg(feature = "javascriptcore")]
             projection_worker: None,
-            #[cfg(feature = "quickjs-rquickjs")]
+            #[cfg(feature = "javascriptcore")]
             last_projection_json: None,
-            #[cfg(feature = "quickjs-rquickjs")]
+            #[cfg(feature = "javascriptcore")]
             last_projection_font_prewarm_texts: Vec::new(),
             demo_e2e: NativeDemoE2eState::new(native_window_demo_e2e_enabled()),
-            control: native_window_control_addr().and_then(|addr| {
-                match NativeWindowControl::start(&addr, event_loop_proxy.clone()) {
+            control: native_window_control_addr().and_then(
+                |addr| match NativeWindowControl::start(&addr, event_loop_proxy.clone()) {
                     Ok(control) => Some(control),
                     Err(error) => {
                         log::error!("Native window control channel failed to start: {error}");
                         None
                     }
-                }
-            }),
+                },
+            ),
             event_loop_proxy,
             report: None,
             error: None,
+        }
+    }
+
+    fn maintain_image_memory(&mut self) {
+        if env::var_os("QUA_NATIVE_RENDERER_WINDOW_SMOKE_FRAME").is_some() {
+            return;
+        }
+        let Some(shell) = self.product_shell.as_mut() else {
+            return;
+        };
+        let budget = self.memory_budget.budget();
+        let backend = shell
+            .window_loop_mut()
+            .runtime_mut()
+            .renderer_mut()
+            .backend_mut();
+        let device = backend.runtime_executor_mut().device_mut();
+        let generation = device.image_preload_budget_generation();
+        device.set_image_memory_budget(budget.cache, budget.preparation);
+        let recovering = generation != device.image_preload_budget_generation();
+        backend.sync_image_cache_bindings();
+        if recovering {
+            #[cfg(feature = "javascriptcore")]
+            {
+                self.renderer_redraw_pending = true;
+            }
+            self.request_redraw();
         }
     }
 
@@ -152,23 +189,20 @@ impl NativeWindowSmokeApp {
         }
 
         let mut attributes = Window::default_attributes()
+            // A visible window must never expose QPK/decode/font preparation.
+            .with_visible(false)
             .with_title(native_window_title())
-            // macOS game windows present only the authored stage, without the
-            // system titlebar or traffic-light buttons.
-            .with_decorations(!cfg!(target_os = "macos"))
+            // Standalone windows use the OS titlebar and standard window controls.
+            .with_decorations(true)
             .with_inner_size(LogicalSize::new(960.0, 540.0));
         if let Some(size) = load_window_capture_size() {
             attributes = attributes.with_inner_size(size);
         }
-        let window = Arc::new(
-            event_loop
-                .create_window(attributes)
-                .map_err(|error| {
-                    NativeWindowSmokeError::new(format!(
-                        "Failed to create native renderer smoke window: {error}."
-                    ))
-                })?,
-        );
+        let window = Arc::new(event_loop.create_window(attributes).map_err(|error| {
+            NativeWindowSmokeError::new(format!(
+                "Failed to create native renderer smoke window: {error}."
+            ))
+        })?);
         let physical_size = normalized_physical_size(window.inner_size());
         log::info!(
             "window created: {}x{} physical, scale_factor={}",
@@ -177,14 +211,32 @@ impl NativeWindowSmokeApp {
             window.scale_factor()
         );
         let texture_host = create_window_smoke_texture_host_from_env()?;
-        #[cfg(feature = "quickjs-rquickjs")]
-        let quickjs_product =
-            NativeWindowQuickJsProduct::load(&texture_host, self.event_loop_proxy.clone())?;
+        #[cfg(feature = "javascriptcore")]
+        let jsc_product =
+            NativeWindowJscProduct::load(&texture_host, self.event_loop_proxy.clone())?;
         let instance =
             wgpu::Instance::new(wgpu::InstanceDescriptor::new_with_display_handle_from_env(
                 Box::new(event_loop.owned_display_handle()),
             ));
-        let surface = instance.create_surface(window.clone()).map_err(|error| {
+        #[cfg(not(target_os = "macos"))]
+        if super::editor_preview::enabled() {
+            return Err(NativeWindowSmokeError::new("Native compositor embedding is not implemented on this platform."));
+        }
+        #[cfg(target_os = "macos")]
+        if super::editor_preview::enabled() {
+            let viewport = physical_size.to_logical::<f64>(window.scale_factor());
+            self.editor_surface = Some(super::editor_surface::EditorSurface::create(
+                viewport.width, viewport.height, window.scale_factor(),
+            ).map_err(NativeWindowSmokeError::new)?);
+        }
+        #[cfg(target_os = "macos")]
+        let surface = match self.editor_surface.as_ref() {
+            Some(editor) => editor.wgpu_surface(&instance),
+            None => instance.create_surface(window.clone()),
+        };
+        #[cfg(not(target_os = "macos"))]
+        let surface = instance.create_surface(window.clone());
+        let surface = surface.map_err(|error| {
             NativeWindowSmokeError::new(format!(
                 "Failed to create native renderer smoke wgpu surface: {error}."
             ))
@@ -206,10 +258,10 @@ impl NativeWindowSmokeApp {
         // The native app shell owns a browser-like render cadence. Smoke runs
         // still stop at their target frame count from the window event handler.
         self.product_shell = Some(NativeProductAppShell::new(window_loop));
-        #[cfg(feature = "quickjs-rquickjs")]
+        #[cfg(feature = "javascriptcore")]
         {
-            self.quickjs_product = quickjs_product;
-            if let Some(product) = self.quickjs_product.as_ref() {
+            self.jsc_product = jsc_product;
+            if let Some(product) = self.jsc_product.as_ref() {
                 let update = product.drain_pipeline_update()?;
                 let mut projection_runtime =
                     NativeRendererProjectionRuntime::from_frame_json(&update.projection_source)
@@ -243,7 +295,7 @@ impl NativeWindowSmokeApp {
                     projection_runtime,
                     self.event_loop_proxy.clone(),
                 )?);
-                self.quickjs_pipeline_sequence = product.pipeline_sequence();
+                self.jsc_pipeline_sequence = product.pipeline_sequence();
                 self.renderer_redraw_pending = true;
                 window.request_redraw();
             }
@@ -270,7 +322,7 @@ impl NativeWindowSmokeApp {
     /// Applies a target frame rate coming from the engine projection. An
     /// explicit env override always wins, so a developer pinning the cadence is
     /// not fought by the product's settings value.
-    #[cfg(feature = "quickjs-rquickjs")]
+    #[cfg(feature = "javascriptcore")]
     fn apply_projection_target_fps(&mut self, target_fps: Option<u32>) {
         if self.target_fps_env_override.is_some() {
             return;
@@ -295,6 +347,7 @@ impl NativeWindowSmokeApp {
     }
 
     fn render_once(&mut self) -> Result<NativeWindowSmokeReport, NativeWindowSmokeError> {
+        self.maintain_image_memory();
         let frame_started_at = std::time::Instant::now();
         // The next deadline is measured from frame start, so the cadence stays
         // even no matter how long this frame ends up taking.
@@ -303,7 +356,7 @@ impl NativeWindowSmokeApp {
             NativeWindowSmokeError::new("Native renderer smoke window is not initialized.")
         })?;
         let dimensions = window_frame_dimensions(window.inner_size(), window.scale_factor());
-        #[cfg(feature = "quickjs-rquickjs")]
+        #[cfg(feature = "javascriptcore")]
         let (frame_source, projection_target_fps): (Arc<str>, Option<u32>) =
             match self.projection_worker.as_ref() {
                 Some(worker) => {
@@ -325,9 +378,9 @@ impl NativeWindowSmokeApp {
                 }
                 None => (self.frame_source.clone().into(), None),
             };
-        #[cfg(feature = "quickjs-rquickjs")]
+        #[cfg(feature = "javascriptcore")]
         self.apply_projection_target_fps(projection_target_fps);
-        #[cfg(not(feature = "quickjs-rquickjs"))]
+        #[cfg(not(feature = "javascriptcore"))]
         let frame_source: Arc<str> = Arc::from(self.frame_source.as_str());
         let hud = if native_window_perf_hud_enabled() {
             Some(&self.performance_hud)
@@ -346,7 +399,7 @@ impl NativeWindowSmokeApp {
             ));
         };
 
-        #[cfg(feature = "quickjs-rquickjs")]
+        #[cfg(feature = "javascriptcore")]
         if self.projection_worker.is_some() {
             // Prewarm texts are computed by the worker alongside the projection,
             // so the render thread never locks the projection runtime here.
@@ -365,12 +418,11 @@ impl NativeWindowSmokeApp {
         let target_frame_count = product_shell.window_loop().target_frame_count();
         let next_render_reaches_target = product_shell
             .window_loop()
-            .runtime()
-            .rendered_frame_count()
+            .completed_frame_count()
             .saturating_add(1)
             >= target_frame_count;
         let should_shutdown_after_next_frame = self.demo_e2e.is_awaiting_final_frame()
-            || (!native_window_dev_enabled() && next_render_reaches_target);
+            || (!native_window_interactive() && next_render_reaches_target);
         if should_shutdown_after_next_frame {
             product_shell
                 .window_loop_mut()
@@ -392,25 +444,39 @@ impl NativeWindowSmokeApp {
             .render_projection_json_frame(
                 &frame_json,
                 |renderer, host| {
+                    if !self.first_frame_ready {
+                        self.first_frame_ready = true;
+                        log::info!("first complete native frame ready; revealing product surface");
+                        if !super::editor_preview::enabled() {
+                            self.window.as_ref().unwrap().set_visible(true);
+                        }
+                    }
                     if let Some(control) = &control_for_input {
-                        control.borrow_mut().drain(renderer, host, &mut self.input)?;
+                        control
+                            .borrow_mut()
+                            .drain(renderer, host, &mut self.input, &frame_json)?;
                     }
                     if demo_e2e.borrow().is_running() {
-                        demo_e2e.borrow_mut()
+                        demo_e2e
+                            .borrow_mut()
                             .tick(renderer, host, &mut self.input, &frame_json)
-                    } else if native_window_dev_enabled() {
+                    } else if native_window_interactive() {
                         Ok(())
                     } else {
                         self.input
                             .run_open_settings_probe(renderer, host, &frame_json)
                     }
                 },
-                |runtime| {
+                |runtime, presentation| {
                     if demo_e2e.borrow().has_pending_capture() {
                         let capture = runtime.capture_frame_png().map_err(|error| {
-                            NativeWindowSmokeError::new(format!("Failed to capture E2E checkpoint: {error}."))
+                            NativeWindowSmokeError::new(format!(
+                                "Failed to capture E2E checkpoint: {error}."
+                            ))
                         })?;
-                        demo_e2e.borrow_mut().capture_checkpoint(&capture)?;
+                        demo_e2e
+                            .borrow_mut()
+                            .capture_checkpoint(&capture, presentation)?;
                     }
                     let has_pending_captures = control
                         .as_ref()
@@ -427,9 +493,7 @@ impl NativeWindowSmokeApp {
                             .borrow_mut()
                             .drain_captures(&capture)?;
                     }
-                    if runtime.rendered_frame_count() >= target_frame_count
-                        || should_shutdown_after_next_frame
-                    {
+                    if should_shutdown_after_next_frame {
                         let capture = runtime.capture_frame_png().map_err(|error| {
                             NativeWindowSmokeError::new(format!(
                                 "Failed to capture native renderer smoke frame: {error}."
@@ -453,6 +517,15 @@ impl NativeWindowSmokeApp {
 
         let loop_frame =
             product_frame_result.map_err(NativeWindowSmokeError::from_window_loop_error)?;
+        self.frame_resources_pending =
+            loop_frame.present_outcome.present_status == "PreparingResources";
+        #[cfg(feature = "javascriptcore")]
+        if let (Some(product), Some(progress)) = (&self.jsc_product, &loop_frame.product_frame.asset_preparation_update) {
+            product.dispatch_renderer_intent(quajs_native_runtime::NativeRendererIntent {
+                r#type: "asset-loading/renderer-progress".into(),
+                payload_json: Some(progress.to_string()),
+            })?;
+        }
         let presented_e2e_final_frame = should_shutdown_after_next_frame
             && self.demo_e2e.is_complete()
             && loop_frame.shutdown.is_some();
@@ -461,9 +534,12 @@ impl NativeWindowSmokeApp {
         let synced_frame = product_frame.synced_frame;
         let synced_frame = synced_frame.frame;
         let frame_result = synced_frame.frame;
-        #[cfg(feature = "quickjs-rquickjs")]
-        if self.quickjs_product.is_some() {
-            self.renderer_redraw_pending = false;
+        #[cfg(feature = "javascriptcore")]
+        if self.jsc_product.is_some() {
+            self.renderer_redraw_pending =
+                !frame_result.texture_upload_sync.pending_requests.is_empty()
+                    || product_frame.preload_work_pending
+                    || frame_json.contains("\"preparationId\"");
         }
         if let Some(shutdown) = loop_frame.shutdown {
             self.texture_metrics.record_shutdown_cleanup(&shutdown);
@@ -505,6 +581,16 @@ impl NativeWindowSmokeApp {
             .last_runtime_report()
             .map(|report| &report.texture_sampler_diagnostics);
         let rendered_frame_count = runtime.rendered_frame_count();
+        if let Some(control) = &self.control {
+            let device = runtime.renderer().backend().runtime_executor().device();
+            control.performance.record(
+                rendered_frame_count,
+                frame_started_at.elapsed().as_secs_f64() * 1000.0,
+                device.last_draw_calls(),
+                frame_result.submission.pass_count,
+                || device.allocated_gpu_bytes(),
+            );
+        }
         let audio_metrics =
             NativeWindowSmokeAudioMetrics::from_product_backend(runtime.renderer().audio_backend());
         let video_metrics =
@@ -553,8 +639,8 @@ impl NativeWindowSmokeApp {
                 .unwrap_or_default(),
             frame_capture: frame_capture.as_ref(),
         });
-        if native_window_dev_enabled() {
-            #[cfg(feature = "quickjs-rquickjs")]
+        if native_window_interactive() {
+            #[cfg(feature = "javascriptcore")]
             let (proj_ms, proj_fresh, active_transitions) = self
                 .projection_worker
                 .as_ref()
@@ -566,7 +652,7 @@ impl NativeWindowSmokeApp {
                     )
                 })
                 .unwrap_or((0.0, true, 0));
-            #[cfg(not(feature = "quickjs-rquickjs"))]
+            #[cfg(not(feature = "javascriptcore"))]
             let (proj_ms, proj_fresh, active_transitions) = (0.0_f64, true, 0usize);
             let input_latency_ms = self
                 .last_input_at
@@ -636,7 +722,7 @@ impl NativeWindowSmokeApp {
         let Some(point) = self.input.cursor_client_point() else {
             return false;
         };
-        #[cfg(feature = "quickjs-rquickjs")]
+        #[cfg(feature = "javascriptcore")]
         if let Some(worker) = self.projection_worker.as_ref() {
             let Some(frame) = self
                 .product_shell
@@ -746,11 +832,13 @@ impl NativeWindowSmokeApp {
     }
 
     fn request_redraw(&mut self) {
-        #[cfg(feature = "quickjs-rquickjs")]
-        if self.quickjs_product.is_some() {
+        #[cfg(feature = "javascriptcore")]
+        if self.jsc_product.is_some() {
             self.renderer_redraw_pending = true;
         }
-        if let Some(window) = &self.window {
+        if super::editor_preview::enabled() {
+            let _ = self.event_loop_proxy.send_event(());
+        } else if let Some(window) = &self.window {
             window.request_redraw();
         }
     }
@@ -770,8 +858,8 @@ impl NativeWindowSmokeApp {
     }
 
     fn flush_dev_renderer_intents(&mut self) -> Result<(), NativeWindowSmokeError> {
-        #[cfg(feature = "quickjs-rquickjs")]
-        if self.quickjs_product.is_some() {
+        #[cfg(feature = "javascriptcore")]
+        if self.jsc_product.is_some() {
             let renderer_intents = {
                 let Some(product_shell) = self.product_shell.as_mut() else {
                     return Ok(());
@@ -804,7 +892,7 @@ impl NativeWindowSmokeApp {
                 intents.push(intent);
                 forwarded_renderer_intent_count = forwarded_renderer_intent_count.saturating_add(1);
             }
-            let Some(product) = self.quickjs_product.as_mut() else {
+            let Some(product) = self.jsc_product.as_mut() else {
                 return Ok(());
             };
             for intent in intents {
@@ -826,13 +914,13 @@ impl NativeWindowSmokeApp {
         Ok(())
     }
 
-    #[cfg(feature = "quickjs-rquickjs")]
-    fn ingest_quickjs_pipeline_updates(&mut self) {
-        let Some(product) = self.quickjs_product.as_ref() else {
+    #[cfg(feature = "javascriptcore")]
+    fn ingest_jsc_pipeline_updates(&mut self, event_loop: &ActiveEventLoop) {
+        let Some(product) = self.jsc_product.as_ref() else {
             return;
         };
         let sequence = product.pipeline_sequence();
-        if sequence == self.quickjs_pipeline_sequence {
+        if sequence == self.jsc_pipeline_sequence {
             return;
         }
         let update = match product.drain_pipeline_update() {
@@ -840,12 +928,62 @@ impl NativeWindowSmokeApp {
             Err(error) => {
                 log::error!(
                     target: "quajs_native_app::pipeline",
-                    "Draining the QuickJS pipeline update failed: {error}"
+                    "Draining the JavaScriptCore pipeline update failed: {error}"
                 );
                 self.error = Some(error);
                 return;
             }
         };
+        // App lifecycle belongs to the window host. A confirmed engine-side
+        // pipeline request tears down the resident session and media resources
+        // before closing the OS event loop; the renderer never exits the app.
+        if update
+            .messages
+            .iter()
+            .any(|message| message.event == "app/quit")
+        {
+            self.jsc_product.take();
+            if let Some(shell) = self.product_shell.as_mut() {
+                match shell
+                    .window_loop_mut()
+                    .runtime_mut()
+                    .shutdown_with_media_teardown()
+                {
+                    Ok(cleanup) => {
+                        self.texture_metrics.record_shutdown_cleanup(&cleanup);
+                        log::info!(
+                            "Native application quit: released {} textures and {} font atlases ({} cleanup errors).",
+                            self.texture_metrics.shutdown_texture_released_count,
+                            self.texture_metrics.shutdown_font_atlas_released_count,
+                            self.texture_metrics.shutdown_texture_cleanup_error_count
+                                + self.texture_metrics.shutdown_font_atlas_error_count
+                                + self.texture_metrics.shutdown_video_frame_texture_error_count,
+                        );
+                    }
+                    Err(error) => {
+                        self.fail_and_exit(
+                            event_loop,
+                            NativeWindowSmokeError::new(format!(
+                                "Native application quit cleanup failed: {error}."
+                            )),
+                        );
+                        return;
+                    }
+                }
+            }
+            event_loop.exit();
+            return;
+        }
+        if let Some(control) = self.control.as_mut() {
+            for message in &update.messages {
+                if message.event == "editor/preview/response" {
+                    control.editor_response(&message.payload_json);
+                }
+                if message.event == "editor/preview/error" || message.event == "render/error" {
+                    control.editor_error(&message.payload_json);
+                }
+            }
+        }
         let Some(worker) = self.projection_worker.as_ref() else {
             return;
         };
@@ -859,7 +997,7 @@ impl NativeWindowSmokeApp {
             self.error = Some(error);
             return;
         }
-        self.quickjs_pipeline_sequence = sequence;
+        self.jsc_pipeline_sequence = sequence;
         self.renderer_redraw_pending = true;
         self.request_redraw();
     }
@@ -873,9 +1011,9 @@ impl NativeWindowSmokeApp {
             self.texture_metrics
                 .record_lifecycle_sync(&lifecycle_report);
         }
-        #[cfg(feature = "quickjs-rquickjs")]
-        let request_redraw = action.request_redraw && self.quickjs_product.is_none();
-        #[cfg(not(feature = "quickjs-rquickjs"))]
+        #[cfg(feature = "javascriptcore")]
+        let request_redraw = action.request_redraw && self.jsc_product.is_none();
+        #[cfg(not(feature = "javascriptcore"))]
         let request_redraw = action.request_redraw;
         if request_redraw {
             self.request_redraw();
@@ -890,7 +1028,7 @@ impl NativeWindowSmokeApp {
     }
 }
 
-#[cfg(feature = "quickjs-rquickjs")]
+#[cfg(feature = "javascriptcore")]
 fn is_advance_intent(intent: &quajs_native_runtime::NativeRendererIntent) -> bool {
     if intent.r#type != "user/input_command" {
         return false;

@@ -16,6 +16,33 @@ pub(super) fn downsample(source: &RealWgpuDecodedTextureRgba8) -> RealWgpuDecode
     let width = (source.width / 2).max(1);
     let height = (source.height / 2).max(1);
     let mut rgba = vec![0; (width * height * 4) as usize];
+    // Most large authored images halve exactly. Their area filter is the
+    // integer mean of 2x2 texels; avoid per-texel floating point geometry.
+    if (source.width == 1 || source.width % 2 == 0)
+        && (source.height == 1 || source.height % 2 == 0)
+    {
+        let nx = if source.width == 1 { 1 } else { 2 };
+        let ny = if source.height == 1 { 1 } else { 2 };
+        let samples = nx * ny;
+        for y in 0..height {
+            for x in 0..width {
+                let mut sum = [0u32; 4];
+                for dy in 0..ny {
+                    for dx in 0..nx {
+                        let at = (((y * ny + dy) * source.width + x * nx + dx) * 4) as usize;
+                        for c in 0..4 {
+                            sum[c] += u32::from(source.rgba[at + c]);
+                        }
+                    }
+                }
+                let at = ((y * width + x) * 4) as usize;
+                for c in 0..4 {
+                    rgba[at + c] = ((sum[c] + samples / 2) / samples) as u8;
+                }
+            }
+        }
+        return RealWgpuDecodedTextureRgba8::new(width, height, rgba);
+    }
     for y in 0..height {
         for x in 0..width {
             let x0 = x as f64 * source.width as f64 / width as f64;
@@ -74,5 +101,17 @@ mod tests {
         let level = downsample(&source);
         assert_eq!((level.width, level.height), (1, 1));
         assert_eq!(level.rgba, [85, 0, 85, 170]);
+    }
+
+    #[test]
+    fn exact_halving_matches_area_filter_rounding_including_one_pixel_axes() {
+        let image = RealWgpuDecodedTextureRgba8::new(
+            2,
+            2,
+            vec![0, 10, 20, 30, 1, 11, 21, 31, 2, 12, 22, 32, 3, 13, 23, 33],
+        );
+        assert_eq!(downsample(&image).rgba, [2, 12, 22, 32]);
+        let row = RealWgpuDecodedTextureRgba8::new(2, 1, vec![0, 0, 0, 0, 1, 3, 5, 255]);
+        assert_eq!(downsample(&row).rgba, [1, 2, 3, 128]);
     }
 }

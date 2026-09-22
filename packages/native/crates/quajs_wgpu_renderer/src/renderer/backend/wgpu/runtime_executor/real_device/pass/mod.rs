@@ -9,3 +9,5 @@ pub(super) use materialize::{materialize_pass, validate_materializable_pass};
 pub(super) use types::{RealRuntimeDrawIndexed, RealRuntimePass};
 pub(super) use validation::{missing_draw_state, validate_draw, validate_pass_viewport};
 pub(super) mod composite;
+
+mod transition;

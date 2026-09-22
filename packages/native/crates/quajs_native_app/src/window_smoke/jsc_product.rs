@@ -5,56 +5,55 @@ use std::time::Duration;
 use winit::event_loop::EventLoopProxy;
 
 use quajs_native_runtime::{
-    NativeAssetReadRequest, NativeHostApi, NativeRendererIntent, QuickJsEvaluationRequest,
-    QuickJsModuleEvaluator, QuickJsModuleExportCallRequest, QuickJsPipelineMessage,
-    QuickJsRuntimeModuleKind, QuickJsRuntimeModuleRecord, QuickJsSandboxLimits,
-    RquickJsModuleEvaluator,
+    JavaScriptCoreEvaluator, JscEvaluationRequest, JscModuleEvaluator, JscModuleExportCallRequest,
+    JscPipelineMessage, JscRuntimeModuleKind, JscRuntimeModuleRecord, JscSandboxLimits,
+    NativeAssetReadRequest, NativeHostApi, NativeRendererIntent,
 };
 
 use super::error::NativeWindowSmokeError;
 
-pub(super) const WINDOW_DEV_QUICKJS_APP_ASSET_ENV: &str =
-    "QUA_NATIVE_RENDERER_WINDOW_DEV_QUICKJS_APP_ASSET";
+pub(super) const WINDOW_DEV_JSC_APP_ASSET_ENV: &str =
+    "QUA_NATIVE_RENDERER_WINDOW_DEV_JSC_APP_ASSET";
 
-const QUICKJS_STARTUP_TIMEOUT: Duration = Duration::from_secs(15);
+const JSC_STARTUP_TIMEOUT: Duration = Duration::from_secs(15);
 
-pub(super) struct NativeWindowQuickJsProduct {
-    sender: mpsc::Sender<QuickJsProductCommand>,
-    latest: Arc<RwLock<QuickJsProductSnapshot>>,
+pub(super) struct NativeWindowJscProduct {
+    sender: mpsc::Sender<JscProductCommand>,
+    latest: Arc<RwLock<JscProductSnapshot>>,
     pipeline_sequence: Arc<AtomicU64>,
     worker: Option<JoinHandle<()>>,
 }
 
-enum QuickJsProductCommand {
+enum JscProductCommand {
     RendererIntent(NativeRendererIntent),
     Shutdown,
 }
 
 #[derive(Clone, Debug, Default)]
-struct QuickJsProductSnapshot {
+struct JscProductSnapshot {
     projection_source: Option<Arc<str>>,
-    pending_messages: Vec<QuickJsPipelineMessage>,
+    pending_messages: Vec<JscPipelineMessage>,
     error: Option<String>,
 }
 
-pub(super) struct QuickJsPipelineUpdate {
+pub(super) struct JscPipelineUpdate {
     pub(super) projection_source: Arc<str>,
-    pub(super) messages: Vec<QuickJsPipelineMessage>,
+    pub(super) messages: Vec<JscPipelineMessage>,
 }
 
-struct QuickJsProductModule {
-    evaluator: RquickJsModuleEvaluator,
+struct JscProductModule {
+    evaluator: JavaScriptCoreEvaluator,
     namespace_id: String,
 }
 
-struct QuickJsProductAsset {
+struct JscProductAsset {
     asset_name: String,
     bundle_name: String,
     code: String,
     bytes: Vec<u8>,
 }
 
-impl NativeWindowQuickJsProduct {
+impl NativeWindowJscProduct {
     pub(super) fn load<H>(
         host: &H,
         event_loop_proxy: EventLoopProxy<()>,
@@ -62,20 +61,21 @@ impl NativeWindowQuickJsProduct {
     where
         H: NativeHostApi,
     {
-        let Some(asset_url) = std::env::var_os(WINDOW_DEV_QUICKJS_APP_ASSET_ENV) else {
+        let Some(asset_url) = crate::packaged_app::config().map(|app| std::ffi::OsString::from(&app.app_asset))
+            .or_else(|| std::env::var_os(WINDOW_DEV_JSC_APP_ASSET_ENV)) else {
             return Ok(None);
         };
         let asset = load_product_asset(host, asset_url.to_string_lossy().as_ref())?;
-        let latest = Arc::new(RwLock::new(QuickJsProductSnapshot::default()));
+        let latest = Arc::new(RwLock::new(JscProductSnapshot::default()));
         let pipeline_sequence = Arc::new(AtomicU64::new(0));
         let (sender, receiver) = mpsc::channel();
         let (startup_sender, startup_receiver) = mpsc::sync_channel(1);
         let worker_latest = latest.clone();
         let worker_pipeline_sequence = pipeline_sequence.clone();
         let worker = std::thread::Builder::new()
-            .name("quaengine-quickjs".to_string())
+            .name("quaengine-jsc".to_string())
             .spawn(move || {
-                run_quickjs_product_worker(
+                run_jsc_product_worker(
                     asset,
                     receiver,
                     worker_latest,
@@ -86,14 +86,14 @@ impl NativeWindowQuickJsProduct {
             })
             .map_err(|error| {
                 NativeWindowSmokeError::new(format!(
-                    "Failed to start the resident QuaEngine QuickJS thread: {error}."
+                    "Failed to start the resident QuaEngine JavaScriptCore thread: {error}."
                 ))
             })?;
         startup_receiver
-            .recv_timeout(QUICKJS_STARTUP_TIMEOUT)
+            .recv_timeout(JSC_STARTUP_TIMEOUT)
             .map_err(|error| {
                 NativeWindowSmokeError::new(format!(
-                    "Resident QuaEngine QuickJS startup did not complete: {error}."
+                    "Resident QuaEngine JavaScriptCore startup did not complete: {error}."
                 ))
             })?
             .map_err(NativeWindowSmokeError::new)?;
@@ -111,19 +111,21 @@ impl NativeWindowQuickJsProduct {
 
     pub(super) fn drain_pipeline_update(
         &self,
-    ) -> Result<QuickJsPipelineUpdate, NativeWindowSmokeError> {
+    ) -> Result<JscPipelineUpdate, NativeWindowSmokeError> {
         let mut snapshot = self.latest.write().map_err(|_| {
-            NativeWindowSmokeError::new("Resident QuaEngine QuickJS pipeline lock was poisoned.")
+            NativeWindowSmokeError::new(
+                "Resident QuaEngine JavaScriptCore pipeline lock was poisoned.",
+            )
         })?;
         if let Some(error) = &snapshot.error {
             return Err(NativeWindowSmokeError::new(error.clone()));
         }
         let projection_source = snapshot.projection_source.clone().ok_or_else(|| {
             NativeWindowSmokeError::new(
-                "Resident QuaEngine QuickJS has not published a view projection.",
+                "Resident QuaEngine JavaScriptCore has not published a view projection.",
             )
         })?;
-        Ok(QuickJsPipelineUpdate {
+        Ok(JscPipelineUpdate {
             projection_source,
             messages: std::mem::take(&mut snapshot.pending_messages),
         })
@@ -134,33 +136,33 @@ impl NativeWindowQuickJsProduct {
         intent: NativeRendererIntent,
     ) -> Result<(), NativeWindowSmokeError> {
         self.sender
-            .send(QuickJsProductCommand::RendererIntent(intent))
+            .send(JscProductCommand::RendererIntent(intent))
             .map_err(|error| {
                 NativeWindowSmokeError::new(format!(
-                    "Failed to queue renderer intent on the resident QuaEngine QuickJS thread: {error}."
+                    "Failed to queue renderer intent on the resident QuaEngine JavaScriptCore thread: {error}."
                 ))
             })
     }
 }
 
-impl Drop for NativeWindowQuickJsProduct {
+impl Drop for NativeWindowJscProduct {
     fn drop(&mut self) {
-        let _ = self.sender.send(QuickJsProductCommand::Shutdown);
+        let _ = self.sender.send(JscProductCommand::Shutdown);
         if let Some(worker) = self.worker.take() {
             let _ = worker.join();
         }
     }
 }
 
-fn run_quickjs_product_worker(
-    asset: QuickJsProductAsset,
-    receiver: mpsc::Receiver<QuickJsProductCommand>,
-    latest: Arc<RwLock<QuickJsProductSnapshot>>,
+fn run_jsc_product_worker(
+    asset: JscProductAsset,
+    receiver: mpsc::Receiver<JscProductCommand>,
+    latest: Arc<RwLock<JscProductSnapshot>>,
     pipeline_sequence: Arc<AtomicU64>,
     event_loop_proxy: EventLoopProxy<()>,
     startup: mpsc::SyncSender<Result<(), String>>,
 ) {
-    let mut module = match QuickJsProductModule::load(asset) {
+    let mut module = match JscProductModule::load(asset) {
         Ok(module) => module,
         Err(error) => {
             let message = error.to_string();
@@ -184,7 +186,7 @@ fn run_quickjs_product_worker(
                     .and_then(|snapshot| snapshot.projection_source.clone())
                     .is_none()
                 {
-                    let message = "Native QuickJS app did not publish an initial view/update pipeline projection.".to_string();
+                    let message = "Native JavaScriptCore app did not publish an initial view/update pipeline projection.".to_string();
                     publish_error(
                         &latest,
                         &pipeline_sequence,
@@ -234,20 +236,20 @@ fn run_quickjs_product_worker(
                     &latest,
                     &pipeline_sequence,
                     &event_loop_proxy,
-                    quickjs_error(error).to_string(),
+                    jsc_error(error).to_string(),
                 );
                 break;
             }
         };
         match command {
-            Ok(QuickJsProductCommand::RendererIntent(intent)) => {
+            Ok(JscProductCommand::RendererIntent(intent)) => {
                 let result = module.dispatch_renderer_intent(&intent).and_then(|()| {
                     module.pump_jobs()?;
                     module.drain_pipeline_messages()
                 });
                 if super::config::native_window_demo_e2e_enabled() {
                     if let Ok(Some(diagnostics)) = module.call_export("getInteractionDiagnostics") {
-                        println!("Native QuickJS demo E2E diagnostics: {diagnostics}");
+                        println!("Native JavaScriptCore demo E2E diagnostics: {diagnostics}");
                     }
                 }
                 match result {
@@ -265,9 +267,7 @@ fn run_quickjs_product_worker(
                     ),
                 }
             }
-            Ok(QuickJsProductCommand::Shutdown) | Err(mpsc::RecvTimeoutError::Disconnected) => {
-                break
-            }
+            Ok(JscProductCommand::Shutdown) | Err(mpsc::RecvTimeoutError::Disconnected) => break,
             Err(mpsc::RecvTimeoutError::Timeout) => {
                 let result = module
                     .pump_jobs()
@@ -292,25 +292,27 @@ fn run_quickjs_product_worker(
     module.destroy();
 }
 
-impl QuickJsProductModule {
-    fn load(asset: QuickJsProductAsset) -> Result<Self, NativeWindowSmokeError> {
-        let mut evaluator = RquickJsModuleEvaluator::new().map_err(quickjs_error)?;
+impl JscProductModule {
+    fn load(asset: JscProductAsset) -> Result<Self, NativeWindowSmokeError> {
+        let mut evaluator = JavaScriptCoreEvaluator::new().map_err(jsc_error)?;
         let response = evaluator
-            .evaluate_module(&QuickJsEvaluationRequest {
-                module: QuickJsRuntimeModuleRecord {
+            .evaluate_module(&JscEvaluationRequest {
+                module: JscRuntimeModuleRecord {
                     asset_name: asset.asset_name,
                     bundle_name: asset.bundle_name,
                     package_id: "demo.native.app".to_string(),
-                    kind: QuickJsRuntimeModuleKind::Script,
+                    kind: JscRuntimeModuleKind::Script,
                     code: asset.code,
                     bytes: asset.bytes,
                 },
                 module_graph: Vec::new(),
-                limits: QuickJsSandboxLimits::default(),
+                limits: JscSandboxLimits::default(),
             })
-            .map_err(quickjs_error)?;
+            .map_err(jsc_error)?;
         let namespace_id = response.module_namespace_id.ok_or_else(|| {
-            NativeWindowSmokeError::new("Native QuickJS demo app did not return a namespace id.")
+            NativeWindowSmokeError::new(
+                "Native JavaScriptCore demo app did not return a namespace id.",
+            )
         })?;
         Ok(Self {
             evaluator,
@@ -325,43 +327,43 @@ impl QuickJsProductModule {
         match self
             .evaluator
             .dispatch_renderer_intent(intent)
-            .map_err(quickjs_error)?
+            .map_err(jsc_error)?
         {
             true => Ok(()),
             false => Err(NativeWindowSmokeError::new(
-                "Native QuickJS demo app did not subscribe to renderer intents.",
+                "Native JavaScriptCore demo app did not subscribe to renderer intents.",
             )),
         }
     }
 
     fn pump_jobs(&mut self) -> Result<(), NativeWindowSmokeError> {
-        self.evaluator.pump_native_jobs().map_err(quickjs_error)
+        self.evaluator.pump_native_jobs().map_err(jsc_error)
     }
 
     fn drain_pipeline_messages(
         &mut self,
-    ) -> Result<Vec<QuickJsPipelineMessage>, NativeWindowSmokeError> {
+    ) -> Result<Vec<JscPipelineMessage>, NativeWindowSmokeError> {
         self.evaluator
             .drain_native_pipeline_messages()
-            .map_err(quickjs_error)
+            .map_err(jsc_error)
     }
 
     fn call_export(&mut self, export_name: &str) -> Result<Option<String>, NativeWindowSmokeError> {
         Ok(self
             .evaluator
-            .call_module_export(&QuickJsModuleExportCallRequest {
+            .call_module_export(&JscModuleExportCallRequest {
                 module_namespace_id: self.namespace_id.clone(),
                 export_name: export_name.to_string(),
                 args_json: Some("[]".to_string()),
             })
-            .map_err(quickjs_error)?
+            .map_err(jsc_error)?
             .value_json)
     }
 
     fn destroy(&mut self) {
         let _ = self
             .evaluator
-            .call_module_export(&QuickJsModuleExportCallRequest {
+            .call_module_export(&JscModuleExportCallRequest {
                 module_namespace_id: self.namespace_id.clone(),
                 export_name: "destroy".to_string(),
                 args_json: Some("[]".to_string()),
@@ -372,7 +374,7 @@ impl QuickJsProductModule {
 fn load_product_asset<H>(
     host: &H,
     asset_url: &str,
-) -> Result<QuickJsProductAsset, NativeWindowSmokeError>
+) -> Result<JscProductAsset, NativeWindowSmokeError>
 where
     H: NativeHostApi,
 {
@@ -390,10 +392,10 @@ where
         .map_err(host_error)?;
     let code = String::from_utf8(bytes.clone()).map_err(|error| {
         NativeWindowSmokeError::new(format!(
-            "Native QuickJS demo app asset {asset_url} is not UTF-8: {error}."
+            "Native JavaScriptCore demo app asset {asset_url} is not UTF-8: {error}."
         ))
     })?;
-    Ok(QuickJsProductAsset {
+    Ok(JscProductAsset {
         asset_name: asset_url
             .strip_prefix("assets/")
             .unwrap_or(asset_url)
@@ -407,10 +409,10 @@ where
 }
 
 fn publish_pipeline_messages(
-    latest: &RwLock<QuickJsProductSnapshot>,
+    latest: &RwLock<JscProductSnapshot>,
     pipeline_sequence: &AtomicU64,
     event_loop_proxy: &EventLoopProxy<()>,
-    messages: Vec<QuickJsPipelineMessage>,
+    messages: Vec<JscPipelineMessage>,
 ) {
     if messages.is_empty() {
         return;
@@ -453,12 +455,12 @@ fn native_frame_from_view_update(payload_json: &str) -> Result<String, serde_jso
 }
 
 fn publish_error(
-    latest: &RwLock<QuickJsProductSnapshot>,
+    latest: &RwLock<JscProductSnapshot>,
     pipeline_sequence: &AtomicU64,
     event_loop_proxy: &EventLoopProxy<()>,
     error: String,
 ) {
-    log::error!(target: "quajs_native_app::quickjs", "{error}");
+    log::error!(target: "quajs_native_app::jsc", "{error}");
     if let Ok(mut snapshot) = latest.write() {
         snapshot.error = Some(error);
         pipeline_sequence.fetch_add(1, Ordering::Release);
@@ -468,14 +470,14 @@ fn publish_error(
 
 fn host_error(error: quajs_native_runtime::NativeHostApiError) -> NativeWindowSmokeError {
     NativeWindowSmokeError::new(format!(
-        "Native QuickJS demo host asset read failed: {}.",
+        "Native JavaScriptCore demo host asset read failed: {}.",
         error.message()
     ))
 }
 
-fn quickjs_error(error: quajs_native_runtime::QuickJsEvaluationError) -> NativeWindowSmokeError {
+fn jsc_error(error: quajs_native_runtime::JscEvaluationError) -> NativeWindowSmokeError {
     NativeWindowSmokeError::new(format!(
-        "Native QuickJS demo app failed: {}.",
+        "Native JavaScriptCore demo app failed: {}.",
         error.message
     ))
 }

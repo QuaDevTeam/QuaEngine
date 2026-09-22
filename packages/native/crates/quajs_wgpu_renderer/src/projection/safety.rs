@@ -410,7 +410,7 @@ fn is_rgb_color_function(color: &str, function_name: &str, expected_parts: usize
     }
     parts.iter().take(3).copied().all(is_rgb_color_channel)
         && match parts.get(3).copied() {
-            Some(alpha) => is_rgb_alpha_channel(alpha),
+            Some(alpha) => parse_native_color_alpha(alpha).is_some(),
             None => true,
         }
 }
@@ -423,25 +423,21 @@ fn is_rgb_color_channel(value: &str) -> bool {
         )
 }
 
-fn is_rgb_alpha_channel(value: &str) -> bool {
-    has_rgb_alpha_channel_syntax(value)
-        && matches!(
-            value.parse::<f64>(),
-            Ok(number) if number.is_finite() && (0.0..=1.0).contains(&number)
-        )
-}
-
-fn has_rgb_alpha_channel_syntax(value: &str) -> bool {
-    if matches!(value, "0" | "1") {
-        return true;
+/// Shared by projection validation, interaction interpolation and GPU paint.
+/// Opaque alpha may be formatted as `1.0000` by a transition; accepting only
+/// the spelling `1` silently drops the button and its label during animation.
+pub(crate) fn parse_native_color_alpha(value: &str) -> Option<f64> {
+    let decimal = has_unsigned_decimal_syntax(value)
+        || value.strip_prefix('.').is_some_and(|fraction| {
+            !fraction.is_empty() && fraction.chars().all(|ch| ch.is_ascii_digit())
+        });
+    if !decimal {
+        return None;
     }
-    if let Some(rest) = value.strip_prefix("0.") {
-        return !rest.is_empty() && rest.chars().all(|char| char.is_ascii_digit());
-    }
-    if let Some(rest) = value.strip_prefix('.') {
-        return !rest.is_empty() && rest.chars().all(|char| char.is_ascii_digit());
-    }
-    false
+    value
+        .parse::<f64>()
+        .ok()
+        .filter(|number| number.is_finite() && (0.0..=1.0).contains(number))
 }
 
 fn has_unsigned_decimal_syntax(value: &str) -> bool {

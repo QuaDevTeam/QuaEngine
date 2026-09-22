@@ -63,13 +63,23 @@ pub fn decode_image_bytes_rgba8(
     if encoded_image.is_empty() {
         return invalid_order(format!("encoded image '{resource_id}' must not be empty"));
     }
-    let image = image::load_from_memory(encoded_image).map_err(|error| {
+    super::preparation::estimate(encoded_image).map_err(|error| {
         WgpuNativeRenderRuntimeError::new(
             WgpuNativeRenderRuntimeErrorKind::InvalidOperationOrder,
             format!("failed to decode encoded image '{resource_id}': {error}"),
         )
     })?;
-    let rgba = image.to_rgba8();
+    let reader = super::preparation::reader(encoded_image)?;
+    let image = reader.decode().map_err(|error| {
+        WgpuNativeRenderRuntimeError::new(
+            WgpuNativeRenderRuntimeErrorKind::InvalidOperationOrder,
+            format!("failed to decode encoded image '{resource_id}': {error}"),
+        )
+    })?;
+    if u64::from(image.width()) * u64::from(image.height()) > 32 * 1024 * 1024 {
+        return invalid_order("Decoded image exceeds the 128 MiB RGBA preparation budget");
+    }
+    let rgba = image.into_rgba8();
     let (width, height) = rgba.dimensions();
     Ok(RealWgpuDecodedTextureRgba8::new(
         width,

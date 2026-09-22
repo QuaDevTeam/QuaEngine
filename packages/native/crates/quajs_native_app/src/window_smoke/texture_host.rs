@@ -44,6 +44,17 @@ pub(super) fn create_window_smoke_texture_host() -> InMemoryNativeHostApi {
 
 pub(super) fn create_window_smoke_texture_host_from_env(
 ) -> Result<InMemoryNativeHostApi, NativeWindowSmokeError> {
+    if let Some(app) = crate::packaged_app::config() {
+        let host_info = create_native_startup_host_info(compile_time_native_app_config(), None)
+            .map_err(|error| NativeWindowSmokeError::new(format!("{error}")))?;
+        let mut host = InMemoryNativeHostApi::new(host_info);
+        for bundle in &app.bundles {
+            let bytes = crate::packaged_app::read_verified(&app.resources.join(&bundle.file), &bundle.sha256)
+                .map_err(|error| NativeWindowSmokeError::new(error.to_string()))?;
+            host = super::dev_qpk::mount_qpk_bytes(host, &bytes)?;
+        }
+        return Ok(host);
+    }
     let host = create_window_smoke_texture_host();
     let Some(path) = std::env::var_os(WINDOW_DEV_QPK_ENV) else {
         return Ok(host);

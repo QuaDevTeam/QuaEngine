@@ -227,7 +227,7 @@ fn rejects_blank_native_renderer_identity_metadata() {
 fn rejects_incomplete_native_runtime_metadata() {
     let mut manifest = native_manifest();
     manifest.native_runtime = Some(TargetBundleNativeRuntimeInfo {
-        quickjs_version: Some("  ".to_string()),
+        jsc_version: Some("  ".to_string()),
         native_runtime_version: None,
         asset_adapter_version: Some("".to_string()),
         store_adapter_version: None,
@@ -239,7 +239,7 @@ fn rejects_incomplete_native_runtime_metadata() {
     assert!(error
         .diagnostics()
         .iter()
-        .any(|diagnostic| diagnostic.contains("nativeRuntime.quickjsVersion must not be empty")));
+        .any(|diagnostic| diagnostic.contains("nativeRuntime.jscVersion must not be empty")));
     assert!(error
         .diagnostics()
         .iter()

@@ -29,6 +29,18 @@ where
         ..Default::default()
     };
 
+    sink.retain_pending_texture_uploads(
+        &sync
+            .pending_requests
+            .iter()
+            .map(|request| request.resource_id.as_str().to_string())
+            .chain(
+                sync.resident_resource_ids
+                    .iter()
+                    .map(|id| id.as_str().to_string()),
+            )
+            .collect(),
+    );
     release_orphaned_resident_textures(sink, sync, &mut report);
 
     for request in &sync.pending_requests {
@@ -43,6 +55,26 @@ where
             continue;
         }
 
+        if let Some(result) = sink.poll_texture_upload(&request.resource_id) {
+            match result {
+                Ok(true) => {
+                    report.uploaded_count += 1;
+                    report
+                        .uploaded_resource_ids
+                        .push(request.resource_id.clone());
+                }
+                Ok(false) => {}
+                Err(error) => report.record_failure(failure(
+                    NativeTextureUploadHostSyncFailureKind::UploadError,
+                    request,
+                    None,
+                    None,
+                    error.to_string(),
+                )),
+            }
+            continue;
+        }
+
         let read = match read_texture_asset_bytes(host, request) {
             Ok(read) => read,
             Err(read_failure) => {
@@ -52,8 +84,9 @@ where
         };
         let metadata = upload_metadata_from_request(request, read.package_id.as_deref());
 
-        match sink.upload_texture_bytes(request, &read.bytes, metadata) {
-            Ok(()) => {
+        match sink.request_texture_upload(request, &read.bytes, metadata) {
+            Ok(false) => {}
+            Ok(true) => {
                 report.uploaded_count += 1;
                 report
                     .uploaded_resource_ids
@@ -82,7 +115,7 @@ fn release_orphaned_resident_textures<S>(
     S: NativeTextureUploadSink,
 {
     for resource_id in &sync.orphaned_resident_resource_ids {
-        match sink.release_texture_resource(resource_id) {
+        match sink.retire_texture_resource(resource_id) {
             Ok(true) => {
                 report.released_orphaned_count += 1;
                 report
@@ -100,16 +133,16 @@ fn release_orphaned_resident_textures<S>(
     }
 }
 
-struct NativeTextureAssetRead {
-    bytes: Vec<u8>,
-    bundle_name: Option<String>,
-    package_id: Option<String>,
+pub(super) struct NativeTextureAssetRead {
+    pub(super) bytes: std::sync::Arc<[u8]>,
+    pub(super) bundle_name: Option<String>,
+    pub(super) package_id: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct NativeTextureAssetReadCandidate(NativeAssetBundleCandidate);
 
-fn read_texture_asset_bytes(
+pub(super) fn read_texture_asset_bytes(
     host: &impl NativeHostApi,
     request: &NativeTextureUploadRequest,
 ) -> Result<NativeTextureAssetRead, NativeTextureUploadHostSyncFailure> {
@@ -124,7 +157,7 @@ fn read_texture_asset_bytes(
                 asset_id: Some(request.resource_id.as_str().to_string()),
             };
 
-            match host.read_asset_bytes(&read_request) {
+            match host.read_shared_asset_bytes(&read_request) {
                 Ok(bytes) => {
                     return Ok(NativeTextureAssetRead {
                         bytes,

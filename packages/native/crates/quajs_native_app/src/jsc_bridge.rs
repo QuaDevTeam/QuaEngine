@@ -1,66 +1,68 @@
 use std::fmt::{Display, Formatter};
 use std::io::{BufRead, Write};
 
-use quajs_native_runtime::quickjs::RquickJsModuleEvaluator;
+use quajs_native_runtime::jsc::JavaScriptCoreEvaluator;
 use quajs_native_runtime::{
-    dispatch_native_host_api_request_with_quickjs_registry, InMemoryNativeHostApi,
-    NativeHostApiError, NativeHostApiRequest, NativeHostApiResponse,
-    QuickJsModuleNamespaceRegistry,
+    dispatch_native_host_api_request_with_jsc_registry, InMemoryNativeHostApi,
+    JscModuleNamespaceRegistry, NativeHostApiError, NativeHostApiRequest, NativeHostApiResponse,
 };
 
 use crate::startup::{compile_time_native_app_config, create_native_startup_host_info};
 use crate::target_bundle::{load_native_target_bundle_manifest, NativeTargetBundleManifest};
 
-pub const QUICKJS_BRIDGE_ENV: &str = "QUA_NATIVE_QUICKJS_BRIDGE";
+pub const JSC_BRIDGE_ENV: &str = "QUA_NATIVE_JSC_BRIDGE";
 
 #[derive(Debug)]
-pub enum NativeQuickJsBridgeError {
+pub enum NativeJscBridgeError {
     Io(std::io::Error),
-    QuickJsInit(String),
+    JscInit(String),
     Startup(String),
     Serialize(serde_json::Error),
 }
 
-impl Display for NativeQuickJsBridgeError {
+impl Display for NativeJscBridgeError {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Io(error) => write!(formatter, "Native QuickJS bridge I/O failed: {error}."),
-            Self::QuickJsInit(message) => {
+            Self::Io(error) => write!(
+                formatter,
+                "Native JavaScriptCore bridge I/O failed: {error}."
+            ),
+            Self::JscInit(message) => {
                 write!(
                     formatter,
-                    "Native QuickJS bridge initialization failed: {message}."
+                    "Native JavaScriptCore bridge initialization failed: {message}."
                 )
             }
             Self::Startup(message) => write!(
                 formatter,
-                "Native QuickJS bridge startup failed: {message}."
+                "Native JavaScriptCore bridge startup failed: {message}."
             ),
             Self::Serialize(error) => {
                 write!(
                     formatter,
-                    "Native QuickJS bridge response serialization failed: {error}."
+                    "Native JavaScriptCore bridge response serialization failed: {error}."
                 )
             }
         }
     }
 }
 
-impl std::error::Error for NativeQuickJsBridgeError {}
+impl std::error::Error for NativeJscBridgeError {}
 
-impl From<std::io::Error> for NativeQuickJsBridgeError {
+impl From<std::io::Error> for NativeJscBridgeError {
     fn from(error: std::io::Error) -> Self {
         Self::Io(error)
     }
 }
 
-impl From<serde_json::Error> for NativeQuickJsBridgeError {
+impl From<serde_json::Error> for NativeJscBridgeError {
     fn from(error: serde_json::Error) -> Self {
         Self::Serialize(error)
     }
 }
 
-pub fn is_quickjs_bridge_requested() -> bool {
-    match std::env::var_os(QUICKJS_BRIDGE_ENV) {
+pub fn is_jsc_bridge_requested() -> bool {
+    match std::env::var_os(JSC_BRIDGE_ENV) {
         Some(value) => {
             let value = value.to_string_lossy();
             value != "0" && !value.is_empty()
@@ -69,11 +71,11 @@ pub fn is_quickjs_bridge_requested() -> bool {
     }
 }
 
-pub fn run_quickjs_bridge_from_stdio() -> Result<(), NativeQuickJsBridgeError> {
+pub fn run_jsc_bridge_from_stdio() -> Result<(), NativeJscBridgeError> {
     let stdin = std::io::stdin();
     let stdout = std::io::stdout();
-    let target_bundle_manifest = load_quickjs_bridge_target_bundle_manifest_from_env()?;
-    run_quickjs_bridge_with_target_bundle_manifest(
+    let target_bundle_manifest = load_jsc_bridge_target_bundle_manifest_from_env()?;
+    run_jsc_bridge_with_target_bundle_manifest(
         stdin.lock(),
         stdout.lock(),
         target_bundle_manifest.as_ref(),
@@ -81,49 +83,49 @@ pub fn run_quickjs_bridge_from_stdio() -> Result<(), NativeQuickJsBridgeError> {
 }
 
 #[cfg(test)]
-pub fn run_quickjs_bridge<R, W>(reader: R, writer: W) -> Result<(), NativeQuickJsBridgeError>
+pub fn run_jsc_bridge<R, W>(reader: R, writer: W) -> Result<(), NativeJscBridgeError>
 where
     R: BufRead,
     W: Write,
 {
-    run_quickjs_bridge_with_target_bundle_manifest(reader, writer, None)
+    run_jsc_bridge_with_target_bundle_manifest(reader, writer, None)
 }
 
-fn run_quickjs_bridge_with_target_bundle_manifest<R, W>(
+fn run_jsc_bridge_with_target_bundle_manifest<R, W>(
     reader: R,
     writer: W,
     target_bundle_manifest: Option<&NativeTargetBundleManifest>,
-) -> Result<(), NativeQuickJsBridgeError>
+) -> Result<(), NativeJscBridgeError>
 where
     R: BufRead,
     W: Write,
 {
     let host_info =
         create_native_startup_host_info(compile_time_native_app_config(), target_bundle_manifest)
-            .map_err(|error| NativeQuickJsBridgeError::Startup(error.to_string()))?;
+            .map_err(|error| NativeJscBridgeError::Startup(error.to_string()))?;
     let mut host = InMemoryNativeHostApi::new(host_info);
-    let mut quickjs = RquickJsModuleEvaluator::new()
-        .map_err(|error| NativeQuickJsBridgeError::QuickJsInit(error.message))?;
-    let mut registry = QuickJsModuleNamespaceRegistry::new();
+    let mut jsc = JavaScriptCoreEvaluator::new()
+        .map_err(|error| NativeJscBridgeError::JscInit(error.message))?;
+    let mut registry = JscModuleNamespaceRegistry::new();
 
-    run_quickjs_bridge_with_host(reader, writer, &mut host, &mut quickjs, &mut registry)
+    run_jsc_bridge_with_host(reader, writer, &mut host, &mut jsc, &mut registry)
 }
 
-fn load_quickjs_bridge_target_bundle_manifest_from_env(
-) -> Result<Option<NativeTargetBundleManifest>, NativeQuickJsBridgeError> {
+fn load_jsc_bridge_target_bundle_manifest_from_env(
+) -> Result<Option<NativeTargetBundleManifest>, NativeJscBridgeError> {
     std::env::var_os("QUA_NATIVE_TARGET_BUNDLE_MANIFEST")
         .map(load_native_target_bundle_manifest)
         .transpose()
-        .map_err(|error| NativeQuickJsBridgeError::Startup(error.to_string()))
+        .map_err(|error| NativeJscBridgeError::Startup(error.to_string()))
 }
 
-fn run_quickjs_bridge_with_host<R, W>(
+fn run_jsc_bridge_with_host<R, W>(
     reader: R,
     mut writer: W,
     host: &mut InMemoryNativeHostApi,
-    quickjs: &mut RquickJsModuleEvaluator,
-    registry: &mut QuickJsModuleNamespaceRegistry,
-) -> Result<(), NativeQuickJsBridgeError>
+    jsc: &mut JavaScriptCoreEvaluator,
+    registry: &mut JscModuleNamespaceRegistry,
+) -> Result<(), NativeJscBridgeError>
 where
     R: BufRead,
     W: Write,
@@ -134,11 +136,11 @@ where
             continue;
         }
         let response = match serde_json::from_str::<NativeHostApiRequest>(&line) {
-            Ok(request) => dispatch_native_host_api_request_with_quickjs_registry(
-                host, quickjs, registry, request,
-            ),
+            Ok(request) => {
+                dispatch_native_host_api_request_with_jsc_registry(host, jsc, registry, request)
+            }
             Err(error) => invalid_request_response(format!(
-                "Native QuickJS bridge request must be valid JSON: {error}"
+                "Native JavaScriptCore bridge request must be valid JSON: {error}"
             )),
         };
         serde_json::to_writer(&mut writer, &response)?;
@@ -168,30 +170,30 @@ mod tests {
     }
 
     #[test]
-    fn quickjs_bridge_dispatches_jsonl_host_info() {
+    fn jsc_bridge_dispatches_jsonl_host_info() {
         let mut output = Vec::new();
 
-        run_quickjs_bridge(
+        run_jsc_bridge(
             std::io::Cursor::new(b"{\"method\":\"getHostInfo\"}\n"),
             &mut output,
         )
-        .expect("quickjs bridge should dispatch host info");
+        .expect("jsc bridge should dispatch host info");
 
         let response: serde_json::Value = serde_json::from_slice(&output).expect("response parses");
         assert_eq!(response["ok"], true);
         assert_eq!(response["payload"]["type"], "hostInfo");
-        assert!(response["payload"]["value"]["runtime"]["quickjsVersion"]
+        assert!(response["payload"]["value"]["runtime"]["jscVersion"]
             .as_str()
             .unwrap()
-            .contains("rquickjs"));
+            .contains("javascriptcore"));
     }
 
     #[test]
-    fn quickjs_bridge_reports_invalid_json_requests() {
+    fn jsc_bridge_reports_invalid_json_requests() {
         let mut output = Vec::new();
 
-        run_quickjs_bridge(std::io::Cursor::new(b"{not-json}\n"), &mut output)
-            .expect("quickjs bridge should keep serving after invalid requests");
+        run_jsc_bridge(std::io::Cursor::new(b"{not-json}\n"), &mut output)
+            .expect("jsc bridge should keep serving after invalid requests");
 
         let response: serde_json::Value = serde_json::from_slice(&output).expect("response parses");
         assert_eq!(response["ok"], false);
@@ -203,25 +205,25 @@ mod tests {
     }
 
     #[test]
-    fn quickjs_bridge_validates_target_bundle_manifest_before_serving() {
+    fn jsc_bridge_validates_target_bundle_manifest_before_serving() {
         let mut output = Vec::new();
         let mut manifest = native_manifest_for_compile_time_config();
         manifest
             .native_runtime
             .as_mut()
             .expect("native runtime metadata exists")
-            .quickjs_version = Some("stale-quickjs".to_string());
+            .jsc_version = Some("stale-jsc".to_string());
 
-        let error = run_quickjs_bridge_with_target_bundle_manifest(
+        let error = run_jsc_bridge_with_target_bundle_manifest(
             std::io::Cursor::new(b"{\"method\":\"getHostInfo\"}\n"),
             &mut output,
             Some(&manifest),
         )
-        .expect_err("stale target bundle manifest should block QuickJS bridge startup");
+        .expect_err("stale target bundle manifest should block JavaScriptCore bridge startup");
 
         assert!(output.is_empty());
         assert!(error
             .to_string()
-            .contains("nativeRuntime.quickjsVersion \"stale-quickjs\""));
+            .contains("nativeRuntime.jscVersion \"stale-jsc\""));
     }
 }

@@ -8,6 +8,7 @@ use crate::renderer::backend::wgpu::WgpuPhysicalRect;
 
 #[derive(Debug)]
 pub(super) struct RealRuntimeEncoder {
+    pub(super) start_draw_count: u64,
     pub(super) label: String,
     pub(super) encoder: wgpu::CommandEncoder,
     pub(super) active_pass: Option<RealRuntimePass>,
@@ -32,6 +33,7 @@ impl RealWgpuNativeRenderRuntimeDevice {
             .device()
             .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some(label) });
         self.active_encoder = Some(RealRuntimeEncoder {
+            start_draw_count: self.target.encoded_draw_count(),
             label: label.to_string(),
             encoder,
             active_pass: None,
@@ -127,8 +129,13 @@ impl RealWgpuNativeRenderRuntimeDevice {
             self.active_encoder = Some(encoder);
             return invalid_order("cannot submit command buffer while a render pass is active");
         }
+        let draw_calls = self
+            .target
+            .encoded_draw_count()
+            .saturating_sub(encoder.start_draw_count);
         let command_buffer = encoder.encoder.finish();
         let submission = self.target.queue().submit([command_buffer]);
+        self.last_draw_calls = draw_calls;
         self.pending_submissions.push_back(submission);
         // A hidden/offscreen surface offers no vsync back-pressure. Bound
         // queued uploads, uniforms and draw buffers independently of the window.

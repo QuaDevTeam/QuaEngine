@@ -3,18 +3,25 @@ mod config;
 mod control;
 mod demo_e2e;
 mod dev_qpk;
+pub(crate) mod editor_preview;
+#[cfg(target_os = "macos")]
+mod editor_surface;
 mod error;
 mod frame;
 mod frame_composer;
 mod input;
+mod inspector;
+#[cfg(feature = "javascriptcore")]
+mod jsc_product;
+mod memory_budget;
 mod metrics;
+mod performance;
 mod performance_hud;
-#[cfg(feature = "quickjs-rquickjs")]
+#[cfg(feature = "javascriptcore")]
 mod projection_worker;
-#[cfg(feature = "quickjs-rquickjs")]
-mod quickjs_product;
 mod report;
 mod report_builder;
+mod storage;
 mod texture_host;
 
 use app::NativeWindowSmokeApp;

@@ -284,7 +284,17 @@ where
             ))
         })?;
 
-        let runtime_device = RealWgpuNativeRenderRuntimeDevice::new(bootstrap.target);
+        let mut runtime_device = RealWgpuNativeRenderRuntimeDevice::new(bootstrap.target);
+        if std::env::var_os("QUA_NATIVE_RENDERER_WINDOW_SMOKE_FRAME").is_none() {
+            runtime_device
+                .enable_async_image_uploads()
+                .map_err(|error| {
+                    NativeProductWindowError::new(format!(
+                        "Failed to start image preparation worker: {error}"
+                    ))
+                })?;
+            runtime_device.set_image_memory_budget(0, 0);
+        }
         let runtime_executor = InMemoryWgpuNativeRenderRuntimeExecutor::with_device(runtime_device);
         let backend = WgpuNativeRenderBackend::with_runtime_executor(
             backend_config.clone(),
@@ -492,7 +502,17 @@ where
             ))
         })?;
 
-        let runtime_device = RealWgpuNativeRenderRuntimeDevice::new(bootstrap.target);
+        let mut runtime_device = RealWgpuNativeRenderRuntimeDevice::new(bootstrap.target);
+        if std::env::var_os("QUA_NATIVE_RENDERER_WINDOW_SMOKE_FRAME").is_none() {
+            runtime_device
+                .enable_async_image_uploads()
+                .map_err(|error| {
+                    NativeProductWindowError::new(format!(
+                        "Failed to start image preparation worker: {error}"
+                    ))
+                })?;
+            runtime_device.set_image_memory_budget(0, 0);
+        }
         let runtime_executor = InMemoryWgpuNativeRenderRuntimeExecutor::with_device(runtime_device);
         let backend = WgpuNativeRenderBackend::with_runtime_executor(
             self.backend_config.clone(),

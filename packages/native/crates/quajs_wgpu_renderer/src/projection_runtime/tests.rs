@@ -1,6 +1,46 @@
 use super::NativeRendererProjectionRuntime;
 
 #[test]
+fn loading_scene_boundaries_never_reintroduce_fading_destination_snapshots() {
+    let mut runtime = NativeRendererProjectionRuntime::from_frame_json(r#"{"view":{"ui":{"overlays":[{"elementId":"menu","visible":true}]},"characters":[{"id":"alice","visible":true}]}}"#).unwrap();
+    runtime.apply_pipeline_event("view/update", r#"{"view":{"ui":{"overlays":[{"elementId":"asset-loading","visible":true}]}}}"#).unwrap();
+    let frame = runtime.project_now().unwrap();
+    let json: serde_json::Value = serde_json::from_str(&frame.json).unwrap();
+    assert_eq!(json["view"]["ui"]["overlays"].as_array().unwrap().len(), 1);
+    assert!(json["view"]["characters"].as_array().is_none_or(|items| items.is_empty()));
+    assert!(json["view"]["ui"]["overlays"][0].get("presenceOpacity").is_none());
+    assert!(!frame.local_work_active);
+    runtime.apply_pipeline_event("view/update", r#"{"view":{"ui":{"overlays":[{"elementId":"menu","visible":true}]}}}"#).unwrap();
+    let frame = runtime.project_now().unwrap();
+    let json: serde_json::Value = serde_json::from_str(&frame.json).unwrap();
+    assert_eq!(json["view"]["ui"]["overlays"].as_array().unwrap().len(), 1);
+    assert_eq!(json["view"]["ui"]["overlays"][0]["elementId"], "menu");
+    assert!(json["view"]["ui"]["overlays"][0].get("presenceOpacity").is_none());
+    assert!(!frame.local_work_active);
+}
+
+#[test]
+fn image_preload_hints_survive_view_publications_without_becoming_visible_characters() {
+    let mut runtime =
+        NativeRendererProjectionRuntime::from_frame_json(r#"{"view":{"characters":[]}}"#).unwrap();
+    runtime.apply_pipeline_event("assets/preload", r#"{"images":[{"assetType":"images","assetName":"next.webp"}],"characters":[{"id":"future","sprite":"next.png"}]}"#).unwrap();
+    runtime
+        .apply_pipeline_event(
+            "view/update",
+            r#"{"view":{"characters":[],"dialogue":{"text":"Current line"}}}"#,
+        )
+        .unwrap();
+    let frame: serde_json::Value =
+        serde_json::from_str(&runtime.project_now().unwrap().json).unwrap();
+    assert_eq!(frame["preload"]["images"][0]["assetName"], "next.webp");
+    assert_eq!(frame["view"]["characters"], serde_json::json!([]));
+    runtime.replace_frame_json(r#"{"view":{}}"#).unwrap();
+    let frame: serde_json::Value =
+        serde_json::from_str(&runtime.project_now().unwrap().json).unwrap();
+    assert!(frame.get("preload").is_none());
+}
+
+#[test]
 fn typewriter_progresses_without_new_pipeline_messages() {
     let frame = r#"{"view":{"dialogue":{"visible":true,"text":"abcdef","typewriter":{"enabled":true,"durationMs":1000}},"characters":[]}}"#;
     let mut runtime = NativeRendererProjectionRuntime::from_frame_json(frame).unwrap();
