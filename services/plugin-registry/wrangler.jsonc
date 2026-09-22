@@ -1,0 +1,52 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "qua-plugin-registry",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-01",
+  "workers_dev": false,
+  "routes": [
+    {
+      "pattern": "registry.quaengine.com",
+      "custom_domain": true
+    }
+  ],
+  "preview_urls": false,
+  "observability": {
+    "enabled": true
+  },
+  "limits": {
+    "cpu_ms": 30000
+  },
+  "triggers": {
+    "crons": [
+      "*/15 * * * *"
+    ]
+  },
+  "vars": {
+    "PUBLIC_ORIGIN": "https://registry.quaengine.com",
+    "GITHUB_CLIENT_ID": "Ov23liJMl1QaD6ou4nmg",
+    "ADMIN_GITHUB_IDS": "[]",
+    "REVIEW_MODE": "system",
+    "TYPESAFE_MODEL": "jev-latest",
+    "JEV_DAILY_LIMIT": "100"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "qua-plugin-registry",
+      "database_id": "5020ca28-6f65-46d6-886a-787814aec841",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "ratelimits": [
+    {
+      "name": "REQUEST_LIMITER",
+      "namespace_id": "1001",
+      "simple": {
+        "limit": 120,
+        "period": 60
+      }
+    }
+  ],
+  "account_id": "b6754402d59fc29ee8b62119014fec89"
+}
