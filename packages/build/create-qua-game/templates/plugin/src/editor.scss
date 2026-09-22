@@ -1,0 +1,14 @@
+[data-qua-plugin="__PROJECT_BUNDLE_ID__"] {
+  display: block;
+  height: 100%;
+  min-width: 0;
+  overflow: auto;
+  color: var(--editor-text, #ccc);
+  font: inherit;
+
+  &[hidden] { display: none; }
+
+  padding: 16px;
+  h2 { margin: 0 0 12px; font-size: 14px; }
+  p { margin: 0; line-height: 1.6; }
+}

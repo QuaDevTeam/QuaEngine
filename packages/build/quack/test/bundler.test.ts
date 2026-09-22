@@ -6,6 +6,7 @@ import { storyGraphDecoratorMappings } from '@quajs/story-graph/script-compiler'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineConfig, QuackBundler } from '../src/core/bundler'
 import { buildLocalePack } from '../src/i18n/locale-pack'
+import { readQpkSummary } from '../src/qpk-reader'
 
 describe('quackBundler', () => {
   let bundler: QuackBundler
@@ -31,6 +32,31 @@ describe('quackBundler', () => {
   })
 
   describe('bundle Creation Workflow', () => {
+    it('builds inline workspaces with stable bundle identities independent of display names', async () => {
+      const source = join(tempDir, 'source')
+      const output = join(tempDir, 'out')
+      await mkdir(join(source, 'data'), { recursive: true })
+      await mkdir(output, { recursive: true })
+      await writeFile(join(source, 'data/value.txt'), 'chapter data')
+      const workspace = new QuackBundler({
+        projectConfig: false,
+        workspace: {
+          name: 'chapters',
+          version: '1.0.0',
+          output,
+          bundles: [{ name: 'chapter-1', displayName: '第一章', source, format: 'qpk', priority: 1, loadTrigger: 'lazy' }],
+        },
+      })
+      await workspace.bundleWorkspace()
+      const index = JSON.parse(await readFile(join(output, 'workspace-index.json'), 'utf8'))
+      const record = index.bundles['chapter-1'].latestBundle
+      const bytes = await readFile(join(output, record.filename))
+      expect(record.hash).toBe(createHash('sha256').update(bytes).digest('hex'))
+      const summary = await readQpkSummary(join(output, record.filename))
+      expect(summary.manifest).toMatchObject({ name: 'chapter-1', bundleVersion: record.version, buildNumber: record.buildNumber })
+      expect(summary.manifest?.workspaceBundle).toMatchObject({ name: 'chapter-1', displayName: '第一章', loadTrigger: 'lazy' })
+    })
+
     it('should create bundle with default options', async () => {
       // Create test assets
       await mkdir(join(tempDir, 'images'), { recursive: true })

@@ -59,6 +59,7 @@ export function quackPlugin(options: QuaEngineVitePluginOptions['assetBundling']
       }
 
       let bundleFile: string | undefined
+      let bundleIdentity: AssetBundleManifest['bundleIdentity']
       const emitBundle = (fileName: string, bytes: Uint8Array) => {
         if (command === 'build')
           this.emitFile({ type: 'asset', fileName, source: bytes })
@@ -72,11 +73,19 @@ export function quackPlugin(options: QuaEngineVitePluginOptions['assetBundling']
         plugins: [...plugins, {
           name: 'qua-vite-bundle-output',
           version: '0.1.0',
-          async postBundle(bundlePath) {
+          async postBundle(bundlePath, manifest) {
             // Rollup owns final output. Files written directly by Quack during
             // buildStart would otherwise be deleted by Vite's emptyOutDir.
             bundleFile = basename(bundlePath)
-            emitBundle(bundleFile, await readFile(bundlePath))
+            const bytes = await readFile(bundlePath)
+            bundleIdentity = {
+              name: manifest.name,
+              version: manifest.bundleVersion || 1,
+              buildNumber: manifest.buildNumber || 'unknown',
+              ...(manifest.assetTarget ? { target: manifest.assetTarget.name } : {}),
+              hash: createHash('sha256').update(bytes).digest('hex'),
+            }
+            emitBundle(bundleFile, bytes)
           },
         }],
         verbose: true,
@@ -92,6 +101,7 @@ export function quackPlugin(options: QuaEngineVitePluginOptions['assetBundling']
         assets: stats.assetsByType,
         locales: stats.locales?.map((locale: any) => locale.code) || [],
         bundleFile,
+        bundleIdentity,
       }
 
       logPluginMessage(`Asset bundle created: ${stats.totalFiles} files, ${formatBytes(stats.totalSize)}`, 'info')

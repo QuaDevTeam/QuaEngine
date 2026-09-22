@@ -76,6 +76,8 @@ export type {
   QuaScriptLocalizableUnitKind,
   SyncQuaScriptLocaleOptions,
 } from './core/localization'
+export { collectQuaScriptOutline } from './core/outline'
+export type { QuaScriptOutlineSymbol } from './core/outline'
 export { QuaScriptParser } from './core/parser'
 export { extractQuaScriptStoryDeclaration } from './core/story-declaration'
 export { QuaScriptTransformer } from './core/transformer'

@@ -3,6 +3,7 @@ import type { QpkReaderOptions } from '@quajs/quack/qpk-reader'
 import type {
   ParsedQuaScript,
   QuaScriptDiagnostic,
+  QuaScriptOutlineSymbol,
   SourceRange,
   StoryDeclaration,
 } from '@quajs/script-compiler'
@@ -26,6 +27,8 @@ export interface QuaInspectorRisk {
 export interface QuaProjectInspectorOptions {
   extraFiles?: Record<string, string>
   filePath?: string
+  /** Use an existing bounded source index instead of walking the project again. */
+  files?: string[]
   projectRoot?: string
   qpkReader?: QpkReaderOptions
   source?: string
@@ -118,7 +121,13 @@ export interface QuaStoryPackageRef {
   version?: string
 }
 
+export interface QuaStoryOutlineDocument {
+  filePath?: string
+  symbols: QuaScriptOutlineSymbol[]
+}
+
 export interface QuaStoryTreeSnapshot {
+  outline: QuaStoryOutlineDocument[]
   choices: QuaStoryChoiceRef[]
   edges: QuaStoryEdgeRef[]
   entries: QuaStoryEntryRef[]
@@ -268,6 +277,7 @@ export type StoryDeclarationWithEntries = StoryDeclaration & {
 }
 
 export interface StoryIndex {
+  outline: QuaStoryOutlineDocument[]
   choices: QuaStoryChoiceRef[]
   edges: QuaStoryEdgeRef[]
   entries: QuaStoryEntryRef[]

@@ -1,16 +1,16 @@
 import type { DecoratorArgumentLanguageContribution, LanguageCompletionValue } from '@quajs/plugin-discovery'
 import type {
-  DecoratorMapping,
   QuaScriptDiagnostic,
   QuaScriptLintResult,
   QuaScriptTextEdit,
   QuaScriptToolingConfig,
   SourceRange,
 } from '@quajs/script-compiler'
+import type { QuaScriptDialogueHighlight } from './dialogue-highlights'
+import type { QuaScriptTypeScriptSession } from './typescript-service'
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { extname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { getDiscoveredLanguageContributions } from '@quajs/plugin-discovery'
 import {
   applyQuaScriptLintRules,
   collectQuaScriptStyleDiagnostics,
@@ -20,14 +20,14 @@ import {
   formatQuaScriptWithEdits,
   getQuaScriptFixAllEdits,
   lintQuaScriptSource,
-  loadProjectDecoratorMappings,
   parseQuaScriptDocument,
   QuaScriptParser,
   rangeFromOffsets,
-  resolveBaseDecoratorMappings,
-  resolveDecoratorMappingsForModuleSource,
 } from '@quajs/script-compiler'
 import ts from 'typescript'
+import { collectQuaScriptAuthoring } from './authoring'
+import { activeDecoratorMappings, decoratorArgumentContext, decoratorAt, decoratorBinding, decoratorIndex, decoratorSignature } from './decorators'
+import { collectDialogueHighlights } from './dialogue-highlights'
 import { collectQuaScriptStoryDiagnostics, getQuaScriptStoryDefinitions, getQuaScriptStoryTargetCompletions } from './story-diagnostics'
 import {
   collectQuaScriptTypeScriptDiagnostics,
@@ -36,7 +36,13 @@ import {
   getTypeScriptDefinitionsAtSourcePosition,
   getTypeScriptHoverAtSourcePosition,
 } from './typescript-service'
-import { createQuaScriptVirtualDocument } from './virtual'
+import { createQuaScriptVirtualDocument, sourceRangeFromOffsets } from './virtual'
+
+export type { QuaScriptAuthoring, QuaScriptAuthoringDecorator, QuaScriptAuthoringField, QuaScriptAuthoringStep } from './authoring'
+export { getQuaScriptSignatureHelp } from './decorators'
+export type { QuaScriptSignatureHelp } from './decorators'
+export type { QuaScriptDialogueHighlight } from './dialogue-highlights'
+export { checkTypeScriptProject, QuaScriptTypeScriptSession } from './typescript-service'
 
 export type { QuaScriptDefinition, QuaScriptHover } from './typescript-service'
 export {
@@ -68,6 +74,9 @@ export type QuaScriptCompletionKind
     | 'variable'
 
 export interface QuaScriptCompletionItem {
+  documentation?: string
+  range?: SourceRange
+  snippet?: boolean
   detail?: string
   insertText?: string
   kind: QuaScriptCompletionKind
@@ -76,6 +85,10 @@ export interface QuaScriptCompletionItem {
 }
 
 export interface QuaScriptLanguageOptions {
+  /** Include source-preserving visual authoring fields for an interactive editor. */
+  authoring?: boolean
+  /** Optional caller-owned reusable TypeScript service. Dispose when the project closes. */
+  typescriptSession?: QuaScriptTypeScriptSession
   extraFiles?: Record<string, string>
   filePath?: string
   projectRoot?: string
@@ -83,6 +96,9 @@ export interface QuaScriptLanguageOptions {
 }
 
 export interface QuaScriptAnalysis {
+  authoring?: import('./authoring').QuaScriptAuthoring
+  previewSteps: { index: number, range: SourceRange }[]
+  dialogueHighlights: QuaScriptDialogueHighlight[]
   characters: string[]
   diagnostics: QuaScriptDiagnostic[]
   setupVariables: string[]
@@ -126,9 +142,10 @@ export async function analyzeQuaScript(source: string, options: QuaScriptLanguag
       ]
     : []
   let diagnostics: QuaScriptDiagnostic[] = []
-  let virtualTypeScript = createQuaScriptVirtualDocument(source, options).text
+  const virtualDocument = createQuaScriptVirtualDocument(source, options, { document, parsed })
+  let virtualTypeScript = virtualDocument.text
+  const context = createQuaScriptTypeScriptContext(source, options, virtualDocument)
   try {
-    const context = createQuaScriptTypeScriptContext(source, options)
     virtualTypeScript = context.virtualDocument.text
     diagnostics = !lintEnabled
       ? []
@@ -153,8 +170,19 @@ export async function analyzeQuaScript(source: string, options: QuaScriptLanguag
           },
         ], options.toolingConfig?.lint)
   }
+  finally {
+    context.dispose()
+  }
 
+  const authoring = options.authoring ? await collectQuaScriptAuthoring(source, parsed, options) : undefined
+  if (authoring && document.diagnostics.some(item => item.severity === 'error')) {
+    authoring.steps = []
+    authoring.error = '请先修复 QuaScript 模块语法错误，再编辑表单。'
+  }
   return {
+    authoring,
+    previewSteps: parsed.steps.flatMap((step, index) => step.range && step.type !== 'action' ? [{ index, range: step.range }] : []),
+    dialogueHighlights: collectDialogueHighlights(source, parsed),
     characters: [...parsed.characters],
     diagnostics,
     setupVariables: collectSetupVariables(document.setupScript?.content || '', document.moduleScript?.content || ''),
@@ -186,8 +214,17 @@ export async function getQuaScriptCompletions(
   const line = lines[position.line] || ''
   const beforeCursor = line.slice(0, position.character)
 
-  if (isDecoratorContext(beforeCursor)) {
-    return getDecoratorCompletions(source, options)
+  const decorator = decoratorAt(source, position)
+  if (decorator) {
+    const range = sourceRangeFromOffsets(source, decorator.start, decorator.nameEnd)
+    return (await decoratorIndex(source, options)).map(entry => ({
+      label: entry.name,
+      kind: 'decorator' as const,
+      detail: `${decoratorSignature(entry.name, entry.language)} — ${entry.mapping.module}`,
+      documentation: [entry.language?.description, `Lowers to \`${entry.mapping.function}\` from \`${entry.mapping.module}\`.`].filter(Boolean).join('\n\n'),
+      insertText: entry.name,
+      range,
+    }))
   }
 
   if (isChoiceHelperContext(beforeCursor)) {
@@ -202,7 +239,7 @@ export async function getQuaScriptCompletions(
     return getStoryImageAssetCompletions(options.projectRoot)
   }
 
-  if (isSpeakerContext(beforeCursor)) {
+  if (isSpeakerContext(beforeCursor) && !decoratorAt(source, position, true) && !isScriptPosition(source, position)) {
     return readCharacterNames(source, options.projectRoot).map(label => ({
       label,
       kind: 'character' as const,
@@ -212,19 +249,22 @@ export async function getQuaScriptCompletions(
 
   const decoratorArgumentCompletions = await getDecoratorArgumentCompletions(source, position, options)
   const context = createQuaScriptTypeScriptContext(source, options)
-  const tsCompletions = getTypeScriptCompletionsAtSourcePosition(context, position)
-  if (tsCompletions) {
-    return uniqueCompletions([
-      ...decoratorArgumentCompletions,
-      ...tsCompletions.entries.map(entry => ({
-        detail: entry.kind,
-        insertText: entry.insertText,
-        kind: mapTypeScriptCompletionKind(entry.kind),
-        label: entry.name,
-        sortText: entry.sortText,
-      })),
-    ])
+  try {
+    const tsCompletions = getTypeScriptCompletionsAtSourcePosition(context, position)
+    if (tsCompletions) {
+      return uniqueCompletions([
+        ...decoratorArgumentCompletions,
+        ...tsCompletions.entries.filter(entry => !['__quaDecorator', '__quaExpr', 'createQuaScript'].includes(entry.name)).map(entry => ({
+          detail: entry.kind,
+          insertText: entry.insertText,
+          kind: mapTypeScriptCompletionKind(entry.kind),
+          label: entry.name,
+          sortText: entry.sortText,
+        })),
+      ])
+    }
   }
+  finally { context.dispose() }
 
   if (decoratorArgumentCompletions.length > 0) {
     return decoratorArgumentCompletions
@@ -246,20 +286,28 @@ export async function getQuaScriptHover(
   position: QuaScriptLanguagePosition,
   options: QuaScriptLanguageOptions = {},
 ) {
-  const line = source.split(/\r?\n/)[position.line] || ''
-  const decoratorName = getDecoratorNameAtPosition(line, position.character)
-  if (decoratorName) {
-    const mappings = await getActiveDecoratorMappings(source, options)
-    const mapping = mappings[decoratorName]
-    if (mapping) {
-      return {
-        contents: `QuaScript decorator \`@${decoratorName}\`\n\nLowers to \`${mapping.function}\` from \`${mapping.module}\`.`,
-      }
+  const decorator = decoratorAt(source, position)
+  if (decorator) {
+    const entry = (await decoratorIndex(source, options)).find(entry => entry.name === decorator.name)
+    if (!entry)
+      return undefined
+    const binding = entry.language?.description ? undefined : decoratorBinding(source, entry.mapping, options)
+    return {
+      contents: [
+        `\`\`\`quascript\n${decoratorSignature(entry.name, entry.language)}\n\`\`\``,
+        entry.language?.description || binding?.documentation,
+        ...(entry.language?.args || []).map(arg => `- **${arg.name}**${arg.detail ? `: ${arg.detail}` : ''}`),
+        `Lowers to \`${entry.mapping.function}\` from \`${entry.mapping.module}\`.`,
+      ].filter(Boolean).join('\n\n'),
+      range: sourceRangeFromOffsets(source, decorator.start - 1, decorator.nameEnd),
     }
   }
 
   const context = createQuaScriptTypeScriptContext(source, options)
-  return getTypeScriptHoverAtSourcePosition(context, position)
+  try {
+    return getTypeScriptHoverAtSourcePosition(context, position)
+  }
+  finally { context.dispose() }
 }
 
 export function getQuaScriptDefinitions(
@@ -267,12 +315,20 @@ export function getQuaScriptDefinitions(
   position: QuaScriptLanguagePosition,
   options: QuaScriptLanguageOptions = {},
 ) {
+  const decorator = decoratorAt(source, position)
+  if (decorator) {
+    const mapping = activeDecoratorMappings(source, options)[decorator.name]
+    return mapping ? decoratorBinding(source, mapping, options).definitions : []
+  }
   const storyDefinitions = getQuaScriptStoryDefinitions(source, position, options)
   if (storyDefinitions.length > 0) {
     return storyDefinitions
   }
   const context = createQuaScriptTypeScriptContext(source, options)
-  return getTypeScriptDefinitionsAtSourcePosition(context, position)
+  try {
+    return getTypeScriptDefinitionsAtSourcePosition(context, position)
+  }
+  finally { context.dispose() }
 }
 
 export function getQuaScriptCodeActions(
@@ -336,20 +392,6 @@ export function getQuaScriptCodeActions(
   return actions
 }
 
-async function getDecoratorCompletions(
-  source: string,
-  options: QuaScriptLanguageOptions,
-): Promise<QuaScriptCompletionItem[]> {
-  const mappings = await getActiveDecoratorMappings(source, options)
-  return [...new Set(Object.keys(mappings))]
-    .sort()
-    .map(label => ({
-      label,
-      kind: 'decorator' as const,
-      detail: 'QuaScript decorator',
-    }))
-}
-
 function diagnosticTouchesPosition(diagnostic: QuaScriptDiagnostic, position: QuaScriptLanguagePosition): boolean {
   const range = diagnostic.range
   if (!range) {
@@ -411,18 +453,13 @@ async function getDecoratorArgumentCompletions(
   position: QuaScriptLanguagePosition,
   options: QuaScriptLanguageOptions,
 ): Promise<QuaScriptCompletionItem[]> {
-  const context = getDecoratorArgumentContext(source, position)
+  const context = decoratorArgumentContext(source, position)
   if (!context) {
     return []
   }
 
-  const mappings = await getActiveDecoratorMappings(source, options)
-  if (!mappings[context.decoratorName]) {
-    return []
-  }
-
-  const language = await getDiscoveredLanguageContributions(options.projectRoot)
-  const contribution = language.decorators?.[context.decoratorName]
+  const entry = (await decoratorIndex(source, options)).find(entry => entry.name === context.decoratorName)
+  const contribution = entry?.language
   const arg = contribution?.args?.[context.argumentIndex]
   if (!arg) {
     return []
@@ -442,34 +479,7 @@ async function getDecoratorArgumentCompletions(
     })))
   }
 
-  return uniqueCompletions(completions)
-}
-
-async function getActiveDecoratorMappings(
-  source: string,
-  options: QuaScriptLanguageOptions,
-): Promise<DecoratorMapping> {
-  const availableMappings = await loadProjectDecoratorMappings(options.projectRoot)
-  const resolutionOptions = createDecoratorResolutionOptions(options.toolingConfig, availableMappings)
-  const moduleScript = parseQuaScriptDocument(source).moduleScript?.content || ''
-
-  try {
-    return resolveDecoratorMappingsForModuleSource(moduleScript, resolutionOptions)
-  }
-  catch {
-    return resolveBaseDecoratorMappings(resolutionOptions)
-  }
-}
-
-function createDecoratorResolutionOptions(
-  toolingConfig: QuaScriptToolingConfig | undefined,
-  availableDecoratorMappings: DecoratorMapping,
-) {
-  return {
-    autoCollectDecorators: toolingConfig?.decorators?.autoCollect,
-    availableDecoratorMappings,
-    decoratorMappings: toolingConfig?.decorators?.mappings,
-  }
+  return uniqueCompletions(completions).map(item => ({ ...item, range: context.range }))
 }
 
 async function collectQuaScriptCompilerDiagnostics(
@@ -725,10 +735,6 @@ function listAssetFiles(root: string): string[] {
   })
 }
 
-function isDecoratorContext(beforeCursor: string): boolean {
-  return /^\s*@[\w$]*$/.test(beforeCursor)
-}
-
 function isChoiceHelperContext(beforeCursor: string): boolean {
   return /@Choice\([^)]*$/.test(beforeCursor)
     && /(?:^|[,\s])(?:[A-Z_$][\w$]*)?$/i.test(beforeCursor)
@@ -890,154 +896,9 @@ function isExpressionContext(line: string, character: number): boolean {
   return /\sif\s[\s\S]*$/.test(before)
 }
 
-function getDecoratorNameAtPosition(line: string, character: number): string | undefined {
-  const match = line.match(/^(\s*)@([a-z_$][\w$]*)/i)
-  if (!match) {
-    return undefined
-  }
-
-  const start = match[1].length + 1
-  const end = start + match[2].length
-  return character >= start && character <= end ? match[2] : undefined
-}
-
-function getDecoratorArgumentContext(source: string, position: QuaScriptLanguagePosition): {
-  argumentIndex: number
-  decoratorName: string
-  insideString: boolean
-} | undefined {
-  const line = source.split(/\r?\n/)[position.line] || ''
-  const beforeCursor = line.slice(0, position.character)
-  const match = beforeCursor.match(/^\s*@([a-z_$][\w$]*)\s*\(/i)
-  if (!match) {
-    return undefined
-  }
-
-  const openIndex = beforeCursor.indexOf('(', match[0].indexOf(match[1]) + match[1].length)
-  if (openIndex === -1) {
-    return undefined
-  }
-
-  const argsBeforeCursor = beforeCursor.slice(openIndex + 1)
-  if (hasClosedDecoratorArguments(argsBeforeCursor)) {
-    return undefined
-  }
-
-  return {
-    argumentIndex: countTopLevelCommas(argsBeforeCursor),
-    decoratorName: match[1],
-    insideString: isInsideString(argsBeforeCursor),
-  }
-}
-
-function hasClosedDecoratorArguments(source: string): boolean {
-  let depth = 0
-  let quote: '"' | '\'' | '`' | null = null
-  let escaped = false
-
-  for (const char of source) {
-    if (quote) {
-      if (escaped) {
-        escaped = false
-        continue
-      }
-      if (char === '\\') {
-        escaped = true
-        continue
-      }
-      if (char === quote) {
-        quote = null
-      }
-      continue
-    }
-
-    if (char === '"' || char === '\'' || char === '`') {
-      quote = char
-      continue
-    }
-    if (char === '(' || char === '[' || char === '{') {
-      depth++
-      continue
-    }
-    if (char === ')' && depth === 0) {
-      return true
-    }
-    if (char === ')' || char === ']' || char === '}') {
-      depth = Math.max(0, depth - 1)
-    }
-  }
-
-  return false
-}
-
-function countTopLevelCommas(source: string): number {
-  let count = 0
-  let depth = 0
-  let quote: '"' | '\'' | '`' | null = null
-  let escaped = false
-
-  for (const char of source) {
-    if (quote) {
-      if (escaped) {
-        escaped = false
-        continue
-      }
-      if (char === '\\') {
-        escaped = true
-        continue
-      }
-      if (char === quote) {
-        quote = null
-      }
-      continue
-    }
-
-    if (char === '"' || char === '\'' || char === '`') {
-      quote = char
-      continue
-    }
-    if (char === '(' || char === '[' || char === '{') {
-      depth++
-      continue
-    }
-    if (char === ')' || char === ']' || char === '}') {
-      depth = Math.max(0, depth - 1)
-      continue
-    }
-    if (char === ',' && depth === 0) {
-      count++
-    }
-  }
-
-  return count
-}
-
-function isInsideString(source: string): boolean {
-  let quote: '"' | '\'' | '`' | null = null
-  let escaped = false
-
-  for (const char of source) {
-    if (quote) {
-      if (escaped) {
-        escaped = false
-        continue
-      }
-      if (char === '\\') {
-        escaped = true
-        continue
-      }
-      if (char === quote) {
-        quote = null
-      }
-      continue
-    }
-
-    if (char === '"' || char === '\'' || char === '`') {
-      quote = char
-    }
-  }
-
-  return quote !== null
+function isScriptPosition(source: string, position: QuaScriptLanguagePosition): boolean {
+  const document = parseQuaScriptDocument(source)
+  return [document.moduleScript, document.setupScript].some(block => block && position.line >= block.range.start.line && position.line <= block.range.end.line)
 }
 
 function uniqueCompletions(items: QuaScriptCompletionItem[]): QuaScriptCompletionItem[] {

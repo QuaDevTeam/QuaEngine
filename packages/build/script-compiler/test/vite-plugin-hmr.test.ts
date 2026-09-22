@@ -414,3 +414,24 @@ describe('vite Plugin Hot-Reload Integration', () => {
     })
   })
 })
+
+it('instruments editor serve only and never reuses instrumented output in builds', async () => {
+  resetHotReloadManager()
+  const source = '  Hero: 雨 🌧\r\nHero: 第二句\r\n'
+  for (const command of ['serve', 'build', 'serve', 'build']) {
+    const plugin = quaScriptPlugin({ hotReload: false })
+    await (plugin.configResolved as any)({ command, root: '/project', env: { VITE_QUA_EDITOR_PREVIEW: '1' } })
+    const result = await (plugin.transform as any).call({ error: (text: string) => {
+      throw new Error(text)
+    } }, source, '/project/scene.qs')
+    expect(result.code.includes('editor/preview/step')).toBe(command === 'serve')
+    expect(result.code.includes('expectedText')).toBe(command === 'serve')
+    if (command === 'serve') {
+      expect(result.code).toContain('stepIndex: 0')
+      expect(result.code).toContain('line: 1')
+      expect(result.code).toContain('start: 0')
+      expect(result.code).toContain('end: 13')
+    }
+  }
+  resetHotReloadManager()
+})

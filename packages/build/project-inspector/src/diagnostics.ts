@@ -142,6 +142,11 @@ function collectCurrentChoiceDiagnostics(parsed: ParsedQuaScript, index: StoryIn
         })
       }
 
+      // Targetless choices record ctx.choice and continue in the current script.
+      // Explicit undefined is retained as a Babel identifier by the parser.
+      const expression = asRecord(option.target)
+      if (option.target == null || (expression?.type === 'Identifier' && expression.name === 'undefined'))
+        continue
       const target = normalizeChoiceTarget(option.target)
       if (!target) {
         diagnostics.push({

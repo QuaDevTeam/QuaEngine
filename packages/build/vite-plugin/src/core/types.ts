@@ -1,3 +1,4 @@
+import type { BundleIdentity } from '@quajs/assets'
 import type { CompressionAlgorithm, EncryptionAlgorithm, QuackPlugin } from '@quajs/quack'
 import type { PluginOption } from 'vite'
 
@@ -99,6 +100,7 @@ export interface VirtualPluginRegistryEntry {
 export interface AssetBundleManifest {
   /** Emitted, versioned static bundle path relative to the Vite output root. */
   bundleFile?: string
+  bundleIdentity?: BundleIdentity
   version: string
   buildNumber: string | number
   totalFiles: number

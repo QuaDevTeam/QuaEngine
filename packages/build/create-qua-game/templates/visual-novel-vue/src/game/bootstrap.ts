@@ -1,4 +1,5 @@
 import { MemoryAssetStorage } from '@quajs/assets'
+import type { WebRuntimeTrustKey } from '@quajs/security-web'
 import { createViteDevAssetRuntime, createWebAssetsAdapter } from '@quajs/assets-web'
 import { QuaEngine, Scene, UiOverlayPlugin } from '@quajs/engine'
 import { AudioPlugin } from '@quajs/plugin-audio'
@@ -21,7 +22,7 @@ import opening from './scenes/opening.qs'
 
 const GAME_TITLE = quaProject.home.title
 const STORAGE_PREFIX = quaProject.bundleId
-const TRUSTED_RUNTIME_KEYS = [
+const TRUSTED_RUNTIME_KEYS: WebRuntimeTrustKey[] = [
   // Production runtime QPKs should be signed with a private key whose public key is registered here.
   // Example:
   // { id: 'release-2026-01', key: { kty: 'EC', crv: 'P-256', x: '...', y: '...', ext: true } },
@@ -121,7 +122,7 @@ export async function createQuaGameApp() {
   })
 
   await engine.init()
-  bootMessage.value = 'Starting opening scene...'
+  bootMessage.value = ''
   void engine.loadScene(new OpeningScene(engine)).catch((error) => {
     console.error(error)
     bootMessage.value = 'The opening scene failed to start. Check the browser console.'
@@ -156,7 +157,7 @@ export async function createQuaGameApp() {
           runtimePluginLoader,
           saveSlots: engine.getStore(),
         }),
-        h('p', { class: 'boot-message', 'data-qua-input-ignore': '' }, bootMessage.value),
+        bootMessage.value && h('p', { class: 'boot-message', 'data-qua-input-ignore': '' }, bootMessage.value),
       ])
     },
   })
@@ -169,11 +170,8 @@ class OpeningScene extends Scene {
     super()
   }
 
-  async init(): Promise<void> {
-    await this.engine.showUI('hud', {
-      open: true,
-      title: GAME_TITLE,
-    })
+  init(): void {
+    // Prepare scene resources here; overlays open only on player request.
   }
 
   async run(): Promise<void> {
