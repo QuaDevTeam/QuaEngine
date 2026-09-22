@@ -1,14 +1,14 @@
 ---
 name: novel-writer-development-guardrails
-description: Guardrails for developing ai/novel-writer, the SvelteKit multi-agent visual novel writing app. Use with novel-writer when changing its UI, APIs, DeepSeek/ReAct agent runtime, Tavily tools, storage, trash behavior, context management, shadcn-svelte components, or validation.
+description: Guardrails for developing packages/editor/novel-writer, the SvelteKit multi-agent visual novel writing app. Use with novel-writer when changing its UI, APIs, DeepSeek/ReAct agent runtime, Tavily tools, storage, trash behavior, context management, shadcn-svelte components, or validation.
 ---
 
 # Novel Writer Development Guardrails
 
 ## Scope
 
-- `ai/novel-writer` is a standalone local writing app, not a QuaEngine runtime package.
-- Do not import QuaEngine engine, renderer, QPK, QuaScript, or LangChain packages.
+- `packages/editor/novel-writer` is the built-in `@quajs/editor-novel-writer` plugin with a local writing service, not a QuaEngine runtime package.
+- Do not import engine/renderer/QPK runtimes or LangChain. Static QS authoring belongs in `editor/` and reuses script-compiler; server agents still produce prose.
 - Runtime user data belongs under `~/.quaengine/novel-writer` unless `NOVEL_WRITER_HOME` overrides it.
 
 ## Agent Runtime
@@ -56,6 +56,59 @@ description: Guardrails for developing ai/novel-writer, the SvelteKit multi-agen
 
 ## Validation
 
-- `pnpm --filter novel-writer typecheck`
-- `pnpm --filter novel-writer test -- --run`
-- `pnpm --filter novel-writer build`
+- `pnpm --filter @quajs/editor-novel-writer typecheck`
+- `pnpm --filter @quajs/editor-novel-writer test -- --run`
+- `pnpm --filter @quajs/editor-novel-writer build`
+- Preserve the post-build JavaScript syntax check over the final adapter-node output. Desktop startup errors should distinguish syntax, missing-module and permission failures without forwarding raw exceptions, manuscripts or secrets to the renderer.
+
+## Electron integration
+
+- The complete app now lives in `packages/editor/novel-writer`; do not restore a second source copy under `ai/`. `pnpm dev:editor` builds it through the workspace dependency. The obsolete root `dev:novel-writer` entry is removed; package-local `dev` is a loopback development harness.
+- The editor activity bar opens the entire writing workspace in a sandboxed WebContentsView, in a movable dock view alongside source, preview and tools. Switching retains its page/controller, manuscript edits, dialogs and SSE connection. Keep agent workflow independent of engine/renderer/QPK runtime; static source tooling stays in the plugin adapter.
+- Production SvelteKit `build/handler.js` runs in one lazy Electron utility process via `desktop/server.mjs`. It binds a random loopback port with a per-process bearer credential inserted only by its isolated Electron session. The writing preload exposes dirty state, commands, project context, QS capture/convert/apply and project-change subscription only, never the full EditorBridge. The browser development harness binds loopback.
+- Storage stays in `~/.quaengine/novel-writer` (or `NOVEL_WRITER_HOME`). Editor new-project drafts are stored as bounded, validated, atomic JSON because the loopback origin changes between launches; serialize/debounce client writes. API keys remain server-only. Never move or delete user projects during source migration.
+- `+page.svelte` uses Svelte 5 runes so template props observe the class controller's rune fields; do not revert the shell to constant-prop legacy compilation. Create the controller once from the initial SSR data; SSE and actions own subsequent updates.
+- Hidden writing pages stop Chromium painting but retain generation and SSE. Editor close checks both unsaved writer edits and live backend jobs. Service shutdown aborts provider requests, waits for workflow error/checkpoint persistence, and stops sandbox commands. On restart, an interrupted persisted running project becomes resumable; never automatically restart paid generation.
+- `node packages/editor/electron/scripts/novel-writer-smoke.mjs` exercises the actual Electron service with temporary storage and offline fallback generation: workspace switch, drafts, CRUD, review progression, ZIP export, trash/restore, narrow preload, auth, compact layout and shutdown. It does not prove live DeepSeek/Tavily model quality. Keep provider/protocol tests separate.
+
+## Project writing plugin and QS editing
+
+- Package identity is `@quajs/editor-novel-writer`, built into the editor as `qua.novel-writer`. `editor/index.ts` contributes its workspace; `editor/host.ts` owns activation, the lazy authenticated utility service, isolated page and teardown through `EditorHostPlugins`. Keep service, preload, authoring adapter and UI contribution in this package. There is no second app under `ai/` and no root standalone launch command.
+- `editor/project.ts` consumes the existing project worker snapshot and compiler-derived Story Tree. Read bounded, indexed setting documents first, then the static character catalog, then bounded QS dialogue evidence. Preserve source paths, parse warnings and truncation notices. A source tree does not prove runtime execution order; excerpts are evidence for the existing worldbuilding/character stages, not invented canon.
+- New editor-created writing projects record canonical `editorRoot` and seed missing fields from current project context. Explicit “关联并补齐设定” links existing unbound projects and fills only missing inputs; existing user seeds and non-rejected setting artifacts take precedence. Rebinding another root is rejected, and context attachment never starts paid generation.
+- `EditorWritingBridge` exposes context, current Monaco buffer/selection capture, prose conversion, guarded application and project-change notification. No filesystem, shell, arbitrary IPC, dynamic project evaluation or full EditorBridge is exposed to the writer.
+- `editor/source.ts` reuses the shared compiler parser and UTF-16 ranges. Conversion treats narration separately and encodes structural/interpolated text as JSON string expressions. Never execute model-generated code. New/append mode creates plain narrative steps; game wiring remains source-owned.
+- Intelligent rewrite maps each paragraph to a captured source anchor, supports count/speaker changes, and restores original runtime expressions through validated spans. Preserve executable source, decorated anchors and occupied logic zones. See the intelligent QS writeback section below; application remains a guarded Monaco edit.
+- Application checks current project, original buffer, disk revision and document bounds. Changed buffers or disk revisions require recapture; existing new-file paths and project escapes are rejected. All text changes enter Monaco as undoable drafts and use normal conflict-aware save. Never overwrite source directly from a model artifact.
+- Project switching invalidates captured source context, retains the writing page/prose and blocks stale-root writes. Integration text participates in the existing close dirty guard. Keep setting and manuscript material out of process logs.
+- Validate plugin tests/typecheck/build and editor core/UI/Electron checks. `node packages/editor/electron/scripts/writing-project-smoke.mjs` uses temporary projects and isolated writer storage to exercise Story Tree/settings extraction, canon preservation, real source capture, QS preview/new/rewrite/save, collisions, traversal, disk conflicts and project switching. Existing `novel-writer-smoke.mjs` still covers service/auth/workflow lifecycle. These offline checks do not establish live DeepSeek or Tavily quality.
+
+- Return native keyboard focus to the workbench when hiding the writing view. Forward only writer-local save/settings/undo/redo commands; project/global commands stay with the workbench. In Electron tests, focus Monaco via its editing surface: its hidden readonly IME textarea is not the modern EditContext input target.
+
+## Intelligent QS writeback
+
+- Writing experts produce prose; the dedicated server-side QS adapter produces a validated anchor/variable plan. Reuse DeepSeek configuration and shutdown cancellation; never send credentials/reasoning to the browser or accept arbitrary generated executable code.
+- See `editor/adaptation.ts` for exact source-range reconstruction and structural invariants. Count/speaker changes are supported through ordered mappings, preserving decorated anchors, control-flow zones and dynamic expression evaluation. Compiler feedback may request a repaired mapping; no failed/partial plan may reach Monaco.
+- Source associations live separately in `editor-source.json`, with selected-range and revision snapshots. Preserve them through task reload and repeated save/edit cycles; changing root/source invalidates application. Do not put full source snapshots into project-list responses or expert context.
+- Exercise the actual Electron pipeline with a local fake provider. This proves integration and conflict handling, not real-model mapping quality or semantic equivalence.
+
+## Writing integration UI
+
+- Context documents must not reuse the manuscript dialogue layout: render headings, nested lists and paragraphs as escaped text, preserving character descriptions. Remove redundant dialog descriptions and use tab underline/subtle keyboard focus fill instead of rectangular outline rings.
+- Keep writing and QS code model/effort selections independent under the existing server credential configuration. Adaptation selects `codeModel`/`codeReasoningEffort`; experts keep `deepSeekModel`/`defaultReasoningEffort`. Migrate missing code choices from existing writing settings, preserve keys on omitted/blank update fields, and test actual request routing and reload persistence.
+- Keep desktop inspector containers as flex columns and let center empty states grow into the remaining scroll area. Never replace them with fixed-height placeholders. Icon-button width, height and minimum dimensions must share `--nw-icon-button-size`; verify actual square hit areas and full-height empty states in regular and compact Electron windows.
+- Project integration is a production writing flow, not a permanent debug panel. Keep the main workspace directly below the compact app toolbar; do not put source text, absolute paths, settings dumps or a matrix of conversion buttons above it.
+- The toolbar exposes project context and “从 QS 改写”; each artifact offers “写入项目”. Keep session drafts accessible through “继续稿件”. `client/editor-writing.svelte.ts` owns source binding, async guards, draft, preview and apply state; dialog components only project it.
+- Use the focused `EditorIntegration` dialog for manuscript and change-preview tabs. Keep update/append/create in one labeled mode control, show project-relative source paths, and ask for a path only for new files. One primary action advances from preview to application. Editing text, destination or mode invalidates the preview; never apply a different draft from the one reviewed.
+- `WritingDiff` shows real added/removed lines and source line numbers; bound expensive alignment and DOM rows, mark truncation explicitly, and offer the complete resulting source. Existing compiler/revision guards still own application; the visual diff is not an execution authority.
+- Project outline/background/characters live in a separate context dialog with keyboard-accessible tabs. Closing either dialog keeps the session draft; Escape and focus behavior use the repository's native dialog pattern. Use existing shadcn controls and lucide icons, restrained theme tokens and stable independently scrolling content.
+- Validate the real Electron flows at compact window sizes: no permanent integration panel or horizontal overflow, modal bounds/footer visibility, keyboard tabs, Escape/reopen draft retention, direct artifact handoff, diff preview and guarded apply. Inspect screenshots in `.codex-tmp/editor-writing-project/`; mock-provider checks do not establish live model quality.
+
+## Integration review regression gates
+
+- Preserve the pairing of manuscript, source snapshot and task across task/root switches. Delayed reads must never replace another task or its event stream; preserve inactive artifact and integration drafts in the dirty guard.
+- JSON snapshots use atomic replacement; JSONL reads/appends are serialized. Track planner requests and review writes alongside workflow jobs for close, shutdown and conflicting task operations.
+- Chapter regeneration retains chapter identity; revision invalidates dependent checkpoints without erasing unrelated chapter progress. Input revision must use the same chapter loop as normal generation before marking completion.
+- Run the isolated Electron smokes with delayed task reads, independent drafts, source restoration, guarded QS application, provider routing, and artifact draft switching. These tests use a local mock provider or offline fallback, not real DeepSeek/Tavily.
+
+The writer view now participates in editor docking. Resize/move keeps its WebContents/controller and drafts. Hide native bounds while the workbench is dragging/resizing or displaying a modal; route writer-local menu commands only when its WebContents has focus. Keep the Svelte app isolated from the editor Lit component tree.
