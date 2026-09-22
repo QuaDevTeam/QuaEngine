@@ -10,6 +10,7 @@ const SUPPORTED_FUNCTIONS = new Set([
   'sprite',
   'show',
   'hide',
+  'hideAllCharacters',
   'move',
   'expression',
   'playCharacterFadeWithEngine',
@@ -25,6 +26,7 @@ export function createCharacterDecoratorCompiler() {
       spriteWithEngine: '@quajs/character',
       showWithEngine: '@quajs/character',
       hideWithEngine: '@quajs/character',
+      hideAllCharactersWithEngine: '@quajs/character',
       moveWithEngine: '@quajs/character',
       expressionWithEngine: '@quajs/character',
       playCharacterEnterWithEngine: '@quajs/character/animation',
@@ -83,6 +85,7 @@ export function createCharacterDecoratorCompiler() {
               character,
               sprite,
             ]),
+            assetHints: characterAssetHints(character, undefined, sprite),
             runtimeHelpers: ['spriteWithEngine'],
           }
         }
@@ -94,6 +97,7 @@ export function createCharacterDecoratorCompiler() {
               character,
               options,
             ]),
+            assetHints: characterAssetHints(character, staticOption(options, 'expression'), staticOption(options, 'sprite')),
             runtimeHelpers: ['showWithEngine'],
           }
         }
@@ -105,6 +109,15 @@ export function createCharacterDecoratorCompiler() {
               character,
             ]),
             runtimeHelpers: ['hideWithEngine'],
+          }
+        }
+        case 'hideAllCharacters': {
+          if (args.length > 0) {
+            throw new Error(`@${decorator.name} does not accept arguments. Use @HideCharacter(character) to hide a specific character.`)
+          }
+          return {
+            call: t.callExpression(t.identifier('hideAllCharactersWithEngine'), [engineArg]),
+            runtimeHelpers: ['hideAllCharactersWithEngine'],
           }
         }
         case 'move': {
@@ -126,6 +139,7 @@ export function createCharacterDecoratorCompiler() {
               character,
               args[0] || t.identifier('undefined'),
             ]),
+            assetHints: characterAssetHints(character, args[0]),
             runtimeHelpers: ['expressionWithEngine'],
           }
         }
@@ -361,4 +375,18 @@ function toExpression(value: unknown): t.Expression {
 
 function isBabelExpression(value: unknown): value is t.Expression {
   return typeof value === 'object' && value !== null && t.isExpression(value as t.Node)
+}
+
+function staticOption(options: t.Expression, name: string): t.Expression | undefined {
+  if (!t.isObjectExpression(options))
+    return undefined
+  const property = options.properties.find(p => t.isObjectProperty(p) && !p.computed
+    && (t.isIdentifier(p.key, { name }) || t.isStringLiteral(p.key, { value: name })))
+  return t.isObjectProperty(property) && t.isExpression(property.value) ? property.value : undefined
+}
+
+function characterAssetHints(character: t.Expression, expression?: t.Expression, sprite?: t.Expression) {
+  return t.isStringLiteral(character)
+    ? [{ type: 'character', name: character.value, ...(t.isStringLiteral(expression) ? { expression: expression.value } : {}), ...(t.isStringLiteral(sprite) ? { sprite: sprite.value } : {}) }]
+    : []
 }

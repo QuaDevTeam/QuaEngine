@@ -9,6 +9,7 @@ import type {
   AssetRuntimeAdapter,
   AssetType,
   BundleIndex,
+  BundleLoadProgress,
   BundleStatus,
   DecompressionPlugin,
   DecryptionPlugin,
@@ -16,6 +17,7 @@ import type {
   LoadAssetOptions,
   LoadBundleOptions,
   LoadDynamicBundleOptions,
+  LoadWorkspaceBundlesOptions,
   MediaMetadata,
   QuaAssetsConfig,
   QuaAssetsEvents,
@@ -25,6 +27,7 @@ import type {
 } from './types'
 import { createLogger } from '@quajs/logger'
 import { AssetManager } from './asset-manager'
+import { assertBundleIdentity, assertLoadNotAborted, commitBundle, hasCompleteBundle } from './bundle-cache'
 import { createBundleVersionKey, selectBestStoredBundle } from './bundle-identity'
 import { BundleLoader } from './bundle-loader'
 import { assertCompatibleGameVersion, assertValidAppVersion } from './compatibility'
@@ -43,6 +46,7 @@ import {
 import { PatchManager } from './patch-manager'
 import { createLocaleFallbackChain, findBestRankedAssetRecord, normalizeLocale } from './providers'
 import { AssetNotFoundError, BundleLoadError } from './types'
+import { resolveWorkspaceBundles } from './workspace-bundles'
 
 const logger = createLogger('quaassets')
 
@@ -60,6 +64,7 @@ export class QuaAssets {
   private bundleStatuses = new Map<string, BundleStatus>()
   private eventListeners = new Map<keyof QuaAssetsEvents, Array<(data: unknown) => void>>()
   private currentLocale: AssetLocale
+  private pendingBundles = new Map<string, { promise: Promise<void>, listeners: Set<LoadBundleOptions>, state?: BundleLoadProgress }>()
   private initialized = false
   private provider?: AssetProvider
   private unwatchProvider?: () => void
@@ -112,151 +117,191 @@ export class QuaAssets {
     logger.info('QuaAssets initialized successfully')
   }
 
-  async checkLatest(): Promise<BundleIndex | WorkspaceBundleIndex> {
+  async checkLatest(indexFile = 'index.json'): Promise<BundleIndex | WorkspaceBundleIndex> {
     this.ensureInitialized()
     const fetcher = this.ensureFetcher()
     if (fetcher.fetchJSON) {
-      return await fetcher.fetchJSON<BundleIndex | WorkspaceBundleIndex>(this.resolveUrl('index.json'), {
-        cache: this.config.enableCache,
+      return await fetcher.fetchJSON<BundleIndex | WorkspaceBundleIndex>(this.resolveUrl(indexFile), {
+        cache: false,
+        timeout: this.config.timeout,
       })
     }
 
-    const result = await fetcher.fetchBytes(this.resolveUrl('index.json'), {
-      cache: this.config.enableCache,
+    const result = await fetcher.fetchBytes(this.resolveUrl(indexFile), {
+      cache: false,
+      timeout: this.config.timeout,
     })
     const bytes = result instanceof Uint8Array ? result : result.data
     return JSON.parse(bytesToUtf8(bytes)) as BundleIndex | WorkspaceBundleIndex
   }
 
   async loadBundle(bundleName: string, options: LoadBundleOptions = {}): Promise<void> {
-    const baseBundleName = bundleName.replace(/\.(qpk|zip|bundle)$/, '')
-    this.bundleStatuses.set(baseBundleName, createBundleStatus(baseBundleName, 'loading'))
+    // Signalled requests retain independent cancellation ownership.
+    if (options.signal)
+      return await this.loadBundleInternal(bundleName, options)
+    const key = JSON.stringify([bundleName, options.expected, options.force, options.enableCache, options.appVersion, options.format])
+    const pending = this.pendingBundles.get(key)
+    if (pending) {
+      pending.listeners.add(options)
+      if (pending.state)
+        options.onState?.(pending.state)
+      return await pending.promise
+    }
+    const entry = { listeners: new Set([options]), promise: Promise.resolve(), state: undefined as BundleLoadProgress | undefined }
+    // Defer execution until the entry is registered, including synchronous failures.
+    entry.promise = Promise.resolve().then(() => this.loadBundleInternal(bundleName, {
+      ...options,
+      onProgress: (loaded, total) => { for (const listener of entry.listeners) listener.onProgress?.(loaded, total) },
+      onState: (state) => {
+        entry.state = state
+        for (const listener of entry.listeners) listener.onState?.(state)
+      },
+    })).finally(() => { this.pendingBundles.delete(key) })
+    this.pendingBundles.set(key, entry)
+    return await entry.promise
+  }
 
+  private async loadBundleInternal(bundleName: string, options: LoadBundleOptions): Promise<void> {
+    const sourceName = bundleName.replace(/\.(qpk|zip|bundle)$/, '')
+    this.bundleStatuses.set(sourceName, createBundleStatus(sourceName, 'loading'))
+    let loaded = 0
+    let total = 0
+    const report = (phase: BundleLoadProgress['phase'], progress: number | null, cacheHit = false) => {
+      this.updateBundleProgress(sourceName, progress ?? 0)
+      options.onState?.({ bundleName, phase, progress, loaded, total, cacheHit })
+    }
+    const appVersion = options.appVersion || this.config.appVersion
+    const finish = (bundle: StoredBundle, cacheHit: boolean) => {
+      const status: BundleStatus = {
+        name: bundle.name,
+        version: bundle.version,
+        state: 'loaded',
+        progress: 1,
+        assetCount: bundle.assetCount,
+        loadedAssets: bundle.assetCount,
+        lastUpdated: this.now(),
+      }
+      this.bundleStatuses.set(sourceName, status)
+      this.bundleStatuses.set(bundle.name, status)
+      this.assetManager.clearManifestCache()
+      report('ready', 1, cacheHit)
+      this.emit('bundle:loaded', { bundleName: bundle.name, status })
+      this.emit('asset:changed', { type: 'changed', assetId: `bundle:${bundle.versionKey}`, timestamp: this.now() })
+    }
     try {
       this.ensureInitialized()
-      this.emit('bundle:loading', { bundleName: baseBundleName })
-
-      const fetcher = this.ensureFetcher()
-      const fetched = await fetcher.fetchBytes(this.resolveUrl(bundleName), {
-        cache: options.enableCache !== false,
+      assertLoadNotAborted(options.signal)
+      assertValidAppVersion(appVersion)
+      this.emit('bundle:loading', { bundleName: sourceName })
+      report('checking-cache', null)
+      if (options.expected && !options.force && options.enableCache !== false && this.config.enableCache) {
+        const identity = options.expected
+        const cached = await this.adapter.storage.getBundle(createBundleVersionKey(identity.name, identity.version, identity.buildNumber, identity.target))
+        if (cached && cached.hash === identity.hash && await hasCompleteBundle(this.adapter.storage, cached)) {
+          assertBundleIdentity(cached.manifest, cached.hash, identity)
+          assertCompatibleGameVersion(cached.compatibility, appVersion, `Bundle "${cached.name}"`)
+          assertLoadNotAborted(options.signal)
+          await this.adapter.storage.storeBundle({ ...cached, active: true, loadedAt: this.now() })
+          assertLoadNotAborted(options.signal)
+          finish(cached, true)
+          return
+        }
+      }
+      report('downloading', null)
+      const fetched = await this.ensureFetcher().fetchBytes(this.resolveUrl(bundleName), {
+        cache: !options.force && options.enableCache !== false && this.config.enableCache,
         signal: options.signal,
-        onProgress: (loaded, total) => {
-          this.updateBundleProgress(baseBundleName, total > 0 ? (loaded / total) * 0.8 : 0)
-          options.onProgress?.(loaded, total)
+        timeout: this.config.timeout,
+        onProgress: (bytes, size) => {
+          loaded = bytes
+          total = size
+          report('downloading', size > 0 ? Math.min(bytes / size, 1) * 0.8 : null)
+          options.onProgress?.(bytes, size)
         },
       })
       const bytes = fetched instanceof Uint8Array ? fetched : fetched.data
-      const { manifest, assets } = await this.bundleLoader.loadBundle(bytes, baseBundleName, options)
+      report('verifying', 0.8)
+      const hash = await this.adapter.crypto.sha256(bytes)
+      if (options.expected && hash !== options.expected.hash)
+        throw new Error(`Bundle hash does not match the deployment manifest: ${bundleName}`)
+      const { manifest, assets } = await this.bundleLoader.loadBundle(bytes, sourceName, options)
+      assertBundleIdentity(manifest, hash, options.expected)
       const loadedAt = this.now()
-      const logicalBundleName = manifest.name || baseBundleName
-      const bundleVersion = manifest.bundleVersion || 1
+      const logicalName = manifest.name || sourceName
+      const version = manifest.bundleVersion || 1
       const buildNumber = manifest.buildNumber || 'unknown'
-      const bundleVersionKey = createBundleVersionKey(logicalBundleName, bundleVersion, buildNumber)
-      const appVersion = options.appVersion || this.config.appVersion
-      assertValidAppVersion(appVersion)
-      assertCompatibleGameVersion(manifest.compatibility, appVersion, `Bundle "${logicalBundleName}"`)
-      if (manifest.runtimePackage) {
-        assertCompatibleGameVersion(
-          manifest.runtimePackage.compatibility || manifest.compatibility,
-          appVersion,
-          `Runtime package "${manifest.runtimePackage.id}"`,
-        )
-      }
-
-      const existingBundle = await this.adapter.storage.getBundle(bundleVersionKey)
-      if (!options.force && existingBundle) {
-        await this.adapter.storage.storeBundle({
-          ...existingBundle,
-          active: true,
-          loadedAt,
-        })
-        const status = {
-          name: logicalBundleName,
-          version: existingBundle.version,
-          state: 'loaded' as const,
-          progress: 1,
-          assetCount: existingBundle.assetCount,
-          loadedAssets: existingBundle.assetCount,
-          lastUpdated: existingBundle.lastUpdated,
-        }
-        this.bundleStatuses.set(baseBundleName, status)
-        this.bundleStatuses.set(logicalBundleName, status)
-        this.emit('bundle:loaded', { bundleName: logicalBundleName, status })
-        return
-      }
-
-      const runtimePackageId = manifest.runtimePackage?.id
-      const bundlePriority = manifest.runtimePackage?.priority ?? 0
+      const versionKey = createBundleVersionKey(logicalName, version, buildNumber, manifest.assetTarget?.name)
       const compatibility = manifest.runtimePackage?.compatibility || manifest.compatibility
-
-      this.updateBundleProgress(baseBundleName, 0.8)
-
-      const storedAssets = assets.map((asset) => {
-        const logicalPath = asset.path || asset.name
-        return {
-          ...asset,
-          id: `${bundleVersionKey}:${asset.locale}:${asset.type}:${logicalPath}`,
-          bundleName: logicalBundleName,
-          logicalBundleName,
-          bundleVersionKey,
-          path: logicalPath,
-          bundleVersion,
-          runtimePackageId,
-          bundlePriority,
-          loadedAt,
-          compatibility: asset.compatibility || compatibility,
-        }
-      })
-
-      if (options.enableCache !== false && this.config.enableCache) {
-        await this.adapter.storage.storeBundle({
-          name: logicalBundleName,
-          logicalName: logicalBundleName,
-          versionKey: bundleVersionKey,
-          version: bundleVersion,
-          buildNumber,
-          format: manifest.format,
-          hash: '',
-          size: storedAssets.reduce((sum, asset) => sum + asset.size, 0),
-          assetCount: storedAssets.length,
-          locales: manifest.locales || ['default'],
-          createdAt: loadedAt,
-          lastUpdated: loadedAt,
-          manifest,
-          runtimePackageId,
-          priority: bundlePriority,
-          loadedAt,
-          active: true,
-          compatibility,
-        })
-        await this.adapter.storage.storeAssets(storedAssets)
-        await this.manageCacheSize()
-      }
-
-      const status = {
-        name: logicalBundleName,
-        version: bundleVersion,
-        state: 'loaded' as const,
-        progress: 1,
+      assertCompatibleGameVersion(manifest.compatibility, appVersion, `Bundle "${logicalName}"`)
+      assertCompatibleGameVersion(compatibility, appVersion, `Bundle "${logicalName}"`)
+      const existing = await this.adapter.storage.getBundle(versionKey)
+      if (existing?.hash && existing.hash !== hash)
+        throw new Error(`Bundle identity is immutable; increment version/build before replacing ${versionKey}`)
+      const runtimePackageId = manifest.runtimePackage?.id
+      const priority = manifest.runtimePackage?.priority ?? manifest.workspaceBundle?.priority ?? 0
+      const storedAssets = assets.map(asset => ({
+        ...asset,
+        id: `${versionKey}:${asset.locale}:${asset.type}:${asset.path || asset.name}`,
+        bundleName: logicalName,
+        logicalBundleName: logicalName,
+        bundleVersionKey: versionKey,
+        bundleVersion: version,
+        runtimePackageId,
+        bundlePriority: priority,
+        loadedAt,
+        compatibility: asset.compatibility || compatibility,
+      }))
+      const bundle: StoredBundle = {
+        name: logicalName,
+        logicalName,
+        versionKey,
+        version,
+        buildNumber,
+        format: manifest.format,
+        hash,
+        size: storedAssets.reduce((sum, asset) => sum + asset.size, 0),
         assetCount: storedAssets.length,
-        loadedAssets: storedAssets.length,
-        lastUpdated: this.now(),
+        locales: manifest.locales || ['default'],
+        createdAt: loadedAt,
+        lastUpdated: loadedAt,
+        manifest,
+        runtimePackageId,
+        priority,
+        loadedAt,
+        active: true,
+        compatibility,
       }
-      this.bundleStatuses.set(baseBundleName, status)
-      this.bundleStatuses.set(logicalBundleName, status)
-      this.emit('bundle:loaded', { bundleName: logicalBundleName, status })
-      logger.info(`Bundle ${logicalBundleName} loaded successfully (${storedAssets.length} assets)`)
+      report('caching', 0.9)
+      // Storage is also the mounted asset source, even with cache reuse disabled.
+      assertLoadNotAborted(options.signal)
+      await commitBundle(this.adapter.storage, bundle, storedAssets)
+      await this.manageCacheSize()
+      assertLoadNotAborted(options.signal)
+      finish(bundle, false)
     }
     catch (error) {
       const bundleError = error instanceof BundleLoadError
         ? error
-        : new BundleLoadError(`Failed to load bundle: ${error instanceof Error ? error.message : String(error)}`, baseBundleName)
-      this.bundleStatuses.set(baseBundleName, {
-        ...createBundleStatus(baseBundleName, 'error'),
-        error: bundleError,
-      })
-      this.emit('bundle:error', { bundleName: baseBundleName, error: bundleError })
+        : new BundleLoadError(`Failed to load bundle: ${error instanceof Error ? error.message : String(error)}`, sourceName)
+      this.bundleStatuses.set(sourceName, { ...createBundleStatus(sourceName, 'error'), error: bundleError })
+      this.emit('bundle:error', { bundleName: sourceName, error: bundleError })
       throw bundleError
+    }
+  }
+
+  /** Load only the requested static packs and their dependencies. Defaults to immediate packs. */
+  async loadWorkspaceBundles(index: WorkspaceBundleIndex, names?: readonly string[], options: LoadWorkspaceBundlesOptions = {}): Promise<void> {
+    const plan = resolveWorkspaceBundles(index, names, options.target)
+    for (let bundleIndex = 0; bundleIndex < plan.length; bundleIndex++) {
+      const { name, record } = plan[bundleIndex]
+      await this.loadBundle(record.filename, {
+        ...options,
+        expected: { name, version: record.version, buildNumber: record.buildNumber, hash: record.hash, target: record.assetTarget?.name },
+        onState: (state) => {
+          options.onState?.(state)
+          options.onBundleState?.({ ...state, bundleIndex, bundleCount: plan.length })
+        },
+      })
     }
   }
 
@@ -484,6 +529,8 @@ export class QuaAssets {
       appVersion: options?.appVersion || this.config.appVersion,
     })
     if (result.success) {
+      this.assetManager.clearManifestCache()
+      this.emit('asset:changed', { type: 'changed', assetId: `bundle:${targetBundleName}`, timestamp: this.now() })
       this.emit('patch:applied', {
         bundleName: targetBundleName,
         fromVersion: 0,
@@ -525,21 +572,33 @@ export class QuaAssets {
     this.ensureInitialized()
     const sourceName = bundleNameOrUrl.replace(/\.(qpk|zip|bundle)$/, '')
     this.bundleStatuses.set(sourceName, createBundleStatus(sourceName, 'loading'))
+    let downloaded = 0
+    let downloadTotal = 0
+    const report = (phase: BundleLoadProgress['phase'], progress: number | null, cacheHit = false) => {
+      options.onState?.({ bundleName: bundleNameOrUrl, phase, progress, loaded: downloaded, total: downloadTotal, cacheHit })
+    }
 
     try {
       this.emit('bundle:loading', { bundleName: sourceName })
+      report('downloading', null)
       const fetcher = this.ensureFetcher()
       const fetched = await fetcher.fetchBytes(this.resolveUrl(bundleNameOrUrl), {
         cache: options.enableCache !== false,
         signal: options.signal,
+        timeout: this.config.timeout,
         onProgress: (loaded, total) => {
+          downloaded = loaded
+          downloadTotal = total
+          report('downloading', total > 0 ? Math.min(loaded / total, 1) * 0.8 : null)
           this.updateBundleProgress(sourceName, total > 0 ? (loaded / total) * 0.8 : 0)
           options.onProgress?.(loaded, total)
         },
       })
       const bytes = fetched instanceof Uint8Array ? fetched : fetched.data
+      report('verifying', 0.8)
       const bundleHash = await this.adapter.crypto.sha256(bytes)
       const loaded = await this.bundleLoader.loadBundle(bytes, sourceName, options)
+      assertBundleIdentity(loaded.manifest, bundleHash, options.expected)
       const runtimePackage = loaded.manifest.runtimePackage
       if (!runtimePackage) {
         throw new BundleLoadError('Dynamic bundle manifest missing runtimePackage metadata', sourceName)
@@ -547,7 +606,7 @@ export class QuaAssets {
       const logicalBundleName = options.bundleName || loaded.manifest.name || runtimePackage.id || sourceName
       const bundleVersion = loaded.manifest.bundleVersion || 1
       const buildNumber = loaded.manifest.buildNumber || 'unknown'
-      const bundleVersionKey = createBundleVersionKey(logicalBundleName, bundleVersion, buildNumber)
+      const bundleVersionKey = createBundleVersionKey(logicalBundleName, bundleVersion, buildNumber, loaded.manifest.assetTarget?.name)
       const appVersion = options.appVersion || this.config.appVersion
       assertValidAppVersion(appVersion)
       assertCompatibleGameVersion(loaded.manifest.compatibility, appVersion, `Bundle "${logicalBundleName}"`)
@@ -558,7 +617,9 @@ export class QuaAssets {
       )
 
       const existingBundle = await this.adapter.storage.getBundle(bundleVersionKey)
-      if (!options.force && existingBundle) {
+      if (existingBundle?.hash && existingBundle.hash !== bundleHash)
+        throw new Error(`Bundle identity is immutable; increment version/build before replacing ${bundleVersionKey}`)
+      if (!options.force && existingBundle && existingBundle.hash === bundleHash && await hasCompleteBundle(this.adapter.storage, existingBundle)) {
         const existingRuntimePackage = existingBundle.manifest.runtimePackage || runtimePackage
         await this.adapter.storage.storeBundle({
           ...existingBundle,
@@ -576,6 +637,7 @@ export class QuaAssets {
         }
         this.bundleStatuses.set(sourceName, status)
         this.bundleStatuses.set(logicalBundleName, status)
+        report('ready', 1, true)
         this.emit('bundle:loaded', { bundleName: logicalBundleName, status })
         return {
           packageId: existingRuntimePackage.id,
@@ -612,7 +674,9 @@ export class QuaAssets {
         }
       })
 
-      await this.adapter.storage.storeBundle({
+      report('caching', 0.9)
+      assertLoadNotAborted(options.signal)
+      await commitBundle(this.adapter.storage, {
         name: logicalBundleName,
         logicalName: logicalBundleName,
         versionKey: bundleVersionKey,
@@ -631,8 +695,7 @@ export class QuaAssets {
         loadedAt,
         active: true,
         compatibility,
-      })
-      await this.adapter.storage.storeAssets(assets)
+      }, assets)
       if (options.enableCache !== false && this.config.enableCache) {
         await this.manageCacheSize()
       }
@@ -664,6 +727,7 @@ export class QuaAssets {
         manifest: loaded.manifest,
       }
       this.emit('bundle:loaded', { bundleName: logicalBundleName, status })
+      report('ready', 1)
       this.emit('dynamic-bundle:loaded', record)
       return record
     }

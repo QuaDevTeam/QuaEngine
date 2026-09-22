@@ -9,6 +9,8 @@ import type {
   AssetProvider,
   AssetRuntimeAdapter,
   AssetStorage,
+  BundleIdentity,
+  BundleLoadProgress,
   LoadBundleOptions,
   QuaAssetsConfig,
   StoredAsset,
@@ -55,52 +57,69 @@ export function createWebAssetsAdapter(options: WebAssetsAdapterOptions = {}): A
     storage: options.storage || createWebAssetStorage(options),
     fetcher: {
       async fetchBytes(url, fetchOptions = {}): Promise<AssetFetchResult> {
-        const response = await fetcher(url, {
-          cache: fetchOptions.cache === false ? 'no-cache' : 'default',
-          signal: fetchOptions.signal as AbortSignal | undefined,
-        })
-        if (!response.ok) {
-          throw new Error(`Failed to fetch ${url}: ${response.status} ${response.statusText}`)
-        }
-
-        const total = Number(response.headers.get('content-length') || 0)
-        if (!response.body || !fetchOptions.onProgress) {
-          const data = new Uint8Array(await response.arrayBuffer())
-          fetchOptions.onProgress?.(data.byteLength, total)
-          return {
-            data,
-            mimeType: response.headers.get('content-type') || undefined,
-            size: data.byteLength,
+        return await withRequestDeadline(fetchOptions.signal, fetchOptions.timeout, async (signal, touch) => {
+          const response = await fetcher(url, {
+            cache: fetchOptions.cache === false ? 'no-cache' : 'default',
+            signal,
+          })
+          touch()
+          if (!response.ok) {
+            throw new Error(`Failed to fetch ${url}: ${response.status} ${response.statusText}`)
           }
-        }
 
-        const reader = response.body.getReader()
-        const chunks: Uint8Array[] = []
-        let loaded = 0
-        while (true) {
-          const { done, value } = await reader.read()
-          if (done)
-            break
-          chunks.push(value)
-          loaded += value.byteLength
-          fetchOptions.onProgress(loaded, total)
-        }
+          const length = Number(response.headers.get('content-length') || 0)
+          const encoding = response.headers.get('content-encoding')
+          const total = (!encoding || encoding === 'identity') && Number.isFinite(length) && length > 0 ? length : 0
+          if (!response.body || !fetchOptions.onProgress) {
+            const data = new Uint8Array(await response.arrayBuffer())
+            fetchOptions.onProgress?.(data.byteLength, total)
+            return {
+              data,
+              mimeType: response.headers.get('content-type') || undefined,
+              size: data.byteLength,
+            }
+          }
 
-        return {
-          data: concatBytes(chunks),
-          mimeType: response.headers.get('content-type') || undefined,
-          size: loaded,
-        }
-      },
-      async fetchJSON<T = unknown>(url: string, options: { cache?: boolean, signal?: unknown } = {}): Promise<T> {
-        const response = await fetcher(url, {
-          cache: options.cache === false ? 'no-cache' : 'default',
-          signal: options.signal as AbortSignal | undefined,
+          const reader = response.body.getReader()
+          const chunks: Uint8Array[] = []
+          let loaded = 0
+          try {
+            while (true) {
+              const { done, value } = await reader.read()
+              touch()
+              if (done)
+                break
+              chunks.push(value)
+              loaded += value.byteLength
+              fetchOptions.onProgress(loaded, total)
+            }
+          }
+          catch (error) {
+            await reader.cancel(error).catch(() => {})
+            throw error
+          }
+          finally {
+            reader.releaseLock()
+          }
+
+          return {
+            data: concatBytes(chunks),
+            mimeType: response.headers.get('content-type') || undefined,
+            size: loaded,
+          }
         })
-        if (!response.ok) {
-          throw new Error(`Failed to fetch JSON ${url}: ${response.status} ${response.statusText}`)
-        }
-        return await response.json() as T
+      },
+      async fetchJSON<T = unknown>(url: string, options: { cache?: boolean, signal?: unknown, timeout?: number } = {}): Promise<T> {
+        return await withRequestDeadline(options.signal, options.timeout, async (signal) => {
+          const response = await fetcher(url, {
+            cache: options.cache === false ? 'no-cache' : 'default',
+            signal,
+          })
+          if (!response.ok) {
+            throw new Error(`Failed to fetch JSON ${url}: ${response.status} ${response.statusText}`)
+          }
+          return await response.json() as T
+        })
       },
     },
     crypto: {
@@ -125,6 +144,36 @@ export function createWebAssetsAdapter(options: WebAssetsAdapterOptions = {}): A
   }
 }
 
+async function withRequestDeadline<T>(
+  signal: unknown,
+  timeout: number | undefined,
+  task: (signal: AbortSignal | undefined, touch: () => void) => Promise<T>,
+): Promise<T> {
+  const caller = signal as AbortSignal | undefined
+  if (!timeout)
+    return await task(caller, () => {})
+  const controller = new AbortController()
+  const abort = () => controller.abort(caller?.reason)
+  if (caller?.aborted)
+    abort()
+  else caller?.addEventListener('abort', abort, { once: true })
+  let timer: ReturnType<typeof setTimeout> | undefined
+  // Large packs on slow connections may take minutes. Time out inactivity,
+  // not a healthy transfer whose chunks keep arriving.
+  const touch = () => {
+    clearTimeout(timer)
+    timer = setTimeout(() => controller.abort(new Error('Resource request timed out')), timeout)
+  }
+  touch()
+  try {
+    return await task(controller.signal, touch)
+  }
+  finally {
+    clearTimeout(timer)
+    caller?.removeEventListener('abort', abort)
+  }
+}
+
 export function createWebAssets(config: Omit<QuaAssetsConfig, 'adapter'> & {
   adapter?: AssetRuntimeAdapter
   web?: WebAssetsAdapterOptions
@@ -135,19 +184,20 @@ export function createWebAssets(config: Omit<QuaAssetsConfig, 'adapter'> & {
   })
 }
 
-export interface WebAssetRuntimeProgress {
-  bundleName: string
+export interface WebAssetRuntimeProgress extends BundleLoadProgress {
   bundleIndex: number
   bundleCount: number
-  loaded: number
-  total: number
-  progress: number
+}
+
+export interface WebInitialBundle {
+  filename: string
+  expected: BundleIdentity
 }
 
 export interface WebAssetRuntimeConfig extends Omit<QuaAssetsConfig, 'adapter'> {
   adapter?: AssetRuntimeAdapter
   web?: WebAssetsAdapterOptions
-  initialBundles?: string | readonly string[]
+  initialBundles?: string | WebInitialBundle | readonly (string | WebInitialBundle)[]
   initialBundleOptions?: LoadBundleOptions
   onProgress?: (progress: WebAssetRuntimeProgress) => void
 }
@@ -158,19 +208,17 @@ export async function createWebAssetRuntime(config: WebAssetRuntimeConfig): Prom
   await assets.initialize()
   const bundleList = normalizeBundleList(initialBundles)
   for (let index = 0; index < bundleList.length; index++) {
-    const bundleName = bundleList[index]
+    const entry = bundleList[index]
+    const bundleName = typeof entry === 'string' ? entry : entry.filename
     await assets.loadBundle(bundleName, {
       ...initialBundleOptions,
+      expected: typeof entry === 'string' ? initialBundleOptions?.expected : entry.expected,
       onProgress: (loaded, total) => {
         initialBundleOptions?.onProgress?.(loaded, total)
-        onProgress?.({
-          bundleName,
-          bundleIndex: index,
-          bundleCount: bundleList.length,
-          loaded,
-          total,
-          progress: total > 0 ? loaded / total : 0,
-        })
+      },
+      onState: (state) => {
+        initialBundleOptions?.onState?.(state)
+        onProgress?.({ ...state, bundleIndex: index, bundleCount: bundleList.length })
       },
     })
   }
@@ -355,10 +403,10 @@ export function createDevVfsProvider(options?: DevVfsAssetProviderOptions): DevV
   return new DevVfsAssetProvider(options)
 }
 
-function normalizeBundleList(bundles: WebAssetRuntimeConfig['initialBundles']): string[] {
+function normalizeBundleList(bundles: WebAssetRuntimeConfig['initialBundles']): (string | WebInitialBundle)[] {
   if (!bundles)
     return []
-  return typeof bundles === 'string' ? [bundles] : [...bundles]
+  return Array.isArray(bundles) ? [...bundles] : [bundles as string | WebInitialBundle]
 }
 
 type IndexedAsset = StoredAsset & { lookupKeys: string[] }
@@ -398,6 +446,19 @@ class IndexedDBAssetStorage extends Dexie {
     }
     if (batch.length)
       await this.assets.bulkPut(batch)
+  }
+
+  async hasAssets(ids: readonly string[]): Promise<boolean> {
+    if (ids.length === 0)
+      return true
+    return (await this.assets.where('id').anyOf([...ids]).primaryKeys()).length === new Set(ids).size
+  }
+
+  async commitBundle(bundle: StoredBundle, assets: StoredAsset[]): Promise<void> {
+    await this.transaction('rw', this.bundles, this.assets, async () => {
+      await this.storeAssets(assets)
+      await this.storeBundle(bundle)
+    })
   }
 
   async getAsset(id: string): Promise<StoredAsset | undefined> {
@@ -515,14 +576,36 @@ class IndexedDBAssetStorage extends Dexie {
     const currentSize = await this.getDatabaseSize()
     if (currentSize <= maxSize)
       return 0
-    let removedSize = 0
-    const ids: string[] = []
-    await this.assets.orderBy('[lastAccessed+size]').until(() => currentSize - removedSize <= maxSize).eachKey((key, cursor) => {
-      ids.push(String(cursor.primaryKey))
-      removedSize += Number((key as number[])[1])
+    // Evict whole inactive versions, never individual members of mounted packs.
+    // An active working set may exceed the soft cache budget.
+    return await this.transaction('rw', this.bundles, this.assets, async () => {
+      const bundles = (await this.bundles.toArray()).filter(bundle => bundle.active === false).sort((a, b) => a.lastUpdated - b.lastUpdated)
+      let size = currentSize
+      let removed = 0
+      for (const bundle of bundles) {
+        if (size <= maxSize)
+          break
+        removed += await this.assets.where('bundleVersionKey').equals(bundle.versionKey || bundle.name).delete()
+        await this.bundles.delete(bundle.versionKey || bundle.name)
+        size -= bundle.size
+      }
+      // Loose provider/dev records have no bundle row and remain ordinary LRU cache.
+      const pinnedIds = new Set<string>()
+      const active = (await this.bundles.toArray()).filter(bundle => bundle.active !== false)
+      for (const bundle of active) {
+        for (const id of await this.assets.where('bundleVersionKey').equals(bundle.versionKey || bundle.name).primaryKeys()) pinnedIds.add(id)
+      }
+      const orphanIds: string[] = []
+      await this.assets.orderBy('[lastAccessed+size]').until(() => size <= maxSize).eachKey((key, cursor) => {
+        const id = String(cursor.primaryKey)
+        if (pinnedIds.has(id))
+          return
+        orphanIds.push(id)
+        size -= Number((key as number[])[1])
+      })
+      await this.assets.bulkDelete(orphanIds)
+      return removed + orphanIds.length
     })
-    await this.assets.bulkDelete(ids)
-    return ids.length
   }
 
   async getCacheStats() {

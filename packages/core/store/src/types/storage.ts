@@ -33,6 +33,8 @@ export type StorageTransactionMode = 'readonly' | 'readwrite'
  * Abstract storage backend interface
  */
 export interface StorageBackend {
+  /** Stable adapter metadata for diagnostics; absence means persistence is unknown. */
+  readonly storageInfo?: { driver: string, persistence: 'session' | 'persistent' | 'host-defined', namespace?: string }
   /**
    * Initialize the storage backend
    * @param options - Initialization options

@@ -233,6 +233,15 @@ export class QuaCharacter {
     }
   }
 
+  /** Resolve authored assets without showing a character or changing engine state. */
+  getSpriteAssets(options: CharacterShowOptions = {}): CharacterSpriteResolution {
+    const resolved = this.resolveSpriteOptions(options)
+    return {
+      sprite: resolved.sprite ?? this.defaults.sprite,
+      expression: resolved.expression ?? this.defaults.expression,
+    }
+  }
+
   private createIntent(options: CharacterShowOptions = {}, defaultVisible: boolean): CharacterIntent {
     const resolved = this.resolveSpriteOptions(options)
     return {
@@ -333,6 +342,18 @@ export async function hide(character: CharacterRef): Promise<void> {
 
 export async function hideWithEngine(engine: QuaEngineInterface, character: CharacterRef): Promise<void> {
   await withEngine(engine, () => hide(character))
+}
+
+/** Hide the current stage cast while retaining character presentation and package metadata. */
+export async function hideAllCharacters(): Promise<void> {
+  await hideAllCharactersWithEngine(getEngine())
+}
+
+export async function hideAllCharactersWithEngine(engine: QuaEngineInterface): Promise<void> {
+  const ids = engine.getViewState().characters.filter(character => character.visible).map(character => character.id)
+  for (const id of ids) {
+    await engine.hideCharacter(id)
+  }
 }
 
 export async function move(character: CharacterRef, position: CharacterIntent['position']): Promise<void> {

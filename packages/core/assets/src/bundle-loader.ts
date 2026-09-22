@@ -204,8 +204,11 @@ export class BundleLoader {
               version: variant.version || assetInfo.version,
               mediaMetadata: variant.mediaMetadata || assetInfo.mediaMetadata,
             }, key, variantLocale)
-            if (!path)
-              continue
+            if (!path) {
+              if (manifest.assetTarget?.cocos?.hybrid?.domains?.[type as 'images'] === 'cocos-bundle')
+                continue
+              throw new Error(`Missing bundle member: ${key} (${variantLocale})`)
+            }
 
             const data = files.get(path)!
             if (variant.hash) {
@@ -246,8 +249,11 @@ export class BundleLoader {
 
         for (const locale of (assetInfo.locales?.length ? assetInfo.locales : [manifest.defaultLocale || 'default']).filter(locale => !variantLocales.has(locale))) {
           const path = findAssetPath(files, assetInfo, key, locale)
-          if (!path)
-            continue
+          if (!path) {
+            if (manifest.assetTarget?.cocos?.hybrid?.domains?.[type as 'images'] === 'cocos-bundle')
+              continue
+            throw new Error(`Missing bundle member: ${key} (${locale})`)
+          }
 
           const data = files.get(path)!
           if (assetInfo.hash) {

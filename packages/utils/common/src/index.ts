@@ -30,6 +30,8 @@ export * from './id'
 // Object utilities
 export * from './object'
 
+export { DEFAULT_FORBIDDEN_CODE_ASSET_EXTENSIONS, isForbiddenCodeAsset, isUnsafePackageAssetReference } from './package-assets'
+
 // String utilities
 export * from './string'
 
