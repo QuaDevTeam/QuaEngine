@@ -5,6 +5,7 @@ export const DEMO_HUD_ACTIONS = [
   { id: 'auto', label: '自动', title: '自动阅读', width: 99, action: 'toggle', target: 'auto' },
   { id: 'skip', label: '快进', title: '按设置快进；遇到选项停止', width: 99, action: 'toggle', target: 'skip' },
   { id: 'log', label: '记录', title: '查看已读对白', width: 99, action: 'open', target: 'backlog' },
+  { id: 'screenshot', label: '截图', title: '隐藏界面（H）；按 H、Esc 或点击画面恢复', width: 99, action: 'toggle', target: 'screenshot' },
   { id: 'menu', label: '菜单', title: '保存、读取与设置', width: 99, action: 'open', target: 'game-menu' },
 ] as const
 
@@ -14,12 +15,24 @@ export const DEMO_TITLE_CONFIRM = {
   subtitle: '',
   description: '当前进度会自动保存。下次可选择“继续阅读”。',
 } as const
+export const DEMO_QUIT_CONFIRM = {
+  title: '退出游戏？',
+  subtitle: '',
+  description: '确定要关闭游戏吗？',
+  confirmLabel: '退出游戏',
+  cancelLabel: '取消',
+} as const
 
 export const DEMO_UI_METRICS = {
-  toolbarWidth: 420, toolbarHeight: 46, toolbarGap: 8,
-  menuWidth: 700, menuHeight: 615.6,
-  saveWidth: 1360, saveHeight: 820,
-  confirmWidth: 800, confirmHeight: 342.7,
+  toolbarWidth: 527,
+  toolbarHeight: 46,
+  toolbarGap: 8,
+  menuWidth: 700,
+  menuHeight: 615.6,
+  saveWidth: 1360,
+  saveHeight: 745,
+  confirmWidth: 800,
+  confirmHeight: 342.7,
   backdropTop: 42,
 } as const
 
@@ -30,7 +43,7 @@ export function demoHudRect(layout: Readonly<ViewLayoutProjection>) {
   const safeX = (stageWidth - safeWidth) / 2
   return {
     x: safeX + safeWidth * 0.95 - 42 - DEMO_UI_METRICS.toolbarWidth,
-    y: layout.height * .95 - 10 - DEMO_UI_METRICS.toolbarHeight,
+    y: layout.height * 0.95 - 10 - DEMO_UI_METRICS.toolbarHeight,
     width: DEMO_UI_METRICS.toolbarWidth,
     height: DEMO_UI_METRICS.toolbarHeight,
   }
@@ -46,32 +59,37 @@ export function demoPanelRect(width: number, height: number, _inGame: boolean, s
 
 /** Application action policy, independent of DOM/QUI. Called by pipeline handlers. */
 export async function toggleDemoFlowControl(engine: {
-  getFlowControlState(): { mode: string }
-  startAuto(): Promise<unknown>
-  stopAuto(): Promise<unknown>
-  startSkip(): Promise<unknown>
-  stopSkip(): Promise<unknown>
+  getFlowControlState: () => { mode: string }
+  startAuto: () => Promise<unknown>
+  stopAuto: () => Promise<unknown>
+  startSkip: () => Promise<unknown>
+  stopSkip: () => Promise<unknown>
 }, mode: 'auto' | 'skip') {
   const active = engine.getFlowControlState().mode === mode
-  if (mode === 'auto') return active ? engine.stopAuto() : engine.startAuto()
-  if (engine.getFlowControlState().mode === 'auto') await engine.stopAuto()
+  if (mode === 'auto')
+    return active ? engine.stopAuto() : engine.startAuto()
+  if (engine.getFlowControlState().mode === 'auto')
+    await engine.stopAuto()
   return active ? engine.stopSkip() : engine.startSkip()
 }
 
 export const DEMO_GAME_ACTIONS = [
-  { id: 'continue', label: '继续阅读' }, { id: 'save', label: '保存进度' },
-  { id: 'load', label: '读取存档' }, { id: 'settings', label: '设置' },
+  { id: 'continue', label: '继续阅读' },
+  { id: 'save', label: '保存进度' },
+  { id: 'load', label: '读取存档' },
+  { id: 'settings', label: '设置' },
   { id: 'title', label: '返回标题' },
 ] as const
 
-/** Shared chapter label and timestamp formatting, including QuickJS without Intl. */
+/** Shared chapter label and timestamp formatting, including JavaScriptCore without Intl. */
 export function demoChapterLabel(chapter: string) {
   const index = Number(chapter)
   return index === 0 ? '序章' : index === 8 ? '尾声' : `第${'一二三四五六七'[index - 1] || index}章`
 }
 export function demoSaveTimestamp(timestamp: string | number | Date) {
   const date = timestamp instanceof Date ? timestamp : new Date(timestamp)
-  if (!Number.isFinite(date.getTime())) return ''
+  if (!Number.isFinite(date.getTime()))
+    return ''
   const two = (n: number) => String(n).padStart(2, '0')
   return `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()} ${two(date.getHours())}:${two(date.getMinutes())}:${two(date.getSeconds())}`
 }

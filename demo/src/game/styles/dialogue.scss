@@ -1,26 +1,69 @@
 // A single reading sheet. The HUD sits inside its lower margin on the stage plane.
 .game-root .qua-dialogue-box {
-  left: 5%; right: 5%; bottom: 5%; min-height: 250px;
+  left: 5%;
+  right: 5%;
+  bottom: 5%;
+  min-height: 250px;
   padding: 30px 52px 76px;
-  background: #f5f3ebf5; color: var(--vn-ink);
-  border: 1px solid var(--vn-line); border-top: 3px solid var(--vn-sea);
-  border-radius: 3px; box-shadow: var(--vn-shadow);
+  background: #f5f3ebf5;
+  color: var(--vn-ink);
+  border: 1px solid var(--vn-line);
+  border-top: 3px solid var(--vn-sea);
+  border-radius: 3px;
+  box-shadow: var(--vn-shadow);
 }
 .qua-dialogue-box::after {
-  content: ''; position: absolute; left: 52px; right: 52px; bottom: 64px; height: 1px;
-  background: var(--vn-line); pointer-events: none;
+  content: '';
+  position: absolute;
+  left: 52px;
+  right: 52px;
+  bottom: 64px;
+  height: 1px;
+  background: var(--vn-line);
+  pointer-events: none;
 }
-.qua-dialogue-speaker { margin: 0 0 14px; color: var(--vn-sea); font-size: 25px; font-weight: 600; letter-spacing: .12em; }
-.qua-dialogue-text { color: var(--vn-ink); font-size: 30px; line-height: 1.8; letter-spacing: .035em; }
-.vn-quick-menu {
-  position: absolute; z-index: 36; display: flex; align-items: center; gap: 8px;
-  right: calc(100% - var(--qua-layout-safe-x-px, 0px) - var(--qua-layout-safe-width-px, 100%) * .95 + 42px);
-  bottom: calc(5% + 10px); height: 46px; width: 420px;
+.qua-dialogue-speaker {
+  margin: 0 0 14px;
+  color: var(--vn-sea);
+  font-size: 25px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
 }
-.vn-quick-menu button { position: relative; flex: 1; height: 44px; min-height: 44px; padding: 8px 12px; border-color: transparent; font-size: 20px; letter-spacing: .08em; }
-.vn-quick-menu button.is-active::before { content: ''; display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: currentColor; margin-right: 7px; vertical-align: middle; }
-.vn-quick-menu[data-dialogue-presence="enter"] { animation: qua-dialogue-fade-in 220ms ease both; }
-.vn-quick-menu[data-dialogue-presence="exit"] { pointer-events: none; animation: qua-dialogue-fade-out 170ms ease both; }
-.game-root .qua-choice-panel { left: 5%; right: 5%; bottom: calc(5% + 280px); width: auto; max-width: none; max-height: 560px; transform: none; justify-items: center; gap: 14px; overflow: auto; }
-.qua-choice-list { width: 1040px; max-width: 100%; gap: 14px; }
-.qua-choice-button { position: relative; width: min(1040px, 100%); padding: 22px 40px; border: 1px solid var(--vn-line); border-left: 4px solid var(--vn-sea); border-radius: 3px; background: var(--vn-paper); color: var(--vn-ink); font-size: 26px; line-height: 1.7; text-align: left; white-space: normal; box-shadow: var(--vn-shadow); }
+.qua-dialogue-text {
+  color: var(--vn-ink);
+  font-size: 30px;
+  line-height: 1.8;
+  letter-spacing: 0.035em;
+}
+.game-root .qua-choice-panel {
+  left: 5%;
+  right: 5%;
+  bottom: calc(5% + 280px);
+  width: auto;
+  max-width: none;
+  max-height: 560px;
+  transform: none;
+  justify-items: center;
+  gap: 14px;
+  overflow: auto;
+}
+.qua-choice-list {
+  width: 1040px;
+  max-width: 100%;
+  gap: 14px;
+}
+.qua-choice-button {
+  position: relative;
+  width: min(1040px, 100%);
+  padding: 22px 40px;
+  border: 1px solid var(--vn-line);
+  border-left: 4px solid var(--vn-sea);
+  border-radius: 3px;
+  background: var(--vn-paper);
+  color: var(--vn-ink);
+  font-size: 26px;
+  line-height: 1.7;
+  text-align: left;
+  white-space: normal;
+  box-shadow: var(--vn-shadow);
+}

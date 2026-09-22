@@ -20,12 +20,14 @@
  *   node scripts/native-control.mjs wait <command-id> [timeoutMs]
  */
 import { writeFile } from 'node:fs/promises'
+import { resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 const CONTROL = process.env.QUA_NATIVE_RENDERER_CONTROL ?? '127.0.0.1:4789'
 const WS_URL = `ws://${CONTROL}/devtools/page/qua-native`
 const REQUEST_TIMEOUT_MS = 30_000
 
-class NativeCdpClient {
+export class NativeCdpClient {
   async connect() {
     this.nextId = 1
     this.pending = new Map()
@@ -68,7 +70,7 @@ class NativeCdpClient {
   }
 }
 
-async function clickCommandCenter(client, id) {
+export async function clickCommandCenter(client, id) {
   const { nodeId } = await client.call('DOM.querySelector', { nodeId: 1, selector: `#${id}` })
   if (!nodeId) {
     throw new Error(`command "${id}" not found in the current frame`)
@@ -84,17 +86,34 @@ async function clickCommandCenter(client, id) {
 
 const [command, ...args] = process.argv.slice(2)
 
+export async function connectNativeCdp() {
+  let client
+  for (let attempt = 0; ; attempt++) {
+    client = new NativeCdpClient()
+    try {
+      await client.connect()
+      return client
+    }
+    catch (error) {
+      client.close()
+      if (attempt >= 3)
+        throw error
+      await new Promise(resolve => setTimeout(resolve, 300))
+    }
+  }
+}
+
 async function main() {
-  const client = await new NativeCdpClient().connect()
+  const client = await connectNativeCdp()
   try {
     switch (command) {
       case 'ping': {
-        console.log(JSON.stringify(await client.call('Browser.getVersion'), null, 2))
+        console.warn(JSON.stringify(await client.call('Browser.getVersion'), null, 2))
         break
       }
       case 'tree': {
         const { root } = await client.call('DOM.getDocument', { depth: -1 })
-        console.log(JSON.stringify(root, null, 2))
+        console.warn(JSON.stringify(root, null, 2))
         break
       }
       case 'commands': {
@@ -106,50 +125,53 @@ async function main() {
           (!interactive || command.interactive)
           && (!grep || command.id.includes(grep) || (command.text ?? '').includes(grep)))
         if (args.includes('--json')) {
-          console.log(JSON.stringify(filtered, null, 2))
+          process.stdout.write(`${JSON.stringify(filtered, null, 2)}\n`)
           break
         }
         for (const command of filtered) {
           const text = command.text ? ` "${command.text.slice(0, 40)}"` : ''
-          console.log(`${command.interactive ? '*' : ' '} ${command.id} [${command.kind}] (${command.bounds.x},${command.bounds.y} ${command.bounds.width}x${command.bounds.height})${text}`)
+          console.warn(`${command.interactive ? '*' : ' '} ${command.id} [${command.kind}] (${command.bounds.x},${command.bounds.y} ${command.bounds.width}x${command.bounds.height})${text}`)
         }
-        console.log(`${filtered.length}/${commands.length} commands`)
+        console.warn(`${filtered.length}/${commands.length} commands`)
         break
       }
       case 'capture': {
         const out = args[0]
-        if (!out) throw new Error('capture requires an output .png path')
+        if (!out)
+          throw new Error('capture requires an output .png path')
         const { data } = await client.call('Page.captureScreenshot', { format: 'png' })
         await writeFile(out, Buffer.from(data, 'base64'))
-        console.log(`captured ${out}`)
+        console.warn(`captured ${out}`)
         break
       }
       case 'click': {
         const [x, y] = args.map(Number)
         await client.call('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1 })
         await client.call('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1 })
-        console.log(`clicked (${x}, ${y})`)
+        console.warn(`clicked (${x}, ${y})`)
         break
       }
       case 'move': {
         const [x, y] = args.map(Number)
         await client.call('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y, button: 'none' })
-        console.log(`moved (${x}, ${y})`)
+        console.warn(`moved (${x}, ${y})`)
         break
       }
       case 'clickCommand': {
         const id = args[0]
-        if (!id) throw new Error('clickCommand requires a command id')
+        if (!id)
+          throw new Error('clickCommand requires a command id')
         const { x, y } = await clickCommandCenter(client, id)
-        console.log(`clicked ${id} at (${x}, ${y})`)
+        console.warn(`clicked ${id} at (${x}, ${y})`)
         break
       }
       case 'wait': {
         const id = args[0]
-        if (!id) throw new Error('wait requires a command id')
+        if (!id)
+          throw new Error('wait requires a command id')
         const timeoutMs = args[1] ? Number(args[1]) : 25_000
         await client.call('Qua.waitForCommand', { id, timeoutMs })
-        console.log(`"${id}" is visible`)
+        console.warn(`"${id}" is visible`)
         break
       }
       default:
@@ -162,7 +184,9 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  console.error(error.message)
-  process.exitCode = 1
-})
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main().catch((error) => {
+    console.error(error.message)
+    process.exitCode = 1
+  })
+}

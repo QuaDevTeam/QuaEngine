@@ -33,6 +33,7 @@ targets:
       - linux
     profiles:
       - debug
+      - release
     layout: landscape
     outputDir: dist/native
     app:
@@ -40,8 +41,18 @@ targets:
       version: 0.1.0
       buildNumber: '1'
       icon: public/icon.png
+    distribution:
+      macos:
+        minimumSystemVersion: '11.0'
+        signing:
+          mode: adhoc
+        notarization:
+          enabled: false
     build:
+      cargoManifest: ../packages/native/Cargo.toml
+      viteConfig: vite.native-jsc.config.ts
+      appAsset: assets/scripts/native-app.mjs
       cargoFeatures:
         - native-window
         - native-audio-rodio
-        - quickjs-rquickjs
+        - javascriptcore

@@ -1,0 +1,59 @@
+.qua-asset-loading {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: max(24px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right))
+    max(24px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
+  background: #171c22;
+  color: #e7e3d8;
+  text-align: center;
+  font-family: system-ui, sans-serif;
+
+  &__title {
+    font-size: clamp(22px, 3vw, 38px);
+    font-weight: 400;
+    letter-spacing: 0.08em;
+  }
+  &__status {
+    margin: 24px 0 20px;
+    color: #b5bec5;
+    font-size: 15px;
+  }
+  &__progress {
+    width: min(320px, 80%);
+    height: 6px;
+    accent-color: #a4c2c4;
+  }
+  &__detail {
+    min-height: 1.5em;
+    font-size: 13px;
+    color: #899aa6;
+    font-variant-numeric: tabular-nums;
+  }
+  &__retry {
+    padding: 10px 32px;
+    border: 1px solid #7b969e;
+    border-radius: 4px;
+    color: inherit;
+    background: transparent;
+    font: inherit;
+    cursor: pointer;
+  }
+  &__retry:focus-visible {
+    outline: 2px solid #d4e4e6;
+    outline-offset: 4px;
+  }
+  &__retry[hidden] {
+    display: none;
+  }
+}
+
+.qua-startup {
+  margin: 0;
+  padding: 40px;
+  color: #e7e3d8;
+  background: #171c22;
+  font-family: system-ui, sans-serif;
+}
