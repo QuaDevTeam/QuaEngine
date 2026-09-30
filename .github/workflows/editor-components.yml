@@ -1,0 +1,59 @@
+name: QuaEngine Editor components
+on:
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: Component channel
+        type: choice
+        options: [stable, beta]
+        required: true
+      version:
+        description: Independent component semver
+        type: string
+        required: true
+      editor_range:
+        description: Compatible editor semver range
+        type: string
+        required: true
+        default: '>=0.1.0-0 <0.2.0'
+permissions:
+  contents: write
+concurrency:
+  group: editor-components-${{ inputs.channel }}
+  cancel-in-progress: false
+jobs:
+  components:
+    runs-on: ubuntu-24.04
+    env:
+      GH_TOKEN: ${{ github.token }}
+      QUA_EDITOR_CHANNEL: ${{ inputs.channel }}
+      QUA_EDITOR_COMPONENT_VERSION: ${{ inputs.version }}
+      QUA_EDITOR_COMPONENT_EDITOR_RANGE: ${{ inputs.editor_range }}
+    steps:
+      - uses: actions/checkout@v6.0.2
+      - uses: pnpm/action-setup@v6.0.7
+        with: {version: 12.3.4, standalone: true}
+      - uses: actions/setup-node@v6.4.0
+        with: {node-version: 22.x, cache: pnpm}
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --dir packages/editor/release install --frozen-lockfile
+      - run: node --test packages/editor/release/release.test.mjs
+      - run: node packages/editor/release/components.mjs
+      - name: Publish immutable components and retain compatible history
+        shell: bash
+        run: |
+          output="packages/editor/electron/dist/component-release/$QUA_EDITOR_CHANNEL/$QUA_EDITOR_COMPONENT_VERSION"
+          tag="editor-components-$QUA_EDITOR_CHANNEL-v$QUA_EDITOR_COMPONENT_VERSION"
+          alias="editor-components-$QUA_EDITOR_CHANNEL-latest"
+          mkdir -p previous-catalogs
+          flags=(--latest=false)
+          if [ "$QUA_EDITOR_CHANNEL" = beta ]; then flags+=(--prerelease); fi
+          if gh release view "$alias" >/dev/null 2>&1; then
+            gh release download "$alias" --pattern '*.json' --dir previous-catalogs
+          fi
+          node packages/editor/release/merge-catalogs.mjs "$output" previous-catalogs
+          gh release create "$tag" "$output"/* --title "Editor components $QUA_EDITOR_COMPONENT_VERSION ($QUA_EDITOR_CHANNEL)" --target "$GITHUB_SHA" "${flags[@]}"
+          if ! gh release view "$alias" >/dev/null 2>&1; then
+            gh release create "$alias" --title "Editor components $QUA_EDITOR_CHANNEL" --target "$GITHUB_SHA" "${flags[@]}"
+          fi
+          gh release upload "$alias" "$output"/*.json --clobber

@@ -1,4 +1,4 @@
-import type { EditorBridge, EditorDiagnostic, EditorDocument, EditorProject, EditorProjectChange, PreviewState, PreviewTarget } from '@quajs/editor-core'
+import type { EditorAppUpdateState, EditorBridge, EditorDiagnostic, EditorDocument, EditorProject, EditorProjectChange, PreviewState, PreviewTarget } from '@quajs/editor-core'
 import { button } from '@quajs/editor-controls'
 import { ProductionBuild } from '../features/build/controller'
 import { DebugConsole } from '../features/console/controller'
@@ -78,6 +78,7 @@ editor.onDidChangeCursorPosition(({ position }) => {
 const diskDiff = new DiskDiff(element('disk-diff'))
 const gitDiff = new DiskDiff(element('git-diff'))
 const nativePreview = new NativeSurfacePreview(element<HTMLElement>('native-surface'), bridge, showError)
+let editorUpdateState: EditorAppUpdateState | undefined
 export interface OpenTab {
   document: EditorDocument
   model: monaco.editor.ITextModel
@@ -245,6 +246,15 @@ element('welcome-create').onclick = () => setup.show()
 element('welcome-open').onclick = () => void openProject()
 
 bridge.onCommand((command) => {
+  if (command === 'check-updates') {
+    void bridge.checkEditorUpdate().then((result) => {
+      if (result.app.phase === 'idle')
+        status('编辑器已是最新版本')
+      if (result.error)
+        showError(result.error)
+    }).catch(showError)
+    return
+  }
   if (command === 'source-workspace') {
     workbench.showSidebar('explorer')
     workbench.dock.open('source')
@@ -339,6 +349,40 @@ function setCheckIndicator(phase: 'checking' | 'complete' | 'error', title: stri
   indicator.dataset.tone = tone
   setIconButton(indicator, phase === 'checking' ? 'refresh' : tone === 'error' || tone === 'warning' ? 'warning' : 'check', title)
 }
+
+function setEditorUpdateState(state: { app: EditorAppUpdateState }): void {
+  editorUpdateState = state.app
+  const update = element<HTMLButtonElement>('editor-update')
+  update.dataset.phase = state.app.phase
+  update.hidden = false
+  update.disabled = state.app.phase === 'checking' || state.app.phase === 'downloading' || (state.app.phase === 'ready' && !state.app.installSupported)
+  if (state.app.phase === 'checking')
+    setIconButton(update, 'refresh', '正在检查编辑器更新…')
+  else if (state.app.phase === 'downloading')
+    setIconButton(update, 'download', `正在下载 Editor ${state.app.availableVersion ?? ''}…`)
+  else if (state.app.phase === 'available')
+    setIconButton(update, 'download', `发现 Editor ${state.app.availableVersion}，下载更新`)
+  else if (state.app.phase === 'ready')
+    setIconButton(update, 'refresh', `Editor ${state.app.availableVersion} 已下载，点击重启更新`)
+  else if (state.app.phase === 'error')
+    setIconButton(update, 'warning', `编辑器更新失败：${state.app.error ?? '点击重试'}`)
+  else
+    setIconButton(update, 'download', `Editor ${state.app.currentVersion} (${state.app.channel})：检查更新`)
+}
+
+element<HTMLButtonElement>('editor-update').onclick = () => {
+  const state = editorUpdateState
+  if (!state)
+    return
+  if (state.phase === 'ready')
+    void saveAll().then(() => bridge.installEditorUpdate()).catch(showError)
+  else if (state.phase === 'available')
+    void bridge.downloadEditorUpdate().catch(showError)
+  else
+    void bridge.checkEditorUpdate().catch(showError)
+}
+bridge.onEditorUpdate(setEditorUpdateState)
+void bridge.editorUpdateState().then(setEditorUpdateState).catch(showError)
 
 element('preview-refresh').onclick = element('preview-retry').onclick = () => void saveAll().then(() => bridge.reloadPreview()).catch(showError)
 element('preview-window').onclick = () => void bridge.presentPreview(previewState.detached ? 'embedded' : 'window').catch(showError)

@@ -27,6 +27,8 @@
     "dev": "turbo dev",
     "dev:native": "pnpm --filter demo dev:native",
     "dev:editor": "turbo build --filter=@quajs/editor-electron... && pnpm --filter @quajs/editor-electron start",
+    "build:editor": "turbo build --filter=@quajs/editor-electron...",
+    "release:editor": "pnpm --filter @quajs/editor-electron build:release",
     "native:e2e": "pnpm --filter demo native:e2e",
     "lint": "turbo lint",
     "lint:affected": "turbo lint --filter='...[HEAD^1]'",

@@ -1,3 +1,4 @@
+import { cp, mkdir } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { build } from 'vite'
 import './prepare-pty.mjs'
@@ -30,3 +31,8 @@ await build({
 await import('./build-icons.mjs')
 await import('./build-native-layer.mjs')
 await import('./build-sdk.mjs')
+await import('./build-boilerplate.mjs')
+await import('./build-ui.mjs')
+await mkdir(resolve('dist/release-helpers'), { recursive: true })
+await cp(resolve('src/release/apply-update.sh'), resolve('dist/release-helpers/apply-update.sh'))
+await cp(resolve('src/release/apply-update.ps1'), resolve('dist/release-helpers/apply-update.ps1'))

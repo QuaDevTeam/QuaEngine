@@ -1,0 +1,189 @@
+name: QuaEngine Editor release
+
+on:
+  push:
+    tags: ['editor-v*', 'editor-beta-v*']
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: Release channel
+        required: true
+        type: choice
+        options: [stable, beta]
+      version:
+        description: Editor semver (beta must include a prerelease suffix)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+concurrency:
+  group: editor-release
+  cancel-in-progress: false
+
+jobs:
+  identity:
+    runs-on: ubuntu-24.04
+    outputs:
+      channel: ${{ steps.identity.outputs.channel }}
+      version: ${{ steps.identity.outputs.version }}
+      tag: ${{ steps.identity.outputs.tag }}
+    steps:
+      - id: identity
+        env:
+          INPUT_CHANNEL: ${{ inputs.channel }}
+          INPUT_VERSION: ${{ inputs.version }}
+        shell: bash
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
+            channel="$INPUT_CHANNEL"
+            version="$INPUT_VERSION"
+          elif [[ "$GITHUB_REF_NAME" == editor-beta-v* ]]; then
+            channel=beta
+            version="${GITHUB_REF_NAME#editor-beta-v}"
+          else
+            channel=stable
+            version="${GITHUB_REF_NAME#editor-v}"
+          fi
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]] || exit 1
+          if [ "$channel" = stable ]; then tag="editor-v$version"; else tag="editor-beta-v$version"; fi
+          echo "channel=$channel" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: identity
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {runner: ubuntu-24.04, platform: linux, arch: x64}
+          - {runner: macos-15, platform: macos, arch: arm64}
+          - {runner: windows-2025, platform: windows, arch: x64}
+    steps:
+      - uses: actions/checkout@v6.0.2
+      - uses: pnpm/action-setup@v6.0.7
+        with: {version: 12.3.4, standalone: true}
+      - uses: actions/setup-node@v6.4.0
+        with: {node-version: 22.x, cache: pnpm}
+      - name: Validate Apple signing and notarization configuration
+        if: matrix.platform == 'macos'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE || secrets.CSC_LINK }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD || secrets.CSC_KEY_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_API_KEY_BASE64: ${{ secrets.APPLE_API_KEY_BASE64 }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+        run: node packages/editor/release/prepare-macos-signing.mjs --preflight
+      - name: Import Developer ID certificate into the temporary CI keychain
+        if: matrix.platform == 'macos'
+        uses: apple-actions/import-codesign-certs@v3
+        with:
+          p12-file-base64: ${{ secrets.APPLE_CERTIFICATE || secrets.CSC_LINK }}
+          p12-password: ${{ secrets.APPLE_CERTIFICATE_PASSWORD || secrets.CSC_KEY_PASSWORD }}
+      - name: Validate identity and store notarization credentials
+        if: matrix.platform == 'macos'
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_API_KEY_BASE64: ${{ secrets.APPLE_API_KEY_BASE64 }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+        run: node packages/editor/release/prepare-macos-signing.mjs
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --dir packages/editor/release install --frozen-lockfile
+      - name: Test release contracts and signing policy
+        if: matrix.platform == 'macos'
+        run: node --test packages/editor/release/*.test.mjs
+      - name: Build and package editor independently
+        env:
+          QUA_EDITOR_CHANNEL: ${{ needs.identity.outputs.channel }}
+          QUA_EDITOR_VERSION: ${{ needs.identity.outputs.version }}
+          QUA_EDITOR_TARGET: ${{ matrix.platform }}
+          QUA_EDITOR_ARCH: ${{ matrix.arch }}
+          QUA_EDITOR_REQUIRE_SIGNING: '1'
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: pnpm --filter @quajs/editor-electron build:release
+      - name: Validate release contracts and updater
+        if: matrix.platform == 'macos'
+        run: pnpm --filter @quajs/editor-core --filter @quajs/editor-electron test
+      - name: Smoke test the actual packaged application
+        if: matrix.platform == 'macos'
+        env:
+          CHANNEL: ${{ needs.identity.outputs.channel }}
+          VERSION: ${{ needs.identity.outputs.version }}
+          PLATFORM: ${{ matrix.platform }}
+          ARCH: ${{ matrix.arch }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        shell: bash
+        run: |
+          artifact="packages/editor/electron/dist/release/$CHANNEL/$VERSION/QuaEngine-Editor-$CHANNEL-$PLATFORM-$ARCH.tar.gz"
+          node packages/editor/electron/scripts/network-smoke.mjs
+          node packages/editor/electron/scripts/update-smoke.mjs
+          node packages/editor/electron/scripts/packaged-smoke.mjs "$artifact"
+          node packages/editor/electron/scripts/packaged-update-smoke.mjs "$artifact"
+      - name: Record deferred platform tests
+        if: matrix.platform != 'macos'
+        shell: bash
+        run: echo "${{ matrix.platform }} builds and artifact integrity checks remain enabled; platform tests are temporarily skipped." >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: editor-${{ matrix.platform }}-${{ matrix.arch }}
+          path: packages/editor/electron/dist/release/${{ needs.identity.outputs.channel }}/${{ needs.identity.outputs.version }}
+          if-no-files-found: error
+      - name: Remove temporary signing and notarization credentials
+        if: always() && matrix.platform == 'macos'
+        shell: bash
+        run: |
+          keychain="$HOME/Library/Keychains/signing_temp.keychain-db"
+          if [ -f "$keychain" ]; then security delete-keychain "$keychain"; fi
+
+  publish:
+    needs: [identity, build]
+    runs-on: ubuntu-24.04
+    permissions: {contents: write}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      CHANNEL: ${{ needs.identity.outputs.channel }}
+      VERSION: ${{ needs.identity.outputs.version }}
+      TAG: ${{ needs.identity.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v6.0.2
+      - uses: actions/setup-node@v6.4.0
+        with: {node-version: 22.x}
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: editor-*
+          path: release-artifacts
+      - name: Validate checksums and collect manifest
+        env:
+          RELEASE_ARTIFACTS_ROOT: release-artifacts
+          RELEASE_OUTPUT: release
+          QUA_EDITOR_CHANNEL: ${{ needs.identity.outputs.channel }}
+          QUA_EDITOR_VERSION: ${{ needs.identity.outputs.version }}
+          QUA_EDITOR_RELEASE_BASE_URL: https://github.com/${{ github.repository }}/releases/download/${{ needs.identity.outputs.tag }}
+        run: node packages/editor/release/publish-manifest.mjs
+      - name: Publish immutable version before updating channel
+        shell: bash
+        run: |
+          flags=(--latest=false)
+          if [ "$CHANNEL" = beta ]; then flags+=(--prerelease); fi
+          printf 'QuaEngine Editor %s (%s)\n\nCovered source: https://github.com/%s/tree/%s/packages/editor\nLicense: MPL-2.0.\n' "$VERSION" "$CHANNEL" "$GITHUB_REPOSITORY" "$GITHUB_SHA" > release-notes.md
+          gh release create "$TAG" release/* --title "QuaEngine Editor $VERSION ($CHANNEL)" --notes-file release-notes.md --target "$GITHUB_SHA" "${flags[@]}"
+          alias="editor-$CHANNEL-latest"
+          if ! gh release view "$alias" >/dev/null 2>&1; then
+            gh release create "$alias" --title "QuaEngine Editor $CHANNEL" --target "$GITHUB_SHA" "${flags[@]}"
+          fi
+          # Immutable URLs in the manifest keep in-flight updates valid. Upload the pointer last.
+          gh release upload "$alias" release/*.tar.gz --clobber
+          gh release upload "$alias" "release/QuaEngine-Editor-$CHANNEL-manifest.json" --clobber

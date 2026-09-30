@@ -32,6 +32,7 @@ const paths = {
   video: '<rect x="3" y="4" width="18" height="16" rx="1"/><path d="m10 8 6 4-6 4z"/>',
   font: '<path d="m4 20 7-17 7 17M7 13h8M15 20h6"/>',
   package: '<path d="m12 2 9 5v10l-9 5-9-5V7zM3 7l9 5 9-5M12 12v10M8 4l9 5"/>',
+  download: '<path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5"/>',
   other: '<path d="M6 3h8l4 4v14H6zM14 3v5h4"/>',
   chevron: '<path d="m9 5 7 7-7 7"/>',
   collapse: '<path d="m7 8 5-5 5 5M7 16l5 5 5-5M4 12h16"/>',

@@ -14,6 +14,7 @@ import type { PreviewWorkbench } from '../../preview-host/workbench.js'
 import type { ProjectClient } from '../../project-service/client.js'
 import type { ProjectGit } from '../../project-service/git.js'
 import type { ProjectSearch } from '../../project-service/search.js'
+import type { EditorReleaseManager } from '../../release/updater.js'
 import type { ProjectBuild } from '../../runtime/project-build.js'
 import type { ProjectRuntime } from '../../runtime/project-runtime.js'
 import type { TerminalClient } from '../../terminal/client.js'
@@ -41,6 +42,7 @@ export interface MainServices {
   presentation: PreviewPresentation
   previews: PreviewWorkbench
   project: ProjectClient
+  release: EditorReleaseManager
   projectLocation: string | undefined
   projectOpening: boolean
   publicationOperation: <T>(action: () => Promise<T>) => Promise<T>

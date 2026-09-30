@@ -72,12 +72,21 @@ async function pack(name) {
   await writeFile(join(directory, 'package.json'), JSON.stringify(pkg, null, 2))
   const license = await stat(join(source.directory, 'LICENSE')).catch(() => undefined)
   await cp(license ? join(source.directory, 'LICENSE') : join(repository, 'LICENSE'), join(directory, 'LICENSE'))
-  await promisify(execFile)('npm', ['pack', '--ignore-scripts', '--json', '--pack-destination', output], { cwd: directory, maxBuffer: 2 * 1024 * 1024 })
+  const packArgs = ['pack', '--ignore-scripts', '--json', '--pack-destination', output]
+  // execFile cannot launch npm.cmd. Use Node's bundled npm CLI directly on Windows.
+  await promisify(execFile)(process.platform === 'win32' ? process.execPath : 'npm', process.platform === 'win32'
+    ? [join(dirname(process.execPath), 'node_modules/npm/bin/npm-cli.js'), ...packArgs]
+    : packArgs, { cwd: directory, maxBuffer: 2 * 1024 * 1024 })
   for (const dependency of dependencies) await pack(dependency)
 }
 try {
   for (const root of roots) await pack(root)
   await writeFile(join(output, 'index.json'), JSON.stringify(index, null, 2))
+  await writeFile(join(output, 'component.json'), `${JSON.stringify({
+    id: 'runtime',
+    version: process.env.QUA_EDITOR_RUNTIME_VERSION ?? '0.1.0',
+    editorRange: process.env.QUA_EDITOR_COMPONENT_EDITOR_RANGE ?? '^0.1.0',
+  }, null, 2)}\n`)
 }
 finally { await rm(staging, { recursive: true, force: true }) }
 process.stdout.write(`Editor SDK: ${Object.keys(index).length} packages\n`)

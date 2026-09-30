@@ -113,7 +113,7 @@ export function registerAssetsIpc(context: Pick<MainServices, 'handle' | 'assets
     const previewContentsId = preview.webContents.id
     preview.once('closed', () => context.assetPreviewWindows.delete(previewContentsId))
     await preview.loadFile(
-      fileURLToPath(new URL('../../ui/dist/asset.html', import.meta.url)),
+      fileURLToPath(new URL('./ui/asset.html', import.meta.url)),
       { query: { src: source, name: path, kind: entry.kind } },
     )
     if (!preview.isDestroyed())

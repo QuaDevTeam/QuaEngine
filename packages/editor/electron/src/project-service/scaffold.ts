@@ -4,8 +4,15 @@ import { copyFile, mkdir, readFile, realpath, stat, writeFile } from 'node:fs/pr
 import { join } from 'node:path'
 import { scaffoldProject } from 'create-qua-game'
 
+export interface EditorProjectComponents {
+  /** Directory containing the `visual-novel-vue` and `plugin` templates. */
+  boilerplateDirectory?: string
+  /** Directory containing the generated SDK archives and `index.json`. */
+  runtimeDirectory?: string
+}
+
 /** Parent comes from the host's directory dialog. Never merge existing user work. */
-export async function createEditorProject(parent: string, request: EditorCreateProject, sdk?: string): Promise<string> {
+export async function createEditorProject(parent: string, request: EditorCreateProject, sdk?: string, components?: EditorProjectComponents): Promise<string> {
   if (!request || !['game', 'plugin'].includes(request.kind)
     || typeof request.name !== 'string' || !/^[a-z][a-z0-9-]{0,63}$/.test(request.name)
     || /^(?:con|prn|aux|nul|com\d|lpt\d)$/i.test(request.name)) {
@@ -16,12 +23,22 @@ export async function createEditorProject(parent: string, request: EditorCreateP
     throw new Error('请选择有效的项目位置。')
   const destination = join(root, request.name)
   await mkdir(destination)
-  await scaffoldProject({ projectName: request.name, targetDirectory: destination, template: request.kind === 'plugin' ? 'plugin' : 'visual-novel-vue', packageManager: 'npm', install: false, stdout: { log() {} } })
-  if (sdk) {
+  const template = request.kind === 'plugin' ? 'plugin' : 'visual-novel-vue'
+  await scaffoldProject({
+    projectName: request.name,
+    targetDirectory: destination,
+    template,
+    ...(components?.boilerplateDirectory ? { templateDirectory: join(components.boilerplateDirectory, template) } : {}),
+    packageManager: 'npm',
+    install: false,
+    stdout: { log() {} },
+  })
+  const runtimeDirectory = components?.runtimeDirectory ?? sdk
+  if (runtimeDirectory) {
     const manifestPath = join(destination, 'package.json')
     const manifest = JSON.parse(await readFile(manifestPath, 'utf8'))
     manifest.packageManager = 'npm@11.0.0'
-    const index = JSON.parse(await readFile(join(sdk, 'index.json'), 'utf8')) as Record<string, { archive: string, dependencies: string[] }>
+    const index = JSON.parse(await readFile(join(runtimeDirectory, 'index.json'), 'utf8')) as Record<string, { archive: string, dependencies: string[] }>
     const selected = new Set<string>()
     const select = (name: string) => {
       if (selected.has(name))
@@ -38,7 +55,7 @@ export async function createEditorProject(parent: string, request: EditorCreateP
       const archive = index[name].archive
       if (!/^[\w.-]+\.tgz$/.test(archive))
         throw new Error('IDE SDK 索引无效。')
-      await copyFile(join(sdk, archive), join(destination, 'vendor/quajs', archive), constants.COPYFILE_EXCL)
+      await copyFile(join(runtimeDirectory, archive), join(destination, 'vendor/quajs', archive), constants.COPYFILE_EXCL)
       const specifier = `file:./vendor/quajs/${archive}`
       // npm resolves relative peer overrides from the peer's package directory.
       // Refer to a root dependency instead so every archive stays project-relative.

@@ -14,7 +14,7 @@ import {
 } from 'electron'
 import { createEditorProject } from '../../project-service/scaffold.js'
 
-export function registerProjectIpc(context: Pick<MainServices, 'handle' | 'window' | 'projectLocation' | 'pluginOperation' | 'projectOpening' | 'closing' | 'closePending' | 'openRoot' | 'ensureRuntime' | 'runtime' | 'currentProject' | 'documentDirty' | 'previews' | 'fileOperationBusy' | 'project' | 'git' | 'syncPlugins' | 'search'>): void {
+export function registerProjectIpc(context: Pick<MainServices, 'handle' | 'window' | 'projectLocation' | 'pluginOperation' | 'projectOpening' | 'closing' | 'closePending' | 'openRoot' | 'ensureRuntime' | 'runtime' | 'currentProject' | 'documentDirty' | 'previews' | 'fileOperationBusy' | 'project' | 'git' | 'syncPlugins' | 'search' | 'release'>): void {
   context.handle(
     'editor:navigation-menu',
     (
@@ -68,7 +68,13 @@ export function registerProjectIpc(context: Pick<MainServices, 'handle' | 'windo
       throw new Error('请先选择项目位置，并等待当前操作结束。')
     context.projectOpening = true
     try {
-      return await context.openRoot(await createEditorProject(context.projectLocation, request, fileURLToPath(new URL('./sdk', import.meta.url))))
+      const components = context.release.directories()
+      return await context.openRoot(await createEditorProject(
+        context.projectLocation,
+        request,
+        fileURLToPath(new URL('./sdk', import.meta.url)),
+        components,
+      ))
     }
     finally {
       context.projectOpening = false

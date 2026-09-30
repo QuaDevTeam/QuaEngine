@@ -8,6 +8,7 @@ qua-workbench-shell {
     grid-template-columns: 44px var(--sidebar-width) 4px minmax(0, 1fr);
   }
   #cursor-position,
+  #editor-update,
   #check-indicator {
     display: inline-flex;
   }

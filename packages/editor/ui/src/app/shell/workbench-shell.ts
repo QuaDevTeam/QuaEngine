@@ -23,7 +23,7 @@ class WorkbenchShell extends EditorElement {
   </div>
   <div id="panel-splitter" class="splitter horizontal" role="separator" aria-label="调整底部面板高度" aria-orientation="horizontal" tabindex="0"></div>
 ${panelsTemplate()}
-  <footer class="workbench-statusbar"><button id="git-branch" disabled title="源代码管理"></button><span id="status" role="status">就绪</span><div id="context-status"></div><span id="cursor-position"></span><span id="asset-status" role="status" aria-label="所选资源信息" hidden></span><button id="check-indicator" class="icon-button" data-phase="idle" aria-label="静态检查：等待项目" title="静态检查：等待项目">${unsafeHTML(icon('check'))}</button></footer>
+  <footer class="workbench-statusbar"><button id="git-branch" disabled title="源代码管理"></button><span id="status" role="status">就绪</span><div id="context-status"></div><span id="cursor-position"></span><span id="asset-status" role="status" aria-label="所选资源信息" hidden></span><button id="editor-update" class="icon-button" data-phase="idle" aria-label="编辑器更新：暂无" title="编辑器更新：暂无" hidden>${unsafeHTML(icon('download'))}</button><button id="check-indicator" class="icon-button" data-phase="idle" aria-label="静态检查：等待项目" title="静态检查：等待项目">${unsafeHTML(icon('check'))}</button></footer>
 `
   }
 }

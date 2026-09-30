@@ -11,6 +11,7 @@ import {
   isNpmPackageName,
   pluginRecord,
 } from '@quajs/editor-core'
+import { editorFetch } from '../network/fetch.js'
 import { catalogEntries } from './registry.js'
 
 export interface CredentialEncryption {
@@ -86,7 +87,7 @@ export class RegistryService {
     const credential = auth ? await this.credential(origin) : undefined
     if (auth && !credential)
       throw new Error('请先登录 Plugin Registry。')
-    const response = await fetch(`${origin}${path}`, {
+    const response = await editorFetch(`${origin}${path}`, {
       method: body === undefined ? 'GET' : 'POST',
       redirect: 'error',
       signal: AbortSignal.timeout(60000),

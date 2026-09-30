@@ -19,6 +19,7 @@ import {
   pluginRecord,
   validateEntrypoints,
 } from '@quajs/editor-core'
+import { editorNetworkEnvironment } from '../network/index.js'
 import { readProjectDocument } from '../project-service/documents.js'
 import { packageManager } from './installer.js'
 import { pluginProject } from './project-info.js'
@@ -310,6 +311,7 @@ export class PluginPublisher {
   ): Promise<void> {
     const env: NodeJS.ProcessEnv = {
       ...process.env,
+      ...editorNetworkEnvironment(),
       npm_config_ignore_scripts: 'true',
       ...(otp ? { npm_config_otp: otp } : {}),
     }

@@ -1,0 +1,7 @@
+{
+  "repository": "QuaDevTeam/QuaEngine",
+  "editorVersion": "0.1.0",
+  "componentVersion": "0.1.0",
+  "componentEditorRange": ">=0.1.0-0 <0.2.0",
+  "acceptedComponentRange": ">=0.1.0-0 <0.2.0"
+}

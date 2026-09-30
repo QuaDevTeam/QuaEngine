@@ -20,6 +20,55 @@ controls and `--editor-*` tokens; panel CSS should only arrange them.
 - `packages/editor/core` contains portable document and preview contracts plus lifecycle coordination. `ui` contains the host-neutral workbench. `electron` contains main/preload, Node worker services, files and child processes.
 - Project inspection and QuaScript diagnostics reuse `@quajs/project-inspector` and `@quajs/language-server`; CPU-intensive project work belongs in the worker, not Electron main or UI.
 
+## Independent editor releases
+
+- macOS distribution is built, signed and notarized in GitHub Actions, following the Mixless Developer ID / Apple ID (or complete API key) credential convention. See `packages/editor/release/README.md`. Never substitute local packaging for CI release evidence. Windows/Linux builds and SHA-256 checks remain enabled; their tests are explicitly deferred by the user.
+- The CI keychain is temporary. Apple ID credentials enter a transcript-disabled secure prompt, API keys use mode-0600 temporary files, and packaging uses only a validated keychain profile. Missing/partial credentials, signing, notarization, staple or Gatekeeper failures must block publication. Verify the final extracted archive, not only the pre-archive app.
+- Signed apps embed the trusted Apple team in sealed release metadata. Before replacement, verify the downloaded bundle's strict code seal, Developer ID authority, matching team, channel bundle ID, hardened runtime and Gatekeeper acceptance. Keep trust independent of remotely supplied manifests. The packaged update smoke re-signs only its temporary older-version fixture; the target archive stays untouched.
+
+- Main-process remote HTTP uses `network/fetch.ts` and Chromium's system proxy session. Release downloads use `net.request` to approve each HTTPS redirect: Electron's `net.fetch` rejects manual redirects and its `Response.url` is not a reliable final URL. Keep size/hash/cancellation checks after transport changes.
+- `network/child-proxy.ts` bridges owned npm/pnpm/Cargo/Rustup and Novel Writer utility requests to per-destination `session.resolveProxy`. Preserve PAC ordering, explicit DIRECT, bypass and HTTP/HTTPS/SOCKS support. Never add a silent direct retry or mutate global shell/OS proxy settings. Keep relay credentials per process, loopback-only and out of logs; do not send them upstream.
+- The embedded Node version must support `NODE_USE_ENV_PROXY` and `NODE_USE_SYSTEM_CA`; prove its utility fetch path with the actual Electron runtime. Utility `net.fetch` does not share main-session test overrides, so keep the writer on the injected proxy environment rather than assuming main session configuration propagates.
+- Updates preserve the original user-data path, verify product/version/channel/platform/arch, and retain the prior installation. Require a one-time version/PID startup acknowledgement after window load within 60 seconds; restore a failed startup and show the failure on the next launch. Start the OS helper before disposing services, and cancel it if close is abandoned. Packaging must stamp `package.json.version` as well as native metadata.
+- Run `network-smoke.mjs`, `update-smoke.mjs` and `packaged-update-smoke.mjs <archive>` in the Electron scripts directory. The last creates a disposable older-version metadata fixture from the actual app, then downloads and installs the unmodified release archive through a controlled TLS proxy. It proves local handoff/restart/profile continuity, not public publishing, signing or notarization. CI currently runs these tests only on macOS, per the user instruction to defer Windows/Linux tests while keeping their builds and artifact integrity checks. Local macOS execution alone is not Windows/Linux evidence.
+
+- The Electron editor is released independently from engine packages. Use
+  `pnpm --filter @quajs/editor-electron build:release` with
+  `QUA_EDITOR_CHANNEL=stable|beta`, `QUA_EDITOR_VERSION`, `QUA_EDITOR_TARGET`,
+  and `QUA_EDITOR_ARCH`; the release workflow builds each platform separately
+  and publishes immutable version tags plus channel-specific stable/beta aliases.
+  `editor-components.yml` publishes the boilerplate/runtime dependency closure
+  independently of Electron, retaining a bounded catalog of compatible versions.
+- `dist/components/boilerplate` and `dist/sdk` are versioned editor components.
+  `EditorReleaseManager` may replace them under the editor profile only after
+  the release manifest, HTTPS URL, SHA-256 hash, component identity, and
+  editor semver range and the editor's accepted component range all validate. A failed check keeps the last compatible or embedded
+  component; it must never change a user's project dependencies silently.
+- Stable and beta caches are separate. Do not use a generic “latest” directory
+  or allow a beta component to satisfy a stable manifest. The svedocs download
+  page points to the channel-specific Release assets.
+- Stable and beta use separate application identities and profiles. Never prune
+  template `src` or configuration files from packaged dependencies. Build each
+  native distribution on its own OS/architecture; root engine publishing is unrelated.
+  Deploy the production dependency tree with `--config.node-linker=hoisted` before
+  packaging, provide compiler peers as production dependencies, and unpack native
+  modules with their adjacent helpers/libraries (node-pty, ripgrep, sharp, lzma).
+- Packaged Editor builds also check the channel manifest for the host platform and
+  architecture. A newer artifact is downloaded only after its size and SHA-256
+  validate, then staged in the channel-specific profile cache. Installation
+  prepares and validates the archive while Electron is still running, then hands
+  the staged directory to a bundled OS script after the process exits; the script
+  replaces the app directory and relaunches the editor.
+- Check at startup and every six hours; expose manual checks in Help and status bar.
+  Save drafts and respect the existing close guards before handing off installation.
+  Development builds must never replace the development Electron binary.
+- Validate release manifests/catalog history with `node --test packages/editor/release/release.test.mjs`,
+  updater/UI wiring with `node packages/editor/electron/scripts/update-smoke.mjs`, and
+  actual distribution contents and staging with `node packages/editor/electron/scripts/packaged-smoke.mjs <artifact.tar.gz>`.
+  macOS signed/notarized distribution must pass CI validation; Windows/Linux platform tests are currently explicitly deferred.
+  Keep the update button stateful and accessible (checking, downloading, ready,
+  failure), and never replace a running bundle in Electron main.
+
 ## Desktop window chrome
 
 - All desktop targets use `BrowserWindow({ frame: false })` and the workbench titlebar, without a native titlebar or titlebar overlay. Keep a native draggable region and exclude every interactive control with `app-region: no-drag`.
