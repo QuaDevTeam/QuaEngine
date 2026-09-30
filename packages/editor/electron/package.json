@@ -12,14 +12,17 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "lint": "eslint .",
-    "postinstall": "node scripts/prepare-pty.mjs"
+    "postinstall": "node scripts/prepare-pty.mjs",
+    "build:release": "node ../release/build.mjs"
   },
   "dependencies": {
+    "@quajs/character": "workspace:*",
     "@quajs/editor-animation": "workspace:*",
     "@quajs/editor-character": "workspace:*",
     "@quajs/editor-core": "workspace:*",
     "@quajs/editor-novel-writer": "workspace:*",
     "@quajs/editor-ui": "workspace:*",
+    "@quajs/engine": "workspace:*",
     "@quajs/language-server": "workspace:*",
     "@quajs/project-inspector": "workspace:*",
     "@quajs/quack": "workspace:*",
@@ -31,7 +34,9 @@
     "prettier": "catalog:",
     "semver": "catalog:",
     "sharp": "catalog:",
+    "socks": "^2.8.10",
     "typescript": "catalog:",
+    "vite": "catalog:",
     "vscode-json-languageservice": "catalog:",
     "vscode-languageserver-textdocument": "catalog:",
     "vscode-languageserver-types": "catalog:",
@@ -42,8 +47,6 @@
   "devDependencies": {
     "@quajs/assets": "workspace:*",
     "@quajs/assets-web": "workspace:*",
-    "@quajs/character": "workspace:*",
-    "@quajs/engine": "workspace:*",
     "@quajs/pipeline": "workspace:*",
     "@quajs/plugin-animation": "workspace:*",
     "@quajs/plugin-audio": "workspace:*",
@@ -62,7 +65,6 @@
     "@types/node": "catalog:",
     "@types/semver": "catalog:",
     "electron": "catalog:",
-    "vite": "catalog:",
     "vitest": "catalog:",
     "yaml": "catalog:"
   }

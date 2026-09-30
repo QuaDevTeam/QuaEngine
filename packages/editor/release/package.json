@@ -1,0 +1,13 @@
+{
+  "name": "@quajs/editor-release",
+  "type": "module",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@12.3.4",
+  "license": "MPL-2.0",
+  "scripts": { "publish:manifest": "node publish-manifest.mjs", "test": "node --test *.test.mjs" },
+  "dependencies": {
+    "@electron/packager": "catalog:",
+    "semver": "catalog:"
+  }
+}

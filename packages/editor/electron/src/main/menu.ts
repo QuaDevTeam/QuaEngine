@@ -92,6 +92,7 @@ function editorMenuTemplate(send: (channel: string, value: unknown) => void): Me
         { role: 'togglefullscreen' },
       ],
     },
+    { label: '帮助', submenu: [{ id: 'check-updates', label: '检查编辑器更新…', click: () => send('editor:command', 'check-updates') }] },
   ]
 }
 

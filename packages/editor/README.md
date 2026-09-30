@@ -39,6 +39,63 @@ pnpm dev:editor
 pnpm --filter @quajs/editor-electron start --project /absolute/path/to/QuaEngine/demo
 ```
 
+## 桌面发行与更新频道
+
+编辑器有独立于引擎包的 stable / beta 发版链路。平台构建由
+`.github/workflows/editor-release.yml` 分开执行，发布物包含编辑器本身、
+boilerplate 模板和 SDK runtime。手动构建发行物时设置版本、频道、目标平台和
+架构：
+
+```bash
+QUA_EDITOR_CHANNEL=stable QUA_EDITOR_VERSION=0.1.0 \
+QUA_EDITOR_TARGET=macos QUA_EDITOR_ARCH=arm64 \
+pnpm --filter @quajs/editor-electron build:release
+```
+
+beta 版本必须带 prerelease 后缀，例如 `0.1.0-beta.1`。编辑器启动后会从当前
+频道的 manifest 检查内置 boilerplate/runtime；只有 HTTPS、SHA-256、组件身份和
+编辑器 semver 范围全部匹配时才会把组件原子安装到用户数据目录。稳定版与测试版
+使用独立应用身份、用户数据和缓存；更新失败会继续使用上一份兼容组件或发行物内置版本。编辑器也会检查当前平台的
+新主程序发行物，在校验大小和 SHA-256 后缓存下载；点击状态栏的更新按钮会在安全
+退出后由随包 OS 更新脚本替换应用并重新启动。帮助菜单可随时检查更新；启动和每六小时自动检查，重启前保存草稿，保留上一个应用目录供恢复。开发模式禁止替换应用。安装包下载入口见
+[QuaEngine 文档的 Editor 下载页](https://quaengine.com/docs/editor/downloads)。
+
+组件可通过 `.github/workflows/editor-components.yml` 单独发布，使用自己的版本号和
+`editor_range`；无需构建 Electron 或重新发布 Editor。目录保留最近 32 个版本，按编辑器
+兼容范围选择，不改写已有项目依赖。新项目使用当前兼容组件；既有项目继续使用锁定的 SDK。
+发布新 Editor 系列时同步修改 `release/config.json` 的双向兼容范围。
+
+本地构建前执行 `pnpm --dir packages/editor/release install --frozen-lockfile`。
+推送 `editor-v0.1.0` 或 `editor-beta-v0.1.0-beta.1` 会构建对应通道，也可手动运行 workflow。
+每个平台必须在自己的 OS/架构上构建，避免夹带其他平台的原生模块。CI 全部通过后发布固定
+版本 Release，再上传通道清单；更新器使用固定版本 URL。默认产物为便携 tar.gz；macOS
+解压后将 `.app` 放到可写应用目录，Windows/Linux 解压到可写目录。macOS 必须在 GitHub Actions 完成 Developer ID
+签名、Apple 公证、staple、Gatekeeper 校验和下载归档复验后才能发布。凭据和操作说明见
+[发版配置](release/README.md)。Windows 暂未配置代码签名；Windows/Linux 当前保留构建及
+产物哈希校验，按当前发布安排暂跳过测试。
+
+发布验证包括 `node --test packages/editor/release/*.test.mjs`、Editor core/Electron
+单元测试与类型检查，以及 `node packages/editor/electron/scripts/update-smoke.mjs`。
+本机打包后执行 `node packages/editor/electron/scripts/packaged-smoke.mjs <发行物.tar.gz>`，
+验证独立应用启动、完整模板、SDK、新建项目和真实安装包的更新预处理。
+
+`node packages/editor/electron/scripts/packaged-update-smoke.mjs <发行物.tar.gz>` 会在临时目录
+用改为旧版本号的真实 Editor 跑完整更新：通过本地 HTTPS 代理下载原始发行物、校验、退出、
+替换、重新启动，并核对新版启动确认、原用户目录和旧版备份。签名发行版还会验证下载应用的代码签名、同一 Apple 团队、频道 bundle ID
+和 Gatekeeper；更新器校验频道、平台与架构；
+新版须在 60 秒内完成窗口加载并返回一次性启动确认，否则恢复旧版，下次启动显示失败原因。
+重启保留自定义用户目录；不会保留调试端口等开发参数。
+
+所有 Editor 主进程远程请求遵循系统代理、PAC 和绕过规则，不使用 Node 原生直连 fetch。
+npm、pnpm、Cargo、Rustup 和写作服务通过仅监听本机且带每进程凭证的代理适配层，按每个目标
+查询 Chromium 的系统代理决策；支持 HTTP、HTTPS、SOCKS 代理。只有系统规则明确允许
+DIRECT 时才直连，代理失败不会偷偷绕过。写作服务使用随 Electron 固定版本的 Node 环境代理
+和系统 CA；本机预览与写作服务端口直接访问。不修改系统代理或 shell 配置。
+
+`node packages/editor/electron/scripts/network-smoke.mjs` 验证真实 PAC、代理专用域名、HTTPS
+重定向保护、npm/utility process 请求、本机绕过及代理失败。这些回归在 macOS GitHub CI 执行，Windows/Linux 测试暂跳过。
+`QUA_EDITOR_DISABLE_AUTO_UPDATE=1` 可关闭启动及定时检查，帮助菜单的手动检查仍可使用。
+
 ## 当前实现
 
 - `core`：不依赖 Electron 的项目/文档契约、预览会话和取消/停止控制器。
@@ -180,7 +237,7 @@ Assets Browser 支持按文件夹浏览、递归筛选、模糊名称／路径�
 
 - Native 原生嵌入目前仅实现 macOS，依赖运行时检查的 Core Animation remote-layer SPI。Windows/Linux 明确报不支持，不回退到图像传输。原生窗口按产品帧率渲染，旧的传输帧率设置已移除。源码构建需 Xcode Command Line Tools 和 Node-API 头文件；发行包需解包并签名 `dist/native-layer.node`。
 - Native 当前提供指针交互与面板等比缩放；独立 viewport resize、键盘/IME、滚轮与面板焦点转发仍待接入。启动时 capability 只宣告 pointer。
-- 尚未提供项目创建向导、语言服务快速修复/重命名、工作区会话恢复、可视化写回、跨章节分支状态重建、断点恢复、自动更新或安装包。
+- 尚未提供项目创建向导、语言服务快速修复/重命名、工作区会话恢复、可视化写回、跨章节分支状态重建和断点恢复。
 - 磁盘冲突目前提供只读比较与显式选择，没有自动三方合并、保存已删除文件的“另存为”或崩溃草稿恢复。
 - 切换模式会先保存所有打开的文档、停止旧后端，再从新目标入口启动。当前不迁移运行中的游戏状态。
 - 首次 Native 运行会先检测并补齐项目依赖和 Rust 工具链，再执行现有编译与 QPK 构建；系统 SDK／链接器按上文的平台提示安装。

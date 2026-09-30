@@ -4,11 +4,13 @@ import { chmod, mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/pro
 import { arch, platform } from 'node:os'
 import { delimiter, dirname, join } from 'node:path'
 import { satisfies, valid } from 'semver'
+import { editorFetch } from '../network/fetch.js'
+import { editorNetworkEnvironment } from '../network/index.js'
 import { packageManager } from '../plugins/installer.js'
 import { runTool } from './process.js'
 
 export async function fetchBytes(url: string, signal: AbortSignal, limit: number, progress: (bytes: number) => void = () => {}): Promise<Uint8Array> {
-  const response = await fetch(url, { signal: AbortSignal.any([signal, AbortSignal.timeout(10 * 60_000)]), redirect: 'error' })
+  const response = await editorFetch(url, { signal: AbortSignal.any([signal, AbortSignal.timeout(10 * 60_000)]), redirect: 'error' })
   if (!response.ok || !response.body)
     throw new Error(`下载失败（HTTP ${response.status}）：${url}`)
   const chunks: Uint8Array[] = []
@@ -42,7 +44,7 @@ export class ManagedTools {
   constructor(private readonly directory: string) {}
 
   environment(): NodeJS.ProcessEnv {
-    const env = { ...process.env }
+    const env = { ...process.env, ...editorNetworkEnvironment() }
     delete env.NODE_OPTIONS
     delete env.ELECTRON_RUN_AS_NODE
     const pathKey = Object.keys(env).find(key => key.toLowerCase() === 'path') ?? 'PATH'

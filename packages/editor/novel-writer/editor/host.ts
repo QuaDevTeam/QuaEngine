@@ -19,7 +19,7 @@ export class NovelWriterHost {
   private counter = 0
   private readonly pending = new Map<number, (state: { running: boolean }) => void>()
 
-  constructor(private readonly window: BrowserWindow, private readonly changed: (state: State) => void, private readonly authoring: Omit<EditorWritingBridge, 'onProjectChange'>) {
+  constructor(private readonly window: BrowserWindow, private readonly changed: (state: State) => void, private readonly authoring: Omit<EditorWritingBridge, 'onProjectChange'>, private readonly environment: NodeJS.ProcessEnv = {}) {
     window.webContents.on('did-start-loading', this.workbenchLoading)
     for (const method of ['context', 'capture', 'convert', 'validate', 'apply'] as const) {
       ipcMain.handle(`novel-writer:${method}`, (event, value) => {
@@ -169,7 +169,7 @@ export class NovelWriterHost {
       const worker = utilityProcess.fork(require.resolve('@quajs/editor-novel-writer/desktop'), [], {
         serviceName: 'QuaEngine Novel Writer',
         stdio: 'ignore',
-        env: { ...process.env, NODE_ENV: 'production' },
+        env: { ...process.env, ...this.environment, NODE_ENV: 'production' },
       })
       this.worker = worker
       worker.on('message', (message) => {
@@ -285,10 +285,10 @@ export class NovelWriterHost {
   }
 }
 
-export const novelWriterHostPlugin: EditorHostPlugin<{ window: BrowserWindow, changed: (state: State) => void, authoring: Omit<EditorWritingBridge, 'onProjectChange'> }, NovelWriterHost> = {
+export const novelWriterHostPlugin: EditorHostPlugin<{ window: BrowserWindow, changed: (state: State) => void, authoring: Omit<EditorWritingBridge, 'onProjectChange'>, environment?: NodeJS.ProcessEnv }, NovelWriterHost> = {
   id: 'qua.novel-writer',
   apiVersion: 1,
-  activate: context => new NovelWriterHost(context.window, context.changed, context.authoring),
+  activate: context => new NovelWriterHost(context.window, context.changed, context.authoring, context.environment),
 }
 
 export { WritingAuthoring } from './authoring.js'

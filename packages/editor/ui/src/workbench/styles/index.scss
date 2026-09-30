@@ -596,6 +596,28 @@ footer #context-status > .context-status-entry > :has(> button) {
   color: var(--editor-muted);
   background: transparent;
 }
+#editor-update[data-phase='available'],
+#editor-update[data-phase='ready'] {
+  color: var(--editor-accent);
+}
+#editor-update[data-phase='error'] {
+  color: var(--editor-danger);
+}
+#editor-update[data-phase='checking'] .icon,
+#editor-update[data-phase='downloading'] .icon {
+  animation: editor-update-spin 1.5s linear infinite;
+}
+@keyframes editor-update-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #editor-update[data-phase='checking'] .icon,
+  #editor-update[data-phase='downloading'] .icon {
+    animation: none;
+  }
+}
 .empty-message {
   color: var(--editor-muted);
   padding: 14px;

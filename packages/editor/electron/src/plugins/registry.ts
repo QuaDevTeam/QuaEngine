@@ -8,6 +8,7 @@ import {
   parsePluginMetadata,
   pluginRecord,
 } from '@quajs/editor-core'
+import { editorFetch } from '../network/fetch.js'
 import bundledCatalog from './catalog.json' with { type: 'json' }
 
 export const NPM_REGISTRY = 'https://registry.npmjs.org/'
@@ -79,7 +80,7 @@ export function catalogUrl(value: string): string {
 }
 
 export async function boundedJson(url: string): Promise<unknown> {
-  const response = await fetch(url, {
+  const response = await editorFetch(url, {
     signal: AbortSignal.timeout(15000),
     redirect: 'error',
     headers: { Accept: 'application/json' },

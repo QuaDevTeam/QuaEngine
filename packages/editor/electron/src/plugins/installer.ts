@@ -5,6 +5,7 @@ import { readFile, stat } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { stripVTControlCharacters } from 'node:util'
 import { isExactPackageVersion, isNpmPackageName } from '@quajs/editor-core'
+import { editorNetworkEnvironment } from '../network/index.js'
 import { registryUrl } from './registry.js'
 
 export async function packageManager(root: string): Promise<'npm' | 'pnpm'> {
@@ -103,6 +104,7 @@ export class PluginInstaller {
           shell: process.platform === 'win32',
           env: {
             ...process.env,
+            ...editorNetworkEnvironment(),
             CI: 'true',
             npm_config_ignore_scripts: 'true',
           },

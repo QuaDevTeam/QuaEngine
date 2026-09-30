@@ -64,3 +64,9 @@ Use Node 22.12+ and pnpm 12.3.4. Preserve the independent lockfile and supply-ch
 Use `pnpm --dir docs deploy:check` for Wrangler dry runs, and `pnpm --dir docs dev:worker` plus `DOCS_TEST_URL=http://127.0.0.1:4176 pnpm --dir docs test:smoke` to exercise Workers asset routing. When deployment is authorized, `DOCS_SITE_URL=https://quaengine.com pnpm --dir docs run deploy` checks and rebuilds before publishing. Verify HTTPS, direct routes, search, 404, markdown twins and SEO on the live origin with `DOCS_TEST_URL=https://quaengine.com pnpm --dir docs test:smoke`. A successful upload alone does not prove domain or certificate readiness.
 
 Inspect desktop/mobile and light/dark screenshots. Exercise search including no results, mobile nav, a long reference page, anchors, 404, brand downloads, code copy, internal navigation, markdown twins, llms and sitemap. Keep tests focused on these user flows rather than mirroring CSS values.
+
+## Editor downloads
+
+The homepage Editor action links to `/docs/editor/downloads`. Keep stable/beta platform links aligned with `.github/workflows/editor-release.yml` and channel asset names. Document automatic checking, verified downloads and explicit restart. Do not imply a release is available until its GitHub assets exist. Component publishing is independent through `editor-components.yml`; catalogs retain compatible versions and use immutable URLs.
+
+macOS signing and notarization are required GitHub Actions release steps; describe the configured workflow separately from an actually published/notarized artifact. Windows remains unsigned, and Windows/Linux platform tests are currently explicitly deferred while builds and hash checks remain enabled. Keep these platform distinctions visible on the download page and in release documentation.

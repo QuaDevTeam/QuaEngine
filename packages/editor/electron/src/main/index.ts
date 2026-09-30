@@ -6,6 +6,8 @@ import type { NovelWriterHost } from '@quajs/editor-novel-writer/host'
 import type { IpcMainInvokeEvent } from 'electron'
 import type { MainServices } from './ipc/services.js'
 import { randomUUID } from 'node:crypto'
+import { readFileSync } from 'node:fs'
+import { readFile, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { EditorHostPlugins } from '@quajs/editor-core'
@@ -19,6 +21,7 @@ import {
   protocol,
   safeStorage,
 } from 'electron'
+import { editorNetworkEnvironment, initializeEditorNetwork } from '../network/index.js'
 import { PluginManager } from '../plugins/manager.js'
 import { PluginPublisher } from '../plugins/publisher.js'
 import { PluginRegistry } from '../plugins/registry.js'
@@ -28,6 +31,8 @@ import { PreviewWorkbench } from '../preview-host/workbench.js'
 import { ProjectClient } from '../project-service/client.js'
 import { ProjectGit } from '../project-service/git.js'
 import { ProjectSearch } from '../project-service/search.js'
+import { prepareEditorInstall } from '../release/install.js'
+import { EditorReleaseManager } from '../release/updater.js'
 import { ProjectBuild } from '../runtime/project-build.js'
 import { ProjectRuntime } from '../runtime/project-runtime.js'
 import { TerminalClient } from '../terminal/client.js'
@@ -40,6 +45,7 @@ import { registerPluginsIpc } from './ipc/plugins.js'
 import { registerPreviewIpc } from './ipc/preview.js'
 import { registerProjectIpc } from './ipc/project.js'
 import { registerTerminalIpc } from './ipc/terminal.js'
+import { registerUpdateIpc } from './ipc/update.js'
 import { registerWindowIpc } from './ipc/window.js'
 import { registerWriterIpc } from './ipc/writer.js'
 import { connectApplicationMenu } from './menu.js'
@@ -61,9 +67,31 @@ protocol.registerSchemesAsPrivileged([
   },
 ])
 
+function editorInstallRoot(): string {
+  // Electron exposes Resources on all desktop targets. The updater replaces the
+  // packaged directory or .app bundle around that directory after this process exits.
+  return process.platform === 'darwin'
+    ? resolve(process.resourcesPath, '../..')
+    : resolve(process.resourcesPath, '..')
+}
+
 async function main(): Promise<void> {
-  app.setName('QuaEngine Editor')
+  const embeddedRelease = (() => {
+    try {
+      if (!app.isPackaged)
+        return {}
+      return JSON.parse(readFileSync(fileURLToPath(new URL('./release-channel.json', import.meta.url)), 'utf8')) as { channel?: unknown, version?: unknown, acceptedComponentRange?: unknown, signingTeamId?: unknown }
+    }
+    catch {
+      return {}
+    }
+  })()
+  const channel = embeddedRelease.channel === 'beta' || (!app.isPackaged && process.env.QUA_EDITOR_CHANNEL === 'beta') ? 'beta' as const : 'stable' as const
+  app.setName(channel === 'beta' ? 'QuaEngine Editor Beta' : 'QuaEngine Editor')
+  if (channel === 'beta' && !app.commandLine.hasSwitch('user-data-dir'))
+    app.setPath('userData', resolve(app.getPath('appData'), 'QuaEngine Editor Beta'))
   await app.whenReady()
+  await initializeEditorNetwork()
   const icon = nativeImage.createFromPath(fileURLToPath(new URL('./icons/quaeditor.png', import.meta.url)))
   if (icon.isEmpty())
     throw new Error('Editor application icon is missing. Rebuild @quajs/editor-electron.')
@@ -90,6 +118,29 @@ async function main(): Promise<void> {
   let projectOpening = false
   let projectLocation: string | undefined
   const runtime = new ProjectRuntime(resolve(app.getPath('userData'), 'runtimes'), state => send('editor:runtime-changed', state))
+  let pendingUpdate: Awaited<ReturnType<typeof prepareEditorInstall>> | undefined
+  const release = new EditorReleaseManager({
+    profileDirectory: resolve(app.getPath('userData'), 'editor-updates'),
+    embeddedDirectory: fileURLToPath(new URL('./', import.meta.url)),
+    channel,
+    signingTeamId: typeof embeddedRelease.signingTeamId === 'string' ? embeddedRelease.signingTeamId : undefined,
+    editorVersion: typeof embeddedRelease.version === 'string' ? embeddedRelease.version : app.getVersion(),
+    acceptedComponentRange: typeof embeddedRelease.acceptedComponentRange === 'string' ? embeddedRelease.acceptedComponentRange : undefined,
+    platform: process.platform === 'darwin' ? 'macos' : process.platform === 'win32' ? 'windows' : 'linux',
+    arch: process.arch === 'arm64' ? 'arm64' : 'x64',
+    editorInstallRoot: editorInstallRoot(),
+    editorExecutablePath: process.execPath,
+    stateChanged: state => send('editor:update-changed', state),
+    prepareEditorInstall: app.isPackaged
+      ? async (request) => {
+        const prepared = await prepareEditorInstall(request, resolve(app.getPath('userData'), 'editor-updates', channel), fileURLToPath(new URL('./release-helpers', import.meta.url)), app.getPath('userData'), app.commandLine.hasSwitch('no-sandbox'))
+        return async () => {
+          pendingUpdate = prepared
+          window.close()
+        }
+      }
+      : undefined,
+  })
   const build = new ProjectBuild(state => send('editor:build-changed', state))
   let pluginOperation = false
   const plugins = new PluginManager(
@@ -235,7 +286,7 @@ async function main(): Promise<void> {
   }
   const hostPlugins = new EditorHostPlugins()
   const authoring = new WritingAuthoring(window, () => currentProject, root => project.request('writingContext', root))
-  writer = hostPlugins.activate(novelWriterHostPlugin, { window, changed: state => send('editor:novel-writer-state', state), authoring: authoring.bridge })
+  writer = hostPlugins.activate(novelWriterHostPlugin, { window, changed: state => send('editor:novel-writer-state', state), authoring: authoring.bridge, environment: editorNetworkEnvironment() })
   const presentation = new PreviewPresentation(window, () => publishPreview(), () => currentProject?.name ?? 'QuaEngine')
   function publishPreview(): void {
     const state = {
@@ -379,6 +430,7 @@ async function main(): Promise<void> {
     get previews() { return previews },
     set previews(value) { previews = value },
     get project() { return project },
+    get release() { return release },
     get projectLocation() { return projectLocation },
     set projectLocation(value) { projectLocation = value },
     get projectOpening() { return projectOpening },
@@ -410,6 +462,7 @@ async function main(): Promise<void> {
   registerAssetsIpc(ipcContext)
   registerDocumentsIpc(ipcContext)
   registerPreviewIpc(ipcContext)
+  registerUpdateIpc(ipcContext)
 
   connectApplicationMenu(send)
   // macOS keeps its global application menu; other platforms use our menu button.
@@ -512,6 +565,7 @@ async function main(): Promise<void> {
       }
       if (!(await writer.mayClose()))
         return
+      await pendingUpdate?.launch()
       await plugins.cancel()
       await publisher.cancel()
       await publisher.release()
@@ -529,12 +583,15 @@ async function main(): Promise<void> {
       git.close()
       assets.reset()
       await project.close()
+      pendingUpdate = undefined
       closing = true
       window.destroy()
       app.quit()
     })()
       .catch(error => dialog.showErrorBox('无法关闭编辑器', String(error)))
       .finally(() => {
+        void pendingUpdate?.discard()
+        pendingUpdate = undefined
         closePending = false
       })
   })
@@ -553,10 +610,38 @@ async function main(): Promise<void> {
     }
   }
   await window.loadFile(
-    fileURLToPath(new URL('../../ui/dist/index.html', import.meta.url)),
+    fileURLToPath(new URL('./ui/index.html', import.meta.url)),
   )
   window.setTitle(currentProject ? `${currentProject.name} — QuaEngine Editor` : 'QuaEngine Editor')
   window.show()
+  const updateToken = process.env.QUA_EDITOR_UPDATE_TOKEN
+  delete process.env.QUA_EDITOR_UPDATE_TOKEN
+  if (app.isPackaged && updateToken && /^[a-f0-9]{64}$/u.test(updateToken)) {
+    await writeFile(resolve(app.getPath('userData'), 'editor-updates', channel, 'startup-ready.txt'), `${updateToken} ${app.getVersion()} ${process.pid}\n`)
+  }
+  const installStatusPath = resolve(app.getPath('userData'), 'editor-updates', channel, 'install-status.txt')
+  const installStatus = await readFile(installStatusPath, 'utf8').catch(() => '')
+  if (installStatus.startsWith('error:')) {
+    await writeFile(installStatusPath, `reported-${installStatus}`)
+    void dialog.showMessageBox(window, { type: 'warning', message: 'Editor 更新未完成，已保留或恢复原版本。', detail: installStatus.slice(6).trim() })
+  }
+  const updateController = new AbortController()
+  const checkUpdates = async (): Promise<void> => {
+    const result = await release.check(AbortSignal.any([updateController.signal, AbortSignal.timeout(10 * 60_000)]))
+    if (result.app.phase === 'available' && !updateController.signal.aborted)
+      await release.downloadEditorUpdate(AbortSignal.any([updateController.signal, AbortSignal.timeout(10 * 60_000)]))
+  }
+  const updateTimer = setInterval(() => {
+    if (app.isPackaged && process.env.QUA_EDITOR_DISABLE_AUTO_UPDATE !== '1' && !closing && !closePending)
+      void checkUpdates()
+  }, 6 * 60 * 60_000)
+  window.once('closed', () => {
+    clearInterval(updateTimer)
+    updateController.abort()
+  })
+  if (process.env.QUA_EDITOR_DISABLE_AUTO_UPDATE !== '1' && (app.isPackaged || process.env.QUA_EDITOR_ENABLE_UPDATES === '1')) {
+    void checkUpdates()
+  }
   void ensureRuntime(true).catch(() => {})
 }
 void main().catch((error) => {

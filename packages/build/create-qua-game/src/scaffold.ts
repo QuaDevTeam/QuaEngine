@@ -22,6 +22,8 @@ export interface ScaffoldProjectOptions {
   force?: boolean
   dryRun?: boolean
   cwd?: string
+  /** Use a host-provided, already validated template directory. */
+  templateDirectory?: string
   stdout?: Pick<typeof console, 'log'>
   stderr?: Pick<typeof console, 'error'>
   runCommand?: (command: string, args: readonly string[], options: { cwd: string }) => Promise<void>
@@ -79,7 +81,14 @@ export async function scaffoldProject(options: ScaffoldProjectOptions): Promise<
   const cwd = resolve(options.cwd || process.cwd())
   const projectName = normalizeProjectName(options.projectName)
   const projectTitle = createProjectTitle(projectName)
-  const template = getTemplate(options.template || DEFAULT_TEMPLATE_NAME)
+  const template = options.templateDirectory
+    ? {
+        name: options.template || DEFAULT_TEMPLATE_NAME,
+        title: options.template || DEFAULT_TEMPLATE_NAME,
+        description: 'Host-provided QuaEngine project template.',
+        directory: resolve(options.templateDirectory),
+      }
+    : getTemplate(options.template || DEFAULT_TEMPLATE_NAME)
   const packageManager = options.packageManager || detectPackageManager()
   const targetDirectory = resolve(cwd, options.targetDirectory || projectName)
   const stdout = options.stdout || console

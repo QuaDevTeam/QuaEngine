@@ -1,6 +1,7 @@
 import type { PreviewCommand, PreviewCommandResult, PreviewIdentity, PreviewPointer, PreviewState } from '../preview/contracts.js'
 import type { PreviewInspectorDetails, PreviewInspectorTree } from '../preview/inspector.js'
 import type { PreviewPerformance } from '../preview/performance.js'
+import type { EditorReleaseSnapshot } from '../release.js'
 import type { EditorGitDiff, EditorGitState, EditorGitSwitchResult } from './git.js'
 import type { EditorAnalysis, EditorCompletion, EditorDefinition, EditorHover, EditorLanguageRequest, EditorProjectCheck, EditorTextEdit } from './language.js'
 import type { EditorDocument, EditorFileMenuAction, EditorFileOperation, EditorFileOperationResult, EditorImageMetadata, EditorImportResult, EditorProject, EditorProjectChange, EditorSearchRequest, EditorSearchResult, PreviewTarget } from './project.js'
@@ -61,6 +62,11 @@ export interface EditorBridge {
   windowState: () => Promise<EditorWindowState>
   windowAction: (action: EditorWindowAction, menuPosition?: { x: number, y: number }) => Promise<void>
   onWindowState: (listener: (state: EditorWindowState) => void) => () => void
+  editorUpdateState: () => Promise<EditorReleaseSnapshot>
+  checkEditorUpdate: () => Promise<import('../release.js').EditorReleaseUpdateResult>
+  downloadEditorUpdate: () => Promise<EditorReleaseSnapshot>
+  installEditorUpdate: () => Promise<void>
+  onEditorUpdate: (listener: (state: EditorReleaseSnapshot) => void) => () => void
   openProject: () => Promise<EditorProject | undefined>
   chooseProjectLocation: () => Promise<string | undefined>
   createProject: (request: import('./project.js').EditorCreateProject) => Promise<EditorProject>
@@ -70,7 +76,7 @@ export interface EditorBridge {
   onRuntimeState: (listener: (state: import('./project.js').EditorRuntimeState) => void) => () => void
   currentProject: () => Promise<EditorProject | undefined>
   refreshProject: () => Promise<EditorProject>
-  onCommand: (listener: (command: 'build-project' | 'source-workspace' | 'new-project' | 'open-project' | 'refresh-project' | 'settings' | 'save' | 'save-all' | 'close-tab' | 'format' | 'undo' | 'redo' | 'terminal' | 'new-terminal') => void) => () => void
+  onCommand: (listener: (command: 'check-updates' | 'build-project' | 'source-workspace' | 'new-project' | 'open-project' | 'refresh-project' | 'settings' | 'save' | 'save-all' | 'close-tab' | 'format' | 'undo' | 'redo' | 'terminal' | 'new-terminal') => void) => () => void
   gitStatus: (root: string) => Promise<EditorGitState>
   onGitChange: (listener: (state: EditorGitState) => void) => () => void
   gitDiff: (root: string, path: string, staged: boolean) => Promise<EditorGitDiff>

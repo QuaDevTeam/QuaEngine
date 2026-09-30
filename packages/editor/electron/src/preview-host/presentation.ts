@@ -102,7 +102,7 @@ export class PreviewPresentation {
         popout.contentView.addChildView(this.view)
       }
       this.parent = popout
-      await popout.loadFile(fileURLToPath(new URL('../../ui/dist/preview.html', import.meta.url)))
+      await popout.loadFile(fileURLToPath(new URL('./ui/preview.html', import.meta.url)))
       if (this.popout !== popout || popout.isDestroyed())
         return
       this.update(this.state)
