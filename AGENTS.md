@@ -583,6 +583,8 @@ packages/
 │   ├── svelte/             # @quajs/renderer-svelte
 │   ├── web/                # @quajs/renderer-web framework-neutral Web runtime
 │   └── vue/                # @quajs/renderer-vue
+├── services/
+│   └── plugin-registry/    # private Cloudflare plugin catalog and publisher service
 └── utils/
     ├── common/             # @quajs/utils-common
     └── ...                 # @quajs/utils and logger helpers

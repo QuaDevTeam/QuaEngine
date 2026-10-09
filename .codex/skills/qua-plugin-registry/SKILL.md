@@ -5,8 +5,13 @@ description: Develop the Cloudflare Workers and D1 plugin registry, npm publishe
 
 # QuaEngine Plugin Registry
 
-Read `services/plugin-registry/README.md` and use `qua-editor-marketplace` for editor
+Read `packages/services/plugin-registry/README.md` and use `qua-editor-marketplace` for editor
 integration. Read the TypeSafe skill and current System One docs when changing Jev.
+
+The private service lives under `packages/services/plugin-registry`, separate from
+engine feature plugins. Run its workspace scripts with `pnpm --filter
+@quajs/plugin-registry run <script>`; local workerd tooling remains at repository
+`.codex-tmp/registry-tooling`, regardless of the service working directory.
 
 - Domain is registry.quaengine.com. Workers + D1 hold metadata and review state;
   npm owns published package distribution. Accept only public npm packages with

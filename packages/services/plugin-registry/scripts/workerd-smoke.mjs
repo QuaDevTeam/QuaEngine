@@ -9,7 +9,7 @@ import { gzipSync } from 'node:zlib'
 const root = fileURLToPath(new URL('../', import.meta.url))
 const require = createRequire(
   process.env.REGISTRY_TOOLING_PACKAGE
-  || resolve(root, '../../.codex-tmp/registry-tooling/package.json'),
+  || resolve(root, '../../../.codex-tmp/registry-tooling/package.json'),
 )
 const { Miniflare, convertV4MiniflareOptions, Response } = require('miniflare')
 

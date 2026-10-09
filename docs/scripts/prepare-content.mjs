@@ -38,7 +38,7 @@ add('packages/core/engine/docs/plugin-system.md', 'docs/reference/plugin-system.
 add('packages/editor/README.md', 'docs/editor/workbench.md', '编辑器工作区', '项目、Monaco、可视化剧本编辑、预览、调试、设置与快捷键。');
 add('packages/editor/character/README.md', 'docs/editor/character.md', '角色编辑器', '编辑角色定义、表情与立绘资源。');
 add('packages/editor/animation/README.md', 'docs/editor/animation.md', '动画编辑器', '可视化时间轴、数值关键帧与场景预览。');
-add('services/plugin-registry/README.md', 'docs/editor/registry.md', '插件市场与发布', '插件注册、npm 所有权验证、审查与注册服务部署。');
+add('packages/services/plugin-registry/README.md', 'docs/editor/registry.md', '插件市场与发布', '插件注册、npm 所有权验证、审查与注册服务部署。');
 const designTitles = { 'mobile-rendering-adaptation': '逻辑舞台与屏幕适配', 'web-asset-loading': 'Web 资源加载流程', 'editor-plugins': '编辑器插件契约', 'background-composition-animation': '背景合成与动画', 'background-transitions': '背景转场', 'cocos-integration-audit': 'Cocos 集成审查', 'dynamic-runtime-qpk': '动态 Runtime QPK', 'native-text-layout': 'Native 文字排版', 'native-jsc-runtime': 'JavaScriptCore 运行时' };
 for (const folder of ['design', 'reviews', 'security', 'guides']) {
   for (const file of (await files(path.join(docs, folder))).sort()) {

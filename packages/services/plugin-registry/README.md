@@ -8,7 +8,7 @@ or republishes submitted packages and never receives an npm credential.
 ## Publisher workflow
 
 1. Declare `package.json.quajs.extension` schema 1 with `runtime`, `devtools`, or
-   both. See [the plugin contract](../../docs/design/editor-plugins.md).
+   both. See [the plugin contract](../../../docs/design/editor-plugins.md).
 2. Open that package directory directly in QuaEngine Editor → 插件 → 发布.
    A game project manifest is not required. Log into Registry using GitHub.
 3. Generate a claim. The editor creates an undoable `package.json` draft at
