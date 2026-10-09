@@ -11,6 +11,8 @@ Use this skill for `packages/native/*`, Rust native runtime/renderer crates, nat
 
 The Native JavaScriptCore CI matrix keeps default test concurrency on all three
 platforms. Windows failures collect WER minidumps and test executable/PDB artifacts;
+if WER is suppressed by the runner, the diagnostic rerun uses Microsoft ProcDump
+to capture an unhandled exception and CDB to print its stack when available.
 the failure-only serial rerun locates the crashing test, never substitutes for the
 ordinary runtime/host tests or Windows window/audio build.
 
