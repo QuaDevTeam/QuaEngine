@@ -105,9 +105,9 @@ pub(super) fn summary() -> NativeRendererSmokeSummary {
 
 pub(super) fn unique_budget_path(label: &str) -> std::path::PathBuf {
     std::env::temp_dir().join(format!(
-        "quajs-native-renderer-smoke-budget-{label}-{}-{}.json",
+        "quajs-native-renderer-smoke-budget-{label}-{}-{:?}.json",
         std::process::id(),
-        std::thread::current().name().unwrap_or("test")
+        std::thread::current().id()
     ))
 }
 

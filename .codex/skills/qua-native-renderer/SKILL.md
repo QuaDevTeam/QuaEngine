@@ -9,6 +9,10 @@ Use this skill for `packages/native/*`, Rust native runtime/renderer crates, nat
 
 ## JavaScriptCore integration
 
+Native test fixtures must use process/thread IDs or another portable unique suffix
+in temporary filenames. Rust test thread names contain `::`, which Windows rejects.
+Keep host unit and CLI fixture coverage enabled on every matrix platform.
+
 Context ownership includes an explicit independent JSC group. Rooted values keep
 the context/group alive; teardown clears the watchdog, releases the global
 context, then releases the group using the locked group API. The pinned Windows
