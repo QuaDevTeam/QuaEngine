@@ -10,6 +10,10 @@ importers:
         specifier: 12.3.4
         version: 12.3.4
 
+  packages/utils: {}
+
+  packages/utils/common: {}
+
 packages:
 
 
@@ -1887,15 +1891,11 @@ importers:
         specifier: workspace:*
         version: link:../../core/store
 
-  packages/utils: {}
-
-  packages/utils/common: {}
-
-  services/plugin-registry:
+  packages/services/plugin-registry:
     dependencies:
       '@quajs/editor-core':
         specifier: workspace:*
-        version: link:../../packages/editor/core
+        version: link:../../editor/core
     devDependencies:
       typescript:
         specifier: 'catalog:'

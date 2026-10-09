@@ -12,7 +12,7 @@ QuaEngine plugin capabilities; npm distributes the tarballs. System review is th
 default, with optional TypeSafe Jev screening. First-time authors publish a one-time
 ownership claim, register once, then Cron synchronizes future `latest` versions.
 Official badges come from the registry's exact package-name allowlist. See
-[Registry setup and policy](../../services/plugin-registry/README.md).
+[Registry setup and policy](../../packages/services/plugin-registry/README.md).
 
 **插件 → 发布** recognizes standalone plugin package directories without a game
 manifest. It supports GitHub login, a guarded claim draft, staged npm/pnpm packing,

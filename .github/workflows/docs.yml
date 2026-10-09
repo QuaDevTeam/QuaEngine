@@ -2,10 +2,10 @@ name: Documentation
 
 on:
   pull_request:
-    paths: ['docs/**', 'assets/brand/**', 'packages/**/README.md', 'packages/core/engine/docs/**', 'services/plugin-registry/README.md', '.github/workflows/docs.yml']
+    paths: ['docs/**', 'assets/brand/**', 'packages/**/README.md', 'packages/core/engine/docs/**', '.github/workflows/docs.yml']
   push:
     branches: [main]
-    paths: ['docs/**', 'assets/brand/**', 'packages/**/README.md', 'packages/core/engine/docs/**', 'services/plugin-registry/README.md', '.github/workflows/docs.yml']
+    paths: ['docs/**', 'assets/brand/**', 'packages/**/README.md', 'packages/core/engine/docs/**', '.github/workflows/docs.yml']
   workflow_dispatch:
 
 permissions:

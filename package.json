@@ -74,7 +74,7 @@
     "packages/render/*",
     "packages/utils/*",
     "packages/plugins/*",
-    "services/*"
+    "packages/services/*"
   ],
   "devDependencies": {
     "@antfu/eslint-config": "^9.0.0",

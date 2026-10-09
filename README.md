@@ -88,7 +88,7 @@ pnpm dev:editor
 
 [Editor setup and capabilities](packages/editor/README.md) · [Character editor](packages/editor/character/README.md) · [Animation editor](packages/editor/animation/README.md)
 
-The plugin marketplace connects to the Cloudflare Workers + D1 registry at `registry.quaengine.com`. It includes npm ownership verification, automatic system / optional Jev review, scheduled sync, and editor publication. See the [publisher guide](services/plugin-registry/README.md) and [editor plugin contracts](docs/design/editor-plugins.md).
+The plugin marketplace connects to the Cloudflare Workers + D1 registry at `registry.quaengine.com`. It includes npm ownership verification, automatic system / optional Jev review, scheduled sync, and editor publication. See the [publisher guide](packages/services/plugin-registry/README.md) and [editor plugin contracts](docs/design/editor-plugins.md).
 
 ## Documentation
 

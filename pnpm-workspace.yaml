@@ -11,7 +11,7 @@ trustPolicyExclude:
   - semver@5.7.2
 
 packages:
-  - services/*
+  - packages/services/*
   - ai/*
   - demo
   - packages/build/*
