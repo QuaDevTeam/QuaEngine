@@ -8,6 +8,8 @@ mod ffi {
     pub use otter_jsc_sys::*;
     // Public C API entries absent from the distribution crate's minimal binding.
     extern "C" {
+        pub fn JSContextGroupCreate() -> JSContextGroupRef;
+        pub fn JSContextGroupRelease(group: JSContextGroupRef);
         pub fn JSGlobalContextCreateInGroup(
             group: JSContextGroupRef,
             class: JSClassRef,
@@ -76,12 +78,20 @@ extern "C" {
 
 struct ContextInner {
     raw: ffi::JSGlobalContextRef,
+    group: ffi::JSContextGroupRef,
     timeout_ms: Cell<u64>,
     depth: Cell<u32>,
 }
 impl Drop for ContextInner {
     fn drop(&mut self) {
-        unsafe { ffi::JSGlobalContextRelease(self.raw) }
+        unsafe {
+            JSContextGroupClearExecutionTimeLimit(self.group);
+            // The pinned Windows distribution releases a global context without
+            // taking its VM lock. Keep the group alive until that release has
+            // finished, then destroy the VM through the locked group API.
+            ffi::JSGlobalContextRelease(self.raw);
+            ffi::JSContextGroupRelease(self.group);
+        }
     }
 }
 #[derive(Clone)]
@@ -89,12 +99,18 @@ pub struct Context(Rc<ContextInner>);
 impl Context {
     pub fn new() -> Result<Self> {
         // A separate context group gives each engine an independent heap/VM.
-        let raw = unsafe { ffi::JSGlobalContextCreateInGroup(ptr::null_mut(), ptr::null_mut()) };
+        let group = unsafe { ffi::JSContextGroupCreate() };
+        if group.is_null() {
+            return Err(error("JavaScriptCore context group allocation failed"));
+        }
+        let raw = unsafe { ffi::JSGlobalContextCreateInGroup(group, ptr::null_mut()) };
         if raw.is_null() {
+            unsafe { ffi::JSContextGroupRelease(group) };
             return Err(error("JavaScriptCore context allocation failed"));
         }
         let ctx = Self(Rc::new(ContextInner {
             raw,
+            group,
             timeout_ms: Cell::new(1000),
             depth: Cell::new(0),
         }));
@@ -511,6 +527,7 @@ macro_rules! from_object {
 from_object!(Object, into_object);
 from_object!(Array, into_array);
 from_object!(Function, into_function);
+
 pub trait IntoJs {
     fn into_js(self, ctx: &Context) -> Result<Value>;
 }
@@ -616,4 +633,32 @@ pub fn runtime_version() -> &'static str {
             )
         }
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rooted_functions_outlive_context_handles_and_vms_teardown_on_parallel_threads() {
+        std::thread::scope(|scope| {
+            for _ in 0..4 {
+                scope.spawn(|| {
+                    for _ in 0..16 {
+                        let function = {
+                            let ctx = Context::new().unwrap();
+                            ctx.eval::<Function, _>(
+                                "(() => { const held = { value: 42 }; const weak = new WeakRef(held); \
+                                 return () => held.value + (weak.deref() === held ? 0 : 1); })()",
+                            )
+                            .unwrap()
+                        };
+                        // Only the rooted function owns the context/group here.
+                        assert_eq!(function.call::<_, f64>(()).unwrap(), 42.0);
+                        drop(function);
+                    }
+                });
+            }
+        });
+    }
 }
