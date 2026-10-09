@@ -289,9 +289,9 @@ mod tests {
 
     fn unique_frame_path(label: &str) -> std::path::PathBuf {
         std::env::temp_dir().join(format!(
-            "quajs-native-renderer-smoke-{label}-{}-{}.json",
+            "quajs-native-renderer-smoke-{label}-{}-{:?}.json",
             std::process::id(),
-            std::thread::current().name().unwrap_or("test")
+            std::thread::current().id()
         ))
     }
 }

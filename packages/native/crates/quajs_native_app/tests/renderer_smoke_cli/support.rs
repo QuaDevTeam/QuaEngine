@@ -23,17 +23,17 @@ pub(super) fn run_renderer_smoke_binary(frame_path: &Path, budget_path: Option<&
 
 pub(super) fn unique_frame_path(label: &str) -> std::path::PathBuf {
     std::env::temp_dir().join(format!(
-        "quajs-native-app-cli-renderer-smoke-{label}-{}-{}.json",
+        "quajs-native-app-cli-renderer-smoke-{label}-{}-{:?}.json",
         std::process::id(),
-        std::thread::current().name().unwrap_or("test")
+        std::thread::current().id()
     ))
 }
 
 pub(super) fn unique_budget_path(label: &str) -> std::path::PathBuf {
     std::env::temp_dir().join(format!(
-        "quajs-native-app-cli-renderer-smoke-budget-config-{label}-{}-{}.json",
+        "quajs-native-app-cli-renderer-smoke-budget-config-{label}-{}-{:?}.json",
         std::process::id(),
-        std::thread::current().name().unwrap_or("test")
+        std::thread::current().id()
     ))
 }
 

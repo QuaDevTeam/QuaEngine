@@ -2,9 +2,9 @@ use super::*;
 
 pub(crate) fn unique_manifest_path(label: &str) -> std::path::PathBuf {
     std::env::temp_dir().join(format!(
-        "quajs-native-target-bundle-{label}-{}-{}.json",
+        "quajs-native-target-bundle-{label}-{}-{:?}.json",
         std::process::id(),
-        std::thread::current().name().unwrap_or("test")
+        std::thread::current().id()
     ))
 }
 
