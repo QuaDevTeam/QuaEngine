@@ -41,7 +41,21 @@ jobs:
         run: cargo build --locked --manifest-path packages/native/Cargo.toml -p quajs_native_app --features native-window,native-audio-rodio,javascriptcore
       - name: Locate failing Windows runtime test
         if: failure() && runner.os == 'Windows' && steps.runtime.outcome == 'failure'
-        run: cargo test --locked --manifest-path packages/native/Cargo.toml -p quajs_native_runtime --features javascriptcore --lib -- --test-threads=1 --nocapture
+        shell: pwsh
+        run: |
+          $tools = Join-Path $env:RUNNER_TEMP 'procdump'
+          $archive = Join-Path $env:RUNNER_TEMP 'procdump.zip'
+          Invoke-WebRequest https://download.sysinternals.com/files/Procdump.zip -OutFile $archive
+          Expand-Archive $archive -DestinationPath $tools
+          $exe = Get-ChildItem packages/native/target/debug/deps/quajs_native_runtime-*.exe | Select-Object -First 1
+          $folder = Join-Path $env:RUNNER_TEMP 'jsc-crash-dumps'
+          & "$tools/procdump64.exe" -accepteula -mm -e -x $folder $exe.FullName --test-threads=1 --nocapture
+          $debugger = "${env:ProgramFiles(x86)}/Windows Kits/10/Debuggers/x64/cdb.exe"
+          if (Test-Path $debugger) {
+            Get-ChildItem "$folder/*.dmp" | ForEach-Object {
+              & $debugger -y $exe.DirectoryName -z $_.FullName -c '.ecxr; kv; q'
+            }
+          }
       - name: Upload Windows crash diagnostics
         if: failure() && runner.os == 'Windows'
         uses: actions/upload-artifact@v7
