@@ -28,9 +28,9 @@
   },
   "scripts": {
     "dev": "vite dev --host 127.0.0.1",
-    "build": "tsc -p tsconfig.editor.json && node scripts/build-editor.mjs && vite build && node scripts/verify-build.mjs",
+    "build": "svelte-kit sync && tsc -p tsconfig.editor.json && node scripts/build-editor.mjs && vite build && node scripts/verify-build.mjs",
     "test": "vitest",
-    "typecheck": "tsc -p tsconfig.editor.json --noEmit && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"
+    "typecheck": "svelte-kit sync && tsc -p tsconfig.editor.json --noEmit && svelte-check --tsconfig ./tsconfig.json"
   },
   "dependencies": {
     "@internationalized/date": "catalog:",

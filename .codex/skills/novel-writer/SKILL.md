@@ -54,6 +54,8 @@ description: Use, review, or modify the editor-integrated SvelteKit multi-agent 
 
 ## Validation
 
+- Both build and typecheck generate SvelteKit metadata with `svelte-kit sync` first; neither may depend on another parallel task or an existing `.svelte-kit` directory. Validate build from a clean generated directory.
+
 - `pnpm --filter @quajs/editor-novel-writer typecheck`
 - `pnpm --filter @quajs/editor-novel-writer test -- --run`
 - `pnpm --filter @quajs/editor-novel-writer build`
