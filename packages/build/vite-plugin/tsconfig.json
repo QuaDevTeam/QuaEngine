@@ -6,8 +6,7 @@
     "rootDir": "../",
     "moduleResolution": "bundler",
     "paths": {
-      "@/*": ["./src/*"],
-      "@quajs/quack/project": ["../quack/src/project.ts"]
+      "@/*": ["./src/*"]
     },
     "outDir": "./dist",
     "allowSyntheticDefaultImports": true,

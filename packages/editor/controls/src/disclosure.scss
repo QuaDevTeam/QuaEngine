@@ -8,8 +8,12 @@
     list-style: none;
     cursor: pointer;
     border-radius: var(--editor-radius);
-    &::-webkit-details-marker { display: none; }
-    &::marker { content: ''; }
+    &::-webkit-details-marker {
+      display: none;
+    }
+    &::marker {
+      content: '';
+    }
   }
   > summary > .editor-disclosure-chevron {
     width: 12px;
@@ -21,7 +25,9 @@
     stroke-linecap: round;
     stroke-linejoin: round;
   }
-  &[open] > summary > .editor-disclosure-chevron { transform: rotate(90deg); }
+  &[open] > summary > .editor-disclosure-chevron {
+    transform: rotate(90deg);
+  }
   > .editor-disclosure-content {
     min-width: 0;
     display: flow-root;
@@ -38,13 +44,20 @@
     &::details-content {
       block-size: 0;
       overflow: clip;
-      transition: block-size var(--editor-disclosure-duration, 180ms) ease,
+      transition:
+        block-size var(--editor-disclosure-duration, 180ms) ease,
         content-visibility var(--editor-disclosure-duration, 180ms) allow-discrete;
     }
-    &[open]::details-content { block-size: auto; }
+    &[open]::details-content {
+      block-size: auto;
+    }
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .editor-disclosure { --editor-disclosure-duration: 0ms; }
+  .editor-disclosure {
+    --editor-disclosure-duration: 0ms;
+  }
 }
-body[data-reduced-motion='true'] .editor-disclosure { --editor-disclosure-duration: 0ms; }
+body[data-reduced-motion='true'] .editor-disclosure {
+  --editor-disclosure-duration: 0ms;
+}

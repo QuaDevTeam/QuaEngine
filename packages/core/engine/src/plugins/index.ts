@@ -1,5 +1,4 @@
 export { PluginContextImpl } from './core/context'
-export { ScreenshotModePlugin } from './screenshot-mode-plugin'
 export { getDiscoveredDecoratorMappings, getPluginDiscovery, PluginDiscovery } from './core/plugin-discovery'
 export type {
   CustomPluginRegistry,
@@ -12,11 +11,12 @@ export type {
 // Core plugin system
 export { getPluginRegistry, PluginAPIRegistry } from './core/registry'
 export type { DecoratorMapping, PluginAPIFunction, PluginAPIRegistration } from './core/registry'
-
 export { BaseEnginePlugin } from './core/types'
+
 export type { EngineContext, EnginePlugin, PluginConstructor, PluginConstructorOptions, PluginContext } from './core/types'
 // Plugin development framework
 export { defineAPIFunction, defineDecorator, PluginFramework } from './framework/base'
+export { ScreenshotModePlugin } from './screenshot-mode-plugin'
 export {
   getUiOverlayHostProjection,
   releaseUiOverlayHostWithEngine,

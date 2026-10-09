@@ -245,22 +245,40 @@
         monospace;
       user-select: text;
     }
-    .build-log-line[data-tone='error'] { color: var(--editor-danger); }
-    .build-log-line[data-tone='warning'] { color: var(--editor-warning); }
-    .build-log-line[data-tone='success'] { color: var(--editor-success); }
-    .build-log-line[data-tone='info'] { color: var(--editor-info); }
+    .build-log-line[data-tone='error'] {
+      color: var(--editor-danger);
+    }
+    .build-log-line[data-tone='warning'] {
+      color: var(--editor-warning);
+    }
+    .build-log-line[data-tone='success'] {
+      color: var(--editor-success);
+    }
+    .build-log-line[data-tone='info'] {
+      color: var(--editor-info);
+    }
     .build-log-file,
     .build-log-url,
-    .build-log-level-info { color: var(--editor-info); }
+    .build-log-level-info {
+      color: var(--editor-info);
+    }
     .build-log-level-error,
-    .build-log-level-fatal { color: var(--editor-danger); }
+    .build-log-level-fatal {
+      color: var(--editor-danger);
+    }
     .build-log-level-warn,
-    .build-log-level-warning { color: var(--editor-warning); }
-    .build-log-level-success { color: var(--editor-success); }
+    .build-log-level-warning {
+      color: var(--editor-warning);
+    }
+    .build-log-level-success {
+      color: var(--editor-success);
+    }
     .build-log-metric,
     .build-log-level-debug,
     .build-log-level-trace,
-    .build-log-truncated { color: var(--editor-muted); }
+    .build-log-truncated {
+      color: var(--editor-muted);
+    }
   }
   .build-error {
     padding: 10px 12px;

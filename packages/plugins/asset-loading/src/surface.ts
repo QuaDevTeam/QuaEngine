@@ -15,17 +15,24 @@ export interface AssetLoadingSurfaceOptions {
 /** One resource-free surface for Web QUI and Native. No image or font asset refs. */
 export function createAssetLoadingUiSurfaceFeature(options: AssetLoadingSurfaceOptions = {}): UiFeatureSurfaceEntry {
   const labels = {
-    'preparing': 'Loading', 'loading-local': 'Loading local resources',
-    'checking-cache': 'Checking resources', 'downloading': 'Downloading',
-    'verifying': 'Verifying', 'caching': 'Saving resources', 'ready': 'Ready',
-    'error': 'Resources could not be loaded', 'retry': 'Retry', ...options.labels,
+    'preparing': 'Loading',
+    'loading-local': 'Loading local resources',
+    'checking-cache': 'Checking resources',
+    'downloading': 'Downloading',
+    'verifying': 'Verifying',
+    'caching': 'Saving resources',
+    'ready': 'Ready',
+    'error': 'Resources could not be loaded',
+    'retry': 'Retry',
+    ...options.labels,
   }
   return {
     pluginId: ASSET_LOADING_PLUGIN_ID,
     intentActions: [{ action: 'asset-loading-retry', event: ASSET_LOADING_RETRY, createPayload: () => ({}) }],
     createOverlays(context) {
       const state = context.projection as unknown as AssetLoadingProjection
-      if (!state.visible) return
+      if (!state.visible)
+        return
       const width = Math.min(720, context.safeArea.width - 80)
       const x = (context.logicalWidth - width) / 2
       const y = context.logicalHeight / 2
@@ -45,7 +52,9 @@ export function createAssetLoadingUiSurfaceFeature(options: AssetLoadingSurfaceO
         surface: {
           key: 'plugin-asset-loading/surface',
           root: {
-            id: 'asset-loading-root', kind: 'Panel', visible: true,
+            id: 'asset-loading-root',
+            kind: 'Panel',
+            visible: true,
             bounds: { x: 0, y: 0, width: context.logicalWidth, height: context.logicalHeight },
             style: { backgroundColor: options.backgroundColor ?? '#171c22' },
             children: [

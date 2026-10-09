@@ -20,10 +20,35 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libjavascriptcoregtk-4.1-dev
       - name: Select Rust stable
         run: rustup default stable
+      - name: Collect Windows crash dumps
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $folder = Join-Path $env:RUNNER_TEMP 'jsc-crash-dumps'
+          New-Item -ItemType Directory -Force $folder | Out-Null
+          $key = 'HKLM:\SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps'
+          New-Item -Force $key | Out-Null
+          New-ItemProperty $key -Name DumpFolder -PropertyType ExpandString -Value $folder -Force | Out-Null
+          New-ItemProperty $key -Name DumpCount -PropertyType DWord -Value 3 -Force | Out-Null
+          New-ItemProperty $key -Name DumpType -PropertyType DWord -Value 1 -Force | Out-Null
       - name: Test JavaScriptCore runtime and module lifecycle
+        id: runtime
         run: cargo test --locked --manifest-path packages/native/Cargo.toml -p quajs_native_runtime --features javascriptcore
       - name: Test native host bridge and startup
         run: cargo test --locked --manifest-path packages/native/Cargo.toml -p quajs_native_app --features javascriptcore
       - name: Build Windows window and audio integration
         if: runner.os == 'Windows'
         run: cargo build --locked --manifest-path packages/native/Cargo.toml -p quajs_native_app --features native-window,native-audio-rodio,javascriptcore
+      - name: Locate failing Windows runtime test
+        if: failure() && runner.os == 'Windows' && steps.runtime.outcome == 'failure'
+        run: cargo test --locked --manifest-path packages/native/Cargo.toml -p quajs_native_runtime --features javascriptcore --lib -- --test-threads=1 --nocapture
+      - name: Upload Windows crash diagnostics
+        if: failure() && runner.os == 'Windows'
+        uses: actions/upload-artifact@v7
+        with:
+          name: windows-jsc-crash
+          retention-days: 7
+          path: |
+            ${{ runner.temp }}/jsc-crash-dumps/*.dmp
+            packages/native/target/debug/deps/quajs_native_runtime-*.exe
+            packages/native/target/debug/deps/quajs_native_runtime-*.pdb
