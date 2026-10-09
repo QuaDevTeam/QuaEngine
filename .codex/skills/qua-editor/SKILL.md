@@ -15,6 +15,7 @@ controls and `--editor-*` tokens; panel CSS should only arrange them.
 ## Responsibility and setup
 
 - First-party IDE source under `packages/editor/` (including core, UI, Electron, Character Editor and Novel Writer) uses MPL-2.0, not the repository's default Apache-2.0. Keep package `license` metadata and package-local `LICENSE`/`NOTICE` aligned; preserve third-party notices. Follow `packages/editor/CONTRIBUTING.md` and the licensing section of its README. Distributions must provide the corresponding covered source and tell recipients how to obtain it; upstream PRs are encouraged, not required. Commercial use and forks remain permitted. New packages need the same license files, and moving covered code does not remove MPL obligations.
+- Root tooling explicitly includes `node-gyp` so pnpm 12 can build node-pty on hosts without a published prebuild (including Linux CI). Keep native dependency lifecycle builds enabled rather than masking an incomplete install.
 - The editor is a standalone Electron product. Do not introduce devframe or a VS Code runtime dependency.
 - Run `pnpm dev:editor` from the repository root. It builds workspace prerequisites before launching Electron. Open a Qua project folder such as `demo`.
 - `packages/editor/core` contains portable document and preview contracts plus lifecycle coordination. `ui` contains the host-neutral workbench. `electron` contains main/preload, Node worker services, files and child processes.
