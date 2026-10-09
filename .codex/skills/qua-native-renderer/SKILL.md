@@ -9,6 +9,11 @@ Use this skill for `packages/native/*`, Rust native runtime/renderer crates, nat
 
 ## JavaScriptCore integration
 
+The Native JavaScriptCore CI matrix keeps default test concurrency on all three
+platforms. Windows failures collect WER minidumps and test executable/PDB artifacts;
+the failure-only serial rerun locates the crashing test, never substitutes for the
+ordinary runtime/host tests or Windows window/audio build.
+
 See `docs/design/native-jsc-runtime.md` for platform libraries, the closed SWC/System.register module loader, GC ownership and execution budgets. Cache immutable bridge command names once per context; measure bridge changes with `jsc_performance` in the same Rust profile. Windows requires the pinned x64 MSVC distribution and a real Windows link/runtime gate; cross-target `cargo check` alone is insufficient. Preserve the complete Demo E2E gate and distinguish WGPU readback from successful OS window presentation.
 
 ## Boundaries

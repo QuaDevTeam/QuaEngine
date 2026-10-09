@@ -14,10 +14,7 @@ describe('resource-free loading scene', () => {
     const retry = vi.fn()
     pipeline.on(ASSET_LOADING_RETRY, retry)
     let state: AssetLoadingProjection = { visible: true, state: 'error', title: 'Startup', phase: 'preparing', progress: 0, loaded: 0, total: 0, attempt: 1 }
-    const dispose = mountAssetLoadingScene({ container: document.body, pipeline,
-      surface: createAssetLoadingUiSurfaceFeature(),
-      getViewState: () => ({ ui: { visible: true, overlays: {} }, plugins: { [ASSET_LOADING_PLUGIN_ID]: state } }) as unknown as QuaViewProjection,
-    })
+    const dispose = mountAssetLoadingScene({ container: document.body, pipeline, surface: createAssetLoadingUiSurfaceFeature(), getViewState: () => ({ ui: { visible: true, overlays: {} }, plugins: { [ASSET_LOADING_PLUGIN_ID]: state } }) as unknown as QuaViewProjection })
     expect(document.querySelector('[data-qui-id="asset-loading-title"]')?.textContent).toBe('Startup')
     const button = document.querySelector<HTMLButtonElement>('[data-qui-id="asset-loading-retry"]')!
     expect(document.activeElement).toBe(button)

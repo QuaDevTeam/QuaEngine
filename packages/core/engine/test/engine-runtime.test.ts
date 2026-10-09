@@ -70,7 +70,9 @@ describe('quaEngine runtime architecture', () => {
     await screenshot.setEnabled(true)
     expect(engine.getViewState()).toMatchObject({
       ui: { visible: false, overlays: original.ui.overlays },
-      background: original.background, characters: original.characters, dialogue: original.dialogue,
+      background: original.background,
+      characters: original.characters,
+      dialogue: original.dialogue,
       flowControl: { mode: 'normal' },
     })
     await engine.showUI('toast', { message: 'Late event' })

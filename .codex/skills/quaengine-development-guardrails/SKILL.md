@@ -8,6 +8,7 @@ description: QuaEngine architecture guardrails for renderer statelessness, dynam
 ## Core Rules
 
 ### Active development
+- Vite tooling consumes Quack's public package exports and built declarations. Do not map `@quajs/quack/project` directly to its source from a consumer tsconfig; that bypasses package-local ambient type declarations. Build dependencies before consumer typechecks.
 - Treat all QuaEngine packages, APIs, schemas, examples, and docs as active pre-release work.
 - Do not preserve deprecated APIs, legacy aliases, migration adapters, compatibility branches, fallback paths, or old/new dual implementations.
 - When changing a contract, update in-repo callers, tests, examples, docs, and relevant `.codex/skills/*/SKILL.md` files directly to the new shape.

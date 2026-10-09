@@ -167,6 +167,7 @@
   "peerDependencies": {
     "@quajs/assets": "workspace:*",
     "@quajs/assets-web": "workspace:*",
+    "@quajs/native-ui-compiler": "workspace:*",
     "@quajs/pipeline": "workspace:*",
     "@quajs/plugin-achievement": "workspace:*",
     "@quajs/plugin-asset-loading": "workspace:*",
@@ -177,10 +178,12 @@
     "@quajs/plugin-settings": "workspace:*",
     "@quajs/plugin-sprite": "workspace:*",
     "@quajs/render-core": "workspace:*",
-    "@quajs/store": "workspace:*",
-    "@quajs/native-ui-compiler": "workspace:*"
+    "@quajs/store": "workspace:*"
   },
   "peerDependenciesMeta": {
+    "@quajs/native-ui-compiler": {
+      "optional": true
+    },
     "@quajs/plugin-achievement": {
       "optional": true
     },
@@ -204,14 +207,12 @@
     },
     "@quajs/plugin-sprite": {
       "optional": true
-    },
-    "@quajs/native-ui-compiler": {
-      "optional": true
     }
   },
   "devDependencies": {
     "@quajs/assets": "workspace:*",
     "@quajs/assets-web": "workspace:*",
+    "@quajs/native-ui-compiler": "workspace:*",
     "@quajs/pipeline": "workspace:*",
     "@quajs/plugin-achievement": "workspace:*",
     "@quajs/plugin-asset-loading": "workspace:*",
@@ -222,7 +223,6 @@
     "@quajs/plugin-settings": "workspace:*",
     "@quajs/plugin-sprite": "workspace:*",
     "@quajs/render-core": "workspace:*",
-    "@quajs/store": "workspace:*",
-    "@quajs/native-ui-compiler": "workspace:*"
+    "@quajs/store": "workspace:*"
   }
 }

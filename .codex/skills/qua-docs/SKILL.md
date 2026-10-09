@@ -55,7 +55,7 @@ pnpm --dir docs preview
 pnpm --dir docs test:smoke
 ```
 
-Use Node 22.12+ and pnpm 12.3.4. Preserve the independent lockfile and supply-chain policy. Only static output is configured; build output is `docs/build/`. CI validates and uploads an artifact, without deploying.
+Use Node 22.12+ and pnpm 12.3.4. Preserve the independent lockfile and supply-chain policy. CI runs `pnpm --dir docs run check`, `run test:markdown` and `run build` directly in the docs workspace: root script dispatch can auto-install unrelated workspace dependencies. Only static output is configured; build output is `docs/build/`. CI validates and uploads an artifact, without deploying.
 
 ## Production deployment
 

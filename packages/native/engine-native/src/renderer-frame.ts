@@ -1,6 +1,7 @@
 import type {
   ActiveAnimationProjection,
   QuaViewProjection,
+  UiFeatureSurfaceEntry,
   ViewBackgroundProjection,
   ViewCharacterProjection,
   ViewChoiceProjection,
@@ -8,8 +9,8 @@ import type {
   ViewEffectProjection,
   ViewUiProjection,
 } from '@quajs/render-core'
-import type { UiFeatureSurfaceEntry } from '@quajs/render-core'
 import {
+  createUiFeatureSurfaceOverlays,
   projectAudioProjection,
   projectBackground,
   projectCharacters,
@@ -21,7 +22,6 @@ import {
   resolveBackgroundLayers,
   viewAllowsDialogueChrome,
 } from '@quajs/render-core'
-import { createUiFeatureSurfaceOverlays } from '@quajs/render-core'
 
 import { sampleNativeSpriteLayerAnimations } from './sprite-animation'
 
@@ -299,7 +299,7 @@ function createNativePluginProjection(plugins: unknown): JsonRecord | undefined 
     return undefined
   }
   return omitUndefined({
-    fonts: createNativeFontsProjection(record.fonts),
+    'fonts': createNativeFontsProjection(record.fonts),
     'asset-loading': cloneJsonValue(record['asset-loading']),
   })
 }

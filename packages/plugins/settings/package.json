@@ -81,8 +81,8 @@
     "@quajs/engine-native": "workspace:*",
     "@quajs/native-ui-compiler": "workspace:*",
     "@quajs/pipeline": "workspace:*",
-    "@quajs/store": "workspace:*",
-    "@quajs/render-core": "workspace:*"
+    "@quajs/render-core": "workspace:*",
+    "@quajs/store": "workspace:*"
   },
   "quajs": {
     "type": "plugin",

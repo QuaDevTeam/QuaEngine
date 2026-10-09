@@ -25,13 +25,14 @@ jobs:
           cache: pnpm
           cache-dependency-path: docs/pnpm-lock.yaml
       - run: pnpm --dir docs install --frozen-lockfile
-      - run: pnpm docs:check
-      - run: pnpm docs:build
+      - run: pnpm --dir docs run check
+      - run: pnpm --dir docs run test:markdown
+      - run: pnpm --dir docs run build
       - run: pnpm --dir docs exec playwright install --with-deps chromium
       - name: Browser smoke
         working-directory: docs
         run: |
-          pnpm preview > /tmp/qua-docs-preview.log 2>&1 &
+          pnpm run preview > /tmp/qua-docs-preview.log 2>&1 &
           trap 'kill $!' EXIT
           node scripts/smoke.mjs
       - uses: actions/upload-artifact@v7

@@ -79,7 +79,8 @@ export function mountAssetLoadingScene(options: AssetLoadingWebRendererOptions &
     root.style.background = '#000'
   }
   const resize = () => {
-    if (!shared || !root.isConnected) return
+    if (!shared || !root.isConnected)
+      return
     const layout = resolveStageLayout(options.getViewState().layout, { width: root.clientWidth, height: root.clientHeight })
     Object.assign(viewport.style, stageViewportStyle(layout))
     Object.assign(stage.style, stageContentStyle(layout))
@@ -88,8 +89,9 @@ export function mountAssetLoadingScene(options: AssetLoadingWebRendererOptions &
   observer?.observe(root)
   const retryIntent: Parameters<Pipeline['on']>[1] = ({ event }) => {
     if (shared && (options.getViewState().plugins[ASSET_LOADING_PLUGIN_ID] as AssetLoadingProjection | undefined)?.visible
-      && (event.payload as { action?: string })?.action === 'asset-loading-retry')
+      && (event.payload as { action?: string })?.action === 'asset-loading-retry') {
       void pipeline.emit(ASSET_LOADING_RETRY, {})
+    }
   }
   pipeline.on('ui/intent', retryIntent)
   const focusTarget = () => shared ? viewport.querySelector<HTMLButtonElement>('button') ?? root : retry.hidden ? root : retry

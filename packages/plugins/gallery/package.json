@@ -57,8 +57,8 @@
     "@quajs/native-ui-compiler": "workspace:*",
     "@quajs/pipeline": "workspace:*",
     "@quajs/plugin-settings": "workspace:*",
-    "@quajs/store": "workspace:*",
-    "@quajs/render-core": "workspace:*"
+    "@quajs/render-core": "workspace:*",
+    "@quajs/store": "workspace:*"
   },
   "peerDependenciesMeta": {
     "@quajs/native-ui-compiler": {
@@ -78,9 +78,9 @@
     "@quajs/native-ui-compiler": "workspace:*",
     "@quajs/pipeline": "workspace:*",
     "@quajs/plugin-settings": "workspace:*",
+    "@quajs/render-core": "workspace:*",
     "@quajs/store": "workspace:*",
-    "@quajs/story-graph": "workspace:*",
-    "@quajs/render-core": "workspace:*"
+    "@quajs/story-graph": "workspace:*"
   },
   "quajs": {
     "type": "plugin",

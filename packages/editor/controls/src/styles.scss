@@ -25,8 +25,10 @@
   color: var(--editor-text);
   border: 1px solid var(--editor-border);
   border-radius: var(--editor-radius);
-  transition: background-color var(--editor-control-transition) ease,
-    border-color var(--editor-control-transition) ease, color var(--editor-control-transition) ease;
+  transition:
+    background-color var(--editor-control-transition) ease,
+    border-color var(--editor-control-transition) ease,
+    color var(--editor-control-transition) ease;
 }
 :where(.editor-ui, .editor-controls) :where(button):not(:where(.monaco-editor *, .xterm *, .qua-stage *)) {
   background: var(--editor-button-bg);
@@ -162,7 +164,10 @@
   width: 14px;
   height: 14px;
 }
-.editor-button-icon > svg { width: 100%; height: 100%; }
+.editor-button-icon > svg {
+  width: 100%;
+  height: 100%;
+}
 .editor-button-spinner {
   fill: none;
   stroke: currentColor;
@@ -398,13 +403,25 @@ qua-property-section {
   background: var(--editor-on-primary);
 }
 
-@keyframes editor-button-spin { to { transform: rotate(360deg); } }
+@keyframes editor-button-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 @media (prefers-reduced-motion: reduce) {
-  :where(.editor-ui, .editor-controls) { --editor-control-transition: 0ms; }
-  .editor-button-spinner { animation: none; }
+  :where(.editor-ui, .editor-controls) {
+    --editor-control-transition: 0ms;
+  }
+  .editor-button-spinner {
+    animation: none;
+  }
 }
 body[data-reduced-motion='true'] {
   --editor-control-transition: 0ms;
-  :where(.editor-controls) { --editor-control-transition: 0ms; }
-  .editor-button-spinner { animation: none; }
+  :where(.editor-controls) {
+    --editor-control-transition: 0ms;
+  }
+  .editor-button-spinner {
+    animation: none;
+  }
 }

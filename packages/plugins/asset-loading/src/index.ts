@@ -38,7 +38,8 @@ export class AssetLoadingPlugin extends BaseEnginePlugin {
     return this.getEngine().getPluginProjection<AssetLoadingProjection>(this.id)
   }
 
-  /** Native hosts read local QPK images and acknowledge GPU residency through the pipeline.
+  /**
+   * Native hosts read local QPK images and acknowledge GPU residency through the pipeline.
    * This preparation never downloads assets or falls back to a remote source.
    * Publish its initial view through the renderer bridge; never await it in a host's
    * synchronous bootstrap export, since rendering must service the request.
@@ -51,19 +52,24 @@ export class AssetLoadingPlugin extends BaseEnginePlugin {
       const id = `asset-loading-${++this.preparationSequence}`
       const dispose = () => {
         pipeline.off(ASSET_LOADING_RENDERER_PROGRESS, listener)
-        if (this.disposePreparation === dispose) this.disposePreparation = undefined
+        if (this.disposePreparation === dispose)
+          this.disposePreparation = undefined
       }
-      const listener: Parameters<typeof pipeline.on>[1] = ({ event }) => {
-        if (!event.payload || typeof event.payload !== 'object') return
+      function listener({ event }: Parameters<Parameters<typeof pipeline.on>[1]>[0]): void {
+        if (!event.payload || typeof event.payload !== 'object')
+          return
         const update = event.payload as { id?: string, completed?: number, total?: number, error?: string }
-        if (update.id !== id) return
+        if (update.id !== id)
+          return
         if (typeof update.error === 'string' && update.error) {
           dispose()
           reject(new Error(update.error))
           return
         }
         if (!Number.isSafeInteger(update.completed) || !Number.isSafeInteger(update.total)
-          || update.total !== images.length || update.completed! < 0 || update.completed! > update.total!) return
+          || update.total !== images.length || update.completed! < 0 || update.completed! > update.total!) {
+          return
+        }
         report({ progress: update.total ? update.completed! / update.total : 1 })
         if (update.completed === update.total) {
           dispose()

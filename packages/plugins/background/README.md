@@ -30,9 +30,16 @@ Renderer entries:
 ```ts
 await background.setBackground('backgrounds/room.webp')
 await background.addLayer({
-  id: 'letter', assetName: 'inserts/letter.png',
-  x: 320, y: 180, width: 480, height: 320,
-  fit: 'contain', rotation: -6, opacity: 0.9, zIndex: 10,
+  id: 'letter',
+  assetName: 'inserts/letter.png',
+  x: 320,
+  y: 180,
+  width: 480,
+  height: 320,
+  fit: 'contain',
+  rotation: -6,
+  opacity: 0.9,
+  zIndex: 10,
 })
 await background.updateLayer('letter', { x: 700 })
 await background.removeLayer('letter')
@@ -58,8 +65,13 @@ Register `AnimationPlugin` from `@quajs/plugin-animation` before `engine.init()`
 import { createBackgroundMotionTimeline } from '@quajs/plugin-background/animation'
 
 await background.addLayer({
-  id: 'letter', assetName: 'inserts/letter.png',
-  x: 320, y: 180, width: 480, height: 320, fit: 'contain',
+  id: 'letter',
+  assetName: 'inserts/letter.png',
+  x: 320,
+  y: 180,
+  width: 480,
+  height: 320,
+  fit: 'contain',
 })
 const playback = await animation.playTimeline(createBackgroundMotionTimeline('backgroundLayer:letter', [
   { at: 0, x: 320, y: 180, width: 480, height: 320, scale: 1, rotation: -6, opacity: 0 },

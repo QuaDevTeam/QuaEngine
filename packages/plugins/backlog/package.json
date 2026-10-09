@@ -82,8 +82,8 @@
     "@quajs/pipeline": "workspace:*",
     "@quajs/plugin-audio": "workspace:*",
     "@quajs/plugin-settings": "workspace:*",
-    "@quajs/store": "workspace:*",
-    "@quajs/render-core": "workspace:*"
+    "@quajs/render-core": "workspace:*",
+    "@quajs/store": "workspace:*"
   },
   "quajs": {
     "type": "plugin",

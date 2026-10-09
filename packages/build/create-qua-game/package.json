@@ -41,8 +41,8 @@
   "scripts": {
     "build": "vite build",
     "dev": "vite build --watch",
-    "lint": "eslint . --ignore-pattern templates/**",
-    "lint:fix": "eslint . --ignore-pattern templates/** --fix",
+    "lint": "eslint . --ignore-pattern 'templates/**'",
+    "lint:fix": "eslint . --ignore-pattern 'templates/**' --fix",
     "test": "vitest",
     "typecheck": "tsc --noEmit"
   },

@@ -44,19 +44,19 @@ feature styles arrange controls rather than redefining their borders, background
 padding or radius. Scope status-bar styles to `.workbench-statusbar`; never use
 global `footer button` rules that would override dialog actions.
 
-| API                                         | Responsibility                                                            |
-| ------------------------------------------- | ------------------------------------------------------------------------- |
-| `emptyState(title, description?, actions?)` | Empty surface with optional symbol, status copy and native actions        |
-| `button(label, action, variant?)`           | `type=button`; default, primary, quiet, danger                            |
-| `buttonView(label, action?, options?)`      | Reactive native button template with variants, icons, busy/disabled state and sizes |
-| `iconButtonView(label, icon, action?, options?)` | Shared square action with required accessible label and tooltip |
-| `input(value?, changed?, options?)`         | Text/search/password/url/number/range; optional bounds, step, placeholder |
-| `select(options?, value?, changed?)`        | Native keyboard popup; string or `{value,title}` options                  |
-| `checkbox(checked?, changed?)`              | Native checkbox with boolean callback                                     |
-| `textarea(value?)`                          | Multiline control; caller owns live commits                               |
-| `field(label, control, options?)`           | Label association, unique ID, row/stack/inline layout, optional unit      |
-| `section(title, ...children)`               | Named property group with semantic heading                                |
-| `disclosure(summary, content, options?)`    | Native details/summary with retained children and optional height transition |
+| API                                              | Responsibility                                                                      |
+| ------------------------------------------------ | ----------------------------------------------------------------------------------- |
+| `emptyState(title, description?, actions?)`      | Empty surface with optional symbol, status copy and native actions                  |
+| `button(label, action, variant?)`                | `type=button`; default, primary, quiet, danger                                      |
+| `buttonView(label, action?, options?)`           | Reactive native button template with variants, icons, busy/disabled state and sizes |
+| `iconButtonView(label, icon, action?, options?)` | Shared square action with required accessible label and tooltip                     |
+| `input(value?, changed?, options?)`              | Text/search/password/url/number/range; optional bounds, step, placeholder           |
+| `select(options?, value?, changed?)`             | Native keyboard popup; string or `{value,title}` options                            |
+| `checkbox(checked?, changed?)`                   | Native checkbox with boolean callback                                               |
+| `textarea(value?)`                               | Multiline control; caller owns live commits                                         |
+| `field(label, control, options?)`                | Label association, unique ID, row/stack/inline layout, optional unit                |
+| `section(title, ...children)`                    | Named property group with semantic heading                                          |
+| `disclosure(summary, content, options?)`         | Native details/summary with retained children and optional height transition        |
 
 `disclosure` returns a Lit template. Leave `open` undefined for native retained
 state, or pass `{ open, onToggle }` when a controller owns it. `summary` accepts
@@ -71,7 +71,7 @@ Build logs and search include/exclude options use the same component.
 ```ts
 render(disclosure('高级选项', html`${field('文件类型', input('*.qs'))}`, {
   open: expanded,
-  onToggle: value => { expanded = value },
+  onToggle: (value) => { expanded = value },
 }), host)
 ```
 

@@ -34,7 +34,7 @@
     "prettier": "catalog:",
     "semver": "catalog:",
     "sharp": "catalog:",
-    "socks": "^2.8.10",
+    "socks": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
     "vscode-json-languageservice": "catalog:",

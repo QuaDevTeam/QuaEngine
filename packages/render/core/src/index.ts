@@ -1919,7 +1919,7 @@ function createFlowControlControls(policy: ResolvedFlowControlPolicy): FlowContr
   }
 }
 
-export { createMenuActionPresentation, createSaveSlotGrid, isFilledSaveSlot, previewStatusLabel, saveSlotDisplayName, saveSlotMeta } from './ui-presentation'
-export type { MenuActionId, SaveSlotGridOptions, SaveSlotProjection } from './ui-presentation'
-
 export * from './ui-feature-surfaces'
+export { createMenuActionPresentation, createSaveSlotGrid, isFilledSaveSlot, previewStatusLabel, saveSlotDisplayName, saveSlotMeta } from './ui-presentation'
+
+export type { MenuActionId, SaveSlotGridOptions, SaveSlotProjection } from './ui-presentation'

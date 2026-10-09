@@ -24,14 +24,14 @@ export type * from './preview/debug.js'
 export { validateDebugRequest } from './preview/debug.js'
 export type * from './preview/inspector.js'
 export type * from './preview/performance.js'
+export { resolveReloadStep } from './preview/reload-position.js'
+export type * from './preview/storage.js'
+
+export { validateStorageRequest } from './preview/storage.js'
 export {
-  editorReleaseManifestUrl,
   editorComponentCatalogUrl,
+  editorReleaseManifestUrl,
   parseEditorComponentCatalog,
   parseEditorReleaseManifest,
 } from './release.js'
 export type * from './release.js'
-
-export { resolveReloadStep } from './preview/reload-position.js'
-export type * from './preview/storage.js'
-export { validateStorageRequest } from './preview/storage.js'
