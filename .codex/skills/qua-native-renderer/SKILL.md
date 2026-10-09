@@ -9,6 +9,13 @@ Use this skill for `packages/native/*`, Rust native runtime/renderer crates, nat
 
 ## JavaScriptCore integration
 
+Context ownership includes an explicit independent JSC group. Rooted values keep
+the context/group alive; teardown clears the watchdog, releases the global
+context, then releases the group using the locked group API. The pinned Windows
+distribution's global-context release does not take the VM lock. Keep repeated
+weak-reference allocation/teardown and parallel independent-context regression
+coverage; never leak contexts or serialize all tests as a workaround.
+
 The Native JavaScriptCore CI matrix keeps default test concurrency on all three
 platforms. Windows failures collect WER minidumps and test executable/PDB artifacts;
 if WER is suppressed by the runner, the diagnostic rerun uses Microsoft ProcDump

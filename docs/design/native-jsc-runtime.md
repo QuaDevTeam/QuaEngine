@@ -48,6 +48,14 @@ removes those roots through the existing host registry and pipeline lifecycle.
 There is no process-global cache of package code. Re-evaluation after unload
 uses the newly supplied QPK bytes.
 
+Every context explicitly owns an independent context group. Rooted values keep
+both alive. Teardown clears the execution watchdog, releases the global context,
+then releases the group through JSC's VM-locked group API. The pinned Windows
+distribution does not lock `JSGlobalContextRelease`; allowing it to destroy the
+last VM reference directly can corrupt the weak-block heap during teardown.
+Keep the group reference until that call returns; do not leak contexts or disable
+concurrent runtime tests to avoid destruction.
+
 JavaScript remains on the resident engine worker. JSC drains Promise jobs when
 C API calls return; the worker wakes for renderer intents or the next timer
 deadline and otherwise parks. Renderer state authority and communication
