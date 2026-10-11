@@ -7,7 +7,7 @@ description: Maintain QuaEngine's svedocs site, creator tutorials, generated pac
 
 ## Responsibility
 
-`docs/` is an independent pnpm workspace on svedocs/svedocs-cli 0.2.1. It produces static output without building engine, Electron or Rust packages. Use the installed use-svedocs, configure-svedocs, customize-svedocs-theme and build-svedocs-landing skills when changing the corresponding surfaces.
+`docs/` is an independent pnpm workspace on svedocs/svedocs-cli 0.2.4. It produces static output without building engine, Electron or Rust packages. Use the installed use-svedocs, configure-svedocs, customize-svedocs-theme and build-svedocs-landing skills when changing the corresponding surfaces.
 
 ## Content and source ownership
 
@@ -55,9 +55,12 @@ pnpm --dir docs test:markdown
 pnpm docs:build
 pnpm --dir docs preview
 pnpm --dir docs test:smoke
+pnpm --dir docs test:sidebar
 ```
 
 Use Node 22.12+ and pnpm 12.3.4. Preserve the independent lockfile and supply-chain policy. CI runs `pnpm --dir docs run check`, `run test:markdown` and `run build` directly in the docs workspace: root script dispatch can auto-install unrelated workspace dependencies. Only static output is configured; build output is `docs/build/`. CI validates and uploads an artifact, without deploying.
+
+After svedocs upgrades, verify previous/next navigation and browser history in the custom sidebar, plus opening the mobile menu on a deep route. `test:sidebar` checks the active child enters the scroll container in light/dark modes and writes screenshots and the installed svedocs version under `.generated/qa/sidebar/`.
 
 ## Production deployment
 

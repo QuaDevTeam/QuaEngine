@@ -35,6 +35,7 @@ jobs:
           pnpm run preview > /tmp/qua-docs-preview.log 2>&1 &
           trap 'kill $!' EXIT
           node scripts/smoke.mjs
+          node scripts/sidebar-smoke.mjs
       - uses: actions/upload-artifact@v7
         with:
           name: quaengine-docs
