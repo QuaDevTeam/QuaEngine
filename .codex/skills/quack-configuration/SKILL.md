@@ -140,12 +140,14 @@ Quack workspace loading automatically merges manifest-derived `assetTargets` int
 quack project validate
 quack project doctor
 quack project sync --target web|cocos|all
-quack project build --target cocos --platform android --all
+quack project build --target cocos --all
 ```
 
 `quack project doctor` loads the manifest and reports Web device support, favicon/PWA icon readiness, PWA service worker caveats, Cocos platform configuration, Cocos project directory presence, icon sources, hybrid asset output hints, and native platform/profile/icon/output metadata. Treat `error` results as blockers and `warning` results as things to resolve or explicitly accept before packaging.
 
 `quack project sync --target cocos` writes importable Creator build config JSON under `<projectDir>/qua-build/<platform>.build.json` and copies configured Cocos icon assets into `<projectDir>/assets/qua-app-icons/`. Use Creator command-line `configPath` with these files; do not edit Creator last-build cache.
+
+`quack project build --target cocos --all` also compiles the configured business entry, QuaScript and shared QUI into Creator-compatible ESM, emits the actual retained-module graph and target manifest, then creates a portable Canvas/Camera scene and startup component. Creator supplies `cc`; runtime imports must not resolve to repository source, Node or Web target cores. All configured bundles are required; partial `--bundle` generation is rejected. Build a platform afterward with Creator's generated configPath, not Quack's `--platform`. Native media domains include imported images, audio and fonts; hybrid output never redirects JSON or other structured bytes to the native importer. PNG optimization can be disabled for lossless RGBA. Generate in a temporary sibling directory and replace only after validation; a failed build preserves the last workspace.
 
 The Vite plugin exposes `virtual:qua-project`, injects Web home meta, emits favicon assets when PWA is disabled, and emits `manifest.webmanifest`, PWA icons, and generated service worker assets when PWA is enabled.
 
@@ -334,3 +336,25 @@ The same manifest includes `bundleIdentity: { name, version, buildNumber, hash, 
 ## Production project distribution
 
 `quack project build --target web|native` runs production Vite and validates the retained module graph through the active target resolver. Native distribution currently builds macOS `.app` on macOS, with staged QPKs, pinned startup metadata, Cargo release executable, icon, signature and optional notarytool submission/stapling. Use `buildQuaProjectProduction` from `@quajs/quack/project`; see `packages/build/quack/docs/production-build.md`. `QuackBundler.bundle(manifestName)` optionally preserves a workspace bundle's identity when staging individual outputs. Never overwrite an existing release/version directory, silently downgrade requested signing/notarization, inject inactive target cores or bundle dev transport into a production app.
+
+## Creator opaque QPK import
+
+Generated Creator QPK resources use `.binary` with the generic `*` importer. `.bin` is reserved for CCON and causes builder deserialization failures; `.bytes` falls through to text download in Creator. Load opaque resources as `cc.Asset`, then read its ArrayBuffer/typed-array native asset: `cc.BufferAsset` filters out generic imported resources. Emit Creator 3.8.8 engine profile version `1.0.12`, explicit enabled and disabled module cache entries, and the custom pipeline; sparse profiles silently enable Creator default modules. Verify imports and runtime startup after clean library/temp regeneration, independently of CLI exit 36.
+
+On native JSB, generic assets may expose only `nativeUrl`; the injected `native.fileUtils` reads the Creator-resolved packaged file. This path must be verified in the actual app and covered separately from Web typed-array fixtures.
+
+The generated build config must also set `customPipeline: true`; Creator lets this flag override engine module selection. Matching the engine profile alone is insufficient. Keep the optional profiler module disabled in the demo workspace; Debug native inspection remains available.
+
+Creator 3.8.8 builds select the custom pipeline even if a legacy profile/false flag was authored. Include its `3d` and `primitive` SDK dependencies, use the matching engine profile and rebuild the import cache after changing pipeline selection. QuaEngine target isolation applies to Qua target adapters, not removal of Creator SDK pipeline dependencies.
+
+Creator exit 36 is necessary but insufficient: check the published main bundle contains every requested scene (`config.json` for Web, `cc.config.json` for macOS data). If import caches/metadata became generic `*`, restore generated assets and `.meta` as well as clearing the owned workspace library/temp; clearing library alone preserves corrupted importer selections. Never delete authoring-project caches indiscriminately.
+
+Generated workspaces carry `qua-import-meta.json`, containing the authored stable importer metadata including audio/video clips. The demo builder restores this metadata and clears only the regeneratable workspace library/temp before each build. Published Web/macOS data must include requested startup scenes before make or delivery. Keep both target artifacts across these clean imports; never treat a generic scene importer as acceptable.
+For the local Creator 3.8.8 CLI cold-import failure, scene presence is the gate after exit 36. The demo builder may restore authored metadata, start a dedicated full Editor process until every generated resource is imported with its expected type, close that process, and retry CLI once with the imported library intact. It must stop if import times out, that process remains alive, or the retry still omits a requested scene. Preserve both failed CLI and import logs; this is a recovery for an observed SDK failure, not proof of its underlying cause.
+
+Concrete macOS video decoding is a static host product from the public `@quajs/cocos-host/creator-native-products` dist entry, copied to workspace-relative native/engine/common/Classes and compiled with AVFoundation/CoreVideo/CoreMedia. The generator must require the emitted manifest to select cocos-host; no other target bootstrap is added. Use the SDK existing .mm compiler rules, rather than enabling OBJCXX with its bundled CMake. Enable the SDK video module for supported Creator Web, and import video through the hybrid domain. Independent real macOS compilation and moving GPU frames are required evidence.
+
+The generated Web shell must enable `ENABLE_TRANSPARENT_CANVAS` through engine settings before graphics initialization and isolate the game container's CSS stacking context so SDK VideoPlayer below Canvas is visible. Otherwise its negative z-index can put it behind the page background. Decoder clocks alone miss a black screen; require decoded color-bar pixels in real browser captures. Keep UI above video and preserve black bars through the host stage projection.
+
+
+Creator 3.8.8 CLI 构建使用每次独立的临时工作区导入副本，避免跨平台／重复使用导入数据库时将资源识别成普通文件。demo 构建脚本保留原始生成文件，验证启动场景（原生还要求 make 产出应用）后原子发布 build/<platform>；失败保留上一份可用输出。临时副本和构建锁自动清理。生成 package.json 使用稳定项目 UUID。脚本调用仍为 configPath，SDK 成功码为 36；该退出码本身不构成验收。独立 CLI 手动复现时请为每个平台复制一份原始工作区；Creator 图形编辑器可直接打开生成目录。

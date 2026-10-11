@@ -7,7 +7,13 @@ description: Use, validate, or update QuaEngine unified project manifests (`qua.
 
 Use this skill when changing `qua.project.yaml`, `qua.project.yml`, `qua.project.json`, `@quajs/quack/project`, `virtual:qua-project`, create-qua-game manifest scaffolding, Web/PWA icon emission, Web device guard behavior, or Cocos project sync.
 
+For a generated Creator workspace configure `targets.cocos.build.entry` (a business module exporting `bootstrap(services)`), optional `viteConfig`, and `macOSDeploymentTarget`. `quack project build --target cocos --all` generates the complete workspace at `projectDir`; sync alone only writes platform build configuration. Generation is atomic and rejects authored/non-generated destinations. The generator bundles public package `dist` entries, records retained modules, selects only `cocos-core-resolver`, and consumes its validated target manifest to create the startup scene. Keep all runtime paths relative, `cc` external, and hybrid native media under Creator assets; structured content remains in QPK. Use generated `qua-build/<platform>.build.json` via Creator `configPath`; exit 36 means success. Native macOS additionally requires stage=make and actual application launch.
+
 ## Manifest Contract
+
+Use `demo`'s Cocos interaction, native lifecycle, full parity and `test:cocos:surfaces` commands to verify generated products. Parity uses separate persistent QA browser profiles under `demo/.generated/cocos-parity*` and fixed loopback origins (46181/46182, or 46191/46192 for surfaces). Keep these profiles separate from authoring browsers. Await actual control projection and completed chapter transitions before capturing; a pipeline intent can finish before native fonts and controls draw.
+
+Parity may resume only from durable checkpoints created through actual input, retaining verified prefix evidence and replaying the remaining story. Reject changed runtime artifact hashes. JSB input is queued for frame dispatch; wait for that dispatch before retrying keys or controls.
 
 Only one implicit manifest may exist at a project root. Auto-discovery checks `qua.project.yaml`, `qua.project.yml`, then `qua.project.json`; if multiple are found without an explicit config path, validation must fail.
 
@@ -90,3 +96,14 @@ Also run affected `typecheck` and `build` commands. If `@quajs/renderer-web type
 ## Production builds
 
 `targets.native.build` accepts `cargoManifest`, `cargoPackage`, `viteConfig`, `appAsset`, `workspaceConfig` and `cargoFeatures`. Release packaging requires native-window and javascriptcore. `targets.native.distribution.macos` contains `minimumSystemVersion`, `signing: { mode: adhoc | developer-id, identity?, entitlements? }` and `notarization: { enabled, keychainProfile? }`. Enabled notarization requires Developer ID signing and a Keychain profile; never store secrets in the manifest. `name` is the OS window/application display name, with `(Dev)` only in development. See `packages/build/quack/docs/production-build.md` for the full example, host-only macOS scope, numeric Apple version fields, output immutability and validation. The editor and CLI use the same `buildQuaProjectProduction` pipeline.
+
+For the demo Cocos surface review, reuse the full-story browser profiles and origins (ports 46181/46182; IndexedDB is origin-scoped) so chapter unlock state matches the native profile. Locked and unlocked chapter titles have intentionally different shared geometry; mixed profile data is not a valid same-state layout comparison. Preserve a failed report when correcting the test setup.
+
+Before a surface comparison, restart the native application after other interaction/restart tests. Browser reloads create a fresh session backlog; a native process that previously loaded a save has different in-memory dialogue history. Keep durable profiles and chapter unlocks, and compare only sessions created by the same input sequence.
+
+Bound Playwright teardown waits, close temporary servers, and confirm no process uses the owned QA profile paths before exiting a runner whose transport remains pending. Preserve teardown evidence separately from game assertions.
+
+For Creator media reviews, the generated Web startup skips the optional SDK splash watermark and profiler and enters the shared demo directly. The selected Creator pipeline and engine profile must agree; startup and real game GPU captures remain required after changes.
+
+
+Creator 3.8.8 CLI 构建使用每次独立的临时工作区导入副本，避免跨平台／重复使用导入数据库时将资源识别成普通文件。demo 构建脚本保留原始生成文件，验证启动场景（原生还要求 make 产出应用）后原子发布 build/<platform>；失败保留上一份可用输出。临时副本和构建锁自动清理。生成 package.json 使用稳定项目 UUID。脚本调用仍为 configPath，SDK 成功码为 36；该退出码本身不构成验收。独立 CLI 手动复现时请为每个平台复制一份原始工作区；Creator 图形编辑器可直接打开生成目录。

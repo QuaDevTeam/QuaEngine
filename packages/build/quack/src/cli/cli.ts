@@ -13,6 +13,7 @@ import { QuackBundler } from '../core/bundler'
 import { buildLocalePack } from '../i18n/locale-pack'
 import { buildQuaProjectProduction } from '../production/build'
 import { doctorQuaProjectConfig, findQuaProjectConfigFile, loadQuaProjectConfig, syncQuaProjectCocos } from '../project'
+import { buildQuaProjectCocosWorkspace } from '../project-cocos'
 import { readKeyFile, signQpkFile, verifyQpkFile } from '../security/signature'
 import { assertQuackPluginSpecifiersTargetIsolation } from '../target-plugin-isolation'
 import { getErrorMessage, getErrorStack } from '../utils/error'
@@ -1138,41 +1139,17 @@ project
       if (options.target !== 'cocos') {
         throw new Error(`Unsupported project build target "${options.target}". Use Vite for Web builds.`)
       }
-      const { config, configPath, projectRoot } = await loadProjectConfigForCli({ config: options.config })
-      const workspaceManager = new WorkspaceManager(projectRoot)
-      const workspaceConfig = await workspaceManager.loadConfig(
-        options.workspaceConfig ? resolve(projectRoot, options.workspaceConfig) : undefined,
-        {
-          projectConfig: configPath,
-        },
-      )
-      let bundlesToBuild = workspaceConfig.bundles
-      if (options.bundle) {
-        const bundle = workspaceManager.getBundleDefinition(options.bundle)
-        if (!bundle) {
-          throw new Error(`Bundle "${options.bundle}" not found`)
-        }
-        bundlesToBuild = [bundle]
-      }
-      else if (!options.all) {
-        throw new Error('Specify --bundle <name> or --all to build project bundles.')
-      }
-
-      const buildOrder = workspaceManager.getBundlesBuildOrder()
-      const selectedBundles = buildOrder.filter(bundle => bundlesToBuild.includes(bundle))
-      for (const bundle of selectedBundles) {
-        console.log(`\n📦 Building bundle: ${bundle.displayName || bundle.name}`)
-        const bundleConfig = workspaceManager.createBundleConfig(bundle.name, {
-          verbose: options.verbose,
-        })
-        const bundler = new QuackBundler(bundleConfig)
-        const stats = await bundler.bundle()
-        console.log(`✅ Bundle "${bundle.name}" created successfully!`)
-        console.log(`📊 ${stats.totalFiles} files, ${formatBytes(stats.totalSize)}, ${stats.processingTime}ms`)
-      }
-
-      const result = await syncQuaProjectCocos(config, { cwd: projectRoot, platform: options.platform })
-      console.log(`✅ Project Cocos build files ready: ${result.buildConfigs.length} platform config(s).`)
+      if (options.bundle)
+        throw new Error('A Cocos workspace requires the complete workspace bundle graph. Use --all.')
+      if (options.platform)
+        throw new Error('Cocos workspace generation emits every configured platform. Build the chosen platform with Creator configPath.')
+      if (options.progressFd)
+        throw new Error('Structured production progress is supported for Web/native packaging only.')
+      const { projectRoot } = await loadProjectConfigForCli({ config: options.config })
+      const result = await buildQuaProjectCocosWorkspace({ cwd: projectRoot, configPath: options.config, workspaceConfig: options.workspaceConfig })
+      console.log(`Cocos workspace: ${result.artifact}`)
+      if (options.resultFile)
+        await writeFile(resolve(options.resultFile), JSON.stringify(result))
     }
     catch (error) {
       console.error('❌ Qua project build failed:', getErrorMessage(error))

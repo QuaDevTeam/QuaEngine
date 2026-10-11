@@ -316,6 +316,14 @@ export class QuackBundler extends EventEmitter {
       manifest.runtimePackage = withRuntimePackageIntegrity(normalizedConfig.runtimePackage, root)
       manifest.assetTarget = normalizedConfig.assetTarget ? createAssetTargetManifest(normalizedConfig.assetTarget) : undefined
       const { bundleAssets, nativeAssets } = await applyCocosHybridAssetSplit(assets, manifest, normalizedConfig.output)
+      if (normalizedConfig.assetTarget?.platform === 'cocos') {
+        for (const records of Object.values(manifest.assets)) {
+          for (const asset of Object.values(records || {})) {
+            asset.path = asset.relativePath
+            for (const variant of Object.values(asset.variants || {})) variant.path = variant.relativePath
+          }
+        }
+      }
       await this.applyManifestSignature(manifest, normalizedConfig)
 
       if (options.workspaceBundle) {
@@ -1069,6 +1077,7 @@ async function applyCocosHybridAssetSplit(
 function isCocosHybridNativeAsset(asset: AssetInfo, hybrid: CocosHybridAssetManifest): boolean {
   return ASSET_PIPELINE_DOMAINS.includes(asset.type as AssetPipelineDomain)
     && hybrid.domains[asset.type as AssetPipelineDomain] === 'cocos-bundle'
+    && /^(?:image\/|audio\/|video\/|font\/|application\/(?:x-font|font))/.test(asset.mimeType || '')
 }
 
 async function writeCocosHybridNativeAsset(asset: AssetInfo, output: string, nativeSource: string): Promise<void> {

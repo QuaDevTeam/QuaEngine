@@ -63,6 +63,8 @@
     "@quajs/utils": "workspace:*"
   },
   "dependencies": {
+    "@babel/parser": "catalog:",
+    "@babel/traverse": "catalog:",
     "@quajs/native-contracts": "workspace:*",
     "@quajs/script-compiler": "workspace:*",
     "commander": "catalog:",
@@ -76,5 +78,7 @@
     "yauzl": "catalog:",
     "yazl": "catalog:"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "@types/babel__traverse": "catalog:"
+  }
 }

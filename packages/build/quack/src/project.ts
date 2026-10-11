@@ -17,6 +17,8 @@ import { normalizeNativeDistribution } from './project-native-distribution'
 export { buildQuaProjectProduction } from './production/build'
 export type { QuaProductionBuildOptions, QuaProductionBuildResult } from './production/build'
 export type { QuaProductionBuildProgress, QuaProductionBuildStep, QuaProductionProgressListener } from './production/progress'
+export { buildQuaProjectCocosWorkspace } from './project-cocos'
+export type { QuaCocosWorkspaceBuildOptions, QuaCocosWorkspaceBuildResult } from './project-cocos'
 export {
   createQuaProjectNativeArtifactPlans,
   createQuaProjectNativeTargetBundleManifest,
@@ -116,6 +118,7 @@ export interface QuaProjectCocosTargetConfig {
   assetTarget?: AssetBundleTarget | CocosAssetTargetMetadata
   buildOptions?: Record<string, unknown>
   icons?: unknown
+  build?: { entry: string, viteConfig?: string, macOSDeploymentTarget?: string }
 }
 
 export interface QuaProjectNativeTargetConfig {
@@ -181,6 +184,7 @@ export interface NormalizedQuaProjectCocosTarget {
   assetTarget?: AssetBundleTarget | CocosAssetTargetMetadata
   buildOptions: Record<string, unknown>
   icons?: unknown
+  build?: { entry: string, viteConfig?: string, macOSDeploymentTarget?: string }
 }
 
 export interface NormalizedQuaProjectNativeTarget {
@@ -600,6 +604,7 @@ export async function syncQuaProjectCocos(
     const buildOptions = cloneJson(cocos.buildOptions || {})
     const packages = asRecord(buildOptions.packages) || {}
     const native = asRecord(packages.native) || {}
+    const platformOptions = asRecord(packages[platform]) || {}
     const config = {
       ...buildOptions,
       name: stringValue(buildOptions.name) || project.name,
@@ -608,6 +613,7 @@ export async function syncQuaProjectCocos(
       outputName: stringValue(buildOptions.outputName) || project.home.shortName,
       packages: {
         ...packages,
+        ...(platform === 'mac' ? { mac: { ...platformOptions, packageName: stringValue(platformOptions.packageName) || project.bundleId } } : {}),
         native: {
           ...native,
           packageName: stringValue(native.packageName) || project.bundleId,
@@ -1016,6 +1022,11 @@ function normalizeCocosTarget(value: unknown, issues: string[]): NormalizedQuaPr
     issues.push('targets.cocos.platforms must include at least one Cocos build platform when Cocos is enabled.')
   }
   const layout = normalizeLayout(record.layout)
+  const build = asRecord(record.build)
+  if (record.build !== undefined && (!build || !stringValue(build.entry)))
+    issues.push('targets.cocos.build.entry must be a non-empty entry path.')
+  if (build?.viteConfig !== undefined && !stringValue(build.viteConfig))
+    issues.push('targets.cocos.build.viteConfig must be a non-empty config path.')
   return {
     enabled: true,
     projectDir: stringValue(record.projectDir) || 'cocos',
@@ -1026,6 +1037,7 @@ function normalizeCocosTarget(value: unknown, issues: string[]): NormalizedQuaPr
     assetTarget: asRecord(record.assetTarget) as AssetBundleTarget | CocosAssetTargetMetadata | undefined,
     buildOptions: asRecord(record.buildOptions) || {},
     icons: record.icons,
+    build: build ? { entry: stringValue(build.entry) || '', ...(stringValue(build.viteConfig) ? { viteConfig: stringValue(build.viteConfig) } : {}), ...(stringValue(build.macOSDeploymentTarget) ? { macOSDeploymentTarget: stringValue(build.macOSDeploymentTarget) } : {}) } : undefined,
   }
 }
 

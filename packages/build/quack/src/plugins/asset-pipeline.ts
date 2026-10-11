@@ -155,6 +155,8 @@ export class AssetPipelinePlugin extends QuackPlugin {
 
   private async processImage(context: AssetContext, options: ImagePipelineOptions): Promise<void> {
     const format = options.format ?? 'webp'
+    if (format === 'png' && context.asset.mimeType === 'image/png' && options.optimize === false)
+      return
 
     if (options.skipAnimated !== false && context.asset.mediaMetadata && 'animated' in context.asset.mediaMetadata && context.asset.mediaMetadata.animated) {
       return
@@ -297,10 +299,10 @@ export class AssetPipelinePlugin extends QuackPlugin {
 
     if (format === 'png') {
       return await pipeline.png({
-        adaptiveFiltering: true,
-        compressionLevel: 9,
+        adaptiveFiltering: options.optimize !== false,
+        compressionLevel: options.optimize === false ? 3 : 9,
+        palette: false,
         effort: clampInteger(options.effort ?? 6, 1, 10),
-        quality: clampInteger(options.quality ?? 85, 1, 100),
       }).toBuffer()
     }
 
