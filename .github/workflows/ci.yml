@@ -33,3 +33,15 @@ jobs:
 
       - name: Run type checking
         run: pnpm run typecheck
+
+      - name: Test Cocos packaging and shared media contracts
+        run: >-
+          pnpm exec turbo run test
+          --filter=@quajs/assets --filter=@quajs/cocos-host
+          --filter=@quajs/store-cocos --filter=@quajs/renderer-cocos
+          --filter=@quajs/renderer-web --filter=@quajs/renderer-vue
+          --filter=@quajs/plugin-audio --filter=@quajs/plugin-background
+          --filter=@quajs/quack --filter=@quajs/script-compiler
+
+      - name: Test demo UI and Creator build lifecycle
+        run: pnpm --filter demo test:ui-surfaces
