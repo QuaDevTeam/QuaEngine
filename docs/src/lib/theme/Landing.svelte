@@ -31,19 +31,16 @@
 <div class="qua-landing">
   <section class="qua-hero" aria-labelledby="hero-title">
     <div class="hero-copy">
-      <a class="hero-kicker" href={href('/docs/project/status')}><span class="status-dot"></span> 为热爱故事的你而造 <ArrowUpRight size={13} /></a>
       <h1 id="hero-title">让故事，<br /><span>在这里发生</span><span class="title-period">。</span><span class="title-sparkle" aria-hidden="true">✦</span></h1>
       <p class="hero-intro">一点灵感，一段对白，一个属于你的世界。<br />用 <strong>QuaEngine</strong>，把心里的故事变成可以相遇的视觉小说。</p>
       <div class="hero-actions"><a class="qua-button primary" href={href('/docs/getting-started')}>{context.t('home.primaryAction')} <ArrowRight size={18} /></a><a class="qua-button secondary" href={href('/docs')}><BookOpen size={17} /> 翻开文档</a></div>
       <div class="install-command"><Terminal size={15} /><code>pnpm create qua-game my-story</code><button onclick={copyCommand} aria-label={copied ? '已复制安装命令' : '复制安装命令'}>{#if copied}<Check size={15} />{:else}<Copy size={15} />{/if}</button></div>
       <span class="copy-feedback" aria-live="polite">{copyError ? '请选中上方命令手动复制。' : copied ? '命令已复制，去终端开始吧。' : ''}</span>
-      <div class="hero-footnote"><span>开源引擎</span><i></i><span>TypeScript 原生</span><i></i><span>为创作而生</span></div>
     </div>
     <div class="hero-art">
       <span class="art-orbit orbit-one" aria-hidden="true"></span><span class="art-orbit orbit-two" aria-hidden="true"></span>
       <span class="art-sparkle sparkle-one" aria-hidden="true">✦</span><span class="art-sparkle sparkle-two" aria-hidden="true">✧</span>
       <div class="mascot-card"><div class="postcard-top"><span>HELLO, STORYTELLER!</span><span aria-hidden="true">♡</span></div><img class="hero-mascot" src="/brand/mascot.webp" alt="QuaEngine 的粉发小小向导，戴着薄荷星形发夹，微笑着探过头来" width="640" height="640" fetchpriority="high" /><div class="postcard-bottom"><span>你的下一篇故事，从这里开始。</span><span aria-hidden="true">✦</span></div></div>
-      <div class="art-tag"><span class="tag-dot"></span> imagination.ts <span aria-hidden="true">↗</span></div>
     </div>
   </section>
 

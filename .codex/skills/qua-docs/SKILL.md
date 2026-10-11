@@ -24,6 +24,8 @@ Keep configuration in `docs/svedocs.config.ts`. Register replacements in `vite.c
 
 Preserve the single main landmark, skip link, local search controller, heading anchors, code copy, ToC, dark/system modes, reduced motion and mobile navigation. Do not rebuild content indexing or a second search implementation in UI components.
 
+The homepage hero starts directly with its heading. Keep the removed slogan badge, bottom promotional tag row and mascot's floating `imagination.ts` tag out of `Landing.svelte`; do not reserve their former spacing. Retain the intro, actions and install-command copy feedback.
+
 The shared background slot provides static sakura/mint gradients and a sparse, low-contrast SVG motif, with the reading column kept quiet. Keep it decorative, non-interactive and free of animation. The inset sticky navbar uses shared header offset/height tokens for sidebar, ToC, mobile menu and anchor clearance; preserve its visible outer gap on desktop and mobile. Sidebar nesting has exactly one guide on each child list: do not add another border to `.sd-sidebar-group-body`. Active links use a soft fill without svedocs' corner ornaments or inset border. Verify the open mobile menu and scrolled/anchor states as well as initial page screenshots.
 
 Markdown tables are wrapped by `src/lib/markdown/qua-tables.ts`: the table retains native table display and full-width column layout, while `.qua-table-scroll` owns the single border and keyboard-accessible overflow. Do not put `display: block` or scrolling on the table itself; it leaves a full-width frame around content-width columns. Verify short tables on desktop and wide reference tables on mobile. Keep the mascot artwork free of the removed decorative slogan sticky note.
