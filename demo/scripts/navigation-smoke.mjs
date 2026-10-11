@@ -65,7 +65,9 @@ async function capture(name) {
     const { data } = await client.call('Page.captureScreenshot', { format: 'png' })
     await writeFile(path, Buffer.from(data, 'base64'))
   }
-  else await page.screenshot({ path })
+  else {
+    await page.screenshot({ path })
+  }
 }
 
 async function returnToTitle(name) {
@@ -107,7 +109,9 @@ try {
     await client.call('Input.dispatchMouseEvent', { type: 'mousePressed', x: 450, y: 250, button: 'left', clickCount: 1 })
     await client.call('Input.dispatchMouseEvent', { type: 'mouseReleased', x: 450, y: 250, button: 'left', clickCount: 1 })
   }
-  else await page.mouse.click(450, 250)
+  else {
+    await page.mouse.click(450, 250)
+  }
   await until(current => current.text === second)
   await click('native-game-hud-menu')
   await click('native-game-menu-save')
