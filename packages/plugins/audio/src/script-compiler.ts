@@ -14,6 +14,7 @@ export function createAudioDecoratorCompiler() {
       playAmbientWithEngine: '@quajs/plugin-audio',
       setAudioGainWithEngine: '@quajs/plugin-audio',
       setAudioEqWithEngine: '@quajs/plugin-audio',
+      setAudioPlaybackRateWithEngine: '@quajs/plugin-audio',
       setAudioAutomationWithEngine: '@quajs/plugin-audio',
       stopAudioWithEngine: '@quajs/plugin-audio',
       pauseAudioWithEngine: '@quajs/plugin-audio',
@@ -59,6 +60,8 @@ export function createAudioDecoratorCompiler() {
           return compilePlayAmbient(input, state)
         case 'SetAudioGain':
           return compileSetGain(input)
+        case 'SetAudioPlaybackRate':
+          return { call: t.callExpression(t.identifier('setAudioPlaybackRateWithEngine'), [engineArg(), t.stringLiteral(requireStringArg(input.decorator, input.decorator.args[0], 'audio target')), toExpression(input.decorator.args[1])]), runtimeHelpers: ['setAudioPlaybackRateWithEngine'] }
         case 'SetAudioEq':
           return compileSetEq(input)
         case 'SetAudioAutomation':

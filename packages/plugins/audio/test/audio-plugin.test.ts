@@ -20,6 +20,7 @@ import {
   setAudioAutomationWithEngine,
   setAudioEqWithEngine,
   setAudioGainWithEngine,
+  setAudioPlaybackRateWithEngine,
   stopAudioWithEngine,
 } from '../src'
 
@@ -46,6 +47,42 @@ describe('@quajs/plugin-audio', () => {
     expect(projection.bgmOutgoing).toEqual([])
     expect(projection.sfx).toEqual([])
     expect(projection.ambients).toEqual([])
+  })
+
+  it('publishes new revisions for processing changes while keeping paused playback intent', async () => {
+    const engine = createEngine()
+    await engine.init()
+    await engine.use(new AudioPlugin())
+    await playBGMWithEngine(engine, 'test.wav', { id: 'paused-control' })
+    await pauseAudioWithEngine(engine, 'bgm')
+    const before = engine.getPluginProjection<any>(AUDIO_PLUGIN_ID)
+    await setAudioGainWithEngine(engine, 'bgm', -18)
+    const gain = engine.getPluginProjection<any>(AUDIO_PLUGIN_ID)
+    expect(gain.revision).toBeGreaterThan(before.revision)
+    expect(gain.bgm).toEqual(before.bgm)
+    await setAudioEqWithEngine(engine, 'bgm', [{ type: 'lowpass', frequency: 300 }])
+    const eq = engine.getPluginProjection<any>(AUDIO_PLUGIN_ID)
+    expect(eq.revision).toBeGreaterThan(gain.revision)
+    await setAudioAutomationWithEngine(engine, 'bgm', 'gainDb', { points: [{ at: 0, value: -18 }, { at: 200, value: -12 }] })
+    expect(engine.getPluginProjection<any>(AUDIO_PLUGIN_ID)!.revision).toBeGreaterThan(eq.revision)
+  })
+
+  it('preserves paused identity, provenance and seek while changing typed playback rate', async () => {
+    const engine = createEngine()
+    await engine.use(new AudioPlugin())
+    await engine.init()
+    await playBGMWithEngine(engine, 'test.wav', { id: 'rate', contentPackageId: 'chapter', seekMs: 700, playbackRate: 2 })
+    await pauseAudioWithEngine(engine, 'bgm')
+    const before = engine.getPluginProjection<any>(AUDIO_PLUGIN_ID)
+    await setAudioPlaybackRateWithEngine(engine, 'bgm', 0.5)
+    const after = engine.getPluginProjection<any>(AUDIO_PLUGIN_ID)
+    expect(after.bgm).toEqual({ ...before.bgm, playbackRate: 0.5 })
+    expect(after.revision).toBe(before.revision + 1)
+    for (const rate of [0, -1, Infinity, Number.NaN, 4.01]) {
+      await expect(setAudioPlaybackRateWithEngine(engine, 'bgm', rate)).rejects.toThrow(RangeError)
+      await expect(playVoiceWithEngine(engine, 'test.wav', { playbackRate: rate })).rejects.toThrow(RangeError)
+    }
+    expect(engine.getPluginProjection<any>(AUDIO_PLUGIN_ID)).toEqual(after)
   })
 
   it('stores chapter, gain, eq, and automation projection state on the engine', async () => {

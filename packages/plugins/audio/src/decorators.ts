@@ -27,6 +27,10 @@ export const audioDecoratorMappings = {
     function: 'setAudioGainWithEngine',
     module: '@quajs/plugin-audio',
   },
+  SetAudioPlaybackRate: {
+    function: 'setAudioPlaybackRateWithEngine',
+    module: '@quajs/plugin-audio',
+  },
   SetAudioEq: {
     function: 'setAudioEqWithEngine',
     module: '@quajs/plugin-audio',

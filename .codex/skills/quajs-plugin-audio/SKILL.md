@@ -50,6 +50,7 @@ await audio.playAmbient('audio/ambient/rain.ogg', { loop: true, id: 'rain' })
 await audio.stopBGM({ fadeOutMs: 500 })
 
 await audio.setGain('bgm', -12, { fadeOutMs: 300 })
+await audio.setPlaybackRate('bgm', 1.5) // content speed and pitch, 0.25–4
 await audio.setEq('voice', [{ type: 'highpass', frequency: 120, q: 0.8 }])
 await audio.setAutomation('master', 'gainDb', {
   points: [{ at: 0, value: -6 }, { at: 1000, value: 0 }],
@@ -164,3 +165,24 @@ Also run affected renderer audio package tests/builds when renderer projection c
 The Web renderer's optional audio sub-entry exports `getWebAudioPlaybackEntries(pipeline)`: copied handle metadata for position, decoded duration and playing/scheduled/paused/pending/suspended states. Sampling must never create/unlock a context, decode an asset, restart playback or write engine state. Registrations are scoped to each pipeline and removed on renderer teardown. Editor debug controls call injected plugin helpers through the preview runtime and existing pipeline; never mutate WebAudio handles directly.
 
 `seekAudioWithEngine` republishes an immediate `playAt` along with `seekMs` so repeated seeks/replay at the same offset restart the source. Web resume preserves the held offset only if seek/scheduling intent is unchanged; an explicit seek from paused state uses the requested offset. The scene debugger smoke checks real PCM duration, all four channels, pause and seek. These checks do not establish native playback parity or subjective audio quality.
+
+## Three-target media review
+
+`demo/scripts/cocos-media-review.mjs` drives the same injected AudioPlugin commands against production Web, Creator web-desktop and macOS. Use generated PCM fixtures in the demo QPK; inspect real WebAudio/AudioSource clocks, four channels, ended counts, pause/resume, seek, loop, gain, crossfade and fade-out. Web playback inspection additionally copies effective gain and EQ node parameters; it never mutates playback. Concrete Creator processing is checked using output PCM and live content clocks, never inferred from metadata. Generic hosts must report unsupported capabilities honestly. Device clock checks do not establish subjective audio quality. `test:cocos:media:parity` must reject remaining capability gaps.
+
+Processing mutations (`setGain`, `setEq`, `setAutomation`, `setPlaybackRate`) must advance AudioViewProjection.revision even while paused, because framework adapters watch that revision. Creator runtime applies track × bus × master linear gain to existing AudioSource handles without replaying them. Inspect actual device volume after parameter updates, not only projection fields.
+
+Paused Web playback recreates a buffer source at the held offset without replaying fade-in. The optional AudioSource-only bridge records a pending offset and reapplies it on STARTED, because that SDK device can reset a prior seek; the processed native bridge seeks its PCM content clock directly. Stop/dispose must clear pending offsets and remove event listeners. Test both clocks and gain after resume. Generic AudioSource-only hosts clamp gain above unity; the concrete processed bridge projects amplification and must pass rendered PCM checks.
+
+
+## Creator processed audio parity
+
+Play options accept `playbackRate` (finite 0.25–4); `audio.setPlaybackRate(target, rate)` and `@SetAudioPlaybackRate(target, rate)` update existing engine-owned tracks without changing identity, provenance, start/seek intent or paused state. This changes pitch with speed. Web derives content time from offset + elapsed context time × rate, re-anchoring on live changes; pause/resume preserves the offset.
+
+Creator 3.8.8 preview uses its imported AudioPlayer and existing SDK-owned context/activation, adding transient gain, biquads and rate projection. It never creates its own context, DOM player, object URL or autoplay policy. The concrete SDK seam is validated against 3.8.8; unsupported host adapters retain optional-capability behavior. macOS workspaces copy the public `cocos-host/creator-native-products` audio source and register a static AVAudioEngine PCM processor. Imported local clips decode to bounded stereo Float32 PCM (64 MiB per clip, 256 MiB total, 32 handles). Rate uses linear resampling; eight normalized Web Audio biquads project track/bus/master EQ (16 bands per stage). Controls preserve filter histories; stop/seek resets them. The output callback performs no allocation, and shares a short bounded control mutex with projection/inspection. It is not a hard realtime guarantee.
+
+Concrete processing supports gain above unity without the AudioSource volume clamp. Host `audioGainAboveUnity`, `audioEq`, `audioPlaybackRate` report capabilities; generic hosts may warn/fallback. Device/output PCM inspection is bounded to 4096 samples and does not establish subjective listening or OS audio capture.
+
+Run affected plugin/Web/Host/Cocos tests, typechecks and public builds, then generate and independently build the workspace with Creator. `pnpm --filter demo test:cocos:media:parity` checks actual PCM amplitude/frequency, eight EQ types across track/bus/master, live 1.5x rate, paused 0.5x changes, resume, typed 2x natural end, gain, fades/crossfade, image timelines and video. Zero gaps is required; do not replace processing checks with projection fields.
+
+Looping Web audio must normalize its held content offset to the decoded buffer duration before creating a resumed source, including playback-rate changes and multiple elapsed loops. Verify the source start offset as well as the displayed clock.

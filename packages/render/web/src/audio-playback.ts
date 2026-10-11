@@ -5,6 +5,11 @@ export interface WebAudioPlaybackEntry {
   id: string
   positionMs: number
   durationMs: number
+  /** Live processing controls; inspection never creates or changes nodes. */
+  pcm?: { rms: number, peak: number, frequency: number }
+  playbackRate: number
+  gain: number
+  eq: Array<{ type: BiquadFilterType, frequency: number, q: number, gainDb: number }>
   state: 'playing' | 'scheduled' | 'paused' | 'pending' | 'suspended' | 'stopped'
 }
 

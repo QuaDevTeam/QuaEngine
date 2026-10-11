@@ -142,3 +142,9 @@ Browser autoplay policy is handled by the Web renderer runtime. Autoplay blocks 
 ## Runtime Packages
 
 Audio track projections preserve `contentPackageId` and `requiredRuntimePackages`. Package unload clears audio entries owned by the unloaded package.
+
+### Playback rate
+
+All play options accept `playbackRate` (finite 0.25–4, default 1). `await audio.setPlaybackRate('bgm', 1.5)` updates active tracks in the selected bus, or a particular track id, without restarting or unpausing them. QuaScript uses `@SetAudioPlaybackRate('bgm', 1.5)`. Content time and pitch both scale with this value; package provenance and saved audio intent remain engine-owned.
+
+Concrete Creator 3.8.8 preview and macOS processing support track/bus/master EQ and linear gain above unity. The generated macOS workspace includes the static AVAudioEngine host product; no repository links or installed SDK changes are needed. Generic hosts advertise optional processing capabilities independently.

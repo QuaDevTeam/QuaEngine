@@ -208,7 +208,7 @@ Common package decorators:
 - `@quajs/character`: `Speaker`, `SpeakerName`, `SpeakerStyle`, `SetSprite`, `ShowCharacter`, `HideCharacter`, `HideAllCharacters`, `MoveCharacter`, `SetExpression`, `CharacterFade`, `CharacterEnter`, `CharacterExit`
 - `@quajs/story-graph`: `Chapter`, `Scene`, `Entry`, `Node`, `Label`, `Lane`, `Route`, `StoryTimeline`, `Protagonist`, `Interaction`, `EmitStoryEvent`, `ChapterSelect`
 - `@quajs/plugin-background`: `SetBackground`, `ClearBackground`, `VideoBackground`, `SetLayeredBackground`, `BackgroundLayer`, `RemoveBackgroundLayer`, `ClearBackgroundLayers`, `BackgroundTransition`, `BackgroundLayerTransition`, `ShowCgOverlay`, `HideCgOverlay`
-- `@quajs/plugin-audio`: `AudioChapter`, `LineId`, `PlayVoice`, `PlayBGM`, `PlaySFX`, `PlayAmbient`, `SetAudioGain`, `SetAudioEq`, `SetAudioAutomation`, `StopAudio`, `PauseAudio`, `ResumeAudio`, `SeekAudio`, `StopVoice`, `StopBGM`, `StopSFX`, `StopAmbient`
+- `@quajs/plugin-audio`: `AudioChapter`, `LineId`, `PlayVoice`, `PlayBGM`, `PlaySFX`, `PlayAmbient`, `SetAudioGain`, `SetAudioPlaybackRate`, `SetAudioEq`, `SetAudioAutomation`, `StopAudio`, `PauseAudio`, `ResumeAudio`, `SeekAudio`, `StopVoice`, `StopBGM`, `StopSFX`, `StopAmbient`
 - `@quajs/plugin-animation`: `DefineAnimation`, `AnimationTimeline`, `Key`, `PlayAnimation`
 - `@quajs/plugin-backlog`: `Backlog`, `NoBacklog`
 - `@quajs/plugin-gallery`: `UnlockGallery`, `OpenGalleryScene`
@@ -574,3 +574,6 @@ Decorator parsing must preserve Babel expression nodes for object spreads, compu
 ## Static resource hints
 
 Decorator compilers may return `assetHints` alongside their runtime call. The generic compiler stores these as `GameStep.metadata.assetHints` while preserving story-point metadata. Background/character compilers extract literal assets and literal character/expression/sprite selections only; dynamic calls, getters and interpolated expressions stay deferred to the step's `run`. Native uses the engine's bounded `assets/preload` lookahead to prepare images before use. This is advisory and never executes later code or commits a branch. Validate `transformer.test.ts` and the engine asset-hint tests when changing this boundary.
+
+
+Audio play options accept `playbackRate` in the range 0.25–4. `@SetAudioPlaybackRate('bgm', 1.5)` lowers through the audio package compiler to an engine-owned projection update, preserving track identity and paused state. Rate changes pitch as well as content speed; renderer device clocks must reflect the multiplier. See `quajs-plugin-audio` for actual Creator/Web/native processing validation.

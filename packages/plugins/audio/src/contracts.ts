@@ -66,6 +66,8 @@ export interface AudioTrackProjection {
   interruptible?: boolean
   durationMs?: number
   gainDb?: number
+  /** Content-clock multiplier; positive, finite, between 0.25 and 4. */
+  playbackRate?: number
   eq?: readonly AudioEqBand[]
   automation?: readonly AudioAutomationProjection[]
   fadeInMs?: number
@@ -131,6 +133,8 @@ export interface AudioPlayVoiceOptions {
   loop?: boolean
   durationMs?: number
   gainDb?: number
+  /** Content-clock multiplier; positive, finite, between 0.25 and 4. */
+  playbackRate?: number
   fadeInMs?: number
   fadeOutMs?: number
   crossfadeMs?: number
@@ -148,6 +152,8 @@ export interface AudioPlayBgmOptions {
   chapterId?: string
   durationMs?: number
   gainDb?: number
+  /** Content-clock multiplier; positive, finite, between 0.25 and 4. */
+  playbackRate?: number
   loop?: boolean
   fadeInMs?: number
   fadeOutMs?: number
@@ -169,6 +175,8 @@ export interface AudioPlaySfxOptions {
   loop?: boolean
   durationMs?: number
   gainDb?: number
+  /** Content-clock multiplier; positive, finite, between 0.25 and 4. */
+  playbackRate?: number
   fadeInMs?: number
   fadeOutMs?: number
   crossfadeMs?: number
@@ -189,6 +197,8 @@ export interface AudioPlayAmbientOptions {
   loop?: boolean
   durationMs?: number
   gainDb?: number
+  /** Content-clock multiplier; positive, finite, between 0.25 and 4. */
+  playbackRate?: number
   fadeInMs?: number
   fadeOutMs?: number
   crossfadeMs?: number

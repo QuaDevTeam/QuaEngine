@@ -10,7 +10,8 @@ describe('quaScript Integration Tests', () => {
         const playerName = 'Hero'
         dialogue(qs\`
           @AudioChapter('chapter-1', { voiceMap: { 'chapter-1:1': 'voice/intro', 'chapter-1:2': 'voice/intro-2' }, bgm: 'bgm/opening' })
-          @PlayBGM('bgm/opening')
+          @PlayBGM('bgm/opening', { playbackRate: 2 })
+          @SetAudioPlaybackRate('bgm', 1.5)
           @PlayVoice('voice/intro')
           Jack: Hello \${playerName}!
           @LineId('chapter-1:2')
@@ -34,6 +35,7 @@ describe('quaScript Integration Tests', () => {
     expect(result).toContain('playBGMWithEngine(ctx.engine, "bgm/opening", ')
     expect(result).toContain('playVoiceWithEngine(ctx.engine, "voice/intro", ')
     expect(result).toContain('uuid')
+    expect(result).toContain('setAudioPlaybackRateWithEngine(ctx.engine, \"bgm\", 1.5)')
 
     // Should add required imports. Engine decorators are invoked via ctx.engine.
     expect(result).not.toMatch(/import.*playVoiceWithEngine.*from.*"@quajs\/engine"/)

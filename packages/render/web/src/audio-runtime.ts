@@ -34,10 +34,12 @@ interface SlotRuntime {
   controlSignature?: string
   fxSignature?: string
   offsetSeconds: number
+  playbackRate: number
   startedAt?: number
   currentTrack?: AudioTrackProjection
   stopReason?: string
   pendingStart?: boolean
+  resumeStart?: boolean
   staleBuffer?: boolean
   assetKey?: string
   targetPackageKey?: string
@@ -52,6 +54,8 @@ interface BusRuntime {
 
 export class WebAudioAudioRuntime {
   private context?: AudioContext
+  private outputMeter?: AnalyserNode
+  private meterPcm?: Float32Array<ArrayBuffer>
   private masterGain?: GainNode
   private masterEqNodes: BiquadFilterNode[] = []
   private readonly buses: Record<AudioBusId, BusRuntime | undefined> = {
@@ -94,10 +98,34 @@ export class WebAudioAudioRuntime {
       if (!track)
         return []
       const duration = slot.durationSeconds ?? 0
-      const position = slot.startedAt === undefined ? slot.offsetSeconds : Math.max(0, clock - slot.startedAt)
-      const state = track.state === 'paused' ? 'paused' : slot.pendingStart ? 'pending' : !slot.source ? 'stopped' : this.context?.state !== 'running' ? 'suspended' : slot.startedAt !== undefined && clock < slot.startedAt + slot.offsetSeconds ? 'scheduled' : 'playing'
-      return [{ id: track.id, state, durationMs: duration * 1000, positionMs: (track.loop && duration > 0 ? position % duration : Math.min(position, duration || position)) * 1000 }]
+      const position = this.positionSeconds(slot, clock)
+      const state = track.state === 'paused' ? 'paused' : slot.pendingStart ? 'pending' : !slot.source ? 'stopped' : this.context?.state !== 'running' ? 'suspended' : slot.startedAt !== undefined && clock < slot.startedAt ? 'scheduled' : 'playing'
+      const bus = this.buses[track.kind]
+      return [{ id: track.id, state, durationMs: duration * 1000, positionMs: (track.loop && duration > 0 ? position % duration : Math.min(position, duration || position)) * 1000, pcm: this.getPcmMetrics(), playbackRate: slot.playbackRate, gain: slot.gainNode.gain.value * (bus?.gainNode.gain.value ?? 1) * (this.masterGain?.gain.value ?? 1), eq: [...slot.eqNodes, ...bus?.eqNodes || [], ...this.masterEqNodes].map(node => ({ type: node.type, frequency: node.frequency.value, q: node.Q.value, gainDb: node.gain.value })) }]
     })
+  }
+
+  private getPcmMetrics(): { rms: number, peak: number, frequency: number } | undefined {
+    if (!this.outputMeter || !this.meterPcm)
+      return undefined
+    const pcm = this.meterPcm
+    this.outputMeter.getFloatTimeDomainData(pcm)
+    let energy = 0
+    let peak = 0
+    let first = 0
+    let last = 0
+    let count = 0
+    for (let i = 0; i < pcm.length; i++) {
+      energy += pcm[i] * pcm[i]
+      peak = Math.max(peak, Math.abs(pcm[i]))
+      if (i && pcm[i - 1] <= 0 && pcm[i] > 0) {
+        last = i - 1 - pcm[i - 1] / (pcm[i] - pcm[i - 1])
+        if (!count)
+          first = last
+        count++
+      }
+    }
+    return { rms: Math.sqrt(energy / pcm.length), peak, frequency: count > 1 ? this.context!.sampleRate * (count - 1) / (last - first) : 0 }
   }
 
   async sync(nextProjection: AudioViewProjection): Promise<void> {
@@ -219,6 +247,9 @@ export class WebAudioAudioRuntime {
     }
 
     this.context = new Ctor({ latencyHint: 'interactive' })
+    this.outputMeter = this.context.createAnalyser()
+    this.outputMeter.fftSize = 4096
+    this.meterPcm = new Float32Array(4096)
 
     if (!this.masterGain) {
       this.masterGain = this.context.createGain()
@@ -330,6 +361,10 @@ export class WebAudioAudioRuntime {
       && slot.currentTrack.seekMs === projection.seekMs
       && slot.currentTrack.playAt === projection.playAt
       && !slot.source
+    const seekingSameTrack = slot.currentTrack?.id === projection.id
+      && slot.currentTrack.assetKey === projection.assetKey
+      && projection.seekMs !== undefined
+      && (slot.currentTrack.seekMs !== projection.seekMs || slot.currentTrack.playAt !== projection.playAt)
 
     if (projection.state === 'stopping') {
       const previousTrack = slot.currentTrack
@@ -363,7 +398,7 @@ export class WebAudioAudioRuntime {
 
     if (needsSource) {
       this.stopSlot(slot, 0, 'replaced', true)
-      await this.startTrackSource(kind, projection, slot, bus, context, resumingPausedTrack ? slot.offsetSeconds : undefined, targetPackageIds)
+      await this.startTrackSource(kind, projection, slot, bus, context, resumingPausedTrack ? slot.offsetSeconds : undefined, targetPackageIds, resumingPausedTrack || seekingSameTrack)
       slot.controlSignature = controlSignature
       slot.staleBuffer = false
     }
@@ -373,6 +408,7 @@ export class WebAudioAudioRuntime {
       slot.fxSignature = fxSignature
     }
 
+    slot.currentTrack = projection
     if (projection.state === 'playing') {
       if (slot.pendingStart && slot.source && this.unlocked) {
         this.startSlot(slot, projection)
@@ -391,6 +427,7 @@ export class WebAudioAudioRuntime {
     context: AudioContext,
     resumeOffsetSeconds?: number,
     targetPackageIds = this.resolveTrackTargetPackageIds(projection),
+    skipFadeIn = false,
   ): Promise<void> {
     const generation = ++slot.generation
     const targetPackageKey = createTargetPackageKey(targetPackageIds)
@@ -403,6 +440,7 @@ export class WebAudioAudioRuntime {
     source.buffer = buffer
     slot.durationSeconds = buffer.duration
     source.loop = projection.loop ?? false
+    source.playbackRate.setValueAtTime(projection.playbackRate ?? 1, context.currentTime)
 
     this.applyTrackFx(slot, projection)
     this.connectSlotNodes(slot, bus, source)
@@ -411,7 +449,10 @@ export class WebAudioAudioRuntime {
       ? Math.max(0, resumeOffsetSeconds)
       : Math.max(0, projection.seekMs ?? projection.offsetMs ?? 0) / 1000
 
-    slot.offsetSeconds = offsetSeconds
+    // BufferSource clamps an offset beyond its buffer rather than preserving
+    // the loop phase. A long-running loop must resume at its content position.
+    slot.offsetSeconds = projection.loop && buffer.duration > 0 ? offsetSeconds % buffer.duration : offsetSeconds
+    slot.resumeStart = skipFadeIn
     slot.currentTrack = projection
     slot.pendingStart = !this.unlocked || projection.state !== 'playing'
     slot.startedAt = undefined
@@ -463,8 +504,8 @@ export class WebAudioAudioRuntime {
     const targetGain = dbToGain(projection.gainDb ?? 0)
 
     gainNode.cancelScheduledValues(now)
-    gainNode.setValueAtTime(0, startAt)
-    if ((projection.fadeInMs ?? 0) > 0) {
+    if (!slot.resumeStart && (projection.fadeInMs ?? 0) > 0) {
+      gainNode.setValueAtTime(0, startAt)
       gainNode.linearRampToValueAtTime(targetGain, startAt + (projection.fadeInMs || 0) / 1000)
     }
     else {
@@ -474,11 +515,16 @@ export class WebAudioAudioRuntime {
     try {
       slot.source.start(startAt, slot.offsetSeconds)
       slot.pendingStart = false
-      slot.startedAt = startAt - slot.offsetSeconds
+      slot.startedAt = startAt
+      slot.resumeStart = false
     }
     catch {
       // Ignore races with rapid restarts.
     }
+  }
+
+  private positionSeconds(slot: SlotRuntime, now: number): number {
+    return slot.offsetSeconds + (slot.startedAt === undefined ? 0 : Math.max(0, now - slot.startedAt) * slot.playbackRate)
   }
 
   private pauseSlot(slot: SlotRuntime, projection: AudioTrackProjection): void {
@@ -487,7 +533,7 @@ export class WebAudioAudioRuntime {
     }
 
     const context = this.ensureContext()
-    const elapsed = Math.max(0, context.currentTime - (slot.startedAt ?? context.currentTime))
+    const elapsed = this.positionSeconds(slot, context.currentTime)
     slot.offsetSeconds = elapsed
     slot.stopReason = 'paused'
     slot.pendingStart = false
@@ -567,6 +613,14 @@ export class WebAudioAudioRuntime {
     gainNode.cancelScheduledValues(now)
     gainNode.setValueAtTime(dbToGain(projection.gainDb ?? 0), now)
 
+    const rate = projection.playbackRate ?? 1
+    if (slot.playbackRate !== rate) {
+      slot.offsetSeconds = this.positionSeconds(slot, now)
+      if (slot.startedAt !== undefined)
+        slot.startedAt = Math.max(now, slot.startedAt)
+      slot.playbackRate = rate
+    }
+    slot.source?.playbackRate.setValueAtTime(rate, now)
     this.applyEqChain(slot.eqNodes, projection.eq || [])
     if (slot.source) {
       const bus = this.getOrCreateBus(projection.kind, this.ensureContext())
@@ -714,6 +768,7 @@ export class WebAudioAudioRuntime {
       gainNode,
       eqNodes,
       offsetSeconds: 0,
+      playbackRate: 1,
       generation: 0,
     }
     gainNode.connect(bus.input)
@@ -734,7 +789,8 @@ export class WebAudioAudioRuntime {
 
     this.masterGain.disconnect()
     this.masterEqNodes.forEach(node => node.disconnect())
-    connectChain([this.masterGain, ...this.masterEqNodes, this.ensureContext().destination])
+    this.outputMeter?.disconnect()
+    connectChain([this.masterGain, ...this.masterEqNodes, ...(this.outputMeter ? [this.outputMeter] : []), this.ensureContext().destination])
   }
 
   private createControlSignature(track: AudioTrackProjection): string {
@@ -754,6 +810,7 @@ export class WebAudioAudioRuntime {
   private createFxSignature(track: AudioTrackProjection): string {
     return JSON.stringify({
       gainDb: track.gainDb ?? 0,
+      playbackRate: track.playbackRate ?? 1,
       eq: track.eq || [],
       automation: track.automation || [],
       fadeInMs: track.fadeInMs ?? 0,

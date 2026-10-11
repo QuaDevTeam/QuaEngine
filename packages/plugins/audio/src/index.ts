@@ -136,6 +136,10 @@ export class AudioPlugin extends BaseEnginePlugin {
     return setAudioGainWithEngine(this.getEngine(), target, gainDbOrCurve, options)
   }
 
+  setPlaybackRate(target: AudioBusId | string, rate: number): Promise<void> {
+    return setAudioPlaybackRateWithEngine(this.getEngine(), target, rate)
+  }
+
   setEq(target: AudioBusId | string, bands: readonly AudioEqBand[], options?: AudioEqOptions): Promise<void> {
     return setAudioEqWithEngine(this.getEngine(), target, bands, options)
   }
@@ -277,6 +281,7 @@ export class AudioPlugin extends BaseEnginePlugin {
         { name: 'playSFX', fn: this.playSFX.bind(this), module: this.name },
         { name: 'playAmbient', fn: this.playAmbient.bind(this), module: this.name },
         { name: 'setGain', fn: this.setGain.bind(this), module: this.name },
+        { name: 'setPlaybackRate', fn: this.setPlaybackRate.bind(this), module: this.name },
         { name: 'setEq', fn: this.setEq.bind(this), module: this.name },
         { name: 'setAutomation', fn: this.setAutomation.bind(this), module: this.name },
         { name: 'stop', fn: this.stop.bind(this), module: this.name },
@@ -412,7 +417,23 @@ export async function setAudioGainWithEngine(
   const projection = getAudioProjection(engine)
   const next = cloneAudioProjection(projection)
   applyGain(next, target, gainDbOrCurve, options)
+  next.revision += 1
   await setAudioProjection(engine, next)
+}
+
+/** Change projected rate without replacing track identity or its start/seek intent. */
+export async function setAudioPlaybackRateWithEngine(engine: QuaEngineInterface, target: AudioBusId | string, rate: number): Promise<void> {
+  const playbackRate = validatePlaybackRate(rate)
+  const next = cloneAudioProjection(getAudioProjection(engine))
+  mutateTracks(next, target, track => ({ ...track, playbackRate }))
+  next.revision += 1
+  await setAudioProjection(engine, next)
+}
+
+function validatePlaybackRate(rate = 1): number {
+  if (!Number.isFinite(rate) || rate < 0.25 || rate > 4)
+    throw new RangeError('Audio playbackRate must be finite and between 0.25 and 4.')
+  return rate
 }
 
 export async function setAudioEqWithEngine(
@@ -424,6 +445,7 @@ export async function setAudioEqWithEngine(
   const projection = getAudioProjection(engine)
   const next = cloneAudioProjection(projection)
   applyEq(next, target, bands, options)
+  next.revision += 1
   await setAudioProjection(engine, next)
 }
 
@@ -437,6 +459,7 @@ export async function setAudioAutomationWithEngine(
   const projection = getAudioProjection(engine)
   const next = cloneAudioProjection(projection)
   applyAutomation(next, target, propertyPath, curve, options)
+  next.revision += 1
   await setAudioProjection(engine, next)
 }
 
@@ -854,6 +877,7 @@ function mergeVoiceOptions(
     interruptible: options.interruptible ?? defaults?.interruptible,
     durationMs: options.durationMs ?? defaults?.durationMs,
     gainDb: options.gainDb ?? defaults?.gainDb,
+    playbackRate: validatePlaybackRate(options.playbackRate ?? defaults?.playbackRate),
     fadeInMs: options.fadeInMs ?? defaults?.fadeInMs,
     fadeOutMs: options.fadeOutMs ?? defaults?.fadeOutMs,
     crossfadeMs: options.crossfadeMs ?? defaults?.crossfadeMs,
@@ -877,6 +901,7 @@ function mergeBgmOptions(
     loop: options.loop ?? defaults?.loop ?? true,
     durationMs: options.durationMs ?? defaults?.durationMs,
     gainDb: options.gainDb ?? defaults?.gainDb,
+    playbackRate: validatePlaybackRate(options.playbackRate ?? defaults?.playbackRate),
     fadeInMs: options.fadeInMs ?? defaults?.fadeInMs ?? options.crossfadeMs ?? defaults?.crossfadeMs,
     fadeOutMs: options.fadeOutMs ?? defaults?.fadeOutMs,
     crossfadeMs: options.crossfadeMs ?? defaults?.crossfadeMs,
@@ -902,6 +927,7 @@ function mergeSfxOptions(
     interruptible: options.interruptible ?? defaults?.interruptible ?? true,
     durationMs: options.durationMs ?? defaults?.durationMs,
     gainDb: options.gainDb ?? defaults?.gainDb,
+    playbackRate: validatePlaybackRate(options.playbackRate ?? defaults?.playbackRate),
     fadeInMs: options.fadeInMs ?? defaults?.fadeInMs,
     fadeOutMs: options.fadeOutMs ?? defaults?.fadeOutMs,
     crossfadeMs: options.crossfadeMs ?? defaults?.crossfadeMs,
@@ -927,6 +953,7 @@ function mergeAmbientOptions(
     interruptible: options.interruptible ?? defaults?.interruptible ?? false,
     durationMs: options.durationMs ?? defaults?.durationMs,
     gainDb: options.gainDb ?? defaults?.gainDb,
+    playbackRate: validatePlaybackRate(options.playbackRate ?? defaults?.playbackRate),
     fadeInMs: options.fadeInMs ?? defaults?.fadeInMs,
     fadeOutMs: options.fadeOutMs ?? defaults?.fadeOutMs,
     crossfadeMs: options.crossfadeMs ?? defaults?.crossfadeMs,
@@ -956,6 +983,7 @@ function createVoiceProjection(
     interruptible: options.interruptible ?? true,
     durationMs: options.durationMs,
     gainDb: options.gainDb ?? 0,
+    playbackRate: validatePlaybackRate(options.playbackRate),
     eq: options.eq,
     automation: options.automation,
     fadeInMs: options.fadeInMs,
@@ -984,6 +1012,7 @@ function createBgmProjection(
     interruptible: false,
     durationMs: options.durationMs,
     gainDb: options.gainDb ?? 0,
+    playbackRate: validatePlaybackRate(options.playbackRate),
     eq: options.eq,
     automation: options.automation,
     fadeInMs: options.fadeInMs,
@@ -1013,6 +1042,7 @@ function createSfxProjection(
     interruptible: options.interruptible ?? true,
     durationMs: options.durationMs,
     gainDb: options.gainDb ?? 0,
+    playbackRate: validatePlaybackRate(options.playbackRate),
     eq: options.eq,
     automation: options.automation,
     fadeInMs: options.fadeInMs,
@@ -1042,6 +1072,7 @@ function createAmbientProjection(
     interruptible: options.interruptible ?? false,
     durationMs: options.durationMs,
     gainDb: options.gainDb ?? 0,
+    playbackRate: validatePlaybackRate(options.playbackRate),
     eq: options.eq,
     automation: options.automation,
     fadeInMs: options.fadeInMs,

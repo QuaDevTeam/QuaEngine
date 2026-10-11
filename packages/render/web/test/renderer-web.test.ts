@@ -50,6 +50,7 @@ import {
   WebAssetUrlHandle,
 } from '../src'
 import { getWebAudioPlaybackEntries, WebAudioRendererController } from '../src/audio'
+import { WebAudioAudioRuntime } from '../src/audio-runtime'
 import { WebFontFaceRegistry } from '../src/plugins/fonts'
 import { createGalleryProjectionModel, getGalleryProjectionFromView } from '../src/plugins/gallery'
 import { createVisualNovelWebRendererPlugins } from '../src/plugins/preset'
@@ -4020,6 +4021,91 @@ describe('@quajs/renderer-web', () => {
     await assets.cleanup()
   })
 
+  it('changes live rate without restarting and holds the content offset across pause and resume', async () => {
+    installFakeAudioContext({ initialState: 'running' })
+    vi.spyOn(FakeAudioContext.prototype, 'decodeAudioData').mockResolvedValue({ duration: 30 } as AudioBuffer)
+    const assets = await createAudioAssets()
+    const runtime = new WebAudioAudioRuntime(() => assets, { emit: vi.fn() })
+    const audio = createInitialAudioProjection()
+    audio.bgm = { id: 'rate', kind: 'bgm', assetKey: 'bgm.ogg', state: 'playing', loop: true, seekMs: 5000, playbackRate: 2 }
+    await runtime.sync(audio)
+    const context = (runtime as any).context
+    context.currentTime = 1
+    expect(runtime.getPlaybackEntries()[0].positionMs).toBe(7000)
+    audio.bgm = { ...audio.bgm, playbackRate: 0.5 }
+    await runtime.sync(audio)
+    expect(FakeAudioContext.sources).toHaveLength(1)
+    expect(FakeAudioContext.sources[0].playbackRate.value).toBe(0.5)
+    context.currentTime = 3
+    expect(runtime.getPlaybackEntries()[0].positionMs).toBe(8000)
+    audio.bgm = { ...audio.bgm, state: 'paused' }
+    await runtime.sync(audio)
+    context.currentTime = 6
+    audio.bgm = { ...audio.bgm, playbackRate: 1.5 }
+    await runtime.sync(audio)
+    expect(runtime.getPlaybackEntries()[0].positionMs).toBe(8000)
+    audio.bgm = { ...audio.bgm, state: 'playing' }
+    await runtime.sync(audio)
+    expect(FakeAudioContext.sources.at(-1)?.start).toHaveBeenCalledWith(6, 8)
+    context.currentTime = 7
+    expect(runtime.getPlaybackEntries()[0].positionMs).toBe(9500)
+    await runtime.destroy()
+    await assets.cleanup()
+  })
+
+  it('preserves loop phase when resuming after several buffer durations', async () => {
+    installFakeAudioContext({ initialState: 'running' })
+    vi.spyOn(FakeAudioContext.prototype, 'decodeAudioData').mockResolvedValue({ duration: 3 } as AudioBuffer)
+    const assets = await createAudioAssets()
+    const runtime = new WebAudioAudioRuntime(() => assets, { emit: vi.fn() })
+    const audio = createInitialAudioProjection()
+    audio.bgm = { id: 'loop-phase', kind: 'bgm', assetKey: 'bgm.ogg', state: 'playing', loop: true, playbackRate: 1.5 }
+    try {
+      await runtime.sync(audio)
+      const context = (runtime as any).context
+      context.currentTime = 7
+      audio.bgm = { ...audio.bgm, state: 'paused' }
+      await runtime.sync(audio)
+      expect(runtime.getPlaybackEntries()[0].positionMs).toBe(1500)
+      context.currentTime = 10
+      audio.bgm = { ...audio.bgm, state: 'playing' }
+      await runtime.sync(audio)
+      expect(FakeAudioContext.sources.at(-1)?.start).toHaveBeenCalledWith(10, 1.5)
+      context.currentTime = 10.5
+      expect(runtime.getPlaybackEntries()[0].positionMs).toBe(2250)
+    }
+    finally {
+      await runtime.destroy()
+      await assets.cleanup()
+    }
+  })
+
+  it('resumes paused audio without repeating its authored fade-in envelope', async () => {
+    installFakeAudioContext({ initialState: 'running' })
+    const ramp = vi.spyOn(FakeAudioParam.prototype, 'linearRampToValueAtTime')
+    const assets = await createAudioAssets()
+    const pipeline = new Pipeline()
+    const audio = createInitialAudioProjection()
+    audio.bgm = { id: 'resume-fade', kind: 'bgm', assetKey: 'bgm.ogg', state: 'playing', fadeInMs: 400, gainDb: -12 }
+    const controller = new WebAudioRendererController({ getPipeline: () => pipeline, getAssets: () => assets, getViewState: () => view({ plugins: { [AUDIO_PLUGIN_ID]: audio } }), document })
+    controller.start()
+    await controller.sync()
+    expect(ramp).toHaveBeenCalled()
+    audio.bgm = { ...audio.bgm, state: 'paused' }
+    await controller.sync()
+    ramp.mockClear()
+    audio.bgm = { ...audio.bgm, state: 'playing' }
+    await controller.sync()
+    expect(ramp).not.toHaveBeenCalled()
+    expect(getWebAudioPlaybackEntries(pipeline)[0].gain).toBeCloseTo(10 ** (-12 / 20))
+    audio.bgm = { ...audio.bgm, seekMs: 500, playAt: Date.now() }
+    await controller.sync()
+    expect(ramp).not.toHaveBeenCalled()
+    expect(getWebAudioPlaybackEntries(pipeline)[0].positionMs).toBe(500)
+    await controller.destroy()
+    await assets.cleanup()
+  })
+
   it('resolves audio buffers through required runtime package candidates', async () => {
     installFakeAudioContext({ initialState: 'running' })
     const requestedPackages: Array<string | undefined> = []
@@ -5217,6 +5303,9 @@ class FakeAudioContext {
     this.state = FakeAudioContext.initialState
   }
 
+  createAnalyser() { return Object.assign(new FakeAudioNode(), { fftSize: 4096, getFloatTimeDomainData: (data: Float32Array) => data.fill(0) }) }
+  sampleRate = 48000
+
   createGain(): GainNode {
     return new FakeGainNode() as unknown as GainNode
   }
@@ -5283,6 +5372,7 @@ class FakeBiquadFilterNode extends FakeAudioNode {
 }
 
 class FakeAudioBufferSourceNode extends FakeAudioNode {
+  playbackRate = new FakeAudioParam()
   buffer: AudioBuffer | null = null
   loop = false
   onended: ((this: AudioScheduledSourceNode, ev: Event) => unknown) | null = null
