@@ -4,6 +4,8 @@
 
 The submission review bounds debug media observations, disables their listeners in release Cocos bootstraps, and preserves Web loop phase when resuming after several buffer durations. A real production Web navigation run also identified a stale second-line assertion; the smoke now checks the current authored opening text. GitHub CI runs the public workspace, host/store/renderer, shared media and demo build lifecycle regression suites. Creator-specific visual and native media evidence remains in the separately versioned local acceptance reports.
 
+The first Linux CI regression run timed out while deep-comparing a 6 MiB typed array. The quota test now verifies its full byte length and every byte directly, retaining the same storage, reopen, move and delete assertions. The 56 host tests also pass under CI's Node 22 runtime locally; no timeout or coverage reduction is required.
+
 ## Creator workspace integration (2026-10-10/11)
 
 Quack now generates a complete, portable Creator 3.8.8 workspace from the demo's business entry and public QuaEngine package artifacts. `cocos-core-resolver` is the sole target injection point; the actual retained module graph and validated target manifest drive the generated scene and startup component. Structured content remains QPK; images use lossless PNG, audio and fonts use Creator importers. Generation validates a temporary directory before replacing a prior generated workspace.

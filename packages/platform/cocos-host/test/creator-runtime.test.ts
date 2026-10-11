@@ -81,15 +81,17 @@ describe('concrete Creator runtime services', () => {
     expect(source.volume).toBe(0.1)
   })
 
-  // fake-indexeddb clones several 6 MiB records synchronously; keep the quota
-  // regression intact when Creator compilation competes for the same CPU.
+  // Compare every byte without Vitest recursively enumerating millions of
+  // typed-array properties. Keep the actual beyond-quota record size intact.
   it('persists preview byte files beyond localStorage quota across bridge instances', async () => {
     const indexedDB = new IDBFactory()
     const first = createCreatorPreviewFileBridge({ indexedDB, namespace: 'quota-test' })
     const bytes = new Uint8Array(6 * 1024 * 1024).fill(193)
     await first.writeBytes!('snapshots/large', bytes)
     const second = createCreatorPreviewFileBridge({ indexedDB, namespace: 'quota-test' })
-    expect(await second.readBytes!('snapshots/large')).toEqual(bytes)
+    const restored = await second.readBytes!('snapshots/large')
+    expect(restored?.byteLength).toBe(bytes.byteLength)
+    expect(restored?.every((value, index) => value === bytes[index])).toBe(true)
     await second.move!('snapshots/large', 'snapshots/moved')
     expect(await first.readBytes!('snapshots/large')).toBeUndefined()
     expect(await first.list!('snapshots')).toEqual([{ path: 'snapshots/moved', size: bytes.length }])
