@@ -101,7 +101,7 @@ try {
     await page.locator('[data-qui-id="native-main-menu-start"]').waitFor({ timeout: 60000 })
   }
   const first = '2019 年 6 月 10 日，青叶市。'
-  const second = '巴士开走以后，神代凛才发现雨棚漏了一处水。'
+  const second = '从内陆一路驶来的巴士喘着粗气开走，排气管喷出的白雾很快被初夏的雨水打散。神代凛站在空旷的车站雨棚下，这才发现头顶的铁皮雨棚破了个缺口。'
   await enterStory('native-main-menu-start', first, 'first-line')
   if (isNative) {
     await client.call('Input.dispatchMouseEvent', { type: 'mousePressed', x: 450, y: 250, button: 'left', clickCount: 1 })
@@ -135,7 +135,7 @@ try {
   await returnToTitle('final-title')
   assert.deepEqual(errors, [])
   await writeFile(resolve(output, `${target}.json`), `${JSON.stringify({ target, elapsedMs: results, errors }, null, 2)}\n`)
-  console.log(`${target} navigation passed: ${JSON.stringify(results)}`)
+  process.stdout.write(`${target} navigation passed: ${JSON.stringify(results)}\n`)
 }
 finally {
   client?.close()
