@@ -3,6 +3,7 @@ import type {
   CocosFontHost,
   CocosHost,
   CocosHostAudioHandle,
+  CocosHostBoxStyle,
   CocosHostControlOptions,
   CocosHostDisposer,
   CocosHostFileInfo,
@@ -14,10 +15,12 @@ import type {
   CocosHostResourceKind,
   CocosHostSize,
   CocosHostSpriteOptions,
+  CocosHostTextStyle,
   CocosHostTransform,
   CocosRuntimeHost,
   CocosStorageHost,
 } from './index'
+import { installCreatorLetterSpacing } from './creator-text'
 import { CocosResourcePool } from './resources/pool'
 
 export interface CocosCreatorHostOptions {
@@ -28,10 +31,18 @@ export interface CocosCreatorHostOptions {
   files?: CocosCreatorFileBridge
   resources?: CocosCreatorResourceBridge
   audio?: CocosCreatorAudioBridge
+  video?: CocosCreatorVideoBridge
+  spriteMaterial?: (sprite: any, resource: CocosHostResource | undefined, options: CocosHostSpriteOptions) => (() => void) | undefined
   fonts?: CocosCreatorFontBridge
   input?: CocosCreatorInputBridge
   capture?: CocosCaptureHost
   layout?: CocosCreatorLayoutBridge
+}
+
+/** Optional concrete decoder. All handles and decoded frames are transient. */
+export interface CocosCreatorVideoBridge {
+  project: (node: any, resource: CocosHostResource, options: CocosHostSpriteOptions) => void
+  dispose: (node: any) => void
 }
 
 export interface CocosCreatorFileBridge {
@@ -72,6 +83,7 @@ export interface CocosCreatorResourceBridge {
 
 export interface CocosCreatorAudioBridge {
   /** Declare rate support only when returned handles implement setPlaybackRate. */
+  gainAboveUnity?: boolean
   playbackRate?: boolean
   createAudioHandle?: (resource: CocosHostResource, options: {
     id: string
@@ -85,7 +97,9 @@ export interface CocosCreatorAudioBridge {
   setBusEq?: (bus: string, bands: readonly unknown[]) => void
 }
 
-export interface CocosCreatorFontBridge extends CocosFontHost {}
+export interface CocosCreatorFontBridge extends CocosFontHost {
+  resolveFont?: (family: string) => unknown
+}
 
 export interface CocosCreatorInputBridge {
   onInput?: (listener: CocosHostInputListener) => CocosHostDisposer
@@ -104,6 +118,7 @@ export interface CocosCreatorModule {
   Label?: unknown
   RichText?: unknown
   Graphics?: unknown
+  Mask?: unknown
   Button?: unknown
   EditBox?: unknown
   Toggle?: unknown
@@ -111,6 +126,7 @@ export interface CocosCreatorModule {
   UITransform?: unknown
   UIOpacity?: unknown
   AudioSource?: unknown
+  Canvas?: unknown
   Color?: new (r?: number, g?: number, b?: number, a?: number) => unknown
   Vec3?: new (x?: number, y?: number, z?: number) => unknown
   input?: {
@@ -125,11 +141,13 @@ export interface CocosCreatorModule {
   }
   sys?: {
     now?: () => number
+    isNative?: boolean
   }
   view?: {
     on?: (event: string, callback: () => void) => void
     off?: (event: string, callback: () => void) => void
     getVisibleSize?: () => CocosHostSize
+    getFrameSize?: () => CocosHostSize
     getDevicePixelRatio?: () => number
     getSafeAreaRect?: () => CocosHostRect
   }
@@ -147,14 +165,19 @@ export function createCocosCreatorHost(options: CocosCreatorHostOptions): CocosH
     if (warned.has(message))
       return
     warned.add(message)
-    ;(options.runtime?.warn || console.warn)(message, metadata)
+    ;
+    (options.runtime?.warn || console.warn)(message, metadata)
   }
   const nodesByNative = new WeakMap<object, CocosCreatorNode>()
   const childNodes = new Map<string, Set<CocosCreatorNode>>()
   const parentNodes = new Map<string, CocosCreatorNode>()
+  const materialDisposers = new Map<string, () => void>()
   const slicedFrames = new Map<string, any>()
   const visualNodes = new Map<string, Map<string, any>>()
   const solidColors = new Map<string, string>()
+  const boxStyles = new Map<string, CocosHostBoxStyle>()
+  const textDisposers = new Map<string, () => void>()
+  const textStyles = new Map<string, { node: CocosCreatorNode, kind: string, style: CocosHostTextStyle }>()
   const metadataByNode = new Map<string, Record<string, unknown>>()
   const root = wrapNode(options.rootNode, 'root', 'root')
   registerNode(root)
@@ -169,6 +192,7 @@ export function createCocosCreatorHost(options: CocosCreatorHostOptions): CocosH
 
   const nodeHost = {
     getRootNode: () => root,
+    getNodeChildren: (node: CocosHostNode) => [...(childNodes.get(node.id) || [])],
     createNode(kind: string, nodeOptions: { name?: string, parent?: CocosHostNode } = {}) {
       const native = options.cc?.Node ? new options.cc.Node(nodeOptions.name || kind) : { name: nodeOptions.name || kind, children: [] }
       const node = wrapNode(native, kind, nodeOptions.name || kind)
@@ -180,6 +204,7 @@ export function createCocosCreatorHost(options: CocosCreatorHostOptions): CocosH
     },
     destroyNode(node: CocosHostNode) {
       const current = asCreatorNode(node)
+      options.video?.dispose(current.native)
       for (const child of [...(childNodes.get(current.id) || [])]) {
         nodeHost.destroyNode(child)
       }
@@ -187,12 +212,19 @@ export function createCocosCreatorHost(options: CocosCreatorHostOptions): CocosH
       if (parent) {
         nodeHost.removeChild(parent, current)
       }
-      ;(current.native as any)?.destroy?.()
+      ;
+      (current.native as any)?.destroy?.()
       childNodes.delete(current.id)
       parentNodes.delete(current.id)
       metadataByNode.delete(current.id)
       visualNodes.delete(current.id)
       solidColors.delete(current.id)
+      boxStyles.delete(current.id)
+      textDisposers.get(current.id)?.()
+      textDisposers.delete(current.id)
+      textStyles.delete(current.id)
+      materialDisposers.get(current.id)?.()
+      materialDisposers.delete(current.id)
       slicedFrames.get(current.id)?.destroy?.()
       slicedFrames.delete(current.id)
     },
@@ -228,8 +260,9 @@ export function createCocosCreatorHost(options: CocosCreatorHostOptions): CocosH
       const childNative = childNode.native as any
       if (parentNative?.removeChild)
         parentNative.removeChild(childNative)
-      else if (Array.isArray(parentNative?.children))
-        parentNative.children = parentNative.children.filter((child: unknown) => child !== childNative)
+      else
+        if (Array.isArray(parentNative?.children))
+          parentNative.children = parentNative.children.filter((child: unknown) => child !== childNative)
       childNodes.get(parentNode.id)?.delete(childNode)
       if (parentNodes.get(childNode.id)?.id === parentNode.id) {
         parentNodes.delete(childNode.id)
@@ -244,10 +277,17 @@ export function createCocosCreatorHost(options: CocosCreatorHostOptions): CocosH
         visual.destroy?.()
       visualNodes.delete(node.id)
       solidColors.delete(node.id)
+      boxStyles.delete(node.id)
+      textDisposers.get(node.id)?.()
+      textDisposers.delete(node.id)
+      textStyles.delete(node.id)
+      materialDisposers.get(node.id)?.()
+      materialDisposers.delete(node.id)
       native?.removeAllChildren?.()
     },
     setNodeVisible(node: CocosHostNode, visible: boolean) {
-      ;(asCreatorNode(node).native as any).active = visible
+      ;
+      (asCreatorNode(node).native as any).active = visible
     },
     setNodeTransform(node: CocosHostNode, transform: CocosHostTransform) {
       const current = asCreatorNode(node)
@@ -258,26 +298,83 @@ export function createCocosCreatorHost(options: CocosCreatorHostOptions): CocosH
       const parent = parentNodes.get(current.id)
       if (parent && transform.zIndex !== undefined)
         sortChildren(parent)
-      if (transform.clip)
-        warn('Cocos Creator clip projection requires a custom mask implementation; clip metadata is retained only.')
+      if (current.transform.clip) {
+        const mask = ensureComponent(current.native, options.cc?.Mask, 'cc.Mask')
+        if (mask) {
+          const clip = { x: 0, y: 0, width: current.transform.width ?? 0, height: current.transform.height ?? 0, ...current.transform.clip }
+          const full = clip.x === 0 && clip.y === 0 && clip.width === current.transform.width && clip.height === current.transform.height
+          mask.type = full ? (options.cc?.Mask as any)?.Type?.GRAPHICS_RECT ?? 0 : (options.cc?.Mask as any)?.Type?.GRAPHICS_STENCIL ?? 2
+          mask.enabled = true
+          if (!full && mask.subComp?.rect) {
+            mask.subComp.clear()
+            mask.subComp.rect(clip.x - (current.transform.anchorX ?? 0) * (current.transform.width ?? 0), (1 - (current.transform.anchorY ?? 0)) * -(current.transform.height ?? 0) + (current.transform.height ?? 0) - clip.y - clip.height, clip.width, clip.height)
+            mask.subComp.fill()
+          }
+        }
+        else {
+          warn('Cocos Creator clip projection requires cc.Mask.')
+        }
+      }
     },
-    setNodeText(node: CocosHostNode, text: string, style = {}) {
+    measureText(text: string, style: CocosHostTextStyle, maxWidth: number) {
+      const node = nodeHost.createNode('text-measure', { parent: root })
+      const native = asCreatorNode(node).native as any
+      const label = ensureComponent(native, options.cc?.Label, 'cc.Label')
+      if (!label?.updateRenderData) {
+        nodeHost.destroyNode(node)
+        return undefined
+      }
+      const ui = ensureComponent(native, options.cc?.UITransform, 'cc.UITransform')
+      const font = options.fonts?.resolveFont?.(style.fontFamily || 'Noto Sans')
+      applyTextStyle(options.cc, label, style)
+      if (font) {
+        label.font = font
+        label.useSystemFont = false
+      }
+      ui.setContentSize(maxWidth, 1)
+      label.overflow = (options.cc?.Label as any).Overflow.RESIZE_HEIGHT
+      label.string = text || ' '
+      const dispose = installCreatorLetterSpacing(label, style.letterSpacing ?? 0)
+      label.updateRenderData(true)
+      const result = { width: ui.width, height: ui.height }
+      dispose?.()
+      nodeHost.destroyNode(node)
+      return result
+    },
+    setNodeText(node: CocosHostNode, text: string, style: CocosHostTextStyle = {}) {
       const native = asCreatorNode(node).native as any
       const label = presentationComponent(asCreatorNode(node), 'label', options.cc?.Label, 'cc.Label')
       if (label) {
+        textStyles.set(node.id, { node: asCreatorNode(node), kind: 'label', style })
         label.string = text
         applyTextStyle(options.cc, label, style)
+        const font = options.fonts?.resolveFont?.(style.fontFamily || 'Noto Sans')
+        if (font) {
+          label.font = font
+          label.useSystemFont = false
+        }
+        updatePresentation(asCreatorNode(node))
+        textDisposers.get(node.id)?.()
+        textDisposers.delete(node.id)
+        const dispose = installCreatorLetterSpacing(label, style.letterSpacing ?? 0)
+        if (dispose)
+          textDisposers.set(node.id, dispose)
       }
       else {
         native.text = text
       }
     },
-    setNodeRichText(node: CocosHostNode, markup: string, style = {}) {
+    setNodeRichText(node: CocosHostNode, markup: string, style: CocosHostTextStyle = {}) {
       const native = asCreatorNode(node).native as any
       const richText = presentationComponent(asCreatorNode(node), 'rich-text', options.cc?.RichText, 'cc.RichText')
       if (richText) {
+        textStyles.set(node.id, { node: asCreatorNode(node), kind: 'rich-text', style })
         richText.string = markup
         applyTextStyle(options.cc, richText, style)
+        const font = options.fonts?.resolveFont?.(style.fontFamily || 'Noto Sans')
+        if (font)
+          richText.font = font
+        updatePresentation(asCreatorNode(node))
       }
       else {
         native.richText = markup
@@ -285,8 +382,21 @@ export function createCocosCreatorHost(options: CocosCreatorHostOptions): CocosH
     },
     setNodeSprite(node: CocosHostNode, resource?: CocosHostResource, spriteOptions: CocosHostSpriteOptions = {}) {
       const native = asCreatorNode(node).native as any
+      if (spriteOptions.mode === 'video' && resource && options.video) {
+        options.video.project(native, resource, spriteOptions)
+        return
+      }
+      options.video?.dispose(native)
       const sprite = presentationComponent(asCreatorNode(node), 'sprite', options.cc?.Sprite, 'cc.Sprite')
       if (sprite) {
+        const previousMaterial = materialDisposers.get(node.id)
+        materialDisposers.delete(node.id)
+        // Native Creator may not retain the builtin render-texture variant.
+        // Install the imported projection material before assigning its frame.
+        const dispose = options.spriteMaterial?.(sprite, resource, spriteOptions)
+        previousMaterial?.()
+        if (dispose)
+          materialDisposers.set(node.id, dispose)
         if (spriteOptions.mode === 'video') {
           warn('Cocos Creator video projection is unavailable without a custom node host.')
           sprite.spriteFrame = null
@@ -308,6 +418,9 @@ export function createCocosCreatorHost(options: CocosCreatorHostOptions): CocosH
         }
         applySpriteMode(options.cc, sprite, resource, spriteOptions)
         applySpriteVisualOptions(sprite, spriteOptions)
+        // Assigning a SpriteFrame can resize the presentation child to the
+        // imported texture. Restore logical bounds, including downsampled RTs.
+        updatePresentation(asCreatorNode(node))
       }
       else {
         native.sprite = resource?.native
@@ -316,7 +429,7 @@ export function createCocosCreatorHost(options: CocosCreatorHostOptions): CocosH
         (sprite || native).color = parseCocosColor(options.cc, spriteOptions.tint)
       if (spriteOptions.opacity !== undefined)
         applyNodeOpacity(options.cc, native, spriteOptions.opacity)
-      if (spriteOptions.mask || spriteOptions.filter || spriteOptions.composition || spriteOptions.frame || spriteOptions.states || (spriteOptions.blendMode && spriteOptions.blendMode !== 'normal'))
+      if (spriteOptions.mask || spriteOptions.states || (!options.spriteMaterial && (spriteOptions.lighting || spriteOptions.filter || spriteOptions.composition || (spriteOptions.blendMode && spriteOptions.blendMode !== 'normal'))))
         warn('Cocos Creator advanced sprite options require a custom material/control implementation; projection metadata is retained only.')
       native.spriteOptions = clonePlain(spriteOptions)
     },
@@ -347,6 +460,11 @@ export function createCocosCreatorHost(options: CocosCreatorHostOptions): CocosH
       if (!graphics)
         warn('Cocos Creator solid color projection requires cc.Graphics; color metadata is retained only.')
       updatePresentation(current)
+    },
+    setNodeBoxStyle(node: CocosHostNode, style: CocosHostBoxStyle) {
+      boxStyles.set(node.id, { ...style })
+      presentationComponent(asCreatorNode(node), 'box', options.cc?.Graphics, 'cc.Graphics')
+      updatePresentation(asCreatorNode(node))
     },
     setNodeMetadata(node: CocosHostNode, metadata: Record<string, unknown>) {
       metadataByNode.set(asCreatorNode(node).id, { ...metadata })
@@ -395,7 +513,7 @@ export function createCocosCreatorHost(options: CocosCreatorHostOptions): CocosH
             return new Uint8Array(bytes)
         }
         if (fileBridge?.loadBytes)
-          return fileBridge.loadBytes(path)
+          return fileBridge.loadBytes(source)
         if (isRemoteUrl(source) && globalThis.fetch) {
           const response = await globalThis.fetch(source)
           if (!response.ok)
@@ -496,7 +614,18 @@ export function createCocosCreatorHost(options: CocosCreatorHostOptions): CocosH
       setBusVolume: audioBridge?.setBusVolume,
       setBusEq: audioBridge?.setBusEq,
     },
-    fonts: options.fonts,
+    fonts: options.fonts
+      ? {
+          async registerFontFace(resource, face) {
+            await options.fonts!.registerFontFace(resource, face)
+            refreshFonts()
+          },
+          async unregisterFontFace(id) {
+            await options.fonts!.unregisterFontFace(id)
+            refreshFonts()
+          },
+        }
+      : undefined,
     storage: {
       async writeText(path, value) {
         const bytes = new TextEncoder().encode(value)
@@ -578,7 +707,8 @@ export function createCocosCreatorHost(options: CocosCreatorHostOptions): CocosH
       input: Boolean(options.input?.onInput || options.cc?.input || (root.native as any)?.on),
       audioEq: Boolean(audioBridge?.setBusEq),
       audioPlaybackRate: audioBridge?.playbackRate === true,
-      video: false,
+      audioGainAboveUnity: audioBridge?.gainAboveUnity === true,
+      video: Boolean(options.video),
       capture: Boolean(options.capture),
       fonts: Boolean(options.fonts?.registerFontFace),
       nativeAssets: Boolean(resourceBridge?.loadResource),
@@ -606,6 +736,24 @@ export function createCocosCreatorHost(options: CocosCreatorHostOptions): CocosH
     updatePresentation(node)
   }
 
+  function refreshFonts(): void {
+    for (const { node, kind, style } of textStyles.values()) {
+      const visual = visualNodes.get(node.id)?.get(kind) || node.native
+      const component = getComponent(visual, kind === 'label' ? options.cc?.Label : options.cc?.RichText, kind === 'label' ? 'cc.Label' : 'cc.RichText')
+      const font = options.fonts?.resolveFont?.(style.fontFamily || 'Noto Sans')
+      if (component) {
+        textDisposers.get(node.id)?.()
+        textDisposers.delete(node.id)
+        component.font = font ?? null
+        if (kind === 'label')
+          component.useSystemFont = !font
+        const dispose = kind === 'label' && installCreatorLetterSpacing(component, style.letterSpacing ?? 0)
+        if (dispose)
+          textDisposers.set(node.id, dispose)
+      }
+    }
+  }
+
   function presentationComponent(node: CocosCreatorNode, kind: string, component: unknown, componentName: string): any {
     if (!options.cc?.Node || !component)
       return ensureComponent(node.native, component, componentName)
@@ -619,7 +767,8 @@ export function createCocosCreatorHost(options: CocosCreatorHostOptions): CocosH
       visual = new options.cc.Node(`qua-${kind}`)
       if (typeof (node.native as any)?.layer === 'number')
         visual.layer = (node.native as any).layer
-      ;(node.native as any).addChild?.(visual)
+        ;
+      (node.native as any).addChild?.(visual)
       visuals.set(kind, visual)
     }
     if (kind === 'label' || kind === 'rich-text') {
@@ -642,7 +791,105 @@ export function createCocosCreatorHost(options: CocosCreatorHostOptions): CocosH
       ui?.setContentSize?.(node.transform.width ?? 0, node.transform.height ?? 0)
       ui?.setAnchorPoint?.(node.transform.anchorX ?? 0, 1 - (node.transform.anchorY ?? 0))
       visual.setPosition?.(0, 0, 0)
-      visual.setSiblingIndex?.(kind === 'color' || kind === 'sprite' ? 0 : 1)
+      const padding = (kind === 'label' || kind === 'rich-text') ? textStyles.get(node.id)?.style.padding : undefined
+      if (padding) {
+        ui?.setContentSize?.(Math.max(0, (node.transform.width ?? 0) - padding.left - padding.right), Math.max(0, (node.transform.height ?? 0) - padding.top - padding.bottom))
+        visual.setPosition?.(padding.left - (node.transform.anchorX ?? 0) * (padding.left + padding.right), -padding.top + (node.transform.anchorY ?? 0) * (padding.top + padding.bottom), 0)
+      }
+      if (kind === 'box') {
+        const style = boxStyles.get(node.id)
+        const graphics = getComponent(visual, options.cc?.Graphics, 'cc.Graphics')
+        if (style && graphics) {
+          const width = node.transform.width ?? 0
+          const height = node.transform.height ?? 0
+          const x = -(node.transform.anchorX ?? 0) * width
+          const y = -((1 - (node.transform.anchorY ?? 0)) * height)
+          graphics.clear()
+          if (style.shape === 'chevron-down' && graphics.moveTo && graphics.lineTo && graphics.stroke) {
+            graphics.strokeColor = parseCocosColor(options.cc, style.backgroundColor ?? style.borderColor ?? '#ffffff')
+            graphics.lineWidth = Math.min(2, height / 3)
+            graphics.moveTo(x + 1, y + height - 1)
+            graphics.lineTo(x + width / 2, y + 1)
+            graphics.lineTo(x + width - 1, y + height - 1)
+            graphics.stroke()
+            continue
+          }
+          if (style.boxShadow && !style.boxShadow.inset) {
+            const shadow = style.boxShadow
+            const color = parseCocosColor(undefined, shadow.color) as any
+            const steps = shadow.blurRadius > 0 ? 24 : 1
+            for (let step = steps; step >= 1; step--) {
+              const extent = shadow.spreadRadius + shadow.blurRadius * step / steps
+              graphics.fillColor = parseCocosColor(options.cc, `rgba(${color.r},${color.g},${color.b},${color.a / 255 / steps})`)
+              const sx = x + shadow.offsetX - extent
+              const sy = y - shadow.offsetY - extent
+              if (graphics.roundRect)
+                graphics.roundRect(sx, sy, width + extent * 2, height + extent * 2, Math.max(0, (style.borderRadius ?? 0) + extent))
+              else
+                graphics.rect(sx, sy, width + extent * 2, height + extent * 2)
+              graphics.fill()
+            }
+          }
+          if (style.backgroundColor) {
+            graphics.fillColor = parseCocosColor(options.cc, style.backgroundColor)
+            if (style.borderRadius && graphics.roundRect)
+              graphics.roundRect(x, y, width, height, style.borderRadius)
+            else
+              graphics.rect(x, y, width, height)
+            graphics.fill()
+          }
+          if (style.backgroundGradient?.kind === 'linear') {
+            const gradient = style.backgroundGradient
+            const vertical = Math.abs(Math.cos((gradient.angleDegrees ?? 180) * Math.PI / 180)) > 0.99
+            const length = vertical ? height : width
+            const reversed = vertical ? (gradient.angleDegrees ?? 180) === 0 : (gradient.angleDegrees ?? 90) === 270
+            for (let offset = 0; offset < length; offset += 2) {
+              let position = (offset + 1) / length
+              if (reversed)
+                position = 1 - position
+              const upper = gradient.stops.findIndex(stop => stop.position >= position)
+              const right = gradient.stops[upper < 0 ? gradient.stops.length - 1 : upper]
+              const left = gradient.stops[Math.max(0, upper < 0 ? gradient.stops.length - 1 : upper - 1)]
+              if (!left || !right)
+                continue
+              const t = left === right ? 0 : Math.max(0, Math.min(1, (position - left.position) / (right.position - left.position)))
+              const a = parseCocosColor(undefined, left.color) as any
+              const b = parseCocosColor(undefined, right.color) as any
+              graphics.fillColor = parseCocosColor(options.cc, `rgba(${Math.round(a.r + (b.r - a.r) * t)},${Math.round(a.g + (b.g - a.g) * t)},${Math.round(a.b + (b.b - a.b) * t)},${(a.a + (b.a - a.a) * t) / 255})`)
+              if (vertical)
+                graphics.rect(x, y + height - offset - Math.min(2, length - offset), width, Math.min(2, length - offset))
+              else
+                graphics.rect(x + offset, y, Math.min(2, length - offset), height)
+              graphics.fill()
+            }
+          }
+          const roundedBorder = style.borderRadius && style.borderWidth && style.borderColor
+            && graphics.roundRect && graphics.stroke
+            && !['Top', 'Right', 'Bottom', 'Left'].some(side => style[`border${side}Width` as keyof CocosHostBoxStyle] !== undefined || style[`border${side}Color` as keyof CocosHostBoxStyle] !== undefined)
+          if (roundedBorder) {
+            const inset = Math.min(style.borderWidth!, width / 2, height / 2) / 2
+            graphics.strokeColor = parseCocosColor(options.cc, style.borderColor)
+            graphics.lineWidth = inset * 2
+            graphics.roundRect(x + inset, y + inset, width - inset * 2, height - inset * 2, Math.max(0, Math.min(style.borderRadius!, width / 2, height / 2) - inset))
+            graphics.stroke()
+          }
+          for (const [side, rx, ry, rw, rh] of roundedBorder
+            ? []
+            : [
+                ['Top', x, y + height - (style.borderTopWidth ?? style.borderWidth ?? 0), width, style.borderTopWidth ?? style.borderWidth ?? 0],
+                ['Bottom', x, y, width, style.borderBottomWidth ?? style.borderWidth ?? 0],
+                ['Left', x, y, style.borderLeftWidth ?? style.borderWidth ?? 0, height],
+                ['Right', x + width - (style.borderRightWidth ?? style.borderWidth ?? 0), y, style.borderRightWidth ?? style.borderWidth ?? 0, height],
+              ] as [string, number, number, number, number][]) {
+            const color = style[`border${side}Color` as keyof CocosHostBoxStyle] || style.borderColor
+            if (rw > 0 && rh > 0 && color) {
+              graphics.fillColor = parseCocosColor(options.cc, color as string)
+              graphics.rect(rx, ry, rw, rh)
+              graphics.fill()
+            }
+          }
+        }
+      }
       if (kind === 'color') {
         const color = solidColors.get(node.id)
         visual.active = Boolean(color)
@@ -657,12 +904,18 @@ export function createCocosCreatorHost(options: CocosCreatorHostOptions): CocosH
         }
       }
     }
+    sortChildren(node)
   }
 
   function sortChildren(parent: CocosCreatorNode): void {
     const children = [...(childNodes.get(parent.id) || [])]
       .sort((left, right) => (left.transform.zIndex ?? 0) - (right.transform.zIndex ?? 0))
-    children.forEach((child, index) => (child.native as any)?.setSiblingIndex?.(index))
+    const visuals = [...(visualNodes.get(parent.id)?.entries() || [])].sort(([a], [b]) => {
+      const order = ['color', 'box', 'sprite', 'label', 'rich-text']
+      return order.indexOf(a) - order.indexOf(b)
+    })
+    visuals.forEach(([, visual], index) => visual.setSiblingIndex?.(index))
+    children.forEach((child, index) => (child.native as any)?.setSiblingIndex?.(visuals.length + index))
   }
 
   function registerNode(node: CocosCreatorNode): void {
@@ -799,15 +1052,20 @@ function applySpriteMode(
   if (options.mode === 'sliced') {
     sprite.type = spriteType.SLICED ?? spriteType.sliced ?? sprite.type
   }
-  else if (options.mode === 'tiled') {
-    sprite.type = spriteType.TILED ?? spriteType.tiled ?? sprite.type
-  }
-  else if (options.mode === 'sprite' || !options.mode) {
-    sprite.type = spriteType.SIMPLE ?? spriteType.simple ?? sprite.type
-  }
+  else
+    if (options.mode === 'tiled') {
+      sprite.type = spriteType.TILED ?? spriteType.tiled ?? sprite.type
+    }
+    else
+      if (options.mode === 'sprite' || !options.mode) {
+        sprite.type = spriteType.SIMPLE ?? spriteType.simple ?? sprite.type
+      }
 
   const sizeMode = (cc?.Sprite as any)?.SizeMode || {}
   sprite.sizeMode = sizeMode.CUSTOM ?? sprite.sizeMode
+  // Creator auto-trims transparent SpriteFrames. Keep the authored canvas
+  // when fitting into logical bounds, matching Web images and sprite layers.
+  sprite.trim = resource?.metadata?.renderTexture === true
 
   const frame = sprite.spriteFrame
   const slice = options.slice
@@ -888,21 +1146,20 @@ function applyNodeOpacity(cc: CocosCreatorModule | undefined, native: any, opaci
   }
 }
 
-function applyTextStyle(cc: CocosCreatorModule | undefined, component: any, style: {
-  fontFamily?: string
-  fontSize?: number
-  fontWeight?: string | number
-  fontStyle?: string
-  lineHeight?: number
-  color?: string
-  align?: string
-}): void {
+function applyTextStyle(cc: CocosCreatorModule | undefined, component: any, style: CocosHostTextStyle): void {
   if (style.fontSize !== undefined)
     component.fontSize = style.fontSize
   if (style.lineHeight !== undefined)
     component.lineHeight = style.lineHeight
   if (style.color)
     component.color = parseCocosColor(cc, style.color)
+  component.verticalAlign = ((cc?.Label as any)?.VerticalAlign || { TOP: 0, CENTER: 1, BOTTOM: 2 })[(style.verticalAlign || 'top').toUpperCase()]
+  if (style.letterSpacing !== undefined)
+    component.spacingX = style.letterSpacing
+  component.enableWrapText = true
+  component.isBold = style.fontWeight === 'bold' || Number(style.fontWeight) >= 600
+  if ((cc?.Label as any)?.Overflow)
+    component.overflow = (cc?.Label as any).Overflow.CLAMP
   if (style.align) {
     const alignments = (cc?.Label as any)?.HorizontalAlign || { LEFT: 0, CENTER: 1, RIGHT: 2 }
     component.horizontalAlign = alignments[style.align.toUpperCase()] ?? alignments.LEFT
@@ -912,6 +1169,16 @@ function applyTextStyle(cc: CocosCreatorModule | undefined, component: any, styl
 function parseCocosColor(cc: CocosCreatorModule | undefined, color?: string): unknown {
   if (!color)
     return undefined
+  const rgba = /^rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)(?:\s*[,/]\s*([\d.]+))?\s*\)$/i.exec(color)
+  if (rgba) {
+    const [r, g, b] = rgba.slice(1, 4).map(Number)
+    const a = rgba[4] === undefined ? 255 : Math.round(Number(rgba[4]) * 255)
+    return cc?.Color ? new cc.Color(r, g, b, a) : { r, g, b, a }
+  }
+  if (color === 'transparent')
+    return cc?.Color ? new cc.Color(0, 0, 0, 0) : { r: 0, g: 0, b: 0, a: 0 }
+  if (/^#[0-9a-f]{3,4}$/i.test(color))
+    color = `#${color.slice(1).split('').map(c => c + c).join('')}`
   const parsed = /^#?([0-9a-f]{6})([0-9a-f]{2})?$/i.exec(color)
   if (!parsed)
     return color
@@ -956,6 +1223,8 @@ function hitTestNode(
   if (!options.includeInvisible && (root.native as any)?.active === false)
     return undefined
   const nodeMatrix = root.kind === 'stage' ? parentMatrix : multiplyMatrix(parentMatrix, creatorNodeMatrix(root))
+  if (root.transform.clip && !containsClip({ x: 0, y: 0, width: root.transform.width ?? 0, height: root.transform.height ?? 0, ...root.transform.clip }, point, nodeMatrix))
+    return undefined
   const children = [...(childNodes.get(root.id) || [])].reverse().sort((left, right) => {
     const lz = Number((left.native as any)?.priority || (left.native as any)?.zIndex || 0)
     const rz = Number((right.native as any)?.priority || (right.native as any)?.zIndex || 0)
@@ -994,6 +1263,14 @@ function creatorNodeMatrix(node: CocosCreatorNode): HitTestMatrix {
   matrix = multiplyMatrix(matrix, rotateMatrix(t.rotation ?? 0))
   matrix = multiplyMatrix(matrix, scaleMatrix(t.scaleX ?? 1, t.scaleY ?? 1))
   return multiplyMatrix(matrix, translateMatrix(-anchorX, -anchorY))
+}
+
+function containsClip(clip: CocosHostRect, point: { x: number, y: number }, matrix: HitTestMatrix): boolean {
+  const inverse = invertMatrix(matrix)
+  if (!inverse)
+    return false
+  const local = transformPoint(inverse, point)
+  return local.x >= clip.x && local.x <= clip.x + clip.width && local.y >= clip.y && local.y <= clip.y + clip.height
 }
 
 function containsPoint(node: CocosCreatorNode, point: { x: number, y: number }, matrix: HitTestMatrix): boolean {
@@ -1069,12 +1346,18 @@ function bindCreatorInput(
   const dispatch = (event: CocosHostInputEvent) => {
     void Promise.resolve().then(() => listener(event)).catch(error => console.error('Cocos input listener failed.', error))
   }
-  const pointer = (phase: CocosHostInputEvent['phase']) => (event: unknown) => {
+  const pointer = (phase: CocosHostInputEvent['phase']) => (event: unknown, metadata?: Record<string, unknown>) => {
     const input = toPointerEvent(event, phase)
     const size = getContainerSize()
     const ui = getComponent(root.native, cc?.UITransform, 'cc.UITransform')
     if (ui?.convertToNodeSpaceAR) {
-      const point = cc?.Vec3 ? new cc.Vec3(input.x, input.y, 0) : { x: input.x, y: input.y, z: 0 }
+      // getUILocation is in the visible view, not world coordinates. A fixed
+      // height Canvas can have a camera center outside visibleSize / 2.
+      const camera = getComponent(root.native, cc?.Canvas, 'cc.Canvas')?.cameraComponent
+      const visible = cc?.view?.getVisibleSize?.() || size
+      const worldX = input.x! + (camera ? camera.node.worldPosition.x - visible.width / 2 : 0)
+      const worldY = input.y! + (camera ? camera.node.worldPosition.y - visible.height / 2 : 0)
+      const point = cc?.Vec3 ? new cc.Vec3(worldX, worldY, 0) : { x: worldX, y: worldY, z: 0 }
       const local = ui.convertToNodeSpaceAR(point)
       input.x = local.x + (ui.anchorX ?? 0.5) * size.width
       input.y = (1 - (ui.anchorY ?? 0.5)) * size.height - local.y
@@ -1082,6 +1365,8 @@ function bindCreatorInput(
     else {
       input.y = size.height - (input.y ?? 0)
     }
+    if (metadata)
+      input.metadata = metadata
     dispatch(input)
   }
   if (cc?.input?.on && cc.input.off) {
@@ -1089,6 +1374,24 @@ function bindCreatorInput(
     bindInputEvent(cc.input, eventType.TOUCH_MOVE || 'touch-move', pointer('move'), disposers)
     bindInputEvent(cc.input, eventType.TOUCH_END || 'touch-end', pointer('up'), disposers)
     bindInputEvent(cc.input, eventType.TOUCH_CANCEL || 'touch-cancel', () => dispatch({ kind: 'focus', phase: 'blur' }), disposers)
+    // Creator synthesizes touch down/up from a mouse. Bind mouse only for
+    // unpressed hover and wheel, so clicks still enter the pipeline once.
+    if (eventType.MOUSE_MOVE)
+      bindInputEvent(cc.input, eventType.MOUSE_MOVE, pointer('move'), disposers)
+    if (eventType.MOUSE_WHEEL) {
+      bindInputEvent(cc.input, eventType.MOUSE_WHEEL, (event) => {
+        const frame = cc.view?.getFrameSize?.()
+        const size = getContainerSize()
+        // Creator Web multiplies DOM wheel pixels by five; native already
+        // standardizes wheel ticks. Return deltas in the same container units
+        // as pointer positions before the renderer applies logical stage scale.
+        const sensitivity = cc.sys?.isNative === false ? 5 : 1
+        pointer('wheel')(event, {
+          deltaY: -Number((event as any)?.getScrollY?.() || 0) / sensitivity * (frame?.height ? size.height / frame.height : 1),
+          deltaX: Number((event as any)?.getScrollX?.() || 0) / sensitivity * (frame?.width ? size.width / frame.width : 1),
+        })
+      }, disposers)
+    }
     bindInputEvent(cc.input, eventType.KEY_DOWN || 'keydown', event => dispatch(toKeyboardEvent(event, 'down')), disposers)
     bindInputEvent(cc.input, eventType.KEY_UP || 'keyup', event => dispatch(toKeyboardEvent(event, 'up')), disposers)
   }

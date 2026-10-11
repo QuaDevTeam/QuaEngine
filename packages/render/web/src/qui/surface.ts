@@ -36,6 +36,7 @@ export function createQuiWebSurface(options: QuiWebSurfaceOptions) {
     const entry = {
       element,
       node,
+      paintBounds: node.bounds,
       parentX: 0,
       parentY: 0,
       hover: false,
@@ -105,11 +106,12 @@ export function createQuiWebSurface(options: QuiWebSurfaceOptions) {
     const state = entry.pressed ? 'active' : entry.focused && element.matches(':focus-visible') ? 'focus-visible' : entry.focused ? 'focus' : entry.hover ? 'hover' : undefined
     const variant = state ? node.stateStyles?.[state] : undefined
     const bounds = variant?.bounds || node.bounds
+    entry.paintBounds = bounds
     const style = { ...node.style, ...variant?.style }
     element.style.cssText = 'all:initial;box-sizing:border-box;position:absolute;display:block;margin:0;padding:0;min-width:0;min-height:0;border:0 solid transparent;outline:none;font-family:"Noto Sans";font-size:24px;color:#fff;pointer-events:none;'
     Object.assign(element.style, {
-      left: `${bounds.x - entry.parentX}px`,
-      top: `${bounds.y - entry.parentY}px`,
+      left: `${bounds.x - entry.parentX - (Number.parseFloat(element.parentElement?.style.borderLeftWidth || '') || 0)}px`,
+      top: `${bounds.y - entry.parentY - (Number.parseFloat(element.parentElement?.style.borderTopWidth || '') || 0)}px`,
       width: `${bounds.width}px`,
       height: `${bounds.height}px`,
       display: entry.effectiveVisible ? 'block' : 'none',
@@ -184,6 +186,14 @@ export function createQuiWebSurface(options: QuiWebSurfaceOptions) {
       else element.style.backgroundImage = `url(${JSON.stringify(entry.assetUrl)})`
     }
     element.style.transition = node.transitions?.map(t => `${['transform', 'translate', 'scale'].includes(t.property) ? 'all' : t.property} ${t.durationMs}ms ${t.easing} ${t.delayMs || 0}ms`).join(',') || 'none'
+    // CSS absolute positioning begins inside the parent's border. QUI bounds
+    // are already authored stage positions, including during hover paint.
+    for (const child of entries.values()) {
+      if (child.element.parentElement !== element)
+        continue
+      child.element.style.left = `${child.paintBounds.x - child.parentX - (Number.parseFloat(element.style.borderLeftWidth) || 0)}px`
+      child.element.style.top = `${child.paintBounds.y - child.parentY - (Number.parseFloat(element.style.borderTopWidth) || 0)}px`
+    }
   }
   function update(root: Node | undefined) {
     if (disposed)

@@ -15,6 +15,7 @@ import type {
   ViewUiOverlayProjection,
   ViewUiOverlaySurfaceProjection,
   ViewUiSceneProjection,
+  ViewVideoBackgroundProjection,
 } from '@quajs/render-core'
 import type { CocosDialogueTypewriterProjectResult } from './dialogue-typewriter'
 import type { CocosRendererHostContext } from './types'
@@ -66,6 +67,7 @@ export interface RenderCocosDialogueOptions {
 }
 
 const activeDialogueRenderKeys = new WeakMap<CocosRendererHostContext, string>()
+const unsupportedVideoWarnings = new WeakMap<object, Set<string>>()
 let dialogueRenderSerial = 0
 
 export interface RenderCocosAudioOptions {
@@ -75,6 +77,7 @@ export interface RenderCocosAudioOptions {
 export interface RenderCocosCharactersOptions {
   characters?: readonly ViewCharacterProjection[]
   presencePhases?: ReadonlyMap<string, string>
+  boxSize?: { width: number, height: number }
 }
 
 export interface RenderCocosUiOptions {
@@ -110,6 +113,18 @@ export async function renderCocosBackground(context: CocosRendererHostContext): 
     return
   }
   if (background.mode === 'video' && background.video) {
+    const video = background.video
+    if (context.host.capabilities?.video === false) {
+      warnUnsupportedVideo(context, video.assetName, video.poster)
+      if (video.poster) {
+        const node = context.host.nodes.createNode('video-poster', { parent: layer })
+        const resource = await resolveAssetWithTargetPackages(context, 'images', video.poster, runtimePackageCandidatesFromMetadata(video.metadata || background.metadata))
+        context.host.nodes.setNodeSprite(node, resource, await backgroundSpriteOptions(context, background, 'main'))
+        context.setLayerResource('background', 'video:poster', resource)
+        applyBackgroundTransform(context, node, background)
+      }
+      return
+    }
     const node = context.host.nodes.createNode('video-background', { parent: layer })
     const resource = await resolveAssetWithTargetPackages(
       context,
@@ -117,7 +132,7 @@ export async function renderCocosBackground(context: CocosRendererHostContext): 
       background.video.assetName,
       runtimePackageCandidatesFromMetadata(background.video.metadata || background.metadata),
     )
-    context.host.nodes.setNodeSprite(node, resource, await backgroundSpriteOptions(context, background, 'main', { mode: 'video' }))
+    context.host.nodes.setNodeSprite(node, resource, await backgroundSpriteOptions(context, background, 'main', { mode: 'video', video: videoTransport(video) }))
     context.setLayerResource('background', 'video:main', resource)
     applyBackgroundTransform(context, node, background)
     return
@@ -138,13 +153,47 @@ export async function renderCocosBackground(context: CocosRendererHostContext): 
   applyBackgroundTransform(context, node, background)
 }
 
+function videoTransport(video?: Readonly<ViewVideoBackgroundProjection>): CocosHostSpriteOptions['video'] {
+  return video && { loop: video.loop, muted: video.muted, volume: video.volume, playbackRate: video.playbackRate, seekMs: video.seekMs, offsetMs: video.offsetMs }
+}
+
+/** Frame-only motion updates retain native nodes and their loaded resources. */
+export function syncCocosBackgroundMotion(context: CocosRendererHostContext): void {
+  const view = context.getViewState()
+  const background = projectBackground(view.background, view.animations, context.host.runtime.now())
+  if (!background)
+    return
+  const layer = context.getLayerNode('background', 'background-layer', 10)
+  const items = background.mode === 'layered' ? resolveBackgroundLayers(background) : undefined
+  for (const node of context.host.nodes.getNodeChildren?.(layer) || []) {
+    if (items) {
+      const item = items.find(item => item.id === node.name)
+      if (item)
+        applyBackgroundLayerTransform(context, node, item)
+    }
+    else {
+      applyBackgroundTransform(context, node, background)
+    }
+  }
+}
+
+function warnUnsupportedVideo(context: CocosRendererHostContext, assetName: string, poster?: string): void {
+  const warned = unsupportedVideoWarnings.get(context.host) || new Set<string>()
+  unsupportedVideoWarnings.set(context.host, warned)
+  const key = JSON.stringify([assetName, poster])
+  if (warned.has(key))
+    return
+  warned.add(key)
+  context.reportWarning('Cocos host cannot play video; displaying the authored poster when available.', { assetName, poster })
+}
+
 export async function renderCocosCharacters(context: CocosRendererHostContext, options: RenderCocosCharactersOptions = {}): Promise<void> {
   const layer = context.getLayerNode('characters', 'character-layer', 30)
   context.host.nodes.clearChildren(layer)
   context.releaseLayerResources('characters')
   const characters = options.characters || projectCharacters(context.getViewState().characters, context.getViewState().animations, context.host.runtime.now())
   for (const character of characters) {
-    await renderCharacter(context, layer, character, options.presencePhases?.get(character.id))
+    await renderCharacter(context, layer, character, options.presencePhases?.get(character.id), options.boxSize)
   }
 }
 
@@ -585,22 +634,38 @@ async function renderLayeredBackground(
     if (item.visible === false)
       continue
     const node = context.host.nodes.createNode('background-layer-item', { parent: layer, name: item.id })
-    const assetType = normalizeBackgroundAssetType(item.assetType)
-    const resource = await resolveAssetWithTargetPackages(context, assetType, item.assetName, runtimePackageCandidatesFromMetadata(item.metadata))
-    context.host.nodes.setNodeSprite(node, resource, await backgroundSpriteOptions(context, item, `layer:${item.id}`))
+    const video = item.video
+    const isVideo = item.assetType === 'video'
+    const unsupported = isVideo && context.host.capabilities?.video === false
+    if (unsupported) {
+      warnUnsupportedVideo(context, item.assetName, video?.poster)
+      if (!video?.poster) {
+        context.host.nodes.destroyNode(node)
+        continue
+      }
+    }
+    const assetType = unsupported ? 'images' : normalizeBackgroundAssetType(item.assetType)
+    const resource = await resolveAssetWithTargetPackages(context, assetType, unsupported ? video!.poster! : item.assetName, runtimePackageCandidatesFromMetadata(video?.metadata || item.metadata))
+    context.host.nodes.setNodeSprite(node, resource, await backgroundSpriteOptions(context, item, `layer:${item.id}`, isVideo && !unsupported ? { mode: 'video', video: videoTransport(video) } : {}))
     context.setLayerResource('background', `layer:${item.id}`, resource)
-    context.host.nodes.setNodeTransform(node, {
-      x: item.x,
-      y: item.y,
-      width: numericDimension(item.width),
-      height: numericDimension(item.height),
-      scaleX: item.scale,
-      scaleY: item.scale,
-      rotation: item.rotation,
-      opacity: item.opacity,
-      zIndex: item.zIndex,
-    })
+    applyBackgroundLayerTransform(context, node, item)
   }
+}
+
+function applyBackgroundLayerTransform(context: CocosRendererHostContext, node: CocosHostNode, item: Readonly<ViewBackgroundLayerProjection>): void {
+  context.host.nodes.setNodeTransform(node, {
+    x: item.x,
+    y: item.y,
+    width: numericDimension(item.width) ?? context.getStageLayout().logicalWidth,
+    height: numericDimension(item.height) ?? context.getStageLayout().logicalHeight,
+    scaleX: item.scale,
+    scaleY: item.scale,
+    rotation: item.rotation,
+    opacity: item.opacity,
+    zIndex: item.zIndex,
+    anchorX: 0.5,
+    anchorY: 0.5,
+  })
 }
 
 async function renderCharacter(
@@ -608,11 +673,13 @@ async function renderCharacter(
   layer: CocosHostNode,
   character: ViewCharacterProjection,
   presencePhase?: string,
+  boxSize?: { width: number, height: number },
 ): Promise<void> {
   const node = context.host.nodes.createNode('character', { parent: layer, name: character.id })
   context.host.nodes.setNodeVisible(node, character.visible !== false)
   context.host.nodes.setNodeTransform(node, {
     ...positionTransform(character.position),
+    ...(boxSize ? { x: (character.position?.x ?? context.getStageLayout().logicalWidth / 2) - boxSize.width * (character.position?.anchor === 'left' ? 0 : character.position?.anchor === 'right' ? 1 : 0.5), y: (character.position?.y ?? context.getStageLayout().logicalHeight / 2) - boxSize.height / 2, width: boxSize.width, height: boxSize.height, anchorX: 0.5, anchorY: 1 } : {}),
     opacity: character.opacity,
     zIndex: character.layer,
   })
@@ -623,13 +690,14 @@ async function renderCharacter(
   })
   if (!character.sprite)
     return
-  await renderCharacterSprite(context, node, character)
+  await renderCharacterSprite(context, node, character, boxSize)
 }
 
 async function renderCharacterSprite(
   context: CocosRendererHostContext,
   root: CocosHostNode,
   character: ViewCharacterProjection,
+  boxSize?: { width: number, height: number },
 ): Promise<void> {
   const targetPackageIds = runtimePackageCandidatesFromMetadata(character.metadata)
   const manifest = await loadSpriteManifest(context, character.sprite, targetPackageIds)
@@ -658,6 +726,7 @@ async function renderCharacterSprite(
       layer,
       index,
       targetPackageIds,
+      boxSize,
     })
   }
 }
@@ -681,6 +750,7 @@ async function renderSpriteLayer(
     layer: SpriteResolvedLayer
     index: number
     targetPackageIds?: readonly string[]
+    boxSize?: { width: number, height: number }
   },
 ): Promise<void> {
   const { character, layer, index, targetPackageIds } = options
@@ -705,6 +775,7 @@ async function renderSpriteLayer(
     : undefined
   context.host.nodes.setNodeSprite(node, resource, {
     mode: 'sprite',
+    lighting: context.getViewState().background?.characterLighting,
     opacity: projectedLayer.opacity,
     frame: projectedLayer.frame ? { ...projectedLayer.frame } : undefined,
     mask: projectedLayer.mask
@@ -731,14 +802,14 @@ async function renderSpriteLayer(
   context.host.nodes.setNodeTransform(node, {
     x: projectedLayer.offsetX,
     y: projectedLayer.offsetY,
-    width: projectedLayer.frame?.width,
-    height: projectedLayer.frame?.height,
+    width: options.boxSize?.width ?? projectedLayer.frame?.width,
+    height: options.boxSize?.height ?? projectedLayer.frame?.height,
     scaleX: projectedLayer.scale,
     scaleY: projectedLayer.scale,
     rotation: projectedLayer.rotation,
     opacity: projectedLayer.opacity,
     zIndex: projectedLayer.zIndex ?? index,
-    anchorX: projectedLayer.anchor === 'left' ? 0 : projectedLayer.anchor === 'right' ? 1 : 0.5,
+    anchorX: options.boxSize ? 0 : projectedLayer.anchor === 'left' ? 0 : projectedLayer.anchor === 'right' ? 1 : 0.5,
     anchorY: 0,
   })
   context.host.nodes.setNodeMetadata?.(node, {
@@ -811,12 +882,14 @@ function applyBackgroundTransform(
   context.host.nodes.setNodeTransform(node, {
     x: background.x,
     y: background.y,
-    width: numericDimension(background.width),
-    height: numericDimension(background.height),
+    width: numericDimension(background.width) ?? context.getStageLayout().logicalWidth,
+    height: numericDimension(background.height) ?? context.getStageLayout().logicalHeight,
     scaleX: background.scale,
     scaleY: background.scale,
     rotation: background.rotation,
     opacity: background.opacity,
+    anchorX: 0.5,
+    anchorY: 0.5,
   })
 }
 

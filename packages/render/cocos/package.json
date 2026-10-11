@@ -17,6 +17,10 @@
     "visual-novel"
   ],
   "exports": {
+    "./qui": {
+      "types": "./dist/qui.d.ts",
+      "import": "./dist/qui.js"
+    },
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
@@ -151,6 +155,7 @@
     "@quajs/render-core": "workspace:*"
   },
   "devDependencies": {
+    "@quajs/native-ui-compiler": "workspace:*",
     "@quajs/plugin-achievement": "workspace:*",
     "@quajs/plugin-audio": "workspace:*",
     "@quajs/plugin-backlog": "workspace:*",

@@ -27,6 +27,87 @@ import { createVisualNovelCocosRendererPlugins } from '../src/plugins/preset'
 import { createSavePreviewCocosRendererPlugin } from '../src/plugins/save-preview'
 
 describe('@quajs/renderer-cocos', () => {
+  it('retains background layer nodes across motion frames instead of clearing them during asset loads', async () => {
+    vi.useFakeTimers()
+    let clock = 0
+    const host = createFakeCocosHost({ now: () => clock })
+    const renderer = new QuaCocosRendererController({ host, pipeline: new Pipeline(), plugins: [createBackgroundCocosRendererPlugin()], initialView: createView({
+      background: { mode: 'layered', layers: [{ id: 'card', assetName: 'card.png', x: 120, y: 240, width: 240, height: 160 }] },
+      animations: [{ id: 'move', state: 'running', startedAt: 0, duration: 1000, playbackRate: 1, resolvedTracks: [{ target: 'backgroundLayer:card', property: 'x', keyframes: [{ at: 0, value: 120 }, { at: 1000, value: 1120 }] }] }],
+    }) })
+    try {
+      await renderer.start()
+      await flushAsync()
+      const node = findNode(host, 'card')
+      expect(node).toBeDefined()
+      clock = 500
+      await vi.advanceTimersByTimeAsync(32)
+      await flushAsync()
+      expect(findNode(host, 'card')).toBe(node)
+      expect(node?.transform.x).toBe(620)
+      const view = renderer.getViewState()
+      renderer.setView({ ...view, animations: [{ ...view.animations[0], state: 'paused', pausedAt: 750 }] })
+      await flushAsync()
+      expect(findNode(host, 'card')).toBe(node)
+      expect(node?.transform.x).toBe(870)
+    }
+    finally {
+      await renderer.destroy()
+      vi.useRealTimers()
+    }
+  })
+
+  it('passes authored video transport to capable hosts, including retained layered video', async () => {
+    const host = createFakeCocosHost()
+    const video = { assetName: 'motion.mp4', loop: true, muted: false, volume: 0.4, playbackRate: 1.5, seekMs: 700, offsetMs: 200 }
+    const initial = createView({ background: { mode: 'video', assetName: video.assetName, video } })
+    const renderer = new QuaCocosRendererController({ host, pipeline: new Pipeline(), initialView: initial, plugins: [createBackgroundCocosRendererPlugin()] })
+    await renderer.start()
+    await flushAsync()
+    const retained = [...host.nodesById.values()].find(n => n.kind === 'video-background')
+    expect(retained?.spriteOptions).toMatchObject({ mode: 'video', video: { loop: true, muted: false, volume: 0.4, playbackRate: 1.5, seekMs: 700, offsetMs: 200 } })
+    renderer.setView({ ...initial, dialogue: { ...initial.dialogue, text: 'Unrelated dialogue update must not restart video' } })
+    await flushAsync()
+    expect([...host.nodesById.values()].find(n => n.kind === 'video-background')).toBe(retained)
+    renderer.setView({ ...initial, background: { mode: 'layered', layers: [{ id: 'clip', assetName: video.assetName, assetType: 'video', video, x: 200, y: 100, width: 640, height: 360 }] } })
+    await flushAsync()
+    expect(findNode(host, 'clip')?.spriteOptions).toMatchObject({ mode: 'video', video: { seekMs: 700, offsetMs: 200 } })
+    await renderer.destroy()
+  })
+
+  it('shows an authored package-aware poster on a host declaring no video decoder', async () => {
+    const host = createFakeCocosHost()
+    host.capabilities!.video = false
+    host.runtime.warn = vi.fn()
+    const renderer = new QuaCocosRendererController({ host, pipeline: new Pipeline(), assets: createFakeAssets(), initialView: createView({ background: { mode: 'video', assetName: 'motion.mp4', video: { assetName: 'motion.mp4', poster: 'poster.png' } } }), plugins: [createBackgroundCocosRendererPlugin()] })
+    await renderer.start()
+    await flushAsync()
+    const poster = [...host.nodesById.values()].find(n => n.kind === 'video-poster')
+    expect(poster?.sprite).toMatchObject({ kind: 'spriteFrame' })
+    expect([...host.resourcesById.values()].some(r => r.kind === 'video')).toBe(false)
+    expect(host.runtime.warn).toHaveBeenCalledWith(expect.stringContaining('cannot play video'), expect.objectContaining({ assetName: 'motion.mp4', poster: 'poster.png' }))
+    await renderer.destroy()
+  })
+
+  it('retains an interactive hit when pipeline work removes the control', async () => {
+    const host = createFakeCocosHost()
+    const pipeline = new Pipeline()
+    const renderer = new QuaCocosRendererController({ host, pipeline, initialView: createView(), plugins: [createInputCocosRendererPlugin()] })
+    await renderer.start()
+    const button = host.nodes.createNode('button', { parent: renderer.getRootNode() })
+    host.nodes.setNodeTransform(button, { x: 0, y: 0, width: 100, height: 100 })
+    host.nodes.setNodeMetadata?.(button, { elementId: 'screenshot' })
+    pipeline.on(RenderToLogicEvents.USER_CLICK, async () => {
+      await Promise.resolve()
+      host.nodes.destroyNode(button)
+    })
+    const advance = vi.fn()
+    pipeline.on(RenderToLogicEvents.USER_ADVANCE, advance)
+    await host.emitInput({ kind: 'pointer', phase: 'down', x: 20, y: 20 })
+    expect(advance).not.toHaveBeenCalled()
+    await renderer.destroy()
+  })
+
   it('hides UI nodes while retaining the scene and consumes screenshot exit input', async () => {
     const host = createFakeCocosHost()
     const pipeline = new Pipeline()
@@ -61,6 +142,7 @@ describe('@quajs/renderer-cocos', () => {
 
     expect(renderer.getSnapshot().stageLayout.logicalHeight).toBe(1080)
     expect(host.root.children[0]?.name).toBe('qua-stage')
+    expect(host.root.children[0]?.transform.clip).toEqual({ x: 0, y: 0, width: 1920, height: 1080 })
     expect(host.root.children[0]?.children[0]?.name).toBe('qua-scene')
     expect(host.root.children[0]?.children[0]?.children[0]?.name).toBe('qua-camera')
 
@@ -1134,7 +1216,8 @@ describe('@quajs/renderer-cocos', () => {
   it('registers and unregisters Cocos font faces through the host', async () => {
     const host = createFakeCocosHost()
     const registeredFonts = new Map<string, unknown>()
-    ;(host as any).fonts = {
+    ;
+    (host as any).fonts = {
       registerFontFace: (_resource: unknown, options: { id: string }) => {
         registeredFonts.set(options.id, options)
       },
@@ -1640,7 +1723,8 @@ describe('@quajs/renderer-cocos', () => {
     const createAudioHandle = host.audio.createAudioHandle
     host.audio.createAudioHandle = async (...args) => {
       const handle = await createAudioHandle(...args)
-      ;(handle as any).seek = undefined
+      ;
+      (handle as any).seek = undefined
       return handle
     }
     const renderer = new QuaCocosRendererController({
@@ -2502,8 +2586,10 @@ describe('@quajs/renderer-cocos', () => {
     await renderer.start()
     await flushAsync()
     const stopping = createView({ audioAsset: 'bgm.ogg' })
-    ;(stopping.plugins.audio as any).bgm.state = 'stopping'
-    ;(stopping.plugins.audio as any).bgm.fadeOutMs = 100
+    ;
+    (stopping.plugins.audio as any).bgm.state = 'stopping'
+    ;
+    (stopping.plugins.audio as any).bgm.fadeOutMs = 100
     renderer.setView(stopping)
     await flushAsync()
     now = 150

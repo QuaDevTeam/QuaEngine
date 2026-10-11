@@ -157,6 +157,9 @@ class CocosInputController {
       return
     const phase = inputPhase(event.phase)
     const target = typeof event.metadata?.target === 'string' ? event.metadata.target : undefined
+    // Capture the hit before awaiting pipeline work. Another listener can
+    // hide or replace this control while USER_CLICK is being dispatched.
+    const interactive = this.options.filterInteractiveTargets !== false && isInteractiveControlPointer(this.context, event, point)
     if (phase === 'press') {
       await this.context.emitRenderToLogic(RenderToLogicEvents.USER_CLICK, {
         x: point.x,
@@ -165,7 +168,7 @@ class CocosInputController {
       })
     }
 
-    if (this.options.filterInteractiveTargets !== false && isInteractiveControlPointer(this.context, event, point)) {
+    if (interactive) {
       return
     }
 

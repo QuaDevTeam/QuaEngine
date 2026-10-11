@@ -87,7 +87,8 @@ class Node {
   }
 
   emit(type: string, event: unknown) {
-    for (const handler of this.events.get(type) || []) handler(event)
+    for (const handler of this.events.get(type) || [])
+      handler(event)
   }
 }
 
@@ -101,6 +102,40 @@ function creator() {
 }
 
 describe('creator native boundaries', () => {
+  it('records video transport in fake and Creator hosts without claiming a Creator decoder', () => {
+    class Sprite { spriteFrame: unknown }
+    const warn = vi.fn()
+    const host = createCocosCreatorHost({ rootNode: new Node(), cc: { Node, UITransform, Sprite }, runtime: { warn } })
+    const fake = createFakeCocosHost()
+    const options = { mode: 'video' as const, video: { loop: false, muted: true, playbackRate: 1.5, seekMs: 1800, offsetMs: 100, volume: 0.4 } }
+    const resource = { id: 'video', kind: 'video' as const, native: {} }
+    const node = host.nodes.createNode('video', { parent: host.nodes.getRootNode() })
+    host.nodes.setNodeSprite(node, resource, options)
+    expect((node.native as any).spriteOptions).toEqual(options)
+    expect(host.capabilities?.video).toBe(false)
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('video projection is unavailable'), undefined)
+    const fakeNode = fake.nodes.createNode('video')
+    fake.nodes.setNodeSprite(fakeNode, resource, options)
+    expect(fake.nodesById.get(fakeNode.id)?.spriteOptions).toEqual(options)
+  })
+  it('restores logical sprite bounds after a downsampled frame changes its presentation size', () => {
+    const root = new Node()
+    const host = createCocosCreatorHost({ rootNode: root, cc: { Node, UITransform, Sprite: class Sprite {} } })
+    const image = host.nodes.createNode('image', { parent: host.nodes.getRootNode() })
+    host.nodes.setNodeTransform(image, { width: 1920, height: 1080 })
+    host.nodes.setNodeSprite(image)
+    const visual = (image.native as Node).children[0]
+    const sprite = visual.getComponent([...visual.components.keys()].find(key => key !== UITransform))
+    Object.defineProperty(sprite, 'spriteFrame', { get() {
+      return undefined
+    }, set() {
+      visual.getComponent(UITransform).setContentSize(240, 135)
+    } })
+    host.nodes.setNodeSprite(image, { id: 'backdrop', kind: 'spriteFrame', native: {} })
+    expect(visual.getComponent(UITransform)).toMatchObject({ width: 1920, height: 1080 })
+    expect(sprite.trim).toBe(false)
+  })
+
   it('inherits the parent render layer for projection nodes and presentation children', () => {
     class Sprite {}
     const root = new Node()
@@ -138,6 +173,38 @@ describe('creator native boundaries', () => {
     expect((visual as any).active).toBe(false)
   })
 
+  it('draws rounded control borders and semantic chevrons without rectangular border strips', () => {
+    class Graphics {
+      fillColor: unknown
+      strokeColor: unknown
+      lineWidth = 0
+      clear = vi.fn()
+      rect = vi.fn()
+      roundRect = vi.fn()
+      moveTo = vi.fn()
+      lineTo = vi.fn()
+      stroke = vi.fn()
+      fill = vi.fn()
+    }
+    const host = createCocosCreatorHost({ rootNode: new Node(), cc: { Node, UITransform, Graphics } })
+    const knob = host.nodes.createNode('box', { parent: host.nodes.getRootNode() })
+    host.nodes.setNodeTransform(knob, { width: 23, height: 23 })
+    host.nodes.setNodeBoxStyle!(knob, { backgroundColor: '#42796e', borderColor: '#fffdf7', borderWidth: 4, borderRadius: 12 })
+    const graphics = ((knob as any).native as Node).children[0].getComponent(Graphics) as Graphics
+    expect(graphics.rect).not.toHaveBeenCalled()
+    expect(graphics.roundRect).toHaveBeenLastCalledWith(2, -21, 19, 19, 9.5)
+    expect(graphics.stroke).toHaveBeenCalled()
+    expect(graphics.lineWidth).toBe(4)
+    host.nodes.setNodeTransform(knob, { width: 13, height: 8 })
+    graphics.rect.mockClear()
+    graphics.fill.mockClear()
+    host.nodes.setNodeBoxStyle!(knob, { shape: 'chevron-down', backgroundColor: '#42796e' })
+    expect(graphics.moveTo).toHaveBeenLastCalledWith(1, -1)
+    expect(graphics.lineTo.mock.calls.slice(-2)).toEqual([[6.5, -7], [12, -1]])
+    expect(graphics.rect).not.toHaveBeenCalled()
+    expect(graphics.fill).not.toHaveBeenCalled()
+  })
+
   it('maps top-left stage and nested pivots to Creator Y-up coordinates', () => {
     const { host } = creator()
     const stage = host.nodes.createNode('stage', { parent: host.nodes.getRootNode() })
@@ -165,6 +232,21 @@ describe('creator native boundaries', () => {
     expect(root.children.map(node => node.name)).toEqual(['low', 'high'])
   })
 
+  it('keeps native presentation backgrounds behind projected child labels after updates', () => {
+    class Graphics { clear() {}; rect() {}; fill() {} }
+    class Label { string = '' }
+    const host = createCocosCreatorHost({ rootNode: new Node(), cc: { Node, UITransform, Graphics, Label } })
+    const panel = host.nodes.createNode('panel', { parent: host.nodes.getRootNode() })
+    host.nodes.setNodeTransform(panel, { width: 200, height: 100 })
+    host.nodes.setNodeBoxStyle!(panel, { backgroundColor: '#fff' })
+    const text = host.nodes.createNode('text', { parent: panel, name: 'title' })
+    host.nodes.setNodeText(text, 'Menu')
+    const action = host.nodes.createNode('button', { parent: panel, name: 'action' })
+    host.nodes.setNodeText(action, 'Save')
+    host.nodes.setNodeTransform(panel, { x: 10 })
+    expect(((panel as any).native as Node).children.map(child => child.name)).toEqual(['qua-box', 'title', 'action'])
+  })
+
   it('normalizes one Creator touch source and numeric keyboard codes', async () => {
     const { host, root, input } = creator()
     const events: CocosHostInputEvent[] = []
@@ -186,6 +268,43 @@ describe('creator native boundaries', () => {
     input.emit('touch-start', nativeEvent)
     await Promise.resolve()
     expect(events).toHaveLength(3)
+  })
+
+  it('maps a fixed-height native Canvas view point without a camera-center offset', async () => {
+    class Canvas { cameraComponent = { node: { worldPosition: { x: 960, y: 540 } } } }
+    class NativeUITransform extends UITransform {
+      override convertToNodeSpaceAR(point: { x: number, y: number }) {
+        return { x: point.x - 960, y: point.y - 540 }
+      }
+    }
+    const root = new Node()
+    root.addComponent(Canvas)
+    const host = createCocosCreatorHost({ rootNode: root, cc: { Node, UITransform: NativeUITransform, Canvas, view: { getVisibleSize: () => ({ width: 1440, height: 1080 }) } }, layout: { getContainerSize: () => ({ width: 1440, height: 1080 }) } })
+    const events: CocosHostInputEvent[] = []
+    const dispose = host.input.onInput((event) => {
+      events.push(event)
+    })
+    root.emit('touch-end', { getUILocation: () => ({ x: 223.5, y: 537.75 }) })
+    await Promise.resolve()
+    expect(events).toMatchObject([{ kind: 'pointer', phase: 'up', x: 223.5, y: 542.25 }])
+    dispose()
+  })
+
+  it('normalizes Creator Web wheel sensitivity and CSS pixels into container units', async () => {
+    const input = new Node()
+    const host = createCocosCreatorHost({
+      rootNode: new Node(),
+      cc: { Node, UITransform, input, Input: { EventType: { MOUSE_WHEEL: 'wheel' } }, sys: { isNative: false }, view: { getFrameSize: () => ({ width: 960, height: 540 }) } },
+      layout: { getContainerSize: () => ({ width: 1920, height: 1080 }) },
+    })
+    const events: CocosHostInputEvent[] = []
+    const dispose = host.input.onInput((event) => {
+      events.push(event)
+    })
+    input.emit('wheel', { getUILocation: () => ({ x: 200, y: 500 }), getScrollY: () => -600, getScrollX: () => 100 })
+    await Promise.resolve()
+    expect(events).toMatchObject([{ kind: 'pointer', phase: 'wheel', metadata: { deltaY: 240, deltaX: 40 } }])
+    dispose()
   })
 
   it('separates text and sprite components and preserves native resource handles in metadata', () => {
@@ -248,6 +367,17 @@ describe('creator native boundaries', () => {
 })
 
 describe.each(['fake', 'creator'] as const)('%s hit-test visibility', (kind) => {
+  it('does not dispatch to children outside a clipped scroll viewport', () => {
+    const host = kind === 'fake' ? createFakeCocosHost() : creator().host
+    const stage = host.nodes.createNode('stage', { parent: host.nodes.getRootNode() })
+    const panel = host.nodes.createNode('scroll', { parent: stage })
+    host.nodes.setNodeTransform(panel, { x: 100, y: 100, width: 200, height: 100, clip: { x: 0, y: 0, width: 200, height: 100 } })
+    const child = host.nodes.createNode('button', { parent: panel })
+    host.nodes.setNodeTransform(child, { y: 80, width: 150, height: 40 })
+    host.nodes.setNodeMetadata!(child, { action: 'select' })
+    expect(host.nodes.hitTest!(stage, { x: 120, y: 190 }, { metadataKey: 'action' })?.node).toBe(child)
+    expect(host.nodes.hitTest!(stage, { x: 120, y: 210 }, { metadataKey: 'action' })).toBeUndefined()
+  })
   it('prunes hidden ancestors and chooses the last sibling for equal z', () => {
     const host = kind === 'fake' ? createFakeCocosHost() : creator().host
     const stage = host.nodes.createNode('stage', { parent: host.nodes.getRootNode() })

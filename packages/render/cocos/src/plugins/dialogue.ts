@@ -6,7 +6,7 @@ import { resolveAssetWithTargetPackages, runtimePackageCandidatesFromMetadata } 
 import { defineCocosRendererPlugin } from './core'
 import { createCocosProjectionTask, subscribeCocosProjection } from './projection-task'
 
-export function createDialogueCocosRendererPlugin() {
+export function createDialogueCocosRendererPlugin(options: { render?: typeof renderCocosDialogue } = {}) {
   return defineCocosRendererPlugin({
     name: '@quajs/renderer-cocos/dialogue',
     setup(context) {
@@ -61,7 +61,7 @@ export function createDialogueCocosRendererPlugin() {
           }))
         },
       })
-      const renderTask = createCocosProjectionTask<Parameters<typeof renderCocosDialogue>[1]>(context, 'dialogue', (cocos, options) => renderCocosDialogue(cocos, options), { subscribe: false })
+      const renderTask = createCocosProjectionTask<Parameters<typeof renderCocosDialogue>[1]>(context, 'dialogue', (cocos, projection) => (options.render || renderCocosDialogue)(cocos, projection), { subscribe: false })
       const renderDialogue = (options?: Parameters<typeof renderCocosDialogue>[1]) => {
         void renderTask(options)
       }

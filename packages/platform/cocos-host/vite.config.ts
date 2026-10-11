@@ -15,9 +15,13 @@ export default defineConfig({
   build: {
     lib: {
       entry: {
-        index: resolve(import.meta.dirname, 'src/index.ts'),
-        creator: resolve(import.meta.dirname, 'src/creator.ts'),
-        testing: resolve(import.meta.dirname, 'src/testing.ts'),
+        'index': resolve(import.meta.dirname, 'src/index.ts'),
+        'creator': resolve(import.meta.dirname, 'src/creator.ts'),
+        'creator-native-products': resolve(import.meta.dirname, 'src/creator-native-products.ts'),
+        'creator-effect': resolve(import.meta.dirname, 'src/creator-effect.ts'),
+        'creator-runtime': resolve(import.meta.dirname, 'src/creator-runtime.ts'),
+        'creator-preview-storage': resolve(import.meta.dirname, 'src/creator-preview-storage.ts'),
+        'testing': resolve(import.meta.dirname, 'src/testing.ts'),
       },
       name: 'cocosHost',
       fileName: (_format, entryName) => `${entryName}.js`,

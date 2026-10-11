@@ -46,18 +46,50 @@ describe('cocos file store backend', () => {
     expect((await backend.getGameSlotPayload('slot'))?.index.revision).toBe(1)
   })
 
-  it('restores transaction protection after snapshot capture fails', async () => {
+  it('restores transaction protection after the touched-file backup fails', async () => {
     const host = createFakeCocosHost()
     const backend = new CocosFileStoreBackend({ host })
     await backend.init()
     await backend.saveGameSlotPayload(createSlot('slot', 1))
-    vi.spyOn(host.storage, 'list').mockRejectedValueOnce(new Error('disk unavailable'))
-    await expect(backend.transaction('readwrite', async () => {})).rejects.toThrow('disk unavailable')
+    vi.spyOn(host.storage, 'readBytes').mockRejectedValueOnce(new Error('disk unavailable'))
+    await expect(backend.transaction('readwrite', () => backend.saveGameSlotPayload(createSlot('slot', 2)))).rejects.toThrow('disk unavailable')
     await expect(backend.transaction('readwrite', async () => {
       await backend.saveGameSlotPayload(createSlot('slot', 2))
       throw new Error('rollback')
     })).rejects.toThrow('rollback')
     expect((await backend.getGameSlotPayload('slot'))?.index.revision).toBe(1)
+  })
+
+  it('does not read unrelated saves for a transaction and removes its disk backups', async () => {
+    const host = createFakeCocosHost()
+    const backend = new CocosFileStoreBackend({ host })
+    await backend.init()
+    await backend.saveGameSlotPayload(createSlot('other', 1))
+    await backend.saveGameSlotPayload(createSlot('changed', 1))
+    const read = vi.spyOn(host.storage, 'readBytes')
+    const list = vi.spyOn(host.storage, 'list')
+    await backend.transaction('readwrite', () => backend.saveGameSlotPayload(createSlot('changed', 2)))
+    expect(read.mock.calls.every(([path]) => !path.includes('other'))).toBe(true)
+    expect(list).not.toHaveBeenCalled()
+    expect(await host.storage.list('qua-store/transaction-backups')).toEqual([])
+    expect((await backend.getGameSlotPayload('other'))?.index.revision).toBe(1)
+    expect((await backend.getGameSlotPayload('changed'))?.index.revision).toBe(2)
+  })
+
+  it('restores deleted files and removes new files after multiple writes fail', async () => {
+    const host = createFakeCocosHost()
+    const backend = new CocosFileStoreBackend({ host })
+    await backend.init()
+    await backend.saveGameSlotPayload(createSlot('old', 1))
+    await expect(backend.transaction('readwrite', async () => {
+      await backend.deleteGameSlotPayload('old')
+      await backend.saveGameSlotPayload(createSlot('new', 1))
+      await backend.saveGameSlotPayload(createSlot('new', 2))
+      throw new Error('write failed')
+    })).rejects.toThrow('write failed')
+    expect((await backend.getGameSlotPayload('old'))?.index.revision).toBe(1)
+    expect(await backend.getGameSlotPayload('new')).toBeUndefined()
+    expect(await host.storage.list('qua-store/transaction-backups')).toEqual([])
   })
 
   it('rejects overlapping transactions instead of rolling back another save', async () => {

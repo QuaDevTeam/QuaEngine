@@ -34,14 +34,11 @@ interface CocosStoreEnvelope<T extends CocosStoreRecord = CocosStoreRecord> {
   record: T
 }
 
-interface TransactionFileSnapshot {
-  path: string
-  text?: string
-}
-
 export class CocosFileStoreBackend implements StorageBackend {
   private readonly root: string
   private transactionDepth = 0
+  private transactionJournal?: Map<string, string | undefined>
+  private transactionSerial = 0
 
   constructor(private readonly options: CocosStoreBackendOptions) {
     this.root = normalizeRoot(options.root || 'qua-store')
@@ -64,7 +61,7 @@ export class CocosFileStoreBackend implements StorageBackend {
   }
 
   async deleteSnapshot(id: string): Promise<void> {
-    await this.options.host.storage.delete(this.snapshotPath(id))
+    await this.deleteRecord(this.snapshotPath(id))
   }
 
   async listSnapshots(storeName?: string): Promise<QuaSnapshotMeta[]> {
@@ -105,7 +102,7 @@ export class CocosFileStoreBackend implements StorageBackend {
   }
 
   async deleteGameSlotIndex(slotId: string): Promise<void> {
-    await this.options.host.storage.delete(this.slotIndexPath(slotId))
+    await this.deleteRecord(this.slotIndexPath(slotId))
   }
 
   async saveGameSlotPayload(slot: QuaGameSaveSlotPayload): Promise<void> {
@@ -118,7 +115,7 @@ export class CocosFileStoreBackend implements StorageBackend {
   }
 
   async deleteGameSlotPayload(slotId: string): Promise<void> {
-    await this.options.host.storage.delete(this.slotPayloadPath(slotId))
+    await this.deleteRecord(this.slotPayloadPath(slotId))
   }
 
   async saveGameSlotPreview(preview: QuaGameSavePreviewRecord): Promise<void> {
@@ -131,13 +128,13 @@ export class CocosFileStoreBackend implements StorageBackend {
   }
 
   async deleteGameSlotPreview(previewId: string): Promise<void> {
-    await this.options.host.storage.delete(this.slotPreviewPath(previewId))
+    await this.deleteRecord(this.slotPreviewPath(previewId))
   }
 
   async clearGameSlots(): Promise<void> {
     for (const directory of [this.slotIndexesDir(), this.slotPayloadsDir(), this.slotPreviewsDir()]) {
       for (const file of await this.options.host.storage.list(directory))
-        await this.options.host.storage.delete(file.path)
+        await this.deleteRecord(file.path)
     }
   }
 
@@ -155,25 +152,48 @@ export class CocosFileStoreBackend implements StorageBackend {
     }
 
     this.transactionDepth = 1
+    const journal = new Map<string, string | undefined>()
+    this.transactionJournal = journal
+    let canDeleteBackups = false
     try {
-      const snapshot = await this.captureSnapshot()
       try {
-        return await action()
+        const result = await action()
+        canDeleteBackups = true
+        return result
       }
       catch (error) {
-        await this.restoreSnapshot(snapshot)
+        this.transactionJournal = undefined
+        await this.restoreJournal(journal)
+        canDeleteBackups = true
         throw error
       }
     }
     finally {
-      this.transactionDepth = 0
+      this.transactionJournal = undefined
+      try {
+        if (canDeleteBackups) {
+          for (const backup of journal.values()) {
+            if (backup)
+              await this.options.host.storage.delete(backup)
+          }
+        }
+      }
+      finally {
+        this.transactionDepth = 0
+      }
     }
   }
 
   async close(): Promise<void> {}
 
   private async writeRecord<T extends CocosStoreRecord>(path: string, kind: CocosStoreKind, record: T): Promise<void> {
+    await this.backupRecord(path)
     await this.options.host.storage.writeText(path, encodeEnvelope({ format: 'quastore-cocos', version: 1, kind, record }))
+  }
+
+  private async deleteRecord(path: string): Promise<void> {
+    await this.backupRecord(path)
+    await this.options.host.storage.delete(path)
   }
 
   private async readOptionalRecord<T extends CocosStoreRecord>(path: string, expectedKind: CocosStoreKind): Promise<T | undefined> {
@@ -200,32 +220,39 @@ export class CocosFileStoreBackend implements StorageBackend {
     return records
   }
 
-  private async captureSnapshot(): Promise<TransactionFileSnapshot[]> {
-    const files = await this.options.host.storage.list(this.root)
-    const snapshot: TransactionFileSnapshot[] = []
-    for (const file of files) {
-      snapshot.push({
-        path: file.path,
-        text: await this.options.host.storage.readText(file.path),
-      })
-    }
-    return snapshot
+  private journalKey(path: string): string {
+    // Host listing can return absolute paths whereas writes use relative paths.
+    const index = path.lastIndexOf(`/${this.root}/`)
+    return index >= 0 ? path.slice(index + 1) : path
   }
 
-  private async restoreSnapshot(snapshot: TransactionFileSnapshot[]): Promise<void> {
-    const currentFiles = await this.options.host.storage.list(this.root)
-    const snapshotPaths = new Set(snapshot.map(file => file.path))
-    for (const file of currentFiles) {
-      if (!snapshotPaths.has(file.path)) {
-        await this.options.host.storage.delete(file.path)
-      }
+  private async backupRecord(path: string): Promise<void> {
+    const journal = this.transactionJournal
+    const key = this.journalKey(path)
+    if (!journal || journal.has(key))
+      return
+    const bytes = await this.options.host.storage.readBytes(path)
+    if (bytes === undefined) {
+      journal.set(key, undefined)
+      return
     }
-    for (const file of snapshot) {
-      if (file.text === undefined) {
-        await this.options.host.storage.delete(file.path)
+    const directory = `${this.root}/transaction-backups`
+    await this.options.host.storage.ensureDir(directory)
+    const backup = `${directory}/${Date.now()}-${++this.transactionSerial}.bin`
+    await this.options.host.storage.writeBytes(backup, bytes)
+    journal.set(key, backup)
+  }
+
+  private async restoreJournal(journal: Map<string, string | undefined>): Promise<void> {
+    for (const [path, backup] of journal) {
+      if (!backup) {
+        await this.options.host.storage.delete(path)
       }
       else {
-        await this.options.host.storage.writeText(file.path, file.text)
+        const bytes = await this.options.host.storage.readBytes(backup)
+        if (bytes === undefined)
+          throw new Error(`Cocos transaction backup is missing: ${backup}`)
+        await this.options.host.storage.writeBytes(path, bytes)
       }
     }
   }

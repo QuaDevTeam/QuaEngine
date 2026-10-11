@@ -4,6 +4,7 @@ import type {
   CocosCaptureHost,
   CocosHost,
   CocosHostAudioHandle,
+  CocosHostBoxStyle,
   CocosHostControlOptions,
   CocosHostFileInfo,
   CocosHostFontFaceOptions,
@@ -13,6 +14,7 @@ import type {
   CocosHostResource,
   CocosHostResourceKind,
   CocosHostSpriteOptions,
+  CocosHostTextStyle,
   CocosHostTransform,
 } from './index'
 import { CocosResourcePool } from './resources/pool'
@@ -22,7 +24,9 @@ export interface FakeCocosNode extends CocosHostNode {
   children: FakeCocosNode[]
   visible: boolean
   transform: CocosHostTransform
+  boxStyle?: CocosHostBoxStyle
   text?: string
+  textStyle?: CocosHostTextStyle
   richText?: string
   sprite?: CocosHostResource
   spriteOptions?: CocosHostSpriteOptions
@@ -37,6 +41,7 @@ export interface FakeCocosHostOptions {
   safeAreaInsets?: Partial<{ top: number, right: number, bottom: number, left: number }>
   now?: () => number
   files?: Record<string, Uint8Array | string>
+  measureText?: NonNullable<CocosHost['nodes']['measureText']>
 }
 
 export interface FakeCocosHost extends CocosHost {
@@ -92,6 +97,7 @@ export function createFakeCocosHost(options: FakeCocosHostOptions = {}): FakeCoc
 
   const nodeHost = {
     getRootNode: () => root,
+    getNodeChildren: (node: CocosHostNode) => [...asFakeNode(node).children],
     createNode(kind: string, nodeOptions: { name?: string, parent?: CocosHostNode } = {}) {
       const node = createNodeRecord(kind, nodeOptions.name)
       nodesById.set(node.id, node)
@@ -139,8 +145,10 @@ export function createFakeCocosHost(options: FakeCocosHostOptions = {}): FakeCoc
     setNodeTransform(node: CocosHostNode, transform: CocosHostTransform) {
       asFakeNode(node).transform = { ...asFakeNode(node).transform, ...transform }
     },
-    setNodeText(node: CocosHostNode, text: string) {
+    measureText: options.measureText,
+    setNodeText(node: CocosHostNode, text: string, style?: CocosHostTextStyle) {
       asFakeNode(node).text = text
+      asFakeNode(node).textStyle = style && { ...style }
     },
     setNodeRichText(node: CocosHostNode, markup: string) {
       asFakeNode(node).richText = markup
@@ -158,6 +166,9 @@ export function createFakeCocosHost(options: FakeCocosHostOptions = {}): FakeCoc
     },
     setNodeMetadata(node: CocosHostNode, metadata: Record<string, unknown>) {
       asFakeNode(node).metadata = { ...metadata }
+    },
+    setNodeBoxStyle(node: CocosHostNode, style: CocosHostBoxStyle) {
+      asFakeNode(node).boxStyle = { ...style }
     },
     getNodeMetadata(node: CocosHostNode) {
       return { ...asFakeNode(node).metadata }
@@ -344,6 +355,13 @@ export function createFakeCocosHost(options: FakeCocosHostOptions = {}): FakeCoc
   }
 
   const captureHost: CocosCaptureHost = {
+    async captureBackdrop(viewport) {
+      const resource: CocosHostResource = { id: `fake-backdrop:${++idCounter}`, kind: 'spriteFrame', width: viewport.width, height: viewport.height, metadata: { renderTexture: true } }
+      resourcesById.set(resource.id, resource)
+      return { resource, dispose: () => {
+        resourcesById.delete(resource.id)
+      } }
+    },
     async captureNode(_node, captureOptions = {}) {
       return {
         bytes: new Uint8Array([1, 2, 3, 4]),
@@ -428,7 +446,8 @@ export function createFakeCocosHost(options: FakeCocosHostOptions = {}): FakeCoc
       },
     },
     emitLayoutChange: () => {
-      for (const listener of layoutListeners) listener()
+      for (const listener of layoutListeners)
+        listener()
     },
     capabilities: {
       localFiles: true,
@@ -436,6 +455,7 @@ export function createFakeCocosHost(options: FakeCocosHostOptions = {}): FakeCoc
       input: true,
       audioEq: true,
       audioPlaybackRate: true,
+      audioGainAboveUnity: true,
       capture: true,
       fonts: true,
       nativeAssets: true,
@@ -471,6 +491,8 @@ function hitTestNode(
   if (root.destroyed || (!options.includeInvisible && root.visible === false))
     return undefined
   const nodeMatrix = root.kind === 'stage' ? parentMatrix : multiplyMatrix(parentMatrix, fakeNodeMatrix(root))
+  if (root.transform.clip && !containsClip({ x: 0, y: 0, width: root.transform.width ?? 0, height: root.transform.height ?? 0, ...root.transform.clip }, point, nodeMatrix))
+    return undefined
   const children = [...root.children].reverse().sort((left, right) => (right.transform.zIndex || 0) - (left.transform.zIndex || 0))
   for (const child of children) {
     const hit = hitTestNode(child, point, options, nodeMatrix)
@@ -509,6 +531,14 @@ function fakeNodeMatrix(node: FakeCocosNode): HitTestMatrix {
   matrix = multiplyMatrix(matrix, scaleMatrix(numberValue(transform.scaleX, 1), numberValue(transform.scaleY, 1)))
   matrix = multiplyMatrix(matrix, translateMatrix(-anchorX, -anchorY))
   return matrix
+}
+
+function containsClip(clip: { x: number, y: number, width: number, height: number }, point: { x: number, y: number }, matrix: HitTestMatrix): boolean {
+  const inverse = invertMatrix(matrix)
+  if (!inverse)
+    return false
+  const local = transformPoint(inverse, point)
+  return local.x >= clip.x && local.x <= clip.x + clip.width && local.y >= clip.y && local.y <= clip.y + clip.height
 }
 
 function containsPoint(node: FakeCocosNode, point: { x: number, y: number }, matrix: HitTestMatrix): boolean {

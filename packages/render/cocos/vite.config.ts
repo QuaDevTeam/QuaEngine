@@ -3,6 +3,7 @@ import { defineConfig } from 'vite'
 import dts from 'vite-plugin-dts'
 
 const entries = {
+  'qui': resolve(import.meta.dirname, 'src/qui.ts'),
   'index': resolve(import.meta.dirname, 'src/index.ts'),
   'plugins/core': resolve(import.meta.dirname, 'src/plugins/core.ts'),
   'plugins/input': resolve(import.meta.dirname, 'src/plugins/input.ts'),

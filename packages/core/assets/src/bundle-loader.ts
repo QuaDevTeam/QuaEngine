@@ -10,7 +10,7 @@ import type {
   LoadBundleOptions,
   StoredAsset,
 } from './types'
-import { unzip } from 'fflate'
+import { unzipSync } from 'fflate'
 import { bytesToUtf8 } from './encoding'
 import { BundleLoadError, IntegrityError } from './types'
 
@@ -316,17 +316,15 @@ function parseManifest(files: Map<string, Uint8Array>): BundleManifest {
   return JSON.parse(bytesToUtf8(manifestBytes)) as BundleManifest
 }
 
-function unzipBytes(bytes: Uint8Array): Promise<Map<string, Uint8Array>> {
-  return new Promise((resolve, reject) => {
-    unzip(bytes, (error, files) => {
-      if (error) {
-        reject(new Error(`ZIP decompression failed: ${error.message}`))
-        return
-      }
-
-      resolve(new Map(Object.entries(files)))
-    })
-  })
+async function unzipBytes(bytes: Uint8Array): Promise<Map<string, Uint8Array>> {
+  // Async fflate creates browser Workers/Blob URLs. Platform adapters may
+  // inject their own codec; the universal fallback operates only on bytes.
+  try {
+    return new Map(Object.entries(unzipSync(bytes)))
+  }
+  catch (error) {
+    throw new Error(`ZIP decompression failed: ${(error as Error).message}`)
+  }
 }
 
 function findAssetPath(

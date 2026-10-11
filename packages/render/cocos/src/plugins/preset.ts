@@ -1,5 +1,6 @@
 import type { RendererPlugin } from '@quajs/render-core'
 import type { CocosRendererPlugin } from '../types'
+import type { CharacterCocosRendererPluginOptions } from './character'
 import type { InputCocosRendererPluginOptions } from './input'
 import type { UiCocosRendererPluginOptions } from './ui'
 import { createAchievementCocosRendererPlugin } from './achievement'
@@ -21,6 +22,7 @@ import { createUiCocosRendererPlugin } from './ui'
 
 export interface VisualNovelCocosRendererPresetOptions {
   input?: false | InputCocosRendererPluginOptions
+  character?: CharacterCocosRendererPluginOptions
   ui?: false | UiCocosRendererPluginOptions
 }
 
@@ -31,7 +33,7 @@ export function createVisualNovelCocosRendererPlugins(
     ...(options.input === false ? [] : [createInputCocosRendererPlugin(options.input || {})]),
     createBackgroundCocosRendererPlugin(),
     createSpriteCocosRendererPlugin(),
-    createCharacterCocosRendererPlugin(),
+    createCharacterCocosRendererPlugin(options.character),
     createEffectsCocosRendererPlugin(),
     createFontsCocosRendererPlugin(),
     createDialogueCocosRendererPlugin(),

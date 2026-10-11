@@ -17,6 +17,10 @@
     "adapter"
   ],
   "exports": {
+    "./creator-runtime": {
+      "types": "./dist/creator-runtime.d.ts",
+      "import": "./dist/creator-runtime.js"
+    },
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
@@ -28,6 +32,18 @@
     "./testing": {
       "types": "./dist/testing.d.ts",
       "import": "./dist/testing.js"
+    },
+    "./creator-effect": {
+      "types": "./dist/creator-effect.d.ts",
+      "import": "./dist/creator-effect.js"
+    },
+    "./creator-preview-storage": {
+      "types": "./dist/creator-preview-storage.d.ts",
+      "import": "./dist/creator-preview-storage.js"
+    },
+    "./creator-native-products": {
+      "types": "./dist/creator-native-products.d.ts",
+      "import": "./dist/creator-native-products.js"
     }
   },
   "main": "./dist/index.js",
@@ -47,5 +63,8 @@
     "test": "vitest",
     "test:ui": "vitest --ui",
     "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "fake-indexeddb": "catalog:"
   }
 }

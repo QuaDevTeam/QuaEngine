@@ -1,4 +1,4 @@
-import type { BackgroundMaskProjection, ViewBackgroundProjection } from '@quajs/render-core'
+import type { BackgroundMaskProjection, ViewBackgroundProjection, ViewVideoBackgroundProjection } from '@quajs/render-core'
 import type { WebAssetTargetPackageId } from '../assets'
 import type { QuaWebDomLayerContext, QuaWebDomRendererPlugin } from './core'
 import { resolveBackgroundLayers } from '@quajs/render-core'
@@ -17,6 +17,37 @@ import { applyStyleVars } from './shared'
 export { projectBackgroundShaderCanvas, setupBackgroundPreparation } from './background-runtime'
 
 const backgroundMaskDisposers = new WeakMap<HTMLElement, () => void>()
+const videoSeekProjections = new WeakMap<HTMLVideoElement, { signature: string, ready: () => void }>()
+
+/** Browser transport shared by DOM and framework adapters; only native handles. */
+export function projectBackgroundVideoTransport(video: HTMLVideoElement, projection?: Readonly<ViewVideoBackgroundProjection>): void {
+  video.loop = projection?.loop !== false
+  video.muted = projection?.muted !== false
+  video.volume = projection?.volume ?? 1
+  video.playbackRate = projection?.playbackRate ?? 1
+  const signature = JSON.stringify([video.getAttribute('src'), projection?.assetName, projection?.seekMs, projection?.offsetMs])
+  const previous = videoSeekProjections.get(video)
+  if (previous?.signature === signature)
+    return
+  if (previous)
+    video.removeEventListener('loadedmetadata', previous.ready)
+  const ready = () => {
+    if (videoSeekProjections.get(video)?.signature !== signature)
+      return
+    const offset = projection?.seekMs ?? projection?.offsetMs
+    if (offset === undefined)
+      return
+    const seconds = Math.max(0, offset) / 1000
+    video.currentTime = Number.isFinite(video.duration) && video.duration > 0
+      ? video.loop ? seconds % video.duration : Math.min(seconds, video.duration)
+      : seconds
+  }
+  videoSeekProjections.set(video, { signature, ready })
+  if (video.readyState >= 1)
+    ready()
+  else
+    video.addEventListener('loadedmetadata', ready, { once: true })
+}
 
 export function createBackgroundWebRendererPlugin(): QuaWebDomRendererPlugin {
   return defineWebRendererPlugin({
@@ -72,6 +103,7 @@ function renderBackgroundProjection(context: QuaWebDomLayerContext, background: 
     syncBackgroundMask(context, video, background.composition?.mask, targetPackageIds)
     context.bindAssetUrl(video, 'video', background.video.assetName, 'src', targetPackageIds)
     context.bindAssetUrl(video, 'images', background.video.poster, 'poster', targetPackageIds)
+    projectBackgroundVideoTransport(video, background.video)
     return video
   }
 
@@ -109,6 +141,8 @@ function renderBackgroundProjection(context: QuaWebDomLayerContext, background: 
       const targetPackageIds = runtimePackageCandidatesFromMetadata(item.metadata)
       syncBackgroundMask(context, element, item.composition?.mask, targetPackageIds)
       context.bindAssetUrl(element, assetType, item.assetName, 'src', targetPackageIds)
+      if (item.assetType === 'video')
+        projectBackgroundVideoTransport(element as HTMLVideoElement, item.video)
       root.append(element)
     }
     return root
@@ -153,11 +187,15 @@ function updateBackgroundLayer(context: QuaWebDomLayerContext, node: Node): void
         element.classList.toggle('is-hidden', item.visible === false)
         applyStyleVars(element, backgroundLayerProjectionVars(item))
         syncBackgroundMask(context, element, item.composition?.mask, runtimePackageCandidatesFromMetadata(item.metadata))
+        if (item.assetType === 'video')
+          projectBackgroundVideoTransport(element as HTMLVideoElement, item.video)
       }
     }
     return
   }
   applyStyleVars(projection, backgroundProjectionVars(background))
+  if (background.mode === 'video' && projection instanceof HTMLVideoElement)
+    projectBackgroundVideoTransport(projection, background.video)
   syncBackgroundMask(context, projection, background.composition?.mask, runtimePackageCandidatesFromMetadata(background.metadata))
 }
 

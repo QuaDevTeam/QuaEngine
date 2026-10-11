@@ -49,6 +49,29 @@ export interface CocosHostTextStyle {
   lineHeight?: number
   color?: string
   align?: string
+  letterSpacing?: number
+  verticalAlign?: 'top' | 'center' | 'bottom'
+  padding?: { top: number, right: number, bottom: number, left: number }
+}
+
+/** Native drawing options, in logical units; hosts may support a subset. */
+export interface CocosHostBoxStyle {
+  /** Optional semantic decoration; unsupported hosts may draw a plain box. */
+  shape?: 'chevron-down'
+  boxShadow?: { color: string, offsetX: number, offsetY: number, blurRadius: number, spreadRadius: number, inset: boolean }
+  backgroundColor?: string
+  backgroundGradient?: { kind: 'linear' | 'radial', angleDegrees?: number, centerX?: number, centerY?: number, radius?: number, stops: { color: string, position: number }[] }
+  borderColor?: string
+  borderWidth?: number
+  borderRadius?: number
+  borderTopWidth?: number
+  borderRightWidth?: number
+  borderBottomWidth?: number
+  borderLeftWidth?: number
+  borderTopColor?: string
+  borderRightColor?: string
+  borderBottomColor?: string
+  borderLeftColor?: string
 }
 
 export type CocosHostSpriteMode = 'sprite' | 'video' | 'sliced' | 'tiled'
@@ -97,6 +120,9 @@ export interface CocosHostSpriteStateOptions {
 }
 
 export interface CocosHostSpriteOptions {
+  /** Video transport intent; native hosts may implement a subset. */
+  video?: { loop?: boolean, muted?: boolean, volume?: number, playbackRate?: number, seekMs?: number, offsetMs?: number }
+  lighting?: { ambient?: readonly number[], shade?: { color: readonly number[], from: readonly number[], to: readonly number[] } }
   mode?: CocosHostSpriteMode
   slice?: Partial<CocosHostInsets>
   fill?: boolean
@@ -167,6 +193,8 @@ export interface CocosHostResource {
   readonly width?: number
   readonly height?: number
   readonly duration?: number
+  /** Native projection details; never used as asset identity or game state. */
+  readonly metadata?: Readonly<{ renderTexture?: boolean }>
   native?: unknown
 }
 
@@ -215,6 +243,8 @@ export interface CocosRuntimeHost {
 
 export interface CocosNodeHost {
   getRootNode: () => CocosHostNode
+  /** Optional scene inspection for host tooling; contains only transient nodes. */
+  getNodeChildren?: (node: CocosHostNode) => readonly CocosHostNode[]
   createNode: (kind: string, options?: { name?: string, parent?: CocosHostNode }) => CocosHostNode
   destroyNode: (node: CocosHostNode) => void
   appendChild: (parent: CocosHostNode, child: CocosHostNode) => void
@@ -222,11 +252,13 @@ export interface CocosNodeHost {
   clearChildren: (node: CocosHostNode) => void
   setNodeVisible: (node: CocosHostNode, visible: boolean) => void
   setNodeTransform: (node: CocosHostNode, transform: CocosHostTransform) => void
+  measureText?: (text: string, style: CocosHostTextStyle, maxWidth: number) => CocosHostSize | undefined
   setNodeText: (node: CocosHostNode, text: string, style?: CocosHostTextStyle) => void
   setNodeRichText: (node: CocosHostNode, markup: string, style?: CocosHostTextStyle) => void
   setNodeSprite: (node: CocosHostNode, resource?: CocosHostResource, options?: CocosHostSpriteOptions) => void
   setNodeControl?: (node: CocosHostNode, control: CocosHostControlOptions) => void
   setNodeColor?: (node: CocosHostNode, color?: string) => void
+  setNodeBoxStyle?: (node: CocosHostNode, style: CocosHostBoxStyle) => void
   setNodeMetadata?: (node: CocosHostNode, metadata: Record<string, unknown>) => void
   getNodeMetadata?: (node: CocosHostNode) => Record<string, unknown> | undefined
   /** Input point is already in logical stage coordinates; exclude hidden subtrees. */
@@ -319,6 +351,8 @@ export interface CocosInputHost {
 }
 
 export interface CocosCaptureHost {
+  captureBackdrop?: (viewport: CocosHostRect, options?: { downsample?: number }) => Promise<{ resource: CocosHostResource, dispose: () => void }>
+
   captureNode: (node: CocosHostNode, options?: {
     mimeType?: string
     quality?: number
@@ -348,6 +382,7 @@ export interface CocosHostCapabilities {
   writableStorage?: boolean
   input?: boolean
   audioEq?: boolean
+  audioGainAboveUnity?: boolean
   audioPlaybackRate?: boolean
   video?: boolean
   capture?: boolean

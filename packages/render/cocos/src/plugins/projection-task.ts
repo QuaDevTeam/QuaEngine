@@ -32,6 +32,7 @@ export function createCocosProjectionTask<T = void>(
   let lastView = context.getViewState()
   let lastAssets = context.cocos.assets
   let lastAssetRevision = context.cocos.getAssetRevision()
+  let lastLayout = JSON.stringify(context.cocos.getStageLayout())
   let running: Promise<void> | undefined
   let pending: { value: T, revision: number } | undefined
   let lastValue: T
@@ -58,11 +59,13 @@ export function createCocosProjectionTask<T = void>(
     const view = context.getViewState()
     const assets = context.cocos.assets
     const assetRevision = context.cocos.getAssetRevision()
-    if (view !== lastView || assets !== lastAssets || assetRevision !== lastAssetRevision) {
+    const layout = JSON.stringify(context.cocos.getStageLayout())
+    if (view !== lastView || assets !== lastAssets || assetRevision !== lastAssetRevision || layout !== lastLayout) {
       revision += 1
       lastView = view
       lastAssets = assets
       lastAssetRevision = assetRevision
+      lastLayout = layout
     }
     pending = { value, revision }
     if (!running)
@@ -143,6 +146,21 @@ export function createCocosProjectionTask<T = void>(
         },
         host: {
           ...base.host,
+          capture: base.host.capture && {
+            ...base.host.capture,
+            captureBackdrop: base.host.capture.captureBackdrop && (async (...args) => {
+              check()
+              const backdrop = await base.host.capture!.captureBackdrop!(...args)
+              try {
+                check()
+              }
+              catch (error) {
+                backdrop.dispose()
+                throw error
+              }
+              return backdrop
+            }),
+          },
           nodes: new Proxy(base.host.nodes, {
             get(target, key) {
               const method = target[key as keyof typeof target]

@@ -9,7 +9,7 @@ import {
   projectBackground,
   runtimePackageCandidatesFromMetadata,
 } from '@quajs/renderer-web'
-import { projectBackgroundShaderCanvas } from '@quajs/renderer-web/plugins/background'
+import { projectBackgroundShaderCanvas, projectBackgroundVideoTransport } from '@quajs/renderer-web/plugins/background'
 import { computed, defineComponent, h, onMounted, ref, watchEffect } from 'vue'
 import { useProjectionProps } from '../../components/projection'
 import { useAnimationClock, useAnimations, useAssetUrl, useBackground, useRendererActions } from '../../composables'
@@ -61,6 +61,8 @@ export const QuaVideoBackground = defineComponent({
       'muted': props.video.muted !== false,
       'volume': props.video.volume,
       'playbackRate': props.video.playbackRate,
+      'onVnodeMounted': (vnode: any) => projectBackgroundVideoTransport(vnode.el, props.video),
+      'onVnodeUpdated': (vnode: any) => projectBackgroundVideoTransport(vnode.el, props.video),
       'style': mergeStyles(backgroundProjectionVars(props.background), maskStyle.value),
       'aria-hidden': 'true',
     })
@@ -91,6 +93,8 @@ export const QuaBackgroundLayerItem = defineComponent({
           'muted': props.layer.video?.muted !== false,
           'volume': props.layer.video?.volume,
           'playbackRate': props.layer.video?.playbackRate,
+          'onVnodeMounted': (vnode: any) => projectBackgroundVideoTransport(vnode.el, props.layer.video),
+          'onVnodeUpdated': (vnode: any) => projectBackgroundVideoTransport(vnode.el, props.layer.video),
           'poster': poster.url.value,
           'data-background-layer-id': props.layer.id,
           'data-background-layer-type': props.layer.assetType || 'images',

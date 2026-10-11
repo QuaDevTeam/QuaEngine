@@ -7,6 +7,23 @@ const bounds = { x: 100, y: 50, width: 300, height: 100 }
 const node = (id: string, extra: Partial<Node> = {}): Node => ({ id, kind: 'Panel', visible: true, bounds, ...extra })
 
 describe('optional QUI DOM projection', () => {
+  it('keeps authored child coordinates through parent border and hover changes', () => {
+    const container = document.createElement('div')
+    const surface = createQuiWebSurface({ container, pipeline: new Pipeline(), elementId: 'chapters' })
+    surface.update(node('row', {
+      style: { borderLeftWidth: 3, borderTopWidth: 1 },
+      stateStyles: { hover: { bounds, style: { borderLeftWidth: 7 } } },
+      children: [node('label', { kind: 'Text', bounds: { ...bounds, x: 120, y: 70 } })],
+    }))
+    const row = container.firstElementChild as HTMLElement
+    const label = row.firstElementChild as HTMLElement
+    expect(label.style.left).toBe('17px')
+    expect(label.style.top).toBe('19px')
+    row.dispatchEvent(new Event('pointerenter'))
+    expect(label.style.left).toBe('13px')
+    expect(label.style.top).toBe('19px')
+    surface.dispose()
+  })
   it('keeps node identity and keyboard focus while projecting updated authoritative text', async () => {
     const container = document.createElement('div')
     document.body.append(container)

@@ -5,6 +5,7 @@ import { defineCocosRendererPlugin } from './core'
 import { createCocosProjectionTask } from './projection-task'
 
 export interface CharacterCocosRendererPluginOptions {
+  boxSize?: { width: number, height: number }
   transitions?: boolean | {
     enabled?: boolean
     enterDurationMs?: number
@@ -52,6 +53,7 @@ export function createCharacterCocosRendererPlugin(options: CharacterCocosRender
         await renderCocosCharacters(cocos, {
           characters: projected.characters,
           presencePhases: projected.phases,
+          boxSize: options.boxSize,
         })
         scheduleFrame()
       })

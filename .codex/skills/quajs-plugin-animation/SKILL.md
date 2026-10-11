@@ -164,3 +164,9 @@ Run affected feature plugin tests when their animation adapters are changed.
 - Is renderer interpolation transient and projection-only?
 - Do `@Key` decorators have an owning timeline/definition?
 - If animation API, decorator, target, or projection behavior changed, was this skill updated?
+
+## Cocos timeline parity review
+
+`demo/scripts/cocos-media-review.mjs` uses the same AnimationPlugin timeline in production Web, Creator and macOS. Compare actual DOM transforms and Creator node position/rotation/opacity at fixed paused seek times, capture real frames, and verify resume plus final engine-owned layer commit. Background/layer nodes use center anchors to match Web rotation and scaling; position remains top-left logical stage coordinates at the boundary. Metadata-only assertions do not prove rendering. The current fixture covers layered image timelines, not skeletal animation or video decoding.
+
+Pause, resume, seek and stop take the generated playback ID, not the reusable definition ID. Cocos motion frames update retained background nodes from the current readonly engine projection; rebuilding asynchronous image resources every frame can leave the visible node unloaded. Resource/filter tracks still require full projection, and hosts without child inspection retain the compatible full-projection fallback.

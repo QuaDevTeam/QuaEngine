@@ -233,6 +233,8 @@ describe('@quajs/plugin-background', () => {
       muted: false,
       volume: 0.8,
       playbackRate: 1.25,
+      seekMs: 800,
+      offsetMs: 100,
       poster: 'rain.png',
       fit: 'cover',
     })
@@ -248,6 +250,8 @@ describe('@quajs/plugin-background', () => {
         muted: false,
         volume: 0.8,
         playbackRate: 1.25,
+        seekMs: 800,
+        offsetMs: 100,
         poster: 'rain.png',
         transition: undefined,
         metadata: undefined,

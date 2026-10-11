@@ -379,6 +379,12 @@ export class QuaCocosRendererController {
       registerAdvanceInterceptor: interceptor => this.registerAdvanceInterceptor(interceptor),
       registerAnimationSync: sync => this.registerAnimationSync(sync),
       getStageLayout: () => this.resolveStageLayout(),
+      waitForAssets: async () => {
+        // Other projection tasks enqueue resource reads during this update.
+        await new Promise<void>(resolve => this.host.scheduler.requestFrame(() => resolve()))
+        while (this.started && this.pendingResources.size) await Promise.allSettled([...this.pendingResources.values()])
+        await Promise.resolve()
+      },
       getRootNode: () => {
         check()
         return this.getRootNode()
@@ -490,6 +496,7 @@ export class QuaCocosRendererController {
       height: layout.logicalHeight,
       scaleX: layout.scale,
       scaleY: layout.scale,
+      clip: { x: 0, y: 0, width: layout.logicalWidth, height: layout.logicalHeight },
     })
     this.host.nodes.setNodeMetadata?.(stage, {
       logicalWidth: layout.logicalWidth,
@@ -1344,6 +1351,8 @@ function numberOrDefault(value: unknown, fallback: number): number {
 type CocosCaptureRole = 'scene' | 'safe-ui' | 'overlay'
 
 function captureRoleForLayer(layerId: string): CocosCaptureRole {
+  if (layerId.startsWith('qui:'))
+    return 'overlay'
   if (layerId === 'dialogue' || layerId === 'choices')
     return 'safe-ui'
   if (

@@ -5,11 +5,11 @@ import { defineCocosRendererPlugin } from './core'
 import { createCocosProjectionTask } from './projection-task'
 import { INTERACTIVE_CONTROL_METADATA_KEYS } from './projection-utils'
 
-export function createChoicesCocosRendererPlugin() {
+export function createChoicesCocosRendererPlugin(options: { render?: typeof renderCocosChoices } = {}) {
   return defineCocosRendererPlugin({
     name: '@quajs/renderer-cocos/choices',
     setup(context) {
-      const project = createCocosProjectionTask(context, 'choices', cocos => renderCocosChoices(cocos))
+      const project = createCocosProjectionTask(context, 'choices', cocos => (options.render || renderCocosChoices)(cocos))
       const sync = () => {
         void project()
       }

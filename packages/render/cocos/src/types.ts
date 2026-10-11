@@ -34,6 +34,8 @@ export interface CocosRendererHostContext {
   registerAdvanceInterceptor: (interceptor: (source?: string) => boolean | Promise<boolean>) => () => void
   registerAnimationSync: (sync: CocosRendererAnimationSync) => () => void
   getStageLayout: () => ResolvedStageLayout
+  /** Wait for transient asset materialization before sampling a backdrop. */
+  waitForAssets?: () => Promise<void>
   getRootNode: () => CocosHostNode
   getLayerNode: (id: string, kind?: string, order?: number) => CocosHostNode
   clearLayer: (id: string) => void
