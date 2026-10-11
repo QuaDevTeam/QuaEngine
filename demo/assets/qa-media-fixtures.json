@@ -1,0 +1,21 @@
+{
+  "generator": "scripts/generate-media-fixtures.mjs",
+  "audio": {
+    "sampleRate": 44100,
+    "channels": 1,
+    "encoding": "PCM s16le",
+    "toneDurationMs": 3000,
+    "cueDurationMs": 600
+  },
+  "video": {
+    "width": 640,
+    "height": 360,
+    "fps": 24,
+    "durationMs": 3000,
+    "codec": "H.264",
+    "colorSpace": "BT.709",
+    "colorRange": "limited",
+    "audio": false
+  },
+  "rights": "Procedural test signal and graphics generated locally; no third-party content."
+}

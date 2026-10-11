@@ -244,6 +244,9 @@ catalogs:
     node-pty:
       specifier: ^1.1.0
       version: 1.1.0
+    playwright:
+      specifier: ^1.59.1
+      version: 1.59.1
     prettier:
       specifier: ^3.9.8
       version: 3.9.8
@@ -312,7 +315,7 @@ catalogs:
       version: 9.0.1
     vscode-languageserver-textdocument:
       specifier: ^1.0.12
-      version: 1.0.12
+      version: 1.0.14
     vscode-languageserver-types:
       specifier: ^3.18.3
       version: 3.18.3
@@ -427,6 +430,9 @@ importers:
       '@quajs/assets':
         specifier: workspace:*
         version: link:../packages/core/assets
+      '@quajs/assets-cocos':
+        specifier: workspace:*
+        version: link:../packages/platform/assets-cocos
       '@quajs/assets-memory':
         specifier: workspace:*
         version: link:../packages/platform/assets-memory
@@ -436,6 +442,9 @@ importers:
       '@quajs/character':
         specifier: workspace:*
         version: link:../packages/game/character
+      '@quajs/cocos-host':
+        specifier: workspace:*
+        version: link:../packages/platform/cocos-host
       '@quajs/editor-core':
         specifier: workspace:*
         version: link:../packages/editor/core
@@ -490,15 +499,24 @@ importers:
       '@quajs/render-core':
         specifier: workspace:*
         version: link:../packages/render/core
+      '@quajs/renderer-cocos':
+        specifier: workspace:*
+        version: link:../packages/render/cocos
       '@quajs/renderer-vue':
         specifier: workspace:*
         version: link:../packages/render/vue
       '@quajs/renderer-web':
         specifier: workspace:*
         version: link:../packages/render/web
+      '@quajs/security-cocos':
+        specifier: workspace:*
+        version: link:../packages/platform/security-cocos
       '@quajs/security-web':
         specifier: workspace:*
         version: link:../packages/platform/security-web
+      '@quajs/store-cocos':
+        specifier: workspace:*
+        version: link:../packages/platform/store-cocos
       '@quajs/store-web':
         specifier: workspace:*
         version: link:../packages/platform/store-web
@@ -527,9 +545,15 @@ importers:
       '@vitejs/plugin-vue':
         specifier: ^6.0.7
         version: 6.0.7(vite@8.0.12(@types/node@25.6.2)(jiti@2.7.0)(sass-embedded@1.100.0)(sass@1.100.0)(yaml@2.8.4))(vue@3.5.34(typescript@6.0.3))
+      playwright:
+        specifier: 'catalog:'
+        version: 1.59.1
       sass-embedded:
         specifier: ^1.70.0
         version: 1.100.0
+      sharp:
+        specifier: 'catalog:'
+        version: 0.34.5
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -11407,7 +11431,7 @@ snapshots:
     dependencies:
       '@img/colour': 1.1.0
       detect-libc: 2.1.2
-      semver: 7.8.0
+      semver: 7.8.1
     optionalDependencies:
       '@img/sharp-darwin-arm64': 0.34.5
       '@img/sharp-darwin-x64': 0.34.5

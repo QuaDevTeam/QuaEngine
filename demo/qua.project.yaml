@@ -15,6 +15,37 @@ icons:
   source: public/icon.png
   favicon: public/favicon.png
 targets:
+  cocos:
+    enabled: true
+    creatorVersion: 3.8.8
+    projectDir: dist/cocos/workspace
+    layout: landscape
+    platforms: [web-desktop, mac]
+    build:
+      entry: src/targets/cocos/main.ts
+      viteConfig: vite.cocos.config.ts
+      macOSDeploymentTarget: '12.0'
+    assetTarget:
+      name: cocos-demo
+      platform: cocos
+      staticOnly: true
+      pipeline:
+        images: { format: png, rewriteExtension: false, optimize: false }
+        characters: { format: png, rewriteExtension: false, optimize: false }
+      cocos:
+        staticOnly: true
+        hybrid:
+          enabled: true
+          resourceRoot: assets
+          assetBundle: resources
+          domains:
+            images: cocos-bundle
+            characters: cocos-bundle
+            audio: cocos-bundle
+            video: cocos-bundle
+            fonts: cocos-bundle
+    buildOptions:
+      debug: true
   web:
     enabled: true
     layout: landscape

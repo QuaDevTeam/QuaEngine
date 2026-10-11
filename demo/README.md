@@ -31,7 +31,7 @@ pnpm dev:native
 
 当前 Web 界面采用统一的暖白纸面与海绿色，设计记录见 [.agents/ui-design.md](.agents/ui-design.md)。界面截图与交互检查可运行 `pnpm --filter demo test:ui`。
 
-完整文字故事与 UI 回归：先运行 `pnpm --filter demo exec vite preview --port 4178`，再运行 `pnpm --filter demo test:story`。需要仓库的 Playwright 和本机 Chrome；可用 `QUA_STORY_URL` 指定预览地址。脚本在独立浏览器存储中检查三个结局、各选择回应、刷新读档、标题续读、覆盖确认、章节重读、回看、设置与不同窗口尺寸；结果位于 `.generated/qa/story/`。
+Web 故事与 UI 冒烟回归：先运行 `pnpm --filter demo exec vite preview --port 4178`，再运行 `pnpm --filter demo test:story`。需要仓库的 Playwright 和本机 Chrome；可用 `QUA_STORY_URL` 指定预览地址。脚本检查开场推进、刷新读档、标题续读、覆盖确认、回看与不同窗口尺寸；结果位于 `.generated/qa/story/`。此命令不证明全部分支和结局通过。
 
 旧 `assets:generate` / `assets:regenerate*` 命令已移除。首批角色参考及背景提示词已经整理为 [.agents/prologue-art.json](.agents/prologue-art.json)。用户已要求所有图片后续统一制作，当前不再等待生成方式确认。没有新生成图片，也未注册计划中的素材路径。
 
@@ -39,21 +39,51 @@ pnpm dev:native
 
 ## 工程边界
 
-| 位置 | 用途 |
-| --- | --- |
-| `.agents/` | 版本化创作档案和实施交接 |
+| 位置                               | 用途                                                                    |
+| ---------------------------------- | ----------------------------------------------------------------------- |
+| `.agents/`                         | 版本化创作档案和实施交接                                                |
 | `src/game/story/prologue-state.ts` | Web／原生共用剧情插件，接收 pipeline 导航意图、执行全文、恢复存档与章节 |
-| `src/game/scenes/` | 14 个 QuaScript 文件，覆盖完整主线与三种结局 |
-| `src/game/settings-storage.ts` | Web 阅读偏好存储适配器，与剧情存档分离 |
-| `src/game/content/` | 已实现内容的图库、章节定义 |
-| `src/game/runtime*.ts` | 共用插件与 Web 平台适配 |
-| `src/game/ui/` | Web / Native 共用的 TSX、QSS、插件皮肤与导航会话 |
-| `src/game/bootstrap.ts` | Vue 舞台与共享 QUI Web 适配器接线 |
-| `src/targets/native/` | Native 帧投影、宿主接线与 JavaScriptCore 入口 |
-| `assets/` | 发布资源，目前仅通用字体；原生脚本由构建生成 |
-| `scripts/` | 运行与验证工具 |
+| `src/game/scenes/`                 | 14 个 QuaScript 文件，覆盖完整主线与三种结局                            |
+| `src/game/settings-storage.ts`     | Web 阅读偏好存储适配器，与剧情存档分离                                  |
+| `src/game/content/`                | 已实现内容的图库、章节定义                                              |
+| `src/game/runtime*.ts`             | 共用插件与 Web 平台适配                                                 |
+| `src/game/ui/`                     | Web / Native 共用的 TSX、QSS、插件皮肤与导航会话                        |
+| `src/game/bootstrap.ts`            | Vue 舞台与共享 QUI Web 适配器接线                                       |
+| `src/targets/native/`              | Native 帧投影、宿主接线与 JavaScriptCore 入口                           |
+| `src/targets/cocos/`               | Creator 宿主、Cocos 平台服务与共享 QUI 接线                             |
+| `assets/`                          | 发布资源，目前仅通用字体；原生脚本由构建生成                            |
+| `scripts/`                         | 运行与验证工具                                                          |
 
 游戏与叙事状态由 engine/store 持有，界面只投影并通过 pipeline 发出意图。静态素材走 Quack 主包，后续运行期增量内容走 Runtime QPK。保留 1920×1080 逻辑舞台和现有目标隔离约束。
+
+## Cocos Creator 工作区
+
+本机使用 Creator 3.8.8。以下命令从仓库根目录执行：
+
+```sh
+pnpm --filter demo build:cocos
+node demo/scripts/cocos-build.mjs mac --no-generate
+node demo/scripts/cocos-build.mjs web-desktop --no-generate
+pnpm --filter demo test:cocos
+pnpm --filter demo test:cocos:mac
+# 关闭已启动的测试应用后，生命周期测试自行启动、退出并重启应用
+pnpm --filter demo test:cocos:lifecycle
+VITE_QUA_PARITY=1 pnpm --filter demo build
+pnpm --filter demo test:cocos:parity
+pnpm --filter demo test:cocos:surfaces
+```
+
+工作区位于 `demo/dist/cocos/workspace`，包含构建后的 ESM、共享 TSX/QSS、剧情、QPK 与 Creator 原生媒体，不链接仓库源码。工作区可以复制到仓库外打开与构建。`COCOS_CREATOR` 可指定 Creator，`QUA_COCOS_WORKSPACE` 可指定独立工作区；Creator CLI 的成功退出码为 36，macOS 构建还执行 `stage=make`。`pnpm --filter demo build:cocos:mac` 会重新生成整个工作区再构建原生应用；要保留另一平台的构建，请使用上面的 `--no-generate` 命令。测试前实际启动 `build/mac/proj/Debug/CocosGame.app`；mac 测试使用本机 Debug 的 6086 调试接口。生命周期测试可通过 `QUA_COCOS_NATIVE_APP` 指定应用，验证退出进程、重启继续阅读、记录按钮及滚轮导航、章节跳转和真实截图中的舞台裁剪。
+
+在 Cocos Dashboard 选择导入项目目录，打开该工作区的 `assets/main.scene`，点击编辑器播放按钮即可预览原 demo。工作区不需要安装 QuaEngine npm 包；游戏代码已经使用包的公开 `dist` 入口编译，只有 `cc` 由 Creator 提供。原生应用与独立预览可以从同一工作区分别构建。
+
+`test:cocos:parity` 使用生产 Web、Creator web-desktop 与已启动 macOS 应用，以真实浏览器输入和 Creator 原生输入绑定推进。默认验证各选择分支和结局；`--quick` 仅检查开场。画面、投影、布局误差和覆盖结果写入 `demo/dist/cocos/review/parity/`；运行失败会保留失败报告，不应视作验收通过。macOS 画面来自 GPU 读回，原生输入绑定不等于系统鼠标键盘自动化。剧情没有使用音频或视频；另外提供确定性的 QA 媒体夹具，不能把空剧情当成播放、结束或解锁验证。图库和成就目录仍为空。原生存档写入 Creator 可写目录，预览存档写入独立 IndexedDB 字节文件库。生成的独立预览启动配置会启用 Creator 的窗口尺寸更新，适配纵向与横向黑边。
+
+三端面板对比由 `test:cocos:surfaces` 执行。测试浏览器使用 `demo/.generated/cocos-parity` 下的独立持久化 QA 配置和固定本机端口，保留真实 IndexedDB 存档；这些目录不属于交付工作区。面板测试复用完整剧情测试的浏览器档案及相同端口来源（Web 46181、Creator 46182），确保三端章节解锁状态一致。锁定和解锁章节有意使用不同标题高度，不能将不同解锁状态作为相同布局比较。`QUA_COCOS_PARITY_PROFILE` 可指定档案目录；存档和设置数据差异仍会写入面板报告。
+
+同一构建产物的完整剧情测试失败后，可使用 `test:cocos:parity --resume` 从实际保存的选择检查点恢复。报告保留失败原因和已验证前缀，并重新通过真实输入执行检查点之后的剧情；不会修改引擎状态来跳过剧情。修改剧情、引擎或内容资源后必须重新执行完整测试。只修改投影实现时，可以保留完整剧情基线，并在校验编译产物差异后执行覆盖变化的回归；报告必须分别记录基线和最终构建的 SHA，不得把旧画面标为最终构建结果。原生测试输入等待 Creator 帧派发完成，避免调试轮询抢在键盘事件处理前重复按键。
+
+完整剧情测试会在报告中记录原生堆内存采样。Cocos 存储事务只为本次修改的记录创建磁盘备份，提交后清理；不会把全部旧存档读入内存。此机制支持异常回滚，不承诺进程崩溃或断电时的事务原子性。
 
 ## Copyright
 
@@ -85,6 +115,32 @@ for reuse. See `../TRADEMARKS.md`.
 
 ## 共享 UI
 
-Demo 的标题菜单、阅读工具条、章节选择、存读档、确认框、设置与记录面板统一由 `src/game/ui` 定义。两端使用同一份 TSX/QSS、逻辑坐标和导航意图；Web 用可选的 `@quajs/renderer-web/qui` DOM 适配器，Native 继续用 WGPU。基础对白、角色和场景由各自的引擎渲染器投影。
+Demo 的标题菜单、阅读工具条、章节选择、存读档、确认框、设置与记录面板统一由 `src/game/ui` 定义。各目标使用同一份 TSX/QSS、逻辑坐标和导航意图；Web 用可选的 `@quajs/renderer-web/qui` DOM 适配器，Cocos 用 `@quajs/renderer-cocos/qui` 投影到 Creator 节点，Native 使用 WGPU。基础对白、角色和场景由各自的引擎渲染器投影。
 
 同构是项目可选能力：Web-only 项目仍可使用自定义 Vue/React/Svelte 页面。Demo 必须保持一份产品 UI，不再另外维护 Vue 页面。详见 [共享 UI 开发说明](src/game/ui/README.md)。
+
+面板对比前，在其他交互或重启测试结束后重新启动原生应用。浏览器重载会创建新的会话记录；原生进程先前读档后保留的对话历史可能不同。保留持久化档案和章节解锁，只比较由相同输入序列创建的阅读会话。
+
+浏览器结束后若 Playwright 的关闭连接仍等待，验证脚本会限制等待时间、关闭临时 HTTP 端口，并检查 QA 档案对应的 Chrome 进程已退出。只有没有遗留浏览器时才结束测试进程；报告的 `cleanup` 保留此状态。
+
+## 三端媒体验证
+
+`pnpm --filter demo media:fixtures` 用 ffmpeg 生成确定性的 PCM 正弦波、H.264 测试画面及 PNG 封面，资源通过同一 Quack QPK/hybrid 流导入三端。夹具不是剧情内容。重新生成 Web/Cocos 并启动最新 macOS 应用后运行：
+
+```sh
+QUA_COCOS_WORKSPACE=/path/to/workspace pnpm --filter demo test:cocos:media
+# 完整一致性门禁；实际处理或能力存在缺口时必须失败
+QUA_COCOS_WORKSPACE=/path/to/workspace pnpm --filter demo test:cocos:media:parity
+```
+
+结果和真实并排画面位于 `dist/cocos/review/media/index.html`，原始时钟、投影和模块 manifest 位于 `report.json`。检查包括四类音频、结束事件、暂停/恢复、seek、循环、音量、交叉淡入淡出，以及图片时间轴的位置、缓动、旋转、透明度和最终值提交。测试读取实际 WebAudio/Creator SDK/原生 PCM 处理器、设备时钟和真实渲染节点；没有进行主观听音或系统音频录制。Creator Web 视频使用 SDK VideoPlayer；macOS 工作区编译 QuaEngine 的 AVFoundation 适配，将真实解码帧上传 Cocos 纹理。视频仍通过 QPK 身份与 hybrid 资源映射加载，缺少解码器的宿主保留封面回退。验证真实 seek、循环、移动帧和清理；SDK Web 的视频层在 Canvas 下方，GPU-only 截图不包含这一层。音频进一步检查大于 1 的实际增益、八类 track/bus/master EQ 的处理后 PCM，以及 1.5 倍变速、暂停时改为 0.5 倍、恢复和 2 倍自然结束。播放倍率通过 AudioPlugin 的 playbackRate／setPlaybackRate 管理，范围为 0.25–4，音高随速度变化；EQ 幅度允许 4% 误差。macOS 工作区包含静态 AVAudioEngine 处理器，预览复用 Creator 已有播放器和音频上下文。通用宿主仍按可选能力声明，报告必须保留实际未通过项。
+
+生成工作区的 `qua-import-meta.json` 保存稳定的导入类型和 UUID。构建脚本恢复元数据并清空生成工作区的 `library/temp`，然后检查发布的 main bundle 包含所有启动场景。本机 Creator 3.8.8 CLI 冷导入曾返回 36 却将资源识别成通用类型；若场景缺失，脚本恢复 `.meta`，短暂启动完整 Creator 等待所有资源按预期类型导入并关闭该进程，再重试 CLI 一次。恢复失败会阻止原生 make；失败日志和 Editor 导入日志保留在 `dist/cocos/review/logs`。该命令只应作用于可再生成的工作区与缓存。
+
+Creator 发布 Web 的视频在 Canvas 下方；生成启动壳在图形初始化前启用透明 Canvas，并隔离容器的 CSS 层级，使视频不会落到页面背景后面。验收服务器实现 HTTP Range，支持真实 seek；视频验收同时检查播放时钟与截图中色块，不能仅凭组件存在或时钟运行通过。`cocos-build.mjs` 的工作区旁构建锁阻止 Web/mac 同时清空共享导入缓存；异常强制终止后如锁残留，先确认 owner.json 的进程已退出再移除。
+
+视频夹具把 BT.601 测试信号转换为明确标记的 limited-range BT.709；验收对比实际色块，三端每个颜色通道差值须不超过 5。未标记/HDR 视频和非静音视频的音画同步不属于本次验收。移动画面是顺序采集，时间码可以不同。
+
+Creator 3.8.8 CLI 构建使用每次独立的临时工作区导入副本，避免跨平台／重复使用导入数据库时将资源识别成普通文件。demo 构建脚本保留原始生成文件，验证启动场景（原生还要求 make 产出应用）后原子发布 build/<platform>；失败保留上一份可用输出。临时副本和构建锁自动清理。生成 package.json 使用稳定项目 UUID。脚本调用仍为 configPath，SDK 成功码为 36；该退出码本身不构成验收。独立 CLI 手动复现时请为每个平台复制一份原始工作区；Creator 图形编辑器可直接打开生成目录。
+
+媒体 QA 入口仅在 Cocos debug 构建中启用，最多保留最近 256 条事件；发布构建不注册这些监听器。GitHub CI 执行 Cocos 宿主、持久化、渲染、工作区生成、共享媒体与 demo 构建脚本回归；本机 Creator 图形和 macOS 媒体验收仍通过上述实际运行命令完成。

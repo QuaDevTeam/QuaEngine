@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict'
-import { it } from 'vitest'
+// This standalone suite is executed by demo's node --test command.
+// eslint-disable-next-line test/no-import-node-test
+import { it } from 'node:test'
 import { shouldRecordDemoBacklog } from '../src/game/story/backlog-policy.ts'
 
 const line = {

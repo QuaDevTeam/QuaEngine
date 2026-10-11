@@ -1,7 +1,9 @@
+import { getWebAudioPlaybackEntries } from '@quajs/renderer-web/audio'
 import { mountAssetLoadingScene } from '@quajs/renderer-web/plugins/asset-loading'
 import { createApp } from 'vue'
-import { createQuaGameApp } from '../../game/bootstrap'
 
+import { createQuaGameApp } from '../../game/bootstrap'
+import { createDemoMediaReview } from '../../game/media-review'
 import { createDemoRuntime } from '../../game/runtime'
 import { DEMO_LOADING_SURFACE } from '../../game/ui/features'
 import '@quajs/renderer-vue/styles/base.scss'
@@ -33,6 +35,11 @@ async function bootstrapWeb() {
   })
   const app = await createQuaGameApp(runtime)
   createApp(app).mount('#app')
+  if (import.meta.env.VITE_QUA_PARITY === '1') {
+    // Review builds expose observations only; progression always uses real input.
+    const media = createDemoMediaReview(runtime)
+    Object.assign(globalThis, { __QUA_DEMO_REVIEW__: { view: () => runtime.engine.getViewState(), point: () => runtime.engine.getStoryPoint(), media, audioPlayback: () => getWebAudioPlaybackEntries(runtime.engine.getPipeline()) } })
+  }
   if (import.meta.env.DEV && import.meta.env.VITE_QUA_EDITOR_PREVIEW === '1') {
     const [{ mountWebPreviewDevtools }, { getWebAudioPlaybackEntries }] = await Promise.all([
       import('@quajs/renderer-web/devtools'),

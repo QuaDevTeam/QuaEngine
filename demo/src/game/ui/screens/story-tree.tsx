@@ -22,7 +22,7 @@ export function StoryTreeOverlay({ view }: { view: DemoAppView }) {
               <Text id={`chapter-number-${item.id}`} class={`chapter-number${item.disabled ? ' is-locked' : ''}`} x={x + 16} y={y + 47.5} width={94} height={32}>{demoChapterLabel(item.chapter)}</Text>
               <Text id={`chapter-name-${item.id}`} class={item.disabled ? 'chapter-name is-locked' : 'chapter-name'} x={x + 132} y={bodyY} width={529} height={titleHeight}>{item.label}</Text>
               {item.description ? <Text class="chapter-description" x={x + 132} y={bodyY + titleHeight + 12} width={529} height={28.5}>{item.description}</Text> : null}
-              {item.current ? <Text class="chapter-status" x={x + 633} y={y + 92} width={64} height={24}>上次读到</Text> : null}
+              {item.current ? <Text id={`chapter-status-${item.id}`} class="chapter-status" x={x + 617} y={y + 92} width={80} height={24}>上次读到</Text> : null}
             </Panel>
           )
         })}

@@ -1,10 +1,12 @@
-import { quaEngine } from '@quajs/vite-plugin'
 import { createSpriteVitePlugin } from '@quajs/plugin-sprite/vite'
+import { quaEngine } from '@quajs/vite-plugin'
 import { qssScssPlugin } from '@quajs/vite-plugin-native-ui'
 import vue from '@vitejs/plugin-vue'
 import { defineConfig } from 'vite'
 
 export default defineConfig({
+  // Other targets own dist/cocos and dist/native. A Web rebuild must preserve them.
+  build: { emptyOutDir: false },
   server: { hmr: process.env.VITE_QUA_EDITOR_PREVIEW === '1' ? false : undefined },
   plugins: [
     vue(),
