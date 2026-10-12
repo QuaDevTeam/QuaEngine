@@ -313,6 +313,53 @@ quack bundle ./assets -o game.qpk -c lzma:9
 quack workspace build --bundle core
 ```
 
+### Cocos Creator Workspace
+
+Configure `targets.cocos` in `qua.project.yaml`: enable the target, set
+`creatorVersion: 3.8.8`, a generated `projectDir`, `platforms: [web-desktop, mac]`
+and `build.entry` pointing to a business module exporting `bootstrap(services)`.
+Set `build.viteConfig` for QuaScript/shared QUI compilation and configure hybrid
+media domains under `assetTarget.cocos.hybrid`; structured content stays in QPK.
+The [demo manifest](../../../demo/qua.project.yaml) is the complete example.
+
+Run from the game source project:
+
+```bash
+# Only sync platform build configs and icons
+quack project sync --target cocos
+# Build all bundles, runtime ESM, scene and complete portable Creator workspace
+quack project build --target cocos --all
+```
+
+The public `@quajs/quack/project` API provides
+`buildQuaProjectCocosWorkspace({ cwd, configPath?, workspaceConfig?, signal? })`,
+returning `{ target: 'cocos', artifact, manifest }`. `artifact` is the workspace
+directory; `manifest` is its emitted target manifest path. Cocos rejects partial
+`--bundle`, Creator `--platform` and native `--progress-fd` arguments.
+
+Only `cocos-core-resolver` injects target bootstrap. Dependencies use public
+package `dist` entries, `cc` remains external, and the retained-module graph
+proves no Web/native target cores, DOM, Node or development server leaked into
+the runtime. The workspace shell consumes `target-bundle-manifest.json` rather
+than declaring another target core list. Hybrid imported media preserves QPK
+logical names/package provenance; QPK itself uses generic Creator `.binary`
+assets. Generated macOS host audio/video products are copied from the public
+`@quajs/cocos-host/creator-native-products` export and compiled inside the workspace.
+
+Generation stages in a temporary directory and replaces only a validated
+generated destination. Failure retains the last workspace; authored Creator
+projects are rejected as replacement destinations. A successful regeneration
+replaces the complete directory, including old platform build outputs.
+
+Quack generates the workspace, not a finished platform application. Use the
+emitted `qua-build/<platform>.build.json` with Creator's `configPath`; success
+exits with code 36, and macOS needs both `stage=build` and `stage=make` plus an
+actual app launch. Build platforms from fresh raw workspace copies to avoid
+Creator 3.8.8 importer database reuse errors. The
+[demo builder and review commands](../../../demo/README.md) automate independent import copies, bounded
+Editor import recovery, startup-scene validation and failure-preserving platform
+publication. The copied workspace needs no repository links or QuaEngine server.
+
 ## Plugin Development
 
 Create custom plugins to extend Quack's functionality:

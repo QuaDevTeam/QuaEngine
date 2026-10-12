@@ -125,6 +125,24 @@ try {
   await noOverflow();
   check('Long reference direct refresh');
 
+  await open('/docs/platforms/cocos/');
+  assert.match(await page.locator('main').innerText(), /build:cocos/);
+  await page.locator('main a[href="/docs/reference/renderer-cocos/"]').click();
+  await page.waitForURL(url => /\/docs\/reference\/renderer-cocos\/?$/.test(url.pathname));
+  assert.match(await page.locator('h1').innerText(), /Cocos/);
+  await page.locator('.sd-search-trigger').click();
+  await dialog.locator('input').fill('Cocos 音频');
+  await dialog.locator('a[href*="cocos-media"]').first().click();
+  await page.waitForURL(url => /\/docs\/platforms\/cocos-media\/?$/.test(url.pathname));
+  await dialog.waitFor({ state: 'hidden' });
+  assert.equal(await page.getByRole('table').first().getByRole('columnheader').count(), 4);
+  await noOverflow();
+  await shot('cocos-media-desktop');
+  await page.getByRole('button', { name: '切换为深色主题' }).click();
+  await shot('cocos-media-desktop-dark');
+  await page.getByRole('button', { name: '切换为浅色主题' }).click();
+  check('Cocos workspace reference links and media search');
+
   await page.setViewportSize({ width: 390, height: 844 });
   await open('/');
   await noOverflow();
@@ -170,6 +188,9 @@ try {
   await page.waitForFunction(source => navigator.clipboard.readText().then(text => text === source), mobileSource);
   await mobileQs.screenshot({ path: new URL('quascript-mobile.png', out).pathname });
   check('QuaScript mobile copy control is visible and copies exact source');
+  await open('/docs/platforms/cocos-media/');
+  await noOverflow();
+  await shot('cocos-media-mobile');
   await open('/docs/reference/quack/');
   await noOverflow();
   await open('/docs/platforms/native/');

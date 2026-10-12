@@ -55,4 +55,6 @@ pnpm run project:doctor
 
 在配置中显式开启需要的目标。Native 的平台、debug/release、版本与 buildNumber 共同决定隔离输出目录；已有 release manifest 不应被不同产物原地覆盖。
 
+Cocos 配置需提供 `creatorVersion`、`projectDir`、`platforms` 和 `build.entry`，业务入口导出 `bootstrap(services)`。`quack project sync --target cocos` 只写平台配置；`quack project build --target cocos --all` 才生成可独立打开的完整 Creator 工作区。hybrid 媒体、静态资源与 demo 配置见[Cocos 工作区指南](/docs/platforms/cocos)。
+
 完整字段与构建 API 见 [Quack 参考](/docs/reference/quack)，目标原则见 [平台概览](/docs/platforms)。

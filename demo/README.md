@@ -61,14 +61,17 @@ Web 故事与 UI 冒烟回归：先运行 `pnpm --filter demo exec vite preview 
 本机使用 Creator 3.8.8。以下命令从仓库根目录执行：
 
 ```sh
+pnpm exec turbo run build --filter=demo^...
+VITE_QUA_PARITY=1 pnpm --filter demo build
 pnpm --filter demo build:cocos
 node demo/scripts/cocos-build.mjs mac --no-generate
 node demo/scripts/cocos-build.mjs web-desktop --no-generate
+open demo/dist/cocos/workspace/build/mac/proj/Debug/CocosGame.app
 pnpm --filter demo test:cocos
 pnpm --filter demo test:cocos:mac
 # 关闭已启动的测试应用后，生命周期测试自行启动、退出并重启应用
 pnpm --filter demo test:cocos:lifecycle
-VITE_QUA_PARITY=1 pnpm --filter demo build
+open demo/dist/cocos/workspace/build/mac/proj/Debug/CocosGame.app
 pnpm --filter demo test:cocos:parity
 pnpm --filter demo test:cocos:surfaces
 ```
@@ -76,6 +79,8 @@ pnpm --filter demo test:cocos:surfaces
 工作区位于 `demo/dist/cocos/workspace`，包含构建后的 ESM、共享 TSX/QSS、剧情、QPK 与 Creator 原生媒体，不链接仓库源码。工作区可以复制到仓库外打开与构建。`COCOS_CREATOR` 可指定 Creator，`QUA_COCOS_WORKSPACE` 可指定独立工作区；Creator CLI 的成功退出码为 36，macOS 构建还执行 `stage=make`。`pnpm --filter demo build:cocos:mac` 会重新生成整个工作区再构建原生应用；要保留另一平台的构建，请使用上面的 `--no-generate` 命令。测试前实际启动 `build/mac/proj/Debug/CocosGame.app`；mac 测试使用本机 Debug 的 6086 调试接口。生命周期测试可通过 `QUA_COCOS_NATIVE_APP` 指定应用，验证退出进程、重启继续阅读、记录按钮及滚轮导航、章节跳转和真实截图中的舞台裁剪。
 
 在 Cocos Dashboard 选择导入项目目录，打开该工作区的 `assets/main.scene`，点击编辑器播放按钮即可预览原 demo。工作区不需要安装 QuaEngine npm 包；游戏代码已经使用包的公开 `dist` 入口编译，只有 `cc` 由 Creator 提供。原生应用与独立预览可以从同一工作区分别构建。
+
+Web 构建通过 `emptyOutDir: false` 保留其他目标的输出；更换剧情或资源后，需重建参与对比的各端并核对构建身份。完整接入与媒体能力说明见[工作区指南](../docs/content/docs/platforms/cocos.md)和[媒体一致性](../docs/content/docs/platforms/cocos-media.md)。
 
 `test:cocos:parity` 使用生产 Web、Creator web-desktop 与已启动 macOS 应用，以真实浏览器输入和 Creator 原生输入绑定推进。默认验证各选择分支和结局；`--quick` 仅检查开场。画面、投影、布局误差和覆盖结果写入 `demo/dist/cocos/review/parity/`；运行失败会保留失败报告，不应视作验收通过。macOS 画面来自 GPU 读回，原生输入绑定不等于系统鼠标键盘自动化。剧情没有使用音频或视频；另外提供确定性的 QA 媒体夹具，不能把空剧情当成播放、结束或解锁验证。图库和成就目录仍为空。原生存档写入 Creator 可写目录，预览存档写入独立 IndexedDB 字节文件库。生成的独立预览启动配置会启用 Creator 的窗口尺寸更新，适配纵向与横向黑边。
 

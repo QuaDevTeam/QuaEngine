@@ -26,6 +26,7 @@ order: 7
 
 - [Web](/docs/reference/renderer-web)、[Vue](/docs/reference/renderer-vue)、[React](/docs/reference/renderer-react)、[Svelte](/docs/reference/renderer-svelte)。
 - [Web 资源适配器](/docs/reference/assets-web)。
+- [Cocos renderer 与共享 QUI](/docs/reference/renderer-cocos)、[Creator Host](/docs/reference/cocos-host)、[Cocos 存档持久化](/docs/reference/store-cocos)。接入顺序见[Cocos 工作区指南](/docs/platforms/cocos)，媒体范围见[一致性检查](/docs/platforms/cocos-media)。
 - [Native UI 编辑扩展](/docs/reference/native-vscode)。
 
 ## 功能与深层设计

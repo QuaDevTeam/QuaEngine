@@ -17,6 +17,9 @@ description: Maintain QuaEngine's svedocs site, creator tutorials, generated pac
 - Verify examples against current source/templates. Narrative state remains engine/store-owned, pipeline is the only bus, and generated runtime content travels through QPK.
 - Every public page needs a unique useful title and description. Keep section indexes and search discoverability complete.
 - Native is JavaScriptCore-based; dated QuickJS reports are historical evidence. Separate compile checks, runtime tests, GPU readback, visible-window acceptance and platform parity.
+- Cocos creator instructions live in `content/docs/platforms/cocos.md` and `cocos-media.md`. Keep public package references for renderer-cocos, cocos-host and store-cocos registered in `prepare-content.mjs`. Distinguish `project sync` from complete workspace generation, public dist inputs, sole target resolver injection, hybrid QPK/Creator resources and Creator CLI configPath/build/make with success code 36. Keep independent import copies and failure-preserving output behavior accurate. Cocos media reports compare Web, Creator Web and Cocos macOS, not Rust/wgpu Native; retain actual host fallback, media limits, debug QA prerequisites, artifact hashes and unaccepted device/listening/OS-input scopes.
+
+For demo Cocos command sequences, generate a production Web review artifact with `VITE_QUA_PARITY=1` and match the story/resources across all compared builds. The demo Web config uses `emptyOutDir: false` to preserve other target outputs. Lifecycle QA owns app launch and requires the debug port free; relaunch the app afterward for parity/media checks. Check these preconditions against the scripts when editing instructions.
 
 ## Theme
 

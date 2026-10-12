@@ -5,7 +5,10 @@ Game state and progression remain in QuaEngine; input returns through pipeline
 events. `./testing` supplies a recordable fake host.
 
 Generated Creator 3.8.8 workspaces use the concrete `./creator-runtime` entry.
-Creator supplies `cc`; QuaEngine packages do not bundle the SDK:
+Creator supplies `cc`; QuaEngine packages do not bundle the SDK. In generated
+projects Quack's target resolver performs this wiring; the business entry receives
+the host through `bootstrap(services)`. The following is the host factory seam
+for custom Creator integration, with an existing Canvas node/imported effect:
 
 ```ts
 import { createCreatorPreviewFileBridge } from '@quajs/cocos-host/creator-preview-storage'
@@ -18,6 +21,8 @@ const host = createCocosCreatorRuntimeHost({
   namespace: 'dev.example.game',
   native: cc.native,
   projectionEffect: importedEffect,
+  audioProcessor: cc.sys.isNative ? globalThis.__quaCreatorAudio : undefined,
+  videoDecoder: cc.sys.isNative ? globalThis.__quaCreatorVideo : undefined,
   previewFiles: cc.sys.isNative
     ? undefined
     : createCreatorPreviewFileBridge({
@@ -32,6 +37,12 @@ const host = createCocosCreatorRuntimeHost({
 sprites. Image frames preserve the original transparent canvas; render textures
 use their captured rectangle. Fonts are imported Creator Font assets. Font IDs,
 logical asset names and package provenance remain distinct from physical files.
+
+The native globals above are registered by the static products copied from
+`./creator-native-products` and compiled into the generated macOS project.
+Supplying the names without compiling those products does not provide audio
+processing or video decoding. The generated project supplies the wiring;
+custom hosts may instead inject compatible optional bridge implementations.
 
 Native files use `native.fileUtils.getWritablePath()` beneath the namespace.
 Preview files use a separate IndexedDB database of byte arrays, avoiding the

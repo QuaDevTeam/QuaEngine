@@ -26,6 +26,9 @@ const packages = [
   ['platform/assets-web', 'assets-web', 'Web 资源适配器'],
   ['render/web', 'renderer-web', 'Web 渲染器'], ['render/vue', 'renderer-vue', 'Vue 渲染适配器'],
   ['render/react', 'renderer-react', 'React 渲染适配器'], ['render/svelte', 'renderer-svelte', 'Svelte 渲染适配器'],
+  ['render/cocos', 'renderer-cocos', 'Cocos 渲染器与共享 QUI'],
+  ['platform/cocos-host', 'cocos-host', 'Creator 宿主与媒体能力'],
+  ['platform/store-cocos', 'store-cocos', 'Cocos 存档持久化'],
   ['native/vscode', 'native-vscode', 'Native UI 编辑扩展'],
 ];
 for (const [dir, slug, title] of packages) add(`packages/${dir}/README.md`, `docs/reference/${slug}.md`, title, `${title}的安装方式、公开接口、使用示例与当前约束。`);
