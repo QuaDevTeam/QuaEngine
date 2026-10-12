@@ -26,14 +26,14 @@ engine and UI session lifecycle.
 
 ## Public entries
 
-| Entry | Responsibility |
-| --- | --- |
-| Root | `QuaCocosRendererController`, renderer actions, projections, plugin contracts and visual-novel preset |
-| `./qui` | `createQuiCocosRendererPlugin({ surfaceKeys, features })` for shared compiled TSX/QSS surfaces |
-| `./plugins/core` | `defineCocosRendererPlugin` and pipeline-based plugin setup |
-| `./plugins/input`, `background`, `sprite`, `character`, `effects`, `fonts`, `dialogue`, `choices`, `audio`, `scene` | Optional narrative projection features, each beneath `./plugins/` |
-| `./plugins/ui`, `settings`, `backlog`, `gallery`, `achievement`, `save-preview` | Optional product and feature projections, each beneath `./plugins/` |
-| `./plugins/preset` | Visual-novel projection composition |
+| Entry                                                                                                               | Responsibility                                                                                        |
+| ------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Root                                                                                                                | `QuaCocosRendererController`, renderer actions, projections, plugin contracts and visual-novel preset |
+| `./qui`                                                                                                             | `createQuiCocosRendererPlugin({ surfaceKeys, features })` for shared compiled TSX/QSS surfaces        |
+| `./plugins/core`                                                                                                    | `defineCocosRendererPlugin` and pipeline-based plugin setup                                           |
+| `./plugins/input`, `background`, `sprite`, `character`, `effects`, `fonts`, `dialogue`, `choices`, `audio`, `scene` | Optional narrative projection features, each beneath `./plugins/`                                     |
+| `./plugins/ui`, `settings`, `backlog`, `gallery`, `achievement`, `save-preview`                                     | Optional product and feature projections, each beneath `./plugins/`                                   |
+| `./plugins/preset`                                                                                                  | Visual-novel projection composition                                                                   |
 
 QUI reads resolved engine-owned UI surfaces. It draws text, images, controls,
 clipping and scroll content, then emits control intents through pipeline. Hover,
