@@ -34,7 +34,12 @@ describe('shared QUI Cocos projection', () => {
     const renderer = new QuaCocosRendererController({ host, pipeline, initialView: view(root), plugins: [createQuiCocosRendererPlugin({ surfaceKeys: ['shared'] })] })
     await renderer.start()
     await flush()
-    const input = (x: number, y: number) => host.emitInput({ kind: 'pointer', phase: 'up', x, y })
+    const input = async (x: number, y: number) => {
+      await host.emitInput({ kind: 'pointer', phase: 'down', x, y })
+      await host.emitInput({ kind: 'pointer', phase: 'up', x, y })
+    }
+    await host.emitInput({ kind: 'pointer', phase: 'up', x: 75, y: 160 })
+    expect(intent).not.toHaveBeenCalled()
     await input(75, 160) // 0.5 scale, 90px vertical black bars
     expect(intent).toHaveBeenCalledTimes(1)
     expect(intent.mock.calls[0][0].event.payload).toMatchObject({ action: 'play', elementId: 'demo' })

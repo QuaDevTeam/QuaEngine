@@ -16,7 +16,7 @@ export type EncryptionAlgorithm = 'none' | 'xor' | 'custom'
 export type AssetPipelineDomain = 'images' | 'characters' | 'audio' | 'video' | 'fonts'
 export type ImagePipelineFormat = 'source' | 'png' | 'jpeg' | 'webp' | 'avif' | 'jxl'
 export type AudioPipelineFormat = 'source' | 'mp3' | 'ogg' | 'opus' | 'aac' | 'm4a' | 'flac' | 'wav'
-export type VideoPipelineFormat = 'source' | 'mp4' | 'webm' | 'mov' | 'mkv'
+export type VideoPipelineFormat = 'source' | 'mp4' | 'webm' | 'mov' | 'mkv' | 'ogv'
 export type FontPipelineFormat = 'source' | 'woff2' | 'woff' | 'ttf' | 'otf'
 
 export type PatchOperation = 'added' | 'modified' | 'deleted'
@@ -395,7 +395,7 @@ export interface AssetPipelineOptions {
 
 export interface AssetBundleTargetManifest {
   name: string
-  platform?: 'web' | 'cocos' | (string & {})
+  platform?: 'web' | 'cocos' | 'native' | 'godot' | (string & {})
   displayName?: string
   suffix?: string
   description?: string
@@ -455,7 +455,7 @@ export interface CocosAssetTargetMetadata extends Omit<CocosAssetTargetManifestM
 
 export interface AssetBundleTarget {
   name: string
-  platform?: 'web' | 'cocos' | 'native' | (string & {})
+  platform?: 'web' | 'cocos' | 'native' | 'godot' | (string & {})
   displayName?: string
   suffix?: string
   description?: string

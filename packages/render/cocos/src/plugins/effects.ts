@@ -1,17 +1,2 @@
-import { LogicToRenderEvents } from '@quajs/render-core'
-import { renderCocosEffects } from '../projection'
-import { defineCocosRendererPlugin } from './core'
-
-export function createEffectsCocosRendererPlugin() {
-  return defineCocosRendererPlugin({
-    name: '@quajs/renderer-cocos/effects',
-    setup(context) {
-      const sync = () => renderCocosEffects(context.cocos)
-      context.addDisposer(context.onLogicToRender(LogicToRenderEvents.VIEW_UPDATE, sync))
-      context.addDisposer(context.cocos.registerAnimationSync(sync))
-      sync()
-    },
-  })
-}
-
-export const effectsCocosRendererPlugin = createEffectsCocosRendererPlugin()
+export { createEffectsSceneRendererPlugin as createEffectsCocosRendererPlugin } from '@quajs/renderer-scene/plugins/effects'
+export { effectsSceneRendererPlugin as effectsCocosRendererPlugin } from '@quajs/renderer-scene/plugins/effects'

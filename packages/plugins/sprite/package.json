@@ -65,7 +65,8 @@
     "renderer": {
       "web": "@quajs/renderer-web/plugins/sprite",
       "vue": "@quajs/renderer-vue/plugins/sprite",
-      "cocos": "@quajs/renderer-cocos/plugins/sprite"
+      "cocos": "@quajs/renderer-cocos/plugins/sprite",
+      "godot": "@quajs/renderer-godot/plugins/sprite"
     },
     "extension": {
       "schemaVersion": 1,

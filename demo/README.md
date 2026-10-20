@@ -90,6 +90,25 @@ Web 构建通过 `emptyOutDir: false` 保留其他目标的输出；更换剧情
 
 完整剧情测试会在报告中记录原生堆内存采样。Cocos 存储事务只为本次修改的记录创建磁盘备份，提交后清理；不会把全部旧存档读入内存。此机制支持异常回滚，不承诺进程崩溃或断电时的事务原子性。
 
+## Godot 工作区
+
+先构建工作区依赖，再导出独立的 Godot 4.7 项目：
+
+```sh
+pnpm exec turbo run build --filter=demo^...
+pnpm --dir demo build:godot
+pnpm --dir demo run:godot
+pnpm --dir demo edit:godot
+pnpm --dir demo test:godot:native
+pnpm --dir demo test:godot:package
+```
+
+在 Godot 中打开 `demo/dist/godot/workspace/project.godot`。生成目录包含本机 GDExtension、QuickJS 剧情包、QPK 和 Rust 源码，运行时不需要 Node、WebView 或源码仓库。需要 Rust/Cargo、C 编译器；视频转换需要带 libtheora/libvorbis 的 FFmpeg，macOS 可安装 `ffmpeg-full`。生成器只替换自己标记的输出目录，失败时保留之前的项目。
+
+`run:godot` 直接运行游戏，`edit:godot` 打开编辑器。双击 `project.godot` 只打开编辑器；在编辑器中用右上角运行项目按钮启动主场景。`GODOT_BIN` 可指定 Godot 可执行文件，macOS 默认使用 `/Applications/Godot.app/Contents/MacOS/Godot`，Windows/Linux 默认从 PATH 查找 `godot`。
+
+Cocos/Godot 的业务入口共用 `src/targets/scene/main.ts`，引擎、QuaScript 与 QUI/QSS 和 Web 共用。macOS 为首批验证平台；Windows/Linux 的宿主构建路径已实现，仍需在对应系统实测。原生媒体测试读取 QPK 内的确定性夹具，不能替代全剧情、全部分支和主观听感验收。完整 API、现有功能差异和调试入口见 [Godot host 指南](../packages/platform/godot-host/README.md)。
+
 ## Copyright
 
 The demo game is proprietary demo content. Its story, scenario scripts,

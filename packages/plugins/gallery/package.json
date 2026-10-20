@@ -92,6 +92,7 @@
       "react": "@quajs/renderer-react/plugins/gallery",
       "svelte": "@quajs/renderer-svelte/plugins/gallery",
       "cocos": "@quajs/renderer-cocos/plugins/gallery",
+      "godot": "@quajs/renderer-godot/plugins/gallery",
       "native": "@quajs/plugin-gallery/surface"
     },
     "decorators": {

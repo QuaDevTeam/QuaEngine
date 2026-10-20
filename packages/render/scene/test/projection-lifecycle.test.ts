@@ -4,12 +4,12 @@ import { Pipeline } from '@quajs/pipeline'
 import { SettingsRenderToLogicEvents } from '@quajs/plugin-settings/contracts'
 import { LogicToRenderEvents, RenderToLogicEvents } from '@quajs/render-core'
 import { describe, expect, it, vi } from 'vitest'
-import { QuaCocosRendererController } from '../src'
-import { emptyCocosView } from '../src/defaults'
-import { createAudioCocosRendererPlugin } from '../src/plugins/audio'
-import { createBacklogCocosRendererPlugin } from '../src/plugins/backlog'
-import { createFontsCocosRendererPlugin } from '../src/plugins/fonts'
-import { createSettingsCocosRendererPlugin } from '../src/plugins/settings'
+import { QuaSceneRendererController } from '../src'
+import { emptySceneView } from '../src/defaults'
+import { createAudioSceneRendererPlugin } from '../src/plugins/audio'
+import { createBacklogSceneRendererPlugin } from '../src/plugins/backlog'
+import { createFontsSceneRendererPlugin } from '../src/plugins/fonts'
+import { createSettingsSceneRendererPlugin } from '../src/plugins/settings'
 
 function deferred() {
   let resolve!: () => void
@@ -45,7 +45,7 @@ function assets(source: string) {
 }
 
 function settingsView(skinned = false) {
-  const view = emptyCocosView()
+  const view = emptySceneView()
   view.ui.overlays = { settings: { visible: true } }
   view.plugins.settings = { revision: 1, profileId: 'default', updatedAt: 1, scopes: {} }
   if (skinned)
@@ -53,13 +53,13 @@ function settingsView(skinned = false) {
   return view
 }
 
-describe('cocos projection lifecycle regressions', () => {
+describe('scene projection lifecycle regressions', () => {
   it('does not update a disposed native handle after a pending seek completes', async () => {
     const host = createFakeCocosHost()
     const gate = deferred()
-    const view = emptyCocosView()
+    const view = emptySceneView()
     view.plugins.audio = { bgm: { id: 'main', kind: 'bgm', assetKey: 'seek.ogg' } }
-    const renderer = new QuaCocosRendererController({ host, pipeline: new Pipeline(), assets: assets('audio'), initialView: view, plugins: [createAudioCocosRendererPlugin()] })
+    const renderer = new QuaSceneRendererController({ host, pipeline: new Pipeline(), assets: assets('audio'), initialView: view, plugins: [createAudioSceneRendererPlugin()] })
     await renderer.start()
     await flush()
     const handle = host.audioHandlesById.get('bgm:main')!
@@ -89,17 +89,17 @@ describe('cocos projection lifecycle regressions', () => {
       }
       return handle
     }
-    const view = emptyCocosView()
+    const view = emptySceneView()
     view.plugins.audio = { bgm: { id: 'main', kind: 'bgm', assetKey: 'failed.ogg' } }
     const pipeline = new Pipeline()
     const errors = vi.fn()
     pipeline.on(RenderToLogicEvents.RENDER_ERROR, errors)
-    const renderer = new QuaCocosRendererController({ host, pipeline, assets: assets('audio'), initialView: view, plugins: [createAudioCocosRendererPlugin()] })
+    const renderer = new QuaSceneRendererController({ host, pipeline, assets: assets('audio'), initialView: view, plugins: [createAudioSceneRendererPlugin()] })
     await renderer.start()
     await flush()
     expect(errors).toHaveBeenCalledTimes(1)
     expect(host.resourcesById.size).toBe(0)
-    renderer.setView(emptyCocosView())
+    renderer.setView(emptySceneView())
     await flush()
     expect(host.resourcesById.size).toBe(0)
     await renderer.destroy()
@@ -114,9 +114,9 @@ describe('cocos projection lifecycle regressions', () => {
       expect(host.resourcesById.get(resource.id)).toBe(resource)
       return create(resource, options)
     }
-    const view = emptyCocosView()
+    const view = emptySceneView()
     view.plugins.audio = { bgm: { id: 'main', kind: 'bgm', assetKey: 'pending.ogg' } }
-    const renderer = new QuaCocosRendererController({ host, pipeline: new Pipeline(), assets: assets('audio'), initialView: view, plugins: [createAudioCocosRendererPlugin()] })
+    const renderer = new QuaSceneRendererController({ host, pipeline: new Pipeline(), assets: assets('audio'), initialView: view, plugins: [createAudioSceneRendererPlugin()] })
     await renderer.start()
     await flush()
     await renderer.destroy()
@@ -131,9 +131,9 @@ describe('cocos projection lifecycle regressions', () => {
     const host = createFakeCocosHost()
     const gate = deferred()
     const pipeline = new Pipeline()
-    const view = emptyCocosView()
+    const view = emptySceneView()
     view.plugins.audio = { bgm: { id: 'main', kind: 'bgm', assetKey: 'old.ogg', state: 'playing' } }
-    const renderer = new QuaCocosRendererController({ host, pipeline, assets: assets('audio'), initialView: view, plugins: [createAudioCocosRendererPlugin()] })
+    const renderer = new QuaSceneRendererController({ host, pipeline, assets: assets('audio'), initialView: view, plugins: [createAudioSceneRendererPlugin()] })
     await renderer.start()
     await flush()
     const handle = host.audioHandlesById.get('bgm:main')!
@@ -146,7 +146,7 @@ describe('cocos projection lifecycle regressions', () => {
       destroy = renderer.destroy()
     }
     else {
-      const next = emptyCocosView()
+      const next = emptySceneView()
       if (action === 'replace')
         next.plugins.audio = { bgm: { id: 'main', kind: 'bgm', assetKey: 'next.ogg', state: 'playing' } }
       renderer.setView(next)
@@ -165,7 +165,7 @@ describe('cocos projection lifecycle regressions', () => {
 
   it('refreshes settings and backlog from public view setters and safe-area changes', async () => {
     const host = createFakeCocosHost()
-    const renderer = new QuaCocosRendererController({ host, pipeline: new Pipeline(), plugins: [createSettingsCocosRendererPlugin(), createBacklogCocosRendererPlugin()] })
+    const renderer = new QuaSceneRendererController({ host, pipeline: new Pipeline(), plugins: [createSettingsSceneRendererPlugin(), createBacklogSceneRendererPlugin()] })
     await renderer.start()
     const view = settingsView()
     view.plugins.backlog = { visible: true, entries: [], retention: { scope: 'global', maxEntries: 50 } }
@@ -177,7 +177,7 @@ describe('cocos projection lifecycle regressions', () => {
     host.emitLayoutChange()
     await flush()
     expect([...host.nodesById.values()].find(node => node.name === 'backlog:panel')?.transform.x).toBe(240)
-    renderer.setView(emptyCocosView())
+    renderer.setView(emptySceneView())
     await flush()
     expect([...host.nodesById.values()].some(node => node.name === 'settings:title' || node.name === 'backlog:panel')).toBe(false)
     await renderer.destroy()
@@ -194,7 +194,7 @@ describe('cocos projection lifecycle regressions', () => {
     const pipeline = new Pipeline()
     const errors = vi.fn()
     pipeline.on(RenderToLogicEvents.RENDER_ERROR, errors)
-    const renderer = new QuaCocosRendererController({ host, pipeline, assets: runtimeAssets, initialView: settingsView(true), plugins: [createSettingsCocosRendererPlugin()] })
+    const renderer = new QuaSceneRendererController({ host, pipeline, assets: runtimeAssets, initialView: settingsView(true), plugins: [createSettingsSceneRendererPlugin()] })
     const setSprite = vi.spyOn(host.nodes, 'setNodeSprite')
     await renderer.start()
     await flush()
@@ -202,7 +202,7 @@ describe('cocos projection lifecycle regressions', () => {
     if (action === 'destroy')
       await renderer.destroy()
     else
-      await pipeline.emit(LogicToRenderEvents.VIEW_UPDATE, { view: emptyCocosView() })
+      await pipeline.emit(LogicToRenderEvents.VIEW_UPDATE, { view: emptySceneView() })
     gate.resolve()
     await flush()
     expect(setSprite).not.toHaveBeenCalled()
@@ -217,7 +217,7 @@ describe('cocos projection lifecycle regressions', () => {
     const pipeline = new Pipeline()
     const resets = vi.fn()
     pipeline.on(SettingsRenderToLogicEvents.RESET_ALL_REQUEST, resets)
-    const renderer = new QuaCocosRendererController({ host, pipeline, initialView: settingsView(), plugins: [createSettingsCocosRendererPlugin()] })
+    const renderer = new QuaSceneRendererController({ host, pipeline, initialView: settingsView(), plugins: [createSettingsSceneRendererPlugin()] })
     await renderer.start()
     await flush()
     const reset = [...host.nodesById.values()].find(node => node.name === 'settings:reset-all')!
@@ -233,9 +233,9 @@ describe('cocos projection lifecycle regressions', () => {
   it('reloads registered fonts after asset replacement and asset-change events', async () => {
     const host = createFakeCocosHost()
     const pipeline = new Pipeline()
-    const view = emptyCocosView()
+    const view = emptySceneView()
     view.plugins.fonts = { faces: [{ id: 'main', family: 'Main', assetName: 'main.ttf' }] }
-    const renderer = new QuaCocosRendererController({ host, pipeline, assets: assets('old.ttf'), initialView: view, plugins: [createFontsCocosRendererPlugin()] })
+    const renderer = new QuaSceneRendererController({ host, pipeline, assets: assets('old.ttf'), initialView: view, plugins: [createFontsSceneRendererPlugin()] })
     const register = vi.spyOn(host.fonts!, 'registerFontFace')
     await renderer.start()
     await flush()

@@ -1,0 +1,9 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["vitest"],
+    "outDir": "dist"
+  },
+  "include": ["src/**/*"],
+  "exclude": ["dist", "node_modules"]
+}

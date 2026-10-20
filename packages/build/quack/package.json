@@ -59,8 +59,14 @@
     "typecheck": "tsc --noEmit"
   },
   "peerDependencies": {
+    "@quajs/godot-host": "workspace:*",
     "@quajs/logger": "workspace:*",
     "@quajs/utils": "workspace:*"
+  },
+  "peerDependenciesMeta": {
+    "@quajs/godot-host": {
+      "optional": true
+    }
   },
   "dependencies": {
     "@babel/parser": "catalog:",

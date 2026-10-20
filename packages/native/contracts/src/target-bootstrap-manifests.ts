@@ -18,6 +18,9 @@ export const WEB_TARGET_BOOTSTRAP: TargetBootstrapManifest = {
     '@quajs/renderer-svelte',
   ],
   forbiddenCoreAdapters: [
+    '@quajs/godot-host',
+    '@quajs/renderer-godot',
+    'quajs_godot_runtime',
     '@quajs/assets-cocos',
     '@quajs/store-cocos',
     '@quajs/cocos-host',
@@ -43,6 +46,9 @@ export const COCOS_TARGET_BOOTSTRAP: TargetBootstrapManifest = {
     '@quajs/renderer-cocos',
   ],
   forbiddenCoreAdapters: [
+    '@quajs/godot-host',
+    '@quajs/renderer-godot',
+    'quajs_godot_runtime',
     '@quajs/assets-web',
     '@quajs/store-web',
     '@quajs/renderer-web',
@@ -73,6 +79,9 @@ export const NATIVE_TARGET_BOOTSTRAP: TargetBootstrapManifest = {
     'quajs_native_app',
   ],
   forbiddenCoreAdapters: [
+    '@quajs/godot-host',
+    '@quajs/renderer-godot',
+    'quajs_godot_runtime',
     '@quajs/assets-web',
     '@quajs/store-web',
     '@quajs/renderer-web',
@@ -86,10 +95,23 @@ export const NATIVE_TARGET_BOOTSTRAP: TargetBootstrapManifest = {
   ],
 }
 
+export const GODOT_TARGET_BOOTSTRAP: TargetBootstrapManifest = {
+  target: 'godot',
+  corePluginFamily: 'godot-core',
+  coreAdapters: ['@quajs/godot-host', '@quajs/renderer-godot'],
+  corePluginFamilyRoots: ['@quajs/godot-host', '@quajs/renderer-godot', 'quajs_godot_runtime'],
+  forbiddenCoreAdapters: [
+    ...WEB_TARGET_BOOTSTRAP.corePluginFamilyRoots,
+    ...COCOS_TARGET_BOOTSTRAP.corePluginFamilyRoots,
+    ...NATIVE_TARGET_BOOTSTRAP.corePluginFamilyRoots,
+  ],
+}
+
 export const TARGET_BOOTSTRAP_MANIFESTS: Record<QuaTargetBootstrap, TargetBootstrapManifest> = {
   web: WEB_TARGET_BOOTSTRAP,
   cocos: COCOS_TARGET_BOOTSTRAP,
   native: NATIVE_TARGET_BOOTSTRAP,
+  godot: GODOT_TARGET_BOOTSTRAP,
 }
 
 export function getTargetCorePluginFamily(target: QuaTargetBootstrap): TargetCorePluginFamily {

@@ -24,7 +24,7 @@ export {
   nativeWireBytesToUint8Array,
 } from './native-host-bridge'
 
-export type QuaRendererTarget = 'web' | 'cocos' | 'native'
+export type QuaRendererTarget = 'web' | 'cocos' | 'native' | 'godot'
 
 export type QuaNativePlatform = 'macos' | 'windows' | 'linux'
 

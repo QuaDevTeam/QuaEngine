@@ -4,17 +4,20 @@ import {
   createTargetBundleNativeRendererInfo,
   createTargetBundleNativeRuntimeInfo,
   createTargetCoreSelection,
+  GODOT_TARGET_BOOTSTRAP,
   NATIVE_TARGET_BOOTSTRAP,
   WEB_TARGET_BOOTSTRAP,
 } from '../src'
 
 export const CORE_ADAPTERS_BY_TARGET = {
+  godot: GODOT_TARGET_BOOTSTRAP.coreAdapters,
   web: WEB_TARGET_BOOTSTRAP.coreAdapters,
   cocos: COCOS_TARGET_BOOTSTRAP.coreAdapters,
   native: NATIVE_TARGET_BOOTSTRAP.coreAdapters,
 } satisfies Record<QuaTargetBootstrap, readonly string[]>
 
 const PLATFORM_BY_TARGET = {
+  godot: 'godot',
   web: 'web',
   cocos: 'cocos',
   native: 'macos',
@@ -187,6 +190,8 @@ export const NATIVE_RENDERER_CAPABILITIES = [
 export function targetDependencies(target: QuaTargetBootstrap): TargetBundleManifest['dependencies'] {
   const shared = ['@quajs/engine', '@quajs/pipeline']
   switch (target) {
+    case 'godot':
+      return [...shared, '@quajs/godot-host', '@quajs/renderer-godot']
     case 'web':
       return [
         ...shared,
@@ -213,6 +218,8 @@ export function targetDependencies(target: QuaTargetBootstrap): TargetBundleMani
 
 export function rendererEntry(target: QuaTargetBootstrap): NonNullable<TargetBundleManifest['rendererEntries']>[number] {
   switch (target) {
+    case 'godot':
+      return { specifier: '@quajs/renderer-godot/plugins/ui', target: 'godot' }
     case 'web':
       return { specifier: '@quajs/renderer-vue/plugins/ui', target: 'web' }
     case 'cocos':

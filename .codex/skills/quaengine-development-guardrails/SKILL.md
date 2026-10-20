@@ -5,6 +5,8 @@ description: QuaEngine architecture guardrails for renderer statelessness, dynam
 
 # QuaEngine Guardrails
 
+Godot adds a fourth mutually exclusive target family: `godot-core-resolver` selects `@quajs/godot-host` and `@quajs/renderer-godot`. Web/Cocos/native artifacts reject Godot roots and vice versa. `@quajs/scene-host` and `@quajs/renderer-scene` are neutral shared contracts/projection implementations; Cocos/Godot adapters must not duplicate their runtime or import one another. Shared plugin contexts use `context.scene`. See [Godot target rules](../qua-godot-renderer/SKILL.md), including static QPK-only activation and native evidence requirements.
+
 ## Core Rules
 
 ### Active development

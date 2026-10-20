@@ -193,7 +193,7 @@ describe('quack target plugin isolation', () => {
 
       expect(error).toBeInstanceOf(Error)
       const message = (error as Error).message
-      expect(message).toContain(`Quack plugin list "targets.${target}.plugins" must not include Web, Cocos, or native target core adapters.`)
+      expect(message).toContain(`Quack plugin list "targets.${target}.plugins" must not include Web, Cocos, Godot, or native target core adapters.`)
       for (const [specifier, packageName, corePluginFamily] of expected)
         expect(message).toContain(`${specifier} resolves to ${packageName} (${corePluginFamily}).`)
     }
@@ -208,9 +208,11 @@ describe('quack target plugin isolation', () => {
       '@quajs/engine-native/native-host',
       '@quajs/assets-native',
       '@quajs/store-native',
+      '@quajs/godot-host/store',
+      '@quajs/renderer-godot/plugins/ui',
     ]
 
-    for (const target of ['web', 'cocos', 'native'] as const) {
+    for (const target of ['web', 'cocos', 'native', 'godot'] as const) {
       expect(() => assertQuackPluginReferencesTargetIsolation([
         '@quajs/plugin-background',
         ...allTargetCoreUnion,

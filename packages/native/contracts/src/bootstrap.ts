@@ -9,14 +9,15 @@ export {
   collectTargetCoreAdapterRoots,
   getPackageTargetCorePluginFamily,
   getTargetCorePluginFamily,
+  GODOT_TARGET_BOOTSTRAP,
   NATIVE_TARGET_BOOTSTRAP,
   TARGET_BOOTSTRAP_MANIFESTS,
   WEB_TARGET_BOOTSTRAP,
 } from './target-bootstrap-manifests'
 export { normalizePackageSpecifier } from './target-core-specifiers'
 
-export type QuaTargetBootstrap = 'web' | 'cocos' | 'native'
-export type TargetCorePluginFamily = 'web-core' | 'cocos-core' | 'native-core'
+export type QuaTargetBootstrap = 'web' | 'cocos' | 'native' | 'godot'
+export type TargetCorePluginFamily = 'web-core' | 'cocos-core' | 'native-core' | 'godot-core'
 
 export interface TargetBootstrapManifest {
   target: QuaTargetBootstrap

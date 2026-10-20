@@ -14,6 +14,7 @@ import { buildLocalePack } from '../i18n/locale-pack'
 import { buildQuaProjectProduction } from '../production/build'
 import { doctorQuaProjectConfig, findQuaProjectConfigFile, loadQuaProjectConfig, syncQuaProjectCocos } from '../project'
 import { buildQuaProjectCocosWorkspace } from '../project-cocos'
+import { buildQuaProjectGodotWorkspace } from '../project-godot'
 import { readKeyFile, signQpkFile, verifyQpkFile } from '../security/signature'
 import { assertQuackPluginSpecifiersTargetIsolation } from '../target-plugin-isolation'
 import { getErrorMessage, getErrorStack } from '../utils/error'
@@ -1103,7 +1104,7 @@ project
   .description('Build project targets from the Qua project manifest')
   .option('-c, --config <path>', 'Qua project configuration file path')
   .option('--workspace-config <path>', 'Quack workspace configuration file path')
-  .option('-t, --target <target>', 'Target platform to build (web, native, cocos)', 'cocos')
+  .option('-t, --target <target>', 'Target platform to build (web, native, cocos, godot)', 'cocos')
   .option('--platform <platform>', 'Specific Cocos platform to build')
   .option('--result-file <path>', 'Write the production result as JSON')
   .option('--progress-fd <fd>', 'Stream structured production progress to inherited descriptor 3')
@@ -1129,6 +1130,26 @@ project
             await writeFile(resolve(options.resultFile), JSON.stringify(result))
           }
           console.log(`Production artifact: ${result.artifact}`)
+        }
+        finally {
+          process.removeListener('SIGTERM', abort)
+          process.removeListener('SIGINT', abort)
+        }
+        return
+      }
+      if (options.target === 'godot') {
+        if (options.bundle || options.platform || options.progressFd)
+          throw new Error('Godot generation builds the complete project for the current desktop host. Use --all.')
+        const { projectRoot } = await loadProjectConfigForCli({ config: options.config })
+        const controller = new AbortController()
+        const abort = () => controller.abort()
+        process.once('SIGTERM', abort)
+        process.once('SIGINT', abort)
+        try {
+          const result = await buildQuaProjectGodotWorkspace({ cwd: projectRoot, configPath: options.config, workspaceConfig: options.workspaceConfig, signal: controller.signal, onLog: options.verbose ? text => process.stdout.write(text) : undefined })
+          console.log(`Godot workspace: ${result.artifact}`)
+          if (options.resultFile)
+            await writeFile(resolve(options.resultFile), JSON.stringify(result))
         }
         finally {
           process.removeListener('SIGTERM', abort)

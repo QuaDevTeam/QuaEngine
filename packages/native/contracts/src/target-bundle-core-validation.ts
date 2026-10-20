@@ -13,7 +13,7 @@ import {
 import { collectPackageReferenceSpecifiers } from './target-bundle-references'
 import { normalizePackageSpecifier } from './target-core-specifiers'
 
-export type TargetCoreResolverId = 'web-core-resolver' | 'cocos-core-resolver' | 'native-core-resolver'
+export type TargetCoreResolverId = 'web-core-resolver' | 'cocos-core-resolver' | 'native-core-resolver' | 'godot-core-resolver'
 
 export interface TargetCoreSelection {
   target: QuaTargetBootstrap
@@ -56,6 +56,8 @@ export function getTargetCoreResolverId(target: QuaTargetBootstrap): TargetCoreR
       return 'web-core-resolver'
     case 'cocos':
       return 'cocos-core-resolver'
+    case 'godot':
+      return 'godot-core-resolver'
     case 'native':
       return 'native-core-resolver'
   }

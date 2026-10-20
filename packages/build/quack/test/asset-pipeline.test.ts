@@ -22,6 +22,23 @@ describe('assetPipelinePlugin', () => {
     await rm(tempDir, { recursive: true, force: true })
   })
 
+  it('converts Godot video to Theora/Vorbis while preserving its logical asset name', async () => {
+    const log = join(tempDir, 'theora.json')
+    const tool = await createRecordingTool(join(tempDir, 'theora.mjs'), log)
+    const plugin = new AssetPipelinePlugin({
+      pipeline: { video: { format: 'ogv', rewriteExtension: false } },
+      tools: { video: { binary: tool } },
+    })
+    await plugin.initialize({})
+    const context = createContext('video', 'video/intro.mp4', 'intro.mp4', 'video/mp4', Buffer.from('video-bytes'))
+    await plugin.processAsset(context)
+    const calls = JSON.parse(await readFile(log, 'utf8')) as Array<{ args: string[] }>
+    expect(calls[0].args).toEqual(expect.arrayContaining(['-c:v', 'libtheora', '-c:a', 'libvorbis']))
+    expect(calls[0].args.at(-1)).toMatch(/output\.ogv$/)
+    expect(context.asset.name).toBe('intro.mp4')
+    expect(context.asset.mimeType).toBe('video/ogg')
+  })
+
   it('builds multiple target QPKs with target-specific image, audio, and video formats', async () => {
     const sourceDir = join(tempDir, 'assets')
     const outputDir = join(tempDir, 'dist')

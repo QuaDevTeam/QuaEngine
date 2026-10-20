@@ -3,11 +3,13 @@ import type {
   CocosAssetTargetMetadata,
   CocosBuildPlatform,
 } from './core/types'
+import type { NormalizedQuaProjectGodotTarget, QuaProjectGodotTargetConfig } from './project-godot-config'
 import type { QuaProjectNativeBuildConfig } from './project-native-build'
 import type { QuaProjectNativeDistribution } from './project-native-distribution'
 import { access, copyFile, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { basename, dirname, extname, isAbsolute, join, relative, resolve } from 'node:path'
 import { parse as parseYaml } from 'yaml'
+import { normalizeGodotTarget } from './project-godot-config'
 import {
   normalizeQuaProjectNativeBuildConfig,
 
@@ -17,8 +19,12 @@ import { normalizeNativeDistribution } from './project-native-distribution'
 export { buildQuaProjectProduction } from './production/build'
 export type { QuaProductionBuildOptions, QuaProductionBuildResult } from './production/build'
 export type { QuaProductionBuildProgress, QuaProductionBuildStep, QuaProductionProgressListener } from './production/progress'
+
 export { buildQuaProjectCocosWorkspace } from './project-cocos'
 export type { QuaCocosWorkspaceBuildOptions, QuaCocosWorkspaceBuildResult } from './project-cocos'
+export { buildQuaProjectGodotWorkspace } from './project-godot'
+export type { QuaGodotWorkspaceBuildOptions, QuaGodotWorkspaceBuildResult } from './project-godot'
+export type { NormalizedQuaProjectGodotTarget, QuaProjectGodotTargetConfig } from './project-godot-config'
 export {
   createQuaProjectNativeArtifactPlans,
   createQuaProjectNativeTargetBundleManifest,
@@ -141,6 +147,7 @@ export interface QuaProjectNativeTargetConfig {
 export interface QuaProjectTargetsConfig {
   web?: false | QuaProjectWebTargetConfig
   cocos?: false | QuaProjectCocosTargetConfig
+  godot?: false | QuaProjectGodotTargetConfig
   native?: false | QuaProjectNativeTargetConfig
 }
 
@@ -214,6 +221,7 @@ export interface NormalizedQuaProjectConfig {
   targets: {
     web: NormalizedQuaProjectWebTarget
     cocos?: NormalizedQuaProjectCocosTarget
+    godot?: NormalizedQuaProjectGodotTarget
     native?: NormalizedQuaProjectNativeTarget
   }
 }
@@ -272,7 +280,7 @@ export interface SyncQuaProjectCocosResult {
 }
 
 export type QuaProjectDoctorSeverity = 'info' | 'warning' | 'error'
-export type QuaProjectDoctorTarget = 'project' | 'web' | 'pwa' | 'cocos' | 'native'
+export type QuaProjectDoctorTarget = 'project' | 'web' | 'pwa' | 'cocos' | 'native' | 'godot'
 
 export interface QuaProjectDoctorIssue {
   id: string
@@ -380,6 +388,7 @@ export function normalizeQuaProjectConfig(input: unknown, options: NormalizeQuaP
   const icons = normalizeIcons(root.icons)
   const targetsInput = asRecord(root.targets) || {}
   const web = normalizeWebTarget(targetsInput.web, issues)
+  const godot = normalizeGodotTarget(targetsInput.godot, issues)
   const cocos = normalizeCocosTarget(targetsInput.cocos, issues)
   const native = normalizeNativeTarget(targetsInput.native, {
     bundleId,
@@ -401,6 +410,7 @@ export function normalizeQuaProjectConfig(input: unknown, options: NormalizeQuaP
     icons,
     targets: {
       web,
+      ...(godot ? { godot } : {}),
       ...(cocos ? { cocos } : {}),
       ...(native ? { native } : {}),
     },
@@ -510,6 +520,10 @@ export function createQuaProjectAssetTargets(project: NormalizedQuaProjectConfig
     })
   }
 
+  const godot = project.targets.godot
+  if (godot?.enabled) {
+    targets.push({ ...godot.assetTarget, name: godot.assetTarget?.name || 'godot', suffix: godot.assetTarget?.suffix || 'godot', platform: 'godot', staticOnly: true })
+  }
   const cocos = project.targets.cocos
   if (cocos?.enabled) {
     const configured = normalizeCocosAssetTarget(cocos.assetTarget)
@@ -649,6 +663,14 @@ export async function doctorQuaProjectConfig(
   await doctorWebTarget(project, cwd, issues)
   await doctorCocosTarget(project, cwd, issues)
   await doctorNativeTarget(project, cwd, issues)
+  const godot = project.targets.godot
+  if (godot?.enabled) {
+    for (const [key, path] of Object.entries({ entry: godot.build.entry, viteConfig: godot.build.viteConfig })) {
+      if (path && !await exists(resolve(cwd, path)))
+        issues.push({ id: `godot.build.${key}`, severity: 'error', target: 'godot', message: `Godot ${key} does not exist: ${path}` })
+    }
+    issues.push({ id: 'godot.runtime', severity: 'info', target: 'godot', message: 'Godot 4.7+ and Rust/Cargo are required. Video conversion requires an FFmpeg build with libtheora. Generated libraries target the current host OS and architecture.' })
+  }
 
   return {
     ok: !issues.some(issue => issue.severity === 'error'),

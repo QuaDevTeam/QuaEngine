@@ -76,7 +76,8 @@
     "renderer": {
       "web": "@quajs/renderer-web/plugins/background",
       "vue": "@quajs/renderer-vue/plugins/background",
-      "cocos": "@quajs/renderer-cocos/plugins/background"
+      "cocos": "@quajs/renderer-cocos/plugins/background",
+      "godot": "@quajs/renderer-godot/plugins/background"
     },
     "decorators": {
       "SetBackground": {

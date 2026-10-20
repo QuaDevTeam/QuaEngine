@@ -159,6 +159,8 @@ Native settings content scrolls within a centered logical-stage panel capped at 
 
 Native select controls use the Web closed-field fill, 4px radius, hover border/gradient, padded ellipsized value text and a dedicated up/down chevron. Opening the control appends a transient option list above/below the field; options are package-aware intents and must not become authoritative state. Keep Web select styling and native control geometry aligned, while documenting that browser OS-native popup chrome cannot be pixel-matched by CSS.
 
+The shared scene renderer used by Godot/Cocos projects bounded select options into a transient popup, with mouse choice, arrow-key navigation, Enter commit and Escape/outside-click cancellation. Opening/hovering must not emit a preference mutation. Its key interceptor runs before game input translation so Escape closes only the popup. `frameRateLimit` projects `renderer.targetFrameRate`; Godot's optional host runtime setter applies the limit to the real render loop, subject to display vsync.
+
 ## Demo preference persistence
 
 `demo/src/game/runtime-shared.ts` accepts an injected `SettingsStorageAdapter`. The Web entry supplies `settings-storage.ts`, storing the named profile separately from story slots. Without that injection, SettingsPlugin defaults to memory and preferences reset on browser reload. Browser regression must change a preference, refresh, load a story save, and verify the preference still applies; a same-page control change is insufficient.

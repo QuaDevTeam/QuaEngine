@@ -15,6 +15,20 @@ icons:
   source: public/icon.png
   favicon: public/favicon.png
 targets:
+  godot:
+    enabled: true
+    projectDir: dist/godot/workspace
+    layout: landscape
+    build:
+      entry: src/targets/godot/main.ts
+      viteConfig: vite.godot.config.ts
+      profile: debug
+    assetTarget:
+      name: godot-demo
+      platform: godot
+      staticOnly: true
+      pipeline:
+        video: { format: ogv, rewriteExtension: false, extraArgs: ["-q:v", "9"] }
   cocos:
     enabled: true
     creatorVersion: 3.8.8

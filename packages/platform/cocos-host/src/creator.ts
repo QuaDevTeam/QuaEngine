@@ -497,6 +497,7 @@ export function createCocosCreatorHost(options: CocosCreatorHostOptions): CocosH
   return {
     runtime: {
       now: () => options.runtime?.now?.() ?? creatorNow(options.cc),
+      setTargetFrameRate: options.runtime?.setTargetFrameRate,
       warn,
       error: options.runtime?.error || console.error,
     },
@@ -805,12 +806,13 @@ export function createCocosCreatorHost(options: CocosCreatorHostOptions): CocosH
           const x = -(node.transform.anchorX ?? 0) * width
           const y = -((1 - (node.transform.anchorY ?? 0)) * height)
           graphics.clear()
-          if (style.shape === 'chevron-down' && graphics.moveTo && graphics.lineTo && graphics.stroke) {
+          if ((style.shape === 'chevron-down' || style.shape === 'chevron-up') && graphics.moveTo && graphics.lineTo && graphics.stroke) {
             graphics.strokeColor = parseCocosColor(options.cc, style.backgroundColor ?? style.borderColor ?? '#ffffff')
             graphics.lineWidth = Math.min(2, height / 3)
-            graphics.moveTo(x + 1, y + height - 1)
-            graphics.lineTo(x + width / 2, y + 1)
-            graphics.lineTo(x + width - 1, y + height - 1)
+            const up = style.shape === 'chevron-up'
+            graphics.moveTo(x + 1, y + (up ? 1 : height - 1))
+            graphics.lineTo(x + width / 2, y + (up ? height - 1 : 1))
+            graphics.lineTo(x + width - 1, y + (up ? 1 : height - 1))
             graphics.stroke()
             continue
           }

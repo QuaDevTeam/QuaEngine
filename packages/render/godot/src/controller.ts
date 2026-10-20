@@ -1,0 +1,5 @@
+export type { QuaSceneRendererOptions as QuaGodotRendererOptions } from '@quajs/renderer-scene/controller'
+export { QuaSceneRendererController as QuaGodotRendererController } from '@quajs/renderer-scene/controller'
+export { createSceneRendererActions as createGodotRendererActions } from '@quajs/renderer-scene/controller'
+export { clientInputToStagePoint } from '@quajs/renderer-scene/controller'
+export type { SceneRuntimePluginPayload as GodotRuntimePluginPayload } from '@quajs/renderer-scene/controller'

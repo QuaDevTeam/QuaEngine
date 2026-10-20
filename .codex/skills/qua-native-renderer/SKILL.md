@@ -5,6 +5,8 @@ description: Use, implement, or review QuaEngine native renderer work under pack
 
 # Qua Native Renderer
 
+Godot is an independent target, documented in [qua-godot-renderer](../qua-godot-renderer/SKILL.md). Its GDExtension/QuickJS host and shared scene projection runtime must not import this JavaScriptCore/wgpu target's bootstrap, capability metadata or adapters. Shared isolation validation must cover all four families symmetrically.
+
 Use this skill for `packages/native/*`, Rust native runtime/renderer crates, native host contracts, native asset/store adapters, QUI/QSS native authoring, and native packaging.
 
 ## JavaScriptCore integration

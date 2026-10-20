@@ -332,10 +332,14 @@ describe('createCocosCreatorHost', () => {
   })
 
   it('preserves Creator zero timestamps and partial transform axes', () => {
+    const setTargetFrameRate = vi.fn()
     const host = createCocosCreatorHost({
       rootNode: createNativeNode('root'),
       cc: { sys: { now: () => 0 } },
+      runtime: { setTargetFrameRate },
     })
+    host.runtime.setTargetFrameRate?.(30)
+    expect(setTargetFrameRate).toHaveBeenCalledWith(30)
     const node = host.nodes.createNode('sprite', { parent: host.nodes.getRootNode() })
 
     host.nodes.setNodeTransform(node, { x: 10, y: 20, scaleX: 2, scaleY: 3, width: 100, height: 50 })

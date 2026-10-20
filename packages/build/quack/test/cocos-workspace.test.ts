@@ -76,7 +76,7 @@ describe('creator artifact contracts', () => {
       const scene = JSON.parse(await readFile(join(built.artifact, 'assets/main.scene'), 'utf8'))
       expect(bootstrap).toContain(`@ccclass('${scene[5].__type__}')`)
       const graph = JSON.parse(await readFile(join(built.artifact, 'retained-module-graph.json'), 'utf8'))
-      expect(graph.modules.some((module: { specifier: string }) => module.specifier.startsWith('@quajs/renderer-cocos/dist/'))).toBe(true)
+      expect(graph.modules.some((module: { specifier: string }) => module.specifier.startsWith('@quajs/renderer-scene/dist/'))).toBe(true)
       const summary = await readQpkSummary(join(built.artifact, 'assets/resources/qua/main.binary'))
       const opaqueMeta = JSON.parse(await readFile(join(built.artifact, 'assets/resources/qua/main.binary.meta'), 'utf8'))
       const importMetadata = JSON.parse(await readFile(join(built.artifact, 'qua-import-meta.json'), 'utf8'))

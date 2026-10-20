@@ -1,0 +1,142 @@
+import type { SceneChangePayload, SceneTransitionIntent } from '@quajs/render-core'
+import type { SceneRendererPluginContext } from '../types'
+import { easeProgress, LogicToRenderEvents, RenderToLogicEvents } from '@quajs/render-core'
+import { defineSceneRendererPlugin } from './core'
+
+const DEFAULT_SCENE_TRANSITION_DURATION = 320
+
+export function createSceneSceneRendererPlugin() {
+  return defineSceneRendererPlugin({
+    name: '@quajs/renderer-scene/scene',
+    setup(context) {
+      let frame: number | undefined
+      let active: {
+        payload: SceneChangePayload
+        transition: SceneTransitionIntent & { duration: number }
+        startedAt: number
+      } | undefined
+      const cancelFrame = () => {
+        if (frame !== undefined) {
+          context.scene.host.scheduler.cancelFrame(frame)
+          frame = undefined
+        }
+      }
+      const complete = async () => {
+        const payload = active?.payload
+        active = undefined
+        cancelFrame()
+        context.scene.clearLayer('scene')
+        if (payload?.toScene) {
+          await context.emitRenderToLogic(RenderToLogicEvents.SCENE_READY, {
+            sceneId: payload.toScene,
+            timestamp: context.scene.host.runtime.now(),
+          })
+        }
+      }
+      const completeSafely = () => {
+        void complete().catch(error => context.reportError(error, {
+          message: 'Scene scene readiness intent dispatch failed.',
+          phase: 'renderer-scene:scene-ready',
+        }))
+      }
+      const tick = () => {
+        frame = undefined
+        if (!active)
+          return
+        const progress = transitionProgress(active.transition, active.startedAt, context.scene.host.runtime.now())
+        renderSceneTransition(context, active.payload, active.transition, progress)
+        if (progress >= 1) {
+          completeSafely()
+          return
+        }
+        frame = context.scene.host.scheduler.requestFrame(tick)
+      }
+      context.addDisposer(context.onLogicToRender(LogicToRenderEvents.SCENE_CHANGE, (payload) => {
+        cancelFrame()
+        const transition = normalizeTransition(payload.transition)
+        active = {
+          payload,
+          transition,
+          startedAt: context.scene.host.runtime.now(),
+        }
+        if (transition.type === 'instant' || transition.duration <= 0) {
+          completeSafely()
+          return
+        }
+        tick()
+      }))
+      context.addDisposer(cancelFrame)
+    },
+  })
+}
+
+export const sceneSceneRendererPlugin = createSceneSceneRendererPlugin()
+
+function renderSceneTransition(
+  context: SceneRendererPluginContext,
+  payload: SceneChangePayload,
+  transition: SceneTransitionIntent & { duration: number },
+  progress: number,
+): void {
+  const layer = context.scene.getLayerNode('scene', 'scene-layer', 80)
+  context.scene.host.nodes.clearChildren(layer)
+  const layout = context.scene.getStageLayout()
+  const overlay = context.scene.host.nodes.createNode('scene-transition', { parent: layer, name: 'scene-transition' })
+  const eased = easeProgress(progress, transition.easing)
+  const hidden = 1 - eased
+  context.scene.host.nodes.setNodeTransform(overlay, {
+    x: transition.type === 'slide_left'
+      ? -layout.logicalWidth * eased
+      : transition.type === 'slide_right'
+        ? layout.logicalWidth * eased
+        : 0,
+    y: transition.type === 'slide_up'
+      ? -layout.logicalHeight * eased
+      : transition.type === 'slide_down'
+        ? layout.logicalHeight * eased
+        : 0,
+    width: layout.logicalWidth,
+    height: layout.logicalHeight,
+    opacity: transition.type.startsWith('slide_') ? 1 : hidden,
+    scaleX: transition.type === 'zoom_in' ? 1 + hidden * 0.12 : transition.type === 'zoom_out' ? 0.92 + eased * 0.08 : 1,
+    scaleY: transition.type === 'zoom_in' ? 1 + hidden * 0.12 : transition.type === 'zoom_out' ? 0.92 + eased * 0.08 : 1,
+    clip: transition.type === 'wipe'
+      ? {
+          x: 0,
+          y: 0,
+          width: layout.logicalWidth * hidden,
+          height: layout.logicalHeight,
+        }
+      : undefined,
+    zIndex: 0,
+  })
+  context.scene.host.nodes.setNodeMetadata?.(overlay, {
+    plugin: 'scene',
+    fromScene: payload.fromScene,
+    toScene: payload.toScene,
+    transition,
+    progress,
+    easedProgress: eased,
+  })
+  context.scene.host.nodes.setNodeColor?.(overlay, '#000000')
+}
+
+function normalizeTransition(transition: SceneTransitionIntent | undefined): SceneTransitionIntent & { duration: number } {
+  return {
+    type: transition?.type || 'instant',
+    duration: positiveNumber(transition?.duration, DEFAULT_SCENE_TRANSITION_DURATION),
+    easing: transition?.easing,
+    waitForRenderer: transition?.waitForRenderer,
+    rendererReadyTimeout: transition?.rendererReadyTimeout,
+  }
+}
+
+function transitionProgress(transition: SceneTransitionIntent & { duration: number }, startedAt: number, now: number): number {
+  if (transition.duration <= 0)
+    return 1
+  return Math.min(1, Math.max(0, (now - startedAt) / transition.duration))
+}
+
+function positiveNumber(value: number | undefined, fallback: number): number {
+  return Number.isFinite(value) && value !== undefined && value >= 0 ? value : fallback
+}

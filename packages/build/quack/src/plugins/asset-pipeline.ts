@@ -73,6 +73,7 @@ const AUDIO_MIME_TYPES: Record<Exclude<AudioPipelineFormat, 'source'>, string> =
 }
 
 const VIDEO_MIME_TYPES: Record<Exclude<VideoPipelineFormat, 'source'>, string> = {
+  ogv: 'video/ogg',
   mp4: 'video/mp4',
   webm: 'video/webm',
   mov: 'video/quicktime',
@@ -88,7 +89,7 @@ const FONT_MIME_TYPES: Record<Exclude<FontPipelineFormat, 'source'>, string> = {
 
 const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.webp', '.avif', '.jxl'])
 const AUDIO_EXTENSIONS = new Set(['.mp3', '.ogg', '.opus', '.aac', '.m4a', '.flac', '.wav'])
-const VIDEO_EXTENSIONS = new Set(['.mp4', '.webm', '.mov', '.mkv', '.avi', '.m4v', '.wmv', '.flv'])
+const VIDEO_EXTENSIONS = new Set(['.mp4', '.webm', '.ogv', '.mov', '.mkv', '.avi', '.m4v', '.wmv', '.flv'])
 const FONT_EXTENSIONS = new Set(['.woff2', '.woff', '.ttf', '.otf', '.ttc'])
 
 export class AssetPipelinePlugin extends QuackPlugin {
@@ -616,6 +617,8 @@ function defaultAudioCodec(format: Exclude<AudioPipelineFormat, 'source'>): stri
 }
 
 function defaultVideoCodec(format: Exclude<VideoPipelineFormat, 'source'>): string | undefined {
+  if (format === 'ogv')
+    return 'libtheora'
   if (format === 'mp4') {
     return 'libx264'
   }
@@ -626,6 +629,8 @@ function defaultVideoCodec(format: Exclude<VideoPipelineFormat, 'source'>): stri
 }
 
 function defaultVideoAudioCodec(format: Exclude<VideoPipelineFormat, 'source'>): string | undefined {
+  if (format === 'ogv')
+    return 'libvorbis'
   if (format === 'mp4') {
     return 'aac'
   }

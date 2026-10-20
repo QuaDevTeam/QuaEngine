@@ -47,7 +47,7 @@ describe('target bundle manifest target-core isolation adapters', () => {
   })
 
   it('rejects cross-target core adapters for Web, Cocos, and native artifacts', () => {
-    for (const target of ['web', 'cocos', 'native'] as const) {
+    for (const target of ['web', 'cocos', 'native', 'godot'] as const) {
       const crossTargetCoreAdapters = (Object.keys(CORE_ADAPTERS_BY_TARGET) as QuaTargetBootstrap[])
         .filter(candidate => candidate !== target)
         .flatMap(candidate => CORE_ADAPTERS_BY_TARGET[candidate])
@@ -59,7 +59,7 @@ describe('target bundle manifest target-core isolation adapters', () => {
       }))
 
       expect(result.ok).toBe(false)
-      expect(result.bootstrapValidation.selectedTargets).toEqual(['web', 'cocos', 'native'])
+      expect(result.bootstrapValidation.selectedTargets).toEqual(['web', 'cocos', 'native', 'godot'])
       for (const packageName of crossTargetCoreAdapters) {
         expect(result.diagnostics).toEqual(expect.arrayContaining([
           expect.objectContaining({

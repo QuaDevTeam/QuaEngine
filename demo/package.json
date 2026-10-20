@@ -1,10 +1,10 @@
 {
   "name": "demo",
+  "type": "module",
   "version": "0.1.0",
   "private": true,
-  "type": "module",
-  "license": "UNLICENSED",
   "author": "QuaDevTeam",
+  "license": "UNLICENSED",
   "repository": {
     "type": "git",
     "url": "https://github.com/QuaDevTeam/QuaEngine.git",
@@ -36,7 +36,12 @@
     "test:cocos:lifecycle": "node scripts/cocos-lifecycle.mjs",
     "test:cocos:media": "node scripts/cocos-media-review.mjs",
     "test:cocos:media:parity": "node scripts/cocos-media-review.mjs --require-parity",
-    "media:fixtures": "node scripts/generate-media-fixtures.mjs"
+    "media:fixtures": "node scripts/generate-media-fixtures.mjs",
+    "build:godot": "node scripts/build-godot.mjs",
+    "run:godot": "node scripts/run-godot.mjs",
+    "edit:godot": "node scripts/run-godot.mjs --editor",
+    "test:godot:native": "node scripts/godot-native-smoke.mjs",
+    "test:godot:package": "node scripts/godot-package-smoke.mjs"
   },
   "dependencies": {
     "@quajs/assets": "workspace:*",
@@ -48,6 +53,7 @@
     "@quajs/editor-core": "workspace:*",
     "@quajs/engine": "workspace:*",
     "@quajs/engine-native": "workspace:*",
+    "@quajs/godot-host": "workspace:*",
     "@quajs/native-contracts": "workspace:*",
     "@quajs/native-ui": "workspace:*",
     "@quajs/native-ui-compiler": "workspace:*",
@@ -64,14 +70,17 @@
     "@quajs/plugin-sprite": "workspace:*",
     "@quajs/render-core": "workspace:*",
     "@quajs/renderer-cocos": "workspace:*",
+    "@quajs/renderer-godot": "workspace:*",
+    "@quajs/renderer-scene": "workspace:*",
     "@quajs/renderer-vue": "workspace:*",
     "@quajs/renderer-web": "workspace:*",
+    "@quajs/scene-host": "workspace:*",
     "@quajs/security-cocos": "workspace:*",
     "@quajs/security-web": "workspace:*",
     "@quajs/store-cocos": "workspace:*",
     "@quajs/store-web": "workspace:*",
     "@quajs/story-graph": "workspace:*",
-    "vue": "^3.5.34"
+    "vue": "catalog:"
   },
   "devDependencies": {
     "@quajs/quack": "workspace:*",
@@ -79,11 +88,11 @@
     "@quajs/vite-plugin": "workspace:*",
     "@quajs/vite-plugin-native-ui": "workspace:*",
     "@types/node": "catalog:",
-    "@vitejs/plugin-vue": "^6.0.7",
+    "@vitejs/plugin-vue": "catalog:conflicts_@vitejs/plugin-vue_h6_0_7",
     "playwright": "catalog:",
-    "sass-embedded": "^1.70.0",
+    "sass-embedded": "catalog:",
     "sharp": "catalog:",
-    "typescript": "^6.0.3",
-    "vite": "^8.0.12"
+    "typescript": "catalog:",
+    "vite": "catalog:"
   }
 }

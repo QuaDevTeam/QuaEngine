@@ -60,7 +60,8 @@
     "renderer": {
       "web": "@quajs/renderer-web/plugins/fonts",
       "vue": "@quajs/renderer-vue/plugins/fonts",
-      "cocos": "@quajs/renderer-cocos/plugins/fonts"
+      "cocos": "@quajs/renderer-cocos/plugins/fonts",
+      "godot": "@quajs/renderer-godot/plugins/fonts"
     },
     "extension": {
       "schemaVersion": 1,

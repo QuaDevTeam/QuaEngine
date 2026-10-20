@@ -5,6 +5,8 @@ description: Configure, review, or update @quajs/quack asset bundling. Covers Qu
 
 # Quack Configuration
 
+Godot export is `quack project build --target godot --all`, configured by `targets.godot.build.entry`. Its resolver emits a standalone project with exact-hash static QPKs, bundled JS, current-host GDExtension and Rust sources. Preserve logical media names with `video: { format: ogv, rewriteExtension: false }`; `ogv` uses Theora/Vorbis and requires a capable FFmpeg build. Keep Godot bootstrap adapters out of ordinary Quack plugin lists and Runtime Package dependencies. See [qua-godot-renderer](../qua-godot-renderer/SKILL.md).
+
 Use this skill when creating, reviewing, or changing `@quajs/quack` configuration, Quack CLI usage, runtime QPK manifests, workspace bundles, asset target builds, or Quack plugin integration.
 
 ## Entry Points

@@ -83,6 +83,8 @@ This high-resolution atlas path is not a full browser typography engine: vertica
 
 The demo registers the OFL `NotoSansCJKsc-Regular.otf` asset under the existing `Noto Sans` family so Latin and Simplified Chinese glyphs share the same QPK-backed Web/native face and the complete native E2E can keep asserting the backward-compatible `fonts:Noto Sans` resource id. Keep the older Latin TTF asset available for compatibility with existing demo asset references.
 
+Godot consumes the same QPK font bytes through FontFile/FontVariation. Compact UI uses light hinting, automatic subpixel positioning and 2× oversampling instead of MSDF; verify Chinese stroke clarity and single-line visibility in a real window at multiple stage scales. Line-height correction stays transient and shared between measurement and drawing. Native WGPU's atlas implementation above is separate from the Godot font backend.
+
 ## Validation
 
 ```bash

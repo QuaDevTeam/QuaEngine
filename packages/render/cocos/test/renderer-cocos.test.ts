@@ -195,7 +195,7 @@ describe('@quajs/renderer-cocos', () => {
     expect(choices[0]).toEqual({ choiceId: 'a' })
     expect(choices[1]).toEqual({ choiceId: 'a' })
     expect(choices[2]).toEqual({ choiceId: 'a' })
-    expect(advances).toEqual([{ source: 'cocos:pointer' }])
+    expect(advances).toEqual([{ source: 'scene:pointer' }])
   })
 
   it('maps Cocos keyboard and gamepad input to renderer commands', async () => {
@@ -222,19 +222,19 @@ describe('@quajs/renderer-cocos', () => {
       {
         command: 'auto:toggle',
         device: 'keyboard',
-        source: 'cocos:keyboard:KeyA',
+        source: 'scene:keyboard:KeyA',
         pressed: true,
         timestamp: 123,
       },
       {
         command: 'choice:confirm',
         device: 'gamepad',
-        source: 'cocos:gamepad:button:0',
+        source: 'scene:gamepad:button:0',
         pressed: true,
         timestamp: 123,
       },
     ])
-    expect(autoStarts).toEqual([{ source: 'cocos:keyboard:KeyA' }])
+    expect(autoStarts).toEqual([{ source: 'scene:keyboard:KeyA' }])
     expect(choices).toEqual([{ choiceId: 'a' }])
   })
 
@@ -259,7 +259,7 @@ describe('@quajs/renderer-cocos', () => {
     expect(commands).toMatchObject([{
       command: 'advance',
       device: 'wheel',
-      source: 'cocos:wheel:down',
+      source: 'scene:wheel:down',
       timestamp: 0,
     }])
   })
@@ -2356,26 +2356,26 @@ describe('@quajs/renderer-cocos', () => {
 
   it('keeps preset plugin order stable', () => {
     expect(createVisualNovelCocosRendererPlugins({ input: false }).map(plugin => plugin.name)).toEqual([
-      '@quajs/renderer-cocos/background',
-      '@quajs/renderer-cocos/sprite',
-      '@quajs/renderer-cocos/character',
-      '@quajs/renderer-cocos/effects',
-      '@quajs/renderer-cocos/fonts',
-      '@quajs/renderer-cocos/dialogue',
-      '@quajs/renderer-cocos/choices',
-      '@quajs/renderer-cocos/audio',
-      '@quajs/renderer-cocos/scene',
-      '@quajs/renderer-cocos/ui',
-      '@quajs/renderer-cocos/settings',
-      '@quajs/renderer-cocos/backlog',
-      '@quajs/renderer-cocos/gallery',
-      '@quajs/renderer-cocos/achievement',
-      '@quajs/renderer-cocos/save-preview',
+      '@quajs/renderer-scene/background',
+      '@quajs/renderer-scene/sprite',
+      '@quajs/renderer-scene/character',
+      '@quajs/renderer-scene/effects',
+      '@quajs/renderer-scene/fonts',
+      '@quajs/renderer-scene/dialogue',
+      '@quajs/renderer-scene/choices',
+      '@quajs/renderer-scene/audio',
+      '@quajs/renderer-scene/scene',
+      '@quajs/renderer-scene/ui',
+      '@quajs/renderer-scene/settings',
+      '@quajs/renderer-scene/backlog',
+      '@quajs/renderer-scene/gallery',
+      '@quajs/renderer-scene/achievement',
+      '@quajs/renderer-scene/save-preview',
     ])
   })
 
   it('exports save-preview as a standalone Cocos plugin entry', () => {
-    expect(createSavePreviewCocosRendererPlugin().name).toBe('@quajs/renderer-cocos/save-preview')
+    expect(createSavePreviewCocosRendererPlugin().name).toBe('@quajs/renderer-scene/save-preview')
   })
 
   it('does not mutate engine-owned view on destroy', async () => {

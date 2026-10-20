@@ -1,5 +1,1 @@
-import type { CocosRendererPlugin, CocosRendererPluginDefinition } from '../types'
-
-export function defineCocosRendererPlugin(plugin: CocosRendererPluginDefinition): CocosRendererPlugin {
-  return plugin as CocosRendererPlugin
-}
+export { defineSceneRendererPlugin as defineCocosRendererPlugin } from '@quajs/renderer-scene/plugins/core'

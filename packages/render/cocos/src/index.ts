@@ -1,46 +1,32 @@
-export type {
-  QuaCocosRendererOptions,
-} from './controller'
-export {
-  clientInputToStagePoint,
-  createCocosRendererActions,
-  QuaCocosRendererController,
-} from './controller'
-export { emptyCocosView } from './defaults'
-export { defineCocosRendererPlugin } from './plugins/core'
-export { createFontsCocosRendererPlugin, fontsCocosRendererPlugin } from './plugins/fonts'
-export {
-  createVisualNovelCocosRendererPlugins,
-  type VisualNovelCocosRendererPresetOptions,
-} from './plugins/preset'
-export { createSavePreviewCocosRendererPlugin, savePreviewCocosRendererPlugin } from './plugins/save-preview'
-export {
-  renderCocosAudio,
-  renderCocosBackground,
-  renderCocosCharacters,
-  renderCocosChoices,
-  renderCocosDialogue,
-  renderCocosEffects,
-  renderCocosUi,
-} from './projection'
-export type {
-  CocosRenderOnlyOverlaySurfaceContext,
-  CocosRenderOnlyOverlaySurfaceFactory,
-  RenderCocosUiOptions,
-} from './projection'
-export type {
-  CocosRendererHostContext,
-  CocosRendererPlugin,
-  CocosRendererPluginContext,
-  CocosRendererPluginDefinition,
-  CocosRendererSnapshot,
-  CocosRendererSnapshotListener,
-  ResolvedCocosAsset,
-} from './types'
-export type {
-  CocosUiControlSkinOptions,
-} from './ui-skin'
-export {
-  applyCocosUiControlSkin,
-  runtimePackageCandidatesFromMetadata,
-} from './ui-skin'
+export type { QuaSceneRendererOptions as QuaCocosRendererOptions } from '@quajs/renderer-scene'
+export { clientInputToStagePoint } from '@quajs/renderer-scene'
+export { createSceneRendererActions as createCocosRendererActions } from '@quajs/renderer-scene'
+export { QuaSceneRendererController as QuaCocosRendererController } from '@quajs/renderer-scene'
+export { emptySceneView as emptyCocosView } from '@quajs/renderer-scene'
+export { defineSceneRendererPlugin as defineCocosRendererPlugin } from '@quajs/renderer-scene'
+export { createFontsSceneRendererPlugin as createFontsCocosRendererPlugin } from '@quajs/renderer-scene'
+export { fontsSceneRendererPlugin as fontsCocosRendererPlugin } from '@quajs/renderer-scene'
+export { createVisualNovelSceneRendererPlugins as createVisualNovelCocosRendererPlugins } from '@quajs/renderer-scene'
+export type { VisualNovelSceneRendererPresetOptions as VisualNovelCocosRendererPresetOptions } from '@quajs/renderer-scene'
+export { createSavePreviewSceneRendererPlugin as createSavePreviewCocosRendererPlugin } from '@quajs/renderer-scene'
+export { savePreviewSceneRendererPlugin as savePreviewCocosRendererPlugin } from '@quajs/renderer-scene'
+export { renderSceneAudio as renderCocosAudio } from '@quajs/renderer-scene'
+export { renderSceneBackground as renderCocosBackground } from '@quajs/renderer-scene'
+export { renderSceneCharacters as renderCocosCharacters } from '@quajs/renderer-scene'
+export { renderSceneChoices as renderCocosChoices } from '@quajs/renderer-scene'
+export { renderSceneDialogue as renderCocosDialogue } from '@quajs/renderer-scene'
+export { renderSceneEffects as renderCocosEffects } from '@quajs/renderer-scene'
+export { renderSceneUi as renderCocosUi } from '@quajs/renderer-scene'
+export type { SceneRenderOnlyOverlaySurfaceContext as CocosRenderOnlyOverlaySurfaceContext } from '@quajs/renderer-scene'
+export type { SceneRenderOnlyOverlaySurfaceFactory as CocosRenderOnlyOverlaySurfaceFactory } from '@quajs/renderer-scene'
+export type { RenderSceneUiOptions as RenderCocosUiOptions } from '@quajs/renderer-scene'
+export type { SceneRendererHostContext as CocosRendererHostContext } from '@quajs/renderer-scene'
+export type { SceneRendererPlugin as CocosRendererPlugin } from '@quajs/renderer-scene'
+export type { SceneRendererPluginContext as CocosRendererPluginContext } from '@quajs/renderer-scene'
+export type { SceneRendererPluginDefinition as CocosRendererPluginDefinition } from '@quajs/renderer-scene'
+export type { SceneRendererSnapshot as CocosRendererSnapshot } from '@quajs/renderer-scene'
+export type { SceneRendererSnapshotListener as CocosRendererSnapshotListener } from '@quajs/renderer-scene'
+export type { ResolvedSceneAsset as ResolvedCocosAsset } from '@quajs/renderer-scene'
+export type { SceneUiControlSkinOptions as CocosUiControlSkinOptions } from '@quajs/renderer-scene'
+export { applySceneUiControlSkin as applyCocosUiControlSkin } from '@quajs/renderer-scene'
+export { runtimePackageCandidatesFromMetadata } from '@quajs/renderer-scene'

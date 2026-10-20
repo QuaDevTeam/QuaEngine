@@ -55,6 +55,7 @@ export interface FakeCocosHost extends CocosHost {
   fontFacesById: Map<string, { resource: CocosHostResource, options: CocosHostFontFaceOptions }>
   files: Map<string, Uint8Array>
   inputEvents: CocosHostInputEvent[]
+  frameRateRequests: number[]
   emitLayoutChange: () => void
   emitInput: (event: CocosHostInputEvent) => Promise<void>
 }
@@ -91,6 +92,7 @@ export function createFakeCocosHost(options: FakeCocosHostOptions = {}): FakeCoc
   const layoutListeners = new Set<() => void>()
   const inputListeners = new Set<CocosHostInputListener>()
   const inputEvents: CocosHostInputEvent[] = []
+  const frameRateRequests: number[] = []
   const now = options.now || Date.now
   const root = createNodeRecord('root', 'root')
   nodesById.set(root.id, root)
@@ -387,6 +389,7 @@ export function createFakeCocosHost(options: FakeCocosHostOptions = {}): FakeCoc
     fontFacesById,
     files,
     inputEvents,
+    frameRateRequests,
     async emitInput(event) {
       inputEvents.push(event)
       for (const listener of inputListeners) {
@@ -395,6 +398,7 @@ export function createFakeCocosHost(options: FakeCocosHostOptions = {}): FakeCoc
     },
     runtime: {
       now,
+      setTargetFrameRate: value => frameRateRequests.push(value),
     },
     nodes: nodeHost,
     assets: assetHost,

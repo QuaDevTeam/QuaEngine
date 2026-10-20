@@ -12,7 +12,7 @@ import {
 
 describe('target bundle manifest target-core isolation project graphs', () => {
   it('accepts target project graphs that contain only shared packages before bundling', () => {
-    for (const target of ['web', 'cocos', 'native'] as const) {
+    for (const target of ['web', 'cocos', 'native', 'godot'] as const) {
       const result = validateTargetBundleManifest(targetBundleManifestFor(target, {
         projectGraphs: [
           {
@@ -40,7 +40,7 @@ describe('target bundle manifest target-core isolation project graphs', () => {
   })
 
   it('accepts post-bundle project graphs with only the active core family', () => {
-    for (const target of ['web', 'cocos', 'native'] as const) {
+    for (const target of ['web', 'cocos', 'native', 'godot'] as const) {
       const result = validateTargetBundleManifest(targetBundleManifestFor(target, {
         projectGraphs: [
           {
@@ -61,7 +61,7 @@ describe('target bundle manifest target-core isolation project graphs', () => {
   })
 
   it('rejects active target core adapters in project templates before bundling', () => {
-    for (const target of ['web', 'cocos', 'native'] as const) {
+    for (const target of ['web', 'cocos', 'native', 'godot'] as const) {
       const packageName = normalizePackageSpecifier(CORE_ADAPTERS_BY_TARGET[target][0])
       const result = validateTargetBundleManifest(targetBundleManifestFor(target, {
         projectGraphs: [
@@ -107,7 +107,7 @@ describe('target bundle manifest target-core isolation project graphs', () => {
       .flatMap(target => CORE_ADAPTERS_BY_TARGET[target])
     const allTargetCorePackages = Array.from(new Set(allTargetCoreAdapters.map(normalizePackageSpecifier)))
 
-    for (const target of ['web', 'cocos', 'native'] as const) {
+    for (const target of ['web', 'cocos', 'native', 'godot'] as const) {
       for (const graphKind of graphKinds) {
         const graphId = `${target}.${graphKind}.all-target-core-union`
         const result = validateTargetBundleManifest(targetBundleManifestFor(target, {
@@ -129,7 +129,7 @@ describe('target bundle manifest target-core isolation project graphs', () => {
         )
 
         expect(result.ok).toBe(false)
-        expect(result.bootstrapValidation.selectedTargets).toEqual(['web', 'cocos', 'native'])
+        expect(result.bootstrapValidation.selectedTargets).toEqual(['web', 'cocos', 'native', 'godot'])
         expect(graphDiagnostics.map(diagnostic => diagnostic.packageName).sort())
           .toEqual([...allTargetCorePackages].sort())
         expect(graphDiagnostics).toEqual(expect.arrayContaining([
@@ -147,7 +147,7 @@ describe('target bundle manifest target-core isolation project graphs', () => {
     const allTargetCoreAdapters = (Object.keys(CORE_ADAPTERS_BY_TARGET) as QuaTargetBootstrap[])
       .flatMap(target => CORE_ADAPTERS_BY_TARGET[target])
 
-    for (const target of ['web', 'cocos', 'native'] as const) {
+    for (const target of ['web', 'cocos', 'native', 'godot'] as const) {
       const graphId = `${target}.post-bundle.all-target-core-union`
       const inactiveCorePackages = Array.from(new Set(
         (Object.keys(CORE_ADAPTERS_BY_TARGET) as QuaTargetBootstrap[])
@@ -174,7 +174,7 @@ describe('target bundle manifest target-core isolation project graphs', () => {
       )
 
       expect(result.ok).toBe(false)
-      expect(result.bootstrapValidation.selectedTargets).toEqual(['web', 'cocos', 'native'])
+      expect(result.bootstrapValidation.selectedTargets).toEqual(['web', 'cocos', 'native', 'godot'])
       expect(graphDiagnostics.map(diagnostic => diagnostic.packageName).sort())
         .toEqual([...inactiveCorePackages].sort())
       for (const packageName of activeCorePackages) {

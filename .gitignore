@@ -23,3 +23,4 @@ demo/assets/scripts/native-app.mjs
 .codex-tmp/
 *.tgz
 packages/native/target/
+packages/platform/godot-host/runtime/target/

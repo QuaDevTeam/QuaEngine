@@ -1,0 +1,19 @@
+[package]
+name = "quajs_godot_runtime"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+
+[lib]
+crate-type = [ "cdylib" ]
+
+[dependencies]
+godot = { version = "=0.5.5", default-features = false, features = [ "api-4-7" ] }
+rquickjs = "=0.12.1"
+
+# The C interpreter is runtime infrastructure, not application debug code.
+# Keep symbols/assertions while avoiding an -O0 VM in editor/debug projects.
+[profile.dev.package.rquickjs-sys]
+opt-level = 3
+
+[workspace]

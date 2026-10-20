@@ -64,6 +64,9 @@
     "test:ui": "vitest --ui",
     "typecheck": "tsc --noEmit"
   },
+  "dependencies": {
+    "@quajs/scene-host": "workspace:*"
+  },
   "devDependencies": {
     "fake-indexeddb": "catalog:"
   }

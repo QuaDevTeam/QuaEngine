@@ -30,7 +30,7 @@ export function assertQuackPluginReferencesTargetIsolation(
     return
 
   throw new Error([
-    `Quack plugin list "${options.fieldName || 'Quack plugins'}" must not include Web, Cocos, or native target core adapters.`,
+    `Quack plugin list "${options.fieldName || 'Quack plugins'}" must not include Web, Cocos, Godot, or native target core adapters.`,
     ...result.diagnostics.map(diagnostic =>
       `- ${diagnostic.specifier} resolves to ${diagnostic.packageName} (${diagnostic.corePluginFamily}).`,
     ),
@@ -67,7 +67,7 @@ export function assertQuackTargetPluginManifestIsolation(
 }
 
 export function targetFromAssetPlatform(platform: unknown): QuaTargetBootstrap | undefined {
-  return platform === 'web' || platform === 'cocos' || platform === 'native'
+  return platform === 'web' || platform === 'cocos' || platform === 'native' || platform === 'godot'
     ? platform
     : undefined
 }
