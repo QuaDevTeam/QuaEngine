@@ -1,6 +1,8 @@
 import { readdir, readFile, writeFile, mkdir, rm, cp } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import matter from 'gray-matter';
+import { createSocialImages, pruneSocialImages, socialImagePath } from './social-images.mjs';
 
 const docs = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const root = path.dirname(docs);
@@ -80,20 +82,35 @@ function rewriteLinks(content, source) {
 }
 
 await rm(output, { recursive: true, force: true });
+const socialImages = [];
+const referencedImages = [];
 for (const source of sources) {
   let body = await readFile(path.join(root, source.source), 'utf8');
   if (source.title) {
     body = body.replace(/^# [^\n]*\n/, '');
     if (source.archive) body = `> 本页保留当时的验证结论，不代表当前完整平台能力。当前状态见[项目进展](/docs/project/status)，运行时说明见[JavaScriptCore](/docs/design/native-jsc-runtime)。\n\n${body}`;
-    body = `---\ntitle: ${JSON.stringify(source.title)}\ndescription: ${JSON.stringify(source.description)}\nsource: ${source.source}\nimage: /brand/quaengine-social.png\n---\n\n${body}`;
+    body = `---\ntitle: ${JSON.stringify(source.title)}\ndescription: ${JSON.stringify(source.description)}\nsource: ${source.source}\n---\n\n${body}`;
   } else {
-    body = body.replace(/^---\n/, `---\nsource: ${source.source}\nimage: /brand/quaengine-social.png\n`);
+    body = body.replace(/^---\n/, `---\nsource: ${source.source}\n`);
   }
+  const { data } = matter(body);
+  if (!data.image) {
+    const entry = { title: data.title, description: data.description, route: route(source.destination) };
+    if (!entry.title || !entry.description) throw new Error(`Missing social metadata in ${source.source}`);
+    const image = socialImagePath(entry);
+    socialImages.push({ ...entry, image });
+    referencedImages.push(image);
+    body = body.replace(/^---\n/, `---\nimage: ${image}\nimageWidth: 1200\nimageHeight: 630\nimageType: image/png\nimageAlt: ${JSON.stringify(`${entry.title} · QuaEngine 创作者手册`)}\n`);
+  }
+  if (data.image) referencedImages.push(data.image);
   body = rewriteLinks(body, source.source);
   const target = path.join(output, source.destination);
   await mkdir(path.dirname(target), { recursive: true });
   await writeFile(target, body);
 }
+await createSocialImages(socialImages);
+await pruneSocialImages(referencedImages);
+await writeFile(path.join(docs, '.generated/social-images.json'), JSON.stringify(socialImages, null, 2) + '\n');
 await mkdir(path.join(docs, 'static/brand'), { recursive: true });
 for (const name of ['mascot.webp', 'avatar-96.webp', 'quaengine-icon.png', 'quaengine-favicon.png', 'quaengine-banner.png', 'quaengine-social.png', 'quadevteam-icon.png', 'quadevteam-logo.png']) {
   await cp(path.join(root, 'assets/brand', name), path.join(docs, 'static/brand', name));

@@ -10,7 +10,8 @@ export default defineConfig({
       Navbar: '$lib/theme/Navbar.svelte',
       Footer: '$lib/theme/Footer.svelte',
       Sidebar: '$lib/theme/Sidebar.svelte',
-      DocsShell: '$lib/theme/DocsShell.svelte'
+      DocsShell: '$lib/theme/DocsShell.svelte',
+      Error: '$lib/theme/Error.svelte'
     } } }),
     tailwindcss(), sveltekit()
   ],

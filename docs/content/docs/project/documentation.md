@@ -10,6 +10,8 @@ order: 3
 
 ```bash
 pnpm --dir docs install --frozen-lockfile
+# 已安装 Chrome 时可跳过；Linux CI 需要 Chromium 及中文字体
+pnpm --dir docs exec playwright install --with-deps chromium
 pnpm docs:dev
 ```
 
@@ -27,6 +29,14 @@ pnpm docs:dev
 
 不要在页面组件里重新扫描 Markdown 或创建另一套搜索索引。品牌图来自 `assets/brand`，通过内容准备脚本进入静态目录。
 
+404 通过主题的 `Error` 组件提供搜索、首页与常用文档入口，静态回退也使用同一组件；不要把错误页重定向到首页。SvelteKit 保持 `paths.relative: false`，让复制后的 `404.html` 在任意深度的错误地址下都能加载根路径 CSS 与交互代码。
+
+## 分享卡片与 SEO
+
+每页自动生成 1200×630 PNG，使用页面标题、描述、路径和共享吉祥物。布局维护在 `docs/scripts/social-template.html`，生成逻辑在 `social-images.mjs`；正文可通过 frontmatter `image` 自定义图片，并同时设置 `imageAlt`、`imageWidth`、`imageHeight`、`imageType`。自动图片写入忽略的 `docs/static/og`，不会修改原始 Markdown。
+
+站点配置维护发布者、组织身份和品牌图标；svedocs 统一输出 canonical、中文语言标记、OG/Twitter 元信息、页面与面包屑结构化数据、sitemap 和 robots。首页的 `seoTitle` 可独立于视觉标题。错误页使用 `noindex, follow`，不出现在 sitemap 中。
+
 ## 检查与构建
 
 ```bash
@@ -34,9 +44,10 @@ pnpm docs:check
 pnpm docs:build
 pnpm --dir docs preview
 pnpm --dir docs test:smoke
+pnpm --dir docs test:seo
 ```
 
-检查包含 Svelte/TypeScript 和 svedocs strict 内容验证。浏览器冒烟需要可用的 Chrome 或 Playwright Chromium，并且 preview 服务已经运行。
+检查包含 Svelte/TypeScript 和 svedocs strict 内容验证。内容准备会生成每页的 PNG 分享卡片，需要可用的 Chrome 或 Playwright Chromium；可用 `CHROME_PATH` 指定浏览器路径。首次生成后按模板、文案和素材哈希复用图片。Linux CI 使用 `playwright install --with-deps chromium` 安装浏览器及含中文的字体依赖。浏览器冒烟需要 preview 服务已经运行。
 
 ## 使用 Wrangler 部署
 

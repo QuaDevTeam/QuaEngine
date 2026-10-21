@@ -94,7 +94,7 @@ html { scroll-padding-top: var(--qua-header-clearance); }
 .qua-nav { padding: 0 22px; height: var(--qua-header-height); display: flex; align-items: center; gap: 36px; }
 .qua-brand { display: inline-flex; align-items: center; gap: 9px; text-decoration: none; font-size: 23px; font-weight: 900; letter-spacing: -.9px; white-space: nowrap; }
 .qua-brand img { border-radius: 50%; width: 36px; height: 36px; }
-.brand-soft { font-weight: 750; }.brand-star { color: var(--qua-pink); margin-left: 4px; font-size: 15px; vertical-align: top; }
+.brand-soft { font-weight: 750; }
 .qua-desktop-nav { display: flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 650; }
 .qua-desktop-nav a { text-decoration: none; padding: 9px 12px; border-radius: 10px; color: var(--qua-muted); white-space: nowrap; transition: color .16s, background .16s; }
 .qua-desktop-nav a:hover { color: var(--qua-ink); background: color-mix(in srgb, var(--qua-soft) 60%, transparent); }
@@ -175,6 +175,39 @@ html { scroll-padding-top: var(--qua-header-clearance); }
 
 @media (max-width: 360px) {
   .qua-nav { padding: 0 9px; }.qua-brand { font-size: 18px; gap: 5px; }
-  .qua-brand img { width: 28px; height: 28px; }.brand-star { font-size: 12px; margin-left: 2px; }
+  .qua-brand img { width: 28px; height: 28px; }
   .qua-nav-tools { gap: 1px; }
+}
+
+/* Route recovery shares the site's paper, ink and navigation. */
+.qua-error { width: min(1080px, calc(100% - 64px)); margin: auto; padding: 64px 0 52px; }
+.qua-error-story { display: grid; grid-template-columns: 1.15fr 1fr; gap: 48px; align-items: center; min-height: 410px; }
+.qua-error-label { color: var(--qua-pink); font-size: 12px; font-weight: 800; letter-spacing: 2px; margin: 0 0 22px; }
+.qua-error h1 { font-size: clamp(28px, 3.4vw, 44px); line-height: 1.4; font-weight: 850; letter-spacing: -1.5px; margin: 0 0 20px; }
+.qua-error-description { max-width: 400px; color: var(--qua-muted); font-size: 15px; line-height: 1.9; margin: 0; }
+.qua-error-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 30px 0 22px; }
+.qua-error-actions a { display: inline-flex; align-items: center; justify-content: center; gap: 9px; min-height: 46px; padding: 10px 18px; border-radius: 12px; font-size: 14px; font-weight: 750; text-decoration: none; }
+.qua-error-actions .qua-error-primary { background: var(--qua-pink); color: var(--qua-paper); box-shadow: var(--qua-shadow); }
+.qua-error-actions a:hover { filter: brightness(.94); }
+.qua-error-search { display: flex; align-items: center; gap: 10px; width: min(100%, 390px); padding: 16px; border: 1px solid var(--qua-line); border-radius: 14px; background: var(--qua-panel); color: var(--qua-muted); text-align: left; font: inherit; font-size: 13px; }
+.qua-error-search span { flex: 1; }.qua-error-search svg { flex: 0 0 auto; }
+.qua-error-search:hover { border-color: var(--qua-pink); color: var(--qua-pink); }
+.qua-error-art { position: relative; height: 410px; isolation: isolate; }
+.qua-error-number { position: absolute; top: -42px; left: 8px; font-size: 180px; font-weight: 900; letter-spacing: -12px; color: color-mix(in srgb, var(--qua-pink) 13%, var(--qua-paper)); }
+.qua-error-sheet { position: absolute; width: 240px; height: 270px; background: var(--qua-panel); border: 1px solid var(--qua-line); border-radius: 16px; transform: rotate(9deg); top: 110px; right: 8px; box-shadow: var(--qua-shadow); padding: 36px 28px; }
+.qua-error-sheet span { display: block; height: 5px; border-radius: 3px; background: var(--qua-line); margin-bottom: 17px; }.qua-error-sheet span:nth-child(2) { width: 70%; }.qua-error-sheet span:last-child { width: 45%; }
+.qua-error-art img { position: absolute; width: 320px; height: 320px; object-fit: contain; bottom: -5px; left: -20px; border: 9px solid #fffefd; border-radius: 24px; transform: rotate(-6deg); box-shadow: 0 12px 26px #68435012; }
+.qua-error-links { display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 44px; border-top: 1px solid var(--qua-line); padding-top: 28px; gap: 32px; }
+.qua-error-links a { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; text-decoration: none; }.qua-error-links a:hover strong { color: var(--qua-pink); }
+.qua-error-links strong { display: block; font-size: 14px; font-weight: 750; }.qua-error-links small { display: block; color: var(--qua-muted); font-size: 12px; margin-top: 7px; }.qua-error-links svg { flex: 0 0 auto; color: var(--qua-pink); }
+@media (max-width: 700px) {
+  .qua-error { width: calc(100% - 40px); padding: 30px 0; }
+  .qua-error-story { display: flex; flex-direction: column-reverse; gap: 28px; min-height: 0; align-items: stretch; }
+  .qua-error-art { width: min(290px, 100%); height: 230px; margin: auto; }
+  .qua-error-number { font-size: 115px; top: -24px; left: 20px; letter-spacing: -7px; }
+  .qua-error-sheet { width: 150px; height: 170px; top: 60px; right: 4px; padding: 25px 20px; }
+  .qua-error-art img { width: 210px; height: 210px; bottom: -12px; left: 0; }
+  .qua-error-label { font-size: 10px; margin-bottom: 14px; }.qua-error h1 { letter-spacing: -.7px; }
+  .qua-error-actions { margin-top: 24px; }.qua-error-search { width: 100%; }
+  .qua-error-links { grid-template-columns: 1fr; gap: 4px; margin-top: 32px; padding-top: 16px; }
 }

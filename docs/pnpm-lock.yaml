@@ -146,6 +146,9 @@ importers:
       '@types/node':
         specifier: ^25.8.0
         version: 25.9.8
+      gray-matter:
+        specifier: 4.0.3
+        version: 4.0.3
       playwright:
         specifier: ^1.59.1
         version: 1.63.0

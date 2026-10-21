@@ -5,7 +5,7 @@ import { quaTables } from './src/lib/markdown/qua-tables.ts';
 export default defineConfig({
   site: {
     name: 'QuaEngine',
-    title: 'QuaEngine — 让故事，在这里发生',
+    title: 'QuaEngine — TypeScript 视觉小说引擎',
     description: '用 QuaScript 写下对白，用 TypeScript 连接世界。面向视觉小说创作者的开源引擎、编辑器与完整文档。',
     url: process.env.DOCS_SITE_URL ?? 'https://quaengine.com'
   },
@@ -54,6 +54,26 @@ export default defineConfig({
   } } },
   search: { enabled: true, provider: 'local', scope: 'all' },
   ai: false,
-  seo: { ogImage: false, sitemap: true, robots: true },
+  seo: {
+    // prepare-content renders branded, per-page PNGs and supplies image frontmatter.
+    ogImage: false,
+    sitemap: true,
+    robots: true,
+    defaultAuthor: 'QuaDevTeam',
+    defaultAuthorUrl: 'https://github.com/QuaDevTeam',
+    defaultAuthorType: 'Organization',
+    head: {
+      meta: [{ name: 'theme-color', content: '#fffaf6' }],
+      jsonLd: [{
+        '@context': 'https://schema.org',
+        '@type': 'Organization',
+        '@id': new URL('/#organization', process.env.DOCS_SITE_URL ?? 'https://quaengine.com').href,
+        name: 'QuaDevTeam',
+        url: 'https://github.com/QuaDevTeam',
+        logo: new URL('/brand/quadevteam-icon.png', process.env.DOCS_SITE_URL ?? 'https://quaengine.com').href,
+        sameAs: ['https://github.com/QuaDevTeam/QuaEngine']
+      }]
+    }
+  },
   checks: { assets: true, externalLinks: false }
 });

@@ -29,13 +29,21 @@ Keep configuration in `docs/svedocs.config.ts`. Register replacements in `vite.c
 
 Preserve the single main landmark, skip link, local search controller, heading anchors, code copy, ToC, dark/system modes, reduced motion and mobile navigation. Do not rebuild content indexing or a second search implementation in UI components.
 
-The homepage hero starts directly with its heading. Keep the removed slogan badge, bottom promotional tag row and mascot's floating `imagination.ts` tag out of `Landing.svelte`; do not reserve their former spacing. Retain the intro, actions and install-command copy feedback.
+The homepage hero starts directly with its heading. Keep the removed slogan badge, bottom promotional tag row and mascot's floating `imagination.ts` tag out of `Landing.svelte`; do not reserve their former spacing. Retain the intro, actions and install-command copy feedback. The navbar, footer and OG wordmark omit only the star after the QuaEngine brand name; preserve the existing page copy, layout and other decorations.
 
 The shared background slot provides static sakura/mint gradients and a sparse, low-contrast SVG motif, with the reading column kept quiet. Keep it decorative, non-interactive and free of animation. The inset sticky navbar uses shared header offset/height tokens for sidebar, ToC, mobile menu and anchor clearance; preserve its visible outer gap on desktop and mobile. Sidebar nesting has exactly one guide on each child list: do not add another border to `.sd-sidebar-group-body`. Active links use a soft fill without svedocs' corner ornaments or inset border. Verify the open mobile menu and scrolled/anchor states as well as initial page screenshots.
 
 Markdown tables are wrapped by `src/lib/markdown/qua-tables.ts`: the table retains native table display and full-width column layout, while `.qua-table-scroll` owns the single border and keyboard-accessible overflow. Do not put `display: block` or scrolling on the table itself; it leaves a full-width frame around content-width columns. Verify short tables on desktop and wide reference tables on mobile. Keep the mascot artwork free of the removed decorative slogan sticky note.
 
 QuaScript fences (`qs` and `quascript`) use the supported rehype hook in `src/lib/markdown/qua-code.ts` for build-time Shiki highlighting. Reuse the canonical VS Code TextMate grammar under `packages/build/vscode-quascript/syntaxes/` with its TypeScript embedding; do not alias the entire language to TypeScript or patch svedocs. `quaCodeThemes` is shared with the regular code theme config. Keep raw source in `data-copy`, the native svedocs line structure, and its icon-only copy button with an accessible label. Unsupported DSLs remain escaped plain text with the same copy controls. Check both theme token colors, blank lines, literal interpolation/HTML, built-in languages, and mobile copy/scroll behavior; Shiki stays out of client bundles.
+
+## Error recovery and SEO
+
+`src/lib/theme/Error.svelte` is registered as the `Error` theme component and also renders the prerendered `/404` document. Preserve one `main#content`, shared navigation/search, responsive light/dark artwork, noindex/follow, and generic safe messaging for non-404 failures. Test both direct missing URLs and client navigation into missing routes, including search recovery. Keep SvelteKit `paths.relative: false`: Workers can serve the copied `404.html` at arbitrary depths, so relative stylesheet/chunk URLs break deep error pages. Verify deep 404 asset requests and hydration through `dev:worker`, not only preview.
+
+`prepare-content.mjs` uses gray-matter to add per-page image frontmatter and `scripts/social-images.mjs` renders 1200x630 PNGs from `social-template.html` with existing Playwright. Chrome (or `CHROME_PATH`) or installed Playwright Chromium is required for initial content preparation; Linux uses `playwright install --with-deps chromium` for browser and CJK fonts before checks/build. Images are local-only, content-hashed, cached under ignored `static/og`, and embed the canonical mascot/Latin font. Keep the OG mascot square with `object-fit: contain`; do not rotate the mascot or its backing card, since combined tilts make the original head pose look distorted. Explicit authored image frontmatter takes precedence. Keep image dimensions, MIME and alt metadata; keep `seo.ogImage: false` because this project-owned PNG path replaces framework generation. Do not introduce generated OG assets into Git.
+
+SEO authority stays in svedocs configuration and frontmatter: unique page titles/descriptions, separate homepage `seoTitle`, absolute site URL, publisher/organization identity, canonical/hreflang, per-page TechArticle/WebPage and breadcrumbs. Do not emit duplicate head tags or claim a custom search action without an actual URL-based search endpoint. `test:seo` verifies production HTML without JavaScript, PNG dimensions, structured data, all page metadata, sitemap/robots and real 404 status.
 
 ## Brand
 
@@ -62,6 +70,7 @@ pnpm --dir docs test:markdown
 pnpm docs:build
 pnpm --dir docs preview
 pnpm --dir docs test:smoke
+pnpm --dir docs test:seo
 pnpm --dir docs test:sidebar
 ```
 

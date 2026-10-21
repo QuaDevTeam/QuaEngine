@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { ErrorPage } from 'svedocs/theme';
+  import ErrorPage from '$lib/theme/Error.svelte';
   import config from 'virtual:svedocs/config';
   import pages from 'virtual:svedocs/page-index';
   import tree from 'virtual:svedocs/tree';

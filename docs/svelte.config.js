@@ -5,5 +5,7 @@ import { svedocsPreprocess, svedocsSvelteExtensions } from 'svedocs/svelte';
 export default {
   extensions: svedocsSvelteExtensions,
   preprocess: [vitePreprocess(), svedocsPreprocess()],
-  kit: { adapter: adapter(), prerender: { handleHttpError: 'fail' } }
+  // A copied 404.html can be served at any depth by Workers Assets.
+  // Its styles and hydration chunks must resolve from the site root.
+  kit: { adapter: adapter(), paths: { relative: false }, prerender: { handleHttpError: 'fail' } }
 };

@@ -1,6 +1,7 @@
 ---
 title: "QuaEngine — 让故事，在这里发生"
-description: "一点灵感，一段对白，一个属于你的世界。用 QuaScript 与 TypeScript 创作视觉小说。"
+seoTitle: "QuaEngine — 开源 TypeScript 视觉小说引擎与 QuaScript 创作工具"
+description: "用 QuaScript 编写对白与分支，用 TypeScript 扩展世界。探索 QuaEngine 开源视觉小说引擎、可视化编辑器、Web 与原生平台指南，从第一幕开始创作。"
 order: 1
 ---
 

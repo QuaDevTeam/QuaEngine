@@ -11,6 +11,7 @@
     "check": "node scripts/prepare-content.mjs && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json && svedocs check --strict",
     "typecheck": "pnpm check",
     "test:smoke": "node scripts/smoke.mjs",
+    "test:seo": "node scripts/seo-smoke.mjs",
     "test:sidebar": "node scripts/sidebar-smoke.mjs",
     "test:markdown": "node --experimental-strip-types --test scripts/markdown.test.mjs",
     "deploy:check": "wrangler deploy --dry-run --no-autoconfig",
@@ -31,6 +32,7 @@
   },
   "devDependencies": {
     "@types/node": "^25.8.0",
+    "gray-matter": "4.0.3",
     "playwright": "^1.59.1",
     "shiki": "4.0.2",
     "svedocs-cli": "0.2.4",

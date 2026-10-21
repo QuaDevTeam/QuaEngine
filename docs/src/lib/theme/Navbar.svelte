@@ -11,7 +11,7 @@
   <div class="qua-nav">
     <a class="qua-brand" href={resolveLocalizedHref('/', context)} aria-label="QuaEngine 首页">
       <img src="/brand/avatar-96.webp" alt="" width="40" height="40" />
-      <span>Qua<span class="brand-soft">Engine</span><span class="brand-star" aria-hidden="true">✦</span></span>
+      <span>Qua<span class="brand-soft">Engine</span></span>
     </a>
     <nav class="qua-desktop-nav" aria-label="主导航">
       {#each context.config.theme.nav as item}

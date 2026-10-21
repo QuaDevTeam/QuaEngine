@@ -5,7 +5,7 @@
 </script>
 
 <footer class="qua-footer">
-  <div class="footer-brand"><span>QuaEngine <span aria-hidden="true">✦</span></span><p>每个好故事，都值得被看见。</p></div>
+  <div class="footer-brand"><span>QuaEngine</span><p>每个好故事，都值得被看见。</p></div>
   <nav aria-label="页脚导航">
     <a href={resolveLocalizedHref('/docs', context)}>阅读文档</a>
     <a href={resolveLocalizedHref('/brand', context)}>品牌素材</a>
