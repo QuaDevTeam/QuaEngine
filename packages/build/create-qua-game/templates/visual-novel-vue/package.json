@@ -15,7 +15,7 @@
     "build": "vite build",
     "build:web": "vite build",
     "preview": "vite preview",
-    "assets:build": "quack workspace build",
+    "assets:build": "quack workspace:bundle --all",
     "project:validate": "quack project validate",
     "project:doctor": "quack project doctor",
     "project:sync": "quack project sync --target all",

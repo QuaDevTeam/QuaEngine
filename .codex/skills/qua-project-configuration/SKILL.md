@@ -5,6 +5,8 @@ description: Use, validate, or update QuaEngine unified project manifests (`qua.
 
 # Qua Project Configuration
 
+The Vue template's `assets:build` script uses `quack workspace:bundle --all`. Keep template scripts aligned with the actual Quack CLI; `quack workspace build` is not a supported subcommand.
+
 Godot projects use `targets.godot` with `build.entry`, optional `build.viteConfig`, `build.profile` (`debug`/`release`), `projectDir`, `layout` and `assetTarget`. `quack project build --target godot --all` generates a standalone Godot 4.7 project and current-host GDExtension; doctor checks configured source paths. Generation is atomic, protects authored output/source aliases, and selects only `godot-core-resolver`. See [qua-godot-renderer](../qua-godot-renderer/SKILL.md) for requirements and actual desktop validation. Include Godot in symmetric target-isolation checks; `native` remains JavaScriptCore/wgpu.
 
 Use this skill when changing `qua.project.yaml`, `qua.project.yml`, `qua.project.json`, `@quajs/quack/project`, `virtual:qua-project`, create-qua-game manifest scaffolding, Web/PWA icon emission, Web device guard behavior, or Cocos project sync.
