@@ -1,5 +1,7 @@
 extends Control
 
+const GaussianBlur = preload("res://addons/quaengine/blur.gd")
+var blur_passes = GaussianBlur.new()
 var projection_id := ""
 var projection_kind := ""
 var projection_metadata: Dictionary = {}
@@ -69,6 +71,7 @@ func _layout_text() -> void:
 	text_node.size = (size - text_node.position - Vector2(float(padding.get("right", 0)), float(padding.get("bottom", 0)))).max(Vector2.ZERO)
 
 func apply_sprite(resource: Resource, options: Dictionary) -> void:
+	blur_passes.clear()
 	if is_instance_valid(image_node): image_node.hide()
 	if is_instance_valid(video_node):
 		video_node.hide()
@@ -123,13 +126,16 @@ func apply_sprite(resource: Resource, options: Dictionary) -> void:
 	var material := ShaderMaterial.new()
 	material.shader = host.projection_shader
 	var filters: Dictionary = options.get("filter", options.get("composition", {}).get("filter", {}))
+	var radius := maxf(0, float(filters.get("blur", 0)))
+	if radius > 0 and texture:
+		image_node.set("texture", blur_passes.render(self, image_node.get("texture"), size, radius))
+		material.set_shader_parameter("premultiplied", true)
 	material.set_shader_parameter("brightness", float(filters.get("brightness", 1)))
 	material.set_shader_parameter("contrast", float(filters.get("contrast", 1)))
 	material.set_shader_parameter("saturation", float(filters.get("saturate", 1)))
 	material.set_shader_parameter("grayscale", float(filters.get("grayscale", 0)))
 	material.set_shader_parameter("sepia", float(filters.get("sepia", 0)))
 	material.set_shader_parameter("hue", deg_to_rad(float(filters.get("hueRotate", 0))))
-	material.set_shader_parameter("blur", float(filters.get("blur", 0)) * (float(texture.get_width()) / maxf(1, size.x) if texture else 1))
 	var mask: Dictionary = options.get("mask", options.get("composition", {}).get("mask", {}))
 	var mask_texture: Texture2D = host.resources.get(mask.get("resourceId", mask.get("resource", {}).get("id", "")))
 	material.set_shader_parameter("use_mask", mask_texture != null)

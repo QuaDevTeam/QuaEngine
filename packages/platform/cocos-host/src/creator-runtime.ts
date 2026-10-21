@@ -4,6 +4,7 @@ import type { CreatorNativeVideoDecoder } from './creator-video'
 import type { CocosHost, CocosHostFileInfo, CocosHostResource, CocosHostResourceKind } from './index'
 import { createCocosCreatorHost } from './creator'
 import { createCreatorProcessedAudioBridge } from './creator-audio'
+import { createCreatorSpriteBlur } from './creator-blur'
 import { installCreatorCancellation } from './creator-cancellation'
 import { encodeCreatorPng } from './creator-png'
 import { createCreatorVideoBridge } from './creator-video'
@@ -24,6 +25,7 @@ export interface CocosCreatorRuntimeOptions {
 export function createCocosCreatorRuntimeHost(options: CocosCreatorRuntimeOptions): CocosHost {
   installCreatorCancellation()
   const { cc, rootNode, namespace } = options
+  const blur = createCreatorSpriteBlur(cc, rootNode, options.projectionEffect)
   const fileUtils = options.native?.fileUtils
   const writableRoot = fileUtils ? `${fileUtils.getWritablePath()}${namespace}/` : `${namespace}/`
   const storage = cc.sys.localStorage
@@ -127,7 +129,10 @@ export function createCocosCreatorRuntimeHost(options: CocosCreatorRuntimeOption
           const filter = projection.filter ?? projection.composition?.filter
           const light = projection.lighting
           const material = new cc.Material()
-          material.initialize({ effectAsset: options.projectionEffect, defines: { USE_TEXTURE: true, SAMPLE_FROM_RT: resource?.metadata?.renderTexture === true } })
+          const factors = cc.gfx.BlendFactor
+          const modes: Record<string, [number, number]> = { add: [factors.SRC_ALPHA, factors.ONE], multiply: [factors.DST_COLOR, factors.ONE_MINUS_SRC_ALPHA], screen: [factors.SRC_ALPHA, factors.ONE_MINUS_SRC_COLOR] }
+          const blend = projection.blendMode && modes[projection.blendMode]
+          material.initialize({ effectAsset: options.projectionEffect, defines: { USE_TEXTURE: true, SAMPLE_FROM_RT: resource?.metadata?.renderTexture === true }, ...(blend ? { states: { blendState: { targets: [{ blend: true, blendSrc: blend[0], blendDst: blend[1] }] } } } : {}) })
           const vector = (values: readonly number[], fallback: number, max = 1.5) => new cc.Vec4(...[0, 1, 2].map(i => Math.min(max, Math.max(0, values[i] ?? fallback))), 1)
           material.setProperty('ambient', vector(light?.ambient ?? [], 1))
           material.setProperty('shade', vector(light?.shade?.color ?? [], 1, 1))
@@ -135,18 +140,14 @@ export function createCocosCreatorRuntimeHost(options: CocosCreatorRuntimeOption
           const to = light?.shade?.to ?? [1, 1]
           material.setProperty('shadeLine', new cc.Vec4(from[0], from[1], to[0], to[1]))
           material.setProperty('tone', new cc.Vec4(filter?.brightness ?? 1, filter?.contrast ?? 1, filter?.saturate ?? 1, filter?.grayscale ?? 0))
-          material.setProperty('blurStep', new cc.Vec4((filter?.blur ?? 0) / (resource?.width ?? 1920), (filter?.blur ?? 0) / (resource?.height ?? 1080), 0, 0))
-          if (projection.blendMode && projection.blendMode !== 'normal') {
-            const factors = cc.gfx.BlendFactor
-            const modes: Record<string, [number, number]> = { add: [factors.SRC_ALPHA, factors.ONE], multiply: [factors.DST_COLOR, factors.ONE_MINUS_SRC_ALPHA], screen: [factors.SRC_ALPHA, factors.ONE_MINUS_SRC_COLOR] }
-            const blend = modes[projection.blendMode]
-            if (blend)
-              material.overridePipelineStates({ blendState: { targets: [{ blend: true, blendSrc: blend[0], blendDst: blend[1] }] } })
-          }
           sprite.customMaterial = material
+          const disposeBlur = resource && (filter?.blur ?? 0) > 0
+            ? blur.project(sprite, resource, filter!.blur!, sprite.getMaterialInstance(0))
+            : undefined
           // Nodes are detached before teardown; resetting to a stripped native
           // builtin RT material can fail. A replacement is assigned before disposal.
           return () => {
+            disposeBlur?.()
             material.destroy()
           }
         }
@@ -342,6 +343,7 @@ export function createCocosCreatorRuntimeHost(options: CocosCreatorRuntimeOption
     capture: {
       async captureBackdrop(viewport, captureOptions = {}) {
         const operation = captureQueue.then(async () => {
+          await blur.settled()
           // Resize refreshes rebuild scene and UI projections concurrently.
           // Finish a real scene draw before redirecting the camera, so the
           // backdrop cannot capture the cleared intermediate scene.

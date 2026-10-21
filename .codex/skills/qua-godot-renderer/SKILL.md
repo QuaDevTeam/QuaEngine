@@ -33,6 +33,7 @@ Pair with quaengine-development-guardrails, qua-project-configuration and quack-
 - Drain QuickJS promise jobs with both a count limit and a 4 ms wall-clock budget per frame. Yield only between jobs, preserving synchronous transactions. Check skip-heavy story flow as well as idle FPS; debug `scriptTimesMs` distinguishes script work from display throttling. The native fixture must prove a long promise chain yields and eventually completes.
 - Keep `rquickjs-sys` optimized in debug Cargo builds (`profile.dev.package.rquickjs-sys.opt-level = 3`). Retain debug symbols/checks for the host; an unoptimized C interpreter materially distorts editor performance and is not representative of the target.
 - Preserve character nodes/textures across unrelated dialogue, choice and UI updates. Presence fades update node opacity without rebuilding sprites on every frame; keep animation/resource invalidation and native teardown coverage when changing this optimization.
+- Sprite and backdrop blur use logical-pixel Gaussian sigma. Keep adjacent horizontal/vertical GPU taps in transient SubViewports, half-size prefilter steps for sigma above 8, and premultiplied intermediate color. Final projection alone applies color filters, mask and opacity. Never stretch sparse 5x5 taps across the radius or multiply backdrop sigma by stage scale twice. Capture full resolution before host filtering; release all targets with their projection node. `pnpm --dir demo test:blur` compares the actual Godot node against Chromium at four radii and two stage scales.
 
 ## Features and limits
 

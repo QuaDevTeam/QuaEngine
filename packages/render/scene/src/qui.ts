@@ -129,11 +129,13 @@ export function createQuiSceneRendererPlugin(options: QuiSceneRendererOptions) {
               const layout = scene.getStageLayout()
               scene.host.nodes.setNodeBoxStyle?.(hostNode, { ...node.style, backgroundColor: 'transparent' })
               await scene.waitForAssets?.()
-              const backdrop = await scene.host.capture.captureBackdrop({ x: layout.viewportX, y: layout.viewportY, width: layout.viewportWidth, height: layout.viewportHeight }, { downsample: Math.max(1, node.style.backdropFilter.blurRadius * layout.scale / 1.5) })
+              // Hosts prefilter and blur their captures. A single large resize
+              // here aliases fine detail before the Gaussian can remove it.
+              const backdrop = await scene.host.capture.captureBackdrop({ x: layout.viewportX, y: layout.viewportY, width: layout.viewportWidth, height: layout.viewportHeight })
               backdropDisposers.add(backdrop.dispose)
               const image = scene.host.nodes.createNode('backdrop-image', { parent: hostNode })
               scene.host.nodes.setNodeTransform(image, { width: node.bounds.width, height: node.bounds.height })
-              scene.host.nodes.setNodeSprite(image, backdrop.resource, { mode: 'sprite', filter: { blur: node.style.backdropFilter.blurRadius * layout.scale } })
+              scene.host.nodes.setNodeSprite(image, backdrop.resource, { mode: 'sprite', filter: { blur: node.style.backdropFilter.blurRadius } })
               const tint = scene.host.nodes.createNode('backdrop-tint', { parent: hostNode })
               scene.host.nodes.setNodeTransform(tint, { width: node.bounds.width, height: node.bounds.height })
               scene.host.nodes.setNodeColor?.(tint, node.style.backgroundColor)

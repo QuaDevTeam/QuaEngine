@@ -83,6 +83,7 @@ export interface SceneHostSpriteFrame extends SceneHostRect {
 }
 
 export interface SceneHostSpriteFilter {
+  /** Gaussian standard deviation in the sprite's logical layout pixels. */
   blur?: number
   brightness?: number
   contrast?: number

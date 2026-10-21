@@ -6,7 +6,7 @@ uniform float saturation = 1.0;
 uniform float grayscale = 0.0;
 uniform float sepia = 0.0;
 uniform float hue = 0.0;
-uniform float blur = 0.0;
+uniform bool premultiplied = false;
 uniform bool use_mask = false;
 uniform bool mask_luminance = false;
 uniform sampler2D mask_texture : filter_linear;
@@ -17,19 +17,9 @@ uniform vec2 shade_to = vec2(0.0, 1.0);
 varying vec4 modulation;
 void vertex() { modulation = COLOR; }
 void fragment() {
-	vec4 sampled = texture(TEXTURE, UV) * modulation;
-	if (blur > 0.0) {
-		vec4 sum = vec4(0.0);
-		float weights = 0.0;
-		for (int y = -2; y <= 2; y++) {
-			for (int x = -2; x <= 2; x++) {
-				float weight = exp(-float(x*x + y*y) / 2.0);
-				sum += texture(TEXTURE, clamp(UV + vec2(float(x), float(y)) * TEXTURE_PIXEL_SIZE * blur, vec2(0.0), vec2(1.0))) * weight;
-				weights += weight;
-			}
-		}
-		sampled = sum / weights * modulation;
-	}
+	vec4 sampled = texture(TEXTURE, UV);
+	if (premultiplied) sampled.rgb = sampled.a > 0.00001 ? sampled.rgb / sampled.a : vec3(0.0);
+	sampled *= modulation;
 	if (use_mask) {
 		vec4 mask = texture(mask_texture, UV);
 		sampled.a *= mask.a * (mask_luminance ? dot(mask.rgb, vec3(0.2126, 0.7152, 0.0722)) : 1.0);

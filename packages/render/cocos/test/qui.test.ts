@@ -127,7 +127,7 @@ describe('shared QUI Cocos projection', () => {
     release()
     await vi.waitFor(() => expect(capture).toHaveBeenCalledTimes(2))
     expect(staleDispose).toHaveBeenCalledOnce()
-    expect(capture.mock.calls[1]).toEqual([{ x: 0, y: 0, width: 1920, height: 1080 }, { downsample: 8 }])
+    expect(capture.mock.calls[1]).toEqual([{ x: 0, y: 0, width: 1920, height: 1080 }])
     await renderer.destroy()
   })
 })

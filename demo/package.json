@@ -24,6 +24,7 @@
     "test:quit": "node scripts/quit-smoke.mjs",
     "test:navigation": "node scripts/navigation-smoke.mjs",
     "test:backlog": "node --experimental-strip-types --test scripts/backlog-policy.test.mjs",
+    "test:blur": "node scripts/blur-smoke.mjs",
     "test:asset-loading": "node scripts/asset-loading-smoke.mjs",
     "test:asset-loading:native": "node scripts/native-loading-smoke.mjs",
     "test:ui-surfaces": "vitest run --config vitest.config.ts",

@@ -15,6 +15,8 @@ export const CREATOR_PROJECTION_EFFECT = `CCEffect %{
         shadeLine: { value: [0, 0, 1, 1] }
         tone: { value: [1, 1, 1, 0] }
         blurStep: { value: [0, 0, 0, 0] }
+        blurInfo: { value: [0, 0, 0, 0] }
+        blurBounds: { value: [0, 0, 1, 1] }
 }%
 CCProgram qua-vs %{
   precision highp float;
@@ -56,22 +58,30 @@ CCProgram qua-fs %{
     vec4 shadeLine;
     vec4 tone;
     vec4 blurStep;
+    vec4 blurInfo;
+    vec4 blurBounds;
   };
+  vec4 pixel(vec2 uv) {
+    vec4 value = CCSampleWithAlphaSeparated(cc_spriteTexture, clamp(uv, blurBounds.xy, blurBounds.zw));
+    if (blurInfo.y > 0.5) value.rgb *= value.a;
+    return value;
+  }
   vec4 frag () {
-    vec4 o = CCSampleWithAlphaSeparated(cc_spriteTexture, uv0);
-    if (blurStep.x > 0.0 || blurStep.y > 0.0) {
-      o = vec4(0.0);
-      float total = 0.0;
-      for (int y = -4; y <= 4; ++y) {
-        for (int x = -4; x <= 4; ++x) {
-          vec2 offset = vec2(float(x), float(y)) * 0.75;
-          float weight = exp(-dot(offset, offset) * 0.5);
-          o += CCSampleWithAlphaSeparated(cc_spriteTexture, uv0 + offset * blurStep.xy) * weight;
-          total += weight;
-        }
+    vec4 o = pixel(uv0);
+    if (blurInfo.x > 0.0) {
+      float total = 1.0;
+      // Two host-owned passes, sigma <= 8, adjacent texels only.
+      for (int i = 1; i <= 24; ++i) {
+        if (float(i) > ceil(blurInfo.x * 3.0)) break;
+        float x = float(i) / blurInfo.x;
+        float weight = exp(-0.5 * x * x);
+        vec2 offset = float(i) * blurStep.xy;
+        o += (pixel(uv0 - offset) + pixel(uv0 + offset)) * weight;
+        total += 2.0 * weight;
       }
       o /= total;
     }
+    if (blurInfo.z > 0.5) o.rgb = o.a > 0.00001 ? o.rgb / o.a : vec3(0.0);
     vec2 d = shadeLine.zw - shadeLine.xy;
     float t = clamp(dot(uv0 - shadeLine.xy, d) / max(dot(d, d), 0.000001), 0.0, 1.0);
     o.rgb = clamp(o.rgb * ambient.rgb * mix(vec3(1.0), shade.rgb, t), 0.0, 1.0);

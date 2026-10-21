@@ -41,6 +41,27 @@ async function fixture() {
 }
 
 describe('shared scene control interactions', () => {
+  it.each([960, 1280, 1920])('keeps backdrop sigma in logical pixels at width %i and releases the capture', async (width) => {
+    const host = createFakeCocosHost({ containerSize: { width, height: width * 9 / 16 } })
+    const capture = vi.spyOn(host.capture!, 'captureBackdrop')
+    const view = emptySceneView()
+    view.ui.overlays = { test: { visible: true, surface: { key: 'test', root: {
+      id: 'glass',
+      kind: 'Backdrop',
+      visible: true,
+      bounds: { x: 0, y: 0, width: 1920, height: 1080 },
+      style: { backdropFilter: { blurRadius: 12 } },
+    } } } }
+    const renderer = new QuaSceneRendererController({ host, pipeline: new Pipeline(), initialView: view, plugins: [createQuiSceneRendererPlugin({ surfaceKeys: ['test'] })] })
+    await renderer.start()
+    await flush()
+    await vi.waitFor(() => expect(capture).toHaveBeenCalledWith({ x: 0, y: 0, width, height: width * 9 / 16 }))
+    expect([...host.nodesById.values()].find(node => node.kind === 'backdrop-image')?.spriteOptions?.filter?.blur).toBe(12)
+    const resource = (await capture.mock.results[0].value).resource
+    await renderer.destroy()
+    expect(host.resourcesById.has(resource.id)).toBe(false)
+  })
+
   it('fades character presence using existing nodes and removes completed exits', async () => {
     const host = createFakeCocosHost()
     let time = 0
