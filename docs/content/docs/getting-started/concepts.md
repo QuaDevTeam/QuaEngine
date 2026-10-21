@@ -22,7 +22,7 @@ order: 3
 | GameStep | 对话、动作、选择等可等待步骤 | QuaScript 编译结果 / TypeScript |
 | View projection | 当前应当被呈现的只读视图 | Engine / Store |
 | Pipeline | 逻辑通知与玩家意图的唯一管线 | `@quajs/pipeline` |
-| Renderer | 将投影变成图像、界面和声音 | Web / Cocos / Native |
+| Renderer | 将投影变成图像、界面和声音 | Web / Cocos / Godot / Native |
 | QPK | Quack 构建的资源或运行期内容包 | Quack / QuaAssets |
 | RuntimeContentManager | 动态包激活、依赖、卸载和保存检查 | Engine |
 
@@ -34,6 +34,6 @@ order: 3
 
 ## 选择一个发布目标
 
-一次构建只激活 Web、Cocos、Native 中的一套 target core。普通插件和 Runtime QPK 不得自行插入其他平台的启动适配器。生成的 `target-bundle-manifest.json` 才是启动壳与打包器的依据。
+一次构建只激活 Web、Cocos、Godot、Native 中的一套 target core。普通插件和 Runtime QPK 不得自行插入其他平台的启动适配器。生成的 `target-bundle-manifest.json` 才是启动壳与打包器的依据。
 
 理解这些约定后，阅读 [插件概览](/docs/plugins) 和 [运行期内容](/docs/guides/runtime-packages) 会更容易。

@@ -22,11 +22,13 @@ Vue 模板默认生成 hash CSP 与 SRI 信息。将 `dist/qua-security/csp.txt`
 
 不启用 Blob 模块回退时不要额外授予 `script-src blob:`。细节见 [Web 安全](/docs/security/web-security)。
 
-## Cocos 与 Native
+## Cocos、Godot 与 Native
 
 每个产物只包含当前目标核心。打包器、安装器、调试壳与启动程序消费 `target-bundle-manifest.json`。跨平台编译通过不等于实际平台成功启动，需要在对应系统验证窗口、字体、输入、音频、保存和退出清理。
 
 Cocos 先生成独立工作区，再使用 `qua-build/<platform>.build.json` 调用 Creator `configPath`。成功退出码为 36；macOS 还需 `stage=make`，检查实际应用与启动场景。demo 脚本使用独立导入副本并在验证成功后发布平台输出，失败保留上一份可用产物。完整命令见[Cocos 工作区](/docs/platforms/cocos)。发布时关闭 `buildOptions.debug`，重新检查启动与资源；调试媒体验收不代表签名、公证或商店审核。
+
+Godot 用 `quack project build --target godot --all` 生成独立项目，发布配置使用 `targets.godot.build.profile: release`。生成的 GDExtension 对应当前构建机器的操作系统和架构；导出应用还需匹配版本的 Godot export templates 和导出预设。按目标系统重新构建并检查导出后应用的 QPK、持久化与资源清理，再处理签名和分发。Godot 当前仅支持构建时 QPK；接入、验证命令和能力差异见[Godot 指南](/docs/platforms/godot)。
 
 ## 版本与更新
 

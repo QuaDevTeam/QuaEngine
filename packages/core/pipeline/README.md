@@ -359,7 +359,7 @@ The pipeline works in both environments:
 
 ## Contributing
 
-Please see the main [QuaEngine Contributing Guide](../../CONTRIBUTING.md).
+Please see the [QuaEngine contribution guide](../../../docs/content/docs/project/contributing.md).
 
 ## License
 

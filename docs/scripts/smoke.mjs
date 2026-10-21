@@ -42,9 +42,9 @@ try {
   await open('/');
   assert.match(await page.title(), /QuaEngine/);
   await noOverflow();
-  await page.getByRole('button', { name: '复制安装命令', exact: true }).click();
-  await page.getByRole('button', { name: '已复制安装命令', exact: true }).waitFor();
-  assert.equal(await page.evaluate(() => navigator.clipboard.readText()), 'pnpm create qua-game my-story');
+  await page.getByRole('button', { name: '复制源码命令', exact: true }).click();
+  await page.getByRole('button', { name: '已复制源码命令', exact: true }).waitFor();
+  assert.equal(await page.evaluate(() => navigator.clipboard.readText()), 'git clone https://github.com/QuaDevTeam/QuaEngine.git');
   await page.getByRole('button', { name: '做出选择', exact: true }).click();
   assert.match(await page.locator('.example-code').innerText(), /seaside/);
   await page.getByRole('button', { name: '编排演出', exact: true }).click();
@@ -143,6 +143,28 @@ try {
   await page.getByRole('button', { name: '切换为浅色主题' }).click();
   check('Cocos workspace reference links and media search');
 
+  await open('/docs/platforms/');
+  await page.locator('main a[href="/docs/platforms/godot/"]').click();
+  await page.waitForURL(url => /\/docs\/platforms\/godot\/?$/.test(url.pathname));
+  assert.match(await page.locator('main').innerText(), /build:godot/);
+  assert.match(await page.locator('main').innerText(), /仅支持构建时静态 QPK/);
+  await noOverflow();
+  await shot('godot-desktop');
+  await page.getByRole('button', { name: '切换为深色主题' }).click();
+  await shot('godot-desktop-dark');
+  await page.getByRole('button', { name: '切换为浅色主题' }).click();
+  await page.locator('main a[href="/docs/reference/godot-host/"]').click();
+  await page.waitForURL(url => /\/docs\/reference\/godot-host\/?$/.test(url.pathname));
+  assert.match(await page.locator('h1').innerText(), /Godot/);
+  await page.locator('main a[href="/docs/reference/renderer-scene/"]').click();
+  await page.waitForURL(url => /\/docs\/reference\/renderer-scene\/?$/.test(url.pathname));
+  await page.locator('.sd-search-trigger').click();
+  await dialog.locator('input').fill('Godot 独立项目');
+  await dialog.locator('a[href*="/platforms/godot"]').first().click();
+  await page.waitForURL(url => /\/docs\/platforms\/godot\/?$/.test(url.pathname));
+  await dialog.waitFor({ state: 'hidden' });
+  check('Godot platform navigation, shared package references and search');
+
   await page.setViewportSize({ width: 390, height: 844 });
   await open('/');
   await noOverflow();
@@ -175,6 +197,9 @@ try {
   await page.setViewportSize({ width: 320, height: 720 });
   await open('/');
   await noOverflow();
+  await page.getByRole('button', { name: '复制源码命令', exact: true }).click();
+  await page.getByRole('button', { name: '已复制源码命令', exact: true }).waitFor();
+  assert.equal(await page.evaluate(() => navigator.clipboard.readText()), 'git clone https://github.com/QuaDevTeam/QuaEngine.git');
   await open('/docs/getting-started/first-story/');
   await noOverflow();
   const mobileQs = page.locator('pre.sd-code[data-language="qs"]').first();
@@ -191,6 +216,12 @@ try {
   await open('/docs/platforms/cocos-media/');
   await noOverflow();
   await shot('cocos-media-mobile');
+  await open('/docs/platforms/godot/');
+  await noOverflow();
+  await shot('godot-mobile');
+  await page.getByRole('button', { name: '切换为深色主题' }).click();
+  await shot('godot-mobile-dark');
+  await page.getByRole('button', { name: '切换为浅色主题' }).click();
   await open('/docs/reference/quack/');
   await noOverflow();
   await open('/docs/platforms/native/');
@@ -205,6 +236,11 @@ try {
   check('Mobile navigation, search, light/dark and 320px layout');
 
   await page.setViewportSize({ width: 1440, height: 1050 });
+  await open('/docs/editor/downloads/');
+  assert.match(await page.locator('main').innerText(), /尚无公开 Editor Release/);
+  assert.equal(await page.locator('main a[href*="/releases/download/"]').count(), 0);
+  assert.match(await page.locator('main').innerText(), /pnpm dev:editor/);
+  check('Editor acquisition shows source setup and current release availability');
   await open('/brand/');
   for (const anchor of await page.locator('main a[href^="/brand/"]').all()) {
     const href = await anchor.getAttribute('href');
@@ -226,7 +262,7 @@ try {
       assert.ok(html.includes('<h1'), `Prerendered content: ${route}`);
     }));
   }
-  for (const [route, needle] of [['/llms.txt', 'QuaEngine'], ['/llms-full.txt', 'QuaScript'], ['/docs/getting-started/first-story/index.md', 'playerName'], ['/sitemap.xml', 'quaengine.com'], ['/robots.txt', 'Sitemap']]) {
+  for (const [route, needle] of [['/llms.txt', 'QuaEngine'], ['/llms-full.txt', 'Godot'], ['/docs/getting-started/first-story/index.md', 'playerName'], ['/docs/platforms/godot/index.md', 'build:godot'], ['/sitemap.xml', 'quaengine.com'], ['/robots.txt', 'Sitemap']]) {
     const response = await fetch(new URL(route, base));
     assert.equal(response.status, 200, route);
     assert.ok((await response.text()).includes(needle), route);

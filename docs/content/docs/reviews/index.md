@@ -17,4 +17,4 @@ order: 10
 - [2026-09-07：历史 QuickJS 性能](/docs/reviews/native-quickjs-performance-2026-09-07)
 - [2026-09-05：原生渲染器审查](/docs/reviews/native-renderer-audit-2026-09-05)
 
-QuickJS 的历史测试用于理解迁移前基线，当前运行时已使用 JavaScriptCore。这些记录不会因为加入文档站而被重新解释成当前版本测试结果。当前概览见 [项目进展](/docs/project/status)。
+这里的 QuickJS 历史测试用于理解 Rust/wgpu Native 的迁移前基线，该目标当前已使用 JavaScriptCore。Godot 则使用独立的 GDExtension/QuickJS 宿主。这些记录不会因为加入文档站而被重新解释成当前版本测试结果。当前概览见 [项目进展](/docs/project/status)。

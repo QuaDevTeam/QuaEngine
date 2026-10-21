@@ -307,15 +307,17 @@ Common commands:
 
 ```bash
 quack bundle ./assets --output ./dist/game.qpk --format qpk
-quack bundle ./runtime/chapter-2 -o ./dist/runtime.chapter-2.qpk -f qpk --sign-key ./keys/runtime-private.pem --sign-key-id release-2026-01
+quack bundle ./runtime/chapter-2 --config ./quack.runtime.config.js -o ./dist/runtime.chapter-2.qpk -f qpk --sign-key ./keys/runtime-private.pem --sign-key-id release-2026-01
 quack sign ./dist/runtime.chapter-2.qpk --key ./keys/runtime-private.pem --key-id release-2026-01
 quack verify ./dist/runtime.chapter-2.qpk --public-key ./keys/runtime-public.pem --require-signature --key-id release-2026-01
-quack workspace build
-quack workspace build --bundle core
+quack workspace:bundle --all
+quack workspace:bundle --bundle core
 quack patch --from 1 --to 2
 quack list ./dist/game.qpk
 quack extract ./dist/game.qpk ./extracted
 ```
+
+Verify examples against the actual CLI: `-c` selects a config, compression algorithm/ignore/encryption enablement are config fields, and signed bundles require `runtimePackage` metadata. `QuackBundler.bundle()` returns `BundleStats` directly, without `manifest` or nested `stats`. Vue template `assets:build` must use `quack workspace:bundle --all`.
 
 ## Review Checklist
 

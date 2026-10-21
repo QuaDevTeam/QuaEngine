@@ -35,4 +35,6 @@ assets/
 
 更新已有 bundle 使用 patch 流；新增章节、脚本、插件和资产能力使用并列挂载的 Runtime QPK。不要为 AI 生成内容另开一个单资源注入路径。
 
+动态激活还需要当前宿主提供相应能力。Godot 当前只接受构建时静态 QPK，更新后需重新生成项目；详见 [Godot 平台限制](/docs/platforms/godot)。
+
 接口与构建配置见 [QuaAssets](/docs/reference/assets)、[Quack](/docs/reference/quack) 和 [资源加载场景](/docs/plugins/asset-loading)。

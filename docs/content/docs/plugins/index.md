@@ -40,4 +40,4 @@ engine.use(new BackgroundPlugin()).use(new AudioPlugin())
 
 从 [插件系统](/docs/reference/plugin-system) 开始，定义引擎拥有的状态、生命周期和 pipeline 事件。构建支持 Runtime QPK 的功能时，还要明确来源标记、依赖收集、幂等迁移和卸载清理。
 
-提供编辑器面板的插件参阅 [编辑器插件契约](/docs/design/editor-plugins) 和 [市场发布](/docs/editor/registry)。Web / Cocos / Native 的 target core 不属于可随意注册的普通插件。
+提供编辑器面板的插件参阅 [编辑器插件契约](/docs/design/editor-plugins) 和 [市场发布](/docs/editor/registry)。Web / Cocos / Godot / Native 的 target core 不属于可随意注册的普通插件。

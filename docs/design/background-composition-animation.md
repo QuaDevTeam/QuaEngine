@@ -1,6 +1,6 @@
 # Background Composition And Animation
 
-This design defines how QuaEngine renders adaptive aspect-interval stages and multi-layer backgrounds.
+This design defines how QuaEngine fits a fixed logical stage into different containers and projects multi-layer backgrounds.
 
 ## Ownership
 
@@ -11,16 +11,16 @@ This design defines how QuaEngine renders adaptive aspect-interval stages and mu
 
 ## Adaptive Stage
 
-`view.layout` is the authoritative stage layout. `layout.aspectRatio` is the preferred reference ratio, while `layout.minAspectRatio` and `layout.maxAspectRatio` define the supported aspect interval. Renderers clamp the host container ratio into that interval, fit the active ratio into the container, center the viewport only when the device is outside the interval, and scale the logical stage content from top-left.
+`view.layout` is the authoritative stage layout. `layout.aspectRatio` fixes the scene ratio; renderers contain that ratio inside the measured host container and center the viewport. Unmatched space becomes black bars. `layout.minAspectRatio` and `layout.maxAspectRatio` describe supported content margins; they do not change the scene ratio or logical width.
 
 Default presets:
 
-- `landscape`: 1920x1080 reference at 16:9, adaptive from 16:10 to 16:9.
-- `portrait`: 1080x2340 reference at 9:19.5, adaptive from 9:21 to 9:16 for common phone screens.
+- `landscape`: fixed 1920x1080 scene at 16:9, with a centered 16:10 content-safe width.
+- `portrait`: fixed 1080x2340 scene at 9:19.5, with a centered 9:21 content-safe width.
 
-The base logical height is `layout.height`. The active logical width is resolved from the active aspect ratio, so landscape authors should keep critical UI inside the 16:10 safe area and let backgrounds/effects bleed to 16:9. Portrait authors should keep critical UI inside the tall-phone safe area while allowing background art and camera motion to fill wider phones.
+The base logical height is `layout.height`; logical width is `layout.height * layout.aspectRatio`. Scale is `min(containerWidth / logicalWidth, containerHeight / layout.height)`. Keep critical UI inside the safe area and allow backgrounds/effects to use the full fixed stage. Resizing must not crop the scene, widen its logical coordinates or alter narrative state.
 
-The renderer exposes layout CSS variables such as `--qua-layout-width`, `--qua-layout-height`, and safe-area variables for theme authors. Structural positioning is built into official renderers and does not depend on optional theme styles. Official Web renderers keep full-bleed backgrounds in `.qua-stage-scene-content`, camera-transformed foreground subjects in `.qua-stage-subject`, full-screen effects in `.qua-stage-plane`, and readable/interactable UI in `.qua-stage-safe`. See `docs/design/mobile-rendering-adaptation.md` for the complete cross-device coordinate and mobile adaptation standard.
+The renderer exposes layout CSS variables such as `--qua-layout-width`, `--qua-layout-height`, and safe-area variables for theme authors. Structural positioning is built into official renderers and does not depend on optional theme styles. Official Web renderers keep full-bleed backgrounds in `.qua-stage-scene-content`, camera-transformed foreground subjects in `.qua-stage-subject`, full-screen effects in `.qua-stage-plane`, and readable/interactable UI in `.qua-stage-safe`. See [Mobile Rendering Adaptation](mobile-rendering-adaptation.md) for the complete coordinate and safe-area standard.
 
 ## Background Projection
 
@@ -98,7 +98,7 @@ await playTimelineWithEngine(engine, {
 
 QuaScript decorators use object options:
 
-```ts
+```qs
 @SetBackground('room.png', { fit: 'cover', origin: 'center center' })
 @BackgroundLayer('fog', 'fog.png', {
   zIndex: 20,

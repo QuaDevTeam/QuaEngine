@@ -7,6 +7,8 @@ order: 7
 
 ## 引擎基础
 
+包示例假设运行在源码工作区或编辑器创建的 SDK 项目中。独立 npm 安装需先确认所需包和版本已经发布；当前入门路径见[快速开始](/docs/getting-started)。
+
 - [Engine API](/docs/reference/engine)：运行时与全局操作。
 - [插件系统](/docs/reference/plugin-system)：扩展与生命周期。
 - [Pipeline](/docs/reference/pipeline)：唯一事件管线。
@@ -27,6 +29,8 @@ order: 7
 - [Web](/docs/reference/renderer-web)、[Vue](/docs/reference/renderer-vue)、[React](/docs/reference/renderer-react)、[Svelte](/docs/reference/renderer-svelte)。
 - [Web 资源适配器](/docs/reference/assets-web)。
 - [Cocos renderer 与共享 QUI](/docs/reference/renderer-cocos)、[Creator Host](/docs/reference/cocos-host)、[Cocos 存档持久化](/docs/reference/store-cocos)。接入顺序见[Cocos 工作区指南](/docs/platforms/cocos)，媒体范围见[一致性检查](/docs/platforms/cocos-media)。
+- [Godot renderer](/docs/reference/renderer-godot)与 [Godot Host](/docs/reference/godot-host)。从[独立项目指南](/docs/platforms/godot)开始生成和运行。
+- [共享场景投影](/docs/reference/renderer-scene)与[场景宿主契约](/docs/reference/scene-host)：Cocos/Godot 共用的中立层。
 - [Native UI 编辑扩展](/docs/reference/native-vscode)。
 
 ## 功能与深层设计

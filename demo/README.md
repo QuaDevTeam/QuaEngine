@@ -50,7 +50,9 @@ Web 故事与 UI 冒烟回归：先运行 `pnpm --filter demo exec vite preview 
 | `src/game/ui/`                     | Web / Native 共用的 TSX、QSS、插件皮肤与导航会话                        |
 | `src/game/bootstrap.ts`            | Vue 舞台与共享 QUI Web 适配器接线                                       |
 | `src/targets/native/`              | Native 帧投影、宿主接线与 JavaScriptCore 入口                           |
-| `src/targets/cocos/`               | Creator 宿主、Cocos 平台服务与共享 QUI 接线                             |
+| `src/targets/scene/`               | Cocos/Godot 共用的业务初始化与共享 QUI 接线                            |
+| `src/targets/cocos/`               | Cocos 目标业务入口                                                     |
+| `src/targets/godot/`               | Godot 目标业务入口                                                     |
 | `assets/`                          | 发布资源，目前仅通用字体；原生脚本由构建生成                            |
 | `scripts/`                         | 运行与验证工具                                                          |
 
@@ -107,7 +109,7 @@ pnpm --dir demo test:godot:package
 
 `run:godot` 直接运行游戏，`edit:godot` 打开编辑器。双击 `project.godot` 只打开编辑器；在编辑器中用右上角运行项目按钮启动主场景。`GODOT_BIN` 可指定 Godot 可执行文件，macOS 默认使用 `/Applications/Godot.app/Contents/MacOS/Godot`，Windows/Linux 默认从 PATH 查找 `godot`。
 
-Cocos/Godot 的业务入口共用 `src/targets/scene/main.ts`，引擎、QuaScript 与 QUI/QSS 和 Web 共用。macOS 为首批验证平台；Windows/Linux 的宿主构建路径已实现，仍需在对应系统实测。原生媒体测试读取 QPK 内的确定性夹具，不能替代全剧情、全部分支和主观听感验收。完整 API、现有功能差异和调试入口见 [Godot host 指南](../packages/platform/godot-host/README.md)。
+Cocos/Godot 的业务入口共用 `src/targets/scene/main.ts`，引擎、QuaScript 与 QUI/QSS 和 Web 共用。macOS 为首批验证平台；Windows/Linux 的宿主构建路径已实现，仍需在对应系统实测。原生媒体测试读取 QPK 内的确定性夹具，不能替代全剧情、全部分支和主观听感验收。Godot 当前仅支持静态 QPK，不支持动态 Runtime Package；它的 QuickJS 宿主与 JavaScriptCore/wgpu Native 分别构建。接入与导出前提见[Godot 项目指南](../docs/content/docs/platforms/godot.md)，完整 API、现有功能差异和调试入口见 [Godot host 指南](../packages/platform/godot-host/README.md)。
 
 ## Copyright
 
@@ -139,7 +141,7 @@ for reuse. See `../TRADEMARKS.md`.
 
 ## 共享 UI
 
-Demo 的标题菜单、阅读工具条、章节选择、存读档、确认框、设置与记录面板统一由 `src/game/ui` 定义。各目标使用同一份 TSX/QSS、逻辑坐标和导航意图；Web 用可选的 `@quajs/renderer-web/qui` DOM 适配器，Cocos 用 `@quajs/renderer-cocos/qui` 投影到 Creator 节点，Native 使用 WGPU。基础对白、角色和场景由各自的引擎渲染器投影。
+Demo 的标题菜单、阅读工具条、章节选择、存读档、确认框、设置与记录面板统一由 `src/game/ui` 定义。各目标使用同一份 TSX/QSS、逻辑坐标和导航意图；Web 用可选的 `@quajs/renderer-web/qui` DOM 适配器，Cocos/Godot 分别用 `@quajs/renderer-cocos/qui` 与 `@quajs/renderer-godot/qui` 复用共享场景投影，Native 使用 WGPU。基础对白、角色和场景由各自的引擎渲染器投影。
 
 同构是项目可选能力：Web-only 项目仍可使用自定义 Vue/React/Svelte 页面。Demo 必须保持一份产品 UI，不再另外维护 Vue 页面。详见 [共享 UI 开发说明](src/game/ui/README.md)。
 

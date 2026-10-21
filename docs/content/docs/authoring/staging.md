@@ -26,7 +26,7 @@ order: 4
 
 BGM、语音、音效与环境声通过统一音频意图和总线组织。音量、EQ、渐入渐出、交叉淡化和播放结束要使用插件与 pipeline 契约。
 
-WebAudio 可能因为浏览器策略暂停。用户点击后解锁再播放是正常流程；只有 AudioContext 真正 running 后才应报告已解锁。Cocos 的可选宿主能力采用告警或降级，不复制 Web 自动播放策略。
+WebAudio 可能因为浏览器策略暂停。用户点击后解锁再播放是正常流程；只有 AudioContext 真正 running 后才应报告已解锁。Cocos/Godot 按宿主声明的能力播放或降级，不复制 Web 自动播放策略。Godot 当前不支持参数化 EQ，具体编码和效果差异见 [Godot 指南](/docs/platforms/godot)。
 
 ## 动画属于可读的演出数据
 

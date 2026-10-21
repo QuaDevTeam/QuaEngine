@@ -2,11 +2,14 @@
 
 Generate a native Godot 4.7 project from the same engine, QuaScript, QPK assets and product UI used by Web. QuickJS runs platform-neutral JavaScript in a Rust GDExtension; Godot draws the shared scene renderer's projections. Runtime needs neither a browser nor Node.
 
+Start with the Chinese [Godot project guide](../../../docs/content/docs/platforms/godot.md). This target is separate from the JavaScriptCore/wgpu Native runtime. Shared projection and host contracts live in [renderer-scene](../../render/scene/README.md) and [scene-host](../scene-host/README.md); the thin adapter is [renderer-godot](../../render/godot/README.md).
+
 ## Build the demo
 
 Install Godot 4.7+, Rust/Cargo and a C compiler. Video conversion requires FFmpeg with libtheora/libvorbis (macOS: `brew install ffmpeg-full`). Build the workspace packages, then:
 
 ```sh
+pnpm exec turbo run build --filter=demo^...
 pnpm --dir demo build:godot
 pnpm --dir demo run:godot
 pnpm --dir demo edit:godot
@@ -34,6 +37,7 @@ targets:
     assetTarget:
       name: godot
       platform: godot
+      staticOnly: true
       pipeline:
         video: {format: ogv, rewriteExtension: false}
 ```

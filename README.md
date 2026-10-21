@@ -25,7 +25,7 @@
   <a href="#current-progress">Progress</a>
 </p>
 
-QuaEngine brings dialogue, branching stories, characters, and audiovisual staging into one project. Write in **QuaScript**, add behavior in **TypeScript**, and choose a **Web, Cocos, or native** renderer. The engine owns the story; plugins and renderers bring it to life.
+QuaEngine brings dialogue, branching stories, characters, and audiovisual staging into one project. Write in **QuaScript**, add behavior in **TypeScript**, and choose a **Web, Cocos, Godot, or Native** renderer. The engine owns the story; plugins and renderers bring it to life.
 
 <table>
   <tr>
@@ -49,16 +49,16 @@ QuaEngine brings dialogue, branching stories, characters, and audiovisual stagin
 
 ## Start creating
 
-Create a Vue + QuaScript project:
+Start the editor from source:
 
 ```bash
-pnpm create qua-game my-story
-cd my-story
-pnpm install
-pnpm dev
+git clone https://github.com/QuaDevTeam/QuaEngine.git
+cd QuaEngine
+pnpm install --frozen-lockfile
+pnpm dev:editor
 ```
 
-Follow the [quick start](docs/content/docs/getting-started/index.md), then [write your first scene](docs/content/docs/getting-started/first-story.md). The starter includes the engine, renderer, script compiler, asset loading, and project configuration.
+Choose **File → New Project** to create a Vue + QuaScript game. The editor supplies portable SDK archives in the project, including the engine, renderer, script compiler, asset loading, and configuration. As of October 21, 2026, `create-qua-game` is not published on npm and public Editor releases are not available. See the [quick start](docs/content/docs/getting-started/index.md), then [write your first scene](docs/content/docs/getting-started/first-story.md). macOS editor builds require Xcode Command Line Tools and Node-API headers; Native/Godot game targets also require Rust.
 
 ## Write with QuaScript
 
@@ -92,7 +92,7 @@ The plugin marketplace connects to the Cloudflare Workers + D1 registry at `regi
 
 ## Documentation
 
-A creator handbook with a custom sakura-and-cream theme: tutorials, searchable package references, architecture guides, and machine-readable pages, built with **svedocs 0.2.1**.
+A creator handbook with a custom sakura-and-cream theme: tutorials, searchable package references, architecture guides, and machine-readable pages, built with **svedocs 0.2.4**.
 
 **[Visit quaengine.com](https://quaengine.com)** · **[Read the handbook](https://quaengine.com/docs/)**
 
@@ -126,6 +126,7 @@ Static output is written to `docs/build/` and published to `quaengine.com` with 
 | --- | --- |
 | Narrative and plugins | [Engine API](packages/core/engine/docs/global-api.md) · [Plugin system](packages/core/engine/docs/plugin-system.md) · [Story graph](packages/game/story-graph/README.md) |
 | Rendering | [Web](packages/render/web/README.md) · [Vue](packages/render/vue/README.md) · [React](packages/render/react/README.md) · [Svelte](packages/render/svelte/README.md) |
+| Cocos and Godot | [Cocos workspace](docs/content/docs/platforms/cocos.md) · [Godot project](docs/content/docs/platforms/godot.md) · [Shared scene renderer](packages/render/scene/README.md) · [Godot host](packages/platform/godot-host/README.md) |
 | Assets and authoring | [Quack](packages/build/quack/README.md) · [QuaScript](packages/build/script-compiler/README.md) · [PSD workflow](docs/guides/psd-sprite-ui-skin.md) |
 | Dynamic content | [Runtime QPKs](docs/design/dynamic-runtime-qpk.md) · [Web security](docs/security/web-security.md) |
 | Native | [JavaScriptCore runtime](docs/design/native-jsc-runtime.md) · [UI authoring](docs/reviews/native-ui-authoring.md) · [Migration verification](docs/reviews/native-jsc-migration-2026-09-21.md) |
@@ -136,7 +137,7 @@ Static output is written to `docs/build/` and published to `quaengine.com` with 
 
 [**明天，请再一次呼唤我 — Call Me Again Tomorrow**](demo/README.md) is the in-development demo: a near-future coastal mystery about a sound archive, a radio station, and a broadcast arriving before it has been recorded.
 
-The current rewrite includes a playable QuaScript story with multiple endings, Web/Vue and native entry points, a paper-and-sea-green UI, chapter navigation, save/load, reading settings, and backlog. Artwork and full audiovisual staging are still being produced; the gallery is not yet open in the current demo.
+The current rewrite includes a playable QuaScript story with multiple endings, Web/Vue, Cocos, Godot and Native entry points, a paper-and-sea-green UI, chapter navigation, save/load, reading settings, and backlog. Artwork and full audiovisual staging are still being produced; the gallery is not yet open in the current demo.
 
 ```bash
 pnpm install
@@ -145,24 +146,37 @@ pnpm --filter demo dev
 
 For the native development window, use `pnpm dev:native` after setting up the Rust/native prerequisites. See the [demo development guide](demo/README.md#开发) for build and validation commands.
 
+To generate and run the standalone **Godot 4.7+** demo, install Rust/Cargo, a C compiler, and FFmpeg with libtheora/libvorbis for video conversion, then run from the checkout:
+
+```bash
+pnpm exec turbo run build --filter=demo^...
+pnpm --dir demo build:godot
+pnpm --dir demo run:godot
+# Open the generated project in the Godot editor:
+pnpm --dir demo edit:godot
+```
+
+The relocatable project is written to `demo/dist/godot/workspace`. Its Rust GDExtension runs JavaScript in QuickJS and projects through Godot, without Node or a WebView at runtime. The current-host library is built locally; Windows/Linux still need runtime acceptance on those systems. Godot currently supports **static QPKs only**. See the [Godot guide](docs/content/docs/platforms/godot.md) for configuration, media/effect limits, validation and export prerequisites.
+
 The demo's story, characters, artwork, and other creative content are proprietary evaluation material; see [demo/LICENSE](demo/LICENSE).
 
 ## Current progress
 
-**September 21, 2026 · Version 0.1.0.** These capabilities are implemented in the repository. APIs and package boundaries may still change; validate your game's target platforms before release.
+**October 21, 2026 · Version 0.1.0.** These capabilities are implemented in the repository. APIs and package boundaries may still change; validate your game's target platforms before release.
 
 | Area | Available today |
 | --- | --- |
 | Story runtime | Scenes, dialogue, choices, characters, checkpoints, save/load, story graphs, and chapter selection |
 | Web | Shared DOM/WebAudio runtime, logical stage scaling, Vue reference adapter, and thin React/Svelte adapters |
 | Cocos | Renderer plugins, Creator host bridge, and asset/store/security adapters; platform parity is ongoing |
+| Godot | Standalone Godot 4.7+ projects, Rust GDExtension + QuickJS, shared Cocos/Godot scene projection, QUI, media and durable saves; first runtime validation on macOS |
 | Native | Rust + JavaScriptCore + wgpu, QUI/TSX and QSS, sprite/atlas rendering, nine-slice borders, rich text, and layer animation |
 | Feature plugins | Backgrounds, audio, animation, sprite/UI skins, fonts, backlog, gallery, achievements, inventory, settings, and asset loading |
-| Runtime QPKs | Side-by-side packages, trust verification, dynamic scripts/plugins, graph deltas, migrations, and save dependencies |
+| Runtime QPKs | Side-by-side packages, trust verification, dynamic scripts/plugins, graph deltas, migrations, and save dependencies where supported by the target; Godot is static-QPK-only |
 | Creator tools | Electron editor, character/animation panels, visual script editing, previews, marketplace, and Novel Writer |
 | Build and docs | QuaScript compiler, HMR, Quack, Vite, project inspection, language tools, Vue starter, and searchable svedocs handbook |
 
-Native uses **JavaScriptCore** for both the resident engine and dynamic QPK modules; old QuickJS paths have been removed. The [migration report](docs/reviews/native-jsc-migration-2026-09-21.md) records macOS runtime/product checks and Windows cross-target checks. It distinguishes those results from Windows linking/JIT, Linux execution, visible-window acceptance, and Web/native visual parity. GPU readback alone does not prove complete parity.
+The Rust/wgpu Native target uses **JavaScriptCore** for both the resident engine and dynamic QPK modules; its old QuickJS paths have been removed. Godot uses a separate QuickJS host. The [Native migration report](docs/reviews/native-jsc-migration-2026-09-21.md) records macOS runtime/product checks and Windows cross-target checks. It distinguishes those results from Windows linking/JIT, Linux execution, visible-window acceptance, and Web/native visual parity. GPU readback alone does not prove complete parity.
 
 [Current capability overview](docs/content/docs/project/status.md) · [Platform support](docs/content/docs/platforms/index.md)
 
@@ -173,15 +187,16 @@ flowchart LR
   Author["QuaScript / TypeScript"] --> Engine["QuaEngine + feature plugins"]
   Engine <--> Store[("Engine-owned state")]
   Engine <--> Pipeline["@quajs/pipeline"]
-  Pipeline <--> Renderer["Active renderer: Web / Cocos / native"]
+  Pipeline <--> Renderer["Active renderer: Web / Cocos / Godot / Native"]
   QPK["Quack-built QPK"] --> Assets["QuaAssets"]
   Assets --> Engine
 ```
 
 - **Logic owns state.** Scenes, progress, choices, audio intent, and feature projections belong to the engine/store. Renderers draw those projections and return user intents through `@quajs/pipeline`.
 - **Web behavior is shared.** DOM projection, object URLs, WebAudio, stage math, and Web plugin factories live in `@quajs/renderer-web`; Vue, React, and Svelte adapt that runtime. Visual styles are explicitly imported.
+- **Scene projection is shared.** Cocos and Godot adapt `@quajs/renderer-scene` and `@quajs/scene-host`; each host owns its transient native nodes, media handles and input transport.
 - **Packages extend the story.** Dynamic and AI-generated content travels through QPK Runtime Packages. Production executable content requires verification; activation, migrations, save dependencies, and unload are engine-owned.
-- **Each build selects one target.** Web, Cocos, and native have isolated bootstrap families. A target's bundle manifest drives its generated project and startup shell.
+- **Each build selects one target.** Web, Cocos, Godot, and Native have isolated bootstrap families. A target's bundle manifest drives its generated project and startup shell.
 
 See the [Runtime QPK design](docs/design/dynamic-runtime-qpk.md) and [stage layout contract](docs/design/mobile-rendering-adaptation.md).
 
@@ -216,12 +231,12 @@ Contributions to runtime behavior, platform parity, plugins, examples, and docum
 | [packages/core](packages/core/)         | Engine, store, pipeline, platform-neutral assets, and plugin discovery                   |
 | [packages/game](packages/game/)         | Character APIs and story graph                                                           |
 | [packages/plugins](packages/plugins/)   | Independent game feature plugins                                                         |
-| [packages/render](packages/render/)     | Universal render contracts; Web, Vue, React, Svelte, and Cocos renderers                 |
-| [packages/platform](packages/platform/) | Web, Node, memory, and Cocos adapters and host integration                               |
+| [packages/render](packages/render/)     | Universal render contracts; Web/framework renderers and shared Cocos/Godot scene projection |
+| [packages/platform](packages/platform/) | Web, Node, memory, Cocos and Godot adapters and host contracts                            |
 | [packages/native](packages/native/)     | Native contracts/adapters, JavaScriptCore runtime, wgpu renderer, UI compiler, and tooling      |
 | [packages/build](packages/build/)       | Quack, QuaScript compiler, Vite plugin, project inspector, starter, and language tooling |
 | [docs](docs/) | svedocs site, tutorials, generated package references, and theme |
-| [demo](demo/)                           | Shared Web/native visual novel demo                                                      |
+| [demo](demo/)                           | Shared Web/Cocos/Godot/Native visual novel demo                                           |
 | [packages/editor/novel-writer](packages/editor/novel-writer/)     | Built-in AI writing plugin with project context and guarded QuaScript editing                |
 
 </details>

@@ -10,10 +10,11 @@ order: 4
 git clone https://github.com/QuaDevTeam/QuaEngine.git
 cd QuaEngine
 pnpm install
+pnpm exec turbo run build --filter=demo^...
 pnpm --filter demo dev
 ```
 
-《明天，请再一次呼唤我》讲述声音档案员神代凛、录音员 Mara 与一段提前到来的广播。Demo 共用 Web 与 Native 的叙事逻辑、存档、设置和回看基础。
+《明天，请再一次呼唤我》讲述声音档案员神代凛、录音员 Mara 与一段提前到来的广播。Demo 共用 Web、Cocos、Godot 与 Native 的叙事逻辑、存档、设置和回看基础。
 
 菜单包含继续阅读、从头开始、读档、章节与设置。已读章节可回到章首重新阅读，未读章节的内容不会直接开放。可在源码中检查具体故事分支和引擎接线。
 
@@ -32,6 +33,8 @@ pnpm dev:native
 ```
 
 需要 Rust 与当前操作系统工具链。原生运行时使用 JavaScriptCore；不同系统的依赖见 [Native 平台](/docs/platforms/native)。
+
+Godot 使用独立的 GDExtension/QuickJS 宿主，从仓库根目录执行 `pnpm --dir demo build:godot` 后再运行 `pnpm --dir demo run:godot`。完整工具链前提、编辑器入口和限制见 [Godot 指南](/docs/platforms/godot)；Creator 工作区见 [Cocos 指南](/docs/platforms/cocos)。
 
 ## 验证范围与素材权利
 

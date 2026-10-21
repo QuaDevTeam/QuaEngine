@@ -16,7 +16,9 @@ description: Maintain QuaEngine's svedocs site, creator tutorials, generated pac
 - Edit original reference sources, never generated copies. Preserve link/anchor behavior and source provenance. Do not replace an existing historical report with claims about newer behavior.
 - Verify examples against current source/templates. Narrative state remains engine/store-owned, pipeline is the only bus, and generated runtime content travels through QPK.
 - Every public page needs a unique useful title and description. Keep section indexes and search discoverability complete.
-- Native is JavaScriptCore-based; dated QuickJS reports are historical evidence. Separate compile checks, runtime tests, GPU readback, visible-window acceptance and platform parity.
+- Check public npm/release availability before presenting onboarding or download commands as usable. As of 2026-10-21, create-qua-game is unpublished and Editor releases are absent: onboarding uses source-built Editor with its portable SDK. The homepage copies the full Git clone command and keeps it contained on mobile. Re-verify before changing these dated statuses; configured release workflows are not published artifacts.
+- Rust/wgpu Native is JavaScriptCore-based; its dated QuickJS reports are historical evidence. Godot is a separate, current GDExtension/QuickJS target. Separate compile checks, runtime tests, GPU readback, visible-window acceptance and platform parity.
+- Godot instructions live in `content/docs/platforms/godot.md`. Register renderer-godot, godot-host, renderer-scene and scene-host package READMEs in `prepare-content.mjs`; retain platform/reference indexes, homepage and README discoverability. Document current-host generation, Godot 4.7+/Rust/C/FFmpeg prerequisites, `run:godot` versus `edit:godot`, export templates, static-QPK-only trust and Web effect gaps. Keep macOS evidence separate from Windows/Linux runtime acceptance and whole-story/listening claims. Smoke-test Godot search, reference links, Markdown twins and mobile tables.
 - Cocos creator instructions live in `content/docs/platforms/cocos.md` and `cocos-media.md`. Keep public package references for renderer-cocos, cocos-host and store-cocos registered in `prepare-content.mjs`. Distinguish `project sync` from complete workspace generation, public dist inputs, sole target resolver injection, hybrid QPK/Creator resources and Creator CLI configPath/build/make with success code 36. Keep independent import copies and failure-preserving output behavior accurate. Cocos media reports compare Web, Creator Web and Cocos macOS, not Rust/wgpu Native; retain actual host fallback, media limits, debug QA prerequisites, artifact hashes and unaccepted device/listening/OS-input scopes.
 
 For demo Cocos command sequences, generate a production Web review artifact with `VITE_QUA_PARITY=1` and match the story/resources across all compared builds. The demo Web config uses `emptyOutDir: false` to preserve other target outputs. Lifecycle QA owns app launch and requires the debug port free; relaunch the app afterward for parity/media checks. Check these preconditions against the scripts when editing instructions.
@@ -49,6 +51,8 @@ Keep the README visually aligned with the docs using the reviewed mascot, warm c
 
 Capture real docs previews through `node scripts/brand/capture-docs.mjs` with a production preview running. It records screenshot provenance in `assets/brand/readme-previews.json`. Do not imply these prove editor or renderer parity. Check images, local links, anchor navigation, collapsed reference sections, and mobile overflow in light/dark Markdown previews. README-only changes do not require rebuilding engine or native packages.
 
+Restart the docs preview after rebuilding, so its loaded client manifest matches the final static assets. For a whole-site review, check rendered local anchors/assets, package export specifiers and QuaScript examples as well as strict content validation; preserve historical review conclusions and correct current guides at their sources.
+
 ## Validation
 
 ```sh
@@ -75,6 +79,6 @@ Inspect desktop/mobile and light/dark screenshots. Exercise search including no 
 
 ## Editor downloads
 
-The homepage Editor action links to `/docs/editor/downloads`. Keep stable/beta platform links aligned with `.github/workflows/editor-release.yml` and channel asset names. Document automatic checking, verified downloads and explicit restart. Do not imply a release is available until its GitHub assets exist. Component publishing is independent through `editor-components.yml`; catalogs retain compatible versions and use immutable URLs.
+The homepage Editor action links to `/docs/editor/downloads`. When releases exist, keep stable/beta platform links aligned with `.github/workflows/editor-release.yml` and channel asset names; until then, show source setup and planned filenames without dead download links. Document automatic checking, verified downloads and explicit restart. Do not imply a release is available until its GitHub assets exist. Component publishing is independent through `editor-components.yml`; catalogs retain compatible versions and use immutable URLs.
 
 macOS signing and notarization are required GitHub Actions release steps; describe the configured workflow separately from an actually published/notarized artifact. Windows remains unsigned, and Windows/Linux platform tests are currently explicitly deferred while builds and hash checks remain enabled. Keep these platform distinctions visible on the download page and in release documentation.

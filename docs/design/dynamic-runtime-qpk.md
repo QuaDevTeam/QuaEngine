@@ -2,6 +2,8 @@
 
 This document defines the development standard for AI generated incremental content in QuaEngine. Runtime content is delivered as signed QPK packages produced by Quack, mounted by QuaAssets, and activated by the engine through `RuntimeContentManager`.
 
+Activation requires the active target's injected runtime loader and trust policy. The [Godot target](../content/docs/platforms/godot.md) currently accepts build-time static QPKs only and rejects dynamic Runtime Packages and executable modules. Engine API availability alone does not enable dynamic loading on every host.
+
 ## Goals
 
 - Treat every AI generated increment as a package, not as loose resource pushes.

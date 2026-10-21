@@ -1,6 +1,6 @@
 # QuaEngine documentation
 
-The project website and creator handbook, built with **svedocs 0.2.1** and Svelte 5. The site owns its landing page, navigation, reading layout, brand artwork, and light/dark theme; svedocs owns content compilation, routing, search, code tools, metadata, and agent endpoints.
+The project website and creator handbook, built with **svedocs 0.2.4** and Svelte 5. The site owns its landing page, navigation, reading layout, brand artwork, and light/dark theme; svedocs owns content compilation, routing, search, code tools, metadata, and agent endpoints.
 
 ## Run
 
@@ -18,6 +18,8 @@ pnpm --dir docs test:smoke
 ```
 
 The local server uses `http://127.0.0.1:4173`. Browser QA artifacts are written to the ignored `docs/.generated/qa/` directory. Use `DOCS_TEST_URL` to point the smoke test at another preview, or `CHROME_PATH` to select a browser executable.
+
+Restart the preview process after rebuilding: its loaded client manifest must match the new static output. Run `pnpm --dir docs test:sidebar` against the same preview to check previous/next, history and mobile navigation.
 
 ## Content
 

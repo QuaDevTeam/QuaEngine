@@ -18,15 +18,17 @@ order: 5
 
 ## 音乐不播放
 
-先手动点击页面，检查 AudioContext 是否解锁，再检查资源编码、包路径、总线增益和音频意图。Cocos/Native 则检查宿主能力与音频后端，不套用浏览器解锁规则。
+Web 先手动点击页面，检查 AudioContext 是否解锁，再检查资源编码、包路径、总线增益和音频意图。Cocos/Godot/Native 则检查宿主能力与音频后端，不套用浏览器解锁规则。
 
 ## 手机画面有黑边
 
 逻辑舞台采用固定比例等比缩放，留边可能是预期行为。不要用裁剪或更改逻辑宽度解决它。需要竖屏构图时选择 portrait 预设并重新安排安全区域。
 
-## 原生升级后无法加载包
+## Rust/wgpu Native 升级后无法加载包
 
 检查 target manifest 中的 `javascriptcore` 标识、`jscVersion`、签名宿主和模块元数据是否匹配。清理并重新生成受影响的构建产物；不要恢复已移除的 QuickJS 路径。
+
+Godot 使用另一套 GDExtension/QuickJS 宿主。该目标应检查当前系统与架构对应的动态库、静态 QPK hash 和 `target-bundle-manifest.json`；不使用 Native 的 JSC 配置。项目生成和已知能力差异见 [Godot 指南](/docs/platforms/godot)。
 
 ## 安装被供应链策略拦截
 

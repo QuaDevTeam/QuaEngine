@@ -108,6 +108,7 @@ html { scroll-padding-top: var(--qua-header-clearance); }
 .sd-home { max-width: none; padding: 0; width: 100%; }.sd-home > .sd-home-inner { max-width: none; }
 .qua-landing { max-width: 1240px; padding: 0 44px; margin: auto; }
 .qua-hero { min-height: 655px; display: grid; grid-template-columns: 1.12fr 1fr; gap: 44px; align-items: center; padding: 67px 0 68px; }
+.hero-copy { min-width: 0; }
 .hero-copy h1 { position: relative; width: fit-content; font-weight: 800; letter-spacing: -3px; font-size: clamp(44px, 4.9vw, 66px); line-height: 1.32; margin: 0 0 22px; }
 .hero-copy h1 > span:first-of-type { color: var(--qua-pink); }.title-period { color: var(--qua-pink); }
 .hero-copy .title-sparkle { position: absolute; top: -6px; right: -27px; color: #d5ac87; font-size: 32px; font-weight: 400; }
@@ -115,7 +116,7 @@ html { scroll-padding-top: var(--qua-header-clearance); }
 .hero-actions { display: flex; gap: 12px; margin: 28px 0 22px; }.qua-button { display: inline-flex; align-items: center; justify-content: center; gap: 10px; border-radius: 12px; padding: 13px 21px; text-decoration: none; font-size: 14px; font-weight: 700; transition: transform .18s, box-shadow .18s; }
 .qua-button:hover { transform: translateY(-2px); }.qua-button.primary { color: #fffaf6; background: #a84e6a; border: 1px solid #a84e6a; box-shadow: 0 4px 0 #843f571a; }.qua-button.primary:hover { box-shadow: 0 5px 15px #a84e6a24; }
 .qua-button.secondary { border: 1px solid var(--qua-line); background: var(--qua-panel); color: var(--qua-ink); }
-.install-command { display: flex; width: fit-content; gap: 12px; align-items: center; color: var(--qua-muted); font-size: 12px; }.install-command code { font-size: 12px; }.install-command button { background: transparent; color: var(--qua-muted); border: 0; padding: 5px; border-radius: 4px; }.copy-feedback { display: block; font-size: 11px; min-height: 17px; color: var(--qua-pink); }
+.install-command { display: flex; width: fit-content; max-width: 100%; gap: 12px; align-items: center; color: var(--qua-muted); font-size: 12px; }.install-command > svg, .install-command button { flex-shrink: 0; }.install-command code { min-width: 0; overflow-x: auto; white-space: nowrap; font-size: 12px; }.install-command button { background: transparent; color: var(--qua-muted); border: 0; padding: 5px; border-radius: 4px; }.copy-feedback { display: block; font-size: 11px; min-height: 17px; color: var(--qua-pink); }
 .hero-art { position: relative; padding: 12px 29px 4px 10px; }.mascot-card { position: relative; border: 1px solid #e6d8d0; border-radius: 18px; padding: 15px; background: #fffefa; transform: rotate(5deg); box-shadow: 0 18px 45px #754a4820, 5px 7px 0 #f3e7de; }
 .postcard-top { display: flex; justify-content: space-between; color: #938383; font-size: 9px; letter-spacing: 1.7px; padding: 2px 4px 13px; font-weight: 800; }.postcard-top span:last-child { color: #bd6981; font-size: 14px; line-height: 12px; }
 .hero-mascot { display: block; width: 100%; height: auto; aspect-ratio: 1; border-radius: 9px; background: #fffaf6; }

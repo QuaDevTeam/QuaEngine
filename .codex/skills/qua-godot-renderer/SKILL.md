@@ -9,6 +9,7 @@ Pair with quaengine-development-guardrails, qua-project-configuration and quack-
 
 ## Responsibility and setup
 
+- Public setup lives in `docs/content/docs/platforms/godot.md`, with services in `packages/platform/godot-host/README.md`. Keep README/platform/status/config/release/Runtime QPK guidance aligned; the docs generator publishes Godot and shared scene package references from their original READMEs.
 - `@quajs/scene-host` owns host contracts; `@quajs/renderer-scene` owns shared projection, stage layout, animation, QUI and feature plugins. Cocos and Godot renderer packages are thin adapters. Shared plugin contexts use `context.scene`; plugin identities are `@quajs/renderer-scene/<feature>`.
 - `@quajs/godot-host` implements TypeScript services, GDScript projection nodes and a portable Rust GDExtension with QuickJS. Runtime must not require a WebView or Node server.
 - Configure `targets.godot.build.entry` (business module exporting `bootstrap(services)`), optional `viteConfig`, `profile: debug|release`, `projectDir`, `layout` and `assetTarget`. See the host README and `demo/src/targets/scene/main.ts` for the service/return contracts.

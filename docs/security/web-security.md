@@ -14,8 +14,11 @@ The signed payload is canonical JSON containing:
 
 That means runtime scripts, scenes, plugins, migrations, story graph deltas, and runtime metadata are covered directly by the package signature; all asset and script bytes are covered through the manifest hashes and `merkleRoot`.
 
+Signing requires a config declaring `runtimePackage` identity, compatibility and
+actual asset/module entries; see [Runtime QPK configuration](../../packages/build/quack/README.md#runtime-qpk-configuration). Plain static bundle metadata is insufficient.
+
 ```bash
-quack bundle assets --format qpk --sign-key ./keys/runtime-private.pem --sign-key-id release-2026-01
+quack bundle assets --config ./quack.runtime.config.js --output ./dist/runtime.qpk --format qpk --sign-key ./keys/runtime-private.pem --sign-key-id release-2026-01
 quack verify ./dist/runtime.qpk --public-key ./keys/runtime-public.pem --require-signature --key-id release-2026-01
 ```
 

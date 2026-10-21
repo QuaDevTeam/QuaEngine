@@ -1,7 +1,7 @@
 ---
 title: "Native：Rust、JSC 与 wgpu"
 description: "理解原生运行时、UI 编译和当前操作系统验证边界。"
-order: 3
+order: 5
 ---
 
 ## 运行时结构
@@ -13,7 +13,7 @@ pnpm dev:native
 pnpm native:e2e
 ```
 
-这两个仓库命令选择 JavaScriptCore 功能。旧 QuickJS 运行方式已经移除，升级宿主后应重新生成原生 JS、QPK 和 target manifest。
+这两个仓库命令选择 JavaScriptCore 功能。Native 目标的旧 QuickJS 运行方式已经移除，升级宿主后应重新生成原生 JS、QPK 和 target manifest。[Godot 目标](/docs/platforms/godot)使用独立的 GDExtension + QuickJS 宿主，不属于这条迁移路径。
 
 ## 平台依赖
 

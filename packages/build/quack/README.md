@@ -48,8 +48,8 @@ const bundler = new QuackBundler({
   }
 })
 
-const result = await bundler.bundle()
-console.log(`Bundle created: ${result.manifest.totalFiles} files, ${result.manifest.totalSize} bytes`)
+const stats = await bundler.bundle()
+console.log(`Bundle created: ${stats.totalFiles} files, ${stats.totalSize} bytes`)
 ```
 
 ### Media Metadata Extraction
@@ -61,11 +61,13 @@ const extractor = new MediaMetadataExtractor()
 
 // Extract image metadata
 const imageMetadata = await extractor.extractMetadata('./assets/background.png')
-console.log(`Image: ${imageMetadata.width}x${imageMetadata.height}, aspect ratio: ${imageMetadata.aspectRatio}`)
+if (imageMetadata && 'width' in imageMetadata)
+  console.log(`Image: ${imageMetadata.width}x${imageMetadata.height}, aspect ratio: ${imageMetadata.aspectRatio}`)
 
 // Extract audio metadata
 const audioMetadata = await extractor.extractMetadata('./assets/bgm.mp3')
-console.log(`Audio: ${audioMetadata.duration}s, format: ${audioMetadata.format}`)
+if (audioMetadata && 'duration' in audioMetadata)
+  console.log(`Audio: ${audioMetadata.duration}s, format: ${audioMetadata.format}`)
 ```
 
 ### Asset Discovery with Metadata
@@ -160,7 +162,7 @@ export default {
 
 ### Runtime QPK Configuration
 
-Runtime packages are dynamic QPKs consumed by `RuntimeContentManager`. They must declare compatibility and package metadata:
+Runtime packages are dynamic QPKs consumed by `RuntimeContentManager` on targets with an injected dynamic loader. Godot currently rejects them. Save this example as `quack.runtime.config.js` before using the signing command below:
 
 ```typescript
 import { defineConfig } from '@quajs/quack'
@@ -260,10 +262,10 @@ assets/
 
 ## CLI Usage
 
-Install globally for command-line usage:
+Use Quack from a source workspace or an SDK project containing the package. Confirm package availability before installing it from a registry. In a project terminal, run:
 
 ```bash
-pnpm add -g @quajs/quack
+pnpm exec quack --help
 ```
 
 ### Basic Commands
@@ -272,20 +274,20 @@ pnpm add -g @quajs/quack
 # Bundle assets
 quack bundle ./assets --output ./dist/game.zip
 
-# Create QPK bundle with compression
-quack bundle ./assets -o ./dist/game.qpk -f qpk -c lzma
+# Choose compression.algorithm in quack.config.js
+quack bundle ./assets -o ./dist/game.qpk -f qpk --config ./quack.config.js
 
 # Sign runtime QPK output
-quack bundle ./runtime/chapter-2 -o ./dist/runtime.chapter-2.qpk -f qpk --sign-key ./keys/runtime-private.pem --sign-key-id release-2026-01
+quack bundle ./runtime/chapter-2 --config ./quack.runtime.config.js -o ./dist/runtime.chapter-2.qpk -f qpk --sign-key ./keys/runtime-private.pem --sign-key-id release-2026-01
 
 # Verify runtime QPK signature
 quack verify ./dist/runtime.chapter-2.qpk --public-key ./keys/runtime-public.pem --require-signature --key-id release-2026-01
 
 # Workspace mode
-quack workspace build
+quack workspace:bundle --all
 
 # Generate patch
-quack patch --from v1.0.0 --to v1.1.0
+quack patch --from 1 --to 2
 
 # List bundle contents
 quack list ./dist/game.qpk
@@ -297,21 +299,23 @@ quack extract ./dist/game.qpk ./extracted
 ### Advanced CLI Options
 
 ```bash
-# Bundle with encryption
-quack bundle ./assets -o game.qpk --encrypt --key mySecretKey
+# Enable encryption in the config; inject QUACK_ENCRYPTION_KEY from the environment
+quack bundle ./assets -o game.qpk --config ./quack.config.js
 
 # Verbose output
 quack bundle ./assets -o game.zip --verbose
 
-# Ignore patterns
-quack bundle ./assets -o game.zip --ignore "**/*.tmp" --ignore "**/.*"
-
-# Custom compression level
-quack bundle ./assets -o game.qpk -c lzma:9
+# Set ignore patterns and compression.algorithm in the config; override its level
+quack bundle ./assets -o game.qpk --config ./quack.config.js --compression-level 9
 
 # Workspace specific bundle
-quack workspace build --bundle core
+quack workspace:bundle --bundle core
 ```
+
+`-c` means `--config`, not a compression algorithm. Ignore patterns, compression
+algorithm and encryption enablement are configuration fields, not `--ignore` /
+`--encrypt` flags. Patch versions are numeric archive versions. Signing requires
+`runtimePackage` metadata and matching assets; a plain static bundle is insufficient.
 
 ### Cocos Creator Workspace
 
@@ -339,7 +343,7 @@ directory; `manifest` is its emitted target manifest path. Cocos rejects partial
 
 Only `cocos-core-resolver` injects target bootstrap. Dependencies use public
 package `dist` entries, `cc` remains external, and the retained-module graph
-proves no Web/native target cores, DOM, Node or development server leaked into
+proves no Web/Godot/Native target cores, DOM, Node or development server leaked into
 the runtime. The workspace shell consumes `target-bundle-manifest.json` rather
 than declaring another target core list. Hybrid imported media preserves QPK
 logical names/package provenance; QPK itself uses generic Creator `.binary`
@@ -359,6 +363,42 @@ Creator 3.8.8 importer database reuse errors. The
 [demo builder and review commands](../../../demo/README.md) automate independent import copies, bounded
 Editor import recovery, startup-scene validation and failure-preserving platform
 publication. The copied workspace needs no repository links or QuaEngine server.
+
+### Godot Workspace
+
+Configure `targets.godot` with `enabled: true`, `build.entry` exporting
+`bootstrap(services)`, and optionally `projectDir`, `layout`, `build.viteConfig`,
+`build.profile: debug|release` and `assetTarget`. Godot uses static QPKs; video
+conversion should use `video: { format: ogv, rewriteExtension: false }` in the
+asset target pipeline. The [Godot project guide](../../../docs/content/docs/platforms/godot.md)
+includes the configuration and demo commands.
+
+```bash
+quack project build --target godot --all
+godot --path dist/godot/workspace
+```
+
+The public `@quajs/quack/project` API provides
+`buildQuaProjectGodotWorkspace({ cwd, configPath?, workspaceConfig?, signal?, onLog? })`,
+returning `{ target: 'godot', artifact, manifest, hostPlatform }`. Generation
+requires built public package entries, Rust/Cargo and a C compiler. The output
+contains a Godot 4.7+ project, current-host GDExtension library, QuickJS runtime
+bundle, QPKs, Rust source, retained-module graph and target manifest. Video
+conversion requires FFmpeg with libtheora/libvorbis. Application export also
+requires matching Godot export templates and platform export configuration.
+
+Only `godot-core-resolver` injects bootstrap. The shared `@quajs/renderer-scene`
+and `@quajs/scene-host` are neutral; Web/Cocos/Native target cores are rejected.
+Runtime requires no browser, Node service or source checkout. The host verifies
+exact static QPK hashes and rejects dynamic Runtime Packages/executable modules.
+
+Generation stages the complete artifact and replaces only its marked output
+directory after success; failures preserve the prior workspace and authored
+directories cannot be replaced. Rust compilation caches stay in the source
+project's `node_modules/.cache/qua-godot-runtime`. Rebuild on each target OS and
+architecture and validate its actual application; macOS evidence does not prove
+Windows/Linux runtime acceptance. See the [Godot host](../../platform/godot-host/README.md)
+for service contracts, media/effect differences and native fixture checks.
 
 ## Plugin Development
 
@@ -479,9 +519,11 @@ const manifest = generator.generateManifest(assets, bundleName, options)
 Manages multi-bundle workspaces.
 
 ```typescript
-const workspace = new WorkspaceManager(configPath)
-await workspace.buildAll()
-await workspace.buildBundle('core')
+const workspace = new WorkspaceManager(process.cwd())
+const config = await workspace.loadConfig('./quack.workspace.ts')
+const bundler = new QuackBundler({ workspace: config })
+const result = await bundler.bundleWorkspace()
+console.log(result.bundleStats)
 ```
 
 #### PatchGenerator
@@ -511,7 +553,8 @@ Manages bundle versions and build tracking.
 
 ```typescript
 const versions = new VersionManager(outputDir)
-const buildLog = await versions.createBuildLog(bundlePath, assets)
+const logs = await versions.listBuildLogs()
+console.log(logs)
 ```
 
 #### PluginManager
@@ -556,15 +599,13 @@ Custom binary format optimized for games:
 
 ### Memory Usage
 
-- Large assets are processed in streams
-- Configurable memory limits for LZMA
-- Incremental processing for large bundles
+QPK packaging reads asset bytes into buffers. Split large games into bounded
+workspace packs and measure peak build memory; the API has no hard process memory quota.
 
 ### Caching
 
-- Asset hash-based caching
-- Metadata caching for repeated builds
-- Incremental builds skip unchanged assets
+Version/build identities, member hashes and build logs support patches and
+runtime cache validation. They do not guarantee that unchanged assets skip processing.
 
 ## Error Handling
 
@@ -575,35 +616,25 @@ try {
   const result = await bundler.bundle()
 }
 catch (error) {
-  if (error.code === 'ASSET_NOT_FOUND') {
-    console.error('Asset missing:', error.asset)
-  }
-  else if (error.code === 'COMPRESSION_FAILED') {
-    console.error('Compression error:', error.message)
-  }
-  else if (error.code === 'ENCRYPTION_FAILED') {
-    console.error('Encryption error:', error.message)
-  }
+  console.error(error instanceof Error ? error.message : String(error))
+  throw error
 }
 ```
 
 ## Environment Variables
 
-Configure Quack behavior with environment variables:
+The built-in XOR key resolver reads `QUACK_ENCRYPTION_KEY` when no key is supplied
+in configuration. Inject it from your build environment:
 
 ```bash
 # Encryption key
 QUACK_ENCRYPTION_KEY=your-secret-key
 
-# Build number for versioning
-BUILD_NUMBER=123
-
-# Enable verbose logging
-QUACK_VERBOSE=true
-
-# Memory limit for LZMA compression (MB)
-QUACK_LZMA_MEMORY=256
 ```
+
+`BUILD_NUMBER` affects a build only when the config explicitly reads it. Use
+`verbose` / `--verbose` for logging and `compression` for algorithm/level; there
+are no built-in `QUACK_VERBOSE` or `QUACK_LZMA_MEMORY` switches.
 
 ## Integration Examples
 
@@ -621,13 +652,13 @@ async function buildAssets() {
     encryption: { enabled: true, algorithm: 'xor' }
   })
 
-  const result = await bundler.bundle()
+  const stats = await bundler.bundle()
 
   console.log(`✅ Bundle created!`)
-  console.log(`📁 Files: ${result.manifest.totalFiles}`)
-  console.log(`📏 Size: ${(result.manifest.totalSize / 1024 / 1024).toFixed(2)} MB`)
-  console.log(`🗜️ Compressed: ${(result.stats.compressedSize / 1024 / 1024).toFixed(2)} MB`)
-  console.log(`📉 Ratio: ${(result.stats.compressionRatio * 100).toFixed(1)}%`)
+  console.log(`📁 Files: ${stats.totalFiles}`)
+  console.log(`📏 Size: ${(stats.totalSize / 1024 / 1024).toFixed(2)} MB`)
+  console.log(`🗜️ Compressed: ${(stats.compressedSize / 1024 / 1024).toFixed(2)} MB`)
+  console.log(`📉 Ratio: ${(stats.compressionRatio * 100).toFixed(1)}%`)
 }
 
 buildAssets().catch(console.error)
@@ -643,21 +674,24 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
+      - uses: actions/checkout@v6.0.2
+      - uses: pnpm/action-setup@v6.0.7
         with:
-          node-version: '20'
+          version: 12.3.4
+      - uses: actions/setup-node@v6.4.0
+        with:
+          node-version: '22'
 
       - name: Install dependencies
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
 
       - name: Build assets
-        run: quack bundle ./assets -o ./dist/game.qpk -c lzma:9 --encrypt
+        run: pnpm exec quack bundle ./assets -o ./dist/game.qpk --config ./quack.config.js --compression-level 9
         env:
           QUACK_ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v7
         with:
           name: game-assets
           path: ./dist/
@@ -665,16 +699,16 @@ jobs:
 
 ## Contributing
 
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+See the [contribution guide](../../../docs/content/docs/project/contributing.md).
 
 ### Development Setup
 
 ```bash
-git clone https://github.com/QuaEngine/QuaEngine.git
-cd QuaEngine/packages/quack
+git clone https://github.com/QuaDevTeam/QuaEngine.git
+cd QuaEngine
 pnpm install
-pnpm run build
-pnpm test
+pnpm exec turbo run build --filter=@quajs/quack...
+pnpm --filter @quajs/quack test -- --run
 ```
 
 ### Running Tests
@@ -694,9 +728,7 @@ pnpm test media-extractor.test.ts
 
 Apache-2.0 © QuaDevTeam
 
-## Changelog
-
-See [CHANGELOG.md](CHANGELOG.md) for version history.
+Version history is recorded in the [repository commits](https://github.com/QuaDevTeam/QuaEngine/commits/main/packages/build/quack).
 
 ## Related Packages
 
