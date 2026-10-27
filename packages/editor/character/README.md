@@ -1,5 +1,7 @@
 # Character editor plugin
 
+**English** · [简体中文](README.zh-CN.md)
+
 `@quajs/editor-character` is the authoring counterpart of `@quajs/character` and
 `@quajs/plugin-sprite`. It contributes a **角色浏览器** bottom panel to QuaEngine
 Editor. It does not import or initialize the game runtime.

@@ -1,5 +1,7 @@
 # QuaEngine Plugin Registry
 
+**English** · [简体中文](README.zh-CN.md)
+
 Cloudflare Workers + D1 service for `https://registry.quaengine.com`. npm remains
 the package/version/tarball distributor. Registry stores verified listings,
 publisher ownership, review decisions and synchronization state. It never executes

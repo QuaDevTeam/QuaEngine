@@ -21,15 +21,31 @@ export default defineConfig({
     code: { copyButton: true, lineNumbers: false, wrap: false },
     brand: { label: 'QuaEngine', href: '/', mark: false, logo: '/brand/quaengine-icon.png' },
     nav: [
-      { label: '文档', href: '/docs' },
-      { label: '创作工具', href: '/docs/editor' },
-      { label: '参考手册', href: '/docs/reference' },
-      { label: '项目进展', href: '/docs/project/status' }
+      { label: '文档', labelKey: 'qua.nav.docs', href: '/docs' },
+      { label: '创作工具', labelKey: 'qua.nav.editor', href: '/docs/editor' },
+      { label: '参考手册', labelKey: 'qua.nav.reference', href: '/docs/reference' },
+      { label: '项目进展', labelKey: 'qua.nav.status', href: '/docs/project/status' }
     ],
     social: [{ label: 'GitHub', href: 'https://github.com/QuaDevTeam/QuaEngine', external: true }],
     footer: { text: 'Made with care, by QuaDevTeam.' }
   },
-  i18n: { defaultLocale: 'zh', locales: [{ code: 'zh', label: '简体中文', hreflang: 'zh-CN' }], messages: { zh: {
+  i18n: { defaultLocale: 'zh', locales: [{ code: 'zh', label: '简体中文', hreflang: 'zh-CN' }, { code: 'en', label: 'English', hreflang: 'en', ogLocale: 'en_US' }], messages: { en: {
+    'qua.nav.docs': 'Docs', 'qua.nav.editor': 'Editor',
+    'qua.nav.reference': 'Reference (Chinese)', 'qua.nav.status': 'Progress (Chinese)',
+    'qua.brand.home': 'QuaEngine home', 'qua.source': 'GitHub source',
+    'qua.handbook': 'Creator handbook', 'qua.firstStory': 'Start with your first line',
+    'qua.editSource': 'View / improve this page on GitHub',
+    'qua.footer.tagline': 'Every good story deserves to be seen.',
+    'qua.footer.docs': 'Read the docs', 'qua.footer.brand': 'Brand assets (Chinese)',
+    'qua.footer.contribute': 'Contribute (Chinese)', 'qua.footer.license': 'Licensing (Chinese)'
+  }, zh: {
+    'qua.nav.docs': '文档', 'qua.nav.editor': '创作工具', 'qua.nav.reference': '参考手册', 'qua.nav.status': '项目进展',
+    'qua.brand.home': 'QuaEngine 首页', 'qua.source': 'GitHub 源码',
+    'qua.handbook': '创作者手册', 'qua.firstStory': '从第一句对白开始',
+    'qua.editSource': '在 GitHub 查看 / 改进本页来源',
+    'qua.footer.tagline': '每个好故事，都值得被看见。',
+    'qua.footer.docs': '阅读文档', 'qua.footer.brand': '品牌素材',
+    'qua.footer.contribute': '参与共建', 'qua.footer.license': '开源许可',
     'search.placeholder': '搜索文档、API、指南…',
     'home.primaryAction': '开始创作',
     'nav.documentation': '文档导航',
@@ -52,7 +68,7 @@ export default defineConfig({
     'render.label': '显示异常', 'render.title': '这部分内容暂时无法显示', 'render.message': '你可以重试，或继续阅读其他内容。',
     'render.details': '错误详情', 'render.tryAgain': '重试', 'render.reload': '刷新页面', 'render.docsHome': '文档首页'
   } } },
-  search: { enabled: true, provider: 'local', scope: 'all' },
+  search: { enabled: true, provider: 'local', scope: 'current' },
   ai: false,
   seo: {
     // prepare-content renders branded, per-page PNGs and supplies image frontmatter.

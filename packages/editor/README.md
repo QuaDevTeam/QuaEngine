@@ -1,5 +1,9 @@
 # QuaEngine Editor
 
+[English](README.en.md) · **简体中文**
+
+用户手册：[项目与文件](../../docs/content/docs/editor/projects.md) · [工作区](../../docs/content/docs/editor/workspace.md) · [源码创作](../../docs/content/docs/editor/authoring.md) · [预览调试](../../docs/content/docs/editor/preview.md) · [生产打包](../../docs/content/docs/editor/builds.md) · [排障](../../docs/content/docs/editor/troubleshooting.md)
+
 独立 Electron 创作工作区，直接接入 QuaEngine 的 Web / Native 开发入口，无 devframe 依赖。
 
 通过「文件 → 新建项目」或空白编辑区入口创建常规 Vue / QuaScript 项目、Runtime / Devtools 插件项目。选择父目录和项目名后，IDE 创建新目录并打开，插件项目隐藏预览区域。模板附带源码、构建配置和 README；新项目携带当前 IDE SDK 的 `vendor/quajs` 压缩包，可随项目移动。
@@ -237,7 +241,7 @@ Assets Browser 支持按文件夹浏览、递归筛选、模糊名称／路径�
 
 - Native 原生嵌入目前仅实现 macOS，依赖运行时检查的 Core Animation remote-layer SPI。Windows/Linux 明确报不支持，不回退到图像传输。原生窗口按产品帧率渲染，旧的传输帧率设置已移除。源码构建需 Xcode Command Line Tools 和 Node-API 头文件；发行包需解包并签名 `dist/native-layer.node`。
 - Native 当前提供指针交互与面板等比缩放；独立 viewport resize、键盘/IME、滚轮与面板焦点转发仍待接入。启动时 capability 只宣告 pointer。
-- 尚未提供项目创建向导、语言服务快速修复/重命名、工作区会话恢复、可视化写回、跨章节分支状态重建和断点恢复。
+- 已有新建游戏/插件项目与受保护的语句、角色、动画及 AI 源码草稿写回。语言服务快速修复/重命名、完整工作区会话与崩溃草稿恢复、跨章节分支状态重建和断点恢复仍未提供。
 - 磁盘冲突目前提供只读比较与显式选择，没有自动三方合并、保存已删除文件的“另存为”或崩溃草稿恢复。
 - 切换模式会先保存所有打开的文档、停止旧后端，再从新目标入口启动。当前不迁移运行中的游戏状态。
 - 首次 Native 运行会先检测并补齐项目依赖和 Rust 工具链，再执行现有编译与 QPK 构建；系统 SDK／链接器按上文的平台提示安装。
@@ -434,7 +438,7 @@ QS 文档工具栏可打开底部「语句属性」，表单直接编辑同一�
 
 视图菜单按“编辑与创作、预览与调试、资源与扩展、开发工具”分组，显示当前可见、已打开、未打开和不可用状态；需要预览运行的工具会注明原因。可按名称、英文 ID 或分类搜索，使用方向键选择、Enter 打开、Escape 关闭。内置角色和动画面板归入创作，其余插件面板归入“资源与扩展”，重置布局位于菜单底部。
 
-设置支持搜索、功能分类、仅看已修改项、逐项恢复和整体恢复。25 个选项涵盖颜色主题与明暗模式、字体与排版、代码辅助显示、保存时格式化、终端字号和滚动记录、Native 预览帧率、界面密度、动态效果和启动布局。终端设置会更新现有会话；布局恢复不会恢复旧 Shell 进程。
+设置支持搜索、功能分类、仅看已修改项、逐项恢复和整体恢复。选项涵盖颜色主题与明暗模式、字体与排版、代码辅助显示、保存时格式化、终端字号和滚动记录、界面密度、动态效果和启动布局。终端设置会更新现有会话；布局恢复不会恢复旧 Shell 进程。
 
 验证：`node packages/editor/electron/scripts/settings-dock-smoke.mjs` 检查设置搜索/持久化、真实拖拽、拆分、关闭/恢复和紧凑窗口；`visual-authoring-smoke.mjs` 检查底部属性编辑的草稿、撤销和保存。
 

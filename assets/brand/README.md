@@ -4,23 +4,25 @@ The shared identity is an original, simple chibi guide: strawberry-pink bob, min
 
 ## Files
 
-| File | Use |
-| --- | --- |
-| [mascot.png](mascot.png) | Reviewed 1024 × 1024 source illustration |
-| [mascot.webp](mascot.webp) | 640 × 640 optimized website illustration |
-| [avatar-96.webp](avatar-96.webp) | 96 × 96 navigation / small avatar |
-| [quadevteam-icon.png](quadevteam-icon.png) | 1024 × 1024 organization avatar |
-| [quaengine-icon.png](quaengine-icon.png) | 1024 × 1024 project avatar |
-| [quaeditor-icon.png](quaeditor-icon.png) | 1024 × 1024 Editor app icon: macOS squircle mascot tile and mint editing pencil |
-| [quaengine-favicon.png](quaengine-favicon.png) | 64 × 64 browser icon |
-| [quaengine-banner.png](quaengine-banner.png) | 1280 × 640 general-purpose brand banner |
-| [quaengine-readme-light.png](quaengine-readme-light.png) / [dark](quaengine-readme-dark.png) | 1600 × 600 theme-aware README cover |
-| [quaengine-docs-light.png](quaengine-docs-light.png) / [dark](quaengine-docs-dark.png) | 1440 × 980 actual documentation screenshots |
-| [readme-previews.json](readme-previews.json) | Screenshot source, viewport, browser and capture date |
-| [quaengine-social.png](quaengine-social.png) | 1200 × 600 repository / website social preview |
-| [quadevteam-logo.png](quadevteam-logo.png) | 960 × 320 organization wordmark |
-| [generation.json](generation.json) | Model, quality, prediction ID and provenance |
-| [Final prompt](prompts/chibi-mascot-medium.txt) | Reproducible generation specification |
+| File                                                                                                  | Use                                                                             |
+| ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| [mascot.png](mascot.png)                                                                              | Reviewed 1024 × 1024 source illustration                                        |
+| [mascot.webp](mascot.webp)                                                                            | 640 × 640 optimized website illustration                                        |
+| [avatar-96.webp](avatar-96.webp)                                                                      | 96 × 96 navigation / small avatar                                               |
+| [quadevteam-icon.png](quadevteam-icon.png)                                                            | 1024 × 1024 organization avatar                                                 |
+| [quaengine-icon.png](quaengine-icon.png)                                                              | 1024 × 1024 project avatar                                                      |
+| [quaeditor-icon.png](quaeditor-icon.png)                                                              | 1024 × 1024 Editor app icon: macOS squircle mascot tile and mint editing pencil |
+| [quaengine-favicon.png](quaengine-favicon.png)                                                        | 64 × 64 browser icon                                                            |
+| [quaengine-banner.png](quaengine-banner.png)                                                          | 1280 × 640 general-purpose brand banner                                         |
+| [quaengine-readme-light.png](quaengine-readme-light.png) / [dark](quaengine-readme-dark.png)          | 1600 × 600 English README covers                                                |
+| [quaengine-docs-light.png](quaengine-docs-light.png) / [dark](quaengine-docs-dark.png)                | 1440 × 1100 actual Chinese documentation screenshots                            |
+| [quaengine-readme-zh-light.png](quaengine-readme-zh-light.png) / [dark](quaengine-readme-zh-dark.png) | 1600 × 600 Chinese README covers                                                |
+| [quaengine-docs-en-light.png](quaengine-docs-en-light.png) / [dark](quaengine-docs-en-dark.png)       | 1440 × 1100 actual English documentation screenshots                            |
+| [readme-previews.json](readme-previews.json)                                                          | Screenshot source, viewport, browser and capture date                           |
+| [quaengine-social.png](quaengine-social.png)                                                          | 1200 × 600 repository / website social preview                                  |
+| [quadevteam-logo.png](quadevteam-logo.png)                                                            | 960 × 320 organization wordmark                                                 |
+| [generation.json](generation.json)                                                                    | Model, quality, prediction ID and provenance                                    |
+| [Final prompt](prompts/chibi-mascot-medium.txt)                                                       | Reproducible generation specification                                           |
 
 The avatars have an opaque cream background. The Editor icon has transparent outer margins around its continuous-corner cream tile. SVGs embed the matching raster export, so they work as standalone files and in image elements. Older candidates and prompts are historical exploration, not current brand variants.
 
@@ -34,7 +36,7 @@ Install Pillow in your Python environment, then run from the repository root:
 python3 scripts/brand/export.py --font '/System/Library/Fonts/Supplemental/Arial Rounded Bold.ttf'
 ```
 
-On another platform, supply a local TrueType font you may use for rendering. The font is not redistributed. The exporter updates the canonical PNG/WebP files, `demo/public/{icon,favicon}.png`, and the Vue starter's `assets/app/{icon,favicon}.png`. Existing project manifest paths remain valid. `docs/scripts/prepare-content.mjs` copies the web assets to the ignored docs static directory.
+The Chinese covers use the local macOS STHeiti font by default. On another platform, also pass `--font-cjk /path/to/cjk-font.ttf` and supply local fonts you may use for rendering. The font is not redistributed. The exporter updates the canonical PNG/WebP files, `demo/public/{icon,favicon}.png`, and the Vue starter's `assets/app/{icon,favicon}.png`. Existing project manifest paths remain valid. `docs/scripts/prepare-content.mjs` copies the web assets to the ignored docs static directory.
 
 ## Editor application icon
 
@@ -56,15 +58,15 @@ The files are ready for those placements. Local exports do not imply the remote 
 
 ## README presentation
 
-The README uses GitHub-compatible `<picture>` elements with `prefers-color-scheme` to select the matching cover and documentation screenshot. The light image is the fallback. Keep links, commands, feature summaries, license information and progress limits as real text, not text embedded in an image.
+`README.md` is English; `README.zh-CN.md` is Simplified Chinese. Each uses its own language for the cover, tutorial screenshot, alt text and caption. Both READMEs use GitHub-compatible `<picture>` elements with `prefers-color-scheme` to select the matching cover and documentation screenshot. The light image is the fallback. Keep links, commands, feature summaries, license information and progress limits as real text, not text embedded in an image.
 
-`scripts/brand/readme.py` composes the covers from the existing reviewed mascot during the normal export. It does not regenerate or recolor the character. To refresh the documentation screenshots, start the production docs preview, then run from the repository root:
+`scripts/brand/readme.py` composes the covers from the existing reviewed mascot during the normal export. It does not regenerate or recolor the character. To export only the four README covers, run `python3 scripts/brand/readme.py --font '/System/Library/Fonts/Supplemental/Arial Rounded Bold.ttf'` (with `--font-cjk` when needed). To refresh the documentation screenshots, build the current docs and start a fresh production preview, then run from the repository root:
 
 ```bash
 node scripts/brand/capture-docs.mjs
 ```
 
-Install the docs dependencies first. The capture uses local Chrome or Playwright Chromium; `DOCS_TEST_URL` and `CHROME_PATH` can override their locations. The screenshots show the actual first-scene tutorial, not an editor/game mockup, and their provenance is recorded in `readme-previews.json`.
+Install the docs dependencies first. The capture uses local Chrome or Playwright Chromium; `DOCS_TEST_URL` and `CHROME_PATH` can override their locations. The capture visits `/docs/getting-started/first-story/` and `/docs/en/getting-started/first-story/`, checks the document language, actual syntax highlighting, and English shell/content, then saves light/dark screenshots. `readme-previews.json` records routes, locale, build version, viewport, browser, date, and SHA-256 per image. These are documentation captures, not editor/game parity evidence.
 
 ## Rights
 

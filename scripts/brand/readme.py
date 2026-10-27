@@ -1,8 +1,9 @@
 """Compose theme-aware README covers from the reviewed mascot; no AI calls."""
+from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 
 
-def export_readme(portrait, directory, font_path):
+def export_readme(portrait, directory, font_path, cjk_font_path=None):
     def font(size):
         return ImageFont.truetype(str(font_path), size)
 
@@ -12,19 +13,24 @@ def export_readme(portrait, directory, font_path):
         'dark': dict(bg='#241f26', ink='#fff3f0', muted='#c5b3bd', accent='#f1adc3',
                      line='#493943', pink='#3e2b37', mint='#293d36', star='#a4cbb6'),
     }
-    for mode, p in palettes.items():
+    cjk_font_path = cjk_font_path or Path('/System/Library/Fonts/STHeiti Medium.ttc')
+    for locale, mode in [(locale, mode) for locale in ('en', 'zh') for mode in palettes]:
+        p = palettes[mode]
+        zh = locale == 'zh'
+        def copy_font(size):
+            return ImageFont.truetype(str(cjk_font_path), size) if zh else font(size)
         cover = Image.new('RGB', (1600, 600), p['bg'])
         d = ImageDraw.Draw(cover)
         d.ellipse((1260, -310, 1900, 330), fill=p['pink'])
         d.ellipse((-150, 510, 360, 1020), fill=p['mint'])
         d.rounded_rectangle((1, 1, 1598, 598), radius=34, outline=p['line'], width=2)
-        d.text((82, 68), 'FOR THE LOVE OF STORIES', font=font(21), fill=p['muted'])
+        d.text((82, 68), '为视觉小说创作者而作' if zh else 'VISUAL NOVEL ENGINE', font=copy_font(21), fill=p['muted'])
         d.text((75, 136), 'QuaEngine', font=font(130), fill=p['ink'])
-        d.text((82, 312), 'A little engine.', font=font(43), fill=p['ink'])
-        d.text((82, 365), 'A world of stories.', font=font(43), fill=p['accent'])
+        d.text((82, 312), '用文字，写下故事。' if zh else 'Write the story.', font=copy_font(43), fill=p['ink'])
+        d.text((82, 365), '用代码，连接世界。' if zh else 'Build your world.', font=copy_font(43), fill=p['accent'])
         d.line((84, 459, 720, 459), fill=p['line'], width=2)
         d.text((84, 490), 'QuaScript  /  TypeScript', font=font(24), fill=p['muted'])
-        d.text((84, 531), 'WEB  /  COCOS  /  NATIVE', font=font(18), fill=p['muted'])
+        d.text((84, 531), 'WEB  /  COCOS  /  GODOT  /  NATIVE', font=font(18), fill=p['muted'])
 
         # The original cream ground is intentional in both themes. Retain the
         # actual artwork instead of recoloring the character for dark mode.
@@ -35,7 +41,7 @@ def export_readme(portrait, directory, font_path):
         mask = Image.new('L', tile.size)
         ImageDraw.Draw(mask).rounded_rectangle((0, 0, 465, 465), radius=15, fill=255)
         card.paste(tile, (21, 19), mask)
-        cd.text((37, 499), 'HELLO, STORYTELLER!', font=font(17), fill='#806d76')
+        cd.text((37, 499), '欢迎，故事的创作者。' if zh else 'HELLO, STORYTELLER!', font=copy_font(17), fill='#806d76')
         cd.text((463, 497), '+', font=font(22), fill='#b45172')
         card = card.rotate(-5, resample=Image.Resampling.BICUBIC, expand=True)
         cover.paste(card, (970, 8), card)
@@ -43,4 +49,15 @@ def export_readme(portrait, directory, font_path):
         for x, y, r, color in [(927, 113, 20, p['star']), (909, 156, 10, p['accent']), (1534, 523, 15, p['star'])]:
             d.polygon([(x, y-r), (x+r*.22, y-r*.22), (x+r, y), (x+r*.22, y+r*.22),
                        (x, y+r), (x-r*.22, y+r*.22), (x-r, y), (x-r*.22, y-r*.22)], fill=color)
-        cover.save(directory / f'quaengine-readme-{mode}.png', optimize=True)
+        suffix = f'zh-{mode}' if zh else mode
+        cover.save(directory / f'quaengine-readme-{suffix}.png', optimize=True)
+
+
+if __name__ == '__main__':
+    import argparse
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--font', type=Path, required=True)
+    parser.add_argument('--font-cjk', type=Path, default=Path('/System/Library/Fonts/STHeiti Medium.ttc'))
+    args = parser.parse_args()
+    directory = Path(__file__).resolve().parents[2] / 'assets/brand'
+    export_readme(Image.open(directory / 'mascot.png').convert('RGB'), directory, args.font, args.font_cjk)

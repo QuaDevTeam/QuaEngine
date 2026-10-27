@@ -1,5 +1,7 @@
 # QuaEngine Animation Editor
 
+**English** · [简体中文](README.zh-CN.md)
+
 Built-in **动画** bottom panel for QuaEngine Editor. Drag the workbench panel divider upward for a larger preview. The package is editor tooling under MPL-2.0; animations authored with it are not covered by the editor's license.
 
 1. Open or switch to an indexed `*.animation.json` source tab to reveal **动画** and load that timeline automatically. You can also select **动画** and choose **新建动画** or a file manually. Unapplied visual edits are retained until you explicitly discard them to switch.

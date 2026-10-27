@@ -15,7 +15,7 @@ pnpm --version
 
 ## 从源码启动编辑器
 
-截至 2026-10-21，`create-qua-game` 尚未发布到 npm，编辑器也尚无公开 Release。当前从源码启动编辑器；其内置模板和 SDK 压缩包可创建不依赖未发布 QuaEngine npm 包的新项目。
+截至 2026-10-27，`create-qua-game` 尚未发布到 npm，编辑器也尚无公开 Release。当前从源码启动编辑器；其内置模板和 SDK 压缩包可创建不依赖未发布 QuaEngine npm 包的新项目。
 
 ```bash
 git clone https://github.com/QuaDevTeam/QuaEngine.git

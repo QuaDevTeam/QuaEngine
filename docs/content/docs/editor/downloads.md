@@ -4,7 +4,7 @@ description: "查看编辑器发行状态，从源码启动，并了解稳定版
 order: 2
 ---
 
-QuaEngine Editor 与引擎包独立发版。截至 **2026-10-21**，仓库尚无公开 Editor Release，当前没有可下载的稳定版或测试版安装包。可在 [GitHub Releases](https://github.com/QuaDevTeam/QuaEngine/releases) 查看后续发行状态。
+QuaEngine Editor 与引擎包独立发版。截至 **2026-10-27**，仓库尚无公开 Editor Release，当前没有可下载的稳定版或测试版安装包。可在 [GitHub Releases](https://github.com/QuaDevTeam/QuaEngine/releases) 查看后续发行状态。
 
 ## 当前从源码启动
 

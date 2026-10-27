@@ -5,12 +5,12 @@
 </script>
 
 <footer class="qua-footer">
-  <div class="footer-brand"><span>QuaEngine</span><p>每个好故事，都值得被看见。</p></div>
-  <nav aria-label="页脚导航">
-    <a href={resolveLocalizedHref('/docs', context)}>阅读文档</a>
-    <a href={resolveLocalizedHref('/brand', context)}>品牌素材</a>
-    <a href={resolveLocalizedHref('/docs/project/contributing', context)}>参与共建</a>
-    <a href={resolveLocalizedHref('/docs/project/license', context)}>开源许可</a>
+  <div class="footer-brand"><span>QuaEngine</span><p>{context.t('qua.footer.tagline')}</p></div>
+  <nav aria-label={context.t('nav.footer')}>
+    <a href={resolveLocalizedHref('/docs', context)}>{context.t('qua.footer.docs')}</a>
+    <a href={resolveLocalizedHref('/brand', context)}>{context.t('qua.footer.brand')}</a>
+    <a href={resolveLocalizedHref('/docs/project/contributing', context)}>{context.t('qua.footer.contribute')}</a>
+    <a href={resolveLocalizedHref('/docs/project/license', context)}>{context.t('qua.footer.license')}</a>
     <a href="https://github.com/QuaDevTeam">GitHub ↗</a>
   </nav>
   <div class="footer-bottom"><span>Made with care, by QuaDevTeam.</span><span>Built with Svelte & svedocs <span aria-hidden="true">♡</span></span></div>

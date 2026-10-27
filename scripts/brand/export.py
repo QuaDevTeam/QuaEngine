@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[2]
 BRAND = ROOT / 'assets/brand'
 
 
-def export(font_path: Path):
+def export(font_path: Path, cjk_font_path: Path):
     portrait = Image.open(BRAND / 'mascot.png').convert('RGB')
     if portrait.size != (1024, 1024):
         raise ValueError('Expected the reviewed 1024 x 1024 source portrait')
@@ -30,7 +30,7 @@ def export(font_path: Path):
     def star(draw, x, y, radius, color):
         draw.polygon([(x, y-radius), (x+radius*.23, y-radius*.23), (x+radius, y), (x+radius*.23, y+radius*.23), (x, y+radius), (x-radius*.23, y+radius*.23), (x-radius, y), (x-radius*.23, y-radius*.23)], fill=color)
 
-    export_readme(portrait, BRAND, font_path)
+    export_readme(portrait, BRAND, font_path, cjk_font_path)
     export_editor(portrait)
 
     for name in ('quaengine-icon', 'quadevteam-icon'):
@@ -108,4 +108,6 @@ def export(font_path: Path):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--font', type=Path, required=True, help='Local TrueType font used for wordmarks; no font file is bundled.')
-    export(parser.parse_args().font)
+    parser.add_argument('--font-cjk', type=Path, default=Path('/System/Library/Fonts/STHeiti Medium.ttc'), help='Local CJK font for Chinese README covers.')
+    args = parser.parse_args()
+    export(args.font, args.font_cjk)

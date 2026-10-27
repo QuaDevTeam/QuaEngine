@@ -23,7 +23,9 @@ interface Node {
 
 export function quaCodeBlocks() {
   return async (tree: unknown) => {
-    async function visit(node: Node) {
+    async function visit(node: Node, language = 'zh-CN') {
+      const locale = typeof node.properties?.lang === 'string' ? node.properties.lang : language;
+      const copyLabel = locale === 'en' ? 'Copy code' : '复制代码';
       if (node.type === 'element' && node.tagName === 'pre') {
         const code = node.children?.find(child => child.tagName === 'code');
         if (!code || node.properties?.['data-enhanced'] || node.properties?.dataEnhanced) return;
@@ -59,7 +61,7 @@ export function quaCodeBlocks() {
         node.children = [
           { type: 'element', tagName: 'span', properties: { className: ['sd-code-header'] }, children: [
             { type: 'element', tagName: 'span', properties: { className: ['sd-code-language'], 'data-language': language }, children: [{ type: 'text', value: isQuaScript ? 'QuaScript' : language.toUpperCase() }] },
-            { type: 'element', tagName: 'button', properties: { type: 'button', className: ['sd-code-copy'], 'data-sd-copy': '', 'aria-label': '复制代码', title: '复制代码' }, children: [
+            { type: 'element', tagName: 'button', properties: { type: 'button', className: ['sd-code-copy'], 'data-sd-copy': '', 'aria-label': copyLabel, title: copyLabel }, children: [
               { type: 'element', tagName: 'svg', properties: { viewBox: '0 0 24 24', 'aria-hidden': 'true' }, children: [
                 { type: 'element', tagName: 'path', properties: { d: 'M9 5h9v14H9zM6 8v12h10' } }
               ] }
@@ -68,7 +70,7 @@ export function quaCodeBlocks() {
         ];
         return;
       }
-      await Promise.all(node.children?.map(visit) ?? []);
+      await Promise.all(node.children?.map(child => visit(child, locale)) ?? []);
     }
     await visit(tree as Node);
   };

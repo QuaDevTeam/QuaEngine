@@ -1,15 +1,46 @@
 {
-  "capturedAt": "2026-09-21T17:20:52.931Z",
-  "route": "/docs/getting-started/first-story/",
+  "capturedAt": "2026-10-27T10:16:09.313Z",
   "source": "Local production build of docs/",
+  "buildVersion": "1793096131336",
   "viewport": {
     "width": 1440,
-    "height": 980
+    "height": 1100
   },
-  "themes": [
-    "light",
-    "dark"
+  "deviceScaleFactor": 1,
+  "browser": "155.0.8059.84",
+  "captures": [
+    {
+      "locale": "zh-CN",
+      "route": "/docs/getting-started/first-story/",
+      "title": "写下第一幕",
+      "theme": "light",
+      "filename": "quaengine-docs-light.png",
+      "sha256": "d196597618c83f386ac42f91dcb64ac5076b9b42556360f9f30d3b41724124f4"
+    },
+    {
+      "locale": "zh-CN",
+      "route": "/docs/getting-started/first-story/",
+      "title": "写下第一幕",
+      "theme": "dark",
+      "filename": "quaengine-docs-dark.png",
+      "sha256": "d1b266c8a26adbf73acaba5f0699bd22cd07251f584d88ce1569149fdda72dc2"
+    },
+    {
+      "locale": "en",
+      "route": "/docs/en/getting-started/first-story/",
+      "title": "Write your first scene",
+      "theme": "light",
+      "filename": "quaengine-docs-en-light.png",
+      "sha256": "ec9ab0dd1aa251a858a2150eeb4c988c656481fae7a2eef183589a5191dd1742"
+    },
+    {
+      "locale": "en",
+      "route": "/docs/en/getting-started/first-story/",
+      "title": "Write your first scene",
+      "theme": "dark",
+      "filename": "quaengine-docs-en-dark.png",
+      "sha256": "db21c6dc2b186a31fb0408c3e2500c8fb3fe2fa71cf7a7e679e75f0f9429d648"
+    }
   ],
-  "browser": "153.0.8010.48",
-  "note": "Real documentation UI. These screenshots do not represent editor or game renderer validation."
+  "note": "Real localized documentation UI. These screenshots do not represent editor or game renderer validation."
 }

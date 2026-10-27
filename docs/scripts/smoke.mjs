@@ -297,6 +297,44 @@ try {
   await noOverflow();
   check('Brand downloads and 404 recovery');
 
+  await open('/docs/en/getting-started/first-story/');
+  assert.equal(await page.locator('html').getAttribute('lang'), 'en');
+  assert.doesNotMatch(await page.locator('body').innerText(), /[\u4e00-\u9fff]/);
+  assert.equal(await page.locator('.sd-code-copy').first().getAttribute('aria-label'), 'Copy code');
+  await page.getByRole('button', { name: 'Locale', exact: true }).click();
+  await page.getByRole('menuitemradio', { name: '简体中文', exact: true }).click();
+  await page.waitForURL(url => url.pathname.replace(/\/$/, '') === '/docs/getting-started/first-story');
+  await page.getByRole('button', { name: '语言', exact: true }).click();
+  await page.getByRole('menuitemradio', { name: 'English', exact: true }).click();
+  await page.waitForURL(url => url.pathname.replace(/\/$/, '') === '/docs/en/getting-started/first-story');
+  await page.locator('.sd-search-trigger').click();
+  const englishSearch = page.getByRole('dialog', { name: 'Search documentation', exact: true });
+  await englishSearch.locator('input').fill('scene');
+  await englishSearch.locator('a[href^="/docs/en/"]').first().waitFor();
+  for (const link of await englishSearch.locator('a[href^="/docs/"]').all()) {
+    const resultPath = new URL(await link.getAttribute('href'), base).pathname;
+    assert.ok(resultPath === '/docs/en' || resultPath.startsWith('/docs/en/'), 'English search stays in the active locale');
+  }
+  await page.keyboard.press('Escape');
+  for (const width of [1024, 390, 320]) {
+    await page.setViewportSize({ width, height: 844 });
+    await noOverflow();
+    await shot(`first-story-en-${width}`);
+  }
+  await page.getByRole('button', { name: 'Open menu', exact: true }).click();
+  await page.locator('.qua-mobile-menu').waitFor();
+  await noOverflow();
+  await shot('first-story-en-mobile-menu');
+  await page.keyboard.press('Escape');
+  await open('/docs/platforms/godot/');
+  await page.getByRole('button', { name: '语言', exact: true }).click();
+  assert.equal(await page.getByRole('menuitemradio', { name: 'English', exact: true }).getAttribute('aria-disabled'), 'true');
+  await page.keyboard.press('Escape');
+  await open('/docs/en/platforms/godot/');
+  await page.waitForURL(url => url.pathname.replace(/\/$/, '') === '/docs/platforms/godot');
+  await page.setViewportSize({ width: 1440, height: 1050 });
+  check('Real English tutorial, language switching, scoped search, mobile layout and missing-translation fallback');
+
   const sources = JSON.parse(await readFile(new URL('../.generated/sources.json', import.meta.url), 'utf8'));
   for (let i = 0; i < sources.length; i += 8) {
     await Promise.all(sources.slice(i, i + 8).map(async ({ route }) => {

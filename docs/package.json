@@ -16,7 +16,8 @@
     "test:markdown": "node --experimental-strip-types --test scripts/markdown.test.mjs",
     "deploy:check": "wrangler deploy --dry-run --no-autoconfig",
     "deploy": "pnpm check && pnpm build && wrangler deploy --no-autoconfig",
-    "dev:worker": "wrangler dev --port 4176"
+    "dev:worker": "wrangler dev --port 4176",
+    "test:editor": "node scripts/editor-smoke.mjs"
   },
   "dependencies": {
     "@fontsource-variable/nunito": "^5.2.8",

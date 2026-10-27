@@ -1,14 +1,16 @@
 <h1 align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="assets/brand/quaengine-readme-dark.png" />
-    <img src="assets/brand/quaengine-readme-light.png" alt="QuaEngine — a little engine, a world of stories. A pink-haired chibi guide welcomes you." width="960" />
+    <img src="assets/brand/quaengine-readme-light.png" alt="QuaEngine — a TypeScript visual novel engine, with its pink-haired mascot and four rendering targets." width="960" />
   </picture>
 </h1>
 
 <p align="center">
-  <strong>Write the story. Set the scene. Make it yours.</strong><br />
-  An open-source visual novel engine and creative workspace, built with TypeScript.
+  <strong>A TypeScript visual novel engine with an Electron authoring workspace.</strong><br />
+  QuaScript stories · Plugin-based staging · Web / Cocos / Godot / Native
 </p>
+
+<p align="center"><strong>English</strong> · <a href="README.zh-CN.md">简体中文</a></p>
 
 <p align="center">
   <a href="#current-progress"><img src="https://img.shields.io/badge/version-0.1.0-b45172?style=flat&amp;labelColor=40363c" alt="Version 0.1.0" /></a>
@@ -19,7 +21,7 @@
 
 <p align="center">
   <a href="#start-creating">Quick start</a> &nbsp;·&nbsp;
-  <a href="https://quaengine.com/docs/">Documentation</a> &nbsp;·&nbsp;
+  <a href="https://quaengine.com/docs/en/">Documentation</a> &nbsp;·&nbsp;
   <a href="#your-creative-workspace">Editor</a> &nbsp;·&nbsp;
   <a href="#try-the-demo">Demo</a> &nbsp;·&nbsp;
   <a href="#current-progress">Progress</a>
@@ -49,7 +51,7 @@ QuaEngine brings dialogue, branching stories, characters, and audiovisual stagin
 
 ## Start creating
 
-Start the editor from source:
+Use **Node.js 22.12+** and **pnpm 12.3.4**, then start the editor from source:
 
 ```bash
 git clone https://github.com/QuaDevTeam/QuaEngine.git
@@ -58,7 +60,7 @@ pnpm install --frozen-lockfile
 pnpm dev:editor
 ```
 
-Choose **File → New Project** to create a Vue + QuaScript game. The editor supplies portable SDK archives in the project, including the engine, renderer, script compiler, asset loading, and configuration. As of October 21, 2026, `create-qua-game` is not published on npm and public Editor releases are not available. See the [quick start](docs/content/docs/getting-started/index.md), then [write your first scene](docs/content/docs/getting-started/first-story.md). macOS editor builds require Xcode Command Line Tools and Node-API headers; Native/Godot game targets also require Rust.
+Choose **File → New Project** (文件 → 新建项目 in the current Chinese editor UI) to create a Vue + QuaScript game. The editor supplies portable SDK archives in the project, including the engine, renderer, script compiler, asset loading, and configuration. As of October 27, 2026, `create-qua-game` is not published on npm and public Editor releases are not available. See the [quick start](docs/content/docs/en/getting-started/index.md), then [write your first scene](docs/content/docs/en/getting-started/first-story.md). macOS editor builds require Xcode Command Line Tools and Node-API headers; Native/Godot game targets also require Rust.
 
 ## Write with QuaScript
 
@@ -76,9 +78,10 @@ Asset paths above are illustrative. Feature packages publish decorators through 
 
 The standalone **QuaEngine Editor** brings project files, authoring tools, and previews together:
 
-- **Write and navigate:** Monaco language tools and visual QuaScript editing.
+- **Write and navigate:** Monaco completion, diagnostics, definitions, story outlines, and visual QuaScript editing.
 - **Arrange the scene:** character profiles, sprite resources, and animation timelines.
-- **Preview and inspect:** embedded Web/Native previews, story navigation, and storage inspection.
+- **Preview and inspect:** embedded Web/Native previews, source navigation, Inspector, performance, and storage/resource inspection.
+- **Manage the project:** movable docked panels, asset browsing, integrated terminals, Git changes, and target packaging.
 - **Develop the idea:** built-in Novel Writer with project context and reviewed script drafts.
 
 ```bash
@@ -86,26 +89,26 @@ The standalone **QuaEngine Editor** brings project files, authoring tools, and p
 pnpm dev:editor
 ```
 
-[Editor setup and capabilities](packages/editor/README.md) · [Character editor](packages/editor/character/README.md) · [Animation editor](packages/editor/animation/README.md)
+[Editor setup and capabilities](packages/editor/README.en.md) · [Character editor](packages/editor/character/README.md) · [Animation editor](packages/editor/animation/README.md)
 
 The plugin marketplace connects to the Cloudflare Workers + D1 registry at `registry.quaengine.com`. It includes npm ownership verification, automatic system / optional Jev review, scheduled sync, and editor publication. See the [publisher guide](packages/services/plugin-registry/README.md) and [editor plugin contracts](docs/design/editor-plugins.md).
 
 ## Documentation
 
-A creator handbook with a custom sakura-and-cream theme: tutorials, searchable package references, architecture guides, and machine-readable pages, built with **svedocs 0.2.4**.
+A creator handbook with tutorials, searchable package references, architecture guides, and machine-readable pages, built with **svedocs 0.2.4**. The quick start, first-scene tutorial, and Editor handbook are available in English and Chinese; other creator guides are currently Chinese, and references retain their source language.
 
-**[Visit quaengine.com](https://quaengine.com)** · **[Read the handbook](https://quaengine.com/docs/)**
+**[Visit quaengine.com](https://quaengine.com)** · **[Read the handbook](https://quaengine.com/docs/en/)**
 
-<a href="https://quaengine.com/docs/getting-started/first-story/">
+<a href="https://quaengine.com/docs/en/getting-started/first-story/">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/brand/quaengine-docs-dark.png" />
-    <img src="assets/brand/quaengine-docs-light.png" alt="The QuaEngine handbook: navigation, a Chinese first-scene tutorial, QuaScript code, and a page outline. Actual documentation site screenshot." width="960" />
+    <source media="(prefers-color-scheme: dark)" srcset="assets/brand/quaengine-docs-en-dark.png" />
+    <img src="assets/brand/quaengine-docs-en-light.png" alt="The QuaEngine handbook: English navigation, the first-scene tutorial, highlighted QuaScript code, and a page outline. Actual documentation site screenshot." width="960" />
   </picture>
 </a>
 
-<p align="center"><sub>The real documentation UI, in your preferred light or dark theme.</sub></p>
+<p align="center"><sub>English handbook, captured from the current production build in light and dark themes.</sub></p>
 
-[Quick start](docs/content/docs/getting-started/index.md) · [Authoring](docs/content/docs/authoring/index.md) · [Editor](docs/content/docs/editor/index.md) · [Platforms](docs/content/docs/platforms/index.md) · [Reference](docs/content/docs/reference/index.md)
+[Quick start](docs/content/docs/en/getting-started/index.md) · [First scene](docs/content/docs/en/getting-started/first-story.md) · [Authoring (Chinese)](docs/content/docs/authoring/index.md) · [Editor](docs/content/docs/en/editor/index.md) · [Platforms](docs/content/docs/platforms/index.md) · [Reference](docs/content/docs/reference/index.md)
 
 ```bash
 pnpm --dir docs install --frozen-lockfile
@@ -122,14 +125,14 @@ Static output is written to `docs/build/` and published to `quaengine.com` with 
 <details>
 <summary><strong>Looking for a specific API or design document?</strong></summary>
 
-| Topic | Start here |
-| --- | --- |
-| Narrative and plugins | [Engine API](packages/core/engine/docs/global-api.md) · [Plugin system](packages/core/engine/docs/plugin-system.md) · [Story graph](packages/game/story-graph/README.md) |
-| Rendering | [Web](packages/render/web/README.md) · [Vue](packages/render/vue/README.md) · [React](packages/render/react/README.md) · [Svelte](packages/render/svelte/README.md) |
-| Cocos and Godot | [Cocos workspace](docs/content/docs/platforms/cocos.md) · [Godot project](docs/content/docs/platforms/godot.md) · [Shared scene renderer](packages/render/scene/README.md) · [Godot host](packages/platform/godot-host/README.md) |
-| Assets and authoring | [Quack](packages/build/quack/README.md) · [QuaScript](packages/build/script-compiler/README.md) · [PSD workflow](docs/guides/psd-sprite-ui-skin.md) |
-| Dynamic content | [Runtime QPKs](docs/design/dynamic-runtime-qpk.md) · [Web security](docs/security/web-security.md) |
-| Native | [JavaScriptCore runtime](docs/design/native-jsc-runtime.md) · [UI authoring](docs/reviews/native-ui-authoring.md) · [Migration verification](docs/reviews/native-jsc-migration-2026-09-21.md) |
+| Topic                 | Start here                                                                                                                                                                                                                        |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Narrative and plugins | [Engine API](packages/core/engine/docs/global-api.md) · [Plugin system](packages/core/engine/docs/plugin-system.md) · [Story graph](packages/game/story-graph/README.md)                                                          |
+| Rendering             | [Web](packages/render/web/README.md) · [Vue](packages/render/vue/README.md) · [React](packages/render/react/README.md) · [Svelte](packages/render/svelte/README.md)                                                               |
+| Cocos and Godot       | [Cocos workspace](docs/content/docs/platforms/cocos.md) · [Godot project](docs/content/docs/platforms/godot.md) · [Shared scene renderer](packages/render/scene/README.md) · [Godot host](packages/platform/godot-host/README.md) |
+| Assets and authoring  | [Quack](packages/build/quack/README.md) · [QuaScript](packages/build/script-compiler/README.md) · [PSD workflow](docs/guides/psd-sprite-ui-skin.md)                                                                               |
+| Dynamic content       | [Runtime QPKs](docs/design/dynamic-runtime-qpk.md) · [Web security](docs/security/web-security.md)                                                                                                                                |
+| Native                | [JavaScriptCore runtime](docs/design/native-jsc-runtime.md) · [UI authoring](docs/reviews/native-ui-authoring.md) · [Migration verification](docs/reviews/native-jsc-migration-2026-09-21.md)                                     |
 
 </details>
 
@@ -137,10 +140,10 @@ Static output is written to `docs/build/` and published to `quaengine.com` with 
 
 [**明天，请再一次呼唤我 — Call Me Again Tomorrow**](demo/README.md) is the in-development demo: a near-future coastal mystery about a sound archive, a radio station, and a broadcast arriving before it has been recorded.
 
-The current rewrite includes a playable QuaScript story with multiple endings, Web/Vue, Cocos, Godot and Native entry points, a paper-and-sea-green UI, chapter navigation, save/load, reading settings, and backlog. Artwork and full audiovisual staging are still being produced; the gallery is not yet open in the current demo.
+The story and its staging are actively being revised. It has Web/Vue, Cocos, Godot, and Native entry points; the targets share a TSX/QUI + QSS product UI for the title menu, dialogue tools, chapter navigation, save/load, settings, and backlog. Artwork and full audiovisual staging remain in progress, and the gallery is not yet open. Targeted regression checks do not establish acceptance of every story branch.
 
 ```bash
-pnpm install
+pnpm install --frozen-lockfile
 pnpm --filter demo dev
 ```
 
@@ -162,19 +165,19 @@ The demo's story, characters, artwork, and other creative content are proprietar
 
 ## Current progress
 
-**October 21, 2026 · Version 0.1.0.** These capabilities are implemented in the repository. APIs and package boundaries may still change; validate your game's target platforms before release.
+**October 27, 2026 · Version 0.1.0.** These capabilities are implemented in the repository. APIs and package boundaries may still change; validate your game's target platforms before release.
 
-| Area | Available today |
-| --- | --- |
-| Story runtime | Scenes, dialogue, choices, characters, checkpoints, save/load, story graphs, and chapter selection |
-| Web | Shared DOM/WebAudio runtime, logical stage scaling, Vue reference adapter, and thin React/Svelte adapters |
-| Cocos | Renderer plugins, Creator host bridge, and asset/store/security adapters; platform parity is ongoing |
-| Godot | Standalone Godot 4.7+ projects, Rust GDExtension + QuickJS, shared Cocos/Godot scene projection, QUI, media and durable saves; first runtime validation on macOS |
-| Native | Rust + JavaScriptCore + wgpu, QUI/TSX and QSS, sprite/atlas rendering, nine-slice borders, rich text, and layer animation |
-| Feature plugins | Backgrounds, audio, animation, sprite/UI skins, fonts, backlog, gallery, achievements, inventory, settings, and asset loading |
-| Runtime QPKs | Side-by-side packages, trust verification, dynamic scripts/plugins, graph deltas, migrations, and save dependencies where supported by the target; Godot is static-QPK-only |
-| Creator tools | Electron editor, character/animation panels, visual script editing, previews, marketplace, and Novel Writer |
-| Build and docs | QuaScript compiler, HMR, Quack, Vite, project inspection, language tools, Vue starter, and searchable svedocs handbook |
+| Area            | Available today                                                                                                                                                             |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Story runtime   | Scenes, dialogue, choices, characters, checkpoints, save/load, story graphs, and chapter selection                                                                          |
+| Web             | Shared DOM/WebAudio runtime, logical stage scaling, Vue reference adapter, and thin React/Svelte adapters                                                                   |
+| Cocos           | Portable Creator 3.8.8 workspaces, shared QUI, Web/macOS builds, persistent saves, and media projection; optional host capabilities degrade gracefully                      |
+| Godot           | Standalone Godot 4.7+ projects, Rust GDExtension + QuickJS, shared Cocos/Godot scene projection, QUI, media and durable saves; first runtime validation on macOS            |
+| Native          | Rust + JavaScriptCore + wgpu, QUI/TSX and QSS, sprite/atlas rendering, nine-slice borders, rich text, and layer animation                                                   |
+| Feature plugins | Backgrounds, audio, animation, sprite/UI skins, fonts, backlog, gallery, achievements, inventory, settings, and asset loading                                               |
+| Runtime QPKs    | Side-by-side packages, trust verification, dynamic scripts/plugins, graph deltas, migrations, and save dependencies where supported by the target; Godot is static-QPK-only |
+| Creator tools   | Electron + Lit/SCSS workbench, Monaco, docked panels, character/animation tools, Web/Native preview, Inspector, Git, packaging, marketplace, and Svelte-based Novel Writer  |
+| Build and docs  | QuaScript compiler, HMR, Quack, Vite, project inspection, language tools, Vue starter, and searchable svedocs handbook                                                      |
 
 The Rust/wgpu Native target uses **JavaScriptCore** for both the resident engine and dynamic QPK modules; its old QuickJS paths have been removed. Godot uses a separate QuickJS host. The [Native migration report](docs/reviews/native-jsc-migration-2026-09-21.md) records macOS runtime/product checks and Windows cross-target checks. It distinguishes those results from Windows linking/JIT, Linux execution, visible-window acceptance, and Web/native visual parity. GPU readback alone does not prove complete parity.
 
@@ -194,6 +197,7 @@ flowchart LR
 
 - **Logic owns state.** Scenes, progress, choices, audio intent, and feature projections belong to the engine/store. Renderers draw those projections and return user intents through `@quajs/pipeline`.
 - **Web behavior is shared.** DOM projection, object URLs, WebAudio, stage math, and Web plugin factories live in `@quajs/renderer-web`; Vue, React, and Svelte adapt that runtime. Visual styles are explicitly imported.
+- **Product UI can be shared.** The demo defines menus and panels once in TSX/QUI and QSS; Web, Cocos, Godot, and Native project the same UI. Web-only games can still use their own framework UI.
 - **Scene projection is shared.** Cocos and Godot adapt `@quajs/renderer-scene` and `@quajs/scene-host`; each host owns its transient native nodes, media handles and input transport.
 - **Packages extend the story.** Dynamic and AI-generated content travels through QPK Runtime Packages. Production executable content requires verification; activation, migrations, save dependencies, and unload are engine-owned.
 - **Each build selects one target.** Web, Cocos, Godot, and Native have isolated bootstrap families. A target's bundle manifest drives its generated project and startup shell.
@@ -205,7 +209,7 @@ See the [Runtime QPK design](docs/design/dynamic-runtime-qpk.md) and [stage layo
 Use **pnpm `12.3.4`**. Package manifests require Node.js `>=20`; **Node.js 22.12+** is recommended for both the repository’s type-stripping commands and the documentation site’s Vite 8 build. Native work also requires Rust and the relevant platform build tools.
 
 ```bash
-pnpm install
+pnpm install --frozen-lockfile
 pnpm run build
 pnpm run test
 pnpm run lint
@@ -226,18 +230,18 @@ Contributions to runtime behavior, platform parity, plugins, examples, and docum
 <details>
 <summary><strong>Workspace map</strong></summary>
 
-| Directory                               | Responsibility                                                                           |
-| --------------------------------------- | ---------------------------------------------------------------------------------------- |
-| [packages/core](packages/core/)         | Engine, store, pipeline, platform-neutral assets, and plugin discovery                   |
-| [packages/game](packages/game/)         | Character APIs and story graph                                                           |
-| [packages/plugins](packages/plugins/)   | Independent game feature plugins                                                         |
+| Directory                               | Responsibility                                                                              |
+| --------------------------------------- | ------------------------------------------------------------------------------------------- |
+| [packages/core](packages/core/)         | Engine, store, pipeline, platform-neutral assets, and plugin discovery                      |
+| [packages/game](packages/game/)         | Character APIs and story graph                                                              |
+| [packages/plugins](packages/plugins/)   | Independent game feature plugins                                                            |
 | [packages/render](packages/render/)     | Universal render contracts; Web/framework renderers and shared Cocos/Godot scene projection |
-| [packages/platform](packages/platform/) | Web, Node, memory, Cocos and Godot adapters and host contracts                            |
-| [packages/native](packages/native/)     | Native contracts/adapters, JavaScriptCore runtime, wgpu renderer, UI compiler, and tooling      |
-| [packages/build](packages/build/)       | Quack, QuaScript compiler, Vite plugin, project inspector, starter, and language tooling |
-| [docs](docs/) | svedocs site, tutorials, generated package references, and theme |
-| [demo](demo/)                           | Shared Web/Cocos/Godot/Native visual novel demo                                           |
-| [packages/editor/novel-writer](packages/editor/novel-writer/)     | Built-in AI writing plugin with project context and guarded QuaScript editing                |
+| [packages/platform](packages/platform/) | Web, Node, memory, Cocos and Godot adapters and host contracts                              |
+| [packages/native](packages/native/)     | Native contracts/adapters, JavaScriptCore runtime, wgpu renderer, UI compiler, and tooling  |
+| [packages/build](packages/build/)       | Quack, QuaScript compiler, Vite plugin, project inspector, starter, and language tooling    |
+| [docs](docs/)                           | svedocs site, tutorials, generated package references, and theme                            |
+| [demo](demo/)                           | Shared Web/Cocos/Godot/Native visual novel demo                                             |
+| [packages/editor](packages/editor/)     | Electron authoring workspace, creative plugins, and built-in Novel Writer                   |
 
 </details>
 

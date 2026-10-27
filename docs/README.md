@@ -15,6 +15,7 @@ pnpm docs:build
 pnpm --dir docs preview
 # With preview running, and Chrome or Playwright Chromium available:
 pnpm --dir docs test:smoke
+pnpm --dir docs test:editor
 ```
 
 The local server uses `http://127.0.0.1:4173`. Browser QA artifacts are written to the ignored `docs/.generated/qa/` directory. Use `DOCS_TEST_URL` to point the smoke test at another preview, or `CHROME_PATH` to select a browser executable.
@@ -23,7 +24,7 @@ Restart the preview process after rebuilding: its loaded client manifest must ma
 
 ## Content
 
-- `content/docs/`: Chinese tutorials and section landing pages.
+- `content/docs/`: Chinese tutorials and section landing pages; `content/docs/en/` contains the English handbook entry, quick start, first-scene tutorial and complete Editor section.
 - `content/pages/`: site home and brand downloads.
 - `design/`, `guides/`, `security/`, `reviews/`: preserved source documents at their original repository paths.
 - `scripts/prepare-content.mjs`: imports package READMEs and existing documents, adds metadata/provenance, rewrites repository links, and copies selected brand exports.
@@ -31,6 +32,8 @@ Restart the preview process after rebuilding: its loaded client manifest must ma
 - `src/lib/theme/`: custom Svelte components and theme CSS.
 
 QuaScript fences (`qs` / `quascript`) are highlighted at build time through the supported rehype hook using Shiki and the repository's VS Code TextMate grammar, including embedded TypeScript. The grammar is consumed directly; no engine or editor package build is required. Other unsupported DSLs keep plain text and accessible copy controls. Markdown tables retain native column layout inside a separate keyboard-scrollable container.
+
+This is an intentional partial English rollout: creator guides outside onboarding and Editor remain Chinese, and links from English pages identify that language. Keep root Chinese routes stable and mirror translated paths below `docs/en/`. The theme uses svedocs locale routing, scoped search, and its language selector; missing translations remain disabled in that selector. Editor has 14 matching routes per language, combining workflow pages with localized package references. `test:editor` checks route pairs, internal anchors, prerendered language/alternates, scoped search, switching, and desktop/mobile light/dark layouts. Add translations at their original content source, never by altering DOM text for a screenshot.
 
 References preserve the source language and evidence limits. Historical reviews remain labeled as historical. Every generated page links back to its original file on GitHub. Add new packages to the source list rather than maintaining a second copy of their README.
 

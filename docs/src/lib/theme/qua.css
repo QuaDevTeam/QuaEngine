@@ -100,6 +100,16 @@ html { scroll-padding-top: var(--qua-header-clearance); }
 .qua-desktop-nav a:hover { color: var(--qua-ink); background: color-mix(in srgb, var(--qua-soft) 60%, transparent); }
 .qua-desktop-nav a.active { color: var(--qua-pink); background: var(--qua-soft); }
 .qua-nav-tools { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+.qua-nav-tools .sd-scope-trigger { border-radius: 11px; font-size: 12px; }
+@media (max-width: 1150px) {
+  .qua-desktop-nav { display: none; }
+  .qua-nav .qua-menu-toggle { display: flex; }
+}
+@media (max-width: 700px) {
+  .qua-nav-tools .sd-scope-trigger { width: 36px; min-width: 36px; height: 36px; padding: 4px; justify-content: center; }
+  .qua-nav-tools .sd-scope-trigger::after, .qua-nav-tools .sd-scope-label-full { display: none; }
+  .qua-nav-tools .sd-scope-label-short { display: inline; font-size: 10px; }
+}
 .icon-button { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; padding: 7px; color: var(--qua-muted); border: 0; background: transparent; border-radius: 11px; }
 .icon-button:hover { background: var(--qua-soft); color: var(--qua-pink); }.nav-divider { width: 1px; height: 18px; background: var(--qua-line); }
 .qua-nav-tools .sd-search-trigger { min-width: 145px; height: 36px; border: 1px solid color-mix(in srgb, var(--qua-line) 65%, transparent); background: color-mix(in srgb, var(--qua-paper) 80%, transparent); border-radius: 11px; font-size: 12px; box-shadow: none; }

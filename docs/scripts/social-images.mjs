@@ -35,7 +35,8 @@ export async function createSocialImages(entries) {
     // No network requests: shared artwork and the Latin font are embedded; CJK uses host fonts.
     await page.route('**/*', route => route.abort());
     for (const entry of pending) {
-      const values = { ...entry, font: font.toString('base64'), mascot: mascot.toString('base64') };
+      const english = entry.route.startsWith('/docs/en');
+      const values = { ...entry, lang: english ? 'en' : 'zh-CN', label: english ? 'VISUAL NOVEL · CREATOR HANDBOOK' : '视觉小说 · 创作者手册', font: font.toString('base64'), mascot: mascot.toString('base64') };
       await page.setContent(template.replace(/\{\{(\w+)\}\}/g, (_, key) => escape(values[key] ?? '')), { waitUntil: 'load' });
       await page.evaluate(async () => {
         await document.fonts.ready;

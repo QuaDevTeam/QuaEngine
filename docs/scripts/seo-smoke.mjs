@@ -18,7 +18,7 @@ const descriptions = new Set();
 const cardUrls = new Set();
 
 try {
-  for (const route of ['/', '/docs/getting-started/first-story/', '/docs/platforms/godot/']) {
+  for (const route of ['/', '/docs/getting-started/first-story/', '/docs/platforms/godot/', '/docs/en/getting-started/first-story/']) {
     assert.equal((await page.goto(new URL(route, base).href)).status(), 200);
     assert.equal(await page.locator('main').count(), 1);
     assert.equal(await page.locator('h1').count(), 1);
@@ -34,6 +34,7 @@ try {
       const doc = new DOMParser().parseFromString(html, 'text/html');
       const meta = key => [...doc.querySelectorAll('meta')].filter(node => node.name === key || node.getAttribute('property') === key).map(node => node.content);
       return {
+        alternates: [...doc.querySelectorAll('link[rel="alternate"][hreflang]')].map(node => ({ lang: node.hreflang, href: node.href })),
         route, lang: doc.documentElement.lang, title: doc.title, titleCount: doc.querySelectorAll('title').length,
         description: meta('description'), canonical: [...doc.querySelectorAll('link[rel="canonical"]')].map(node => node.href),
         ogTitle: meta('og:title'), ogUrl: meta('og:url'), ogDescription: meta('og:description'), ogLocale: meta('og:locale'), image: meta('og:image'),
@@ -43,7 +44,14 @@ try {
       };
     }), documents);
     for (const data of extracted) {
-      assert.equal(data.lang, 'zh-CN');
+      const english = data.route.startsWith('/docs/en');
+      const language = english ? 'en' : 'zh-CN';
+      assert.equal(data.lang, language);
+      if (data.route.endsWith('/getting-started/first-story')) {
+        for (const [lang, path] of [['zh-CN', '/docs/getting-started/first-story'], ['en', '/docs/en/getting-started/first-story']]) {
+          assert.ok(data.alternates.some(item => item.lang === lang && new URL(item.href).pathname.replace(/\/$/, '') === path), `Reciprocal translation: ${data.route} -> ${lang}`);
+        }
+      }
       assert.equal(data.titleCount, 1);
       assert.ok(!titles.has(data.title), `Unique title: ${data.route}`);
       titles.add(data.title);
@@ -58,7 +66,7 @@ try {
       assert.deepEqual(data.ogTitle, [data.title]);
       assert.deepEqual(data.ogUrl, data.canonical);
       assert.deepEqual(data.ogDescription, data.description);
-      assert.deepEqual(data.ogLocale, ['zh_CN']);
+      assert.deepEqual(data.ogLocale, [english ? 'en_US' : 'zh_CN']);
       assert.equal(data.image.length, 1);
       assert.equal(new URL(data.image[0]).origin, canonical.origin);
       assert.deepEqual(data.twitter, ['summary_large_image']);
@@ -73,10 +81,11 @@ try {
       const nodes = data.structured.flatMap(node => node['@graph'] ?? [node]);
       const article = nodes.find(node => node['@type'] === (data.route.startsWith('/docs') ? 'TechArticle' : 'WebPage'));
       assert.equal(article?.url, data.canonical[0]);
-      assert.equal(article?.inLanguage, 'zh-CN');
+      assert.equal(article?.inLanguage, language);
       assert.ok(nodes.some(node => node['@type'] === 'WebSite'));
       assert.ok(nodes.some(node => node['@type'] === 'Organization' && node.name === 'QuaDevTeam' && node.logo));
-      if (data.route.startsWith('/docs/')) assert.ok(nodes.some(node => node['@type'] === 'BreadcrumbList'));
+      const scopePath = english ? data.route.replace(/^\/docs\/en(?=\/|$)/, '/docs') : data.route;
+      if (scopePath.startsWith('/docs/')) assert.ok(nodes.some(node => node['@type'] === 'BreadcrumbList'), `Breadcrumbs: ${data.route}`);
       cardUrls.add(data.image[0]);
     }
   }

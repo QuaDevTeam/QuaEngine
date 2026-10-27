@@ -16,8 +16,8 @@ async function files(dir) {
     ? files(path.join(dir, entry.name)) : [path.join(dir, entry.name)]));
   return nested.flat();
 }
-function add(source, destination, title, description, archive = false) {
-  sources.push({ source, destination, title, description, archive });
+function add(source, destination, title, description, archive = false, order) {
+  sources.push({ source, destination, title, description, archive, ...(order === undefined ? {} : { order }) });
 }
 const packages = [
   ['core/assets', 'assets', 'QuaAssets 资源系统'], ['core/store', 'store', 'Store 状态与持久化'],
@@ -44,10 +44,16 @@ for (const feature of ['achievement', 'animation', 'audio', 'background', 'backl
 }
 add('packages/core/engine/docs/global-api.md', 'docs/reference/engine.md', 'Engine 全局 API', '引擎运行时、场景、对话、资源与状态访问接口。');
 add('packages/core/engine/docs/plugin-system.md', 'docs/reference/plugin-system.md', '引擎插件开发', '插件生命周期、依赖关系、管线事件和引擎上下文。');
-add('packages/editor/README.md', 'docs/editor/workbench.md', '编辑器工作区', '项目、Monaco、可视化剧本编辑、预览、调试、设置与快捷键。');
-add('packages/editor/character/README.md', 'docs/editor/character.md', '角色编辑器', '编辑角色定义、表情与立绘资源。');
-add('packages/editor/animation/README.md', 'docs/editor/animation.md', '动画编辑器', '可视化时间轴、数值关键帧与场景预览。');
-add('packages/services/plugin-registry/README.md', 'docs/editor/registry.md', '插件市场与发布', '插件注册、npm 所有权验证、审查与注册服务部署。');
+add('packages/editor/README.md', 'docs/editor/workbench.md', '工作区开发参考', 'Editor 开发、项目与源码保护、预览协议、工具生命周期和验证契约。', false, 14);
+add('packages/editor/README.en.md', 'docs/en/editor/workbench.md', 'Workbench development reference', 'Editor architecture, source guards, preview integration, tool lifecycle, releases, and validation contracts.', false, 14);
+for (const [directory, slug, title, englishTitle, description, englishDescription, order] of [
+  ['packages/editor/character', 'character', '角色编辑器', 'Character editor', '浏览静态角色与立绘差分，修改源码草稿并核对索引和预览边界。', 'Browse static character and sprite catalogs, apply guarded source drafts, and understand indexing limits.', 6],
+  ['packages/editor/animation', 'animation', '动画编辑器', 'Animation editor', '编辑角色数值轨道、关键帧和场景预览，再应用并保存标准动画 JSON。', 'Author numeric character tracks, keyframes, and scene previews, then apply and save standard animation JSON.', 7],
+  ['packages/services/plugin-registry', 'registry', 'Registry 服务参考', 'Registry service reference', '插件所有权、自动审查、同步、部署与验证的技术契约。', 'Technical contracts for plugin ownership, review, synchronization, deployment, and validation.', 13]
+]) {
+  add(`${directory}/README.zh-CN.md`, `docs/editor/${slug}.md`, title, description, false, order);
+  add(`${directory}/README.md`, `docs/en/editor/${slug}.md`, englishTitle, englishDescription, false, order);
+}
 const designTitles = { 'mobile-rendering-adaptation': '逻辑舞台与屏幕适配', 'web-asset-loading': 'Web 资源加载流程', 'editor-plugins': '编辑器插件契约', 'background-composition-animation': '背景合成与动画', 'background-transitions': '背景转场', 'cocos-integration-audit': 'Cocos 集成审查', 'dynamic-runtime-qpk': '动态 Runtime QPK', 'native-text-layout': 'Native 文字排版', 'native-jsc-runtime': 'JavaScriptCore 运行时' };
 for (const folder of ['design', 'reviews', 'security', 'guides']) {
   for (const file of (await files(path.join(docs, folder))).sort()) {
@@ -88,8 +94,10 @@ for (const source of sources) {
   let body = await readFile(path.join(root, source.source), 'utf8');
   if (source.title) {
     body = body.replace(/^# [^\n]*\n/, '');
+    // Package README language links are for GitHub; docs owns its locale selector.
+    body = body.replace(/^(?:\*\*English\*\* · \[简体中文\]\([^\n]+\)|\[English\]\([^\n]+\) · \*\*简体中文\*\*)\s*$/m, '');
     if (source.archive) body = `> 本页保留当时的验证结论，不代表当前完整平台能力。当前状态见[项目进展](/docs/project/status)，运行时说明见[JavaScriptCore](/docs/design/native-jsc-runtime)。\n\n${body}`;
-    body = `---\ntitle: ${JSON.stringify(source.title)}\ndescription: ${JSON.stringify(source.description)}\nsource: ${source.source}\n---\n\n${body}`;
+    body = `---\ntitle: ${JSON.stringify(source.title)}\ndescription: ${JSON.stringify(source.description)}\n${source.order === undefined ? '' : `order: ${source.order}\n`}source: ${source.source}\n---\n\n${body}`;
   } else {
     body = body.replace(/^---\n/, `---\nsource: ${source.source}\n`);
   }
@@ -100,9 +108,15 @@ for (const source of sources) {
     const image = socialImagePath(entry);
     socialImages.push({ ...entry, image });
     referencedImages.push(image);
-    body = body.replace(/^---\n/, `---\nimage: ${image}\nimageWidth: 1200\nimageHeight: 630\nimageType: image/png\nimageAlt: ${JSON.stringify(`${entry.title} · QuaEngine 创作者手册`)}\n`);
+    body = body.replace(/^---\n/, `---\nimage: ${image}\nimageWidth: 1200\nimageHeight: 630\nimageType: image/png\nimageAlt: ${JSON.stringify(`${entry.title} · QuaEngine ${entry.route.startsWith('/docs/en') ? 'Creator handbook' : '创作者手册'}`)}\n`);
   }
   if (data.image) referencedImages.push(data.image);
+  // Carry the authored locale into custom Markdown projection helpers as well
+  // as svedocs metadata. The wrapper also declares the language without JS.
+  if (source.destination.startsWith('docs/en/')) {
+    const frontmatterEnd = body.indexOf('\n---\n', 4) + 5;
+    body = body.slice(0, frontmatterEnd) + '\n<div lang="en">\n\n' + body.slice(frontmatterEnd) + '\n</div>\n';
+  }
   body = rewriteLinks(body, source.source);
   const target = path.join(output, source.destination);
   await mkdir(path.dirname(target), { recursive: true });

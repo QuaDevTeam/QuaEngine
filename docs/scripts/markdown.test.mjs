@@ -55,3 +55,13 @@ test('Empty QuaScript and existing svedocs highlighting remain valid', async () 
   await quaCodeBlocks()({ type: 'root', children: [enhanced] });
   assert.deepEqual(enhanced, original);
 });
+
+
+test('English content keeps localized copy labels through the Markdown language boundary', async () => {
+  const pre = { type: 'element', tagName: 'pre', children: [{ type: 'element', tagName: 'code', properties: { className: ['language-qs'] }, children: [{ type: 'text', value: 'Aoi: Hello.\n' }] }] };
+  const root = { type: 'root', children: [{ type: 'element', tagName: 'div', properties: { lang: 'en' }, children: [pre] }] };
+  await quaCodeBlocks()(root);
+  const button = descendants(pre).find(node => node.tagName === 'button');
+  assert.equal(button.properties['aria-label'], 'Copy code');
+  assert.equal(pre.properties['data-copy'], 'Aoi: Hello.\n');
+});
