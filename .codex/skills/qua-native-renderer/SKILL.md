@@ -136,6 +136,18 @@ See `docs/design/native-jsc-runtime.md` for platform libraries, the closed SWC/S
 
 ## Package Responsibilities
 
+Source navigation: see [`packages/native/README.md`](../../../packages/native/README.md)
+for the complete package map. Keep compiler code in `model/`, `shared/`,
+`registry/`, `qss/validation/`, `qss/style/`, `projection/` and `language/`;
+contracts in `host/`, `target/`, `target-bundle/`, `compatibility/` and
+`package-guard/`; engine adapters in `bootstrap/`, `runtime/`, `bridge/` and
+`renderer/`; language tooling in `language/`, `project/`, `lsp/` and `shared/`.
+Native asset/store persistence lives under `storage/`, while benchmark definitions
+and measurements live under `authoring/` and `measurement/`. Keep package exports
+and the compiler's platform-neutral `runtime.ts` boundary stable during directory
+refactors; update internal imports and test imports together. Small JSX, Vite and
+VSCode entry-oriented packages do not need extra directory layers.
+
 - `@quajs/native-contracts`: serializable native host, renderer capability, compatibility, QUI/QSS, and target bootstrap contracts. Packagers should use `createTargetCoreSelection` to derive the active Web/Cocos/native resolver identity, core family, and selected adapters from one target value; native packagers should use `createNativeCapabilityManifestPayload` / `createNativeCapabilityManifestHash` with an injected SHA-256 implementation when emitting `nativeRenderer.capabilityManifestHash`; use `createTargetBundleNativeRendererInfo` to derive native target-bundle renderer metadata from the actual renderer capabilities. Keep `@quajs/native-contracts` platform-neutral and covered by source-level import isolation tests so shared validation code does not import Web, Cocos, or native runtime adapter packages.
 - `@quajs/engine-native`: engine plugin/adapter that reads native host info, registers renderer capabilities, supplies runtime package compatibility guards, and exposes the restricted native `RuntimeModuleLoader` over package asset bytes plus a Rust/JavaScriptCore evaluator.
 - `@quajs/engine-native` owns the stateless native renderer JSON frame serializer from engine-owned `QuaViewProjection`-compatible data to Rust `NativeRendererJsonFrameInput`, including dialogue/choices/UI shape normalization, explicit required visibility/mode/enabled fields, and package provenance preservation. It must not hold renderer state or reinterpret engine progression.

@@ -1,31 +1,18 @@
-export { createNativeAssetPreloadProjection } from './asset-preload'
-export type { NativeAssetPreloadOptions } from './asset-preload'
 export {
-  assertNativeRuntimePackageCompatibility,
-  checkNativeRuntimePackageCompatibility,
-} from './compatibility'
-export type { NativeRuntimePackageCompatibilityInput } from './compatibility'
-export {
-  installNativeJscPipelineBridge,
-  resolveNativeJscPipelineBridge,
-} from './jsc-pipeline-bridge'
+  createNativeEngineBootstrap,
+  createNativeRuntimeAdapters,
+  createNativeRuntimeTrustPolicy,
+} from './bootstrap/adapters'
 export type {
-  NativeJscPipelineBridge,
-  NativeJscPipelineBridgeOptions,
-} from './jsc-pipeline-bridge'
-export {
-  installNativeJscRendererIntentBridge,
-  resolveNativeJscRendererIntentBridge,
-} from './jsc-renderer-bridge'
-export type {
-  NativeJscRendererIntentBridge,
-  NativeJscRendererIntentSubscriptionOptions,
-} from './jsc-renderer-bridge'
+  NativeEngineBootstrap,
+  NativeRuntimeAdapters,
+  NativeRuntimeAdaptersOptions,
+} from './bootstrap/adapters'
 export {
   NativeHostPlugin,
   readNativeHostInfo,
-} from './native-host-plugin'
-export type { NativeHostPluginOptions } from './native-host-plugin'
+} from './bootstrap/host-plugin'
+export type { NativeHostPluginOptions } from './bootstrap/host-plugin'
 export {
   assertNativeTargetBootstrap,
   assertNativeTargetBundleManifest,
@@ -34,11 +21,29 @@ export {
   checkNativeRuntimeManifestCompatibility,
   checkNativeTargetBootstrap,
   checkNativeTargetBundleManifest,
-} from './native-manifest-validation'
+} from './bootstrap/manifest-validation'
+export {
+  installNativeJscPipelineBridge,
+  resolveNativeJscPipelineBridge,
+} from './bridge/pipeline'
+export type {
+  NativeJscPipelineBridge,
+  NativeJscPipelineBridgeOptions,
+} from './bridge/pipeline'
+export {
+  installNativeJscRendererIntentBridge,
+  resolveNativeJscRendererIntentBridge,
+} from './bridge/renderer'
+export type {
+  NativeJscRendererIntentBridge,
+  NativeJscRendererIntentSubscriptionOptions,
+} from './bridge/renderer'
+export { createNativeAssetPreloadProjection } from './renderer/asset-preload'
+export type { NativeAssetPreloadOptions } from './renderer/asset-preload'
 export {
   createNativeRendererJsonFrameInput,
   createNativeRendererViewProjection,
-} from './renderer-frame'
+} from './renderer/frame'
 export type {
   CreateNativeRendererJsonFrameInputOptions,
   CreateNativeRendererViewProjectionOptions,
@@ -46,29 +51,32 @@ export type {
   NativeRendererJsonFrameInput,
   NativeRendererSafeAreaInsetsInput,
   NativeRendererStageContainerInput,
-} from './renderer-frame'
+} from './renderer/frame'
 export {
   drainNativeRendererIntentsToPipeline,
   emitNativeRendererIntentToPipeline,
   installNativeRendererIntentBridge,
-} from './renderer-intents'
+} from './renderer/intents'
 export type {
   NativeRendererIntentBridgeDisposer,
   NativeRendererIntentBridgeOptions,
   NativeRendererIntentDispatchResult,
   NativeRendererIntentDrainResult,
   NativeRendererIntentEmittedEvent,
-} from './renderer-intents'
+} from './renderer/intents'
 export {
-  createNativeEngineBootstrap,
-  createNativeRuntimeAdapters,
-  createNativeRuntimeTrustPolicy,
-} from './runtime-adapters'
+  installNativeSavePreviewCaptureResponder,
+} from './renderer/save-preview-capture'
 export type {
-  NativeEngineBootstrap,
-  NativeRuntimeAdapters,
-  NativeRuntimeAdaptersOptions,
-} from './runtime-adapters'
+  NativeSavePreviewCapture,
+  NativeSavePreviewCaptureProvider,
+  NativeSavePreviewCaptureResponderOptions,
+} from './renderer/save-preview-capture'
+export {
+  assertNativeRuntimePackageCompatibility,
+  checkNativeRuntimePackageCompatibility,
+} from './runtime/compatibility'
+export type { NativeRuntimePackageCompatibilityInput } from './runtime/compatibility'
 export {
   callNativeJscGameStepFactory,
   callNativeJscGameStepRun,
@@ -88,7 +96,7 @@ export {
   getNativeJscPackageNamespaceSummary,
   releaseNativeJscModuleNamespace,
   releaseNativeJscPackageNamespaces,
-} from './runtime-module-loader'
+} from './runtime/module-loader'
 export type {
   NativeJscGameStepFactoryFunction,
   NativeJscHelperCallExecutor,
@@ -105,12 +113,4 @@ export type {
   NativeRuntimeModuleKind,
   NativeRuntimeModuleLoaderOptions,
   NativeRuntimeModuleRecord,
-} from './runtime-module-loader'
-export {
-  installNativeSavePreviewCaptureResponder,
-} from './save-preview-capture'
-export type {
-  NativeSavePreviewCapture,
-  NativeSavePreviewCaptureProvider,
-  NativeSavePreviewCaptureResponderOptions,
-} from './save-preview-capture'
+} from './runtime/module-loader'

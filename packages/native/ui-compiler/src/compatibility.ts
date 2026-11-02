@@ -9,13 +9,13 @@ import type {
   NativeQuiDocument,
   NativeQuiProp,
   NativeUiSurfaceProjection,
-} from './types'
+} from './model/types'
 import { createNativeUiSurfaceCompatibility } from '@quajs/native-contracts'
-import { isSafeNativeAssetType, isSafePackageAssetName, literalStringValue } from './assets'
-import { collectNativeUiSurfaceProjectionRequirements } from './projection-requirements'
-import { parseNativeQssBackgroundImage } from './qss-resolved-style'
+import { collectNativeUiSurfaceProjectionRequirements } from './projection/requirements'
+import { parseNativeQssBackgroundImage } from './qss/style/resolve'
 import { findNativeQssProperty, findNativeUiComponent } from './registry'
-import { canProjectNativeUiIntent } from './surface-intents'
+import { isSafeNativeAssetType, isSafePackageAssetName, literalStringValue } from './shared/assets'
+import { canProjectNativeUiIntent } from './shared/surface-intents'
 
 export interface CreateNativeUiSurfaceCompatibilityFromDocumentsOptions
   extends Omit<CreateNativeUiSurfaceCompatibilityOptions, 'assetKinds' | 'intentEvents' | 'qssFeatures' | 'quiComponents'> {

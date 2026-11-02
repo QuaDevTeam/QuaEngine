@@ -1,5 +1,5 @@
 import { expect, it, vi } from 'vitest'
-import { createNativeAssetPreloadProjection } from '../src/asset-preload'
+import { createNativeAssetPreloadProjection } from '../src/renderer/asset-preload'
 
 it('projects image and resolved sprite hints with package provenance, without a renderer mutation', () => {
   const resolveCharacter = vi.fn(() => ({ sprite: 'mara/sprite.manifest.json', expression: 'smile' }))

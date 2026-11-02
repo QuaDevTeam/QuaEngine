@@ -4,7 +4,7 @@ import {
   NATIVE_BENCHMARK_SCHEMA_VERSION,
   runNativeAuthoringSmokeBenchmarks,
 } from '../src'
-import { runBenchmarkDefinition } from '../src/runner'
+import { runBenchmarkDefinition } from '../src/measurement/runner'
 
 describe('@quajs/native-benchmarks', () => {
   it('emits deterministic native authoring smoke records', () => {

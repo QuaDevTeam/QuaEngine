@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { offsetAtPosition } from '../src/source-ranges'
+import { offsetAtPosition } from '../src/shared/source-ranges'
 
 describe('@quajs/native-language-server source ranges', () => {
   it('clamps positions past a line to the line content end', () => {

@@ -13,7 +13,6 @@ import {
   TextDocuments,
   TextDocumentSyncKind,
 } from 'vscode-languageserver/node.js'
-import { createNativeUiAssetCodeActions } from './code-actions'
 import {
   createNativeUiProjectRenameEdits,
   findNativeUiProjectDefinitions,
@@ -23,6 +22,7 @@ import {
   getNativeUiLanguageHover,
   getNativeUiProjectDocumentLinks,
 } from './index'
+import { createNativeUiAssetCodeActions } from './lsp/code-actions'
 import {
   resolveExistingFileDocumentLink,
   toCompletionKind,
@@ -32,8 +32,8 @@ import {
   toLspRange,
   toLspTextEdit,
   toWorkspaceEdit,
-} from './server-lsp'
-import { NativeLanguageServerSession } from './server-session'
+} from './lsp/conversion'
+import { NativeLanguageServerSession } from './lsp/session'
 
 const connection = createConnection(ProposedFeatures.all)
 const documents = new TextDocuments(TextDocument)

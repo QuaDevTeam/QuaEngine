@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { NativeLanguageServerSession } from '../src/server-session'
+import { NativeLanguageServerSession } from '../src/lsp/session'
 
 describe('@quajs/native-language-server session', () => {
   it('normalizes initialization and workspace settings for document options', () => {
