@@ -153,7 +153,7 @@ try {
     }
   }
 
-  const firstChoices = ['listen-first', 'verify-audio', 'tell-now', 'investigate-station', 'continue-inquiry', 'external-preservation']
+  const firstChoices = ['listen-first', 'verify-audio', 'follow-fishmarket', 'walk-lighthouse', 'tell-now', 'investigate-station', 'continue-inquiry', 'external-preservation']
   const slots = new Map()
   const slotStates = new Map()
   let resumedPrimary
@@ -186,7 +186,7 @@ try {
   if (!process.argv.includes('--quick')) {
     // Check the other result of every choice from real saved checkpoints. The
     // last two branches continue through their distinct endings.
-    for (const [index, id] of ['catalog-first', 'verify-notice', 'admit-fear', 'investigate-office', 'early-handoff', 'formal-followup'].entries()) {
+    for (const [index, id] of ['catalog-first', 'verify-notice', 'follow-sweetshop', 'walk-recordshop', 'admit-fear', 'investigate-office', 'early-handoff', 'formal-followup'].entries()) {
       const name = `alternate-${id}`
       const previous = report.routes.find(r => r.name === name)
       if (previous?.digest)
@@ -198,7 +198,7 @@ try {
       await loadSlot(slots.get(firstChoices[index]))
       await all(t => choose(t, id))
       await delay(100)
-      await play(name, firstChoices, { stopAtChoice: index < 4, max: 6000 })
+      await play(name, firstChoices, { stopAtChoice: index < 6, max: 6000 })
     }
   }
   assert.deepEqual(report.errors, [], 'Runtime errors invalidate parity')

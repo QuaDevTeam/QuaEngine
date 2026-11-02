@@ -278,18 +278,18 @@ Decorators are discovered from package metadata and package-local compiler suben
 
 | Decorator                                                                              | Function                              | Module                       |
 | -------------------------------------------------------------------------------------- | ------------------------------------- | ---------------------------- |
-| `@Chapter(value, options?)`                                                            | `setStoryMetadataWithEngine`          | `@quajs/story-graph`         |
-| `@Scene(value, options?)`                                                              | `setStoryMetadataWithEngine`          | `@quajs/story-graph`         |
-| `@Entry(value, options?)`                                                              | `setStoryMetadataWithEngine`          | `@quajs/story-graph`         |
-| `@Node(value, options?)`                                                               | `setStoryMetadataWithEngine`          | `@quajs/story-graph`         |
-| `@Label(value, options?)`                                                              | `setStoryMetadataWithEngine`          | `@quajs/story-graph`         |
-| `@Lane(value, options?)`                                                               | `setStoryMetadataWithEngine`          | `@quajs/story-graph`         |
-| `@Route(value, options?)`                                                              | `setStoryMetadataWithEngine`          | `@quajs/story-graph`         |
-| `@StoryTimeline(value, options?)`                                                      | `setStoryMetadataWithEngine`          | `@quajs/story-graph`         |
-| `@Protagonist(value, options?)`                                                        | `setStoryMetadataWithEngine`          | `@quajs/story-graph`         |
-| `@Interaction(value, options?)`                                                        | `setStoryMetadataWithEngine`          | `@quajs/story-graph`         |
-| `@EmitStoryEvent(type, payload?)`                                                      | `emitStoryEventWithEngine`            | `@quajs/story-graph`         |
-| `@ChapterSelect(options?)`                                                             | `setStoryChapterSelectWithEngine`     | `@quajs/story-graph`         |
+| `@Chapter(value, options?)`                                                            | `setStoryMetadataWithEngine`          | `@quajs/plugin-story-graph`  |
+| `@Scene(value, options?)`                                                              | `setStoryMetadataWithEngine`          | `@quajs/plugin-story-graph`  |
+| `@Entry(value, options?)`                                                              | `setStoryMetadataWithEngine`          | `@quajs/plugin-story-graph`  |
+| `@Node(value, options?)`                                                               | `setStoryMetadataWithEngine`          | `@quajs/plugin-story-graph`  |
+| `@Label(value, options?)`                                                              | `setStoryMetadataWithEngine`          | `@quajs/plugin-story-graph`  |
+| `@Lane(value, options?)`                                                               | `setStoryMetadataWithEngine`          | `@quajs/plugin-story-graph`  |
+| `@Route(value, options?)`                                                              | `setStoryMetadataWithEngine`          | `@quajs/plugin-story-graph`  |
+| `@StoryTimeline(value, options?)`                                                      | `setStoryMetadataWithEngine`          | `@quajs/plugin-story-graph`  |
+| `@Protagonist(value, options?)`                                                        | `setStoryMetadataWithEngine`          | `@quajs/plugin-story-graph`  |
+| `@Interaction(value, options?)`                                                        | `setStoryMetadataWithEngine`          | `@quajs/plugin-story-graph`  |
+| `@EmitStoryEvent(type, payload?)`                                                      | `emitStoryEventWithEngine`            | `@quajs/plugin-story-graph`  |
+| `@ChapterSelect(options?)`                                                             | `setStoryChapterSelectWithEngine`     | `@quajs/plugin-story-graph`  |
 | `@SetBackground(asset, options?)`                                                      | `setBackgroundWithEngine`             | `@quajs/plugin-background`   |
 | `@ClearBackground(options?)`                                                           | `clearBackgroundWithEngine`           | `@quajs/plugin-background`   |
 | `@VideoBackground(asset, options?)`                                                    | `setVideoBackgroundWithEngine`        | `@quajs/plugin-background`   |

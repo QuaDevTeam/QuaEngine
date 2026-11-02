@@ -85,7 +85,7 @@ describe('plugin discovery', () => {
           dependencies: {
             '@quajs/character': '^1.0.0',
             '@quajs/plugin-audio': '^1.0.0',
-            '@quajs/story-graph': '^1.0.0',
+            '@quajs/plugin-story-graph': '^1.0.0',
             'regular-package': '^1.0.0',
           },
           peerDependencies: {
@@ -145,15 +145,15 @@ describe('plugin discovery', () => {
             },
           },
         },
-        [dependencyPackageJsonPath('@quajs/story-graph')]: {
-          name: '@quajs/story-graph',
+        [dependencyPackageJsonPath('@quajs/plugin-story-graph')]: {
+          name: '@quajs/plugin-story-graph',
           version: '0.1.0',
           main: './dist/index.js',
           quajs: {
             type: 'plugin',
             category: 'story',
             decorators: {
-              Chapter: { function: 'setStoryMetadataWithEngine', module: '@quajs/story-graph' },
+              Chapter: { function: 'setStoryMetadataWithEngine', module: '@quajs/plugin-story-graph' },
             },
           },
         },
@@ -175,7 +175,7 @@ describe('plugin discovery', () => {
       expect(plugins.some(p => p.name === '@quajs/character')).toBe(true)
       expect(plugins.some(p => p.name === '@quajs/plugin-audio')).toBe(true)
       expect(plugins.some(p => p.name === '@quajs/plugin-background')).toBe(true)
-      expect(plugins.some(p => p.name === '@quajs/story-graph')).toBe(true)
+      expect(plugins.some(p => p.name === '@quajs/plugin-story-graph')).toBe(true)
       expect(plugins.some(p => p.name === '@quajs/plugin-backlog')).toBe(false)
       expect(plugins.some(p => p.name === 'regular-package')).toBe(false)
 

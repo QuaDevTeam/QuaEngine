@@ -1,17 +1,18 @@
 {
-  "name": "@quajs/story-graph",
+  "name": "@quajs/plugin-story-graph",
   "type": "module",
   "version": "0.1.0",
-  "description": "Story graph, multi-lane narrative cursors, and QuaScript metadata decorators for QuaEngine",
+  "description": "Story graph plugin with multi-lane narrative cursors and QuaScript metadata decorators for QuaEngine",
   "author": "QuaDevTeam",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/QuaDevTeam/QuaEngine.git",
-    "directory": "packages/game/story-graph"
+    "directory": "packages/plugins/story-graph"
   },
   "keywords": [
     "quaengine",
+    "plugin",
     "story",
     "visual-novel"
   ],
@@ -61,51 +62,51 @@
     "decorators": {
       "Chapter": {
         "function": "setStoryMetadataWithEngine",
-        "module": "@quajs/story-graph"
+        "module": "@quajs/plugin-story-graph"
       },
       "Scene": {
         "function": "setStoryMetadataWithEngine",
-        "module": "@quajs/story-graph"
+        "module": "@quajs/plugin-story-graph"
       },
       "Entry": {
         "function": "setStoryMetadataWithEngine",
-        "module": "@quajs/story-graph"
+        "module": "@quajs/plugin-story-graph"
       },
       "Node": {
         "function": "setStoryMetadataWithEngine",
-        "module": "@quajs/story-graph"
+        "module": "@quajs/plugin-story-graph"
       },
       "Label": {
         "function": "setStoryMetadataWithEngine",
-        "module": "@quajs/story-graph"
+        "module": "@quajs/plugin-story-graph"
       },
       "Lane": {
         "function": "setStoryMetadataWithEngine",
-        "module": "@quajs/story-graph"
+        "module": "@quajs/plugin-story-graph"
       },
       "Route": {
         "function": "setStoryMetadataWithEngine",
-        "module": "@quajs/story-graph"
+        "module": "@quajs/plugin-story-graph"
       },
       "StoryTimeline": {
         "function": "setStoryMetadataWithEngine",
-        "module": "@quajs/story-graph"
+        "module": "@quajs/plugin-story-graph"
       },
       "Protagonist": {
         "function": "setStoryMetadataWithEngine",
-        "module": "@quajs/story-graph"
+        "module": "@quajs/plugin-story-graph"
       },
       "EmitStoryEvent": {
         "function": "emitStoryEventWithEngine",
-        "module": "@quajs/story-graph"
+        "module": "@quajs/plugin-story-graph"
       },
       "ChapterSelect": {
         "function": "setStoryChapterSelectWithEngine",
-        "module": "@quajs/story-graph"
+        "module": "@quajs/plugin-story-graph"
       },
       "Interaction": {
         "function": "setStoryMetadataWithEngine",
-        "module": "@quajs/story-graph"
+        "module": "@quajs/plugin-story-graph"
       }
     },
     "language": {

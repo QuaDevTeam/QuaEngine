@@ -4,7 +4,7 @@
 
 Renderer implementations remain stateless projections. They render engine-owned `view.choices`, emit `user/choice_select`, and never resolve targets, load QPKs, decide progression, or own story state.
 
-Authoritative choice jump behavior belongs to `@quajs/engine`. Story graph indexing belongs to `@quajs/story-graph`. Runtime content remains QPK package-based and is activated through `RuntimeContentManager`.
+Authoritative choice jump behavior belongs to `@quajs/engine`. Story graph indexing belongs to `@quajs/plugin-story-graph`. Runtime content remains QPK package-based and is activated through `RuntimeContentManager`.
 
 ## Canonical Choice Model
 
@@ -45,7 +45,7 @@ Cross-scene choice jumps are allowed only through `scene(...)` or `scene:id#entr
 1. `jumpToChoice(choiceId)` reads the selected choice from `engine.view.choices`.
 2. Engine reads `choice.metadata.jumpTarget` or the structured `choice.target` extension.
 3. Built-in resolution handles `checkpoint`, already-registered `scene`, and direct `script` targets.
-4. Registered story target resolvers are queried. `@quajs/story-graph` registers one during plugin setup.
+4. Registered story target resolvers are queried. `@quajs/plugin-story-graph` registers one during plugin setup.
 5. If unresolved, `RuntimeContentManager.resolveStoryTargetFromRegistry()` calls `RuntimePackageRegistry.resolveStoryTarget(target, ctx)`.
 6. Candidate QPKs are loaded and activated through normal trust/package lifecycle.
 7. Engine queries the active resolvers again. Ambiguity is an error.
@@ -54,7 +54,7 @@ Cross-scene choice jumps are allowed only through `scene(...)` or `scene:id#entr
 
 ## Story Graph Index
 
-`@quajs/story-graph` resolves active graph nodes by structured target:
+`@quajs/plugin-story-graph` resolves active graph nodes by structured target:
 
 - `node`: matches node id or `point.nodeId`
 - `label`: matches node id or `point.labelId`

@@ -105,7 +105,7 @@ This allows a generated package to add "the next moment" in the same scene witho
 
 ## Story Graph And Timeline
 
-`@quajs/story-graph` owns route, lane, protagonist, timeline, node, and edge metadata. Engine core should not hardcode timeline semantics.
+`@quajs/plugin-story-graph` owns route, lane, protagonist, timeline, node, and edge metadata. Engine core should not hardcode timeline semantics.
 
 Runtime graph deltas must be package-scoped:
 

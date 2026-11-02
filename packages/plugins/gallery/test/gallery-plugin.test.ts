@@ -2,8 +2,8 @@ import type { AssetRuntimeAdapter, AssetType } from '@quajs/assets'
 import { MemoryAssetStorage } from '@quajs/assets'
 import { QuaEngine } from '@quajs/engine'
 import { getSettingsDeveloperValues, getSettingsProjection, SettingsPlugin } from '@quajs/plugin-settings'
+import { setStoryMetadataWithEngine, StoryGraphPlugin } from '@quajs/plugin-story-graph'
 import { MemoryBackend } from '@quajs/store'
-import { setStoryMetadataWithEngine, StoryGraphPlugin } from '@quajs/story-graph'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
   closeGallerySceneWithEngine,

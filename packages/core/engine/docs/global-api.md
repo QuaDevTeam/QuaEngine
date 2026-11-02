@@ -164,12 +164,12 @@ await setPluginProjection('audio', {
 
 ## Story Graph And Chapter Select
 
-Story graph behavior is provided by `@quajs/story-graph`, not engine core. Use it for route/lane/timeline metadata, story events, jump resolution, node unlock state, and chapter select projection.
+Story graph behavior is provided by `@quajs/plugin-story-graph`, not engine core. Use it for route/lane/timeline metadata, story events, jump resolution, node unlock state, and chapter select projection.
 
 ```typescript
 import {
   StoryGraphPlugin,
-} from '@quajs/story-graph'
+} from '@quajs/plugin-story-graph'
 
 const storyGraph = new StoryGraphPlugin()
 engine.use(storyGraph)
@@ -324,7 +324,7 @@ The global API uses several TypeScript interfaces:
 - `GameStep`: Individual dialogue/game step
 - `ViewPluginProjectionMap`: Plugin-owned view projection map
 - `Audio` behavior: use `@quajs/plugin-audio` and `setPluginProjection('audio', ...)`
-- `Story graph` behavior: use `@quajs/story-graph`
+- `Story graph` behavior: use `@quajs/plugin-story-graph`
 - `Inventory` behavior: use `@quajs/plugin-inventory`
 
 These types are exported from the core engine types module.

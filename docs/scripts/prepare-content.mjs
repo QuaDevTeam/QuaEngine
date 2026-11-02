@@ -21,7 +21,7 @@ function add(source, destination, title, description, archive = false, order) {
 }
 const packages = [
   ['core/assets', 'assets', 'QuaAssets 资源系统'], ['core/store', 'store', 'Store 状态与持久化'],
-  ['core/pipeline', 'pipeline', 'Pipeline 事件管线'], ['game/story-graph', 'story-graph', '故事图与章节选择'],
+  ['core/pipeline', 'pipeline', 'Pipeline 事件管线'], ['plugins/story-graph', 'story-graph', '故事图与章节选择'],
   ['build/script-compiler', 'quascript', 'QuaScript 语法与编译器'], ['build/quack', 'quack', 'Quack 打包参考'],
   ['build/vite-plugin', 'vite', 'Vite 集成'], ['build/create-qua-game', 'create-qua-game', '项目脚手架'],
   ['build/language-server', 'language-server', 'QuaScript 语言服务'], ['build/vscode-quascript', 'vscode', 'VS Code 剧本扩展'],

@@ -11,5 +11,5 @@
   "@quajs/plugin-inventory",
   "@quajs/plugin-settings",
   "@quajs/plugin-sprite",
-  "@quajs/story-graph"
+  "@quajs/plugin-story-graph"
 ]

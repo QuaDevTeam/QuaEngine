@@ -114,6 +114,7 @@ QUI node bounds are already absolute logical stage coordinates. Web DOM projecti
 - Web and Cocos builds must reject native core leakage with the same severity that native builds reject Web/Cocos leakage.
 
 ### Package-local features
+- Story graph is the optional `@quajs/plugin-story-graph` engine plugin in `packages/plugins/story-graph`. Install it explicitly; engine core owns navigation and Runtime QPK lifecycle while the plugin owns graph metadata, unlocks, and chapter-select projections.
 - Keep feature implementations inside the owning package.
 - Put decorators, runtime helpers, and compiler lowering in that package's own public sub-entry, such as `./script-compiler`.
 - Keep `@quajs/script-compiler` focused on orchestration, discovery, and import wiring.

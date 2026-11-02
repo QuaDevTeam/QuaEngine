@@ -883,7 +883,7 @@ export class RuntimeContentManager {
 
     const storyGraph = engine.getPluginById<StoryGraphRuntimePlugin>('storyGraph')
     if (!storyGraph) {
-      throw new TypeError('Runtime package includes story graph deltas, but @quajs/story-graph is not installed.')
+      throw new TypeError('Runtime package includes story graph deltas, but @quajs/plugin-story-graph is not installed.')
     }
 
     for (const delta of deltas) {

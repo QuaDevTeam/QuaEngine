@@ -60,7 +60,7 @@
     "@quajs/plugin-background": "workspace:*",
     "@quajs/plugin-backlog": "workspace:*",
     "@quajs/plugin-gallery": "workspace:*",
-    "@quajs/story-graph": "workspace:*",
+    "@quajs/plugin-story-graph": "workspace:*",
     "@types/babel__generator": "catalog:",
     "@types/babel__traverse": "catalog:"
   }

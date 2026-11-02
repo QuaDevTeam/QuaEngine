@@ -26,7 +26,7 @@ Read only what is needed:
 - Engine state/provenance: `packages/core/engine/src/core/engine.ts`
 - Asset mounting/ranking: `packages/core/assets/src/qua-assets.ts`, `packages/core/assets/src/asset-manager.ts`, `packages/core/assets/src/providers.ts`
 - Manifest types: `packages/core/assets/src/types.ts`, `packages/build/quack/src/core/types.ts`
-- Story graph deltas: `packages/core/story-graph/src/index.ts`
+- Story graph deltas: `packages/plugins/story-graph/src/index.ts`
 - Feature plugin examples: `packages/plugins/animation/src/index.ts`, `packages/plugins/audio/src/index.ts`, `packages/plugins/background/src/index.ts`
 
 ## Implementation Workflow

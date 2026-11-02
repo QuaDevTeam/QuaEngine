@@ -22,7 +22,7 @@ import {
   unlockStoryNodeWithEngine,
 } from '../src'
 
-describe('@quajs/story-graph', () => {
+describe('@quajs/plugin-story-graph', () => {
   afterEach(async () => {
     QuaEngine.resetInstance()
   })

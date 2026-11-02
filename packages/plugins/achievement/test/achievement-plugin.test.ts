@@ -7,8 +7,8 @@ import {
 } from '@quajs/engine'
 import { GalleryPlugin, getGalleryProfile, registerGalleryCatalogWithEngine, registerGalleryEntriesWithEngine } from '@quajs/plugin-gallery'
 import { getSettingsDeveloperValues, getSettingsPlayerValues, getSettingsProjection, SettingsPlugin, updatePlayerSettingsWithEngine } from '@quajs/plugin-settings'
+import { setStoryMetadataWithEngine, StoryGraphPlugin } from '@quajs/plugin-story-graph'
 import { MemoryBackend } from '@quajs/store'
-import { setStoryMetadataWithEngine, StoryGraphPlugin } from '@quajs/story-graph'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
   ACHIEVEMENT_PLUGIN_ID,

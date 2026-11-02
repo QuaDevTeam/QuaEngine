@@ -105,7 +105,7 @@ pnpm docs:build
 
 | 主题           | 入口                                                                                                                                                                |
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 叙事与插件     | [引擎 API](packages/core/engine/docs/global-api.md) · [插件系统](packages/core/engine/docs/plugin-system.md) · [故事图](packages/game/story-graph/README.md)        |
+| 叙事与插件     | [引擎 API](packages/core/engine/docs/global-api.md) · [插件系统](packages/core/engine/docs/plugin-system.md) · [故事图](packages/plugins/story-graph/README.md)        |
 | Web 渲染       | [Web](packages/render/web/README.md) · [Vue](packages/render/vue/README.md) · [React](packages/render/react/README.md) · [Svelte](packages/render/svelte/README.md) |
 | Cocos 与 Godot | [Creator 工作区](docs/content/docs/platforms/cocos.md) · [Godot 项目](docs/content/docs/platforms/godot.md) · [共享场景投影](packages/render/scene/README.md)       |
 | 资源与编译     | [Quack](packages/build/quack/README.md) · [QuaScript](packages/build/script-compiler/README.md) · [PSD 工作流](docs/guides/psd-sprite-ui-skin.md)                   |

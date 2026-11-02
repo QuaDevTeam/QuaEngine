@@ -536,9 +536,9 @@ importers:
       '@quajs/store-web':
         specifier: workspace:*
         version: link:../packages/platform/store-web
-      '@quajs/story-graph':
+      '@quajs/plugin-story-graph':
         specifier: workspace:*
-        version: link:../packages/game/story-graph
+        version: link:../packages/plugins/story-graph
       vue:
         specifier: 'catalog:'
         version: 3.5.34(typescript@6.0.3)
@@ -718,9 +718,9 @@ importers:
       '@quajs/plugin-gallery':
         specifier: workspace:*
         version: link:../../plugins/gallery
-      '@quajs/story-graph':
+      '@quajs/plugin-story-graph':
         specifier: workspace:*
-        version: link:../../game/story-graph
+        version: link:../../plugins/story-graph
       '@types/babel__generator':
         specifier: 'catalog:'
         version: 7.27.0
@@ -1205,7 +1205,7 @@ importers:
         specifier: workspace:*
         version: link:../../render/core
 
-  packages/game/story-graph:
+  packages/plugins/story-graph:
     dependencies:
       '@babel/types':
         specifier: 'catalog:'
@@ -1530,9 +1530,9 @@ importers:
       '@quajs/store':
         specifier: workspace:*
         version: link:../../core/store
-      '@quajs/story-graph':
+      '@quajs/plugin-story-graph':
         specifier: workspace:*
-        version: link:../../game/story-graph
+        version: link:../../plugins/story-graph
 
   packages/plugins/animation:
     dependencies:
@@ -1682,9 +1682,9 @@ importers:
       '@quajs/store':
         specifier: workspace:*
         version: link:../../core/store
-      '@quajs/story-graph':
+      '@quajs/plugin-story-graph':
         specifier: workspace:*
-        version: link:../../game/story-graph
+        version: link:../../plugins/story-graph
 
   packages/plugins/inventory:
     dependencies:

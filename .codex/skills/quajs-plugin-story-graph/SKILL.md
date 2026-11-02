@@ -1,15 +1,17 @@
 ---
-name: quajs-story-graph
-description: Use, document, or modify @quajs/story-graph. Covers story metadata decorators, graph registration, lanes/routes/timelines/protagonists, chapter select projection, story events, choice targets, runtime package graph deltas, provenance, and validation.
+name: quajs-plugin-story-graph
+description: Use, document, or modify @quajs/plugin-story-graph. Covers story metadata decorators, graph registration, lanes/routes/timelines/protagonists, chapter select projection, story events, choice targets, runtime package graph deltas, provenance, and validation.
 ---
 
-# @quajs/story-graph
+# @quajs/plugin-story-graph
 
-Use this skill for `packages/game/story-graph`, story graph metadata, chapter select behavior, graph deltas, jump helpers, or story graph QuaScript decorators.
+Use this skill for `packages/plugins/story-graph`, story graph metadata, chapter select behavior, graph deltas, jump helpers, or story graph QuaScript decorators.
 
 ## Responsibility
 
-`@quajs/story-graph` owns story metadata, graph/lane/route/timeline records, story events, unlock state, and chapter select projection in the logic layer. It does not render chapter select UI.
+`@quajs/plugin-story-graph` owns story metadata, graph/lane/route/timeline records, story events, unlock state, and chapter select projection in the logic layer. It does not render chapter select UI.
+
+It is an optional engine feature plugin under `packages/plugins`, installed explicitly with `engine.use(new StoryGraphPlugin())`. Keep engine core independent of the concrete package. Runtime QPK story graph deltas require the installed plugin; the runtime plugin id and projection key remain `storyGraph`.
 
 Chapter select is derived from graph nodes marked with `chapterSelect` plus `unlockedNodes`; do not store a separate authoritative chapter select model.
 
@@ -17,7 +19,7 @@ Chapter select is derived from graph nodes marked with `chapterSelect` plus `unl
 
 ```ts
 import { QuaEngine } from '@quajs/engine'
-import { StoryGraphPlugin } from '@quajs/story-graph'
+import { StoryGraphPlugin } from '@quajs/plugin-story-graph'
 
 const engine = new QuaEngine()
 const storyGraph = new StoryGraphPlugin()
@@ -49,7 +51,7 @@ Runtime graph deltas are registered through `storyGraph.registerDelta()` and rem
 
 ## QuaScript Decorators
 
-The package exports mappings and compiler lowering from `@quajs/story-graph/script-compiler`.
+The package exports mappings and compiler lowering from `@quajs/plugin-story-graph/script-compiler`.
 
 ```qs
 @Chapter('chapter-1', { title: 'Chapter 1' })
@@ -112,12 +114,14 @@ Rules:
 ## Validation
 
 ```bash
-pnpm --filter @quajs/story-graph test -- --run
-pnpm --filter @quajs/story-graph typecheck
-pnpm --filter @quajs/story-graph build
+pnpm --filter @quajs/plugin-story-graph test -- --run
+pnpm --filter @quajs/plugin-story-graph typecheck
+pnpm --filter @quajs/plugin-story-graph build
 ```
 
 Run script-compiler/project-inspector tests when story declaration extraction changes.
+
+Package or export changes must also update plugin discovery, Quack compiler imports, Native JavaScriptCore helper registration, demo dependencies, the official package catalog, and docs reference generation. Validate compiled decorators and native helper imports with the public package name.
 
 ## Review Checklist
 

@@ -28,7 +28,7 @@ describe('cocos renderer plugin metadata', () => {
   it('keeps logic-only plugins out of renderer discovery', () => {
     expect(readPackage('packages/plugins/animation/package.json').quajs.renderer).toBeUndefined()
     expect(readPackage('packages/plugins/inventory/package.json').quajs.renderer).toBeUndefined()
-    expect(readPackage('packages/game/story-graph/package.json').quajs.renderer).toBeUndefined()
+    expect(readPackage('packages/plugins/story-graph/package.json').quajs.renderer).toBeUndefined()
   })
 })
 

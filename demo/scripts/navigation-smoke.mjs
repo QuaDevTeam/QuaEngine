@@ -103,7 +103,7 @@ try {
     await page.locator('[data-qui-id="native-main-menu-start"]').waitFor({ timeout: 60000 })
   }
   const first = '2019 年 6 月 10 日，青叶市。'
-  const second = '从内陆一路驶来的巴士喘着粗气开走，排气管喷出的白雾很快被初夏的雨水打散。神代凛站在空旷的车站雨棚下，这才发现头顶的铁皮雨棚破了个缺口。'
+  const second = '长途巴士喷出一团白雾，晃晃悠悠地消失在梅雨里。'
   await enterStory('native-main-menu-start', first, 'first-line')
   if (isNative) {
     await client.call('Input.dispatchMouseEvent', { type: 'mousePressed', x: 450, y: 250, button: 'left', clickCount: 1 })

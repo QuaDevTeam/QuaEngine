@@ -39,7 +39,7 @@ sed -n '1,260p' packages/build/script-compiler/src/core/transformer.ts
 sed -n '1,260p' packages/plugins/audio/src/script-compiler.ts
 sed -n '1,220p' packages/plugins/background/src/script-compiler.ts
 sed -n '1,220p' packages/plugins/animation/src/script-compiler.ts
-sed -n '1,220p' packages/core/story-graph/src/script-compiler.ts
+sed -n '1,220p' packages/plugins/story-graph/src/script-compiler.ts
 ```
 
 ## Built-In And Common Package Groups
@@ -55,7 +55,7 @@ From `packages/core/engine/src/script-compiler.ts` and the default mapping regis
 
 ### Story graph metadata
 
-From `packages/core/story-graph`:
+From `packages/plugins/story-graph`:
 
 - `@Chapter`
 - `@Scene`

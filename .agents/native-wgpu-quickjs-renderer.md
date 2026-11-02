@@ -1028,7 +1028,7 @@ Native compatibility validation rules:
 | `@quajs/plugin-gallery` | Gallery catalog/projection/unlock state | QUI gallery grid/detail/lightbox, package-aware thumbnails/content refs | Full |
 | `@quajs/plugin-achievement` | Achievement/group/progress/projection | Toasts, board UI, icons, notification timing as transient renderer state | Full |
 | `@quajs/plugin-inventory` | Engine/plugin inventory definitions and profile quantities | Optional QUI inventory panel/list/detail components; no renderer state authority | UI support staged |
-| `@quajs/story-graph` | Story metadata, graph deltas, chapter select projection | Optional native chapter/story map surface, package-aware thumbnails | Staged |
+| `@quajs/plugin-story-graph` | Story metadata, graph deltas, chapter select projection | Optional native chapter/story map surface, package-aware thumbnails | Staged |
 | Engine dialogue/choices/effects/scene/input/ui | Engine/render-core projections and pipeline intents | Dialogue, choices, scene transition, simple effects, input mapping, render-only surfaces | Full |
 
 ### Plugin Compatibility Tasks

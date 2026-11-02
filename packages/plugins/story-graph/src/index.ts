@@ -194,7 +194,7 @@ interface RuntimePackageGraphCleanup {
 const runtimeStoryGraphDeltas = new WeakMap<object, RuntimeStoryGraphDeltaState>()
 
 export class StoryGraphPlugin extends BaseEnginePlugin {
-  readonly name = '@quajs/story-graph'
+  readonly name = '@quajs/plugin-story-graph'
   readonly id = STORY_GRAPH_PLUGIN_ID
   readonly version = '0.1.0'
   readonly description = 'Story graph metadata, multi-lane cursors, events, and jump helpers'

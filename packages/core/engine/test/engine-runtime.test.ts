@@ -2296,7 +2296,7 @@ describe('quaEngine runtime architecture', () => {
       },
     })
     engine.use({
-      name: '@quajs/story-graph',
+      name: '@quajs/plugin-story-graph',
       id: 'storyGraph',
       init() {},
       registerDelta,
@@ -2347,7 +2347,7 @@ describe('quaEngine runtime architecture', () => {
 
     await expect(engine.loadRuntimePackage('missing-story-graph.qpk'))
       .rejects
-      .toThrow('Runtime package includes story graph deltas, but @quajs/story-graph is not installed.')
+      .toThrow('Runtime package includes story graph deltas, but @quajs/plugin-story-graph is not installed.')
     expect(engine.getRuntimePackages().find(pkg => pkg.id === 'runtime.missing-story-graph')).toEqual(
       expect.objectContaining({ state: 'unloaded' }),
     )

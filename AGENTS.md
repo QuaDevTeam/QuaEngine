@@ -181,15 +181,6 @@ The current milestone implements the logic layer, stateless renderer contracts, 
   - Must not keep renderer state
   - Must route game-facing changes through engine/store APIs
 
-#### **@quajs/story-graph** (`packages/game/story-graph`)
-- **Environment**: Platform-neutral game feature plugin/helper
-- **Purpose**: Story metadata, graph/lane/route/timeline records, story event logs, jump resolution, node unlock state, and chapter select projection
-- **Status**: Implemented
-- **Rules**:
-  - Chapter select is a derived projection from graph nodes marked with `chapterSelect` plus `unlockedNodes`
-  - Runtime graph deltas and chapter select assets/metadata must carry runtime package provenance
-  - Jump helpers must ensure required runtime packages before entering dynamic targets
-
 ### Platform Packages
 
 #### **@quajs/assets-web** (`packages/platform/assets-web`)
@@ -307,6 +298,16 @@ The current milestone implements the logic layer, stateless renderer contracts, 
 - **Status**: Implemented as core discovery infrastructure, not a feature plugin.
 
 ### Independent Feature Plugin Packages
+
+#### **@quajs/plugin-story-graph** (`packages/plugins/story-graph`)
+- **Environment**: Platform-neutral engine feature plugin
+- **Purpose**: Story metadata, graph/lane/route/timeline records, story event logs, jump resolution, node unlock state, and chapter select projection
+- **Status**: Implemented
+- **Rules**:
+  - Install explicitly with `engine.use(new StoryGraphPlugin())`; engine core does not depend on the concrete plugin package
+  - Chapter select is a derived projection from graph nodes marked with `chapterSelect` plus `unlockedNodes`
+  - Runtime graph deltas and chapter select assets/metadata must carry runtime package provenance
+  - Jump helpers must ensure required runtime packages before entering dynamic targets
 
 #### **@quajs/plugin-background** (`packages/plugins/background`)
 - **Independence**: Standalone workspace package outside `@quajs/engine`.
@@ -557,8 +558,7 @@ packages/
 │   ├── plugin-discovery/   # @quajs/plugin-discovery core discovery infrastructure
 │   └── store/              # @quajs/store state and snapshots
 ├── game/
-│   ├── character/          # @quajs/character game-facing character APIs
-│   └── story-graph/        # @quajs/story-graph story metadata helpers
+│   └── character/          # @quajs/character game-facing character APIs
 ├── platform/
 │   ├── assets-memory/      # @quajs/assets-memory adapter
 │   ├── assets-node/        # @quajs/assets-node adapter
@@ -576,7 +576,8 @@ packages/
 │   ├── gallery/            # @quajs/plugin-gallery
 │   ├── inventory/          # @quajs/plugin-inventory
 │   ├── settings/           # @quajs/plugin-settings
-│   └── sprite/             # @quajs/plugin-sprite
+│   ├── sprite/             # @quajs/plugin-sprite
+│   └── story-graph/        # @quajs/plugin-story-graph
 ├── render/
 │   ├── core/               # @quajs/render-core contracts/helpers
 │   ├── react/              # @quajs/renderer-react

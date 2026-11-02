@@ -1,14 +1,14 @@
-# @quajs/story-graph
+# @quajs/plugin-story-graph
 
 Story graph metadata, route/lane/timeline helpers, story events, jump resolution, unlock state, and chapter select projection for QuaEngine.
 
-The package is an engine feature package. It owns story graph state in the logic layer and exposes projections for tools or renderers to inspect. It does not render a chapter select UI.
+This optional engine plugin owns story graph state in the logic layer and exposes projections for tools or renderers to inspect. Install it explicitly with `engine.use(new StoryGraphPlugin())`. Engine core does not depend on this package; Runtime QPKs containing story graph deltas require the plugin to be installed. It does not render a chapter select UI.
 
 ## Engine Setup
 
 ```ts
 import { QuaEngine } from '@quajs/engine'
-import { StoryGraphPlugin } from '@quajs/story-graph'
+import { StoryGraphPlugin } from '@quajs/plugin-story-graph'
 
 const engine = new QuaEngine()
 const storyGraph = new StoryGraphPlugin()
@@ -62,7 +62,7 @@ Use `lockEntryUntilUnlocked: false` when a locked-looking chapter select entry s
 
 ## QuaScript Decorators
 
-The package publishes package-local decorator metadata and lowering through `@quajs/story-graph/script-compiler`.
+The package publishes package-local decorator metadata and lowering through `@quajs/plugin-story-graph/script-compiler`.
 
 ```qs
 @Chapter('chapter-1', { title: 'Chapter 1' })
@@ -101,7 +101,7 @@ The script compiler records `chapterSelect` metadata in story declarations. Proj
 - `chapterSelectable`
 - `chapterSelectOrder`
 
-These fields are for read-only inspection and editor tooling. Runtime chapter select behavior still comes from `@quajs/story-graph`.
+These fields are for read-only inspection and editor tooling. Runtime chapter select behavior still comes from `@quajs/plugin-story-graph`.
 
 ## Runtime Package Rules
 

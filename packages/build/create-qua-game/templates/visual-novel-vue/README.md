@@ -22,7 +22,7 @@ pnpm run assets:build
 - `src/game/styles.css` contains project styling on top of the optional renderer base/default styles.
 - `vite.config.ts` enables hash CSP and SRI output under `dist/qua-security/`.
 
-The Vue renderer preset uses the current feature order: input, fonts, background, sprite, character, effects, dialogue, choices, audio, scene, UI, settings, backlog, gallery, and achievement. Logic-only features such as `@quajs/story-graph` chapter select and `@quajs/plugin-inventory` can be added independently when the project needs them.
+The Vue renderer preset uses the current feature order: input, fonts, background, sprite, character, effects, dialogue, choices, audio, scene, UI, settings, backlog, gallery, and achievement. Logic-only features such as `@quajs/plugin-story-graph` chapter select and `@quajs/plugin-inventory` can be added independently when the project needs them.
 
 ## Project Icons
 

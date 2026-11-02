@@ -206,7 +206,7 @@ Decorator availability is explicit. A plugin decorator is usable only if it is a
 Common package decorators:
 
 - `@quajs/character`: `Speaker`, `SpeakerName`, `SpeakerStyle`, `SetSprite`, `ShowCharacter`, `HideCharacter`, `HideAllCharacters`, `MoveCharacter`, `SetExpression`, `CharacterFade`, `CharacterEnter`, `CharacterExit`
-- `@quajs/story-graph`: `Chapter`, `Scene`, `Entry`, `Node`, `Label`, `Lane`, `Route`, `StoryTimeline`, `Protagonist`, `Interaction`, `EmitStoryEvent`, `ChapterSelect`
+- `@quajs/plugin-story-graph`: `Chapter`, `Scene`, `Entry`, `Node`, `Label`, `Lane`, `Route`, `StoryTimeline`, `Protagonist`, `Interaction`, `EmitStoryEvent`, `ChapterSelect`
 - `@quajs/plugin-background`: `SetBackground`, `ClearBackground`, `VideoBackground`, `SetLayeredBackground`, `BackgroundLayer`, `RemoveBackgroundLayer`, `ClearBackgroundLayers`, `BackgroundTransition`, `BackgroundLayerTransition`, `ShowCgOverlay`, `HideCgOverlay`
 - `@quajs/plugin-audio`: `AudioChapter`, `LineId`, `PlayVoice`, `PlayBGM`, `PlaySFX`, `PlayAmbient`, `SetAudioGain`, `SetAudioPlaybackRate`, `SetAudioEq`, `SetAudioAutomation`, `StopAudio`, `PauseAudio`, `ResumeAudio`, `SeekAudio`, `StopVoice`, `StopBGM`, `StopSFX`, `StopAmbient`
 - `@quajs/plugin-animation`: `DefineAnimation`, `AnimationTimeline`, `Key`, `PlayAnimation`
@@ -215,7 +215,7 @@ Common package decorators:
 - `@quajs/plugin-achievement`: `UnlockAchievement`, `OpenAchievementBoard`
 - `@quajs/plugin-inventory`: `GrantInventoryItem`, `ConsumeInventoryItem`, `SetInventoryItemQuantity`
 
-For detailed package usage, load the matching project skill such as `quajs-plugin-audio`, `quajs-plugin-background`, `quajs-character`, or `quajs-story-graph`.
+For detailed package usage, load the matching project skill such as `quajs-plugin-audio`, `quajs-plugin-background`, `quajs-character`, or `quajs-plugin-story-graph`.
 
 Use `@HideAllCharacters()` for a cast-wide exit before a scene change or full-screen insert instead of listing every character. It hides the currently visible engine-projected cast, takes no arguments and needs no speaker context. It preserves character presentation/package metadata and leaves backgrounds, dialogue, choices and audio unchanged. Keep `@HideCharacter('id')` for selective exits; use background/audio decorators explicitly when those should also change.
 

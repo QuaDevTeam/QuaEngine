@@ -353,7 +353,7 @@ Yuki: Hello \${scope.playerName}
     expect(result).toContain('entryId: "nightReturn"')
     expect(result).toContain('setBacklogPolicyWithEngine(ctx.engine, {')
     expect(result).toContain('include: false')
-    expect(result).toContain('from "@quajs/story-graph"')
+    expect(result).toContain('from "@quajs/plugin-story-graph"')
     expect(result).toContain('from "@quajs/plugin-backlog"')
   })
 
@@ -1153,7 +1153,7 @@ function createTestPluginAwareTransformer(): Promise<QuaScriptTransformer> {
   return createPluginAwareTransformerAsync(undefined, {
     projectRoot: createTestProjectRootWithDependencies([
       '@quajs/character',
-      '@quajs/story-graph',
+      '@quajs/plugin-story-graph',
       '@quajs/plugin-achievement',
       '@quajs/plugin-animation',
       '@quajs/plugin-audio',

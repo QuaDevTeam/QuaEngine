@@ -122,7 +122,7 @@ async function rebuildAndLaunch() {
         '@quajs/plugin-fonts',
         '@quajs/plugin-gallery',
         '@quajs/plugin-settings',
-        '@quajs/story-graph',
+        '@quajs/plugin-story-graph',
         ...NATIVE_TARGET_BOOTSTRAP.coreAdapters,
       ],
       rendererEntries: [{

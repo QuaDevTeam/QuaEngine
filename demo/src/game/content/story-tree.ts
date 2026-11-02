@@ -1,4 +1,4 @@
-import type { StoryGraphPlugin } from '@quajs/story-graph'
+import type { StoryGraphPlugin } from '@quajs/plugin-story-graph'
 
 export interface DemoStoryTreeNodeDefinition {
   id: string

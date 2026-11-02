@@ -120,5 +120,5 @@ const HELPERS: &[&str] = &[
     "@quajs/plugin-backlog",
     "@quajs/plugin-gallery",
     "@quajs/plugin-inventory",
-    "@quajs/story-graph",
+    "@quajs/plugin-story-graph",
 ];

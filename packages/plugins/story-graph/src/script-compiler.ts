@@ -18,14 +18,14 @@ const STORY_METADATA_DECORATORS = new Set([
 
 export function createStoryGraphDecoratorCompiler() {
   return {
-    module: '@quajs/story-graph',
+    module: '@quajs/plugin-story-graph',
     runtimeHelperModules: {
-      setStoryMetadataWithEngine: '@quajs/story-graph',
-      emitStoryEventWithEngine: '@quajs/story-graph',
-      setStoryChapterSelectWithEngine: '@quajs/story-graph',
+      setStoryMetadataWithEngine: '@quajs/plugin-story-graph',
+      emitStoryEventWithEngine: '@quajs/plugin-story-graph',
+      setStoryChapterSelectWithEngine: '@quajs/plugin-story-graph',
     },
     supports(decoratorName: string, mapping: { function: string, module: string }) {
-      return mapping.module === '@quajs/story-graph'
+      return mapping.module === '@quajs/plugin-story-graph'
         && (STORY_METADATA_DECORATORS.has(decoratorName) || decoratorName === 'EmitStoryEvent' || decoratorName === 'ChapterSelect')
     },
     compile({ decorator }: {

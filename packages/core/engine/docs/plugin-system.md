@@ -179,6 +179,6 @@ Unload must remove only state that belongs to or depends on the package. Long-li
 - `@quajs/plugin-inventory`
 - `@quajs/plugin-settings`
 - `@quajs/plugin-sprite`
-- `@quajs/story-graph`
+- `@quajs/plugin-story-graph`
 
 Engine core still includes only generic infrastructure such as `BaseEnginePlugin`, `PluginFramework`, API registration, and the generic `UiOverlayPlugin`. Product-level UI behavior should remain in feature packages or renderer plugin subentries.

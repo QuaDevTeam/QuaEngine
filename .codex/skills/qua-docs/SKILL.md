@@ -14,6 +14,7 @@ description: Maintain QuaEngine's svedocs site, creator tutorials, generated pac
 - Author tutorials under `docs/content/docs`, standalone pages under `docs/content/pages`.
 - `docs/scripts/prepare-content.mjs` gathers these pages, package READMEs, and original `docs/design`, `guides`, `security`, `reviews` documents into ignored `.generated/content`.
 - Edit original reference sources, never generated copies. Preserve link/anchor behavior and source provenance. Do not replace an existing historical report with claims about newer behavior.
+- The story graph reference at `/docs/reference/story-graph` is generated from `packages/plugins/story-graph/README.md` for `@quajs/plugin-story-graph`; keep its public route stable when updating package layout.
 - Verify examples against current source/templates. Narrative state remains engine/store-owned, pipeline is the only bus, and generated runtime content travels through QPK.
 - Every public page needs a unique useful title and description. Keep section indexes and search discoverability complete.
 - Check public npm/release availability before presenting onboarding or download commands as usable. As of 2026-10-27, create-qua-game is unpublished and Editor releases are absent: onboarding uses source-built Editor with its portable SDK. The homepage copies the full Git clone command and keeps it contained on mobile. Re-verify before changing these dated statuses; configured release workflows are not published artifacts.

@@ -733,7 +733,7 @@ fn native_jsc_bridge_helper_exports(name: &str) -> Option<&'static [&'static str
             "consumeInventoryItemWithEngine",
             "setInventoryItemQuantityWithEngine",
         ]),
-        "@quajs/story-graph" => Some(&[
+        "@quajs/plugin-story-graph" => Some(&[
             "setStoryMetadataWithEngine",
             "emitStoryEventWithEngine",
             "setStoryChapterSelectWithEngine",
@@ -3655,7 +3655,7 @@ mod tests {
                 ][..],
             ),
             (
-                "@quajs/story-graph",
+                "@quajs/plugin-story-graph",
                 &[
                     "setStoryMetadataWithEngine",
                     "emitStoryEventWithEngine",
