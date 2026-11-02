@@ -75,6 +75,13 @@
           "asset": "haruka/pose-script-laugh.png"
         }
       ]
+    },
+    "pose-mug": {
+      "layers": [
+        {
+          "asset": "haruka/pose-mug.png"
+        }
+      ]
     }
   }
 }

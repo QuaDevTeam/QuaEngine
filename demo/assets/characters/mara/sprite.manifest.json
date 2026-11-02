@@ -481,6 +481,62 @@
           "asset": "mara/pose-equipment-soft.png"
         }
       ]
+    },
+    "teary-relief": {
+      "layers": [
+        {
+          "asset": "mara/teary-relief.png"
+        }
+      ]
+    },
+    "leisure-teary-relief": {
+      "layers": [
+        {
+          "asset": "mara/outfits/leisure/teary-relief.png"
+        }
+      ]
+    },
+    "date-teary-relief": {
+      "layers": [
+        {
+          "asset": "mara/outfits/date/teary-relief.png"
+        }
+      ]
+    },
+    "rain-teary-relief": {
+      "layers": [
+        {
+          "asset": "mara/outfits/rain/teary-relief.png"
+        }
+      ]
+    },
+    "autumn-teary-relief": {
+      "layers": [
+        {
+          "asset": "mara/outfits/autumn/teary-relief.png"
+        }
+      ]
+    },
+    "pose-tape-box": {
+      "layers": [
+        {
+          "asset": "mara/pose-tape-box.png"
+        }
+      ]
+    },
+    "leisure-pose-phone": {
+      "layers": [
+        {
+          "asset": "mara/outfits/leisure/pose-phone.png"
+        }
+      ]
+    },
+    "leisure-pose-book": {
+      "layers": [
+        {
+          "asset": "mara/outfits/leisure/pose-book.png"
+        }
+      ]
     }
   }
 }

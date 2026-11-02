@@ -47,6 +47,20 @@
           "asset": "yumi/outfits/leisure/hesitant.png"
         }
       ]
+    },
+    "calm": {
+      "layers": [
+        {
+          "asset": "yumi/calm.png"
+        }
+      ]
+    },
+    "leisure-calm": {
+      "layers": [
+        {
+          "asset": "yumi/outfits/leisure/calm.png"
+        }
+      ]
     }
   }
 }

@@ -42,6 +42,8 @@ export interface StoryScope extends PrologueScope {
 const choiceGroups = [
   ['listen-first', 'catalog-first'],
   ['verify-audio', 'verify-notice'],
+  ['follow-fishmarket', 'follow-sweetshop'],
+  ['walk-lighthouse', 'walk-recordshop'],
   ['tell-now', 'admit-fear'],
   ['investigate-station', 'investigate-office'],
   ['continue-inquiry', 'early-handoff'],
@@ -177,17 +179,17 @@ export class DemoStoryPlugin extends BaseEnginePlugin {
   private sources() {
     const scope = prologueScope(this.engine)
     return [
-      { key: 'arrival', chapter: '00', entry: 'prologue-arrival', create: () => arrival() },
+      { key: 'arrival', chapter: '00', entry: 'prologue-arrival', create: () => arrival(scope) },
       { key: 'commission', chapter: '00', create: () => commission(scope) },
       { key: 'restoration', chapter: '00', create: () => restoration(scope) },
-      { key: 'return-line', chapter: '00', create: () => returnLine() },
+      { key: 'return-line', chapter: '00', create: () => returnLine(scope) },
       { key: 'chapter-01', chapter: '01', entry: 'chapter-01', create: () => chapter01(scope) },
-      { key: 'chapter-02', chapter: '02', entry: 'chapter-02', create: () => chapter02() },
-      { key: 'chapter-03', chapter: '03', entry: 'chapter-03', create: () => chapter03() },
+      { key: 'chapter-02', chapter: '02', entry: 'chapter-02', create: () => chapter02(scope) },
+      { key: 'chapter-03', chapter: '03', entry: 'chapter-03', create: () => chapter03(scope) },
       { key: 'chapter-04', chapter: '04', entry: 'chapter-04', create: () => chapter04(scope) },
       { key: 'chapter-05', chapter: '05', entry: 'chapter-05', create: () => chapter05(scope) },
-      { key: 'handoff', chapter: '05', only: 'handoff', create: () => handoff() },
-      { key: 'inspection', chapter: '05', only: 'continuation', create: () => inspection() },
+      { key: 'handoff', chapter: '05', only: 'handoff', create: () => handoff(scope) },
+      { key: 'inspection', chapter: '05', only: 'continuation', create: () => inspection(scope) },
       { key: 'chapter-06', chapter: '06', entry: 'chapter-06', only: 'continuation', create: () => chapter06(scope) },
       { key: 'chapter-07', chapter: '07', entry: 'chapter-07', only: 'continuation', create: () => chapter07(scope) },
       { key: 'epilogue', chapter: '08', entry: 'epilogue', only: 'continuation', create: () => epilogue(scope) },
