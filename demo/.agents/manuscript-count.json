@@ -1,79 +1,79 @@
 {
-  "sourceCjk": 103017,
-  "proseWithAllAlternativesCjk": 97836,
+  "sourceCjk": 146532,
+  "proseWithAllAlternativesCjk": 139162,
   "routes": {
     "tomorrow": {
-      "combinations": 16,
-      "min": 93881,
-      "max": 93963
+      "combinations": 64,
+      "min": 124190,
+      "max": 124460
     },
     "letter": {
-      "combinations": 16,
-      "min": 93872,
-      "max": 93954
+      "combinations": 64,
+      "min": 124273,
+      "max": 124543
     },
     "handoff": {
-      "combinations": 16,
-      "min": 74029,
-      "max": 74111
+      "combinations": 64,
+      "min": 96201,
+      "max": 96473
     }
   },
   "sections": {
     "prologue-arrival": {
-      "min": 3043,
-      "max": 3043
+      "min": 6750,
+      "max": 6750
     },
     "prologue-commission": {
-      "min": 7855,
-      "max": 7881
+      "min": 11157,
+      "max": 11176
     },
     "prologue-restoration": {
-      "min": 6964,
-      "max": 6969
+      "min": 6942,
+      "max": 6949
     },
     "prologue-return-line": {
-      "min": 4421,
-      "max": 4421
+      "min": 4425,
+      "max": 4426
     },
     "chapter-01": {
-      "min": 9347,
-      "max": 9355
+      "min": 14242,
+      "max": 14316
     },
     "chapter-02": {
-      "min": 8201,
-      "max": 8201
+      "min": 11733,
+      "max": 11771
     },
     "chapter-03": {
-      "min": 18722,
-      "max": 18722
+      "min": 17755,
+      "max": 17811
     },
     "chapter-04": {
-      "min": 8903,
-      "max": 8908
+      "min": 11106,
+      "max": 11144
     },
     "chapter-05": {
-      "min": 4129,
-      "max": 4167
+      "min": 8295,
+      "max": 8332
     },
     "chapter-05-inspection": {
-      "min": 3017,
-      "max": 3017
+      "min": 3558,
+      "max": 3561
     },
     "chapter-06": {
-      "min": 3064,
-      "max": 3064
+      "min": 5873,
+      "max": 5877
     },
     "chapter-07": {
-      "min": 8200,
-      "max": 8204
+      "min": 13607,
+      "max": 13617
     },
     "epilogue": {
-      "min": 8002,
-      "max": 8015
+      "min": 8734,
+      "max": 8824
     },
     "ending-handoff": {
-      "min": 2444,
-      "max": 2444
+      "min": 3796,
+      "max": 3800
     }
   }
 }

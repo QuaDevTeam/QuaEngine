@@ -280,6 +280,8 @@ Yuki: We are here.
 
 Story-point metadata becomes generated step metadata. Runtime package builds must preserve `contentPackageId` and required runtime package provenance.
 
+Decorator arguments execute at runtime. Keep type-only imports such as `StoryScope` in `export interface Scope extends StoryScope {}`; never put `scope: StoryScope` in `@Node` metadata. Builds can succeed while playback later throws `ReferenceError`. Validate Demo narrative changes with `demo/scripts/story-playback.test.ts`, which executes the compiled scripts through all three endings with real choice intents and headless animation clocks. This complements the browser story/navigation smoke checks; it does not validate rendered artwork or native windows. Current Demo route counts and narrative revision notes live in `demo/.agents/manuscript-status.md` and `manuscript-count.json`; recount with `python3 demo/scripts/story-length.py` after text changes.
+
 ## Audio Chapter Pattern
 
 `@AudioChapter` can establish chapter defaults and a voice map. Dialogue without explicit `@PlayVoice` may resolve an implicit voice from the current chapter:

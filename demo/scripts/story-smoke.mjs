@@ -236,6 +236,10 @@ try {
       break
     await advanceLine()
   }
+  await page.waitForFunction(() => {
+    const character = document.querySelector('.qua-character[data-character-id="mara"][data-character-visible="true"]:not([data-character-presence="exit"])')
+    return character && Number(getComputedStyle(character).opacity) >= 0.99
+  })
   const continuedLineText = await line.textContent()
   const savedCast = await stageCast()
   assert(savedCast.some(c => c.id === 'mara'), 'Mara re-enters after insert')

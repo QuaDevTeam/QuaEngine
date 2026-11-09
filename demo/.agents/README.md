@@ -1,5 +1,7 @@
 # 《明天，请再一次呼唤我》创作档案
 
+2026-11-10：全部14份QS已扩写并调整对白、人物演出及提前交接后果。当前8组选项共192种可达组合；篇幅、三结局运行检查与浏览器验证范围以 [当前实施状态](manuscript-status.md) 和 [机器统计](manuscript-count.json) 为准，优先于下方历史说明。
+
 2026-09-13：[对白衔接与叙事因果续修](dialogue-coherence-2026-09-12.md)已通读并修改14份QS，处理问答错位、物件与时间矛盾、证据越界和话题跳转；当前篇幅与验证以该记录及[机器统计](manuscript-count.json)为准。
 
 2026-09-12：[文学、画面与演出修订](narrative-direction-2026-09-12.md)已修改14份QS，接入14张Flare medium图片；[提示词及生成记录](narrative-direction-assets.json)、[交付图预览](narrative-direction-preview.html)。
