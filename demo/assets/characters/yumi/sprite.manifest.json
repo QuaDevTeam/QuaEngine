@@ -61,6 +61,13 @@
           "asset": "yumi/outfits/leisure/calm.png"
         }
       ]
+    },
+    "pose-command": {
+      "layers": [
+        {
+          "asset": "yumi/pose-command.png"
+        }
+      ]
     }
   }
 }

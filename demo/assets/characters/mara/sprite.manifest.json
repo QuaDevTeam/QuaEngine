@@ -537,6 +537,48 @@
           "asset": "mara/outfits/leisure/pose-book.png"
         }
       ]
+    },
+    "pose-headphones": {
+      "layers": [
+        {
+          "asset": "mara/pose-headphones.png"
+        }
+      ]
+    },
+    "pose-headphones-shock": {
+      "layers": [
+        {
+          "asset": "mara/pose-headphones-shock.png"
+        }
+      ]
+    },
+    "pose-book": {
+      "layers": [
+        {
+          "asset": "mara/pose-book.png"
+        }
+      ]
+    },
+    "pose-tea": {
+      "layers": [
+        {
+          "asset": "mara/pose-tea.png"
+        }
+      ]
+    },
+    "date-pose-confession": {
+      "layers": [
+        {
+          "asset": "mara/outfits/date/pose-confession.png"
+        }
+      ]
+    },
+    "autumn-pose-scarf": {
+      "layers": [
+        {
+          "asset": "mara/outfits/autumn/pose-scarf.png"
+        }
+      ]
     }
   }
 }
