@@ -343,6 +343,10 @@ For `demo/` narrative work, read `demo/.agents/README.md` and its linked world, 
 
 Mara's sprite manifest includes `pose-headphones`, `pose-headphones-shock`, `pose-book`, `pose-tea`, `date-pose-confession` and `autumn-pose-scarf`; Yumi has `pose-command`. Keep date/autumn selections explicit so a pose change cannot revert the outfit. The scene assets `inserts/rin-kitchen-evening.webp` and `cg/late-edit.webp` use the ordinary QPK background path. Hide the cast during these full-screen images and restore the location and authored cast afterward. Validate manifest paths, literal QS expression selections and image decoding together; a headless ending run does not establish visual acceptance.
 
+### Current Demo continuity and validation (2026-11-14)
+
+Current QS and `demo/.agents/manuscript-status.md` supersede the historical route counts and ending notes below: eight choice groups yield 192 reachable combinations, with 64 per ending. Run `story-length.py` and refresh `manuscript-count.json` after prose changes. Keep Rin's three years of work, contract employment and later independent schedule consistent; distinguish preliminary course material from Mara's final admission email, and keep chapter04's suspicions separate from chapter05's document/site evidence. The early-handoff route includes a13:00 inspection,18:40 overload,18:42 emergency discharge and damage to the old station; Mara remains in Aoba for reconstruction and writes in November. It does not share the complete endings' safe station shutdown or autumn move to Tokyo. Validate with the existing three-ending engine playback, native JavaScriptCore build, Web/QPK build, opening story smoke and navigation smoke; state their coverage separately from all-combination execution and rendered-artwork acceptance.
+
 ### Narrative direction and insert illustrations
 
 See `demo/.agents/narrative-direction-2026-09-12.md` for research, concrete revisions and validation, and `demo/.agents/narrative-direction-assets.json` for prompts, prediction IDs, rejected attempts and shipped image hashes.

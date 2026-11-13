@@ -11,7 +11,7 @@ export interface Scope extends StoryScope {}
 @SetBackground('backgrounds/radio-archive-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 420 } })
 @ShowCharacter('mara', { expression: 'neutral', position: { x: 640, y: 750, scale: 1, rotation: 0, anchor: 'center' } })
 @ShowCharacter('haruka', { expression: 'neutral', position: { x: 1280, y: 750, scale: 1, rotation: 0, anchor: 'center' } })
-六月十二日傍晚，窗外的海面已经暗成了深沉的铁蓝色。
+六月十二日晚上七点半，窗外的海面已经暗成了深沉的铁蓝色。
 玻璃窗上蜿蜒着细密的雨痕，坡道下偶尔驶过亮着黄雾灯的渔港货车。
 凛摘下挂在耳畔的监听耳机，揉了揉有些发酸的鼻梁，合上手边的登记册。
 ${scope.pick('listen-first', '经过一整天的除湿与校准，头两箱受潮最重的街坊留言带总算都救了回来。', '经过一整天的核对与抄录，头三箱缺了封皮的旧母带总算都重新贴好了编号。')}
@@ -50,7 +50,7 @@ Mara: 噗，因为上礼拜春香把杯子忘在导播台，被由美台长当�
 @SetExpression('smile', 'haruka')
 水野春香: 哼，今天我把写了名字的黄便利贴压在杯底最外头，这回谁也别想收错我的鲸鱼杯！
 Mara: 好好好，水野大主播的专属圣杯，我保证连碰都不碰一下。
-水野春香: 这还差不多！由美台长已经在前厅穿雨衣准备锁大门了，我也得去赶六点四十的巴士啦。
+水野春香: 这还差不多！由美台长已经在前厅穿雨衣准备锁大门了，我也得去赶七点四十的巴士啦。
 水野春香: 神代小姐、Mara，你们把除湿箱定时设好也早点回去休息哦，明天见！
 @HideCharacter('haruka')
 春香夹着台本轻快地跑出资料室，走廊里的脚步声很快消失在楼梯口。
@@ -61,22 +61,23 @@ Mara: 好好好，水野大主播的专属圣杯，我保证连碰都不碰一�
 @SetExpression('hesitant', 'mara')
 Mara 没有立刻去拿挂在门后的雨衣，而是站在东墙角的旧跳线架旁，手指轻轻抠着裤缝。
 神代凛: 怎么了？还有哪盘带子的编号没对上吗？
-@SetExpression('pose-equipment-worried', 'mara')
+@SetExpression('hesitant', 'mara')
 Mara: 不是带子的事……那个，神代小姐，趁现在离晚上八点还有二十多分钟。
 Mara: 你能不能先别急着走，帮我看一眼墙角这根二号返送监听线？
 
 @Node('prologue-return-line', { title: '不该说话的旧线路' })
 @HideAllCharacters()
 @SetBackground('backgrounds/radio-archive-day-anime-v3.webp', { transition: { type: 'crossfade', duration: 360 } })
-@ShowCharacter('mara', { expression: 'pose-equipment-worried', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })
+@ShowCharacter('mara', { expression: 'hesitant', position: { x: 960, y: 750, scale: 1, rotation: 0, anchor: 'center' } })
 凛停下扣背包带的动作，摘下脖子上的监听耳机，走到 Mara 身旁半步远的地方蹲下。
 在斑驳的踢脚线上方，一根贴着泛黄标签“RET-02”的深灰双绞屏蔽线从墙洞里穿出来。
 它的末端并没有剪断，而是插在一只八十年代留下的铁壳备用监听分线盒里。
-神代凛: 说起来，你们二楼早就换成了电脑数字播控系统，为什么一楼墙角还留着这根八十年代的老铜线没拆？
+神代凛: 说起来，所谓“返送监听线”，就是把发射塔播出去的节目信号原路传回电台、方便导播检查声音有没有正常播出的回传线。
+神代凛: 你们二楼早就换成了电脑数字播控系统，为什么一楼墙角还留着这根八十年代的老铜线没拆？
 @SetExpression('neutral', 'mara')
 Mara: 因为这是三年前海音科技专门让我们保留的“模拟声场回波返送线”呀！
-Mara: 海音科技接手东堤中继站的时候发现，光纤和数字路由器会把海底断层最微妙的低频情绪驻波滤掉。
-Mara: 只有这种八十年代埋在地下管廊里的无源纯铜双绞线，能原汁原味地把我们发射塔播出去的声音和海底断层的共鸣回波传回来。
+Mara: 海音科技接手东堤中继站的时候发现，光纤和数字设备会把海底断层最微妙的低频情绪共鸣波滤掉。
+Mara: 只有这种八十年代埋在地下管廊里的老式纯铜线，能原汁原味地把我们发射塔播出去的声音和海底断层的共鸣回波一起传回来。
 Mara: 所以高桥小姐她们就把这根“RET-02”老铜线并进了东堤地下的五号共鸣腔，用来监测每天广播时全镇声场的共鸣反馈。
 Mara: 按她们和市政厅的合同，在月底搬去市民中心新馆之前，这根老铜线一直得保持连通状态。
 神代凛: 原来是直接连着东堤海底共鸣腔的模拟反馈线……这就是昨天高桥工程师让我们平时别乱插耳机的那路旧线吧？
@@ -101,7 +102,7 @@ Mara: 昨晚八点春香早就回家吃晚饭了，直播间里放的是电脑�
 Mara: 而且更怪的是，我在耳塞里听见春香念了一句“六月十二日傍晚北风转弱”——
 Mara: 那明明是今天早上气象台才刚改的预报词，昨晚八点的时候连影子都还没有呢！
 神代凛: 会不会是二楼导播台的备播机里存了春香白天的试音片段，定时器串音放出来了？
-@SetExpression('pose-equipment-worried', 'mara')
+@SetExpression('pose-explaining', 'mara')
 Mara: 我今天一早也这么怀疑过，还专门把二楼备播机的硬盘日志翻了个底朝天。
 Mara: 可昨晚七点五十到八点十分之间，备播机根本没有读盘记录，由美台长也查不出头绪。
 Mara: 由美台长见我一直惦记着这事，就说等今晚八点让你这位专业耳朵一起听听看。
@@ -117,7 +118,7 @@ Mara: 也就是说，如果今晚八点它还响的话，信号绝对不是从�
 神代凛: 光靠耳朵听太容易被主观印象带偏了，我们把信号录下来看波形。
 凛从工具包底层取出一条双芯平衡跳线，又摸出那只金属外壳的“一分二”耳机分线器。
 神代凛: 我从监听盒的并联口引一路进我的数字录音机，再插上分线器，我们两个同时监听。
-@SetExpression('pose-equipment-soft', 'mara')
+@SetExpression('smile', 'mara')
 Mara: 好！我帮你把头顶的日光灯关掉，只留桌角这盏白炽小台灯，省得镇流器串进杂音！
 “啪嗒”一声轻响，资料室顶部的老式日光灯管熄灭了。
 昏黄温暖的台灯光晕拢在两人肩头，窗外的雨点敲打着玻璃，整座旧楼安静得能听见彼此的呼吸。
