@@ -32,6 +32,8 @@ mod product_runtime;
 mod product_window;
 #[cfg(feature = "native-window")]
 mod product_window_loop;
+#[cfg(any(test, feature = "image-decode"))]
+mod qpk;
 mod renderer_smoke;
 #[cfg(any(test, feature = "image-decode"))]
 mod sprite_resources;

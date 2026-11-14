@@ -50,11 +50,11 @@ fn host_info_uses_signed_app_config_and_rust_renderer_capabilities() {
     );
     assert!(host_info.has_capability("native-wgpu.ui.surface@1"));
     assert!(host_info.has_capability("native-wgpu.input.pointer@1"));
-    assert!(host_info.has_capability("native-wgpu.input.text@1"));
+    assert_eq!(host_info.has_capability("native-wgpu.input.text@1"), !cfg!(feature = "embedded-sdk"));
     assert_eq!(
         host_info.has_capability("native-wgpu.audio@1"),
         cfg!(all(
-            feature = "native-window",
+            any(feature = "native-window", feature = "embedded-sdk"),
             feature = "native-audio-rodio"
         ))
     );
@@ -70,7 +70,7 @@ fn startup_capabilities_declare_audio_only_when_rodio_backend_is_enabled() {
     assert_eq!(
         audio.is_some(),
         cfg!(all(
-            feature = "native-window",
+            any(feature = "native-window", feature = "embedded-sdk"),
             feature = "native-audio-rodio"
         ))
     );
@@ -138,7 +138,7 @@ fn rejects_renderer_manifest_that_omits_host_capabilities_after_building_host_in
         .expect("native renderer metadata exists");
     native_renderer
         .capability_ids
-        .retain(|capability_id| capability_id != "native-wgpu.input.text@1");
+        .retain(|capability_id| capability_id != "native-wgpu.input.pointer@1");
     let created = Cell::new(false);
     let error =
         create_native_startup_host_info_with(fixture_app_config(), Some(&manifest), |config| {
@@ -149,7 +149,7 @@ fn rejects_renderer_manifest_that_omits_host_capabilities_after_building_host_in
 
     assert!(created.get());
     assert!(error.to_string().contains(
-        "nativeRenderer.capabilityIds omits host renderer capability \"native-wgpu.input.text@1\""
+        "nativeRenderer.capabilityIds omits host renderer capability \"native-wgpu.input.pointer@1\""
     ));
 }
 

@@ -7,12 +7,15 @@ export interface QuaProjectNativeBuildConfig extends Record<string, unknown> {
   cargoPackage?: string
   viteConfig?: string
   appAsset?: string
+  /** Library business factory exporting bootstrap(services); independent of the application entry. */
+  embeddedEntry?: string
+  embeddedViteConfig?: string
   workspaceConfig?: string
 }
 
 export function normalizeQuaProjectNativeBuildConfig(value: unknown): QuaProjectNativeBuildConfig {
   const record = asRecord(value) || {}
-  for (const key of ['cargoManifest', 'cargoPackage', 'viteConfig', 'appAsset', 'workspaceConfig']) {
+  for (const key of ['cargoManifest', 'cargoPackage', 'viteConfig', 'appAsset', 'workspaceConfig', 'embeddedEntry', 'embeddedViteConfig']) {
     const entry = record[key]
     if (entry !== undefined && (typeof entry !== 'string' || !entry.trim() || [...entry].some(character => character.charCodeAt(0) < 32)))
       throw new Error(`targets.native.build.${key} must be a nonempty string without control characters.`)

@@ -55,3 +55,28 @@ jobs:
 
       - name: Test demo UI and Creator build lifecycle
         run: pnpm --filter demo test:ui-surfaces
+
+  native-library:
+    # Headless ABI/storage acceptance only; visible Cocoa/Metal runs locally with
+    # QUA_NATIVE_VISUAL_SMOKE=1 and must not be inferred from this job.
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6.0.2
+      - uses: pnpm/action-setup@v6.0.7
+        with:
+          version: 12.3.4
+      - uses: actions/setup-node@v6.4.0
+        with:
+          node-version: 22.x
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build native resolver public inputs
+        run: >-
+          pnpm exec turbo run build --filter=@quajs/quack...
+          --filter=@quajs/engine-native... --filter=@quajs/assets-native...
+          --filter=@quajs/store-native... --filter=@quajs/plugin-embedded...
+      - name: Test native library and shared host lifecycle
+        run: cargo test --locked --manifest-path packages/native/Cargo.toml -p quajs_native_app --lib --features embedded-sdk
+      - name: Test independently linked C consumer and exported module
+        run: pnpm --filter @quajs/quack exec vitest run test/native-embedded-project.test.ts

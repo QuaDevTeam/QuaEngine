@@ -267,12 +267,35 @@ where
         host: H,
         backend_config: WgpuNativeRenderBackendConfig,
     ) -> Result<Self, NativeProductWindowError> {
+        Self::bootstrap_configured(instance, surface, physical_size, host, backend_config, configured_msaa_samples(), std::env::var_os("QUA_NATIVE_RENDERER_WINDOW_SMOKE_FRAME").is_none())
+    }
+
+    /// Embedding never consults application/editor development environment flags.
+    #[cfg(feature = "embedded-sdk")]
+    pub(crate) fn bootstrap_embedded(
+        instance: &wgpu::Instance,
+        surface: wgpu::Surface<'static>,
+        physical_size: NativeProductWindowPhysicalSize,
+        host: H,
+    ) -> Result<Self, NativeProductWindowError> {
+        Self::bootstrap_configured(instance, surface, physical_size, host, WgpuNativeRenderBackendConfig::default(), 1, true)
+    }
+
+    fn bootstrap_configured(
+        instance: &wgpu::Instance,
+        surface: wgpu::Surface<'static>,
+        physical_size: NativeProductWindowPhysicalSize,
+        host: H,
+        backend_config: WgpuNativeRenderBackendConfig,
+        msaa_samples: u32,
+        async_images: bool,
+    ) -> Result<Self, NativeProductWindowError> {
         let mut bootstrap_request = RealWgpuSurfaceTargetBootstrapRequest::new(
             physical_size.width,
             physical_size.height,
             backend_config.clone(),
         );
-        bootstrap_request.msaa_samples = configured_msaa_samples();
+        bootstrap_request.msaa_samples = msaa_samples;
         let bootstrap = pollster::block_on(create_real_wgpu_surface_target(
             instance,
             &surface,
@@ -285,7 +308,7 @@ where
         })?;
 
         let mut runtime_device = RealWgpuNativeRenderRuntimeDevice::new(bootstrap.target);
-        if std::env::var_os("QUA_NATIVE_RENDERER_WINDOW_SMOKE_FRAME").is_none() {
+        if async_images {
             runtime_device
                 .enable_async_image_uploads()
                 .map_err(|error| {

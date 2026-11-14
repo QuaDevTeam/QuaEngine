@@ -5,8 +5,13 @@ license.workspace = true
 repository.workspace = true
 version.workspace = true
 
+[lib]
+name = "quajs_native"
+crate-type = ["rlib", "cdylib", "staticlib"]
+
 [features]
 default = []
+embedded-sdk = ["javascriptcore", "native-gpu", "native-audio-rodio", "dep:winit"]
 image-decode = ["quajs_wgpu_renderer/image-decode"]
 # Compile-time log ceiling. `log`'s `max_level_*` features are additive and
 # resolved by a least-verbose-wins cfg chain, so exposing one feature per level
@@ -19,18 +24,21 @@ native-font-ab-glyph = ["dep:ab_glyph", "dep:wuff"]
 native-video-gif = ["dep:image"]
 native-audio-rodio = ["dep:rodio"]
 javascriptcore = ["quajs_native_runtime/javascriptcore"]
-native-window = [
+native-gpu = [
   "image-decode",
   "native-font-ab-glyph",
   "native-video-gif",
-  "dep:base64",
   "dep:pollster",
+  "dep:wgpu",
+  "quajs_wgpu_renderer/real-wgpu-native",
+]
+native-window = [
+  "native-gpu",
+  "dep:base64",
   "dep:sha1",
   "dep:sysinfo",
   "dep:tungstenite",
-  "dep:wgpu",
   "dep:winit",
-  "quajs_wgpu_renderer/real-wgpu-native",
 ]
 
 [dependencies]

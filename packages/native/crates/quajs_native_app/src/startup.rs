@@ -5,7 +5,7 @@ use quajs_native_runtime::{
     current_platform, current_profile, jsc_runtime_version, NativeHostInfo, NativeHostInfoBuilder,
     NativePlatform, NativeProfile, RendererCapability,
 };
-#[cfg(all(feature = "native-window", feature = "native-audio-rodio"))]
+#[cfg(all(any(feature = "native-window", feature = "embedded-sdk"), feature = "native-audio-rodio"))]
 use quajs_wgpu_renderer::native_wgpu_audio_playback_capability;
 use quajs_wgpu_renderer::native_wgpu_capabilities;
 
@@ -74,10 +74,14 @@ fn create_host_info(config: NativeAppConfig) -> NativeHostInfo {
 }
 
 pub(crate) fn native_startup_renderer_capabilities() -> Vec<RendererCapability> {
-    append_native_startup_feature_capabilities(native_wgpu_capabilities())
+    let capabilities = native_wgpu_capabilities();
+    // ABI 1 exposes pointer/advance/focus, but has no text/IME entrypoint.
+    #[cfg(feature = "embedded-sdk")]
+    let capabilities = capabilities.into_iter().filter(|capability| capability.id != "native-wgpu.input.text@1").collect();
+    append_native_startup_feature_capabilities(capabilities)
 }
 
-#[cfg(all(feature = "native-window", feature = "native-audio-rodio"))]
+#[cfg(all(any(feature = "native-window", feature = "embedded-sdk"), feature = "native-audio-rodio"))]
 fn append_native_startup_feature_capabilities(
     mut capabilities: Vec<RendererCapability>,
 ) -> Vec<RendererCapability> {
@@ -85,7 +89,7 @@ fn append_native_startup_feature_capabilities(
     capabilities
 }
 
-#[cfg(not(all(feature = "native-window", feature = "native-audio-rodio")))]
+#[cfg(not(all(any(feature = "native-window", feature = "embedded-sdk"), feature = "native-audio-rodio")))]
 fn append_native_startup_feature_capabilities(
     capabilities: Vec<RendererCapability>,
 ) -> Vec<RendererCapability> {
