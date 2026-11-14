@@ -21,6 +21,27 @@ function fixture() {
 }
 
 describe('concrete Creator runtime services', () => {
+  it('uses embedded input and parent layout without subscribing to the global input source', () => {
+    const { cc } = fixture()
+    const globalInput = { on: vi.fn(), off: vi.fn() }
+    const unsubscribe = vi.fn()
+    const input = { onInput: vi.fn(() => unsubscribe) }
+    const onLayoutChange = vi.fn(() => unsubscribe)
+    const host = createCocosCreatorRuntimeHost({ cc: { ...cc, input: globalInput }, rootNode: { getComponent: () => undefined }, namespace: 'product/account-42', input, layout: { getContainerSize: () => ({ width: 640, height: 360 }), getDevicePixelRatio: () => 2, onLayoutChange } })
+    expect(host.nodes.getContainerSize()).toEqual({ width: 640, height: 360 })
+    expect(host.nodes.getDevicePixelRatio?.()).toBe(2)
+    const disposeInput = host.input.onInput(() => {})
+    expect(input.onInput).toHaveBeenCalledOnce()
+    expect(globalInput.on).not.toHaveBeenCalled()
+    const disposeLayout = host.nodes.onLayoutChange!(() => {})
+    expect(onLayoutChange).toHaveBeenCalledOnce()
+    disposeInput()
+    disposeLayout()
+    expect(unsubscribe).toHaveBeenCalledTimes(2)
+    for (const namespace of ['../profile', '/profile', 'a//b', 'a\\b', 'a:b'])
+      expect(() => createCocosCreatorRuntimeHost({ cc, rootNode: {}, namespace })).toThrow('safe relative path')
+  })
+
   it('reapplies seek after the native device resets its position on start', async () => {
     vi.useFakeTimers()
     try {

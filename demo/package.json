@@ -42,12 +42,16 @@
     "run:godot": "node scripts/run-godot.mjs",
     "edit:godot": "node scripts/run-godot.mjs --editor",
     "test:godot:native": "node scripts/godot-native-smoke.mjs",
-    "test:godot:package": "node scripts/godot-package-smoke.mjs"
+    "test:godot:package": "node scripts/godot-package-smoke.mjs",
+    "build:unity": "quack project build --target unity --all",
+    "test:godot:embedding": "node scripts/godot-embedding-smoke.mjs",
+    "test:cocos:embedding": "node scripts/cocos-embedding-smoke.mjs"
   },
   "dependencies": {
     "@quajs/assets": "workspace:*",
     "@quajs/assets-cocos": "workspace:*",
     "@quajs/assets-memory": "workspace:*",
+    "@quajs/assets-native": "workspace:*",
     "@quajs/assets-web": "workspace:*",
     "@quajs/character": "workspace:*",
     "@quajs/cocos-host": "workspace:*",
@@ -65,6 +69,7 @@
     "@quajs/plugin-audio": "workspace:*",
     "@quajs/plugin-background": "workspace:*",
     "@quajs/plugin-backlog": "workspace:*",
+    "@quajs/plugin-embedded": "workspace:*",
     "@quajs/plugin-fonts": "workspace:*",
     "@quajs/plugin-gallery": "workspace:*",
     "@quajs/plugin-settings": "workspace:*",
@@ -74,13 +79,16 @@
     "@quajs/renderer-cocos": "workspace:*",
     "@quajs/renderer-godot": "workspace:*",
     "@quajs/renderer-scene": "workspace:*",
+    "@quajs/renderer-unity": "workspace:*",
     "@quajs/renderer-vue": "workspace:*",
     "@quajs/renderer-web": "workspace:*",
     "@quajs/scene-host": "workspace:*",
     "@quajs/security-cocos": "workspace:*",
     "@quajs/security-web": "workspace:*",
     "@quajs/store-cocos": "workspace:*",
+    "@quajs/store-native": "workspace:*",
     "@quajs/store-web": "workspace:*",
+    "@quajs/unity-host": "workspace:*",
     "vue": "catalog:"
   },
   "devDependencies": {

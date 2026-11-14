@@ -143,4 +143,8 @@ Run Quack and Vite plugin tests when build/dev integration changes.
 - Is Vite dev VFS/HMR using the existing QuaAssets flow?
 - If sprite manifest, Quack/Vite integration, or renderer sprite behavior changed, was this skill updated?
 
+## Unity projection entry
+
+Renderer metadata includes the matching @quajs/renderer-unity/plugins feature entry, reusing renderer-scene and engine/pipeline/QPK authority. Entry availability does not establish Unity host parity; consult qua-unity-renderer for uGUI limits and pending SDK/Player acceptance. Update mappings and adapter tests together.
+
 Dependency maintenance: ag-psd 31 keeps its default decode memory limit enabled; do not opt out to preserve old oversized-input behavior. sharp 0.35 uses named Blend/OverlayOptions types beside its default runtime export. Validate PSD import/compositing and asset-pipeline consumers after upgrades.

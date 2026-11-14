@@ -104,3 +104,7 @@ Run renderer font tests when projection shape changes.
 - Are style/theme concerns kept out of automatic renderer imports?
 - If font API, projection, or renderer behavior changed, was this skill updated?
 - Does the complete native E2E prove a QPK atlas upload, shaped high-resolution atlas draws, zero bitmap fallback draws, and the expected `fonts:<family>` resource id?
+
+## Unity projection entry
+
+Renderer metadata includes the matching @quajs/renderer-unity/plugins feature entry, reusing renderer-scene and engine/pipeline/QPK authority. Entry availability does not establish Unity host parity; consult qua-unity-renderer for uGUI limits and pending SDK/Player acceptance. Update mappings and adapter tests together.

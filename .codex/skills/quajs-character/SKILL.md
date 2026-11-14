@@ -152,3 +152,7 @@ see `qua-editor-character` and `qua-editor-marketplace` for authoring and instal
 ## Native image preparation hints
 
 The package's QuaScript compiler emits static `character` asset hints for literal `ShowCharacter`, `SetSprite`, and `SetExpression` references, honoring the resolved dialogue speaker. `resolveCharacterRef(id).getSpriteAssets(options)` resolves registered sprite/expression keys without showing a character or writing engine state. Native bridge hosts can inject it as `assetPreload.resolveCharacter`; Rust then resolves the existing package-aware sprite manifest to base/expression/mask images. Runtime expressions are not evaluated early.
+
+## Unity projection entry
+
+Renderer metadata includes the matching @quajs/renderer-unity/plugins feature entry, reusing renderer-scene and engine/pipeline/QPK authority. Entry availability does not establish Unity host parity; consult qua-unity-renderer for uGUI limits and pending SDK/Player acceptance. Update mappings and adapter tests together.

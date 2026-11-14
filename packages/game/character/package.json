@@ -78,7 +78,8 @@
       "web": "@quajs/renderer-web/plugins/character",
       "vue": "@quajs/renderer-vue/plugins/character",
       "cocos": "@quajs/renderer-cocos/plugins/character",
-      "godot": "@quajs/renderer-godot/plugins/character"
+      "godot": "@quajs/renderer-godot/plugins/character",
+      "unity": "@quajs/renderer-unity/plugins/character"
     },
     "decorators": {
       "Speaker": {

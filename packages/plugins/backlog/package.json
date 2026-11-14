@@ -94,6 +94,7 @@
       "vue": "@quajs/renderer-vue/plugins/backlog",
       "cocos": "@quajs/renderer-cocos/plugins/backlog",
       "godot": "@quajs/renderer-godot/plugins/backlog",
+      "unity": "@quajs/renderer-unity/plugins/backlog",
       "native": "@quajs/plugin-backlog/surface"
     },
     "decorators": {

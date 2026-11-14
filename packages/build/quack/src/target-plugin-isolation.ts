@@ -67,7 +67,7 @@ export function assertQuackTargetPluginManifestIsolation(
 }
 
 export function targetFromAssetPlatform(platform: unknown): QuaTargetBootstrap | undefined {
-  return platform === 'web' || platform === 'cocos' || platform === 'native' || platform === 'godot'
+  return platform === 'web' || platform === 'cocos' || platform === 'native' || platform === 'godot' || platform === 'unity'
     ? platform
     : undefined
 }

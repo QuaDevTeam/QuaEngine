@@ -197,3 +197,7 @@ Creator HTTP video acceptance must use a server providing Accept-Ranges and corr
 SDK Web video below Canvas also requires a transparent graphics context configured before startup and an isolated game-container stacking context to contain the SDK negative z-index. Assert decoded test-pattern pixels in browser captures; a running decoder behind a black Canvas or page background is a visual failure. Full arbitrary video/image layer composition and filtered video are separate acceptance scopes.
 
 Generated cross-decoder fixtures must carry explicit color matrix, primaries, transfer and range (the demo converts BT.601 testsrc2 to tagged limited-range BT.709). Untagged H.264 gave different actual Chromium and AVFoundation color bars. Compare fixed color-bar pixels from browser and native GPU captures with maximum per-channel difference 5; moving screenshots are sampled sequentially, so motion phases are not pixel-identical. Do not infer parity for arbitrary untagged/HDR media from this SDR fixture.
+
+## Unity projection entry
+
+Renderer metadata includes the matching @quajs/renderer-unity/plugins feature entry, reusing renderer-scene and engine/pipeline/QPK authority. Entry availability does not establish Unity host parity; consult qua-unity-renderer for uGUI limits and pending SDK/Player acceptance. Update mappings and adapter tests together.

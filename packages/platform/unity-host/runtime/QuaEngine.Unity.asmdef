@@ -1,0 +1,7 @@
+{
+  "name": "QuaEngine.Unity",
+  "rootNamespace": "QuaEngine.Unity",
+  "references": ["Unity.ugui"],
+  "allowUnsafeCode": false,
+  "autoReferenced": true
+}

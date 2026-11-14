@@ -48,6 +48,18 @@ describe('quaEngine runtime architecture', () => {
     QuaEngine.resetInstance()
   })
 
+  it('releases its singleton after complete teardown so embedded sessions can restart', async () => {
+    const config = () => ({ assets: { adapter: createMemoryAdapter() }, store: { storage: { backend: MemoryBackend } } })
+    const first = QuaEngine.getInstance(config())
+    await first.init()
+    await first.destroy()
+    expect(() => QuaEngine.getInstance()).toThrow('config is required')
+    const second = QuaEngine.getInstance(config())
+    expect(second !== first).toBe(true)
+    await second.init()
+    await second.destroy()
+  })
+
   it('hides UI without losing story projections, blocks progression, and restores on intent', async () => {
     vi.useFakeTimers()
     const engine = createEngine()

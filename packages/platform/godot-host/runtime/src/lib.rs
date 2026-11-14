@@ -135,6 +135,22 @@ impl QuaJsRuntime {
     fn last_error(&self) -> GString { self.error.as_str().into() }
 
     #[func]
+    fn request_shutdown(&mut self) -> bool {
+        let Some(context) = &self.context else { return true; };
+        let result = context.with(|ctx| {
+            ctx.eval::<(), _>("if(typeof __quaShutdown === 'function') { __quaShutdown(); }")
+                .map_err(|error| exception(&ctx, error))
+        });
+        if let Err(error) = result { self.error = error; return false; }
+        true
+    }
+
+    #[func]
+    fn is_closed(&self) -> bool {
+        self.context.as_ref().map(|context| context.with(|ctx| ctx.globals().get::<_, bool>("__quaClosed").unwrap_or(false))).unwrap_or(true)
+    }
+
+    #[func]
     fn inspect(&self) -> GString {
         let Some(context) = &self.context else { return "{}".into(); };
         let value = context.with(|ctx| {

@@ -146,3 +146,7 @@ Run gallery tests when gallery condition/reward behavior changes.
 ## Shared surface consumers
 
 The `/surface` export is a pure, optional Web/native UI factory backed by `UiFeatureSurfaceEntry` from `@quajs/render-core`. Register it with native frame serialization and native intent handling, or the Web `createQuiWebOverlayHost` plus logic-side `resolveUiFeatureIntent`. Use the same skin and registration list on both targets. It must not import `@quajs/engine-native`; target adapters supply resource and presentation behavior. Existing Web framework plugin UI remains available independently.
+
+## Unity projection entry
+
+Renderer metadata includes the matching @quajs/renderer-unity/plugins feature entry, reusing renderer-scene and engine/pipeline/QPK authority. Entry availability does not establish Unity host parity; consult qua-unity-renderer for uGUI limits and pending SDK/Player acceptance. Update mappings and adapter tests together.

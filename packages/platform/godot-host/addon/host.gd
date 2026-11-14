@@ -1,5 +1,17 @@
 extends Control
 
+signal module_ready
+signal module_closed
+signal module_failed(message: String)
+signal story_message(message: Dictionary)
+signal story_result(outcome: Dictionary)
+@export var auto_start := true
+@export var standalone := true
+@export var content_root := "res://"
+@export var storage_namespace := ""
+var stopping := false
+var owned_audio_buses: Array[String] = []
+
 const ProjectionNode = preload("res://addons/quaengine/scene_node.gd")
 var projection_shader: Shader = preload("res://addons/quaengine/projection.gdshader")
 var vm: RefCounted
@@ -16,23 +28,41 @@ var running := false
 var frame_number := 0
 var review_dir := ""
 var review_busy := false
+var embedded_request: Dictionary = {}
+var pending_story_messages: Array[Dictionary] = []
+var emitted_story_result := false
 var frame_times: Array[float] = []
 var script_times: Array[float] = []
 
 func _ready() -> void:
+	focus_mode = Control.FOCUS_ALL
+	resized.connect(func(): events.append({"type": "layout"}))
+	if standalone: grab_focus()
+	if auto_start: start_module()
+
+func start_module() -> void:
+	if running or stopping: return
+	if not content_root.begins_with("res://") or not _safe_path(content_root):
+		_fail("Invalid module content_root")
+		return
+	if not standalone and storage_namespace.is_empty():
+		_fail("Embedded Godot modules require a storage_namespace")
+		return
+	if not storage_namespace.is_empty() and (storage_namespace.contains(":") or storage_namespace.contains("\\") or Array(storage_namespace.split("/")).any(func(part): return part.is_empty() or part == "." or part == "..")):
+		_fail("Invalid module storage_namespace")
+		return
 	nodes["root"] = self
-	get_viewport().size_changed.connect(func(): events.append({"type": "layout"}))
 	if not ClassDB.class_exists("QuaJsRuntime"):
 		GDExtensionManager.load_extension("res://addons/quaengine/quaengine.gdextension")
 	vm = ClassDB.instantiate("QuaJsRuntime")
 	if vm == null:
 		push_error("QuaEngine Godot GDExtension could not load.")
-		get_tree().quit(1)
+		_fail("QuaEngine Godot startup/runtime failed")
 		return
-	var manifest = JSON.parse_string(FileAccess.get_file_as_string("res://target-bundle-manifest.json"))
+	var manifest = JSON.parse_string(FileAccess.get_file_as_string(_mapped_path("res://target-bundle-manifest.json")))
 	if not manifest is Dictionary or manifest.get("target") != "godot" or manifest.get("targetCoreResolver") != "godot-core-resolver":
 		push_error("Invalid Godot target-bundle manifest.")
-		get_tree().quit(1)
+		_fail("QuaEngine Godot startup/runtime failed")
 		return
 	if manifest.get("profile") == "debug":
 		for argument in OS.get_cmdline_user_args():
@@ -40,14 +70,61 @@ func _ready() -> void:
 				review_dir = argument.trim_prefix("--qua-review-dir=")
 				DirAccess.make_dir_recursive_absolute(review_dir.path_join("requests"))
 				DirAccess.make_dir_recursive_absolute(review_dir.path_join("responses"))
-	var source := FileAccess.get_file_as_string("res://qua/runtime.js")
+	var source := FileAccess.get_file_as_string(_mapped_path("res://qua/runtime.js"))
 	if source.is_empty():
 		push_error("Missing QuaEngine Godot runtime bundle.")
-		get_tree().quit(1)
+		_fail("QuaEngine Godot startup/runtime failed")
 		return
 	running = vm.start(source, Callable(self, "bridge"))
 	if not running:
-		get_tree().quit(1)
+		_fail("QuaEngine Godot startup/runtime failed")
+
+func open_story(session_id: String, parameters: Dictionary = {}) -> void:
+	if running or stopping:
+		push_error("Close the previous story before opening another")
+		return
+	if not _valid_story_json(parameters) or JSON.stringify(parameters).to_utf8_buffer().size() > 65536:
+		module_failed.emit("Embedded parameters must be bounded finite JSON")
+		return
+	standalone = false
+	emitted_story_result = false
+	embedded_request = {"protocol": "qua-embedded", "version": 1, "type": "open", "sessionId": session_id, "storageNamespace": storage_namespace, "parameters": parameters.duplicate(true)}
+	start_module()
+
+func _valid_story_json(value: Variant, depth := 0) -> bool:
+	if depth > 24: return false
+	match typeof(value):
+		TYPE_NIL, TYPE_BOOL, TYPE_INT, TYPE_STRING: return true
+		TYPE_FLOAT: return is_finite(value)
+		TYPE_ARRAY:
+			if value.size() > 16384: return false
+			for item in value:
+				if not _valid_story_json(item, depth + 1): return false
+			return true
+		TYPE_DICTIONARY:
+			if value.size() > 16384: return false
+			for key in value:
+				if typeof(key) != TYPE_STRING or key in ["__proto__", "prototype", "constructor"] or not _valid_story_json(value[key], depth + 1): return false
+			return true
+	return false
+
+func cancel_story() -> void:
+	if embedded_request.is_empty(): return
+	events.append({"type": "embedded-command", "command": {"protocol": "qua-embedded", "version": 1, "type": "cancel", "sessionId": embedded_request.sessionId}})
+
+func _flush_story_messages(include_closed := false) -> void:
+	var pending := pending_story_messages
+	pending_story_messages = []
+	for message in pending:
+		if message.get("sessionId") != embedded_request.get("sessionId"): continue
+		if message.get("type") == "closed" and not include_closed:
+			pending_story_messages.append(message)
+			continue
+		if message.get("type") == "result":
+			if emitted_story_result: continue
+			emitted_story_result = true
+			story_result.emit(message.get("outcome", {}))
+		story_message.emit(message)
 
 func _process(_delta: float) -> void:
 	if not running:
@@ -60,19 +137,79 @@ func _process(_delta: float) -> void:
 	events = []
 	var tick_start := Time.get_ticks_usec()
 	running = vm.tick(Time.get_ticks_usec() / 1000.0, JSON.stringify(pending))
+	_flush_story_messages()
 	if not review_dir.is_empty():
 		script_times.append(float(Time.get_ticks_usec() - tick_start) / 1000.0)
 		if script_times.size() > 600: script_times.pop_front()
 	if not running:
 		push_error(vm.last_error())
-		get_tree().quit(1)
+		_fail("QuaEngine Godot startup/runtime failed")
 	if not review_dir.is_empty() and not review_busy:
 		_review_request()
 
+func _fail(message: String) -> void:
+	push_error(message)
+	module_failed.emit(message)
+	if standalone: get_tree().quit(1)
+	else: stop_module()
+
+func stop_module() -> void:
+	if stopping: return
+	stopping = true
+	running = false
+	call_deferred("_finish_stop")
+
+func _finish_stop() -> void:
+	var shutdown_error := ""
+	if vm:
+		vm.request_shutdown()
+		for iteration in range(32):
+			if vm.is_closed(): break
+			if not vm.tick(Time.get_ticks_usec() / 1000.0, "[]"): break
+		if not vm.is_closed(): shutdown_error = "Embedded shutdown did not settle; native resources were released"
+	_cleanup()
+	if not shutdown_error.is_empty() and not embedded_request.is_empty():
+		var envelope := {"protocol": "qua-embedded", "version": 1, "sessionId": embedded_request.sessionId}
+		if not emitted_story_result and not pending_story_messages.any(func(message): return message.get("type") == "result"):
+			var result := envelope.duplicate()
+			result.merge({"type": "result", "outcome": {"status": "error", "code": "SHUTDOWN_TIMEOUT", "message": shutdown_error}})
+			pending_story_messages.append(result)
+		var error := envelope.duplicate()
+		error.merge({"type": "error", "error": {"code": "SHUTDOWN_TIMEOUT", "message": shutdown_error}})
+		pending_story_messages.append(error)
+		if not pending_story_messages.any(func(message): return message.get("type") == "closed"):
+			var closed := envelope.duplicate()
+			closed["type"] = "closed"
+			pending_story_messages.append(closed)
+	for child in get_children():
+		if child.get_script() == ProjectionNode:
+			child.hide()
+			remove_child(child)
+			child.queue_free()
+	nodes.clear()
+	events.clear()
+	stopping = false
+	_flush_story_messages(true)
+	if not shutdown_error.is_empty(): module_failed.emit(shutdown_error)
+	module_closed.emit()
+
 func _exit_tree() -> void:
+	_cleanup()
+
+func _cleanup() -> void:
 	running = false
 	if vm:
 		vm.stop()
+	for player in audio.values():
+		if is_instance_valid(player):
+			player.stop()
+			if player.get_parent(): player.get_parent().remove_child(player)
+			player.queue_free()
+	audio.clear()
+	for bus in owned_audio_buses:
+		var index := AudioServer.get_bus_index(bus)
+		if index >= 0: AudioServer.remove_bus(index)
+	owned_audio_buses.clear()
 	resources.clear()
 	for path in media_files.values(): DirAccess.remove_absolute(path)
 	media_files.clear()
@@ -80,15 +217,27 @@ func _exit_tree() -> void:
 	font_variations.clear()
 
 func _input(event: InputEvent) -> void:
+	if standalone: _handle_input(event)
+	elif event is InputEventMouseButton and event.pressed and not get_global_rect().has_point(event.position) and has_focus():
+		release_focus()
+		events.append({"kind": "focus", "phase": "blur"})
+
+func _gui_input(event: InputEvent) -> void:
+	if not standalone:
+		if event is InputEventMouseButton and event.pressed: grab_focus()
+		_handle_input(event)
+
+func _handle_input(event: InputEvent) -> void:
+	if not running: return
 	if event is InputEventMouseButton:
-		var point: Vector2 = get_global_transform().affine_inverse() * event.position
+		var point: Vector2 = get_global_transform().affine_inverse() * event.position if standalone else event.position
 		if event.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]:
 			if event.pressed:
 				events.append({"kind": "pointer", "phase": "wheel", "x": point.x, "y": point.y, "metadata": {"deltaY": -72 if event.button_index == MOUSE_BUTTON_WHEEL_UP else 72}})
 		elif event.button_index == MOUSE_BUTTON_LEFT:
 			events.append({"kind": "pointer", "phase": "down" if event.pressed else "up", "x": point.x, "y": point.y})
 	elif event is InputEventMouseMotion:
-		var point: Vector2 = get_global_transform().affine_inverse() * event.position
+		var point: Vector2 = get_global_transform().affine_inverse() * event.position if standalone else event.position
 		events.append({"kind": "pointer", "phase": "move", "x": point.x, "y": point.y})
 	elif event is InputEventKey:
 		var code := OS.get_keycode_string(event.physical_keycode)
@@ -110,13 +259,14 @@ func bridge(method: String, raw: String, bytes: PackedByteArray = PackedByteArra
 		if not _safe_path(raw):
 			push_error("Rejected resource path: " + raw)
 			return null
-		var file := FileAccess.open(raw, FileAccess.READ)
+		var file := FileAccess.open(_mapped_path(raw), FileAccess.READ)
 		return file.get_buffer(file.get_length()) if file else null
 	if method == "write_bytes":
 		if not raw.begins_with("user://qua/") or not _safe_path(raw):
 			return false
-		DirAccess.make_dir_recursive_absolute(raw.get_base_dir())
-		var temporary := raw + ".tmp"
+		var destination := _mapped_path(raw)
+		DirAccess.make_dir_recursive_absolute(destination.get_base_dir())
+		var temporary := destination + ".tmp"
 		var file := FileAccess.open(temporary, FileAccess.WRITE)
 		if not file:
 			return false
@@ -124,13 +274,20 @@ func bridge(method: String, raw: String, bytes: PackedByteArray = PackedByteArra
 		file.flush()
 		var ok := file.get_error() == OK
 		file.close()
-		return ok and DirAccess.rename_absolute(temporary, raw) == OK
+		return ok and DirAccess.rename_absolute(temporary, destination) == OK
 	var args = JSON.parse_string(raw)
 	if not args is Dictionary:
 		return JSON.stringify({"error": "Invalid host arguments"})
 	if method == "resource_create":
 		return JSON.stringify(_create_resource(args, bytes))
 	return JSON.stringify(_call(method, args))
+
+func _storage_prefix() -> String:
+	return "user://qua/" + (storage_namespace.trim_suffix("/") + "/" if not storage_namespace.is_empty() else "")
+
+func _mapped_path(path: String) -> String:
+	if path.begins_with("res://"): return content_root.trim_suffix("/") + "/" + path.trim_prefix("res://")
+	return _storage_prefix() + path.trim_prefix("user://qua/")
 
 func _safe_path(path: String) -> bool:
 	if not path.begins_with("res://") and not path.begins_with("user://qua/"):
@@ -142,15 +299,19 @@ func _call(method: String, args: Dictionary) -> Dictionary:
 	var id: String = args.get("id", "")
 	var node = nodes.get(id)
 	match method:
+		"embedded_open": return {"value": embedded_request}
+		"embedded_event":
+			pending_story_messages.append(args)
 		"frame_rate":
-			Engine.max_fps = clampi(int(args.get("value", 0)), 0, 240)
+			if standalone: Engine.max_fps = clampi(int(args.get("value", 0)), 0, 240)
+		"ready": module_ready.emit()
 		"clock": return {"value": Time.get_ticks_usec() / 1000.0}
 		"log":
 			var message: String = args.get("text", "")
 			if args.get("level") == "error": push_error(message)
 			elif args.get("level") == "warn": push_warning(message)
 			else: print(message)
-		"container_size": return {"value": {"width": get_viewport_rect().size.x, "height": get_viewport_rect().size.y}}
+		"container_size": return {"value": {"width": size.x, "height": size.y}}
 		"node_create":
 			var item = ProjectionNode.new()
 			item.host = self
@@ -212,18 +373,21 @@ func _call(method: String, args: Dictionary) -> Dictionary:
 			fonts.erase(id)
 			font_variations.clear()
 			_refresh_fonts()
-		"file_exists": return {"value": _safe_path(args.path) and FileAccess.file_exists(args.path)}
+		"file_exists": return {"value": _safe_path(args.path) and FileAccess.file_exists(_mapped_path(args.path))}
 		"capture_node": _capture_node(args)
 		"file_mkdir", "file_delete", "file_move", "file_list": return _file_call(method, args)
 		"audio_create", "audio_play", "audio_pause", "audio_stop", "audio_volume", "audio_loop", "audio_rate", "audio_seek", "audio_position", "audio_dispose", "audio_bus_volume": return _audio_call(method, args)
 		"startup_error":
 			push_error(args.get("message", "QuaEngine startup failed"))
-			get_tree().quit(1)
-		"quit": get_tree().quit()
+			_fail("QuaEngine Godot startup/runtime failed")
+		"quit":
+			if standalone: get_tree().quit()
+			else: stop_module()
 		"destroy":
 			for player in audio.values(): player.queue_free()
 			audio.clear()
-			for child in get_children(): child.queue_free()
+			for child in get_children():
+				if child.get_script() == ProjectionNode: child.queue_free()
 			nodes.clear()
 			resources.clear()
 			fonts.clear()
@@ -296,8 +460,8 @@ func _create_resource(args: Dictionary, bytes: PackedByteArray) -> Dictionary:
 			resource = font
 		"video":
 			if bytes.slice(0, 4).get_string_from_ascii() != "OggS": return {"error": "Godot video requires Theora in Ogg; configure video.format: ogv for this asset target."}
-			DirAccess.make_dir_recursive_absolute("user://qua-media")
-			var path := "user://qua-media/" + id.sha256_text() + ".ogv"
+			DirAccess.make_dir_recursive_absolute("user://qua-media/" + str(get_instance_id()))
+			var path := "user://qua-media/" + str(get_instance_id()) + "/" + id.sha256_text() + ".ogv"
 			var file := FileAccess.open(path, FileAccess.WRITE)
 			if not file: return {"error": "Cannot prepare Godot video decoder file"}
 			file.store_buffer(bytes)
@@ -324,6 +488,7 @@ func _create_resource(args: Dictionary, bytes: PackedByteArray) -> Dictionary:
 func _file_call(method: String, args: Dictionary) -> Dictionary:
 	var path: String = args.get("path", args.get("from", ""))
 	if not path.begins_with("user://qua/") or not _safe_path(path): return {"error": "Invalid storage path"}
+	path = _mapped_path(path)
 	match method:
 		"file_mkdir":
 			if DirAccess.make_dir_recursive_absolute(path) != OK: return {"error": "Cannot create storage directory"}
@@ -331,8 +496,9 @@ func _file_call(method: String, args: Dictionary) -> Dictionary:
 			if FileAccess.file_exists(path) and DirAccess.remove_absolute(path) != OK: return {"error": "Cannot delete storage file"}
 		"file_move":
 			if not args.to.begins_with("user://qua/") or not _safe_path(args.to): return {"error": "Invalid storage destination"}
-			DirAccess.make_dir_recursive_absolute(str(args.to).get_base_dir())
-			if DirAccess.rename_absolute(path, args.to) != OK: return {"error": "Cannot move storage file"}
+			var destination := _mapped_path(str(args.to))
+			DirAccess.make_dir_recursive_absolute(destination.get_base_dir())
+			if DirAccess.rename_absolute(path, destination) != OK: return {"error": "Cannot move storage file"}
 		"file_list": return {"value": _list_files(path)}
 	return {"value": null}
 
@@ -344,7 +510,7 @@ func _list_files(path: String) -> Array:
 		if file.ends_with(".tmp"): continue
 		var full := path.path_join(file)
 		var handle := FileAccess.open(full, FileAccess.READ)
-		result.append({"path": full.trim_prefix("user://qua/"), "size": handle.get_length(), "mtime": FileAccess.get_modified_time(full) * 1000})
+		result.append({"path": full.trim_prefix(_storage_prefix()), "size": handle.get_length(), "mtime": FileAccess.get_modified_time(full) * 1000})
 	for child in directory.get_directories(): result.append_array(_list_files(path.path_join(child)))
 	return result
 
@@ -387,6 +553,21 @@ func _audio_call(method: String, args: Dictionary) -> Dictionary:
 	return {"value": null}
 
 func _audio_bus(bus: String) -> String:
+	if not standalone:
+		var prefix := "QuaEngine" + str(get_instance_id()) + ":"
+		var master := prefix + "Master"
+		if AudioServer.get_bus_index(master) < 0:
+			AudioServer.add_bus()
+			AudioServer.set_bus_name(AudioServer.bus_count - 1, master)
+			owned_audio_buses.append(master)
+		if bus.to_lower() == "master": return master
+		var name := prefix + bus
+		if AudioServer.get_bus_index(name) < 0:
+			AudioServer.add_bus()
+			AudioServer.set_bus_name(AudioServer.bus_count - 1, name)
+			AudioServer.set_bus_send(AudioServer.bus_count - 1, master)
+			owned_audio_buses.push_front(name)
+		return name
 	if bus.to_lower() == "master": return "Master"
 	if AudioServer.get_bus_index(bus) < 0:
 		AudioServer.add_bus()
@@ -433,7 +614,7 @@ func _capture_node(args: Dictionary) -> void:
 			else:
 				mime = "image/png"
 				bytes = image.save_png_to_buffer()
-			var path := "user://qua/.captures/" + str(args.id) + ".bin"
+			var path := "user://qua/.captures/" + str(get_instance_id()) + "/" + str(args.id) + ".bin"
 			if bridge("write_bytes", path, bytes):
 				result.merge({"path": path, "mimeType": mime, "width": image.get_width(), "height": image.get_height()})
 			else: result.error = "Cannot write captured image"
@@ -509,7 +690,7 @@ func _review_request() -> void:
 						if node == self or not is_instance_valid(node): continue
 						var rect: Rect2 = node.get_global_rect()
 						projected.append({"id": node.projection_id, "name": node.name, "kind": node.projection_kind, "visible": node.is_visible_in_tree(), "bounds": {"x": rect.position.x, "y": rect.position.y, "width": rect.size.x, "height": rect.size.y}, "metadata": node.projection_metadata, "textDetails": {"rect": str(node.text_node.get_rect()), "fontHeight": node.text_node.get_theme_font("font").get_height(node.text_node.get_theme_font_size("font_size")), "lineCount": node.text_node.get_line_count(), "visibleLines": node.text_node.get_visible_line_count(), "style": node.text_style} if is_instance_valid(node.text_node) else {}, "text": node.text_node.text if is_instance_valid(node.text_node) else ""})
-					result = {"engine": JSON.parse_string(vm.inspect()), "nodes": projected, "warnings": warnings.values(), "frame": frame_number, "audio": audio.keys(), "performance": {"targetFrameRate": Engine.max_fps, "vsyncMode": DisplayServer.window_get_vsync_mode(), "screenRefreshHz": DisplayServer.screen_get_refresh_rate(), "fps": Engine.get_frames_per_second(), "frameTimesMs": frame_times.duplicate(), "scriptTimesMs": script_times.duplicate(), "drawCalls": Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME), "nodes": nodes.size()}, "size": {"width": get_viewport_rect().size.x, "height": get_viewport_rect().size.y}}
+					result = {"engine": JSON.parse_string(vm.inspect()), "nodes": projected, "warnings": warnings.values(), "frame": frame_number, "audio": audio.keys(), "performance": {"targetFrameRate": Engine.max_fps, "vsyncMode": DisplayServer.window_get_vsync_mode(), "screenRefreshHz": DisplayServer.screen_get_refresh_rate(), "fps": Engine.get_frames_per_second(), "frameTimesMs": frame_times.duplicate(), "scriptTimesMs": script_times.duplicate(), "drawCalls": Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME), "nodes": nodes.size()}, "size": {"width": size.x, "height": size.y}}
 				"pointer":
 					var event := InputEventMouseButton.new()
 					event.position = Vector2(float(request.get("x", 0)), float(request.get("y", 0)))

@@ -61,10 +61,14 @@
   "peerDependencies": {
     "@quajs/godot-host": "workspace:*",
     "@quajs/logger": "workspace:*",
+    "@quajs/plugin-embedded": "workspace:*",
     "@quajs/utils": "workspace:*"
   },
   "peerDependenciesMeta": {
     "@quajs/godot-host": {
+      "optional": true
+    },
+    "@quajs/plugin-embedded": {
       "optional": true
     }
   },

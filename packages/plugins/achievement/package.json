@@ -96,6 +96,7 @@
       "vue": "@quajs/renderer-vue/plugins/achievement",
       "cocos": "@quajs/renderer-cocos/plugins/achievement",
       "godot": "@quajs/renderer-godot/plugins/achievement",
+      "unity": "@quajs/renderer-unity/plugins/achievement",
       "native": "@quajs/plugin-achievement/surface"
     },
     "decorators": {

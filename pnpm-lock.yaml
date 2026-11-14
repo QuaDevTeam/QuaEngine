@@ -461,6 +461,9 @@ importers:
       '@quajs/assets-memory':
         specifier: workspace:*
         version: link:../packages/platform/assets-memory
+      '@quajs/assets-native':
+        specifier: workspace:*
+        version: link:../packages/native/assets-native
       '@quajs/assets-web':
         specifier: workspace:*
         version: link:../packages/platform/assets-web
@@ -512,6 +515,9 @@ importers:
       '@quajs/plugin-backlog':
         specifier: workspace:*
         version: link:../packages/plugins/backlog
+      '@quajs/plugin-embedded':
+        specifier: workspace:*
+        version: link:../packages/plugins/embedded
       '@quajs/plugin-fonts':
         specifier: workspace:*
         version: link:../packages/plugins/fonts
@@ -539,6 +545,9 @@ importers:
       '@quajs/renderer-scene':
         specifier: workspace:*
         version: link:../packages/render/scene
+      '@quajs/renderer-unity':
+        specifier: workspace:*
+        version: link:../packages/render/unity
       '@quajs/renderer-vue':
         specifier: workspace:*
         version: link:../packages/render/vue
@@ -557,9 +566,15 @@ importers:
       '@quajs/store-cocos':
         specifier: workspace:*
         version: link:../packages/platform/store-cocos
+      '@quajs/store-native':
+        specifier: workspace:*
+        version: link:../packages/native/store-native
       '@quajs/store-web':
         specifier: workspace:*
         version: link:../packages/platform/store-web
+      '@quajs/unity-host':
+        specifier: workspace:*
+        version: link:../packages/platform/unity-host
       vue:
         specifier: 'catalog:'
         version: 3.5.45(typescript@6.0.3)
@@ -650,6 +665,9 @@ importers:
       '@quajs/native-contracts':
         specifier: workspace:*
         version: link:../../native/contracts
+      '@quajs/plugin-embedded':
+        specifier: workspace:*
+        version: link:../../plugins/embedded
       '@quajs/script-compiler':
         specifier: workspace:*
         version: link:../script-compiler
@@ -1443,11 +1461,26 @@ importers:
       '@quajs/scene-host':
         specifier: workspace:*
         version: link:../scene-host
+      '@quajs/scene-runtime':
+        specifier: workspace:*
+        version: link:../scene-runtime
       '@quajs/store':
         specifier: workspace:*
         version: link:../../core/store
 
   packages/platform/scene-host: {}
+
+  packages/platform/scene-runtime:
+    dependencies:
+      '@quajs/assets':
+        specifier: workspace:*
+        version: link:../../core/assets
+      '@quajs/scene-host':
+        specifier: workspace:*
+        version: link:../scene-host
+      '@quajs/store':
+        specifier: workspace:*
+        version: link:../../core/store
 
   packages/platform/security-cocos:
     devDependencies:
@@ -1501,6 +1534,21 @@ importers:
       fake-indexeddb:
         specifier: 'catalog:'
         version: 6.2.8
+
+  packages/platform/unity-host:
+    dependencies:
+      '@quajs/assets':
+        specifier: workspace:*
+        version: link:../../core/assets
+      '@quajs/scene-host':
+        specifier: workspace:*
+        version: link:../scene-host
+      '@quajs/scene-runtime':
+        specifier: workspace:*
+        version: link:../scene-runtime
+      '@quajs/store':
+        specifier: workspace:*
+        version: link:../../core/store
 
   packages/plugins/achievement:
     dependencies:
@@ -1641,6 +1689,21 @@ importers:
       '@quajs/render-core':
         specifier: workspace:*
         version: link:../../render/core
+      '@quajs/store':
+        specifier: workspace:*
+        version: link:../../core/store
+
+  packages/plugins/embedded:
+    devDependencies:
+      '@quajs/assets-memory':
+        specifier: workspace:*
+        version: link:../../platform/assets-memory
+      '@quajs/engine':
+        specifier: workspace:*
+        version: link:../../core/engine
+      '@quajs/pipeline':
+        specifier: workspace:*
+        version: link:../../core/pipeline
       '@quajs/store':
         specifier: workspace:*
         version: link:../../core/store
@@ -1983,6 +2046,33 @@ importers:
       svelte:
         specifier: 'catalog:'
         version: 5.55.9(@typescript-eslint/types@8.59.2)
+
+  packages/render/unity:
+    dependencies:
+      '@quajs/plugin-achievement':
+        specifier: workspace:*
+        version: link:../../plugins/achievement
+      '@quajs/plugin-audio':
+        specifier: workspace:*
+        version: link:../../plugins/audio
+      '@quajs/plugin-backlog':
+        specifier: workspace:*
+        version: link:../../plugins/backlog
+      '@quajs/plugin-fonts':
+        specifier: workspace:*
+        version: link:../../plugins/fonts
+      '@quajs/plugin-gallery':
+        specifier: workspace:*
+        version: link:../../plugins/gallery
+      '@quajs/plugin-settings':
+        specifier: workspace:*
+        version: link:../../plugins/settings
+      '@quajs/plugin-sprite':
+        specifier: workspace:*
+        version: link:../../plugins/sprite
+      '@quajs/renderer-scene':
+        specifier: workspace:*
+        version: link:../scene
 
   packages/render/vue:
     devDependencies:

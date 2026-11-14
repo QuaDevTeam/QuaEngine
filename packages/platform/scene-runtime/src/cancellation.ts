@@ -2,7 +2,7 @@
  * QuickJS has no browser cancellation constructors. This supplies only cancellation
  * events required by engine steps, without fetch, DOM or a second event bus.
  */
-export function installGodotCancellation(): void {
+export function installSceneCancellation(): void {
   if (typeof globalThis.AbortController === 'function')
     return
   class Signal {

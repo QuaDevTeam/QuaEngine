@@ -339,6 +339,8 @@ The same manifest includes `bundleIdentity: { name, version, buildNumber, hash, 
 
 ## Production project distribution
 
+Generated Cocos/Godot READMEs must state the implementation SDK/API baseline separately from a configured SDK version or loader minimum. Creator currently uses the 3.8.8 profile; Godot uses the 4.7 API with godot-rust 0.5.5/rquickjs 0.12.1. Unity has an initial 6.3 LTS target, default Editor 6000.3.28f1. Emit UPM/native/JS/QPK through unity-core-resolver, separating C ABI evidence from pending Editor/Player validation. Do not promise future SDK versions. Point users to exact SDK/platform regression and independent embedding validation; generated outputs must never replace host authoring projects. See `docs/content/docs/platforms/compatibility.md` and `guides/embedding.md`.
+
 `quack project build --target web|native` runs production Vite and validates the retained module graph through the active target resolver. Native distribution currently builds macOS `.app` on macOS, with staged QPKs, pinned startup metadata, Cargo release executable, icon, signature and optional notarytool submission/stapling. Use `buildQuaProjectProduction` from `@quajs/quack/project`; see `packages/build/quack/docs/production-build.md`. `QuackBundler.bundle(manifestName)` optionally preserves a workspace bundle's identity when staging individual outputs. Never overwrite an existing release/version directory, silently downgrade requested signing/notarization, inject inactive target cores or bundle dev transport into a production app.
 
 ## Creator opaque QPK import
@@ -362,3 +364,10 @@ The generated Web shell must enable `ENABLE_TRANSPARENT_CANVAS` through engine s
 
 
 Creator 3.8.8 CLI 构建使用每次独立的临时工作区导入副本，避免跨平台／重复使用导入数据库时将资源识别成普通文件。demo 构建脚本保留原始生成文件，验证启动场景（原生还要求 make 产出应用）后原子发布 build/<platform>；失败保留上一份可用输出。临时副本和构建锁自动清理。生成 package.json 使用稳定项目 UUID。脚本调用仍为 configPath，SDK 成功码为 36；该退出码本身不构成验收。独立 CLI 手动复现时请为每个平台复制一份原始工作区；Creator 图形编辑器可直接打开生成目录。
+
+## Embedded module delivery
+
+Embedded delivery: project build --embedded --target web|godot|cocos|unity --all [--output path] [--result-file path]. project-embedded.ts atomically stages a complete module with module.json hashes/entrypoints and no application shell. Web requires build.embeddedEntry/embeddedOrigins (optional embeddedViteConfig), linked business CSS and a generated parent client.js. Scene targets gate startup on the native open request. Keep target manifests/retained graph and QPK identities; validate consumers plus actual parent fixtures.
+
+
+Vite 8.3/Rolldown emits source-path comments in simple debug mode; disable experimental.attachDebugInfo in active-target bundlers, preserving legal comments. Do not depend on stripping obsolete //#region markers for portability. sharp 0.35 factories use the module default export type.

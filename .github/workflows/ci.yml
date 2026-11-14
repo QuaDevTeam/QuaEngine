@@ -28,6 +28,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Check Unity native VM independently of Unity Editor acceptance
+        run: |
+          cargo fmt --manifest-path packages/platform/unity-host/runtime/Cargo.toml -- --check
+          cargo test --locked --manifest-path packages/platform/unity-host/runtime/Cargo.toml
+          cargo clippy --locked --manifest-path packages/platform/unity-host/runtime/Cargo.toml --all-targets -- -D warnings
+
       - name: Run linting
         run: pnpm exec turbo run lint -- --max-warnings=0
 
@@ -40,6 +46,8 @@ jobs:
           --filter=@quajs/assets --filter=@quajs/cocos-host
           --filter=@quajs/store-cocos --filter=@quajs/renderer-cocos
           --filter=@quajs/godot-host --filter=@quajs/renderer-godot
+          --filter=@quajs/unity-host --filter=@quajs/renderer-unity
+          --filter=@quajs/scene-runtime --filter=@quajs/plugin-embedded
           --filter=@quajs/renderer-scene --filter=@quajs/native-contracts
           --filter=@quajs/renderer-web --filter=@quajs/renderer-vue
           --filter=@quajs/plugin-audio --filter=@quajs/plugin-background

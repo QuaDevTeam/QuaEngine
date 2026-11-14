@@ -6,6 +6,7 @@ import type {
 import type { NormalizedQuaProjectGodotTarget, QuaProjectGodotTargetConfig } from './project-godot-config'
 import type { QuaProjectNativeBuildConfig } from './project-native-build'
 import type { QuaProjectNativeDistribution } from './project-native-distribution'
+import type { NormalizedQuaProjectUnityTarget, QuaProjectUnityTargetConfig } from './project-unity-config'
 import { access, copyFile, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { basename, dirname, extname, isAbsolute, join, relative, resolve } from 'node:path'
 import { parse as parseYaml } from 'yaml'
@@ -15,23 +16,27 @@ import {
 
 } from './project-native-build'
 import { normalizeNativeDistribution } from './project-native-distribution'
+import { normalizeUnityTarget } from './project-unity-config'
 
 export { buildQuaProjectProduction } from './production/build'
 export type { QuaProductionBuildOptions, QuaProductionBuildResult } from './production/build'
-export type { QuaProductionBuildProgress, QuaProductionBuildStep, QuaProductionProgressListener } from './production/progress'
 
+export type { QuaProductionBuildProgress, QuaProductionBuildStep, QuaProductionProgressListener } from './production/progress'
 export { buildQuaProjectCocosWorkspace } from './project-cocos'
 export type { QuaCocosWorkspaceBuildOptions, QuaCocosWorkspaceBuildResult } from './project-cocos'
+
+export { buildQuaProjectEmbeddedModule } from './project-embedded'
+export type { QuaEmbeddedModuleBuildOptions, QuaEmbeddedModuleBuildResult } from './project-embedded'
 export { buildQuaProjectGodotWorkspace } from './project-godot'
 export type { QuaGodotWorkspaceBuildOptions, QuaGodotWorkspaceBuildResult } from './project-godot'
 export type { NormalizedQuaProjectGodotTarget, QuaProjectGodotTargetConfig } from './project-godot-config'
+export { createQuaHostCompatibility } from './project-host-compatibility'
 export {
   createQuaProjectNativeArtifactPlans,
   createQuaProjectNativeTargetBundleManifest,
   emitQuaProjectNativeTargetBundleManifest,
   QUA_NATIVE_TARGET_BUNDLE_MANIFEST_FILE,
 } from './project-native'
-
 export type {
   EmitQuaProjectNativeTargetBundleManifestOptions,
   EmittedQuaProjectNativeTargetBundleManifest,
@@ -46,6 +51,7 @@ export {
   type QuaProjectNativeBuildConfig,
 } from './project-native-build'
 export type { QuaProjectNativeDistribution } from './project-native-distribution'
+
 export {
   emitQuaTargetBundleManifest,
   QUA_TARGET_BUNDLE_MANIFEST_FILE,
@@ -54,6 +60,9 @@ export type {
   EmitQuaTargetBundleManifestOptions,
   EmittedQuaTargetBundleManifest,
 } from './project-target-bundle'
+export { buildQuaProjectUnityWorkspace } from './project-unity'
+export type { QuaUnityWorkspaceBuildOptions, QuaUnityWorkspaceBuildResult } from './project-unity'
+export type { NormalizedQuaProjectUnityTarget, QuaProjectUnityTargetConfig } from './project-unity-config'
 
 export const QUA_PROJECT_CONFIG_CANDIDATES = [
   'qua.project.yaml',
@@ -94,6 +103,12 @@ export interface QuaProjectManifestIconInput {
   purpose?: 'any' | 'maskable' | 'monochrome' | (string & {})
 }
 
+export interface QuaProjectWebBuildConfig extends Record<string, unknown> {
+  embeddedEntry?: string
+  embeddedViteConfig?: string
+  embeddedOrigins?: string[]
+}
+
 export interface QuaProjectWebTargetConfig {
   enabled?: boolean
   layout?: QuaProjectLayoutInput
@@ -111,7 +126,7 @@ export interface QuaProjectWebTargetConfig {
     message?: string
   }
   assetTarget?: AssetBundleTarget
-  build?: Record<string, unknown>
+  build?: QuaProjectWebBuildConfig
 }
 
 export interface QuaProjectCocosTargetConfig {
@@ -148,6 +163,7 @@ export interface QuaProjectTargetsConfig {
   web?: false | QuaProjectWebTargetConfig
   cocos?: false | QuaProjectCocosTargetConfig
   godot?: false | QuaProjectGodotTargetConfig
+  unity?: false | QuaProjectUnityTargetConfig
   native?: false | QuaProjectNativeTargetConfig
 }
 
@@ -178,7 +194,7 @@ export interface NormalizedQuaProjectWebTarget {
     message: string
   }
   assetTarget?: AssetBundleTarget
-  build?: Record<string, unknown>
+  build?: QuaProjectWebBuildConfig
 }
 
 export interface NormalizedQuaProjectCocosTarget {
@@ -222,6 +238,7 @@ export interface NormalizedQuaProjectConfig {
     web: NormalizedQuaProjectWebTarget
     cocos?: NormalizedQuaProjectCocosTarget
     godot?: NormalizedQuaProjectGodotTarget
+    unity?: NormalizedQuaProjectUnityTarget
     native?: NormalizedQuaProjectNativeTarget
   }
 }
@@ -280,7 +297,7 @@ export interface SyncQuaProjectCocosResult {
 }
 
 export type QuaProjectDoctorSeverity = 'info' | 'warning' | 'error'
-export type QuaProjectDoctorTarget = 'project' | 'web' | 'pwa' | 'cocos' | 'native' | 'godot'
+export type QuaProjectDoctorTarget = 'project' | 'web' | 'pwa' | 'cocos' | 'native' | 'godot' | 'unity'
 
 export interface QuaProjectDoctorIssue {
   id: string
@@ -389,6 +406,7 @@ export function normalizeQuaProjectConfig(input: unknown, options: NormalizeQuaP
   const targetsInput = asRecord(root.targets) || {}
   const web = normalizeWebTarget(targetsInput.web, issues)
   const godot = normalizeGodotTarget(targetsInput.godot, issues)
+  const unity = normalizeUnityTarget(targetsInput.unity, issues)
   const cocos = normalizeCocosTarget(targetsInput.cocos, issues)
   const native = normalizeNativeTarget(targetsInput.native, {
     bundleId,
@@ -411,6 +429,7 @@ export function normalizeQuaProjectConfig(input: unknown, options: NormalizeQuaP
     targets: {
       web,
       ...(godot ? { godot } : {}),
+      ...(unity ? { unity } : {}),
       ...(cocos ? { cocos } : {}),
       ...(native ? { native } : {}),
     },
@@ -520,6 +539,10 @@ export function createQuaProjectAssetTargets(project: NormalizedQuaProjectConfig
     })
   }
 
+  const unity = project.targets.unity
+  if (unity?.enabled) {
+    targets.push({ ...unity.assetTarget, name: unity.assetTarget?.name || 'unity', suffix: unity.assetTarget?.suffix || 'unity', platform: 'unity', staticOnly: true, pipeline: { ...unity.assetTarget?.pipeline, images: { format: 'png', rewriteExtension: false, ...unity.assetTarget?.pipeline?.images }, characters: { format: 'png', rewriteExtension: false, ...unity.assetTarget?.pipeline?.characters }, audio: { format: 'wav', rewriteExtension: false, ...unity.assetTarget?.pipeline?.audio }, video: { format: 'mp4', rewriteExtension: false, ...unity.assetTarget?.pipeline?.video } } })
+  }
   const godot = project.targets.godot
   if (godot?.enabled) {
     targets.push({ ...godot.assetTarget, name: godot.assetTarget?.name || 'godot', suffix: godot.assetTarget?.suffix || 'godot', platform: 'godot', staticOnly: true })
@@ -663,6 +686,14 @@ export async function doctorQuaProjectConfig(
   await doctorWebTarget(project, cwd, issues)
   await doctorCocosTarget(project, cwd, issues)
   await doctorNativeTarget(project, cwd, issues)
+  const unity = project.targets.unity
+  if (unity?.enabled) {
+    for (const [key, path] of Object.entries({ entry: unity.build.entry, viteConfig: unity.build.viteConfig })) {
+      if (path && !(await exists(resolve(cwd, path))))
+        issues.push({ id: `unity.build.${key}`, severity: 'error', target: 'unity', message: `Unity ${key} does not exist: ${path}` })
+    }
+    issues.push({ id: 'unity.runtime', severity: 'warning', target: 'unity', message: `Unity ${unity.editorVersion} (6.3 LTS), Rust/Cargo and a C compiler are required. Current-host desktop plugin only; Editor/Player and IL2CPP validation are separate. Output includes an embeddable UPM package.` })
+  }
   const godot = project.targets.godot
   if (godot?.enabled) {
     for (const [key, path] of Object.entries({ entry: godot.build.entry, viteConfig: godot.build.viteConfig })) {
@@ -1001,9 +1032,24 @@ function normalizeIcons(value: unknown): QuaProjectIconConfig {
   }
 }
 
-function normalizeWebTarget(value: unknown, _issues: string[]): NormalizedQuaProjectWebTarget {
+function normalizeWebTarget(value: unknown, issues: string[]): NormalizedQuaProjectWebTarget {
   const record = value === false ? {} : asRecord(value) || {}
   const pwa = asRecord(record.pwa) || {}
+  const build = asRecord(record.build) as QuaProjectWebBuildConfig | undefined
+  if (record.build !== undefined && !build)
+    issues.push('targets.web.build must be an object.')
+  for (const field of ['embeddedEntry', 'embeddedViteConfig'] as const) {
+    if (build?.[field] !== undefined && (typeof build[field] !== 'string' || !build[field]?.trim()))
+      issues.push(`targets.web.build.${field} must be a non-empty path.`)
+  }
+  if (build?.embeddedOrigins !== undefined && (!Array.isArray(build.embeddedOrigins) || !build.embeddedOrigins.length || build.embeddedOrigins.some((origin) => {
+    try {
+      return typeof origin !== 'string' || origin.includes('*') || !['http:', 'https:'].includes(new URL(origin).protocol) || new URL(origin).origin !== origin
+    }
+    catch { return true }
+  }))) {
+    issues.push('targets.web.build.embeddedOrigins must contain exact HTTP(S) origins.')
+  }
   return {
     enabled: value === false ? false : booleanValue(record.enabled, true),
     layout: normalizeLayout(record.layout),
@@ -1025,7 +1071,7 @@ function normalizeWebTarget(value: unknown, _issues: string[]): NormalizedQuaPro
       message: stringValue(asRecord(record.blockUi)?.message) || 'This game is not available on this device.',
     },
     assetTarget: asRecord(record.assetTarget) as AssetBundleTarget | undefined,
-    build: asRecord(record.build),
+    build,
   }
 }
 

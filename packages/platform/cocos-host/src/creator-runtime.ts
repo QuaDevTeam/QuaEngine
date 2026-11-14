@@ -1,4 +1,4 @@
-import type { CocosCreatorFileBridge } from './creator'
+import type { CocosCreatorFileBridge, CocosCreatorInputBridge, CocosCreatorLayoutBridge } from './creator'
 import type { CreatorNativeAudioProcessor } from './creator-audio'
 import type { CreatorNativeVideoDecoder } from './creator-video'
 import type { CocosHost, CocosHostFileInfo, CocosHostResource, CocosHostResourceKind } from './index'
@@ -19,12 +19,17 @@ export interface CocosCreatorRuntimeOptions {
   previewFiles?: CocosCreatorFileBridge
   audioProcessor?: CreatorNativeAudioProcessor
   videoDecoder?: CreatorNativeVideoDecoder
+  /** Embedded hosts supply container-local input and layout; no global input binding is installed. */
+  input?: CocosCreatorInputBridge
+  layout?: CocosCreatorLayoutBridge
 }
 
 /** Concrete resources, audio and durable files for generated Creator workspaces. */
 export function createCocosCreatorRuntimeHost(options: CocosCreatorRuntimeOptions): CocosHost {
   installCreatorCancellation()
   const { cc, rootNode, namespace } = options
+  if (!namespace || namespace.includes('\\') || namespace.includes(':') || namespace.includes('\0') || namespace.split('/').some(part => !part || part === '.' || part === '..'))
+    throw new Error('Creator storage namespace must be a safe relative path.')
   const blur = createCreatorSpriteBlur(cc, rootNode, options.projectionEffect)
   const fileUtils = options.native?.fileUtils
   const writableRoot = fileUtils ? `${fileUtils.getWritablePath()}${namespace}/` : `${namespace}/`
@@ -109,6 +114,8 @@ export function createCocosCreatorRuntimeHost(options: CocosCreatorRuntimeOption
     return { id, kind, source, native: asset, width: asset.originalSize?.width, height: asset.originalSize?.height, duration: asset.getDuration?.() }
   }
   const containerSize = () => {
+    if (options.layout?.getContainerSize)
+      return options.layout.getContainerSize()
     const camera = rootNode.getComponent(cc.Canvas)?.cameraComponent
     const frame = cc.view.getFrameSize?.()
     if (!camera || !frame?.height)
@@ -119,6 +126,7 @@ export function createCocosCreatorRuntimeHost(options: CocosCreatorRuntimeOption
   const host = createCocosCreatorHost({
     rootNode,
     cc,
+    input: options.input,
     video: createCreatorVideoBridge(cc, options.videoDecoder && {
       ...options.videoDecoder,
       create: path => options.videoDecoder!.create(fileUtils?.fullPathForFilename?.(path) || path),
@@ -154,8 +162,11 @@ export function createCocosCreatorRuntimeHost(options: CocosCreatorRuntimeOption
       : undefined,
     layout: {
       getContainerSize: containerSize,
-      getDevicePixelRatio: () => 1,
+      getDevicePixelRatio: () => options.layout?.getDevicePixelRatio?.() ?? 1,
+      getSafeAreaInsets: options.layout?.getSafeAreaInsets,
       onLayoutChange(listener) {
+        if (options.layout?.onLayoutChange)
+          return options.layout.onLayoutChange(listener)
         let pending = false
         const notify = () => {
           pending = false

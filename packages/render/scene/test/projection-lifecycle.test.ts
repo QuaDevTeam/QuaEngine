@@ -8,6 +8,7 @@ import { QuaSceneRendererController } from '../src'
 import { emptySceneView } from '../src/defaults'
 import { createAudioSceneRendererPlugin } from '../src/plugins/audio'
 import { createBacklogSceneRendererPlugin } from '../src/plugins/backlog'
+import { createDialogueSceneRendererPlugin } from '../src/plugins/dialogue'
 import { createFontsSceneRendererPlugin } from '../src/plugins/fonts'
 import { createSettingsSceneRendererPlugin } from '../src/plugins/settings'
 
@@ -54,6 +55,21 @@ function settingsView(skinned = false) {
 }
 
 describe('scene projection lifecycle regressions', () => {
+  it('gives an unpositioned dialogue visible logical bounds in an embedded container', async () => {
+    const host = createFakeCocosHost()
+    const view = emptySceneView()
+    view.dialogue = { ...view.dialogue, text: 'Embedded story', visible: true }
+    const renderer = new QuaSceneRendererController({ host, pipeline: new Pipeline(), assets: assets('image'), initialView: view, plugins: [createDialogueSceneRendererPlugin()] })
+    try {
+      await renderer.start()
+      await vi.waitFor(() => {
+        const box = [...host.nodesById.values()].find(node => node.kind === 'dialogue-box')
+        expect(box?.transform.width).toBeGreaterThan(0)
+        expect(box?.transform.height).toBeGreaterThan(0)
+      })
+    }
+    finally { await renderer.destroy() }
+  })
   it('does not update a disposed native handle after a pending seek completes', async () => {
     const host = createFakeCocosHost()
     const gate = deferred()

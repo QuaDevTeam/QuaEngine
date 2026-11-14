@@ -24,3 +24,4 @@ demo/assets/scripts/native-app.mjs
 *.tgz
 packages/native/target/
 packages/platform/godot-host/runtime/target/
+packages/platform/unity-host/runtime/target/

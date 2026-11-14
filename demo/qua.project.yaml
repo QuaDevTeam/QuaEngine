@@ -15,6 +15,15 @@ icons:
   source: public/icon.png
   favicon: public/favicon.png
 targets:
+  unity:
+    enabled: true
+    editorVersion: 6000.3.28f1
+    projectDir: dist/unity/workspace
+    layout: landscape
+    build:
+      entry: src/targets/unity/main.ts
+      viteConfig: vite.unity.config.ts
+      profile: debug
   godot:
     enabled: true
     projectDir: dist/godot/workspace

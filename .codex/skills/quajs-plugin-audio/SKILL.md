@@ -186,3 +186,7 @@ Concrete processing supports gain above unity without the AudioSource volume cla
 Run affected plugin/Web/Host/Cocos tests, typechecks and public builds, then generate and independently build the workspace with Creator. `pnpm --filter demo test:cocos:media:parity` checks actual PCM amplitude/frequency, eight EQ types across track/bus/master, live 1.5x rate, paused 0.5x changes, resume, typed 2x natural end, gain, fades/crossfade, image timelines and video. Zero gaps is required; do not replace processing checks with projection fields.
 
 Looping Web audio must normalize its held content offset to the decoded buffer duration before creating a resumed source, including playback-rate changes and multiple elapsed loops. Verify the source start offset as well as the displayed clock.
+
+## Unity projection entry
+
+Renderer metadata includes the matching @quajs/renderer-unity/plugins feature entry, reusing renderer-scene and engine/pipeline/QPK authority. Entry availability does not establish Unity host parity; consult qua-unity-renderer for uGUI limits and pending SDK/Player acceptance. Update mappings and adapter tests together.

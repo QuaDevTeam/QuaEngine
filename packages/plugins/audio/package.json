@@ -94,7 +94,8 @@
       "web": "@quajs/renderer-web/plugins/audio",
       "vue": "@quajs/renderer-vue/plugins/audio",
       "cocos": "@quajs/renderer-cocos/plugins/audio",
-      "godot": "@quajs/renderer-godot/plugins/audio"
+      "godot": "@quajs/renderer-godot/plugins/audio",
+      "unity": "@quajs/renderer-unity/plugins/audio"
     },
     "decorators": {
       "AudioChapter": {

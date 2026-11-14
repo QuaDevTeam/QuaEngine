@@ -1,0 +1,6 @@
+{
+  "name": "QuaEngine.Unity.Editor",
+  "references": ["QuaEngine.Unity", "Unity.ugui"],
+  "includePlatforms": ["Editor"],
+  "autoReferenced": true
+}

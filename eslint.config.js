@@ -6,6 +6,7 @@ export default antfu(
       '**/dist/**',
       '**/node_modules/**',
       '**/.turbo/**',
+      '**/target/**',
       'packages/build/vscode-quascript/server/**',
       'packages/editor/novel-writer/**',
       'packages/editor/electron/scripts/novel-writer-smoke.mjs',

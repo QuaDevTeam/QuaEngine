@@ -1,0 +1,71 @@
+{
+  "name": "@quajs/plugin-embedded",
+  "type": "module",
+  "version": "0.1.0",
+  "description": "Engine-owned embedded story sessions and bounded host protocols",
+  "author": "QuaDevTeam",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/QuaDevTeam/QuaEngine.git",
+    "directory": "packages/plugins/embedded"
+  },
+  "keywords": [
+    "quaengine",
+    "plugin",
+    "assets",
+    "loading"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./protocol": {
+      "types": "./dist/protocol.d.ts",
+      "import": "./dist/protocol.js"
+    },
+    "./session": {
+      "types": "./dist/session.d.ts",
+      "import": "./dist/session.js"
+    },
+    "./web": {
+      "types": "./dist/web.d.ts",
+      "import": "./dist/web.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@quajs/engine": "workspace:*",
+    "@quajs/pipeline": "workspace:*"
+  },
+  "devDependencies": {
+    "@quajs/assets-memory": "workspace:*",
+    "@quajs/engine": "workspace:*",
+    "@quajs/pipeline": "workspace:*",
+    "@quajs/store": "workspace:*"
+  },
+  "quajs": {
+    "type": "plugin",
+    "category": "integration",
+    "description": "Engine-owned embedded story sessions and bounded host protocols"
+  }
+}

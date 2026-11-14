@@ -1979,6 +1979,8 @@ export class QuaEngine {
     this.pluginContext.clear()
     this.isDestroyed = true
     this.isInitialized = false
+    if (QuaEngine.instance === this)
+      QuaEngine.instance = null
   }
 
   private assertInitialized(): void {

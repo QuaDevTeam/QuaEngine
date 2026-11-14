@@ -45,6 +45,11 @@ QuaEngine is a modern, TypeScript-based visual novel (Galgame) engine designed w
 - **Plugin-first non-core features**: Features that are not required for narrative execution, state authority, asset access, or pipeline communication must be engine plugins. Main menu, settings panels, save/load UI flows, gallery, backlog, history, achievements, and similar UX systems must not be hardwired into engine core.
 - **Renderer plugin architecture**: Renderer implementations must be built as core + optional plugins. Renderer plugins may subscribe/emit through `@quajs/pipeline` helpers and manage implementation resources, but they must not create a second eventbus or own authoritative game state.
 
+### Current additional target families
+- Godot and Unity extend the target set to five mutually exclusive families. godot-core-resolver and unity-core-resolver are their sole core injection points. Apply target isolation symmetrically across all five families.
+- scene-host stays neutral contracts; renderer-scene shares projection; scene-runtime shares byte/VM scheduling and persistence without target dependencies.
+- Unity 6.3 LTS is an initial desktop/UPM adaptation. Rust/recording-bridge tests do not qualify C# compilation, Editor/Player, IL2CPP or devices. Follow .codex/skills/qua-unity-renderer/SKILL.md.
+
 ### Target Core Packaging Isolation
 - **Target core plugins are mutually exclusive**: Web, Cocos, and native bootstrap/core plugins are three disjoint target families. A packaged Web, Cocos, or native project must contain exactly one active target core family and must never bundle another target's core adapters, renderer subentries, host bridge, native runtime metadata, or startup shell.
 - **Target selection happens first**: Packaging must start from the active target resolver: `web-core-resolver`, `cocos-core-resolver`, or `native-core-resolver`. Do not construct an all-target set such as `[webCore, cocosCore, nativeCore]`, `allRendererEntries`, an umbrella preset, or a shared bootstrap shell and filter it later.
@@ -522,7 +527,7 @@ Each package is:
 ## Getting Started
 
 ### Prerequisites
-- Node.js 20+
+- Node.js 22.12+
 - pnpm (configured via corepack)
 
 ### Development Setup

@@ -1,7 +1,7 @@
 import type { TargetBundleManifest } from '@quajs/native-contracts'
 import type { NormalizedQuaProjectConfig } from './project'
 import { createHash, randomUUID } from 'node:crypto'
-import { access, mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
+import { access, mkdir, readdir, readFile, realpath, rename, rm, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { dirname, extname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -9,8 +9,10 @@ import { parse } from '@babel/parser'
 import traverseImport from '@babel/traverse'
 import { assertTargetBundleManifest, createTargetCoreSelection } from '@quajs/native-contracts'
 import { QuackBundler } from './core/bundler'
+import { assertGeneratedProjectPath } from './generated-project'
 import { AssetPipelinePlugin } from './plugins/asset-pipeline'
 import { createQuaProjectAssetTargets, loadQuaProjectConfig, syncQuaProjectCocos } from './project'
+import { createQuaHostCompatibility } from './project-host-compatibility'
 import { emitQuaTargetBundleManifest } from './project-target-bundle'
 import { readQpkSummary } from './qpk-reader'
 import { assertStandaloneRuntimeCode } from './standalone-runtime-validation'
@@ -18,6 +20,8 @@ import { WorkspaceManager } from './workspace/workspace'
 
 export interface QuaCocosWorkspaceBuildOptions {
   cwd: string
+  outputDir?: string
+  embedded?: boolean
   configPath?: string
   workspaceConfig?: string
   signal?: AbortSignal
@@ -36,12 +40,15 @@ const json = (value: unknown) => `${JSON.stringify(value, null, 2)}\n`
 
 /** An active-target artifact is built first. The Creator shell only consumes that artifact. */
 export async function buildQuaProjectCocosWorkspace(options: QuaCocosWorkspaceBuildOptions): Promise<QuaCocosWorkspaceBuildResult> {
-  const root = resolve(options.cwd)
+  const root = await realpath(resolve(options.cwd))
   const project = await loadQuaProjectConfig({ cwd: root, configPath: options.configPath })
   const target = project.targets.cocos
   if (!target?.enabled || !target.build?.entry)
     throw new Error('Cocos workspace generation requires targets.cocos.build.entry.')
-  const destination = resolve(root, target.projectDir)
+  if (target.creatorVersion !== '3.8.8')
+    throw new Error('Creator workspace generation currently declares compatibility with Creator 3.8.8 only.')
+  const destination = resolve(root, options.outputDir || target.projectDir)
+  await assertGeneratedProjectPath(root, destination)
   if (root === destination || root.startsWith(destination + sep))
     throw new Error('Cocos workspace must not replace the project source directory or its parents.')
   let existing: string[] = []
@@ -56,6 +63,7 @@ export async function buildQuaProjectCocosWorkspace(options: QuaCocosWorkspaceBu
     let generated = false
     try {
       generated = JSON.parse(await readFile(join(destination, 'package.json'), 'utf8')).name === 'qua-generated-cocos'
+        && JSON.parse(await readFile(join(destination, 'target-bundle-manifest.json'), 'utf8')).app?.bundleId === project.bundleId
     }
     catch {}
     if (!generated)
@@ -103,7 +111,7 @@ export async function buildQuaProjectCocosWorkspace(options: QuaCocosWorkspaceBu
     // suffix; its extension-free resource key remains the same.
     await renamePngAssets(join(stage, 'assets'))
     await renameCreatorFonts(join(stage, 'assets'))
-    const dependencies = await compileRuntime(root, stage, project, bundles)
+    const dependencies = await compileRuntime(root, stage, project, bundles, options.embedded)
     const manifest: TargetBundleManifest = {
       schemaVersion: 1,
       profile: 'debug',
@@ -115,6 +123,7 @@ export async function buildQuaProjectCocosWorkspace(options: QuaCocosWorkspaceBu
     }
     await emitQuaTargetBundleManifest({ artifactDir: stage, expectedTarget: 'cocos', manifest })
     await generateCreatorShell(stage, root, project, manifest)
+    await writeFile(join(stage, 'qua-host-compatibility.json'), json(createQuaHostCompatibility('cocos', target.creatorVersion)))
     options.signal?.throwIfAborted()
     try {
       await rename(destination, backup)
@@ -141,7 +150,7 @@ export async function buildQuaProjectCocosWorkspace(options: QuaCocosWorkspaceBu
   }
 }
 
-async function compileRuntime(root: string, stage: string, project: NormalizedQuaProjectConfig, bundles: unknown[]): Promise<string[]> {
+async function compileRuntime(root: string, stage: string, project: NormalizedQuaProjectConfig, bundles: unknown[], embedded = false): Promise<string[]> {
   const require = createRequire(join(root, 'package.json'))
   const vite = await import(pathToFileURL(require.resolve('vite')).href)
   const dependencies = new Set<string>()
@@ -188,6 +197,8 @@ async function compileRuntime(root: string, stage: string, project: NormalizedQu
           return
         return `
 import * as cc from 'cc';
+import { QuaEngine } from '@quajs/engine';
+${embedded ? `import { createEmbeddedSession } from '@quajs/plugin-embedded/session';` : ''}
 import { createCocosCreatorRuntimeHost } from '@quajs/cocos-host/creator-runtime';
 import { createCreatorPreviewFileBridge } from '@quajs/cocos-host/creator-preview-storage';
 import { createCocosAssets, createCocosAssetsAdapter } from '@quajs/assets-cocos';
@@ -198,23 +209,67 @@ import { createQuiCocosRendererPlugin } from '@quajs/renderer-cocos/qui';
 import { createDialogueCocosRendererPlugin } from '@quajs/renderer-cocos/plugins/dialogue';
 import { createChoicesCocosRendererPlugin } from '@quajs/renderer-cocos/plugins/choices';
 import { bootstrap } from ${JSON.stringify(resolve(root, project.targets.cocos!.build!.entry))};
-export async function start(rootNode) {
-  cc.profiler?.hideStats();
+let activeSession=false;
+export async function start(rootNode,options={}){
+ if(activeSession)throw new Error('Close the previous Creator session before opening another.');
+ let existing;try{existing=QuaEngine.getInstance();}catch{}
+ if(existing)throw new Error('Another engine is active in this Creator realm.');
+ activeSession=true;
+ const notify=options.onMessage;let resultSent=false,closedSent=false;
+ const send=message=>{if(message.type==='result')resultSent=true;if(message.type==='closed')closedSent=true;try{notify?.(message);}catch(error){console.error('Embedded host callback failed',error);}};
+ try{return await startSession(rootNode,{...options,onMessage:send});}catch(error){
+ activeSession=false;
+ ${embedded ? `try{const rejected=createEmbeddedSession(options.request,send);if(!resultSent)await rejected.failStartup(error);if(!closedSent)rejected.closed();}catch{}` : ''}
+ throw error;
+ }
+}
+async function startSession(rootNode, options = {}) {
+  ${embedded
+    ? `if(!options.request)throw new Error('Embedded Creator modules require an open request');
+  options={...options,embedded:true};
+  const embeddedSession=createEmbeddedSession(options.request,message=>{if(message.type==='result')resolveResult(message.outcome);options.onMessage?.(message);});
+  options.storageNamespace=embeddedSession.request.storageNamespace;
+  let resolveResult;const result=new Promise(resolve=>resolveResult=resolve);`
+    : 'const embeddedSession=undefined;const result=undefined;'}
+  if (options.embedded && (!options.input?.onInput || !options.layout?.getContainerSize)) throw new Error("Embedded Creator sessions require scoped input and container layout bridges.");
+  if (!options.embedded) cc.profiler?.hideStats();
   const projectionEffect = await new Promise((resolve, reject) => cc.resources.load('qua/projection', cc.EffectAsset, (error, asset) => error ? reject(error) : resolve(asset)));
-  const host = createCocosCreatorRuntimeHost({ cc, rootNode, projectionEffect, namespace: ${JSON.stringify(project.bundleId)}, native: cc.native, audioProcessor: cc.sys.isNative ? globalThis.__quaCreatorAudio : undefined, videoDecoder: cc.sys.isNative ? globalThis.__quaCreatorVideo : undefined, previewFiles: cc.sys.isNative ? undefined : createCreatorPreviewFileBridge({ indexedDB: globalThis.indexedDB, namespace: ${JSON.stringify(project.bundleId)} }) });
+  const host = createCocosCreatorRuntimeHost({ cc, rootNode, input: options.input, layout: options.layout, projectionEffect, namespace: options.storageNamespace || ${JSON.stringify(project.bundleId)}, native: cc.native, audioProcessor: cc.sys.isNative ? globalThis.__quaCreatorAudio : undefined, videoDecoder: cc.sys.isNative ? globalThis.__quaCreatorVideo : undefined, previewFiles: cc.sys.isNative ? undefined : createCreatorPreviewFileBridge({ indexedDB: globalThis.indexedDB, namespace: ${JSON.stringify(project.bundleId)} }) });
   const adapter = createCocosAssetsAdapter({ host });
   const assets = createCocosAssets({ adapter, cacheSize: 256 * 1024 * 1024 });
+  let app, renderer, session;
+  try {
   await assets.initialize();
   for (const bundle of ${JSON.stringify(bundles)}) await assets.loadBundle('assets/resources/' + bundle.resource + '.binary', { expected: bundle.identity });
-  const app = await bootstrap({ host, assets, adapter, review: ${JSON.stringify(project.targets.cocos!.buildOptions.debug === true)}, store: createCocosStoreStorage({ host }), project: ${JSON.stringify({ name: project.name, bundleId: project.bundleId, version: project.version })}, trustPolicy: createCocosStaticOnlyTrustPolicy(), runtimeModuleLoader: createUnsupportedCocosRuntimeModuleLoader() });
-  const plugins = createVisualNovelCocosRendererPlugins({ ui: false, character: { boxSize: app.characterBoxSize } }).filter(plugin => !['settings','backlog','gallery','achievement','dialogue','choices'].some(name => plugin.name.endsWith('/' + name)));
-  plugins.push(createDialogueCocosRendererPlugin({ render: app.renderDialogue }), createChoicesCocosRendererPlugin({ render: app.renderChoices }), createQuiCocosRendererPlugin({ features: app.features, surfaceKeys: app.surfaceKeys }));
-  const renderer = new QuaCocosRendererController({ host, assets, pipeline: app.engine.getPipeline(), initialView: app.engine.getViewState(), plugins });
+  app = await bootstrap({ embedding: embeddedSession?.context, host, assets, adapter, review: ${JSON.stringify(project.targets.cocos!.buildOptions.debug === true)}, store: createCocosStoreStorage({ host }), project: ${JSON.stringify({ name: project.name, bundleId: project.bundleId, version: project.version })}, trustPolicy: createCocosStaticOnlyTrustPolicy(), runtimeModuleLoader: createUnsupportedCocosRuntimeModuleLoader() });
+  if(embeddedSession)await embeddedSession.attach(app.engine,{beforeResult:outcome=>app.beforeEmbeddedResult?.(outcome),onResult:()=>{void Promise.resolve().then(()=>session?.destroy()).then(()=>options.onClose?.());}});
+  const plugins = createVisualNovelCocosRendererPlugins({ ui: app.surfaceKeys ? false : undefined, character: { boxSize: app.characterBoxSize } }).filter(plugin => !app.surfaceKeys || !['settings','backlog','gallery','achievement','dialogue','choices'].some(name => plugin.name.endsWith('/' + name)));
+  if (app.surfaceKeys) plugins.push(createDialogueCocosRendererPlugin({ render: app.renderDialogue }), createChoicesCocosRendererPlugin({ render: app.renderChoices }), createQuiCocosRendererPlugin({ features: app.features, surfaceKeys: app.surfaceKeys }));
+  renderer = new QuaCocosRendererController({ host, assets, pipeline: app.engine.getPipeline(), initialView: app.engine.getViewState(), plugins });
   await renderer.start();
-  const quit = () => cc.game.end();
+  } catch (error) {
+    const errors = [error];
+    if(embeddedSession)await embeddedSession.failStartup(error);
+    for (const cleanup of [() => renderer?.destroy(), async () => {if(app)await app.destroy();else {let current;try{current=QuaEngine.getInstance();}catch{}await current?.destroy();}}, () => assets.cleanup()]) {
+      try { await cleanup(); } catch (failure) { errors.push(failure); }
+    }
+    embeddedSession?.closed(errors.length > 1 ? errors[1] : undefined);
+    if (errors.length > 1) throw new AggregateError(errors, "Creator session startup and cleanup failed");
+    throw error;
+  }
+  let closeTask;
+  session = { engine: app.engine, result, cancel:()=>embeddedSession?.context.cancel(), destroy() { return closeTask ||= (async()=>{
+    let failure;try{await embeddedSession?.beforeClose();}catch(error){failure=error;}
+    app.engine.getPipeline().off('app/quit', quit);
+    try { await renderer.destroy(); } catch(error){failure=error;} finally { try { await app.destroy(); } catch(error){failure ||= error;} finally { try{await assets.cleanup();}catch(error){failure ||= error;}if (!options.embedded) delete globalThis.__QUA_COCOS__; } }
+    activeSession=false;embeddedSession?.closed(failure);if(failure)throw failure;
+  })(); } };
+  const quit = async () => { if(embeddedSession)await embeddedSession.context.cancel('player-quit');else{await session.destroy();if(options.embedded)options.onClose?.();else cc.game.end();} };
   app.engine.getPipeline().on('app/quit', quit);
-  if (${JSON.stringify(project.targets.cocos!.buildOptions.debug === true)}) globalThis.__QUA_COCOS__ = { view: () => app.engine.getViewState(), point: () => app.engine.getStoryPoint(), diagnostics: () => app.getDiagnostics(), renderer, host, media: app.mediaReview };
-  return { async destroy() { app.engine.getPipeline().off('app/quit', quit); await renderer.destroy(); await app.destroy(); delete globalThis.__QUA_COCOS__; } };
+  await embeddedSession?.ready();
+  if(embeddedSession && app.onEmbeddedOpen)void Promise.resolve().then(()=>app.onEmbeddedOpen(embeddedSession.context)).catch(error=>embeddedSession.context.fail(error));
+  if (!options.embedded && ${JSON.stringify(project.targets.cocos!.buildOptions.debug === true)}) globalThis.__QUA_COCOS__ = { view: () => app.engine.getViewState(), point: () => app.engine.getStoryPoint(), diagnostics: () => app.getDiagnostics(), renderer, host, media: app.mediaReview };
+  return session;
 }`
       },
       async generateBundle(_options: unknown, output: Record<string, any>) {
@@ -238,11 +293,11 @@ export async function start(rootNode) {
               throw new Error(`Unbundled Cocos runtime import: ${id}`)
           }
           assertCocosRuntimeCode(chunk.code)
-          chunk.code = protectCocosIterableSpreads(chunk.code).replace(/^\/\/#(?:end)?region.*$/gm, '')
+          chunk.code = protectCocosIterableSpreads(chunk.code)
         }
       },
     }],
-    build: { outDir: join(stage, 'assets/qua-runtime'), emptyOutDir: false, minify: false, target: 'es2020', lib: { entry: 'virtual:cocos-core-resolver', formats: ['es'], fileName: () => 'runtime.js' }, rollupOptions: { input: 'virtual:cocos-core-resolver', external: ['cc'], output: { codeSplitting: false } } },
+    build: { outDir: join(stage, 'assets/qua-runtime'), emptyOutDir: false, minify: false, target: 'es2020', lib: { entry: 'virtual:cocos-core-resolver', formats: ['es'], fileName: () => 'runtime.js' }, rollupOptions: { experimental: { attachDebugInfo: 'none' }, input: 'virtual:cocos-core-resolver', external: ['cc'], output: { codeSplitting: false } } },
   })
   await writeFile(join(stage, 'retained-module-graph.json'), json({ schemaVersion: 1, target: 'cocos', modules: retainedModules }))
   return [...dependencies].sort()
@@ -400,7 +455,7 @@ async function generateCreatorShell(stage: string, root: string, project: Normal
     const config = JSON.parse(await readFile(join(stage, path), 'utf8'))
     await write(path, { ...config, customPipeline: true, startScene: sceneUuid, scenes: [{ url: 'db://assets/main.scene', uuid: sceneUuid }], outputName: platform, buildPath: 'project://build' })
   }
-  await write('README.md', `# Generated QuaEngine Cocos workspace\n\nOpen this directory in Creator ${project.targets.cocos!.creatorVersion}. All game code and resources are built artifacts. Rebuild from the QuaEngine project to change content.\n\nThis directory can be copied outside the source repository. It contains no source links and needs no QuaEngine development server. The startup scene consumes the active-target bundle manifest.\n\nFrom this directory, run your Creator executable with \`--project "$PWD" --build "configPath=$PWD/qua-build/web-desktop.build.json;stage=build"\`. For macOS use \`mac.build.json\`, first \`stage=build\` and then \`stage=make\`. Creator success exits with code 36. Launch \`build/mac/proj/Debug/CocosGame.app\` after make.\n\nIf a cold CLI import omits the start scene despite exit 36, open this workspace in the full Creator Editor, wait for asset import, close it, and retry the CLI build. The source demo builder automates this bounded recovery and rejects missing scenes. qua-import-meta.json records the authored import types and stable UUIDs. For repeatable CLI automation, build each platform from a fresh copy of this raw workspace: Creator 3.8.8 can invalidate importer types in a reused database. The demo helper creates private imports and atomically publishes only validated platform outputs.\n\nAudio uses Creator SDK processing in Web preview and the bundled static macOS AVAudioEngine PCM host product for gain, EQ and playback rate.\n\nVideo backgrounds use SDK VideoPlayer on Creator Web and the bundled AVFoundation native host product on macOS. The Web shell enables transparent Canvas and isolates its stacking context. Serve published Web assets with HTTP Range for seeking. Use explicitly tagged SDR media for cross-decoder color consistency. GPU-only captures exclude the SDK Web video layer.\n\nNative saves live under the Creator writable directory; preview saves use an independent byte-file database. Debug macOS builds expose the Creator local debugging service. GPU capture and native input binding checks do not replace OS-level interaction checks.\n`)
+  await write('README.md', `# Generated QuaEngine Cocos workspace\n\nOpen this directory in Creator ${project.targets.cocos!.creatorVersion}. The generator and native host products use the Creator 3.8.8 implementation baseline; a different configured version requires SDK import, build and runtime regression tests and does not establish compatibility. All game code and resources are built artifacts. Rebuild from the QuaEngine project to change content.\n\nThis is a standalone workspace, not an installer for an existing Creator project. Do not generate into an authoring project or replace a host application's settings or scenes. For embedding, import the built runtime.js and call start(parentNode, { embedded: true, storageNamespace: "product/account", input: scopedInputBridge, layout: containerLayoutBridge, onClose }). The returned session exposes engine and async destroy(). The parent owns cameras, input routing, container bounds and close navigation. Embedded quit destroys only this session and invokes onClose; it never calls game.end(). Use qua-host-compatibility.json to check the declared SDK boundary.\n\nThis directory can be copied outside the source repository. It contains no source links and needs no QuaEngine development server. The startup scene consumes the active-target bundle manifest.\n\nFrom this directory, run your Creator executable with \`--project "$PWD" --build "configPath=$PWD/qua-build/web-desktop.build.json;stage=build"\`. For macOS use \`mac.build.json\`, first \`stage=build\` and then \`stage=make\`. Creator success exits with code 36. Launch \`build/mac/proj/Debug/CocosGame.app\` after make.\n\nIf a cold CLI import omits the start scene despite exit 36, open this workspace in the full Creator Editor, wait for asset import, close it, and retry the CLI build. The source demo builder automates this bounded recovery and rejects missing scenes. qua-import-meta.json records the authored import types and stable UUIDs. For repeatable CLI automation, build each platform from a fresh copy of this raw workspace: Creator 3.8.8 can invalidate importer types in a reused database. The demo helper creates private imports and atomically publishes only validated platform outputs.\n\nAudio uses Creator SDK processing in Web preview and the bundled static macOS AVAudioEngine PCM host product for gain, EQ and playback rate.\n\nVideo backgrounds use SDK VideoPlayer on Creator Web and the bundled AVFoundation native host product on macOS. The Web shell enables transparent Canvas and isolates its stacking context. Serve published Web assets with HTTP Range for seeking. Use explicitly tagged SDR media for cross-decoder color consistency. GPU-only captures exclude the SDK Web video layer.\n\nNative saves live under the Creator writable directory; preview saves use an independent byte-file database. Debug macOS builds expose the Creator local debugging service. GPU capture and native input binding checks do not replace OS-level interaction checks.\n`)
   await writeMetaFiles(stage, scriptUuid, sceneUuid)
 }
 

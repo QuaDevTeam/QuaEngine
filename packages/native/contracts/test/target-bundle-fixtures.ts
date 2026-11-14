@@ -6,11 +6,13 @@ import {
   createTargetCoreSelection,
   GODOT_TARGET_BOOTSTRAP,
   NATIVE_TARGET_BOOTSTRAP,
+  UNITY_TARGET_BOOTSTRAP,
   WEB_TARGET_BOOTSTRAP,
 } from '../src'
 
 export const CORE_ADAPTERS_BY_TARGET = {
   godot: GODOT_TARGET_BOOTSTRAP.coreAdapters,
+  unity: UNITY_TARGET_BOOTSTRAP.coreAdapters,
   web: WEB_TARGET_BOOTSTRAP.coreAdapters,
   cocos: COCOS_TARGET_BOOTSTRAP.coreAdapters,
   native: NATIVE_TARGET_BOOTSTRAP.coreAdapters,
@@ -18,6 +20,7 @@ export const CORE_ADAPTERS_BY_TARGET = {
 
 const PLATFORM_BY_TARGET = {
   godot: 'godot',
+  unity: 'unity',
   web: 'web',
   cocos: 'cocos',
   native: 'macos',
@@ -190,6 +193,8 @@ export const NATIVE_RENDERER_CAPABILITIES = [
 export function targetDependencies(target: QuaTargetBootstrap): TargetBundleManifest['dependencies'] {
   const shared = ['@quajs/engine', '@quajs/pipeline']
   switch (target) {
+    case 'unity':
+      return [...shared, '@quajs/unity-host', '@quajs/renderer-unity']
     case 'godot':
       return [...shared, '@quajs/godot-host', '@quajs/renderer-godot']
     case 'web':
@@ -218,6 +223,8 @@ export function targetDependencies(target: QuaTargetBootstrap): TargetBundleMani
 
 export function rendererEntry(target: QuaTargetBootstrap): NonNullable<TargetBundleManifest['rendererEntries']>[number] {
   switch (target) {
+    case 'unity':
+      return { specifier: '@quajs/renderer-unity/plugins/ui', target: 'unity' }
     case 'godot':
       return { specifier: '@quajs/renderer-godot/plugins/ui', target: 'godot' }
     case 'web':

@@ -12,12 +12,13 @@ export {
   GODOT_TARGET_BOOTSTRAP,
   NATIVE_TARGET_BOOTSTRAP,
   TARGET_BOOTSTRAP_MANIFESTS,
+  UNITY_TARGET_BOOTSTRAP,
   WEB_TARGET_BOOTSTRAP,
 } from './bootstrap-manifests'
 export { normalizePackageSpecifier } from './core-specifiers'
 
-export type QuaTargetBootstrap = 'web' | 'cocos' | 'native' | 'godot'
-export type TargetCorePluginFamily = 'web-core' | 'cocos-core' | 'native-core' | 'godot-core'
+export type QuaTargetBootstrap = 'web' | 'cocos' | 'native' | 'godot' | 'unity'
+export type TargetCorePluginFamily = 'web-core' | 'cocos-core' | 'native-core' | 'godot-core' | 'unity-core'
 
 export interface TargetBootstrapManifest {
   target: QuaTargetBootstrap

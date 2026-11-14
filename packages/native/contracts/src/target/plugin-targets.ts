@@ -74,7 +74,7 @@ export function validateTargetPluginManifest(
       pluginId: manifest.pluginId,
       specifier: entry.specifier,
       entryTarget,
-      message: `Plugin "${manifest.pluginId}" entry "${entry.specifier}" declares invalid target "${entryTarget}". Expected "shared", "web", "cocos", "native", or "godot".`,
+      message: `Plugin "${manifest.pluginId}" entry "${entry.specifier}" declares invalid target "${entryTarget}". Expected "shared", "web", "cocos", "native", "godot", or "unity".`,
     })
   }
 
@@ -195,7 +195,7 @@ export function pluginEntryTarget(entry: TargetPluginEntryDeclaration): TargetPl
 }
 
 function isTargetPluginEntryTarget(target: unknown): target is TargetPluginEntryTarget {
-  return target === 'shared' || target === 'web' || target === 'cocos' || target === 'native' || target === 'godot'
+  return target === 'shared' || target === 'web' || target === 'cocos' || target === 'native' || target === 'godot' || target === 'unity'
 }
 
 function collectSelectedPluginEntries(options: CheckTargetPluginManifestOptions): TargetPluginEntryDeclaration[] {

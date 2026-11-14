@@ -226,7 +226,14 @@ export async function renderSceneDialogue(context: SceneRendererHostContext, opt
         }
       : undefined,
   })
-  context.host.nodes.setNodeTransform(box, motionTransform(dialogue as unknown as Record<string, unknown>))
+  const safe = context.getStageLayout().safeArea
+  context.host.nodes.setNodeTransform(box, {
+    x: safe.x + 32,
+    y: safe.y + Math.max(0, safe.height - 200),
+    width: Math.max(0, safe.width - 64),
+    height: Math.min(168, safe.height),
+    ...motionTransform(dialogue as unknown as Record<string, unknown>),
+  })
   await setDialogueAvatarNode(context, box, dialogue, renderKey)
 }
 

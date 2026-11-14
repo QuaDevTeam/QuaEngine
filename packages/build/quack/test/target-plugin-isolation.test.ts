@@ -210,9 +210,11 @@ describe('quack target plugin isolation', () => {
       '@quajs/store-native',
       '@quajs/godot-host/store',
       '@quajs/renderer-godot/plugins/ui',
+      '@quajs/unity-host/store',
+      '@quajs/renderer-unity/plugins/ui',
     ]
 
-    for (const target of ['web', 'cocos', 'native', 'godot'] as const) {
+    for (const target of ['web', 'cocos', 'native', 'godot', 'unity'] as const) {
       expect(() => assertQuackPluginReferencesTargetIsolation([
         '@quajs/plugin-background',
         ...allTargetCoreUnion,

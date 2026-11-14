@@ -93,6 +93,7 @@
       "vue": "@quajs/renderer-vue/plugins/settings",
       "cocos": "@quajs/renderer-cocos/plugins/settings",
       "godot": "@quajs/renderer-godot/plugins/settings",
+      "unity": "@quajs/renderer-unity/plugins/settings",
       "native": "@quajs/plugin-settings/surface"
     },
     "extension": {

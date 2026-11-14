@@ -65,6 +65,7 @@
   "dependencies": {
     "@quajs/assets": "workspace:*",
     "@quajs/scene-host": "workspace:*",
+    "@quajs/scene-runtime": "workspace:*",
     "@quajs/store": "workspace:*"
   },
   "devDependencies": {}

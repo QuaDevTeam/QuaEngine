@@ -1,0 +1,23 @@
+[package]
+name = "quajs_unity_runtime"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+
+[lib]
+crate-type = [
+  "cdylib",
+  "rlib"
+]
+
+[dependencies]
+rquickjs = "=0.12.1"
+
+[dev-dependencies]
+serde_json = "1"
+sha2 = "0.10"
+
+[profile.dev.package.rquickjs-sys]
+opt-level = 3
+
+[workspace]

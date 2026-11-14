@@ -5,11 +5,16 @@ description: QuaEngine architecture guardrails for renderer statelessness, dynam
 
 # QuaEngine Guardrails
 
-Godot adds a fourth mutually exclusive target family: `godot-core-resolver` selects `@quajs/godot-host` and `@quajs/renderer-godot`. Web/Cocos/native artifacts reject Godot roots and vice versa. `@quajs/scene-host` and `@quajs/renderer-scene` are neutral shared contracts/projection implementations; Cocos/Godot adapters must not duplicate their runtime or import one another. Shared plugin contexts use `context.scene`. See [Godot target rules](../qua-godot-renderer/SKILL.md), including static QPK-only activation and native evidence requirements.
+Godot is a mutually exclusive target family: `godot-core-resolver` selects `@quajs/godot-host` and `@quajs/renderer-godot`. Web/Cocos/native artifacts reject Godot roots and vice versa. `@quajs/scene-host` and `@quajs/renderer-scene` are neutral shared contracts/projection implementations; Cocos/Godot/Unity adapters must not duplicate their runtime or import one another. Shared plugin contexts use `context.scene`. See [Godot target rules](../qua-godot-renderer/SKILL.md), including static QPK-only activation and native evidence requirements.
+
+Unity is the fifth disjoint family: unity-core-resolver selects @quajs/unity-host and @quajs/renderer-unity. Reject inactive roots symmetrically across all five families. scene-runtime shares neutral byte/VM/file infrastructure; scene-host stays contracts-only. Read [Unity rules](../qua-unity-renderer/SKILL.md) and [scene runtime rules](../qua-scene-runtime/SKILL.md). Native/C ABI tests do not prove Unity C# Editor/Player acceptance.
 
 ## Core Rules
 
 ### Active development
+
+- Dependency maintenance spans root, docs and editor/release pnpm lockfiles plus native, Godot and Unity Cargo workspaces. Run `pnpm deps:test` / `pnpm deps:report`; high/critical npm findings and incomplete registry checks fail the report. Keep supply-chain policy and exact-version exceptions, review upstream API/engine requirements, group related providers, validate affected consumers and update compatibility docs. Renovate configuration does not prove a bot is installed. Do not silently migrate major or pre-1.0 API changes.
+- Embedded integrations follow `docs/content/docs/guides/embedding.md`. `QuaEngine.getInstance()` is a singleton per loaded module/JS realm; independent concurrent sessions need isolated runtimes. `resetInstance()` does not destroy resources. Await renderer/session cleanup before replacing a session; constrain input/focus and namespace storage. Generated Cocos/Godot directories are owned outputs, never existing authoring projects. Unity 6.3 LTS has an initial per-VM UPM embedding entry; Successful singleton engine.destroy releases its cached instance only after complete teardown.
 - Vite tooling consumes Quack's public package exports and built declarations. Do not map `@quajs/quack/project` directly to its source from a consumer tsconfig; that bypasses package-local ambient type declarations. Build dependencies before consumer typechecks.
 - Treat all QuaEngine packages, APIs, schemas, examples, and docs as active pre-release work.
 - Do not preserve deprecated APIs, legacy aliases, migration adapters, compatibility branches, fallback paths, or old/new dual implementations.
@@ -249,3 +254,7 @@ Concrete Creator box projection preserves rounded borders using an inset rounded
 Creator 3.8.8 processed audio is injected by the Cocos resolver. Preview processing wraps imported SDK AudioPlayer nodes and its existing context, never a new context/autoplay/DOM runtime. macOS processing is static public host Objective-C++ copied into the generated workspace, with bounded local PCM and biquads/rate/gain projection; do not modify the installed SDK or add dynamic runtime code loading. Generic hosts keep optional capabilities. Validate processed output PCM and device content clocks as well as teardown, public-dist target isolation and standalone Creator builds. Processing evidence is distinct from audible/OS-recorded output.
 
 Cocos demo media QA listeners are enabled only by the resolver debug/review flag and retain at most 256 recent events. Release bootstraps must not collect review history. CI runs Cocos/public-workspace, shared Web media and demo build lifecycle regression suites after dependency builds and typechecks.
+
+## Embedded module delivery
+
+Embedded modules use @quajs/plugin-embedded for engine-owned session projection and terminal outcomes, with only transport/lifecycle state in platform adapters. Await optional persistence hooks before result; reserve one terminal winner; teardown precedes closed. Quack --embedded produces a clean owned artifact and exactly one active core. Native host messages must dispatch outside VM callbacks; do not add a renderer-side business bus or arbitrary eval/store/asset command.

@@ -395,7 +395,7 @@ export interface AssetPipelineOptions {
 
 export interface AssetBundleTargetManifest {
   name: string
-  platform?: 'web' | 'cocos' | 'native' | 'godot' | (string & {})
+  platform?: 'web' | 'cocos' | 'native' | 'godot' | 'unity' | (string & {})
   displayName?: string
   suffix?: string
   description?: string
@@ -455,7 +455,7 @@ export interface CocosAssetTargetMetadata extends Omit<CocosAssetTargetManifestM
 
 export interface AssetBundleTarget {
   name: string
-  platform?: 'web' | 'cocos' | 'native' | 'godot' | (string & {})
+  platform?: 'web' | 'cocos' | 'native' | 'godot' | 'unity' | (string & {})
   displayName?: string
   suffix?: string
   description?: string
