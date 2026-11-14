@@ -34,3 +34,7 @@ pnpm native:e2e
 2026-09-21 的迁移记录包含 macOS 运行时、原生应用、动态 QPK 与 Demo E2E 验证，也记录了 Windows 交叉目标检查。但该记录没有证明 Windows 实际链接/JIT、Linux 运行和可见 OS 窗口的完整验收。
 
 GPU 读回、平台编译、OS 窗口呈现与 Web/native 逐像素比较分别回答不同问题。请完整阅读 [迁移验证报告](/docs/reviews/native-jsc-migration-2026-09-21) 中的环境与证据限制。
+
+## 导出为父应用的库
+
+`quack project build --target native --embedded --all` 提供 C ABI 1、动态／静态库与独立 Cocoa 父窗口示例。父应用持有 Metal 视图、事件循环与导航，独立 JSC VM 接收 open／cancel 并返回业务结果；close／closed 表示资源回收。配置 `targets.native.build.embeddedEntry` 与 `cargoManifest`，完整接线、存储锁、hash pin、签名与输入边界见[Native 模块交付](/docs/guides/exported-module#native-父应用)。当前只构建 macOS 本机架构，不声明 Windows／Linux／移动端 SDK 或 IME 完成；Editor 的私有 compositor 预览不参与此入口。

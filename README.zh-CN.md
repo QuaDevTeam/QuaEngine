@@ -1,7 +1,7 @@
 <h1 align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="assets/brand/quaengine-readme-zh-dark.png" />
-    <img src="assets/brand/quaengine-readme-zh-light.png" alt="QuaEngine — TypeScript 视觉小说引擎，配有粉发吉祥物与四个运行目标。" width="960" />
+    <img src="assets/brand/quaengine-readme-zh-light.png" alt="QuaEngine — TypeScript 视觉小说引擎，配有粉发吉祥物。" width="960" />
   </picture>
 </h1>
 
@@ -127,7 +127,7 @@ pnpm --filter demo dev
 
 配置 Rust 与 Native 依赖后，可用 `pnpm dev:native` 启动原生开发窗口。其他构建与验证命令见[Demo 开发指南](demo/README.md#开发)。
 
-生成并运行独立 **Godot 4.7+** 项目，需要 Rust/Cargo、C 编译器和带 libtheora/libvorbis 的 FFmpeg：
+生成并运行独立 **Godot 4.7.x** 项目，需要 Rust/Cargo、C 编译器和带 libtheora/libvorbis 的 FFmpeg：
 
 ```bash
 pnpm exec turbo run build --filter=demo^...
@@ -150,7 +150,7 @@ Demo 的故事、角色、美术等创作内容是专有评估素材，见 [demo
 | 叙事运行时  | 场景、对白、选项、角色、检查点、存读档、故事图与章节选择                                                                       |
 | Web         | 共用 DOM/WebAudio 运行时、逻辑舞台适配、Vue 参考适配器与 React/Svelte 薄适配器                                                 |
 | Cocos       | 可移动 Creator 3.8.8 工作区、共享 QUI、Web/macOS 构建、持久化存档与媒体投影；可选宿主能力降级                                  |
-| Godot       | Godot 4.7+ 独立项目、GDExtension + QuickJS、共享场景投影、QUI、媒体与持久化；首批 macOS 验证                                   |
+| Godot       | Godot 4.7.x 独立项目、GDExtension + QuickJS、共享场景投影、QUI、媒体与持久化；首批 macOS 验证                                   |
 | Native      | Rust + JavaScriptCore + wgpu、QUI/TSX、QSS、Sprite/Atlas、九宫格、富文本与图层动画                                             |
 | 功能插件    | 背景、音频、动画、立绘/UI 皮肤、字体、回看、图库、成就、物品、设置与资源加载                                                   |
 | Runtime QPK | 并列挂载、信任校验、动态脚本/插件、图增量、迁移与存档依赖；取决于目标能力，Godot 暂仅支持静态包                                |
@@ -175,16 +175,22 @@ flowchart LR
 
 - **逻辑持有状态。** 场景、进度、选项、音频意图与功能投影属于 engine/store；渲染器通过 pipeline 接收投影与返回意图。
 - **Web 运行时共用。** DOM、对象 URL、WebAudio 和舞台换算属于 `@quajs/renderer-web`，Vue/React/Svelte 复用这些能力；视觉样式显式导入。
-- **产品 UI 可以共用。** Demo 用同一份 TSX/QUI 与 QSS 定义菜单和面板，投影到四个目标；Web-only 项目仍可自定义框架 UI。
+- **产品 UI 可以共用。** Demo 用同一份 TSX/QUI 与 QSS 定义菜单和面板，投影到 Web、Cocos、Godot 和 Native；Unity 初始适配复用同一份定义；Web-only 项目仍可自定义框架 UI。
 - **场景投影共用。** Cocos/Godot 适配 `@quajs/renderer-scene` 与 `@quajs/scene-host`，各宿主持有临时节点、媒体句柄与输入实现。
 - **内容通过包扩展。** AI 生成与动态内容通过 Runtime QPK 交付；生产可执行内容需要校验，激活、迁移、存档依赖与卸载由引擎统一负责。
-- **每个产物选择一个目标。** 四个 target core 家族相互隔离，由当前目标 manifest 驱动生成项目与启动壳。
+- **每个产物选择一个目标。** 五个 target core 家族相互隔离，由当前目标 manifest 驱动生成项目与启动壳。
 
 详见[Runtime QPK 设计](docs/design/dynamic-runtime-qpk.md)与[逻辑舞台契约](docs/design/mobile-rendering-adaptation.md)。
 
+Unity 的准确 Editor 版本、静态 QPK 边界、父 Canvas 生命周期与未验收范围见[适配指南](docs/content/docs/platforms/unity.md)。
+
 ## 开发
 
-使用 **pnpm 12.3.4**。包清单最低要求 Node.js `>=20`；建议统一用 **Node.js 22.12+**，以运行类型剥离命令和文档站 Vite 8。Native 工作另需 Rust 与对应平台工具链。
+仓库开发使用 **Node.js 22.12+** 与 **pnpm 12.3.4**。个别运行时包声明的较低 Node 最低版本不代表整个工作区工具链要求。Native 工作另需 Rust 与对应平台工具链。
+
+接入已有应用时，先阅读[嵌入指南](docs/content/docs/guides/embedding.md)与[宿主兼容性](docs/content/docs/platforms/compatibility.md)。Creator/Godot 生成工程是独立输出；Unity 新增 6.3 LTS 初始桌面适配和 UPM 嵌入包，尚待 Unity Editor／Player 运行验收。
+
+运行 `pnpm deps:report` 检查三个独立工作区的更新、弃用与 npm 安全公告。[依赖维护指南](docs/content/docs/project/dependencies.md)说明分组升级、原生依赖和验证流程。仓库已包含每周报告与 Renovate 配置；机器人启用和远端执行需要分别确认。
 
 ```bash
 pnpm install --frozen-lockfile
@@ -219,7 +225,7 @@ pnpm native:verify
 | [packages/build](packages/build/)       | Quack、QuaScript、Vite、项目检查、模板与语言工具 |
 | [packages/editor](packages/editor/)     | Electron 编辑器、创作插件与 Novel Writer         |
 | [docs](docs/)                           | 文档站、指南、包参考与主题                       |
-| [demo](demo/)                           | 四个目标共用的视觉小说示例                       |
+| [demo](demo/)                           | 跨目标共用的视觉小说示例                       |
 
 </details>
 

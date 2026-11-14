@@ -1,6 +1,6 @@
 ---
 title: "Godot 独立项目"
-description: "从 QuaEngine 生成 Godot 4.7+ 项目，复用剧情、QPK 与共享界面，了解构建和验证边界。"
+description: "从 QuaEngine 生成基于 Godot 4.7 API 的项目，复用剧情、QPK 与共享界面，了解版本和验证边界。"
 order: 4
 ---
 
@@ -12,7 +12,7 @@ Godot 是独立的 `godot-core` 目标：Rust GDExtension 内的 QuickJS 执行�
 
 ## 先运行仓库 demo
 
-准备 Godot **4.7+**、Rust/Cargo 与 C 编译器。视频转换需要包含 **libtheora/libvorbis** 的 FFmpeg；macOS 可安装 `ffmpeg-full`，demo 构建脚本会优先使用已安装的 Homebrew 完整版本。
+准备 Godot **4.7**、Rust/Cargo 与 C 编译器。GDExtension 以 4.7 API 编译并声明最低 4.7；后续 4.x 版本需要回归，不声明 Godot 5 兼容，详见[宿主版本](/docs/platforms/compatibility)。视频转换需要包含 **libtheora/libvorbis** 的 FFmpeg；macOS 可安装 `ffmpeg-full`，demo 构建脚本会优先使用已安装的 Homebrew 完整版本。
 
 从仓库根目录执行：
 
@@ -69,6 +69,30 @@ godot --path dist/godot/workspace
 只有 `godot-core-resolver` 注入目标启动代码，生成壳消费目标清单。普通插件、共享 preset 与 QPK 不得另加 Web/Cocos/Native 启动适配器。共享的 scene 包属于中立投影层，可以被当前目标使用。
 
 生成器先暂存 QPK、JavaScript、动态库和清单，成功后才替换其标记的输出目录；失败保留上一份项目，并拒绝覆盖作者源码目录。成功重建会替换整个输出目录，应在 QuaEngine 源项目修改剧情、界面与资源，再重新生成。
+
+## 嵌入已有 Godot 工程
+
+将生成的 addon、QPK／JS 与目标清单复制到父工程约定的目录，保留作者源码和 ProjectSettings；不能把生成目录直接指向父工程。将 `host.gd` 挂在父工程自己的 Control 区域，并在加入场景树前设置：
+
+```gdscript
+var module = preload("res://addons/quaengine/host.gd").new()
+module.auto_start = false
+module.standalone = false
+module.content_root = "res://story-module/"
+module.storage_namespace = "my-game/account-42"
+module.size = Vector2(640, 360)
+module.module_ready.connect(on_story_ready)
+module.module_closed.connect(on_story_closed)
+module.module_failed.connect(on_story_error)
+add_child(module)
+module.start_module()
+# 离开前，等待 module_closed 后再销毁节点：
+module.stop_module()
+```
+
+addon 保持 `res://addons/quaengine` 路径；`content_root` 下放 `qua/` 与目标清单。嵌入必须指定存储命名空间；每个 Control 拥有独立 QuickJS VM。宿主按父 Control 尺寸适配舞台，键盘／指针走区域焦点，模块音频使用自己的总线；关闭不退出父工程，也不改父工程帧率或 Master 音量。父工程仍需决定隐藏／后台运行策略。主线程停止是延迟清理，调用方应等关闭信号后再移除父节点。
+
+`pnpm --dir demo test:godot:embedding` 在真实窗口运行两个独立 VM，验证父容器尺寸、存储隔离、关闭／重启、兄弟模块继续运行、作者节点保留和父音频／帧率不变。证据在 `demo/.generated/godot-embedding-smoke`；该测试不等于全剧情或所有设备验收。
 
 ## 功能与限制
 

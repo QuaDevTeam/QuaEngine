@@ -4,6 +4,33 @@ description: "从真实 demo 生成独立 Creator 工作区，构建 Web/macOS�
 order: 2
 ---
 
+## 嵌入已有 Creator 工程
+
+当前生成器只声明 **Creator 3.8.8**，产物附带 `qua-host-compatibility.json`。升级 Creator 必须同时验证 profile、导入器、原生产品和 SDK 行为，不能只改版本字段。
+
+父工程接入生成的资源和 runtime 时，保留自己的场景／Canvas／Camera。在有实际尺寸的父节点下使用生成 runtime 的嵌入选项；下面的输入与尺寸订阅由父工程实现：
+
+```ts
+const session = await start(regionNode, {
+  embedded: true,
+  storageNamespace: 'my-game/account-42',
+  input: { onInput: listener => parentInput.subscribe(listener) },
+  layout: {
+    getContainerSize: () => ({ width: 640, height: 360 }),
+    onLayoutChange: listener => parentLayout.subscribe(listener),
+  },
+  onClose: () => returnToHost(),
+})
+// 导航离开时：
+await session.destroy()
+```
+
+嵌入模式必须提供输入与父容器尺寸 bridge。输入坐标为容器内左上原点、向下为正的局部坐标，尚未除以逻辑舞台缩放；父工程负责焦点、手柄归属和失焦时的 blur。退出意图先销毁 renderer／app／assets，再调用 onClose，不执行 `cc.game.end()`；父节点和应用继续由父工程拥有。`session.engine` 提供逻辑 API，宿主通信仍须经过 engine／pipeline，不能直接改 renderer 状态。
+
+Cocos 仍与父工程共享同一 JS 运行域，按一个活跃剧情引擎接入；销毁完成后才能串行重建。多个独立并发剧情不能直接通过多个节点绕过单例。生成目录是可替换输出，不能覆盖作者工程；媒体／原生产品与父工程的实际集成仍需对应 SDK 验收。
+
+本机 `pnpm --dir demo test:cocos:embedding` 使用真实 Creator 3.8.8 构建 Web 产物，验证子容器显示、退出后父应用继续、作者节点保留、串行重建与输入订阅释放；报告和截图在 `demo/.generated/cocos-embedding-smoke`。此项没有覆盖原生嵌入、移动端或操作系统输入自动化。
+
 ## 从 demo 开始
 
 当前验证基线是本机 **Creator 3.8.8、web-desktop 和 macOS**。安装 Creator；macOS 原生编译还需要 Xcode 与对应开发工具。仓库构建使用 Node 22.12+、pnpm 12.3.4，浏览器验收脚本使用本机 Google Chrome。手机真机、其他 Creator 版本和商店发布不在这轮验收范围。

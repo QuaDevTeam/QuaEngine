@@ -18,6 +18,8 @@ pnpm run lint
 
 日常修改优先使用相关包的 filter，避免每次重建整个仓库。运行测试时保留真实验证范围：mock、生产浏览器、GPU 读回和物理窗口并不是同一层级。
 
+第三方更新按[依赖维护流程](/docs/project/dependencies)处理，运行 `pnpm deps:report` 检查三个独立工作区；平台 SDK 升级同时维护[宿主兼容性](/docs/platforms/compatibility)。
+
 ## 架构约定
 
 逻辑与状态由 engine/store 持有，通信经过 pipeline。非核心能力通过插件提供。通用核心不依赖 DOM、Blob 或平台存储。动态内容使用 QPK，打包只激活当前平台核心。

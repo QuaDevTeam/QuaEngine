@@ -165,6 +165,33 @@ try {
   await dialog.waitFor({ state: 'hidden' });
   check('Godot platform navigation, shared package references and search');
 
+  await open('/docs/guides/');
+  await page.locator('main a[href="/docs/guides/embedding/"]').click();
+  await page.waitForURL(url => /\/docs\/guides\/embedding\/?$/.test(url.pathname));
+  assert.match(await page.locator('main').innerText(), /resetInstance/);
+  await page.locator('main a[href="/docs/guides/exported-module/"]').first().click();
+  await page.waitForURL(url => /\/docs\/guides\/exported-module\/?$/.test(url.pathname));
+  assert.match(await page.locator('main').innerText(), /include_filter/);
+  assert.match(await page.locator('main').innerText(), /QuaCreatorAudio/);
+  assert.match(await page.locator('main').innerText(), /open_story/);
+  await noOverflow();
+  await page.locator('main a[href="/docs/platforms/compatibility/"]').first().click();
+  await page.waitForURL(url => /\/docs\/platforms\/compatibility\/?$/.test(url.pathname));
+  const unityRow = page.locator('main tr').filter({ hasText: 'Unity' });
+  assert.match(await unityRow.innerText(), /6000\.3/);
+  await open('/docs/platforms/unity/');
+  assert.match(await page.locator('main').innerText(), /StartModule/);
+  await open('/docs/platforms/compatibility/');
+  await page.locator('main a[href="/docs/project/dependencies/"]').first().click();
+  await page.waitForURL(url => /\/docs\/project\/dependencies\/?$/.test(url.pathname));
+  assert.match(await page.locator('main').innerText(), /deps:report/);
+  await page.locator('.sd-search-trigger').click();
+  await dialog.locator('input').fill('嵌入已有应用');
+  await dialog.locator('a[href*="/guides/embedding"]').first().click();
+  await page.waitForURL(url => /\/docs\/guides\/embedding\/?$/.test(url.pathname));
+  await dialog.waitFor({ state: 'hidden' });
+  check('Embedding, SDK compatibility and dependency maintenance navigation and search');
+
   await page.setViewportSize({ width: 390, height: 844 });
   await open('/');
   await noOverflow();

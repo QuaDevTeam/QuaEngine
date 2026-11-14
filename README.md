@@ -149,7 +149,7 @@ pnpm --filter demo dev
 
 For the native development window, use `pnpm dev:native` after setting up the Rust/native prerequisites. See the [demo development guide](demo/README.md#开发) for build and validation commands.
 
-To generate and run the standalone **Godot 4.7+** demo, install Rust/Cargo, a C compiler, and FFmpeg with libtheora/libvorbis for video conversion, then run from the checkout:
+To generate and run the standalone **Godot 4.7.x** demo, install Rust/Cargo, a C compiler, and FFmpeg with libtheora/libvorbis for video conversion, then run from the checkout:
 
 ```bash
 pnpm exec turbo run build --filter=demo^...
@@ -172,7 +172,7 @@ The demo's story, characters, artwork, and other creative content are proprietar
 | Story runtime   | Scenes, dialogue, choices, characters, checkpoints, save/load, story graphs, and chapter selection                                                                          |
 | Web             | Shared DOM/WebAudio runtime, logical stage scaling, Vue reference adapter, and thin React/Svelte adapters                                                                   |
 | Cocos           | Portable Creator 3.8.8 workspaces, shared QUI, Web/macOS builds, persistent saves, and media projection; optional host capabilities degrade gracefully                      |
-| Godot           | Standalone Godot 4.7+ projects, Rust GDExtension + QuickJS, shared Cocos/Godot scene projection, QUI, media and durable saves; first runtime validation on macOS            |
+| Godot           | Standalone Godot 4.7.x projects, Rust GDExtension + QuickJS, shared Cocos/Godot scene projection, QUI, media and durable saves; first runtime validation on macOS            |
 | Native          | Rust + JavaScriptCore + wgpu, QUI/TSX and QSS, sprite/atlas rendering, nine-slice borders, rich text, and layer animation                                                   |
 | Feature plugins | Backgrounds, audio, animation, sprite/UI skins, fonts, backlog, gallery, achievements, inventory, settings, and asset loading                                               |
 | Runtime QPKs    | Side-by-side packages, trust verification, dynamic scripts/plugins, graph deltas, migrations, and save dependencies where supported by the target; Godot is static-QPK-only |
@@ -204,9 +204,15 @@ flowchart LR
 
 See the [Runtime QPK design](docs/design/dynamic-runtime-qpk.md) and [stage layout contract](docs/design/mobile-rendering-adaptation.md).
 
+See the [Unity integration guide](docs/content/docs/platforms/unity.md) (Chinese) for the exact Editor pin, static-QPK boundary, parent Canvas lifecycle and unqualified scopes.
+
 ## Development
 
-Use **pnpm `12.3.4`**. Package manifests require Node.js `>=20`; **Node.js 22.12+** is recommended for both the repository’s type-stripping commands and the documentation site’s Vite 8 build. Native work also requires Rust and the relevant platform build tools.
+Use **Node.js 22.12+** and **pnpm `12.3.4`** for repository development. Individual runtime packages may declare a lower Node minimum; that is not the workspace toolchain baseline. Native work also requires Rust and the relevant platform build tools.
+
+For integration into an existing application, read the [embedding guide](docs/content/docs/guides/embedding.md) and [host compatibility matrix](docs/content/docs/platforms/compatibility.md) (Chinese). Generated Creator/Godot projects are standalone outputs. Unity 6.3 LTS now has an experimental desktop adapter and generated UPM embedding package; Unity Editor/Player validation remains pending.
+
+Run `pnpm deps:report` for updates, deprecations and npm advisories across the three independent workspaces. The [maintenance guide](docs/content/docs/project/dependencies.md) (Chinese) covers grouped upgrades, native dependencies and validation. Weekly reporting and Renovate configuration are included; bot activation and remote execution are separate from local configuration.
 
 ```bash
 pnpm install --frozen-lockfile

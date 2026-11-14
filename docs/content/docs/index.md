@@ -4,7 +4,7 @@ description: "从第一句对白，到一个可以交付的视觉小说世界。
 order: 0
 ---
 
-QuaEngine 是以 TypeScript 为基础的视觉小说引擎。你可以用 QuaScript 写对白与分支，用插件组织音画演出，在独立编辑器里创作，再选择 Web、Cocos、Godot 或 Native 作为舞台。
+QuaEngine 是以 TypeScript 为基础的视觉小说引擎。你可以用 QuaScript 写对白与分支，用插件组织音画演出，在独立编辑器里创作，再选择 Web、Cocos、Godot 或 Native 作为舞台；Unity 另提供初始 6.3 LTS 适配。
 
 ## 从这里开始
 
@@ -15,6 +15,8 @@ QuaEngine 是以 TypeScript 为基础的视觉小说引擎。你可以用 QuaScr
 | 在可视化工具中工作 | [编辑器](/docs/editor) · [角色](/docs/editor/character) · [动画](/docs/editor/animation) |
 | 加背景、音乐与立绘 | [功能插件](/docs/plugins) |
 | 选择平台或运行 Godot 项目 | [平台比较](/docs/platforms) · [Godot 指南](/docs/platforms/godot) |
+| 嵌入已有应用、确认宿主版本 | [嵌入接入](/docs/guides/embedding) · [兼容性](/docs/platforms/compatibility) |
+| 将剧情模块放入 Unity | [Unity 初始适配与嵌入](/docs/platforms/unity) |
 | 查具体函数、配置和包 | [参考手册](/docs/reference) |
 | 分发游戏或增量章节 | [构建与发布](/docs/guides/releasing) · [Runtime QPK](/docs/guides/runtime-packages) |
 

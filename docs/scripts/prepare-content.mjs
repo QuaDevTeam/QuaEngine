@@ -35,6 +35,10 @@ const packages = [
   ['platform/scene-host', 'scene-host', '共享场景宿主契约'],
   ['render/godot', 'renderer-godot', 'Godot 渲染适配器'],
   ['platform/godot-host', 'godot-host', 'Godot 宿主与独立项目'],
+  ['platform/scene-runtime', 'scene-runtime', '共享场景脚本宿主'],
+  ['plugins/embedded', 'embedded', '嵌入会话插件'],
+  ['platform/unity-host', 'unity-host', 'Unity 宿主与嵌入包'],
+  ['render/unity', 'renderer-unity', 'Unity 渲染适配器'],
   ['native/vscode', 'native-vscode', 'Native UI 编辑扩展'],
 ];
 for (const [dir, slug, title] of packages) add(`packages/${dir}/README.md`, `docs/reference/${slug}.md`, title, `${title}的安装方式、公开接口、使用示例与当前约束。`);

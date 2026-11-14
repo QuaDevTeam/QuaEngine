@@ -25,6 +25,8 @@ order: 1
 
 ## 部署检查
 
+接入已有页面／应用时，使用[嵌入指南](/docs/guides/embedding)限制输入范围，明确单例会话、存储隔离和销毁顺序；工具链版本见[兼容性](/docs/platforms/compatibility)。
+
 检查页面路径、资源 MIME、缓存、SRI、CSP 与 Runtime QPK 签名策略。需要 Blob 模块回退时显式配置权限；不要为了修复一个开发错误关闭整个生产信任策略。
 
 详见 [Web 安全](/docs/security/web-security)、[构建发布](/docs/guides/releasing) 和 [资源适配器](/docs/reference/assets-web)。

@@ -11,7 +11,7 @@ order: 1
 | 叙事与状态 | 场景、对白、选择、角色、检查点、存读档、故事图与章节选择 |
 | Web | 共用 DOM/WebAudio 运行时、舞台适配、Vue/React/Svelte 适配器 |
 | Cocos | 可独立生成 Creator 3.8.8 工作区、共享 QUI、Web/macOS 构建、持久化与媒体投影；通用 Host 可选能力降级 |
-| Godot | Godot 4.7+ 独立项目、GDExtension/QuickJS、Cocos/Godot 共享场景投影、QUI、媒体与持久化；仅静态 QPK |
+| Godot | Godot 4.7.x 独立项目、GDExtension/QuickJS、Cocos/Godot 共享场景投影、QUI、媒体与持久化；仅静态 QPK |
 | Native | Rust + JavaScriptCore + wgpu，QUI/TSX、QSS、资源与目标构建链 |
 | 插件 | 背景、音频、动画、Sprite/UI skin、字体、回看、图库、成就、物品、设置、加载画面 |
 | 动态内容 | QPK 并列挂载、信任校验、脚本/插件、图增量、幂等迁移和依赖卸载；取决于目标能力，Godot 暂不支持动态包 |
