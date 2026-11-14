@@ -112,3 +112,5 @@ description: Guardrails for developing packages/editor/novel-writer, the SvelteK
 - Run the isolated Electron smokes with delayed task reads, independent drafts, source restoration, guarded QS application, provider routing, and artifact draft switching. These tests use a local mock provider or offline fallback, not real DeepSeek/Tavily.
 
 The writer view now participates in editor docking. Resize/move keeps its WebContents/controller and drafts. Hide native bounds while the workbench is dragging/resizing or displaying a modal; route writer-local menu commands only when its WebContents has focus. Keep the Svelte app isolated from the editor Lit component tree.
+
+SvelteKit build and typecheck both write .svelte-kit/types. Keep the package-specific Turbo typecheck dependent on its own build, so whole-workspace scheduling cannot run sync concurrently and remove proxy+page.server.ts during traversal.

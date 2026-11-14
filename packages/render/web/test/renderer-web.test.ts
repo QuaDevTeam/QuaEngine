@@ -3782,6 +3782,8 @@ describe('@quajs/renderer-web', () => {
     })
 
     const captureResults: unknown[] = []
+    const captureErrors: unknown[] = []
+    onRenderToLogic(pipeline, RenderToLogicEvents.SAVE_PREVIEW_CAPTURE_ERROR, payload => captureErrors.push(payload))
     onRenderToLogic(pipeline, RenderToLogicEvents.SAVE_PREVIEW_CAPTURE_RESULT, payload => captureResults.push(payload))
 
     await renderer.mount()
@@ -3800,7 +3802,10 @@ describe('@quajs/renderer-web', () => {
       },
     })
     await capture.triggerNextImageLoad()
-    await waitForMicrotasks(() => captureResults.length === 1)
+    await vi.waitFor(() => {
+      expect(captureErrors).toEqual([])
+      expect(captureResults).toHaveLength(1)
+    })
 
     const hideOverlayMarkup = capture.svgMarkup.at(-1) || ''
     expect(hideOverlayMarkup).toContain('Dialogue line')
@@ -3819,7 +3824,10 @@ describe('@quajs/renderer-web', () => {
       },
     })
     await capture.triggerNextImageLoad()
-    await waitForMicrotasks(() => captureResults.length === 2)
+    await vi.waitFor(() => {
+      expect(captureErrors).toEqual([])
+      expect(captureResults).toHaveLength(2)
+    })
 
     const sceneOnlyMarkup = capture.svgMarkup.at(-1) || ''
     expect(sceneOnlyMarkup).not.toContain('data-qua-capture-role="overlay"')
@@ -3847,6 +3855,8 @@ describe('@quajs/renderer-web', () => {
     })
 
     const captureResults: unknown[] = []
+    const captureErrors: unknown[] = []
+    onRenderToLogic(pipeline, RenderToLogicEvents.SAVE_PREVIEW_CAPTURE_ERROR, payload => captureErrors.push(payload))
     onRenderToLogic(pipeline, RenderToLogicEvents.SAVE_PREVIEW_CAPTURE_RESULT, payload => captureResults.push(payload))
 
     await renderer.mount()
@@ -3880,8 +3890,10 @@ describe('@quajs/renderer-web', () => {
     expect(frozenMarkup).not.toContain('After Clone')
 
     await capture.triggerNextImageLoad()
-    await flushMicrotasks()
-    expect(captureResults).toHaveLength(1)
+    await vi.waitFor(() => {
+      expect(captureErrors).toEqual([])
+      expect(captureResults).toHaveLength(1)
+    })
 
     await renderer.unmount()
     capture.restore()
@@ -3904,6 +3916,8 @@ describe('@quajs/renderer-web', () => {
     })
 
     const captureResults: unknown[] = []
+    const captureErrors: unknown[] = []
+    onRenderToLogic(pipeline, RenderToLogicEvents.SAVE_PREVIEW_CAPTURE_ERROR, payload => captureErrors.push(payload))
     onRenderToLogic(pipeline, RenderToLogicEvents.SAVE_PREVIEW_CAPTURE_RESULT, payload => captureResults.push(payload))
 
     await renderer.mount()
@@ -3922,7 +3936,10 @@ describe('@quajs/renderer-web', () => {
     })
 
     await expect(capture.triggerNextImageLoad()).resolves.toBeUndefined()
-    await waitForMicrotasks(() => captureResults.length === 1)
+    await vi.waitFor(() => {
+      expect(captureErrors).toEqual([])
+      expect(captureResults).toHaveLength(1)
+    })
 
     expect(captureResults).toHaveLength(1)
 
@@ -4747,6 +4764,8 @@ function installSavePreviewCaptureStubs(options: { revokeThrows?: boolean } = {}
   const svgMarkup: string[] = []
   const blobUrls = new Map<string, Blob>()
   const pendingImageLoads: Array<() => void> = []
+  // src is entirely mocked: setting a real attribute would also start Happy DOM's loader.
+  const imageSources = new WeakMap<HTMLImageElement, string>()
   const urlApi = {
     ...URL,
     createObjectURL: vi.fn((blob: Blob) => {
@@ -4768,10 +4787,10 @@ function installSavePreviewCaptureStubs(options: { revokeThrows?: boolean } = {}
   Object.defineProperty(HTMLImageElement.prototype, 'src', {
     configurable: true,
     get() {
-      return this.getAttribute('src') || ''
+      return imageSources.get(this) || ''
     },
     set(value: string) {
-      this.setAttribute('src', value)
+      imageSources.set(this, value)
       pendingImageLoads.push(() => {
         this.onload?.(new Event('load'))
       })

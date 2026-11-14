@@ -9,6 +9,25 @@ allowBuilds:
 # v4 is rejected by the registry trust policy. Keep the policy enabled.
 overrides:
   chokidar: 5.0.0
+  'form-data@>=4.0.0 <4.0.6': 4.0.6
+  'undici@>=6.0.0 <6.29.1': 6.29.1
+  'undici@>=7.0.0 <7.30.1': 7.30.1
+  'linkify-it@>=5.0.0 <5.0.2': 5.0.2
+  'brace-expansion@>=1.0.0 <1.1.20': 1.1.20
+  'brace-expansion@>=2.0.0 <2.1.6': 2.1.6
+  'brace-expansion@>=5.0.0 <5.0.11': 5.0.11
+  'js-yaml@>=3.0.0 <3.15.2': 3.15.2
+  'js-yaml@>=4.0.0 <4.3.2': 4.3.2
+  'fast-uri@>=3.0.0 <3.1.7': 3.1.7
+  'nanoid@>=3.0.0 <3.3.18': 3.3.18
+  'postcss@>=8.0.0 <8.5.18': 8.5.18
+  'browserslist@>=4.0.0 <4.28.7': 4.28.7
+  'immutable@>=5.0.0 <5.1.8': 5.1.8
+  'devalue@>=5.0.0 <5.9.3': 5.9.3
+  'source-map-js@>=1.0.0 <1.2.2': 1.2.2
+  'dompurify@>=3.0.0 <3.4.17': 3.4.17
+  'sharp@<0.35.5': 0.35.5
+  'zod@>=4.0.0 <4.6.6': 4.6.7
 minimumReleaseAgeExclude:
   - '@cloudflare/unenv-preset@2.16.2'
   - '@cloudflare/workerd-darwin-64@1.20260921.1'

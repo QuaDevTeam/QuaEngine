@@ -61,6 +61,11 @@
       "dependsOn": [
         "^build"
       ]
+    },
+    "@quajs/editor-novel-writer#typecheck": {
+      "dependsOn": [
+        "build"
+      ]
     }
   }
 }

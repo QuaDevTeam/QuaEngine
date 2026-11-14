@@ -142,3 +142,5 @@ Run Quack and Vite plugin tests when build/dev integration changes.
 - Are generated assets and manifests package-aware?
 - Is Vite dev VFS/HMR using the existing QuaAssets flow?
 - If sprite manifest, Quack/Vite integration, or renderer sprite behavior changed, was this skill updated?
+
+Dependency maintenance: ag-psd 31 keeps its default decode memory limit enabled; do not opt out to preserve old oversized-input behavior. sharp 0.35 uses named Blend/OverlayOptions types beside its default runtime export. Validate PSD import/compositing and asset-pipeline consumers after upgrades.

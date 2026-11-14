@@ -1,0 +1,36 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "enabledManagers": ["npm", "cargo", "github-actions"],
+  "timezone": "Asia/Singapore",
+  "schedule": ["before 9am on monday"],
+  "minimumReleaseAge": "7 days",
+  "automerge": false,
+  "prConcurrentLimit": 5,
+  "ignorePaths": ["**/node_modules/**", "**/dist/**", "**/.generated/**", "packages/build/create-qua-game/templates/**"],
+  "lockFileMaintenance": { "enabled": true },
+  "packageRules": [
+    {
+      "description": "Keep the test runner, UI and coverage provider aligned",
+      "matchPackageNames": ["vitest", "@vitest/*"],
+      "groupName": "vitest"
+    },
+    {
+      "matchPackageNames": ["svedocs", "svedocs-cli"],
+      "groupName": "svedocs"
+    },
+    {
+      "matchPackageNames": ["react", "react-dom", "@types/react", "@types/react-dom"],
+      "groupName": "react"
+    },
+    {
+      "matchPackageNames": ["tailwindcss", "@tailwindcss/*"],
+      "groupName": "tailwindcss"
+    },
+    {
+      "description": "Review engine bindings, runtimes and pre-1.0 APIs individually",
+      "matchPackageNames": ["godot", "rquickjs", "wgpu", "electron", "typescript", "@babel/*", "@xterm/xterm"],
+      "groupName": null
+    }
+  ]
+}

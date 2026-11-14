@@ -26,7 +26,7 @@ import { ImageOptimizationPlugin } from './image-optimization'
 
 const logger = createLogger('quack:plugins:asset-pipeline')
 
-type SharpFactory = typeof import('sharp')
+type SharpFactory = typeof import('sharp')['default']
 
 export interface AssetPipelinePluginOptions {
   enabled?: boolean
@@ -472,7 +472,7 @@ export class AssetPipelinePlugin extends QuackPlugin {
 
     try {
       const module = await import('sharp')
-      this.sharpModule = (module as unknown as { default: SharpFactory }).default
+      this.sharpModule = module.default
     }
     catch {
       if (!this.warnedSharpUnavailable) {

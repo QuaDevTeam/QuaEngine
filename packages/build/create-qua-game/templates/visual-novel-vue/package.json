@@ -39,7 +39,7 @@
     "@quajs/renderer-web": "^0.1.0",
     "@quajs/security-web": "^0.1.0",
     "@quajs/store-web": "^0.1.0",
-    "vue": "^3.5.34"
+    "vue": "^3.5.45"
   },
   "devDependencies": {
     "@quajs/quack": "^0.1.0",

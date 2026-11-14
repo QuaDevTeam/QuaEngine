@@ -114,6 +114,9 @@ catalogs:
       specifier: 7.8.1
       version: 7.8.1
 
+overrides:
+  undici@>=7.0.0 <7.30.1: 7.30.1
+
 importers:
 
   .:
@@ -309,8 +312,8 @@ packages:
     resolution: {integrity: sha512-MvjXzkz/BOfyVDkG0oFOtBxHX2u3gKbMHIF/dXblZsgD3BWOFLmHovIpZY7BykJdAjcqRCBi1WYBNdEC9yI7vg==, tarball: https://registry.npmjs.org/sumchecker/-/sumchecker-3.0.1.tgz}
     engines: {node: '>= 8.0'}
 
-  undici@7.29.1:
-    resolution: {integrity: sha512-RYONW2MeafgYlkVOKYKkA/Ag7BmXqgIWCa8t1m0JcxrQg9pI9lEqRhAOruOBCbAohOa/gkCF+iPi9hrgvTzu6Q==, tarball: https://registry.npmjs.org/undici/-/undici-7.29.1.tgz}
+  undici@7.30.1:
+    resolution: {integrity: sha512-03KrMbjIFDWQR5RNPrSw3bd1r12JpyFQl9/yxjUbJtqkjmllqC5lFjZh6ujeuJCKr8EOQvRW872Oy/az+nLYxg==, tarball: https://registry.npmjs.org/undici/-/undici-7.30.1.tgz}
     engines: {node: '>=20.18.1'}
 
   which@2.0.2:
@@ -344,7 +347,7 @@ snapshots:
       semver: 7.8.1
       sumchecker: 3.0.1
     optionalDependencies:
-      undici: 7.29.1
+      undici: 7.30.1
     transitivePeerDependencies:
       - supports-color
 
@@ -521,7 +524,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  undici@7.29.1:
+  undici@7.30.1:
     optional: true
 
   which@2.0.2:

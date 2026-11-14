@@ -7,3 +7,6 @@ allowBuilds: {}
 catalog:
   '@electron/packager': 20.3.0
   semver: 7.8.1
+
+overrides:
+  'undici@>=7.0.0 <7.30.1': 7.30.1

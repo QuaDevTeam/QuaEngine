@@ -1,0 +1,64 @@
+name: Dependency health
+
+on:
+  schedule:
+    - cron: '0 1 * * 1'
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - scripts/dependency-report*.mjs
+      - .github/workflows/dependencies.yml
+
+permissions:
+  contents: read
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6.0.2
+      - uses: pnpm/action-setup@v6.0.7
+        with: { version: 12.3.4 }
+      - uses: actions/setup-node@v6.4.0
+        with: { node-version: 22.x }
+      - name: Test report failure handling
+        run: node --test scripts/dependency-report.test.mjs
+      - name: Inspect all three independent pnpm lockfiles
+        if: github.event_name != 'pull_request'
+        run: node scripts/dependency-report.mjs
+      - uses: actions/upload-artifact@v7
+        if: always() && github.event_name != 'pull_request'
+        with:
+          name: dependency-report
+          path: .local/dependencies/
+          if-no-files-found: error
+          retention-days: 30
+
+  rust-audit:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: native
+            lockfile: packages/native/Cargo.lock
+          - name: godot
+            lockfile: packages/platform/godot-host/runtime/Cargo.lock
+          - name: unity
+            lockfile: packages/platform/unity-host/runtime/Cargo.lock
+    steps:
+      - uses: actions/checkout@v6.0.2
+      - name: Install pinned RustSec auditor
+        run: cargo install cargo-audit --version 0.22.2 --locked
+      - name: Audit locked Rust dependencies
+        run: cargo audit --file "${{ matrix.lockfile }}" --json > rust-audit.json
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: rust-audit-${{ matrix.name }}
+          path: rust-audit.json
+          if-no-files-found: error
+          retention-days: 30

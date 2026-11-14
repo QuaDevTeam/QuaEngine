@@ -1,5 +1,6 @@
 import type { AssetInfo } from '@quajs/quack'
 import type { Layer, PixelData } from 'ag-psd'
+import type { Blend, OverlayOptions } from 'sharp'
 import type {
   SpriteSkinDefinition,
   SpriteSkinManifest,
@@ -483,7 +484,7 @@ async function renderPsdNode(node: Layer, inheritedOpacity = 1): Promise<Buffer 
   }
 
   const opacity = inheritedOpacity * normalizeOpacity(node.opacity)
-  const overlayBuffers: sharp.OverlayOptions[] = []
+  const overlayBuffers: OverlayOptions[] = []
 
   if (node.children?.length) {
     for (const child of node.children) {
@@ -603,7 +604,7 @@ function applyMask(imageData: Uint8ClampedArray, maskData: PixelData['data']): v
   }
 }
 
-function mapBlendMode(blendMode: Layer['blendMode']): sharp.Blend {
+function mapBlendMode(blendMode: Layer['blendMode']): Blend {
   switch (blendMode) {
     case 'multiply':
       return 'multiply'

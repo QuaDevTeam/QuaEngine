@@ -57,7 +57,7 @@ interface PngChunk {
   raw: Buffer
 }
 
-type SharpFactory = typeof import('sharp')
+type SharpFactory = typeof import('sharp')['default']
 
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])
 const STRIPPABLE_PNG_CHUNKS = new Set(['tEXt', 'zTXt', 'iTXt', 'tIME', 'eXIf'])
@@ -367,7 +367,7 @@ export class ImageOptimizationPlugin extends QuackPlugin {
 
     try {
       const module = await import('sharp')
-      this.sharpModule = (module as unknown as { default: SharpFactory }).default
+      this.sharpModule = module.default
     }
     catch {
       this.warnSharpUnavailable()
