@@ -68,19 +68,31 @@ common = [
     "prologue-arrival", "prologue-commission", "prologue-restoration",
     "prologue-return-line",
 ] + [f"chapter-{i:02}" for i in range(1, 6)]
-continuation = ["chapter-05-inspection", "chapter-06", "chapter-07", "epilogue"]
+continuation = ["chapter-05-inspection", "chapter-06"]
+good_tail = ["chapter-06-resolution", "chapter-07", "epilogue"]
+all_sections = common + ["ending-handoff"] + continuation + ["ending-obituary"] + good_tail
 # Route policy mirrors prologue-state.ts; review it whenever playback changes.
-assert set(FILES) == set(common + continuation + ["ending-handoff"])
+assert set(FILES) == set(all_sections)
 rows = []
 for choices in itertools.product(*groups):
     handoff = "early-handoff" in choices
-    # The sixth choice is never reached in the short ending.
-    if handoff and choices[-1] != groups[-1][0]:
+    obituary = "strike-valve-one" in choices
+    # Later choices are never reached in the short ending.
+    if handoff and (choices[-2] != groups[-2][0] or choices[-1] != groups[-1][0]):
         continue
-    route = common + (["ending-handoff"] if handoff else continuation)
+    route = (
+        common + ["ending-handoff"]
+        if handoff
+        else common + continuation + (["ending-obituary"] if obituary else good_tail)
+    )
     counts = {name: cjk(prose(FILES[name], choices)) for name in route}
     rows.append({
-        "ending": "handoff" if handoff else "letter" if "formal-followup" in choices else "tomorrow",
+        "ending": (
+            "handoff" if handoff
+            else "obituary" if obituary
+            else "letter" if "formal-followup" in choices
+            else "tomorrow"
+        ),
         "counts": counts,
         "total": sum(counts.values()),
     })
@@ -91,10 +103,10 @@ report = {
     "routes": {},
     "sections": {},
 }
-for ending in ["tomorrow", "letter", "handoff"]:
+for ending in ["tomorrow", "letter", "handoff", "obituary"]:
     totals = [row["total"] for row in rows if row["ending"] == ending]
     report["routes"][ending] = {"combinations": len(totals), "min": min(totals), "max": max(totals)}
-for name in common + continuation + ["ending-handoff"]:
+for name in all_sections:
     values = [row["counts"][name] for row in rows if name in row["counts"]]
     report["sections"][name] = {"min": min(values), "max": max(values)}
 print(json.dumps(report, ensure_ascii=False, indent=2))

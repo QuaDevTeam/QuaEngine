@@ -9,9 +9,11 @@ import chapter03 from '../scenes/chapter-03.qs'
 import chapter04 from '../scenes/chapter-04.qs'
 import inspection from '../scenes/chapter-05-inspection.qs'
 import chapter05 from '../scenes/chapter-05.qs'
+import chapter06Resolution from '../scenes/chapter-06-resolution.qs'
 import chapter06 from '../scenes/chapter-06.qs'
 import chapter07 from '../scenes/chapter-07.qs'
 import handoff from '../scenes/ending-handoff.qs'
+import obituary from '../scenes/ending-obituary.qs'
 import epilogue from '../scenes/epilogue.qs'
 import arrival from '../scenes/prologue-arrival.qs'
 import commission from '../scenes/prologue-commission.qs'
@@ -28,7 +30,7 @@ export interface PrologueState { workApproach?: WorkApproach }
 export interface StoryState extends PrologueState {
   choices: string[]
   status: 'reading' | 'paused' | 'ended'
-  ending?: 'tomorrow' | 'letter' | 'handoff'
+  ending?: 'tomorrow' | 'letter' | 'handoff' | 'obituary'
 }
 export interface StoryLibrary { canContinue: boolean, chapters: string[] }
 export interface StoryRequest { action: 'start' | 'continue' | 'pause' | 'chapter', nodeId?: string }
@@ -48,11 +50,13 @@ const choiceGroups = [
   ['investigate-station', 'investigate-office'],
   ['continue-inquiry', 'early-handoff'],
   ['external-preservation', 'formal-followup'],
+  ['strike-valve-two', 'strike-valve-one'],
 ]
 const endings = {
   tomorrow: { title: '明天，请再一次呼唤我', message: '感谢游玩。' },
   letter: { title: '雨后的来信', message: '感谢游玩。' },
   handoff: { title: '下一次见面', message: '感谢游玩。' },
+  obituary: { title: '明晚八点的讣告', message: '感谢游玩。' },
 }
 
 /** Saved decisions and navigation policy shared by Web and native. */
@@ -191,13 +195,15 @@ export class DemoStoryPlugin extends BaseEnginePlugin {
       { key: 'handoff', chapter: '05', only: 'handoff', create: () => handoff(scope) },
       { key: 'inspection', chapter: '05', only: 'continuation', create: () => inspection(scope) },
       { key: 'chapter-06', chapter: '06', entry: 'chapter-06', only: 'continuation', create: () => chapter06(scope) },
-      { key: 'chapter-07', chapter: '07', entry: 'chapter-07', only: 'continuation', create: () => chapter07(scope) },
-      { key: 'epilogue', chapter: '08', entry: 'epilogue', only: 'continuation', create: () => epilogue(scope) },
+      { key: 'obituary', chapter: '06', only: 'obituary', create: () => obituary(scope) },
+      { key: 'chapter-06-resolution', chapter: '06', only: 'good', create: () => chapter06Resolution(scope) },
+      { key: 'chapter-07', chapter: '07', entry: 'chapter-07', only: 'good', create: () => chapter07(scope) },
+      { key: 'epilogue', chapter: '08', entry: 'epilogue', only: 'good', create: () => epilogue(scope) },
     ]
   }
 
   editorPreviewFile(path: string): () => Promise<GameStep[]> {
-    const names = ['prologue-arrival', 'prologue-commission', 'prologue-restoration', 'prologue-return-line', 'chapter-01', 'chapter-02', 'chapter-03', 'chapter-04', 'chapter-05', 'ending-handoff', 'chapter-05-inspection', 'chapter-06', 'chapter-07', 'epilogue']
+    const names = ['prologue-arrival', 'prologue-commission', 'prologue-restoration', 'prologue-return-line', 'chapter-01', 'chapter-02', 'chapter-03', 'chapter-04', 'chapter-05', 'ending-handoff', 'chapter-05-inspection', 'chapter-06', 'ending-obituary', 'chapter-06-resolution', 'chapter-07', 'epilogue']
     const index = names.findIndex(name => path === `src/game/scenes/${name}.qs`)
     if (index < 0)
       throw new Error('此文件不是已注册的 Demo 剧本模块。')
@@ -263,13 +269,26 @@ export class DemoStoryPlugin extends BaseEnginePlugin {
         starting = true
       }
       const handedOff = this.state().choices.includes('early-handoff')
-      if ((section.only === 'handoff' && !handedOff) || (section.only === 'continuation' && handedOff))
+      const wrongValve = this.state().choices.includes('strike-valve-one')
+      if (
+        (section.only === 'handoff' && !handedOff)
+        || (section.only === 'continuation' && handedOff)
+        || (section.only === 'obituary' && (handedOff || !wrongValve))
+        || (section.only === 'good' && (handedOff || wrongValve))
+      ) {
         continue
+      }
       await this.engine.dialogue(section.steps.slice(start))
     }
     if (generation !== this.playbackGeneration)
       return
-    const ending = this.state().choices.includes('early-handoff') ? 'handoff' : this.state().choices.includes('formal-followup') ? 'letter' : 'tomorrow'
+    const ending = this.state().choices.includes('early-handoff')
+      ? 'handoff'
+      : this.state().choices.includes('strike-valve-one')
+        ? 'obituary'
+        : this.state().choices.includes('formal-followup')
+          ? 'letter'
+          : 'tomorrow'
     await this.patch({ status: 'ended', ending })
     await this.engine.endGame({ ...endings[ending], ending, reason: 'story-complete' })
   }

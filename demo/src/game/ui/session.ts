@@ -267,7 +267,7 @@ export async function createDemoUiSession(runtime: Awaited<ReturnType<typeof cre
     await closeFeaturePanels()
     await refreshAppSurface({
       gameOverDescription: payload.message || appState.gameOverDescription,
-      gameOverSubtitle: payload.ending === 'handoff' ? '短结局' : payload.ending === 'letter' ? '普通结局' : '完整结局',
+      gameOverSubtitle: payload.ending === 'obituary' ? '坏结局' : payload.ending === 'handoff' ? '短结局' : payload.ending === 'letter' ? '普通结局' : '完整结局',
       gameOverTitle: payload.title || 'GAME OVER',
       screen: 'game-over',
       titleSurface: false,

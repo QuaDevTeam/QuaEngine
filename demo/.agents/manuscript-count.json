@@ -1,79 +1,92 @@
 {
-  "sourceCjk": 146004,
-  "proseWithAllAlternativesCjk": 138674,
+  "sourceCjk": 150974,
+  "proseWithAllAlternativesCjk": 143393,
   "routes": {
     "tomorrow": {
       "combinations": 64,
-      "min": 123661,
-      "max": 123924
+      "min": 125453,
+      "max": 125690
     },
     "letter": {
       "combinations": 64,
-      "min": 123745,
-      "max": 124008
+      "min": 125533,
+      "max": 125770
     },
     "handoff": {
       "combinations": 64,
-      "min": 95539,
-      "max": 95810
+      "min": 96591,
+      "max": 96836
+    },
+    "obituary": {
+      "combinations": 128,
+      "min": 103773,
+      "max": 104015
     }
   },
   "sections": {
     "prologue-arrival": {
-      "min": 6757,
-      "max": 6757
+      "min": 6584,
+      "max": 6584
     },
     "prologue-commission": {
-      "min": 11211,
-      "max": 11230
+      "min": 11109,
+      "max": 11128
     },
     "prologue-restoration": {
-      "min": 6996,
-      "max": 7003
+      "min": 7008,
+      "max": 7015
     },
     "prologue-return-line": {
-      "min": 4474,
-      "max": 4475
+      "min": 4431,
+      "max": 4432
     },
     "chapter-01": {
-      "min": 14239,
-      "max": 14313
+      "min": 14220,
+      "max": 14280
     },
     "chapter-02": {
-      "min": 11703,
-      "max": 11743
+      "min": 12184,
+      "max": 12210
     },
     "chapter-03": {
-      "min": 17807,
-      "max": 17863
+      "min": 18177,
+      "max": 18235
     },
     "chapter-04": {
-      "min": 10219,
-      "max": 10257
+      "min": 10274,
+      "max": 10312
     },
     "chapter-05": {
-      "min": 8291,
-      "max": 8325
-    },
-    "chapter-05-inspection": {
-      "min": 3566,
-      "max": 3569
-    },
-    "chapter-06": {
-      "min": 5871,
-      "max": 5881
-    },
-    "chapter-07": {
-      "min": 13691,
-      "max": 13703
-    },
-    "epilogue": {
-      "min": 8815,
-      "max": 8908
+      "min": 8752,
+      "max": 8787
     },
     "ending-handoff": {
-      "min": 3842,
-      "max": 3846
+      "min": 3852,
+      "max": 3856
+    },
+    "chapter-05-inspection": {
+      "min": 3638,
+      "max": 3641
+    },
+    "chapter-06": {
+      "min": 4276,
+      "max": 4296
+    },
+    "ending-obituary": {
+      "min": 3114,
+      "max": 3114
+    },
+    "chapter-06-resolution": {
+      "min": 2766,
+      "max": 2772
+    },
+    "chapter-07": {
+      "min": 13315,
+      "max": 13326
+    },
+    "epilogue": {
+      "min": 8682,
+      "max": 8770
     }
   }
 }

@@ -16,7 +16,7 @@ describe('compiled demo story routes', () => {
     vi.useRealTimers()
   })
 
-  it.each(['tomorrow', 'letter', 'handoff'] as const)('reaches the %s ending through authored choices', async (ending) => {
+  it.each(['tomorrow', 'letter', 'handoff', 'obituary'] as const)('reaches the %s ending through authored choices', async (ending) => {
     vi.useFakeTimers()
     runtime = await createDemoEngineRuntime({
       engine: { assets: { adapter: createMemoryAssetsAdapter() } },
@@ -35,7 +35,13 @@ describe('compiled demo story routes', () => {
       lines++
     })
     onLogicToRender(pipeline, LogicToRenderEvents.DIALOGUE_CHOICE, ({ choices }) => {
-      const preferred = ending === 'handoff' ? 'early-handoff' : ending === 'letter' ? 'formal-followup' : 'external-preservation'
+      const preferred = ending === 'handoff'
+        ? 'early-handoff'
+        : ending === 'obituary'
+          ? 'strike-valve-one'
+          : ending === 'letter'
+            ? 'formal-followup'
+            : 'external-preservation'
       const choice = choices.find(choice => choice.id === preferred) ?? choices[0]
       if (!choice)
         return
@@ -55,7 +61,7 @@ describe('compiled demo story routes', () => {
     }
     expect(errors).toEqual([])
     expect(state).toMatchObject({ status: 'ended', ending })
-    expect(selections).toHaveLength(ending === 'handoff' ? 7 : 8)
+    expect(selections).toHaveLength(ending === 'handoff' ? 7 : 9)
     expect(lines).toBeGreaterThan(1000)
     expect(state?.choices).toEqual(selections)
     expect((await engine.listSaveSlots()).map(slot => slot.slotId)).toContain('chapter-chapter-05')

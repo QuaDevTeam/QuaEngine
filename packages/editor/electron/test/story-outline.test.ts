@@ -17,7 +17,12 @@ describe('project story outline', () => {
     })
     expect(all.filter(node => node.kind === 'file')).toHaveLength(files.length)
     expect(all.every(node => !node.filePath?.includes('.generated'))).toBe(true)
-    expect(project.story.filter(node => node.id === '05').map(node => node.title).sort()).toEqual(['下一次见面', '绿色指示灯'])
+    expect(project.story.filter(node => node.id === '05').map(node => node.title)).toEqual(['绿色指示灯'])
+    expect(project.story.filter(node => node.id === '06').map(node => node.title)).toEqual(['不用等到八点'])
+    expect(all.find(node => node.kind === 'node' && node.id === 'ending-obituary')).toMatchObject({
+      title: '反冲的白雾与失控的暗波',
+      filePath: 'src/game/scenes/ending-obituary.qs',
+    })
     for (const file of files) {
       const path = `src/game/scenes/${file}`
       const source = await readFile(resolve(root, path), 'utf8')

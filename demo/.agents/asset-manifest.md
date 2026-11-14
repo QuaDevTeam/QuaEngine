@@ -14,6 +14,8 @@
 | `inserts/nineteen-twelve-hands.webp` | 第六章：饮料放稳后，凛与Mara握住仍带水珠的手 |
 | `inserts/aoba-from-the-boat.webp` | 第七章：游船上看见的完整青叶海岸线，补上黑屏段 |
 | `inserts/cafe-shared-table.webp` | 第七章：两本漫画、两只勺子和共享布丁的桌面 |
+| `inserts/waveform-splice-check.webp` | 第二章／第三章：双轨波形拼接游标、60Hz相位茬口与底噪比对特写（gpt-image-2.6-flare） |
+| `backgrounds/alley-cleaning-record-anime-v3.webp` | 第五章：雨夜后巷完整画面，左侧深蓝雨衣学徒持竹扫帚扫水、门边沙袋，右侧四只海音木箱压死排水篦子（gpt-image-2.6-flare 重绘） |
 | `backgrounds/rin-room-night.webp` | 凛在青叶的住处：夜间申请、消息与独处 |
 | `backgrounds/radio-exterior-night.webp` | 海岸台雨夜门外：警告后离开与归途 |
 | `backgrounds/tokyo-neighborhood-rain.webp` | 东京课程后的街道、雨中通话 |
