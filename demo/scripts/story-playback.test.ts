@@ -65,5 +65,7 @@ describe('compiled demo story routes', () => {
     expect(lines).toBeGreaterThan(1000)
     expect(state?.choices).toEqual(selections)
     expect((await engine.listSaveSlots()).map(slot => slot.slotId)).toContain('chapter-chapter-05')
-  }, 60_000)
+  // CI's Node 22 runner needs over a minute for thousands of real mutations
+  // and rollback snapshots. Virtual story time remains bounded to 600 ticks.
+  }, 180_000)
 })
