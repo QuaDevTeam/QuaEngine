@@ -1,6 +1,6 @@
 ---
 title: "项目当前进展"
-description: "截至 2026 年 10 月 27 日的仓库能力快照，包含 Godot 接入，区分实现、测试和平台验收。"
+description: "截至 2026 年 11 月 14 日的仓库能力快照，包含五大目标平台、模块导出与各自验证边界。"
 order: 1
 ---
 
@@ -9,37 +9,47 @@ order: 1
 | 领域 | 当前能力 |
 | --- | --- |
 | 叙事与状态 | 场景、对白、选择、角色、检查点、存读档、故事图与章节选择 |
-| Web | 共用 DOM/WebAudio 运行时、舞台适配、Vue/React/Svelte 适配器 |
-| Cocos | 可独立生成 Creator 3.8.8 工作区、共享 QUI、Web/macOS 构建、持久化与媒体投影；通用 Host 可选能力降级 |
-| Godot | Godot 4.7.x 独立项目、GDExtension/QuickJS、Cocos/Godot 共享场景投影、QUI、媒体与持久化；仅静态 QPK |
-| Native | Rust + JavaScriptCore + wgpu，QUI/TSX、QSS、资源与目标构建链 |
-| 插件 | 背景、音频、动画、Sprite/UI skin、字体、回看、图库、成就、物品、设置、加载画面 |
-| 动态内容 | QPK 并列挂载、信任校验、脚本/插件、图增量、幂等迁移和依赖卸载；取决于目标能力，Godot 暂不支持动态包 |
-| 作者工具 | QuaScript 编译与 HMR、Quack、Vite、项目检查与语言服务 |
-| 独立编辑器 | Electron + Lit/SCSS 工作台、Monaco、停靠面板、角色、动画、Git、打包、插件市场、Web/Native 预览、Inspector 与性能/存储检查 |
-| AI 写作 | 编辑器内置 Novel Writer、项目上下文、阶段审核与受保护的剧本草稿应用 |
-| 文档 | svedocs 0.2.4、中英文入门页、包参考、按语言搜索、机器可读文档与逐页分享图 |
+| Web | 共用 DOM/WebAudio 运行时、逻辑舞台适配，以及 Vue、React、Svelte 适配器 |
+| Cocos | 生成独立 Creator 3.8.8 工作区、共享 QUI、Web/macOS 构建、持久化与媒体投影；通用 Host 按可选能力降级 |
+| Godot | Godot 4.7.x 独立项目、GDExtension/QuickJS、共享场景投影、QUI、媒体与持久化；仅支持构建时静态 QPK |
+| Unity（初始适配） | Unity 6.3 LTS（6000.3.28f1）工程与 UPM 嵌入包、QuickJS VM、共享场景投影；待真实 Editor 与 Player 验收 |
+| Native | Rust + JavaScriptCore + wgpu，支持 QUI/TSX、QSS、资源管理与目标构建链 |
+| 嵌入模块导出 | `--embedded` 统一导出 Web、Godot、Creator、Unity 及 macOS Native C ABI 1 剧情子模块与业务协议 |
+| 插件体系 | 背景、音频、动画、Sprite/UI skin、字体、回看、图库、成就、物品、设置、加载画面与嵌入会话 |
+| 动态内容 | Runtime QPK 并列挂载、签名与哈希校验、脚本与插件激活、故事图增量、幂等迁移与受保护卸载（视宿主能力开放） |
+| 创作工具链 | QuaScript 编译与 HMR、Quack 打包、Vite 集成、项目诊断与语言服务 |
+| 独立编辑器 | Electron + Lit/SCSS 工作台、Monaco、停靠面板、角色/动画面板、Git、生产打包、插件市场、Web/Native 预览、Inspector 与性能/存储检查 |
+| AI 写作辅助 | 编辑器内置 Novel Writer，支持项目上下文联动、分阶段审核与受保护的剧本草稿回写 |
+| 文档站 | 基于 svedocs 0.2.4 构建，包含中英文入门与 Editor 手册、包参考、按语言搜索、机器可读文本及分享卡片 |
+
+## 嵌入模块与 Unity 初始适配（2026-11-14）
+
+现在可以通过 `quack project build --target <target> --embedded --all` 导出面向父工程的剧情子模块，配合 `@quajs/plugin-embedded` 接收外部参数、等待存档落盘并返回完成、取消或错误终态：
+
+- Web（`qua-embedded` v1 + iframe SDK）、Godot（`module.tscn` + `open_story()`）与 Creator（`start()` + 作用域输入）均已在对应宿主跑通模块会话流程。
+- Native 目标支持在 macOS 导出 C ABI 1 动态库和静态库，由父应用提供 `CAMetalLayer` 并驱动 `tick`/`poll`。
+- Unity 新增了 6.3 LTS 桌面初始适配与本地 UPM 包（`com.quajs.unity-host`），共享 `@quajs/renderer-scene` 和 `@quajs/scene-runtime`；但目前构建环境尚未接入真实 Unity Editor，C# 编译、Play Mode、Player 及 IL2CPP 仍有待实测。详细兼容性声明见[宿主版本与兼容性](/docs/platforms/compatibility)与[模块导出指南](/docs/guides/exported-module)。
 
 ## Godot 接入
 
-Quack 已可从同一份 demo 源码生成独立 Godot 项目。QuickJS 在 Rust GDExtension 中执行剧情，Godot 通过共享 scene renderer 呈现 QUI/QSS、角色、对白、选择与媒体；游戏运行不依赖 Node、WebView 或源码目录。构建、运行、编辑器入口与配置见[Godot 指南](/docs/platforms/godot)。
+Quack 已经可以从同一份 Demo 源码直接生成独立的 Godot 4.7 项目。剧情 JS 在 Rust GDExtension 内的 QuickJS 中执行，Godot 节点通过共享 scene renderer 绘制 QUI/QSS、角色、对白、选择与媒体，运行时完全不依赖 Node 服务、WebView 或源码目录。配置和启动方式见[Godot 独立项目](/docs/platforms/godot)。
 
-macOS 是首批运行验证平台，Windows/Linux 的本机构建路径已实现，仍需在对应系统实测。仓库提供实际媒体夹具与独立打包检查；这些检查不能代表完整剧情、全部分支或主观听音。当前仅支持静态 QPK，明确拒绝动态 Runtime Package；参数化 EQ、非 normal 混合、图片阴影与富文本样式仍有 Web 差异。完整范围见 [Godot Host](/docs/reference/godot-host)。
+目前 macOS 已作为首批平台完成实测；Windows 与 Linux 的原生构建路径已经就绪，但还需要在对应系统上实际验证。仓库里的媒体夹具和独立打包测试能验证基础解码和篡改拒绝，不过不能代替全剧情流程测试和主观听音。Godot 目前仅支持构建时静态 QPK，且参数化音频 EQ、非 normal 混合、图片阴影与部分富文本样式和 Web 端仍有差异，详见 [Godot Host 参考](/docs/reference/godot-host)。
 
-## 最新 Native 变化
+## Native 运行时变化
 
-Rust/wgpu Native 的常驻宿主和动态 QPK 执行已经迁移到 JavaScriptCore，该目标的旧 QuickJS 依赖和别名已移除。Godot 使用独立 QuickJS 宿主。Native 的 macOS 实测包含真实模块、异步执行、包卸载与 Demo 流程；完整证据见 [迁移记录](/docs/reviews/native-jsc-migration-2026-09-21)。
+Rust/wgpu Native 端的常驻宿主和动态 QPK 执行已经全面迁至 JavaScriptCore，旧的 QuickJS 依赖和兼容别名已经清除（Godot 使用独立的 QuickJS 宿主，不受影响）。macOS 实测已经覆盖真实模块加载、异步执行、包卸载以及 Demo 完整流程，详见[迁移验证报告](/docs/reviews/native-jsc-migration-2026-09-21)。
 
-报告中的桥接基准只说明固定工作负载下迁移和桥接优化的组合结果，不能推断所有游戏帧率。Windows 交叉目标检查不等于实际 Windows 程序启动；原生 GPU 读回不等于可见窗口或 Web/native 像素一致。
+需要注意，报告里的桥接基准数据只反映固定测试负载下的调用开销，不能直接推算实际游戏的帧率表现；Windows 交叉编译检查也不能替代真实的 Windows 可执行文件运行。
 
 ## Cocos 更新（2026-10-12）
 
-Quack 使用包公开产物生成独立工作区，Creator 3.8.8 预览和 macOS 应用已做本机运行检查。媒体夹具覆盖实际音频增益/EQ/变速、全屏静音 SDR H.264 视频与图片数值动画；存档和设置包含真实重启检查。接入见[Cocos 工作区](/docs/platforms/cocos)，能力与未验收范围见[媒体一致性](/docs/platforms/cocos-media)，构建身份和历史基线见[集成审查](/docs/design/cocos-integration-audit)。
+Quack 会直接基于公开包的构建产物生成独立的 Creator 3.8.8 工作区，目前已经在本机完成了 Creator Web 预览与 macOS 应用运行验证。媒体夹具覆盖了音频增益、八段 EQ、变速播放、全屏静音 SDR H.264 视频和图片数值动画，存档和设置也做了真实重启恢复测试。接入方法见[Cocos 与 Creator 工作区](/docs/platforms/cocos)，具体差异见[媒体一致性](/docs/platforms/cocos-media)，审计记录见[集成审查](/docs/design/cocos-integration-audit)。
 
-这里的三端比较为 Web、Creator Web、Cocos macOS。完整剧情与后续媒体构建分别记录 SHA；图库和成就目录为空，未证明解锁流程。手机设备、任意视频混合、非静音音画同步、HDR、骨骼/粒子、系统级原生输入自动化与主观听音仍需另行验收。CI 的包测试不能代替这些本机运行证据。
+需要留意，三端对比的范围是生产 Web、Creator Web 与 Cocos macOS；目前 Demo 图库和成就目录为空，这部分解锁流程尚未覆盖。手机真机、非静音音画同步、HDR、骨骼/粒子系统以及系统级输入自动化测试仍待进一步验证。
 
-## 仍在推进
+## 后续方向
 
-更完整的平台视觉一致性、视频与排版覆盖、目标系统实际验收、更多脚手架模板和第三方插件生态持续推进。Demo 的故事与演出内容也仍在迭代。
+团队仍在持续完善各平台间的视觉与排版一致性、扩展更多脚手架模板（如 React/Svelte 开箱项目），并推进更多目标系统的实机验收和第三方插件生态建设；Demo 的故事剧本与演出效果也在不断打磨中。
 
-当前包版本为 `0.1.0`，尚未承诺稳定 API。品牌素材去掉 WIP 标签不改变这些具体技术边界。使用方应固定依赖版本，在自己的目标设备验证完整阅读与保存流程。
+目前各公开包版本仍为 `0.1.0`，API 尚在演进期。建议业务项目固定所有依赖版本，并在目标真机上完成阅读、分支与存档的完整回归。

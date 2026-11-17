@@ -33,6 +33,6 @@ Sprite manifest 可以组织基础立绘、表情差分、图层与 UI 皮肤。
 
 ## 保存、回看与动态资源
 
-角色位置与可见性来自引擎投影。动态包提供的表情、头像和立绘要保留包来源，这样恢复存档或回放语音时才知道先加载哪些 QPK。不要把仅存在于某个 DOM 元素上的样式当成角色的真实状态。
+角色的位置和显隐状态完全来自引擎投影。由动态资源包提供的表情、头像和立绘，必须保留它来自哪个包的信息，这样恢复存档或回放语音时引擎才知道要提前加载哪些 QPK。不要把只挂在某个 DOM 元素上的临时样式当成角色的真实状态。
 
 TypeScript 完整类型见 [`@quajs/character` 源码](https://github.com/QuaDevTeam/QuaEngine/blob/main/packages/game/character/src/index.ts)，渲染接线见 [Web](/docs/reference/renderer-web) 或 [Vue](/docs/reference/renderer-vue)。

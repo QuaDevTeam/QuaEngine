@@ -4,7 +4,7 @@ description: "Create a visual novel with QuaScript and TypeScript, starting with
 order: 0
 ---
 
-QuaEngine is a TypeScript visual novel engine with an Electron editor. Write dialogue and choices in QuaScript, compose audiovisual staging with plugins, and choose a Web, Cocos, Godot, or Native target.
+QuaEngine is a TypeScript visual novel engine with an Electron editor. Write dialogue and choices in QuaScript, compose audiovisual staging with plugins, and target Web, Cocos, Godot, or Native (with an initial Unity 6.3 LTS integration as well).
 
 ## Start here
 

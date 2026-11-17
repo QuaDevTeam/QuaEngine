@@ -6,7 +6,7 @@ order: 1
 
 ## 环境准备
 
-使用 Node.js **22.12+** 与 pnpm **12.3.4**。macOS 源码构建还需要 Xcode Command Line Tools 和 Node-API 头文件来编译编辑器嵌入层；缺少头文件时构建错误会给出对应 Electron 版本的安装命令。运行 Native/Godot 游戏目标另需 Rust/Cargo。完整依赖说明见 [编辑器工作区](/docs/editor/workbench)。
+准备 Node.js **22.12+** 与 pnpm **12.3.4**。如果要在 macOS 上从源码构建编辑器，还需要安装 Xcode Command Line Tools 以及 Node-API 头文件来编译编辑器嵌入层（缺少头文件时，构建报错会直接给出对应 Electron 版本的安装命令）。如果要运行 Native 或 Godot 游戏目标，另需安装 Rust 和 Cargo。完整依赖说明见[工作区开发参考](/docs/editor/workbench)。
 
 ```bash
 node --version
@@ -15,7 +15,7 @@ pnpm --version
 
 ## 从源码启动编辑器
 
-截至 2026-10-27，`create-qua-game` 尚未发布到 npm，编辑器也尚无公开 Release。当前从源码启动编辑器；其内置模板和 SDK 压缩包可创建不依赖未发布 QuaEngine npm 包的新项目。
+截至 2026-10-27，`create-qua-game` 尚未发布到 npm，编辑器也暂未提供公开的成品安装包。目前需要从源码启动编辑器；它内置了项目模板和本地 SDK 压缩包，可以直接创建新项目，不需要从 npm 拉取未发布的 QuaEngine 包。
 
 ```bash
 git clone https://github.com/QuaDevTeam/QuaEngine.git
@@ -24,13 +24,13 @@ pnpm install --frozen-lockfile
 pnpm dev:editor
 ```
 
-`dev:editor` 先构建编辑器依赖、模板和 SDK，再打开工作区。选择“文件 → 新建项目”，填写新项目的父目录和名称，选择常规 Vue / QuaScript 游戏。
+`dev:editor` 会先构建编辑器依赖、模板和 SDK，随后打开工作区。在菜单里点击「文件 → 新建项目」，选好父目录和项目名称，再选择常规的 Vue / QuaScript 游戏模板即可。
 
-默认模板是 `visual-novel-vue`，包含引擎、Vue 渲染器、QuaScript 编译、开发资源加载与构建配置。编辑器将 SDK 存入项目的 `vendor/quajs`，依赖使用本地压缩包；新项目可以移出源码仓库。第三方依赖安装仍需要注册表连接。
+默认模板为 `visual-novel-vue`，已经配好引擎、Vue 渲染器、QuaScript 编译、开发期资源加载和构建脚本。编辑器会把 SDK 压缩包复制到新项目的 `vendor/quajs` 目录并作为本地依赖引用，所以新项目可以自由移出源码仓库；不过安装第三方依赖时仍需要连接 npm 源。
 
 ## 运行新项目
 
-在编辑器打开刚创建的项目并启动 Web 预览，按界面提示完成依赖安装。也可在新项目目录的终端执行：
+在编辑器里打开刚创建的项目并启动 Web 预览，按界面提示完成依赖安装即可。你也可以在新项目目录下手动执行：
 
 ```bash
 pnpm install

@@ -4,8 +4,8 @@ description: "生产资源与动态代码需要可验证的身份，平台权限
 order: 9
 ---
 
-生产动态内容先验证 QPK hash 与签名，再进入引擎激活流程。开发与测试可以显式允许未签名包，但这个设置不能意外进入生产。
+在生产环境中，动态加载的运行期内容必须先通过 QPK 哈希与签名校验，才能进入引擎激活流程。开发和测试阶段可以显式开启允许未签名包的开关，但上线配置绝不能沿用这项设置。
 
-从 [Web 安全指南](/docs/security/web-security) 了解 CSP、SRI、运行期模块和发布响应头；从 [Runtime QPK](/docs/design/dynamic-runtime-qpk) 了解包依赖、迁移与卸载；从 [JSC 运行时](/docs/design/native-jsc-runtime) 了解原生执行预算与实际隔离边界。
+你可以从 [Web 安全指南](/docs/security/web-security)了解 CSP、SRI、运行期模块加载和发布响应头配置；从 [动态 Runtime QPK](/docs/design/dynamic-runtime-qpk)了解包依赖、数据迁移与受保护卸载；从 [JavaScriptCore 运行时](/docs/design/native-jsc-runtime)了解原生执行预算与隔离边界。
 
-原生 JavaScript 执行预算不等于硬内存隔离。渲染器也不是授权或信任的决策方。涉及这些能力的扩展，应把校验放在引擎与平台服务的明确边界上。
+需要注意的是，原生 JavaScript 的执行预算不等于进程级硬内存隔离，渲染器也不掌握授权或信任校验的最终决定权。开发相关扩展时，务必把所有校验卡在引擎和平台服务的明确边界上。

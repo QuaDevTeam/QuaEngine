@@ -38,25 +38,25 @@ targets:
 
 ## 由构建工具解析
 
-配置由 `@quajs/quack/project` 统一读取、规范化与验证。Vite 通过 `virtual:qua-project` 提供 `quaProject` 和 `quaWebRuntime`。Engine 只接收规范化的项目元数据与逻辑舞台配置，不自行解析 YAML 或依赖浏览器。
+配置文件由 `@quajs/quack/project` 统一读取、规范化和校验。在 Vite 中，可以通过 `virtual:qua-project` 直接导入 `quaProject` 与 `quaWebRuntime`。引擎本身只接收规范化后的项目元数据和逻辑舞台配置，不会自己去解析 YAML，也不依赖任何浏览器 API。
 
 ```bash
 pnpm run project:validate
 pnpm run project:doctor
 ```
 
-上面的命令由生成的游戏模板提供。Doctor 会报告图标、设备支持、PWA、Cocos、Godot 与 Native 的配置问题。
+上面两条命令由默认生成的游戏模板提供。`project:doctor` 会帮你检查图标、设备支持、PWA、Cocos、Godot 与 Native 的配置问题。
 
 ## 图标与身份
 
-`bundleId` 应稳定并属于你控制的命名空间。用自己的正式图标替换开发占位素材，同时检查 HTML favicon、manifest 和原生打包路径。不要只替换 README 图片而遗漏应用图标。
+`bundleId` 应当保持稳定，并使用你自己的域名命名空间。正式发布前，记得把模板自带的开发占位图标换成自己的作品图标，并同步检查 HTML favicon、Web manifest 以及原生应用的打包路径——别只换了 README 封面却忘了应用图标。
 
 ## Cocos、Godot 与 Native 目标
 
-在配置中显式开启需要的目标。Native 的平台、debug/release、版本与 buildNumber 共同决定隔离输出目录；已有 release manifest 不应被不同产物原地覆盖。
+在 `targets` 中显式开启你需要发布的平台。对于 Native 目标，构建平台、debug/release 模式、版本号与 `buildNumber` 会共同决定输出目录；已有 release 清单时，构建工具会拒绝被不同产物原地覆盖。
 
-Cocos 配置需提供 `creatorVersion`、`projectDir`、`platforms` 和 `build.entry`，业务入口导出 `bootstrap(services)`。`quack project sync --target cocos` 只写平台配置；`quack project build --target cocos --all` 才生成可独立打开的完整 Creator 工作区。hybrid 媒体、静态资源与 demo 配置见[Cocos 工作区指南](/docs/platforms/cocos)。
+Cocos 配置需要提供 `creatorVersion`、`projectDir`、`platforms` 和 `build.entry`，其中业务入口导出 `bootstrap(services)`。注意区分两条命令：`quack project sync --target cocos` 只更新平台配置和图标，而 `quack project build --target cocos --all` 才会生成可以独立打开的完整 Creator 工作区。Hybrid 媒体、静态资源与 Demo 配置详见[Cocos 与 Creator 工作区](/docs/platforms/cocos)。
 
-Godot 配置使用 `targets.godot`，至少提供 `build.entry`；可指定 `projectDir`、`layout`、`build.viteConfig`、`build.profile: debug|release` 与 `assetTarget`。`quack project build --target godot --all` 生成本机 GDExtension、JS、QPK 与完整 Godot 项目。它使用独立的 `godot-core-resolver`，当前仅支持静态 QPK；完整配置和运行前提见[Godot 指南](/docs/platforms/godot)。
+Godot 配置写在 `targets.godot` 下，至少需要指定 `build.entry`；还可以按需配置 `projectDir`、`layout`、`build.viteConfig`、`build.profile`（`debug` 或 `release`）以及 `assetTarget`。执行 `quack project build --target godot --all` 会生成本机 GDExtension、打包后的 JS、QPK 资源和完整 Godot 工程。该目标使用独立的 `godot-core-resolver`，目前仅支持构建时静态 QPK，详细配置和前提条件见[Godot 独立项目](/docs/platforms/godot)。
 
 完整字段与构建 API 见 [Quack 参考](/docs/reference/quack)，目标原则见 [平台概览](/docs/platforms)。

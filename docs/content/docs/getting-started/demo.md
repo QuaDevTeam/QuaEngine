@@ -38,6 +38,6 @@ Godot 使用独立的 GDExtension/QuickJS 宿主，从仓库根目录执行 `pnp
 
 ## 验证范围与素材权利
 
-Demo 是引擎的内部内容与技术演示，故事和演出仍在迭代。通过 Web 流程测试、原生 GPU 读回、操作系统窗口展示和逐帧跨平台对比，是不同层次的证据；其中一项通过并不自动代表其他项完成。
+Demo 主要用于展示引擎的内容组织和技术链路，故事和演出本身仍在持续完善中。另外要注意，Web 流程跑通、原生 GPU 读回、真实操作系统窗口展示以及逐帧跨平台对比验证的是不同层面的问题，通过其中一项并不能直接代表其他几项也已经达标。
 
-Demo 的故事、人物、图像、音乐、提示词和其他创作素材不采用引擎开源许可。可以按其许可评估引擎，不能把这些内容当作可复用素材包。参阅 [许可说明](/docs/project/license) 和 [Demo 源码说明](https://github.com/QuaDevTeam/QuaEngine/blob/main/demo/README.md)。
+Demo 里的故事文本、人物设定、图像、音乐、提示词和其他创作素材不适用引擎的代码开源许可。你可以用它们来评估引擎能力，但不能将其拆出作为可自由复用的开源素材包。具体边界见[开源许可与品牌](/docs/project/license)以及 [Demo 源码说明](https://github.com/QuaDevTeam/QuaEngine/blob/main/demo/README.md)。

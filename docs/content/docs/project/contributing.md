@@ -16,18 +16,18 @@ pnpm run test
 pnpm run lint
 ```
 
-日常修改优先使用相关包的 filter，避免每次重建整个仓库。运行测试时保留真实验证范围：mock、生产浏览器、GPU 读回和物理窗口并不是同一层级。
+日常修改时建议用 `--filter` 定位到受影响的包，不必每次都全量重编整个仓库。运行测试时也要区分不同层级的验证范围：mock 单元测试、浏览器实测、GPU 离屏读回与真实物理窗口测试各自解决不同的问题。
 
-第三方更新按[依赖维护流程](/docs/project/dependencies)处理，运行 `pnpm deps:report` 检查三个独立工作区；平台 SDK 升级同时维护[宿主兼容性](/docs/platforms/compatibility)。
+升级第三方依赖时请遵循[第三方依赖维护](/docs/project/dependencies)，用 `pnpm deps:report` 一并检查三个独立工作区；涉及平台 SDK 版本变动时，记得同步更新[宿主版本与兼容性](/docs/platforms/compatibility)。
 
 ## 架构约定
 
-逻辑与状态由 engine/store 持有，通信经过 pipeline。非核心能力通过插件提供。通用核心不依赖 DOM、Blob 或平台存储。动态内容使用 QPK，打包只激活当前平台核心。
+逻辑与权威状态由 engine 和 store 持有，模块间通信统一走 pipeline；非核心能力通过插件扩展；通用核心不能依赖 DOM、Blob 或平台特定存储；动态内容以 QPK 包形式交付，且每次打包只激活当前所选平台的核心。
 
-开始修改前阅读仓库 [AGENTS.md](https://github.com/QuaDevTeam/QuaEngine/blob/main/AGENTS.md) 与相关包说明。新增用户功能要同步维护对应 skill 与文档。
+动手改动前建议先读一遍仓库根目录的 [AGENTS.md](https://github.com/QuaDevTeam/QuaEngine/blob/main/AGENTS.md) 和对应包的说明文档。如果修改了面向用户的特性，别忘了同步更新对应的 skill 和文档。
 
-## 提交内容
+## 提交规范
 
-说明真实问题、改动后的行为、验证方式和仍未验证的部分。附最小复现、具体平台和版本，避免把敏感日志或私有素材放进 issue。
+提 Issue 或 PR 时，请说明真实场景遇到的问题、改动后的行为、已执行的验证方式以及尚未覆盖的范围。附上最小复现工程、具体平台与版本信息，切勿把敏感日志或未授权的私有素材提交上来。
 
-IDE 源码采用 MPL-2.0；提交前阅读其 [贡献约定](https://github.com/QuaDevTeam/QuaEngine/blob/main/packages/editor/CONTRIBUTING.md)。文档修正可以直接修改教程源文件或对应包 README，不编辑生成输出。
+IDE 源码采用 MPL-2.0 协议，提交编辑器改动前请阅读其[贡献约定](https://github.com/QuaDevTeam/QuaEngine/blob/main/packages/editor/CONTRIBUTING.md)。如果只是修正文档，直接编辑 `docs/content/` 下的教程源文件或对应包的 README 即可，不要去改 `.generated` 目录。

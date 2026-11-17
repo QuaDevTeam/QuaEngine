@@ -8,7 +8,7 @@ order: 1
 
 ## 共享形象
 
-浅粉色短发、薄荷星形发夹、简单的眼睛和温柔的笑容。新的形象为小尺寸头像、文档导航和项目封面设计，与奶油白、樱花粉和薄荷绿的文档主题保持一致。
+浅粉色短发、薄荷色星形发夹，配上一双清澈的眼睛和温和的笑容。这套新形象专门用于小尺寸头像、文档导航和项目封面，整体配色与文档站的奶油白、樱花粉和薄荷绿保持一致。
 
 ## 下载素材
 
@@ -25,6 +25,6 @@ order: 1
 
 ## 使用与来源
 
-角色通过 Replicate CLI 的 `openai/gpt-image-2.5-flare` 以 `medium` 质量生成，并以用户提供的图片作为风格参考。字标与横幅由本地脚本排版，生成记录和最终提示词保存在 [品牌目录](https://github.com/QuaDevTeam/QuaEngine/tree/main/assets/brand)。
+角色通过 Replicate CLI 的 `openai/gpt-image-2.5-flare` 模型以 `medium` 质量生成，并以作者提供的图片作为风格参考。字标和横幅由本地脚本排版导出，生成记录和最终提示词都保存在[品牌目录](https://github.com/QuaDevTeam/QuaEngine/tree/main/assets/brand)。
 
-素材用于 QuaEngine / QuaDevTeam 的官方识别，不随引擎代码许可开放为通用角色包。请遵守 [品牌与许可说明](/docs/project/license)。下载素材不代表 GitHub 组织头像或仓库设置已经远程更新。
+这些素材仅用于 QuaEngine 和 QuaDevTeam 的官方标识，不随引擎代码许可作为通用角色素材包开放。使用时请遵守[品牌与许可说明](/docs/project/license)。另外，下载这里的本地素材并不代表 GitHub 组织头像或仓库设置已经同步更新。

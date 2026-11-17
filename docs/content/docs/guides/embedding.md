@@ -6,29 +6,29 @@ order: 5
 
 ## 先选择集成边界
 
-已经拿到导出产物时，先看[把导出产物嵌入父工程](/docs/guides/exported-module)：列出各目标需要交付的文件、父工程目录与启动入口。本页继续说明源码集成和共通的生命周期／安全责任。
+如果你手里已经拿到了导出的剧情模块成品，可以先看[把导出产物嵌入父工程](/docs/guides/exported-module)，里面列出了各平台需要交付的文件、父工程目录结构与启动入口。这一页则聚焦于源码级集成，以及通用的生命周期与安全边界。
 
-QuaEngine 可以作为应用中的剧情模块使用。已有应用负责页面、账号、业务导航和权限；engine/store 负责剧情、选择、进度、存档和音频意图，渲染器负责投影。不要让宿主通过修改 DOM、节点或 renderer 快照来改变剧情。
+在嵌入场景中，QuaEngine 负责剧情状态、选项、进度、存档和音频意图，渲染器负责把状态投影成画面；外部应用则负责页面布局、账号体系、业务导航和权限控制。请不要让宿主去直接修改 DOM、场景节点或渲染器快照来推动剧情。
 
-| 方式 | 当前可用入口 | 边界 |
+| 集成方式 | 当前可用入口 | 边界说明 |
 | --- | --- | --- |
-| Web 页面中的一个区域 | `QuaWebDomRenderer` 或 Vue/React/Svelte 适配器 | 使用已有构建工具接入公开包；只挂载到模块自己的容器 |
-| iframe / WebView 中的 Web 游戏 | 单独部署 Web 产物 | 独立 JS 运行域；WebView 的文件协议、媒体、存储和宿主桥需要产品验证 |
-| 已有 Creator / Godot 工程 | Creator 的 start 选项／Godot 模块生命周期 | 使用父容器、限定输入、账号存储与关闭回调；生成目录与作者工程分离 |
-| 已有原生应用中的库／子视图 | Native C ABI 1 库导出 | 当前 macOS；独立 JSC VM、父 CAMetalLayer、父 tick／poll；详见模块导出 |
-| Unity 工程 | 生成的 UPM 包与 QuaEngineHost | 初始 6.3 LTS 适配；独立 VM／父 Canvas，SDK 运行验收尚未完成 |
+| Web 页面中的一个区域 | `QuaWebDomRenderer` 或 Vue、React、Svelte 适配器 | 用现有构建工具接入公开包，只挂载到模块自己的容器内 |
+| iframe / WebView 中的 Web 游戏 | 独立部署的 Web 产物 | 运行在独立 JS 运行域中；WebView 的文件协议、媒体、存储与宿主桥需按产品环境实测 |
+| 已有 Creator / Godot 工程 | Creator 的 `start()` 选项 / Godot 模块生命周期 | 挂载在父容器下，使用限定输入、账号存储与关闭回调；生成目录与作者工程分开维护 |
+| 已有原生应用中的库或子视图 | Native C ABI 1 库导出 | 目前支持 macOS；独立 JSC VM，由父应用提供 `CAMetalLayer` 并驱动 `tick` 与 `poll` |
+| Unity 工程 | 导出的 UPM 包与 `QuaEngineHost` | 初始 6.3 LTS 适配；独立 VM 与父 Canvas，仍待 Unity Editor 与 Player 实测验收 |
 
-**当前 `QuaEngine.getInstance()` 是单例入口。** 同一份引擎模块在一个 JS 运行域中按一个活跃会话集成。多个 renderer 可以订阅同一会话，但不构成多个独立游戏。需要同时运行独立剧情时，用独立 iframe／宿主 JS 运行域，并隔离存储；不要依靠重复打包引擎来绕过单例。`resetInstance()` 只清除入口引用，不会销毁旧会话。
+**当前 `QuaEngine.getInstance()` 是单例入口。** 同一份引擎模块在同一个 JS 运行域内对应一个活跃会话。多个渲染器可以同时订阅这一个会话，但不能以此同时跑多个彼此独立的剧情。如果确实需要并存多套独立剧情，请使用独立 iframe 或独立的宿主 JS 运行域，并做好存储隔离，不要靠重复打包引擎代码来绕过单例限制。另外，调用 `resetInstance()` 只会清除全局入口引用，并不会帮你销毁旧会话。
 
 ## 接入已有 Web 构建
 
-保留宿主的 Vite 配置、路由和页面入口；按需加入 `@quajs/vite-plugin` 的 QuaScript/QPK 处理。不要为了接入一个区域覆盖宿主的 `index.html`、输出目录或 service worker。不同 Vite 插件的执行次序和 HTML 注入行为需要在宿主工程验证。
+接入时保留宿主原有的 Vite 配置、路由和页面入口，按需引入 `@quajs/vite-plugin` 来处理 QuaScript 和 QPK 资源。不要为了嵌入一块剧情区域而覆盖宿主的 `index.html`、打包输出目录或 service worker，同时记得在宿主工程里检查各个 Vite 插件的执行顺序以及 HTML 注入行为。
 
-使用公开包入口和一组固定版本；仓库开发使用 workspace 包，外部项目可从同一源码提交构建并打包这些包。先核实 npm 发布状态，不能把仓库存在等同于所有包都已发布。无需同时加入 Vue、React、Svelte 或其他平台核心。
+请通过公开包入口并锁定同一套版本进行接入。仓库内开发使用的是 workspace 依赖，外部项目则可以从同一源码提交构建并打包这些包（接入前请确认所需的包是否已发布到 npm，不要默认仓库里有的包都已公开发布）。按需只引入当前用的框架适配器即可，不必把 Vue、React、Svelte 或其他平台核心一并打进产物。
 
-在 SSR 应用中，只在客户端挂载阶段创建 Web adapter、引擎和 renderer。服务端不访问 `document`、IndexedDB、AudioContext 或浏览器存储。React Effect 清理和路由切换应串行等待旧会话退出；开发模式重复挂载不能创建并行会话。
+在 SSR 应用里，请把 Web 资源适配器、引擎和渲染器的创建全部放到客户端挂载之后。服务端不要触碰 `document`、IndexedDB、`AudioContext` 或浏览器存储 API。如果是在 React Effect 清理或路由切换期间重建会话，记得串行等待旧会话彻底退出，避免开发模式的重复挂载制造出并行会话。
 
-下面只展示**已初始化引擎**的渲染区域接线，业务初始化、资源准备和剧情启动由应用的会话工厂负责：
+下面示例展示**引擎已完成初始化后**如何挂载剧情渲染区域；业务初始化、资源准备与剧情启动由应用自己的会话工厂负责：
 
 ```ts
 import type { QuaEngine } from '@quajs/engine'
@@ -36,7 +36,7 @@ import { QuaWebDomRenderer } from '@quajs/renderer-web/dom'
 import { createVisualNovelWebRendererPlugins } from '@quajs/renderer-web/plugins/preset'
 
 export async function mountStory(container: HTMLElement, engine: QuaEngine) {
-  // 宿主给 container 实际宽高；tabIndex 让键盘焦点进入这个区域
+  // 由宿主赋予 container 实际宽高；设置 tabIndex 让键盘焦点能进入该区域
   container.tabIndex = 0
   let active = true
   const renderer = new QuaWebDomRenderer({
@@ -67,44 +67,44 @@ export async function mountStory(container: HTMLElement, engine: QuaEngine) {
 }
 ```
 
-这段清理只释放它创建的 renderer。若路由同时拥有 engine，会话退出时还需先取消宿主异步任务和事件订阅，执行 renderer 清理，再 `await engine.destroy()`。由 getInstance 创建的单例在完整销毁后自动释放，之后可带配置新建会话。共享引擎由宿主统一销毁，子组件不能自行 reset。清理失败要报告并阻止新会话重叠；初始加载失败也要回收已经取得的资源。
+这段清理函数只释放它自己创建的 `renderer`。如果当前路由还同时掌管 `engine` 的生命周期，退出时应当先取消宿主的异步任务和事件订阅、卸载渲染器，最后再执行 `await engine.destroy()`。通过 `getInstance` 创建的单例在完整销毁后会自动清除引用，之后才可以重新配置并开启下一轮会话；如果是共享引擎，则应由宿主统一销毁，子组件不要私自 reset。一旦清理出错要及时上报并阻止新会话叠加启动，初始加载失败时同样要回收已经申请的资源。
 
-容器可以是分栏或弹窗中的区域，不必占满屏幕；必须给它非零宽高。渲染器按容器尺寸缩放固定逻辑舞台并留黑边，不能用页面 `vw/vh` 反写剧情坐标。样式由应用显式导入并限定范围，避免全局 reset 覆盖宿主控件。坐标转换复用 Web layout helpers。
+挂载容器可以是侧边分栏或弹窗中的一块区域，不需要占满整个屏幕，但必须有非零的宽高。渲染器会按容器尺寸等比缩放固定的逻辑舞台并自动留出黑边，不要拿页面的 `vw`/`vh` 反过来算剧情坐标。样式也应由应用显式导入并限制作用域，防止全局样式重置污染宿主控件；坐标换算请直接复用 Web layout helpers。
 
-## 输入、隐藏和媒体
+## 输入、隐藏与媒体控制
 
-默认 Web 输入可监听整个 document，独立游戏的默认行为需要在嵌入时收紧。明确指针／键盘目标、焦点进入与退出、快捷键优先级和手柄归属；宿主按钮及工具栏标记 `data-qua-input-ignore`。用户应通过 Tab 或显式“进入剧情”操作获得焦点，避免抢走宿主输入框。
+独立游戏模式下，Web 输入插件默认会监听整个 `document`，嵌入已有应用时必须收紧监听范围。请在配置里明确指针和键盘的作用目标、焦点进入与离开条件、快捷键优先级以及手柄归属；宿主自己的按钮和工具栏可以加上 `data-qua-input-ignore` 属性，防止误触推进对话。玩家通常应通过 Tab 键或点击「进入剧情」按钮来把焦点切入剧情区，避免抢走宿主输入框的按键。
 
-CSS 隐藏、关闭弹窗或 `pausePlaytime()` **不会自动暂停剧情、自动播放、快进、动画和音频**。宿主必须定义“保留后台运行”还是“退出会话”；需要暂停时通过 engine／功能插件的状态与 pipeline 意图分别控制输入、自动推进和音频，不能只停 renderer 或改媒体元素。当前没有一个涵盖所有插件的通用嵌入暂停 API。焦点离开时也要处理仍按住的 skip／fast-forward，避免隐藏后继续推进。
+需要注意，用 CSS 隐藏容器、关闭弹窗或者调用 `pausePlaytime()` **都不会自动暂停剧情推进、自动阅读、快进、动画和音频**。宿主需要明确在切到后台时是「保持后台运行」还是「彻底退出会话」；如果确实需要暂停，应当通过引擎或对应功能插件的状态与 pipeline 意图分别控制输入、自动推进和音频，而不能只停掉渲染器或直接去操作媒体 DOM 元素。目前并没有一个能一键暂停所有插件的通用嵌入暂停 API。此外，焦点离开剧情区时别忘了复位还按着的快进/跳过按键，以免隐藏后剧情还在默默往下走。
 
-音频解锁依赖真实用户激活；iframe、WebView 和宿主媒体策略都可能阻止自动播放。按产品要求限制解锁事件范围，决定与宿主音乐的混音／独占行为，并验证电话中断、切后台和恢复。卸载要释放 AudioContext／媒体句柄、对象 URL、计时器与观察器，不能把“画面已移除”视为资源已经停止。
+浏览器里的音频解锁依赖真实的用户点击；iframe、WebView 以及宿主自身的媒体策略都可能拦截自动播放。请按产品需要限定解锁事件的监听范围，梳理好剧情声音与宿主背景音乐的混音或独占策略，并测试来电中断、切后台以及恢复后的表现。卸载会话时要确保 `AudioContext`、媒体句柄、对象 URL、定时器和观察器全部释放，不能以为画面看不见了声音就停了。
 
-## 资源、账号和存档隔离
+## 资源、账号与存档隔离
 
-Web adapter 默认数据库名是 `QuaAssetsDB` 和 `QuaStore`。同源多产品或多账号不能直接共用默认存档库；为 `createWebAssetsAdapter({ databaseName })` 和 `createWebStoreStorage({ dbName })` 显式指定稳定命名空间，例如产品 ID、环境、账号 ID。资源库只在版本身份、信任和授权边界一致时共享；账号退出清理私有数据，不随路由卸载删除玩家存档。
+Web 适配器默认的 IndexedDB 库名是 `QuaAssetsDB` 和 `QuaStore`。同一域名下的多款产品或多个玩家账号不能共用默认库名——请为 `createWebAssetsAdapter({ databaseName })` 和 `createWebStoreStorage({ dbName })` 显式传入稳定的命名空间（例如拼上产品 ID、环境标识和账号 ID）。资源缓存库也只在版本身份、信任策略与授权边界完全一致时才考虑共享；账号登出时记得清理私有数据，但不要在普通路由切换时误删玩家的存档。
 
-静态产物从自己的部署 base 解析 manifest、QPK 和媒体 URL，不能假设站点根目录。开发 VFS 不能作为生产加载器。嵌入方明确网络超时、取消、重试、缓存配额、离线状态和缺少 Runtime QPK 的恢复提示。生产包保持 hash／签名验证，存档保留包依赖；不能通过宿主桥单独推送剧情 JS 或资源来绕过 QPK 生命周期。
+静态资源必须基于模块自身的部署 base 路径去解析清单、QPK 和媒体 URL，不要假定一定挂载在站点根目录；开发期用的 VFS 也绝不能带到生产环境里加载资源。嵌入方还要规划好网络超时、请求取消、重试提示、缓存配额以及缺少 Runtime QPK 时的提示方案。生产包继续保持哈希和签名校验，存档保留所需运行期包依赖，不要通过宿主消息桥零散推送脚本或资源来绕过 QPK 生命周期。
 
-宿主账号切换必须先保存或明确放弃当前会话，再销毁、切换存储并重建。宿主业务状态只能通过逻辑 API／插件输入，奖励与支付等外部副作用由宿主以幂等事务处理，不能跟随渲染重绘、回放或回滚再次发放。
+当玩家在宿主里切换账号时，务必先保存或明确放弃当前剧情会话，再销毁引擎、切换存储命名空间并重新初始化。宿主的业务状态只能通过逻辑 API 或插件输入引擎；奖励发放、支付确认这类外部副作用，必须由宿主用幂等事务来处理，不能随着渲染重绘、剧情回放或回滚再发一次。
 
-## 宿主通信与安全
+## 宿主通信与安全边界
 
-同一运行域使用 engine/plugin API；游戏内部所有通知和用户意图仍经过 pipeline。宿主桥是外部边界适配器，不能变成 renderer 与逻辑之间的第二条总线。
+在同一个 JS 运行域内，直接使用引擎和插件 API 通信即可；游戏内部的通知和玩家意图依然走 `@quajs/pipeline`。宿主桥是服务于外部系统边界的适配器，不能演变成渲染器与引擎逻辑之间的第二条事件总线。
 
-模块导出已提供 qua-embedded v1 协议与 Web SDK，限定 open／cancel 请求和 ready／result／error／closed 消息，使用 sessionId、超时及终态去重，详见[模块导出](/docs/guides/exported-module)。自定义协议扩展仍需明确业务版本与请求关联。校验 `event.origin`、`event.source`、消息结构和动作白名单，发送时指定精确 `targetOrigin`。不要暴露任意脚本求值、文件路径、原始 store 写入或未经验证的 jump。WebView 的原生消息 handler 也应采用同样边界。权限、CSP、iframe sandbox、同源或跨源存储和用户手势要求由宿主部署一起验证。
+使用模块导出时，SDK 已经提供了 `qua-embedded` v1 协议，只开放 `open`、`cancel` 请求以及 `ready`、`result`、`error`、`closed` 消息，内置 `sessionId`、超时控制与终态去重，详见[把导出产物嵌入父工程](/docs/guides/exported-module)。如果在此之外扩展自定义协议，也需要明确业务版本号与请求关联 ID。接收消息时严格校验 `event.origin`、`event.source`、消息结构和动作白名单，发送时指定精确的 `targetOrigin`；切勿暴露任意脚本求值、本地文件路径、原始 store 写入或未经校验的跳转指令。WebView 的原生消息处理同样应当遵循这些限制，并结合实际部署环境测试权限、CSP、iframe `sandbox` 属性、跨源存储策略与用户手势限制。
 
-返回宿主前确认已完成的存档和业务回调；取消／失败不能伪装成完成。宿主导航离开后，迟到的资源请求或回调不能操作已经销毁的会话。
+向宿主返回业务结果前，要先确认存档和业务回调已经落地完成；玩家主动取消或发生异常时，也不能把状态伪装成正常完成。当宿主页面导航离开后，即便还有迟到的资源回调，也绝不能再去操作已经销毁的会话。
 
-## 嵌入已有 Creator / Godot 项目
+## 嵌入已有 Creator 与 Godot 工程
 
-**不要将 `projectDir` 指向作者工程。** 当前生成器管理整个输出目录，成功重建会替换它。先生成到专用目录，再在独立集成分支组织 adapter、资源和启动代码，维护哪些文件由工具生成、哪些由宿主拥有；禁止双向手改同一生成文件。
+**千万不要把 `projectDir` 直接指向你正在开发的父工程。** 当前的工程生成器会接管整个输出目录，重建成功后会直接替换该目录。正确的做法是先输出到专用生成目录，再在独立的集成分支里整理适配层、资源和启动代码，清晰划分哪些文件归生成器管理、哪些由宿主自己维护，避免双向手改同一个生成文件。
 
-Godot 宿主提供 `auto_start`、`standalone`、`content_root`、`storage_namespace`、`start_module()`／`stop_module()` 和 ready／closed／failed 信号；嵌入设 `standalone=false`，使用父 Control 尺寸和焦点、独立存储／音频总线，退出不关闭父工程。Creator 生成 runtime 的 `start(rootNode, options)` 接受 `embedded`、`input`、`layout`、`storageNamespace`、`onClose`；嵌入必须提供限定输入和尺寸 bridge，销毁回收 renderer／app／assets 后通知宿主。完整例子分别见 [Godot](/docs/platforms/godot) 与 [Cocos](/docs/platforms/cocos)。
+Godot 宿主脚本提供了 `auto_start`、`standalone`、`content_root`、`storage_namespace`、`start_module()`、`stop_module()` 以及 `ready` / `closed` / `failed` 信号。嵌入时把 `standalone` 设为 `false`，让它遵循父 `Control` 的尺寸和焦点、使用独立的存储空间和音频总线，关闭模块时不会顺带关掉整个父工程。Creator 导出的 runtime 提供了 `start(rootNode, options)`，支持 `embedded`、`input`、`layout`、`storageNamespace` 和 `onClose` 选项；嵌入时必须传入限定范围的输入和尺寸桥接器，销毁时会清理渲染器、应用实例和资源后再通知宿主。完整写法分别参考 [Godot 独立项目](/docs/platforms/godot) 与 [Cocos 与 Creator 工作区](/docs/platforms/cocos)。
 
-生成器仍交付独立工作区，不能把整个目录覆盖作者工程。父工程负责场景／Canvas／Camera、资源导入和实际 SDK 接线；嵌入入口不代表任意工程都已自动适配。Unity 使用生成的 UPM 包及父 Canvas 下的 QuaEngineHost，详见 [Unity](/docs/platforms/unity)。
+生成器交付的是独立工作区结构，父工程仍然需要负责接入自己的场景、Canvas、Camera、资源导入以及实际 SDK 接线。Unity 则通过导出的本地 UPM 包，在父 Canvas 下挂载 `QuaEngineHost` 来运行，详情见[Unity 适配与嵌入](/docs/platforms/unity)。
 
-一个产物仍只允许一个目标核心；共享代码复用 `scene-host`／`renderer-scene`，不引入另一个平台的 bootstrap。Godot 的 QuickJS 宿主和静态 QPK 边界不因嵌入改变。现有独立项目测试不能直接证明作者工程嵌入可用；版本、平台和验证范围见[兼容性声明](/docs/platforms/compatibility)。
+每个发布产物里依然只允许存在一套目标核心。跨平台共用逻辑可以复用 `@quajs/renderer-scene` 和 `@quajs/scene-host`，但绝不能在其中混入另一个平台的启动代码。嵌入后，Godot 的 QuickJS 宿主和静态 QPK 限制也不会改变。独立项目的跑通不等于宿主接入一切就绪，版本范围和当前验证边界见[宿主版本与兼容性](/docs/platforms/compatibility)。
 
 ## 集成交付验收
 
-在真实宿主中验证：反复进入／退出、初始化中关闭、加载失败后重试、分栏缩放与安全区、宿主输入框不被快捷键影响、按住快进时失焦、隐藏后媒体行为、两次打开恢复存档、账号隔离、断网与包缺失、迟到回调和卸载后的资源释放。iframe 还要测试跨源消息拒绝、刷新与返回导航。记录宿主版本、平台、引擎提交和素材版本；独立 demo、类型检查与 mock 不替代这些验收。
+正式交付前，建议在真实宿主环境里逐项实测：反复打开和退出剧情、在初始化尚未完成时提前关闭、加载失败后点击重试、分栏布局缩放与安全区适配、确保快捷键不会误触宿主输入框、按住快进键时窗口失焦的处理、隐藏窗口后的媒体暂停表现、连续两次打开模块能否正确读档、多账号存储隔离、断网与缺少 QPK 时的表现、迟到异步回调的处理，以及卸载后的内存与资源释放。如果是 iframe 集成，还要额外测试跨源消息拦截、页面刷新以及浏览器后退导航。验收记录里记得写清楚宿主版本、操作系统、引擎提交记录与素材版本——单元测试和 mock 都不能代替这轮真机实测。
