@@ -1,22 +1,22 @@
 # @quajs/quack
 
-> Advanced asset bundler for QuaEngine - Pack, optimize, and manage game assets with ease
+> Asset bundler and project packager for QuaEngine
 
 ## Features
 
-- 🎮 **Game-First Design** - Built specifically for visual novel and game asset management
-- 📦 **Multiple Bundle Formats** - Support for ZIP and custom QPK formats
-- 🖼️ **Media Metadata Extraction** - Automatic extraction of dimensions, duration, and format info
-- 🗜️ **Advanced Compression** - LZMA and Deflate compression with configurable levels
-- 🧩 **Image Optimization** - Real PNG/JPEG/WebP/AVIF recompression via sharp, built-in PNG lossless recompression, and optional pngquant support
-- 🔐 **Asset Encryption** - XOR and custom encryption plugin support
-- 🌍 **Localization Support** - Multi-language asset detection and organization
-- 📊 **Patch Generation** - Incremental updates and version management
-- 🧩 **Runtime QPK Metadata** - Dynamic runtime package manifests for scripts, scenes, plugins, story graph deltas, and store migrations
-- 🔏 **Runtime Signing** - ECDSA runtime QPK signing and verification for production trust policies
-- 🔧 **Plugin System** - Extensible architecture with custom processing plugins
-- 🏢 **Workspace Mode** - Multi-bundle project management
-- 🚀 **Node.js Optimized** - Built for server-side asset processing workflows
+- **Game-Oriented Asset Detection**: Classifies images, characters, audio, video, scripts, fonts, and data files
+- **Multiple Bundle Formats**: Supports standard ZIP archives and QuaEngine's binary QPK format
+- **Media Metadata Extraction**: Reads dimensions, duration, codec, and format metadata
+- **Compression**: Supports Deflate and LZMA compression with configurable levels
+- **Image Optimization**: Recompresses PNG, JPEG, WebP, and AVIF via `sharp`, with PNG lossless recompression and optional `pngquant` support
+- **Asset Encryption**: Supports XOR and custom encryption plugins
+- **Localization Support**: Organizes multi-locale asset layouts
+- **Patch Generation**: Builds incremental updates between bundle versions
+- **Runtime QPK Metadata**: Generates runtime package manifests for scripts, scenes, plugins, story graph deltas, and store migrations
+- **Runtime Signing**: Signs and verifies Runtime QPKs with ECDSA for production trust policies
+- **Plugin System**: Extensible asset processing pipeline
+- **Workspace Mode**: Multi-bundle project packaging and target project generation (Web, Cocos, Godot, Unity, Native)
+- **Node.js CLI & API**: Usable from build scripts or the `quack` CLI
 
 ## Installation
 

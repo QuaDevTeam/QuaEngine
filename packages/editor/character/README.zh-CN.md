@@ -2,35 +2,35 @@
 
 [English](README.md) · **简体中文**
 
-`@quajs/editor-character` 是 `@quajs/character` 与 `@quajs/plugin-sprite` 的创作工具，在 Editor 底部提供「角色浏览器」，不导入或初始化游戏运行时。
+`@quajs/editor-character` 是配合 `@quajs/character` 和 `@quajs/plugin-sprite` 使用的编辑器工具，在 Editor 底部提供「角色浏览器」面板，运行期间不会导入或初始化游戏运行时。
 
-打开已索引的角色定义或 sprite manifest 时，面板自动选择对应角色；一个文件有多个角色时按源码行列定位。未应用表单保留，跟随其他角色前需显式放弃；无关文件不会改变当前角色。识别基于已保存的项目索引。
+在编辑器里打开已索引的角色定义文件或 `sprite.manifest.json` 时，面板会自动定位并选中对应角色；如果同一个文件里定义了多个角色，会根据光标所在的行列自动匹配。若当前表单里还有未应用的修改，切换前会提醒确认，不会悄无声息地丢掉编辑内容；打开无关文件时则保持面板现状。角色识别依赖于已保存的项目索引。
 
 ## 浏览与编辑
 
-搜索已注册角色、跳转源码、在差分网格预览资源，编辑字面姓名/ID/路径，添加或删除字面数组角色及 manifest 表情。修改成为可撤销 Monaco 草稿，正常保存后更新索引和预览。改变 ID 或删除角色不会重写剧情引用；已有草稿或外部磁盘修改不会被索引编辑覆盖。
+面板支持搜索已注册角色、跳转回源码位置、在差分网格里预览图片资源，以及直接编辑字面量形式的角色名、ID 和资源路径，还可以在字面量数组里增删角色或调整 manifest 表情差分。所有修改都会生成一份可撤销的 Monaco 源码草稿，按正常流程保存后即更新项目索引与预览。需要留意的是，改角色 ID 或删除角色时不会自动重写剧本里的引用；如果当前文件已有未保存草稿或外部磁盘修改，索引编辑会拒绝覆盖。
 
-单击差分卡片，在属性区编辑路径；双击打开定义。分层表情只显示各层图片，不等于最终游戏合成；atlas 裁切、遮罩、变换与仅 QPK 内资源需在源码和游戏预览检查。面板不会向运行游戏推送散资源。
+单击某个差分卡片即可在右侧属性栏修改路径，双击则直接跳到源码定义处。对于分层表情，面板目前只单独显示每一层的图片，并不等于游戏里最终的叠加合成效果；图集裁切、遮罩、坐标变换以及只存在于 QPK 里的资源，请回到源码和游戏预览里检查。面板本身不会向运行中的游戏推送散装资源。
 
 ## 静态索引范围
 
-Node-only `@quajs/editor-character/indexer` 静态读取从 `@quajs/character` 直接导入的 `registerCharacter`、`registerCharacters` 与 `createCharacter`。支持命名别名、namespace 导入、项目相对常量导入、对象/数组字面量、简写、spread、`as`/`satisfies`、模板字符串及有限的表达式体数组 `.map()`（含解构参数）。
+仅限 Node 环境使用的 `@quajs/editor-character/indexer` 会静态扫描直接从 `@quajs/character` 导入的 `registerCharacter`、`registerCharacters` 和 `createCharacter` 调用，支持命名别名、namespace 导入、项目内相对路径常量导入、对象或数组字面量、属性简写、展开运算符、`as`/`satisfies` 类型断言、模板字符串，以及有限的表达式体数组 `.map()`（含解构参数）。
 
-不执行任意函数、运行时修改、计算属性、工厂、包 barrel、tsconfig alias 或动态定义。部分/动态注册给出带源码位置的警告。这里是源码目录，不是运行时已登场角色列表。
+索引器不会真的去执行任意函数，也不解析运行时修改、计算属性键、动态工厂、包 barrel 转发、tsconfig 路径别名或运行期生成的定义；遇到部分定义或动态注册时会在对应源码行给出警告。可以把角色浏览器理解成静态源码目录，而不是运行时场上正在出场的角色列表。
 
-version-1 JSON sprite manifest 从索引的 `assets/characters` 或显式项目相对路径解析。预览使用宿主有界图片 URL。
+Version-1 JSON sprite manifest 会从项目索引到的 `assets/characters` 目录（或显式指定的项目相对路径）解析，预览图采用宿主提供的有界图片 URL。
 
-## 上限与生命周期
+## 索引上限与生命周期
 
-索引上限为 512 个 TS/JS 文件 / 16 MiB、2000 个 profile、128 个 manifest / 16 MiB、每 manifest 1000 个表情；静态求值另有深度与操作上限。
+为保证响应速度，索引器限制在最多 512 个 TS/JS 文件（总计 16 MiB）、2000 个角色资料、128 个 manifest（总计 16 MiB）以及每个 manifest 最多 1000 个表情，静态求值也有嵌套深度和操作数上限。
 
-界面最多显示 100 个筛选角色，每页 60 个表情、每表情 8 层，同时最多 4 个缩略图请求。搜索回到第一页；隐藏/索引刷新保留当前角色的查询与页码，浏览不清空属性草稿。隐藏面板取消显示任务并释放图片。
+面板内最多展示 100 个筛选后的角色，表情列表每页 60 条、每条最多展示 8 个图层，同时最多并发 4 个缩略图加载请求。重新搜索会回到第一页；隐藏面板或索引刷新会保留当前角色的搜索词与页码，浏览列表时也不会清空属性草稿。面板隐藏后会取消正在排队的显示任务并释放图片句柄。
 
 ## 插件边界与验证
 
-包声明 devtools-only `quajs.extension`，浏览器、indexer 和样式入口分离。当前随 Editor 内置，ID 保留；发布/替换内置副本是独立发行流程。`@quajs/character` 提供独立 runtime 能力。
+该包在 `package.json` 中声明了 devtools-only 的 `quajs.extension` 元数据，浏览器视图、索引器与样式入口各自独立。目前内置在 Editor 中并保留其官方 ID（后续单独发布或替换内置版本走独立的组件更新流程），而游戏运行期能力仍由 `@quajs/character` 独立提供。
 
-[用户流程](../../../docs/content/docs/editor/authoring.md) · [插件契约](../../../docs/design/editor-plugins.md)
+延伸阅读：[QuaScript 创作与源码草稿](../../../docs/content/docs/editor/authoring.md) · [编辑器插件契约](../../../docs/design/editor-plugins.md)
 
 ```sh
 pnpm --filter @quajs/editor-character test

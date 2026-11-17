@@ -40,13 +40,19 @@ Loads and activates a new scene in the game.
 **Example:**
 
 ```typescript
-import { loadScene } from '@quajs/engine'
+import { loadScene, Scene } from '@quajs/engine'
 
-await loadScene({
-  id: 'scene1',
-  name: 'Opening Scene',
-  // scene configuration
-})
+class OpeningScene extends Scene {
+  readonly name = 'opening'
+
+  init(): void {}
+
+  async run(): Promise<void> {
+    // Run scene dialogue and staging here.
+  }
+}
+
+await loadScene(new OpeningScene())
 ```
 
 ### `getCurrentSceneName(): string | undefined`
@@ -57,13 +63,14 @@ Gets the name of the currently active scene.
 
 ## Dialogue System
 
-### `dialogue(steps: GameStep[]): Promise<void>`
+### `dialogue(steps: GameStep[] | GameStepFactory<TScope>, scope?: TScope): Promise<void>`
 
-Executes a sequence of dialogue steps.
+Executes a sequence of dialogue steps, a step factory, or an imported `.qs` module.
 
 **Parameters:**
 
-- `steps`: Array of GameStep objects representing the dialogue sequence
+- `steps`: Array of `GameStep` objects or a `GameStepFactory` (such as an imported `.qs` scene)
+- `scope` (optional): Input scope passed to a `GameStepFactory`
 
 **Returns:** Promise that resolves when the dialogue sequence completes
 
@@ -71,12 +78,20 @@ Executes a sequence of dialogue steps.
 
 ```typescript
 import { dialogue } from '@quajs/engine'
+import opening from './scenes/opening.qs'
 
+await dialogue(opening, { playerName: 'Player' })
+
+// Or pass explicit GameStep objects directly:
 await dialogue([
   {
-    type: 'dialogue',
-    character: 'protagonist',
-    text: 'Hello world!',
+    uuid: 'step-1',
+    run: async (ctx) => {
+      await ctx.engine.showDialogue({
+        character: 'protagonist',
+        text: 'Hello world!',
+      })
+    },
   },
 ])
 ```
@@ -269,7 +284,7 @@ Retrieves metadata for a specific asset.
 
 **Parameters:**
 
-- `type`: Asset type ('audio', 'images', 'characters', 'scripts', 'data')
+- `type`: Asset type (`'audio' | 'images' | 'characters' | 'video' | 'fonts' | 'scripts' | 'data'`)
 - `assetName`: Name of the asset
 
 **Returns:** Promise that resolves with the asset metadata

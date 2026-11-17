@@ -1,15 +1,15 @@
 # @quajs/pipeline
 
-Event pipeline for connecting logic and render layers in QuaEngine. Provides a robust event bus system with middleware support and pluggable transport mechanisms.
+Event pipeline connecting logic and render layers in QuaEngine, with async middleware and pluggable transport support.
 
 ## Features
 
-- 🚀 **Event Bus Architecture** - Connects logic and rendering layers
-- 🧅 **Koa-style Middleware** - Onion model with async support
-- 🔌 **Transport System** - Explicit local, WebSocket, or custom event transport
-- 🎯 **TypeScript First** - Full type safety and IntelliSense
-- 🌐 **Cross-platform** - Works in Browser and Node.js
-- ⚡ **High Performance** - Efficient event processing and memory management
+- **Event Bus Architecture**: Single communication channel connecting logic and render layers
+- **Koa-style Middleware**: Async onion-model middleware chain
+- **Transport System**: Pluggable local, WebSocket, or custom event transport
+- **TypeScript First**: Typed event payloads and context objects
+- **Cross-platform**: Works in browser, Node.js, and embedded JS runtimes
+- **Listener Management**: Wildcard subscriptions and per-event listener registration
 
 ## Installation
 

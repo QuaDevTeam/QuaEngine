@@ -149,7 +149,7 @@ Browser autoplay policy blocks are handled as normal Web runtime behavior, not e
 
 ## Image resource memory
 
-`WebAssetUrlHandle` shares in-flight reads and object URLs per QuaAssets/resource/revision. At most four byte reads run concurrently; obsolete queued work is skipped. Idle URLs expire within250ms and are limited to16 entries and32MiB of estimated encoded bytes plus RGBA image bytes. Visible references stay pinned. `revoke()` invalidates pending results; failed replacements release the previous URL. DOM unmount drops node references as well as resource handles.
+`WebAssetUrlHandle` shares in-flight reads and object URLs per QuaAssets resource and revision. At most four byte reads run concurrently; obsolete queued work is skipped. Idle URLs expire within 250 ms and are limited to 16 entries and 32 MiB of estimated encoded bytes plus RGBA image bytes. Visible references stay pinned. `revoke()` invalidates pending results; failed replacements release the previous URL. DOM unmount drops node references as well as resource handles.
 
 `getWebAssetMemoryStats(assets)` reports active/idle URLs, estimated bytes and active/queued reads. These are transient implementation statistics, not browser/GPU measured memory or a limit on visible media. Use persistent Web byte storage for large packages and mount/unmount QPK content through engine lifecycle APIs.
 

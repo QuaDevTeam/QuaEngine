@@ -1,15 +1,14 @@
 # @quajs/vite-plugin
 
-Comprehensive Vite plugin for QuaEngine projects that provides a complete build pipeline with zero configuration.
+Vite integration for QuaEngine projects, handling QuaScript compilation, plugin discovery, dev VFS assets, Quack bundling, and optional Web security headers.
 
 ## Features
 
-- **🎯 QuaScript Compilation**: Transform `qs` template literals and TypeScript-first standalone `.qs` files with plugin support
-- **🔧 Plugin Discovery**: Automatically discover and bundle QuaJS plugins
-- **📦 Asset Bundling**: Process game assets using Quack bundler
-- **🔥 Development Server**: Enhanced HMR for scripts and assets
-- **🧩 Feature Plugin Slots**: Compose external Vite plugins for animation, sprite, character, story graph, inventory, or other feature-specific HMR
-- **🚀 Zero Configuration**: Works out of the box with sensible defaults
+- **QuaScript Compilation**: Transform `qs` template literals and standalone `.qs` files with plugin decorator support
+- **Plugin Discovery**: Discover and bundle QuaJS plugins from `package.json` metadata and `qua.plugins.json`
+- **Asset Bundling**: Serve assets through dev VFS during development and bundle them with Quack for production
+- **Development Server**: HMR notifications for scripts, assets, and plugins
+- **Feature Plugin Slots**: Compose external Vite plugins for feature-specific HMR via `vitePlugins`
 
 ## Installation
 
@@ -42,7 +41,7 @@ import { quaEngine } from '@quajs/vite-plugin'
 
 export default {
   plugins: [
-    quaEngine({
+    ...quaEngine({
       // Script compilation options
       scriptCompiler: {
         autoCollectDecorators: true,
@@ -71,7 +70,7 @@ export default {
         },
         encryption: {
           enabled: false,
-          algorithm: 'xor', // 'xor' | 'aes256'
+          algorithm: 'xor', // 'none' | 'xor' | 'custom'
           key: 'your-encryption-key'
         }
       },
@@ -240,7 +239,7 @@ Yuki: Hello ${displayName}!
 ```javascript
 export default {
   plugins: [
-    quaEngine({
+    ...quaEngine({
       assetBundling: {
         format: process.env.NODE_ENV === 'production' ? 'qpk' : 'zip',
         compression: {

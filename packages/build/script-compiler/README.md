@@ -10,9 +10,9 @@ A TypeScript-first DSL compiler for QuaEngine that transforms QuaScript dialogue
 - **Template Literals**: Full TypeScript template string support with `${expression}`
 - **Standalone Modules**: Compile `.qs` files into importable script factories
 - **Typed `.qs` Files**: Use `<script lang="ts">`, `<script setup lang="ts">`, and typed `Scope`
-- **Vite Plugin**: Seamless integration with Vite-based build systems
-- **CLI Tool**: Standalone compiler for build pipelines
-- **Type Safety**: Full TypeScript support with proper type definitions
+- **Vite Plugin**: Integrated through `@quajs/vite-plugin` for Vite builds and HMR
+- **CLI Tool**: Standalone `qua-script` compiler, linter, and formatter
+- **Type Safety**: Generates typed TypeScript output and `.d.ts` declarations
 
 ## QuaScript Syntax
 
@@ -333,7 +333,7 @@ Decorators are discovered from package metadata and package-local compiler suben
 | `@PlayAnimation(animationId, options?)`                                                | `playAnimationWithEngine`             | `@quajs/plugin-animation`    |
 | `@Backlog(options)`                                                                    | `setBacklogPolicyWithEngine`          | `@quajs/plugin-backlog`      |
 | `@NoBacklog()`                                                                         | `setBacklogPolicyWithEngine`          | `@quajs/plugin-backlog`      |
-| `@UnlockGalleryEntry(entryId, options?)`                                               | `unlockGalleryEntryWithEngine`        | `@quajs/plugin-gallery`      |
+| `@UnlockGallery(entryId, options?)`                                                    | `unlockGalleryEntryWithEngine`        | `@quajs/plugin-gallery`      |
 | `@OpenGalleryScene(entryId, options?)`                                                 | `openGallerySceneWithEngine`          | `@quajs/plugin-gallery`      |
 | `@UnlockAchievement(achievementId, options?)`                                          | `unlockAchievementWithEngine`         | `@quajs/plugin-achievement`  |
 | `@OpenAchievementBoard(options?)`                                                      | `openAchievementBoardWithEngine`      | `@quajs/plugin-achievement`  |

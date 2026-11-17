@@ -1,16 +1,16 @@
 # @quajs/store
 
-A flexible, TypeScript-first state management library with pluggable storage backends and middleware support.
+TypeScript-first state management library with pluggable storage backends and middleware support.
 
 ## Features
 
-- **Redux-like Architecture**: Familiar state management patterns with state, mutations, actions, and getters
-- **Pluggable Storage Backends**: Use the included memory backend, inject platform adapters such as `@quajs/store-web` or `@quajs/store-node`, or create custom backends
-- **Middleware System**: Add encryption, compression, logging, validation, and more
-- **Snapshot System**: Save and restore complete application state
-- **TypeScript-First**: Full type safety and excellent IDE support
-- **Multiple Store Management**: Create and manage multiple stores with ease
-- **Universal**: Works in both browser and Node.js environments (backend-dependent)
+- **Redux-like Architecture**: State, mutations, actions, and getters in modular stores
+- **Pluggable Storage Backends**: Ships with an in-memory backend and accepts platform adapters such as `@quajs/store-web`, `@quajs/store-node`, `@quajs/store-cocos`, or custom implementations
+- **Middleware System**: Hooks for encryption, compression, logging, and validation
+- **Snapshot System**: Save and restore single, scoped, or full-application store snapshots
+- **TypeScript-First**: Typed state, mutations, and serialization hooks
+- **Multiple Store Management**: Register and coordinate multiple named stores
+- **Platform-Neutral Core**: Works in browser, Node.js, and embedded JS runtimes depending on the injected backend
 
 ## Installation
 
