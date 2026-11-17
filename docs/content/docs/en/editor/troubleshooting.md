@@ -6,42 +6,42 @@ order: 12
 
 ## Source startup fails
 
-Run `pnpm install --frozen-lockfile` and `pnpm dev:editor` from the repository root. The latter builds editor dependencies, templates, and SDK before launch. Opening an old `dist` does not validate current source.
+Run `pnpm install --frozen-lockfile` followed by `pnpm dev:editor` from the repository root so editor dependencies, templates, and the local SDK build cleanly before launch. Launching a stale `dist` folder does not reflect current source.
 
-Check Node.js 22.12+ and pnpm 12.3.4. On macOS, native embedding build errors need Command Line Tools and the Electron Node-API headers named in the error. Running Native games additionally needs Rust/Cargo and system linking tools.
+Verify that Node.js is 22.12+ and pnpm is 12.3.4. On macOS, native embedding build errors usually point to missing Xcode Command Line Tools or the Electron Node-API headers named in the compiler output; running Native game previews also requires Rust/Cargo and system linkers.
 
 ## Installation or downloads stall
 
-Inspect the tool, URL, status code, and first error in installation logs. Check system proxy/PAC, network, and free disk space. Managed runtimes live in editor user data without replacing global Node/Rust. Cancel and retry when appropriate; do not delete projects or writing data to fix network failures.
+Check the installation log for the tool name, URL, HTTP status, and first error, then verify your system proxy/PAC settings, network connection, and free disk space. Managed runtimes live inside editor user data and do not overwrite global Node or Rust installs. Cancel and retry if needed, and avoid deleting project folders or writing data to work around network hiccups.
 
 ## A file cannot be saved
 
-Check disk conflicts, deletion, path replacement, and permissions. Preserve unsaved text, compare differences, then explicitly load disk or save the local draft. Do not bypass revision checks with external overwrites. General crash-draft recovery and automatic three-way merge are not currently provided; save important work and use version control.
+Look for disk conflicts, external file deletion, moved paths, or permission issues. Keep your unsaved text, run Compare Differences, and explicitly choose Load Disk Version or Keep Local and Save rather than overwriting files externally to bypass revision checks. Automatic crash-draft recovery and three-way merges are not built in yet, so save often and commit important changes to Git.
 
 ## Preview fails or seeks incorrectly
 
 | Symptom | Check |
 | --- | --- |
-| Cannot start | Project manifest, `dev:web`/`dev` or `dev:native` script, dependencies, and first runtime error |
-| Native unsupported | Embedding is macOS-only; Windows/Linux have no image-transport fallback |
-| To Cursor unavailable | `.qs` errors, cursor source, `editor-core/runtime` integration, and registered script factories |
-| Wrong variables/earlier state | Seeking replays the target file from its development baseline, rather than inferring previous chapters' choices |
-| Reload returns to the start | Step deleted/unmatched, or file not previously located; restoration has a bounded scope |
-| Silent audio | Preview mute, game volume, browser activation, asset loading, and AudioContext state |
-| Saves disappear on stop | Temporary Web partition or Native Demo's memory backend |
+| Cannot start | Project manifest, `dev:web`/`dev` or `dev:native` script, installed dependencies, and the first runtime error |
+| Native unsupported | Native embedding is macOS-only; Windows and Linux do not fall back to image streaming |
+| To Cursor unavailable | `.qs` compile errors, cursor position, `editor-core/runtime` wiring, and registered script factories |
+| Wrong variables or earlier state | Seeking replays the current file from its development baseline rather than inferring choices from earlier chapters |
+| Reload returns to the start | The active step was deleted or changed too much to match, or the file was not yet seeked |
+| Silent audio | Preview mute toggle, in-game volume, browser user-activation click, asset loading, and `AudioContext` state |
+| Saves disappear on stop | Temporary Web preview partitions and the Native Demo's in-memory backend clear when the session stops |
 
-## Character/animation changes do not appear
+## Character or animation changes do not appear
 
-Character recognition uses the saved static project index. Dynamic registration or arbitrary runtime factories may not be resolvable. Renaming character/resource IDs does not rewrite story references.
+Character recognition relies on the saved static project index, so dynamically registered characters or complex runtime factories may not be indexed. Also note that renaming character or asset IDs does not automatically rewrite story references.
 
-For animation, Apply to Source (**应用到源文件**) and then save. Without a static `@PlayAnimation` call, select a scene manually. Unresolved choices require real player selection. Retain local visual drafts while resolving source revisions.
+For animations, click Apply to Source (**应用到源文件**) and then save normally. If there is no static `@PlayAnimation` call for that animation, select a scene manually; choices encountered during seeking must be clicked in the preview. Visual drafts stay in the panel while you resolve any source revision conflicts.
 
 ## Plugins, writing, and builds
 
-Check installed dependencies, enablement, Registry reasons, and runtime entries for plugins. Successful installation does not prove runtime integration. For writing, inspect provider settings, quota, and stage state; generated content needs human review, and an exported draft is not automatically approved.
+For plugins, verify installed dependencies, devtools enablement, Registry status, and runtime wiring in your game entry (installing a package only adds it to `node_modules`). For Novel Writer, check provider settings, quota, and stage status; review generated text carefully, and remember that exported drafts are not automatically approved.
 
-For builds, inspect the first failed stage and logs. Closing the dialog does not cancel, and skipped notarization is not success. Inspect the actual output as described in [production builds](/docs/en/editor/builds).
+For production builds, inspect the first failed stage and expanded logs; closing the dialog does not cancel the build, and skipped notarization is not a pass. Always test the generated output directly as described in [production builds](/docs/en/editor/builds).
 
 ## Report a problem
 
-Record source/Editor version, OS/architecture, preview target, reproduction steps, first error, and a minimal project. Remove credentials, private paths, and sensitive story content from logs/configuration/screenshots. Identify whether evidence comes from development preview, production output, or a standalone app.
+Include your source commit or Editor version, OS and CPU architecture, preview target, reproduction steps, the first error message, and a minimal project if possible. Strip API keys, private paths, and sensitive story content from logs, configs, and screenshots, and mention whether the issue happened in development preview, a production build, or a standalone app.

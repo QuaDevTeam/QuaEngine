@@ -6,54 +6,54 @@ order: 4
 
 ## Navigation and docking
 
-Explorer, Search, Source Control, and Story Outline form a fixed left sidebar, selected through the activity bar. They cannot be dragged, split, or merged. Resize the sidebar with its divider, arrow keys, or double-click reset.
+Explorer, Search, Source Control, and Story Outline live in a fixed left sidebar switched from the activity bar. They cannot be dragged, split, or merged, though you can resize the sidebar using its divider, arrow keys, or a double-click reset.
 
-Code, preview, statement properties, and tool panels are dockable. Drop a tab in the center of a group to merge or at an edge to split. Right-click or Shift+F10 offers equivalent operations. Closing a view hides it; reopen it through the titlebar layout icon's View (**视图**) picker, searching by name, English ID, or category. Resetting layout preserves document drafts and feature instances.
+Code tabs, preview panes, statement properties, and tool panels are freely dockable. Drag a tab to the center of a group to merge it, or toward an edge to split—right-click or `Shift+F10` gives you the same options. Closing a panel simply hides it; reopen any view from the titlebar layout icon's View (**视图**) picker by searching its name, English ID, or category. Resetting the layout keeps all open drafts and running plugin instances intact.
 
 ## Settings and appearance
 
-Ctrl/Cmd+, or the lower-left gear opens Settings. Search by category, filter modified values, reset one item, or reset all.
+Press `Ctrl/Cmd+,` or click the gear icon in the lower-left corner to open Settings. You can search by keyword, browse by category, filter modified settings, and reset individual options or everything at once.
 
 | Category | Common settings |
 | --- | --- |
-| Appearance | Qua / Graphite, system / light / dark |
+| Appearance | Qua or Graphite theme, system, light, or dark mode |
 | Code editor | Font, size, line height, indentation, wrap, line numbers, minimap, format on save |
-| Terminal | Font size, scrollback, cursor blink |
-| Workspace | Density, reduced motion, restore layout at next startup |
+| Terminal | Font size, scrollback lines, cursor blink |
+| Workspace | Density, reduced motion, restore layout on next launch |
 
-Settings live in the current editor profile. Themes update the workbench, Monaco, terminal, and official plugins while the game and Novel Writer keep their own appearance. Restoring layout does not restart old shell processes or recover every unsaved document after a crash.
+Settings are stored in your editor profile. Changing appearance updates the workbench, Monaco, terminal, and official plugin panels, while leaving your game visuals and Novel Writer's theme untouched. Layout restoration does not resurrect old shell processes or replace crash recovery for unsaved buffers.
 
 ## Project search
 
-Ctrl/Cmd+Shift+F searches saved project text with case, whole-word, Rust regex, and include/exclude globs. Separate globs with commas, for example `**/*.qs, **/*.ts`. Unsaved drafts are excluded. Narrow the search when result, file-size, or time limits are reached.
+`Ctrl/Cmd+Shift+F` searches saved files across the project with case sensitivity, whole-word matching, Rust regex, and comma-separated include/exclude globs (such as `**/*.qs, **/*.ts`). Unsaved drafts are not included. Narrow your globs if you hit result, file-size, or timeout limits.
 
-Story Outline navigates indexed scenes and story nodes. It does not create branch destinations or change game progress.
+Story Outline lets you jump straight to indexed scenes and story nodes in source—it is a navigation view and does not create branch targets or alter game progression.
 
 ## Integrated terminal
 
-Ctrl+backtick shows/hides the terminal; Ctrl+Shift+backtick creates a session. A new shell starts in the project, or the home directory without a project. Switch sessions, clear the display, or terminate a process.
+Press ``Ctrl+` `` to toggle the terminal, or ``Ctrl+Shift+` `` to start a new session. Shells open in the current project root (or your home directory when no project is open). You can switch between sessions, clear output, or terminate processes.
 
-While focused, Ctrl+C and similar keys go to the shell. Copy/paste uses Command+C/V on macOS and Ctrl+Shift+C/V elsewhere. Project replacement and shutdown terminate managed sessions and their children; detached daemons are outside that guarantee. Sessions/output do not survive editor restart. The terminal runs with your privileges and is not a project-directory sandbox.
+While the terminal is focused, keys like `Ctrl+C` go directly to the shell. Copy and paste use `Command+C/V` on macOS and `Ctrl+Shift+C/V` elsewhere. Switching projects or closing the editor terminates managed sessions and child processes, though detached daemons stay outside that cleanup. Sessions and output do not persist across restarts, and the terminal runs with your normal user permissions rather than a directory sandbox.
 
 ## Git changes and branches
 
-Source Control groups conflicts, staged changes, and worktree changes. Use tree/list views, read-only diffs, and stage/unstage controls. The commit button next to the message, or Ctrl/Cmd+Enter, commits staged content. Save first: Git diffs do not include unsaved editor drafts.
+Source Control groups merge conflicts, staged changes, and working tree changes with tree or list views, read-only diffs, and inline stage/unstage controls. Click the commit button beside the message box (or press `Ctrl/Cmd+Enter`) to commit staged changes—save your files first, since Git diffs only inspect files on disk.
 
-Branch switching offers Save All, Keep Drafts, or Cancel. Normal `git switch` decides whether disk changes can be preserved. Keeping a draft can still produce a later save conflict if the destination branch changes that file. Automatic stash, force switch, push, and pull are not provided; use the terminal under your project's workflow.
+Switching branches offers Save All, Keep Drafts, or Cancel. Normal `git switch` rules determine whether uncommitted disk changes carry over cleanly; if you keep drafts and the target branch modifies the same file, you will be asked to resolve the save conflict afterward. Automatic stash, force checkout, push, and pull are not built in—use the integrated terminal for those workflows.
 
 ## Common shortcuts
 
 | Shortcut | Action |
 | --- | --- |
-| Ctrl/Cmd+P | Quick open |
-| Ctrl/Cmd+Shift+E / Ctrl/Cmd+Shift+F | Explorer / project search |
-| Ctrl/Cmd+S / Ctrl/Cmd+Shift+S | Save current / all |
-| Ctrl+Tab / Ctrl+Shift+Tab | Switch document tabs |
-| Ctrl/Cmd+J | Toggle bottom panel |
-| Ctrl/Cmd+Shift+P or F1 | Monaco command palette |
-| F5 / Shift+F5 | Run or restart / stop preview |
-| F10 | Advance one step |
-| Ctrl/Cmd+Alt+Enter | Seek from the source cursor |
-| Ctrl/Cmd+Shift+B | Open production build |
+| `Ctrl/Cmd+P` | Quick open |
+| `Ctrl/Cmd+Shift+E` / `Ctrl/Cmd+Shift+F` | Explorer / project search |
+| `Ctrl/Cmd+S` / `Ctrl/Cmd+Shift+S` | Save current / save all |
+| `Ctrl+Tab` / `Ctrl+Shift+Tab` | Switch document tabs |
+| `Ctrl/Cmd+J` | Toggle bottom panel |
+| `Ctrl/Cmd+Shift+P` or `F1` | Monaco command palette |
+| `F5` / `Shift+F5` | Run or restart / stop preview |
+| `F10` | Advance one step |
+| `Ctrl/Cmd+Alt+Enter` | Seek preview from source cursor |
+| `Ctrl/Cmd+Shift+B` | Open production build |
 
-Focus, terminal input, and IME composition affect shortcuts. Hover controls for their actions. Continue with [preview and debugging](/docs/en/editor/preview).
+Active focus, terminal capture, and IME composition can affect which shortcuts trigger. Hover over controls to see their exact shortcut tooltips. Continue with [preview and debugging](/docs/en/editor/preview).

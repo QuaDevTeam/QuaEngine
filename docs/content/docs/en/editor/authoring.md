@@ -6,34 +6,34 @@ order: 5
 
 ## Write and check scripts
 
-Start with the complete `.qs` example in [your first scene](/docs/en/getting-started/first-story). Monaco supports highlighting, Ctrl+Space completion, hover help, F12 definitions, Shift+Alt+F formatting, and Ctrl/Cmd+Shift+Space parameter hints. Definitions open editable sources inside the current project.
+Start from the complete `.qs` example in [your first scene](/docs/en/getting-started/first-story). Monaco provides syntax highlighting, `Ctrl+Space` completions, hover docs, `F12` go-to-definition, `Shift+Alt+F` formatting, and `Ctrl/Cmd+Shift+Space` parameter hints. Go-to-definition opens editable source files inside the current project.
 
-Speakers have consistent dialogue colors; narration, comments, choices, and TypeScript interpolation retain their syntax colors. Coloring is a reading aid, not character registration or runtime identity.
+Speakers receive consistent dialogue colors, while narration, comments, choices, and TypeScript interpolation keep their syntax colors. Coloring is purely a reading aid and does not register characters or affect runtime identity.
 
 ## Edit statement properties
 
-Open Statement Properties (**语句属性**) from the `.qs` document toolbar. The bottom panel follows the cursor; its selector and previous/next buttons also navigate statements. The current workflow is Monaco plus a separate property panel. The old code/split/visual mode switch has been removed.
+Open Statement Properties (**语句属性**) from the `.qs` document toolbar. The bottom panel follows your cursor, and you can also step through statements with its selector and previous/next buttons. The current workflow pairs Monaco with this standalone property panel (the legacy code/split/visual mode switch has been removed).
 
-Edit dialogue, speakers, literal strings/numbers/booleans, and nested object fields in existing commands. Add background/clear-background, voice, BGM, character entrance/exit, sprite, expression, and position commands using project character/asset candidates.
+Use the form to edit dialogue text, speakers, literal strings, numbers, booleans, and nested object fields on existing commands, or add background, clear-background, voice, BGM, character entrance/exit, sprite, expression, and position commands using project candidates.
 
-No background command means inherit earlier state; clearing requires an explicit command. The form describes the current statement rather than reconstructing the full scene's executed state. Use source editing for complex expressions, arrays, and choices. Syntax errors suspend the form until fixed.
+Omitting a background command inherits the previous state; clearing requires an explicit clear-background command. Keep in mind that the form describes only the current statement rather than simulating the accumulated scene state up to that line. Drop back into source editing for complex expressions, arrays, and choices. If the file has syntax errors, the form pauses until you fix them.
 
 ## Undo and save
 
-Form inputs update the same undoable Monaco draft; code edits update the form. Ctrl/Cmd+Z undoes changes. Disk and project indexes update after normal saving. Tabs retain drafts; resolve external changes through [saving and conflicts](/docs/en/editor/projects#save-and-resolve-conflicts).
+Every edit in the form updates the same undoable Monaco draft, and code edits flow back into the form automatically. `Ctrl/Cmd+Z` undoes changes, while disk files and project indexes update only after normal saving. Tabs keep their drafts across switches; handle external disk edits through [saving and conflicts](/docs/en/editor/projects#save-and-resolve-conflicts).
 
-Character and animation tools have an additional Apply to Source step. Applying creates a source draft that must still be saved. Panel-local drafts, Monaco drafts, and disk files are separate layers.
+Character and animation tools include an extra Apply to Source step that turns panel edits into a source draft, which still needs to be saved afterward. Panel-local drafts, Monaco drafts, and saved files on disk are distinct layers.
 
 ## Diagnostics and navigation
 
-Problems (**问题**) collects indexed `.qs` and project TypeScript configuration, syntax, and type diagnostics with source locations. Open dirty documents have live diagnostics; other files mainly use disk contents.
+Problems (**问题**) gathers configuration, syntax, and type diagnostics from indexed `.qs` files and your project's TypeScript config with clickable source locations. Dirty open tabs get live diagnostics, whereas unopened files are checked from disk.
 
-If the project installs ESLint and declares configuration, TS/JS checking uses that project's parser, rules, and ignores. Without configuration it is skipped. Missing dependencies and invalid configuration are reported; the editor does not run automatic fixes against disk.
+If your project installs and configures ESLint, TS/JS checking runs using your project's own parser, rules, and ignore patterns (if unconfigured, ESLint is skipped; missing dependencies or broken configs are reported). The editor never runs auto-fix writes behind your back.
 
-Moving files or renaming character/resource IDs does not rewrite story references. Check Problems, then exercise affected choices, jumps, and restores in preview.
+Moving files or renaming character or asset IDs does not automatically rewrite story references. Review the Problems panel afterward and click through affected choices, jumps, and save restores in preview.
 
 ## Edit from the running scene
 
-A Web project integrated with the development preview protocol can enable Pick Properties (**拾取属性**) in Scene Debugging (**场景调试**). Pick backgrounds/characters to locate their QS sources. Literal single-line dialogue supports inline editing that creates a normal source draft; interpolated, rich, multiline, or stale sources use source navigation instead.
+In a Web project wired to the development preview protocol, enable Pick Properties (**拾取属性**) inside Scene Debugging (**场景调试**). Clicking a background or character jumps to its QuaScript source line, and clicking plain single-line dialogue lets you edit the text inline to produce a normal source draft. Interpolated, rich, multiline, or stale lines fall back to opening the source location instead.
 
-This is a Web development feature. Saving follows normal reload; it does not mutate renderer-owned game state or provide arbitrary timeline scrubbing/restoration. Continue with [preview and debugging](/docs/en/editor/preview).
+This feature is limited to Web development previews and updates on normal save/reload—it never mutates renderer-owned game state directly or lets you scrub the story like a video timeline. Continue with [preview and debugging](/docs/en/editor/preview).

@@ -6,46 +6,46 @@ order: 3
 
 ## Create or open a project
 
-Choose File → New Project (**文件 → 新建项目**), enter a parent directory and name, and select a Vue / QuaScript game or plugin template. The editor creates a new child directory without overwriting an existing one. Source, configuration, README, and SDK archives in `vendor/quajs` travel with the project outside the QuaEngine checkout.
+Choose File → New Project (**文件 → 新建项目**), pick a parent folder and project name, and select a Vue / QuaScript game or plugin template. The editor creates a fresh subdirectory without overwriting existing folders. Source files, configuration, README, and local SDK archives in `vendor/quajs` are copied into the project so it stays portable outside the QuaEngine repository.
 
-For an existing game, open the directory containing `package.json` and `qua.project.yaml`, `.yml`, or `.json`. For plugin publication, open a package declaring `quajs.extension` directly; it needs no fabricated game manifest. Plugin projects use their build workflow and do not show game preview.
+To open an existing game, select a folder containing `package.json` and `qua.project.yaml`, `.yml`, or `.json`. To publish a plugin, you can open a package directory that declares `quajs.extension` directly without needing a game manifest. Plugin projects run their own build workflow and do not display a game preview pane.
 
 ## Prepare the environment
 
-Opening a project or starting preview checks Node.js, npm/pnpm, project dependencies, and the required Rust toolchain. Missing tools download into `runtimes` under the editor profile. The UI shows progress, logs, cancellation, and retry without changing global shell configuration.
+When you open a project or start a preview, the workbench checks Node.js, npm or pnpm, project dependencies, and any required Rust toolchain. Missing tools are downloaded into `runtimes` inside the editor profile directory, with progress, logs, cancellation, and retry controls in the UI—your global shell configuration is left untouched.
 
-System SDKs and linkers still need system installation. macOS source builds need Command Line Tools and the correct Electron Node-API headers. Third-party dependencies need network access; package-manager requests follow the editor's system proxy configuration.
+System SDKs and linkers still need to be installed on the OS. On macOS, source builds require Command Line Tools and the matching Electron Node-API headers. Installing third-party packages requires network access and follows the editor's system proxy settings.
 
 ## Find and edit files
 
 | File | Typical purpose |
 | --- | --- |
-| `src/game/scenes/*.qs` | Story and staging |
-| `src/game/bootstrap.ts` | Engine, plugins, and renderer wiring |
+| `src/game/scenes/*.qs` | Story dialogue and staging |
+| `src/game/bootstrap.ts` | Engine, plugin, and renderer wiring |
 | `qua.project.*` | Project identity, icons, and build targets |
 | `assets/` | Backgrounds, sprites, fonts, and audio |
 | `*.animation.json` | Numeric animation source |
 
-Ctrl/Cmd+P opens files by fuzzy path, including `:line:column`. Explorer supports creation, rename, cut/copy/paste, and deletion to the system trash. Rename/move retains open drafts and undo history but does not rewrite imports or asset references; check Problems afterward.
+Press `Ctrl/Cmd+P` to fuzzy-open files by path, with optional `:line:column` navigation. Explorer supports creating, renaming, cutting, copying, pasting, and moving files to the system trash. Renaming or moving a file preserves open drafts and undo history, though it does not automatically rewrite script imports or asset paths—check the Problems panel afterward.
 
-Copies read saved disk contents. Deletion asks for confirmation and retains dirty buffers. Filesystem undo and a Save As recovery flow for deleted files are not currently provided.
+Copying reads the saved file from disk. Deleting asks for confirmation while keeping any unsaved editor buffers intact. Filesystem-level undo and a Save As recovery flow for deleted files are not currently provided.
 
 ## Import and inspect assets
 
-In Assets Browser, choose a folder and Import (**导入**) to copy media, fonts, or packages. All Assets (**全部资源**) corresponds to the project root. Existing names are skipped rather than overwritten. Filter by name/path/type, sort by name/size/modification time, and use grid or list view.
+In Assets Browser, pick a target folder and click Import (**导入**) to copy media, fonts, or packages (All Assets / **全部资源** maps to the project root). Existing filenames are skipped rather than overwritten. You can filter by name, path, or type, sort by name, size, or modified time, and switch between grid and list views.
 
-Inspect image format, original dimensions, size, and transparency, or play audio/video locally. Fonts and QPK/ZIP files currently expose file information rather than font layout or package contents. Import does not replace Quack asset builds or create story references automatically.
+For images, you can inspect format, original pixel dimensions, file size, and alpha transparency; audio and video files play directly inside the browser. Fonts and QPK/ZIP archives currently show file metadata only rather than font glyph previews or archive contents. Keep in mind that importing assets into folders does not replace Quack asset builds or automatically add references to your scripts.
 
 ## Save and resolve conflicts
 
-Ctrl/Cmd+S saves the current document; Ctrl/Cmd+Shift+S saves all. Source drafts from statement, character, animation, and AI tools use the same save lifecycle.
+`Ctrl/Cmd+S` saves the active document, and `Ctrl/Cmd+Shift+S` saves all modified documents. Source drafts produced by statement properties, character tools, animation tools, and AI writeback all go through this same save flow.
 
-External changes update clean documents automatically. Dirty documents retain their drafts and report conflicts. Compare Differences (**比较差异**), reconcile the draft, then Keep Local and Save (**保留本地并保存**). Saving rechecks the compared disk version and rejects newer external changes. Load Disk Version (**载入磁盘版本**) asks before discarding a draft.
+When a file changes on disk outside the editor, clean tabs update automatically while dirty tabs keep your draft and warn about a conflict. Use Compare Differences (**比较差异**) to inspect the changes, adjust your draft, and click Keep Local and Save (**保留本地并保存**) to write it out—saving rechecks the disk version first so newer external edits are not silently overwritten. If you prefer to discard local edits, Load Disk Version (**载入磁盘版本**) prompts for confirmation before reloading.
 
-Preview start, source seeking, and production builds save first and stop if saving fails. Indexing and full-text search mainly read disk; live diagnostics on an unsaved document do not mean search results have updated.
+Starting a preview, seeking from source, and running production builds all save open files first and abort if saving fails. Project indexing and full-text search primarily read saved disk files, so live diagnostics in an unsaved tab do not mean search results have updated yet.
 
 ## Project indexing
 
-File watching coalesces changes before refreshing files, characters, assets, story nodes, and diagnostics. File counts, depth, and directory traversal are bounded; symlinks, hidden folders, dependencies, and generated directories are not ordinary source trees. Narrow the project when limits are reached, or use Refresh Project (**刷新项目**). Inspection failures preserve open drafts.
+The file watcher batches rapid changes before refreshing files, characters, assets, story nodes, and diagnostics. Traversal is bounded by file count, depth, and directory limits, and skips symlinks, hidden folders, dependencies, and generated directories. Narrow your project layout or click Refresh Project (**刷新项目**) if you hit a limit. Inspection errors never discard open drafts.
 
 Continue with [QuaScript authoring](/docs/en/editor/authoring).
