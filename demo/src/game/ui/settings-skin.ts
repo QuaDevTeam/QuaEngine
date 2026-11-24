@@ -90,7 +90,7 @@ export function layoutDemoSettings(root: Node, width: number, height: number): N
     else if (select?.control) {
       const options = select.control.options.map(o => ({ ...o, label: key === 'skipMode'
         ? (/all|全部/i.test(o.label) ? '全部文字' : '仅已读文字')
-        : key === 'frameRateLimit' ? (Number.isFinite(Number.parseInt(o.label)) ? `${Number.parseInt(o.label)} 帧` : '不限') : o.label }))
+        : key === 'frameRateLimit' ? (Number.isFinite(Number.parseInt(o.label)) ? `${Number.parseInt(o.label)} 帧` : '跟随显示器') : o.label }))
       children.push(make({ ...select, control: { ...select.control, options } }, rect(innerX, cy, innerWidth, 60), { backgroundColor: sheet, borderColor: '#b8c9bd', borderWidth: 1, borderRadius: 5 }, undefined, [
         named(`${id}-select-value`, rect(innerX + 20, cy + 13, innerWidth - 86, 33), textStyle(22, 33), options[select.control.selectedIndex]?.label),
         named(`${id}-select-chevron`, rect(innerX + innerWidth - 39, cy + 26, 13, 8), { backgroundColor: sea }),

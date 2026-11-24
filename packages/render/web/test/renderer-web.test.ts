@@ -2283,19 +2283,23 @@ describe('@quajs/renderer-web', () => {
     await renderer.unmount()
   })
 
-  it('maps gamepad edge changes to semantic commands and stops polling after dispose', async () => {
+  it.each(['release', 'disconnect', 'blur', 'hidden UI'])('releases a held fast-forward on %s and stops polling after dispose', async (ending) => {
     vi.useFakeTimers()
     try {
       const pipeline = new Pipeline()
       const received: string[] = []
+      const startReceived = new Promise<void>((resolve) => {
+        onRenderToLogic(pipeline, RenderToLogicEvents.FLOW_CONTROL_START_FAST_FORWARD_REQUEST, () => resolve())
+      })
       const stopReceived = new Promise<void>((resolve) => {
         onRenderToLogic(pipeline, RenderToLogicEvents.FLOW_CONTROL_STOP_FAST_FORWARD_REQUEST, () => resolve())
       })
       const buttons = Array.from({ length: 16 }, () => ({ pressed: false, value: 0 }))
       const gamepad = { index: 0, id: 'pad', buttons } as Gamepad
+      let connected = true
       Object.defineProperty(window.navigator, 'getGamepads', {
         configurable: true,
-        value: vi.fn(() => [gamepad]),
+        value: vi.fn(() => connected ? [gamepad] : []),
       })
       onRenderToLogic(pipeline, RenderToLogicEvents.USER_INPUT_COMMAND, payload => received.push(`${payload.command}:${payload.source}:${payload.pressed}`))
       onRenderToLogic(pipeline, RenderToLogicEvents.FLOW_CONTROL_START_FAST_FORWARD_REQUEST, payload => received.push(`start:${payload.source}`))
@@ -2306,17 +2310,32 @@ describe('@quajs/renderer-web', () => {
         getViewState: () => controller.getViewState(),
         keyboard: false,
         pointer: false,
-        focusTracking: false,
+        focusTracking: ending === 'blur',
         gamepadPollIntervalMs: 10,
       })
 
       input.start()
+      window.dispatchEvent(new Event('focus'))
       buttons[5] = { pressed: true, value: 1 } as GamepadButton
       vi.advanceTimersByTime(10)
-      await waitForMicrotasks(() => received.length >= 2)
-      buttons[5] = { pressed: false, value: 0 } as GamepadButton
+      await startReceived
+      if (ending === 'release' || ending === 'hidden UI') {
+        if (ending === 'hidden UI')
+          controller.setView({ ...controller.getViewState(), ui: { visible: false } })
+        buttons[5] = { pressed: false, value: 0 } as GamepadButton
+      }
+      else if (ending === 'disconnect') {
+        connected = false
+      }
+      else {
+        window.dispatchEvent(new Event('blur'))
+      }
       vi.advanceTimersByTime(10)
       await stopReceived
+      if (ending === 'blur') {
+        window.dispatchEvent(new Event('focus'))
+        vi.advanceTimersByTime(10)
+      }
       input.dispose()
       buttons[5] = { pressed: true, value: 1 } as GamepadButton
       vi.advanceTimersByTime(20)

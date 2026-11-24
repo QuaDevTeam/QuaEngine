@@ -82,7 +82,10 @@ export function createSceneSelectPopup(context: SceneRendererPluginContext) {
     if (!current)
       return false
     if (event.phase === 'down') {
-      const code = event.code || event.key
+      const command = event.metadata?.command
+      const code = event.kind === 'gamepad'
+        ? ({ 'choice:previous': 'ArrowUp', 'choice:next': 'ArrowDown', 'choice:confirm': 'Enter', 'ui:cancel': 'Escape' } as Record<string, string>)[String(command)]
+        : event.code || event.key
       if (code === 'Escape' || code === 'Tab')
         close()
       else if (code === 'ArrowDown' || code === 'ArrowRight')

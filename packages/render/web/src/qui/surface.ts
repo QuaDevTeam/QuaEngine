@@ -45,7 +45,8 @@ export function createQuiWebSurface(options: QuiWebSurfaceOptions) {
       effectiveVisible: true,
       assetIdentity: '',
       assetUrl: undefined as string | undefined,
-      scrollInitialized: false,
+      requestedScrollX: undefined as number | undefined,
+      requestedScrollY: undefined as number | undefined,
       asset: undefined as WebAssetUrlHandle | undefined,
     }
     const paint = () => paintEntry(entry)
@@ -62,7 +63,7 @@ export function createQuiWebSurface(options: QuiWebSurfaceOptions) {
       entry.pressed = true
       paint()
     }
-    element.onpointerup = () => {
+    element.onpointercancel = element.onpointerup = () => {
       entry.pressed = false
       paint()
     }
@@ -87,7 +88,7 @@ export function createQuiWebSurface(options: QuiWebSurfaceOptions) {
       }
     }
     element.onkeydown = (event) => {
-      if (tag === 'div' && (entry.node.intent || entry.node.control?.kind === 'switch') && ['Enter', ' '].includes(event.key)) {
+      if (event.target === element && tag === 'div' && (entry.node.intent || entry.node.control?.kind === 'switch') && ['Enter', ' '].includes(event.key)) {
         event.preventDefault()
         element.click()
       }
@@ -120,10 +121,10 @@ export function createQuiWebSurface(options: QuiWebSurfaceOptions) {
       opacity: String((node.opacity ?? 1) * (style.opacity ?? 1)),
     })
     applyQuiStyle(element.style, { ...style, opacity: (node.opacity ?? 1) * (style.opacity ?? 1) })
-    if (node.kind === 'Button') {
+    if (element.tagName === 'BUTTON') {
       Object.assign(element.style, { cursor: node.intent ? 'pointer' : 'default', pointerEvents: 'auto', overflow: 'hidden', whiteSpace: style.whiteSpace || 'nowrap' })
       ;
-      (element as HTMLButtonElement).disabled = !node.intent || node.accessibility?.disabled === true
+      (element as HTMLButtonElement).disabled = (!node.intent && !node.control) || node.accessibility?.disabled === true
       ;
       (element as HTMLButtonElement).type = 'button'
     }
@@ -151,6 +152,7 @@ export function createQuiWebSurface(options: QuiWebSurfaceOptions) {
       input.max = String(node.control.options.length - 1)
       input.step = '1'
       input.value = String(node.control.selectedIndex)
+      input.setAttribute('aria-valuetext', node.control.options[node.control.selectedIndex]?.label ?? input.value)
       Object.assign(element.style, { opacity: '0', zIndex: '2', pointerEvents: 'auto' })
     }
     if (node.control?.kind === 'select') {
@@ -225,6 +227,7 @@ export function createQuiWebSurface(options: QuiWebSurfaceOptions) {
       siblings.push(element)
       order.set(parent, siblings)
       element.removeAttribute('role')
+      element.removeAttribute('aria-level')
       element.removeAttribute('aria-disabled')
       element.removeAttribute('aria-label')
       element.removeAttribute('tabindex')
@@ -238,8 +241,10 @@ export function createQuiWebSurface(options: QuiWebSurfaceOptions) {
       }
       if (node.role === 'button') {
         element.setAttribute('role', 'button')
-        element.setAttribute('aria-disabled', String(!node.intent || node.accessibility?.disabled === true))
+        element.setAttribute('aria-disabled', String((!node.intent && !node.control) || node.accessibility?.disabled === true))
       }
+      if (node.accessibility?.disabled)
+        element.setAttribute('aria-disabled', 'true')
       if (node.accessibility?.label)
         element.setAttribute('aria-label', node.accessibility.label)
       if (node.accessibility?.pressed !== undefined)
@@ -283,12 +288,17 @@ export function createQuiWebSurface(options: QuiWebSurfaceOptions) {
       if (node.control?.kind !== 'select') {
         for (const child of node.children || []) visit(child, childHost, childX, childY, provenance, entry.effectiveVisible)
       }
-      if (node.kind === 'Scroll' && !entry.scrollInitialized) {
-        element.scrollTop = node.scrollOffsetY || 0
-        element.scrollLeft = node.scrollOffsetX || 0
-        entry.scrollInitialized = true
+      if (node.kind === 'Scroll' && entry.effectiveVisible) {
+        const x = node.scrollOffsetX ?? 0
+        const y = node.scrollOffsetY ?? 0
+        if (entry.requestedScrollX !== x)
+          element.scrollLeft = x
+        if (entry.requestedScrollY !== y)
+          element.scrollTop = y
+        entry.requestedScrollX = x
+        entry.requestedScrollY = y
       }
-      if (node.control) {
+      if (node.control && !node.accessibility?.label) {
         const labelId = node.id.replace(/-(slider-control|select|switch-track)$/, '-label')
         element.setAttribute('aria-label', entries.get(labelId)?.node.text || node.text || node.id)
       }
@@ -326,7 +336,7 @@ export function createQuiWebSurface(options: QuiWebSurfaceOptions) {
     if (payload.elementId !== options.elementId || !payload.nodeId)
       return
     const element = entries.get(payload.nodeId)?.element
-    if (element)
+    if (element && (payload.edge === 'start' || payload.edge === 'end'))
       element.scrollTop = payload.edge === 'start' ? 0 : element.scrollHeight
   }
   options.pipeline.on('native-ui/scroll', scroll)

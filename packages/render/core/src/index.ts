@@ -591,6 +591,8 @@ export interface ViewUiSceneProjection extends Readonly<Record<string, unknown>>
 
 export interface ViewUiOverlaySurfaceProjection extends Readonly<Record<string, unknown>> {
   key: string
+  /** Normalized point in the aspect-safe rectangle that follows the device safe area. */
+  safeAreaAnchor?: readonly [number, number]
   props?: Readonly<Record<string, unknown>>
 }
 
@@ -1029,9 +1031,9 @@ export interface QuaViewProjection {
  */
 export interface ViewRendererProjection {
   /**
-   * Target cadence in frames per second. Valid values are 30, 60, or 120.
-   *  Native renderers clamp to the display refresh rate and to [30, 240].
-   *  Absent means "use the platform default (60 FPS)".
+   * Optional render cadence cap in frames per second. The native window clamps
+   * explicit caps to [30, 240] and respects slower monitor modes. Without a
+   * cap it follows the monitor up to 240 FPS, using 60 FPS for unknown modes.
    */
   targetFrameRate?: number
 }

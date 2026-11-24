@@ -1092,11 +1092,13 @@ export class QuaEngine {
   }
 
   async setRendererOptions(options: { targetFrameRate?: number }): Promise<void> {
-    this.assertInitialized()
+    this.assertNotDestroyed()
     this.store.commit('setRenderer', options.targetFrameRate != null
       ? { targetFrameRate: Math.round(options.targetFrameRate) }
       : undefined)
-    await this.emitViewUpdate()
+    if (this.isInitialized) {
+      await this.emitViewUpdate()
+    }
   }
 
   getPluginProjection<T = unknown>(pluginId: string): T | undefined {

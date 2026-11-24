@@ -82,6 +82,7 @@ export interface RendererInputControllerOptions {
   wheel?: boolean
   gamepad?: boolean
   focusTracking?: boolean
+  handleGamepadNavigation?: (dispatch: RendererInputCommandDispatch) => boolean
   gamepadPollIntervalMs?: number
   filterInteractiveTargets?: boolean
   preventDefault?: boolean
@@ -152,6 +153,8 @@ const DEFAULT_GAMEPAD_BINDINGS: readonly RendererInputGamepadBinding[] = [
   { source: 'gamepad', button: 1, command: 'ui:cancel' },
   { source: 'gamepad', button: 12, command: 'choice:previous' },
   { source: 'gamepad', button: 13, command: 'choice:next' },
+  { source: 'gamepad', button: 14, command: 'choice:previous' },
+  { source: 'gamepad', button: 15, command: 'choice:next' },
   { source: 'gamepad', button: 5, command: 'fastForward:start', phase: 'press' },
   { source: 'gamepad', button: 5, command: 'fastForward:stop', phase: 'release' },
   { source: 'gamepad', button: 7, command: 'skip:start', phase: 'press' },
@@ -183,11 +186,19 @@ export function createDefaultGamepadInputBindings(): RendererInputGamepadBinding
   return [...DEFAULT_GAMEPAD_BINDINGS]
 }
 
+interface PressedGamepadButton {
+  gamepadIndex: number
+  gamepadId: string
+  button: number
+  suppressed: boolean
+}
+
 class RendererInputControllerImpl implements RendererInputController {
   private readonly win?: Window
   private readonly bindings: RendererInputBinding[]
   private readonly pressedKeys = new Set<string>()
-  private readonly gamepadButtons = new Map<string, boolean>()
+  private readonly gamepadButtons = new Map<string, PressedGamepadButton>()
+  private resumeGamepadPolling = false
   private readonly disposers: Array<() => void> = []
   private dispatchQueue: Promise<void> = Promise.resolve()
   private gamepadTimer?: ReturnType<typeof setInterval>
@@ -233,13 +244,14 @@ class RendererInputControllerImpl implements RendererInputController {
     if (!this.started) {
       return
     }
+    this.releaseGamepadButtons()
     this.started = false
     while (this.disposers.length > 0) {
       this.disposers.pop()?.()
     }
     this.stopGamepadTimer()
     this.pressedKeys.clear()
-    this.gamepadButtons.clear()
+    this.resumeGamepadPolling = false
   }
 
   dispose(): void {
@@ -270,7 +282,17 @@ class RendererInputControllerImpl implements RendererInputController {
       metadata: dispatch.metadata,
     }
     const uiHidden = this.options.getViewState().ui.visible === false
+    if (!uiHidden && dispatch.device === 'gamepad' && this.options.handleGamepadNavigation?.(dispatch))
+      return
     await this.options.actions.inputCommand(payload)
+    if (dispatch.pressed === false && dispatch.command === 'fastForward:stop') {
+      await this.options.actions.stopFastForward(dispatch.source)
+      return
+    }
+    if (dispatch.pressed === false && dispatch.command === 'skip:stop') {
+      await this.options.actions.stopSkip(dispatch.source)
+      return
+    }
     if (uiHidden || this.options.getViewState().ui.visible === false)
       return
     await this.dispatchBuiltInIntent(dispatch.command, dispatch.source, dispatch.metadata)
@@ -361,13 +383,17 @@ class RendererInputControllerImpl implements RendererInputController {
       if (this.win?.document.visibilityState === 'hidden') {
         return
       }
+      if (!this.focused)
+        this.resumeGamepadPolling = true
       this.focused = true
+      if (this.gamepadTimer !== undefined && this.resumeGamepadPolling)
+        this.pollGamepads()
       emitFocus()
     }
     const blur = () => {
       this.focused = false
       this.pressedKeys.clear()
-      this.gamepadButtons.clear()
+      this.releaseGamepadButtons()
       emitBlur()
     }
     const visibilityChange = () => {
@@ -532,7 +558,19 @@ class RendererInputControllerImpl implements RendererInputController {
     if (!this.isEnabled() || !this.focused || !this.win?.navigator.getGamepads) {
       return
     }
-    const pads = Array.from(this.win.navigator.getGamepads()).filter(Boolean) as Gamepad[]
+    let pads: Gamepad[]
+    try {
+      pads = Array.from(this.win.navigator.getGamepads()).filter((pad): pad is Gamepad => !!pad && pad.connected !== false)
+    }
+    catch (error) {
+      if (!(error instanceof DOMException) || error.name !== 'SecurityError')
+        throw error
+      this.releaseGamepadButtons()
+      this.stopGamepadTimer()
+      return
+    }
+    const connected = new Map(pads.map(pad => [pad.index, pad.id]))
+    this.releaseGamepadButtons(held => connected.get(held.gamepadIndex) !== held.gamepadId)
     const gamepadBindings = this.bindings.filter(binding => binding.source === 'gamepad')
     const buttonIndices = [...new Set(gamepadBindings.map(binding => binding.button))]
     for (const gamepad of pads) {
@@ -540,33 +578,46 @@ class RendererInputControllerImpl implements RendererInputController {
         const button = gamepad.buttons[buttonIndex]
         const pressed = Boolean(button?.pressed)
         const key = `${gamepad.index}:${buttonIndex}`
-        const wasPressed = this.gamepadButtons.get(key) === true
-        if (pressed === wasPressed) {
+        const previous = this.gamepadButtons.get(key)
+        if (pressed === Boolean(previous))
           continue
-        }
-        this.gamepadButtons.set(key, pressed)
-        const phase: RendererInputBindingPhase = pressed ? 'press' : 'release'
-        for (const binding of gamepadBindings) {
-          if (binding.button !== buttonIndex) {
-            continue
-          }
-          if ((binding.phase || 'press') !== phase) {
-            continue
-          }
-          this.dispatchCommandFromEvent({
-            command: binding.command,
-            device: 'gamepad',
-            source: `gamepad:${gamepad.index}:button:${buttonIndex}`,
-            pressed,
-            metadata: {
-              gamepadIndex: gamepad.index,
-              gamepadId: gamepad.id,
-              button: buttonIndex,
-              value: button?.value ?? 0,
-            },
-          })
-        }
+        const held = previous ?? { gamepadIndex: gamepad.index, gamepadId: gamepad.id, button: buttonIndex, suppressed: this.resumeGamepadPolling }
+        if (pressed)
+          this.gamepadButtons.set(key, held)
+        else
+          this.gamepadButtons.delete(key)
+        this.dispatchGamepadButton(held, pressed, button?.value ?? 0)
       }
+    }
+    this.resumeGamepadPolling = false
+  }
+
+  private releaseGamepadButtons(disconnected: (held: PressedGamepadButton) => boolean = () => true): void {
+    for (const [key, held] of this.gamepadButtons) {
+      if (!disconnected(held))
+        continue
+      this.gamepadButtons.delete(key)
+      this.dispatchGamepadButton(held, false, 0, true)
+    }
+  }
+
+  private dispatchGamepadButton(held: PressedGamepadButton, pressed: boolean, value: number, cancelled = false): void {
+    if (held.suppressed)
+      return
+    for (const binding of this.bindings) {
+      if (binding.source !== 'gamepad' || binding.button !== held.button || (binding.phase || 'press') !== (pressed ? 'press' : 'release'))
+        continue
+      // Unplugging or switching tabs should end continuous modes without
+      // activating actions the player bound to an ordinary button release.
+      if (cancelled && binding.command !== 'skip:stop' && binding.command !== 'fastForward:stop')
+        continue
+      this.dispatchCommandFromEvent({
+        command: binding.command,
+        device: 'gamepad',
+        source: `gamepad:${held.gamepadIndex}:button:${held.button}`,
+        pressed,
+        metadata: { gamepadIndex: held.gamepadIndex, gamepadId: held.gamepadId, button: held.button, value },
+      })
     }
   }
 

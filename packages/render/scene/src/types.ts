@@ -32,7 +32,7 @@ export interface SceneRendererHostContext {
   getViewState: () => RendererPluginContext['getViewState'] extends () => infer T ? T : never
   getActions: () => RendererActions
   registerAdvanceInterceptor: (interceptor: (source?: string) => boolean | Promise<boolean>) => () => void
-  /** Transient popup keyboard handling before translating keys into game intents. */
+  /** Transient keyboard and controller handling before dispatching game intents. */
   registerKeyInterceptor: (interceptor: (event: SceneHostInputEvent) => boolean | Promise<boolean>) => () => void
   interceptKey: (event: SceneHostInputEvent) => Promise<boolean>
   registerAnimationSync: (sync: SceneRendererAnimationSync) => () => void

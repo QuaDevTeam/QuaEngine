@@ -41,7 +41,10 @@ Renderer entries:
 - Developer settings seed runtime behavior and policy.
 - Player settings are profile-level preferences that can be projected to renderer UI.
 - Player settings are not restored by story save/load.
+- The signed native Demo persists the settings profile through its application-private product storage adapter. Test a visible preference across process termination and a fresh launch, separately from resuming a story slot.
 - Apply hooks must update engine-owned projections or plugin state only.
+
+The built-in `frameRateLimit` defaults to `auto`. Automatic mode clears the engine's projected frame-rate limit. Existing numeric 30, 60 and 120 preferences continue to set an explicit cap. Apply persisted caps during engine initialization so the initial view carries the preference. Publish live changes through the same engine setter. Display measurement belongs to the platform renderer.
 
 ## Register A Scope
 

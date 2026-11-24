@@ -14,8 +14,8 @@ async function flush() {
   for (let i = 0; i < 200; i++) await Promise.resolve()
 }
 
-async function fixture() {
-  const host = createFakeCocosHost()
+async function fixture(bottomInset = 0) {
+  const host = createFakeCocosHost({ safeAreaInsets: { bottom: bottomInset } })
   const pipeline = new Pipeline()
   const view = emptySceneView()
   const root: NativeUiSurfaceNodeProjection = {
@@ -28,7 +28,7 @@ async function fixture() {
     control: { kind: 'select', selectedIndex: 0, parts: { value: 'value' }, options: [30, 60, 120].map(value => ({ label: `${value} 帧`, intent: { event: 'test/select', action: 'select', metadata: { value } } })) },
     children: [{ id: 'value', kind: 'Text', visible: true, bounds: { x: 112, y: 110, width: 260, height: 40 }, text: '30 帧', style: { fontSize: 22, lineHeight: 30, color: '#29453f' } }],
   }
-  view.ui.overlays = { test: { visible: true, surface: { key: 'test', root } } }
+  view.ui.overlays = { test: { visible: true, surface: { key: 'test', safeAreaAnchor: [0.95, 1], root } } }
   const renderer = new QuaSceneRendererController({ host, pipeline, initialView: view, plugins: [createInputSceneRendererPlugin(), createQuiSceneRendererPlugin({ surfaceKeys: ['test'] })] })
   await renderer.start()
   await flush()
@@ -129,6 +129,71 @@ describe('shared scene control interactions', () => {
     expect(selected.mock.calls[0]?.[0].event.payload.value).toBe(60)
     expect(advance).not.toHaveBeenCalled()
     expect([...host.nodesById.values()].filter(node => node.kind === 'select-option')).toHaveLength(0)
+    await renderer.destroy()
+  })
+
+  it('anchors both select hits and popup placement to the effective safe area', async () => {
+    const { host, pipeline, renderer, click } = await fixture(60)
+    const selected = vi.fn()
+    pipeline.on('test/select', selected)
+    await click(150, 70)
+    expect([...host.nodesById.values()].filter(node => node.kind === 'select-option')).toHaveLength(3)
+    await click(150, 185)
+    expect(selected.mock.calls[0]?.[0].event.payload.value).toBe(60)
+    await renderer.destroy()
+  })
+
+  it('routes controller edges to the active surface and restores story confirm after dismissal', async () => {
+    const { host, pipeline, renderer, view } = await fixture()
+    const activated = vi.fn()
+    const selected = vi.fn()
+    const choice = vi.fn()
+    const advance = vi.fn()
+    pipeline.on('test/action', activated)
+    pipeline.on('test/select', selected)
+    pipeline.on(RenderToLogicEvents.USER_CHOICE_SELECT, choice)
+    pipeline.on(RenderToLogicEvents.USER_ADVANCE, advance)
+    const press = async (button: number, repeat = false) => {
+      await host.emitInput({ kind: 'gamepad', phase: 'down', metadata: { button } })
+      if (repeat)
+        await host.emitInput({ kind: 'gamepad', phase: 'down', repeat: true, metadata: { button } })
+      await host.emitInput({ kind: 'gamepad', phase: 'up', metadata: { button } })
+      await flush()
+    }
+    await press(13)
+    await press(15, true)
+    expect(selected).toHaveBeenCalledTimes(1)
+    expect(selected.mock.calls[0]?.[0].event.payload.value).toBe(60)
+    const menuButton = (id: string, x: number, disabled = false) => ({
+      id,
+      kind: 'Button',
+      visible: true,
+      bounds: { x, y: 200, width: 120, height: 48 },
+      accessibility: { disabled },
+      intent: { event: 'test/action', action: id },
+    })
+    renderer.setView({ ...view, choices: [{ id: 'read', text: 'Read', enabled: true }], ui: { ...view.ui, overlays: {
+      ...view.ui.overlays,
+      menu: { visible: true, interactive: true, zIndex: 1000, surface: { key: 'test', root: {
+        id: 'actions',
+        kind: 'Panel',
+        visible: true,
+        bounds: { x: 0, y: 0, width: 1920, height: 1080 },
+        children: [menuButton('disabled', 100, true), menuButton('return', 240), menuButton('other', 380)],
+      } } },
+    } } })
+    await flush()
+    await press(13, true)
+    await press(0, true)
+    expect(activated).toHaveBeenCalledTimes(1)
+    expect(activated.mock.calls[0]?.[0].event.payload.action).toBe('return')
+    expect(choice).not.toHaveBeenCalled()
+    expect(advance).not.toHaveBeenCalled()
+    renderer.setView({ ...view, choices: [{ id: 'read', text: 'Read', enabled: true }] })
+    await flush()
+    await press(0)
+    expect(choice).toHaveBeenCalledTimes(1)
+    expect(advance).not.toHaveBeenCalled()
     await renderer.destroy()
   })
 

@@ -113,4 +113,46 @@ describe('optional QUI DOM projection', () => {
     expect(select.options[0]?.text).toBe('中文')
     surface.dispose()
   })
+  it('preserves each scroll axis until its authored offset changes', () => {
+    const container = document.createElement('div')
+    const surface = createQuiWebSurface({ container, pipeline: new Pipeline(), elementId: 'backlog' })
+    const root = node('history', { kind: 'Scroll', scrollOffsetX: 10, scrollOffsetY: 20 })
+    surface.update(root)
+    const scroll = container.firstElementChild as HTMLElement
+    scroll.scrollLeft = 40
+    scroll.scrollTop = 50
+    surface.update({ ...root, scrollOffsetY: 75 })
+    expect([scroll.scrollLeft, scroll.scrollTop]).toEqual([40, 75])
+    surface.update({ ...root, scrollOffsetX: 0, scrollOffsetY: 75 })
+    expect([scroll.scrollLeft, scroll.scrollTop]).toEqual([0, 75])
+    surface.dispose()
+  })
+
+  it('uses the switch label and disabled state, and ignores keyboard activation bubbling from a child', async () => {
+    const pipeline = new Pipeline()
+    const selected = vi.fn()
+    pipeline.on('ui/intent', selected)
+    const container = document.createElement('div')
+    const surface = createQuiWebSurface({ container, pipeline, elementId: 'settings' })
+    const switchNode = node('sound', {
+      kind: 'Button',
+      control: { kind: 'switch', selectedIndex: 0, parts: { track: '', value: '', thumb: '' }, options: ['Off', 'On'].map(label => ({ label, intent: { event: 'ui/intent', action: label } })) },
+      accessibility: { label: 'Music', disabled: true },
+    })
+    const root = node('row', { intent: { event: 'ui/intent', action: 'row' }, children: [switchNode] })
+    surface.update(root)
+    const control = container.querySelector('button')!
+    expect(control.getAttribute('aria-label')).toBe('Music')
+    expect(control.getAttribute('role')).toBe('switch')
+    expect(control.disabled).toBe(true)
+    control.click()
+    control.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true }))
+    expect(selected).not.toHaveBeenCalled()
+    surface.update({ ...root, children: [{ ...switchNode, accessibility: { label: 'Music' } }] })
+    expect(control.disabled).toBe(false)
+    control.click()
+    await vi.waitFor(() => expect(selected).toHaveBeenCalledTimes(1))
+    expect(selected.mock.calls[0]![0].event.payload.action).toBe('On')
+    surface.dispose()
+  })
 })

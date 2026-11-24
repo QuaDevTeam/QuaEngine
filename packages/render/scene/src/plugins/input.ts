@@ -98,6 +98,8 @@ const DEFAULT_GAMEPAD_BINDINGS: readonly SceneRendererInputGamepadBinding[] = [
   { source: 'gamepad', button: 1, command: 'ui:cancel' },
   { source: 'gamepad', button: 12, command: 'choice:previous' },
   { source: 'gamepad', button: 13, command: 'choice:next' },
+  { source: 'gamepad', button: 14, command: 'choice:previous' },
+  { source: 'gamepad', button: 15, command: 'choice:next' },
   { source: 'gamepad', button: 5, command: 'fastForward:start', phase: 'press' },
   { source: 'gamepad', button: 5, command: 'fastForward:stop', phase: 'release' },
   { source: 'gamepad', button: 7, command: 'skip:start', phase: 'press' },
@@ -270,11 +272,13 @@ class SceneInputController {
     const phase = inputPhase(event.phase)
     const pressed = phase === 'press'
     const wasPressed = this.gamepadButtons.get(button) === true
-    if (pressed === wasPressed && event.repeat !== true)
+    if (pressed === wasPressed)
       return
     this.gamepadButtons.set(button, pressed)
     for (const binding of this.bindings) {
       if (binding.source !== 'gamepad' || binding.button !== button || (binding.phase || 'press') !== phase)
+        continue
+      if (await this.context.scene.interceptKey({ ...event, metadata: { ...event.metadata, button, command: binding.command } }))
         continue
       await this.dispatchCommand({
         command: binding.command,

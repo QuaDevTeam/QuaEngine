@@ -89,6 +89,7 @@ export function createDemoAppSurface(state: DemoAppSurfaceState, layout: Readonl
     zIndex: 10,
     surface: {
       key: DEMO_APP_SURFACE_KEY,
+      ...(state.screen === 'game' ? { safeAreaAnchor: [0.95, 1] } : {}),
       root: projection.root,
     },
   }

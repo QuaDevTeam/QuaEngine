@@ -11,7 +11,7 @@ import { splitTopLevel } from '../../shared/source'
 
 const ATTR_SELECTOR_PATTERN = /\[[A-Z_][\w-]*(?:\s*=\s*(?:"[^"]*"|'[^']*'|[\w-]+))?\]/gi
 const PART_SELECTOR_PATTERN = /([A-Z]\w*)::part\(([A-Za-z_][\w-]*)\)/g
-const PSEUDO_PATTERN = /(?<!:):([A-Z-]+)(?![A-Z-(])/gi
+const PSEUDO_PATTERN = /:([A-Z-]+)(?![A-Z-(])/gi
 
 export function validateSelector(
   rule: NativeQssRule,
@@ -67,6 +67,8 @@ export function validateSelector(
     }
 
     for (const pseudoMatch of selector.matchAll(PSEUDO_PATTERN)) {
+      if (pseudoMatch.index > 0 && selector[pseudoMatch.index - 1] === ':')
+        continue
       if (!(nativeQssPseudoStates as readonly string[]).includes(pseudoMatch[1])) {
         pushUnsupportedSelector(rule, diagnostics, `Pseudo-state :${pseudoMatch[1]} is not supported.`)
       }

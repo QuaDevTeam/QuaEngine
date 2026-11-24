@@ -359,6 +359,7 @@ describe('@quajs/plugin-settings', () => {
         textSpeedCps: 36,
         autoAdvanceDelayMs: 2000,
         skipMode: 'read',
+        frameRateLimit: 'auto',
       }),
     }))
     expect(projection?.scopes[BASE_SETTINGS_SCOPE].schema.properties?.locale).toEqual(expect.objectContaining({
@@ -379,6 +380,25 @@ describe('@quajs/plugin-settings', () => {
       skipMode: 'all',
       timings: expect.objectContaining({ autoAdvanceDelayMs: 2400 }),
     }))
+  })
+
+  it('restores an existing frame rate limit and persists a switch back to automatic cadence', async () => {
+    const storage = createMemorySettingsStorage()
+    await storage.saveProfile({
+      profileId: 'default',
+      revision: 4,
+      updatedAt: 1000,
+      scopes: { [BASE_SETTINGS_SCOPE]: { frameRateLimit: 60 } },
+    })
+    const engine = createEngine()
+    engine.use(new SettingsPlugin({ storage }))
+    await engine.init()
+
+    expect(engine.getViewState().renderer?.targetFrameRate).toBe(60)
+    await updatePlayerSettingsWithEngine(engine, BASE_SETTINGS_SCOPE, { frameRateLimit: 'auto' })
+    expect(engine.getViewState().renderer?.targetFrameRate).toBeUndefined()
+    expect(getSettingsProjection(engine)?.scopes[BASE_SETTINGS_SCOPE].values.frameRateLimit).toBe('auto')
+    expect((await storage.loadProfile('default'))?.scopes[BASE_SETTINGS_SCOPE]?.frameRateLimit).toBe('auto')
   })
 
   it('resolves builtin language from supported locales and system locale', async () => {

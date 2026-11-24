@@ -22,10 +22,9 @@ export interface BasePlayerSettings {
   skipMode: 'read' | 'all'
   confirmBeforeQuit: boolean
   /**
-   * Target render cadence. 30 = battery saver, 60 = default, 120 = high
-   *  refresh rate. Native renderers clamp to the display's actual refresh rate.
+   * Optional render cadence cap. Auto lets the renderer follow its display.
    */
-  frameRateLimit: 30 | 60 | 120
+  frameRateLimit: 'auto' | 30 | 60 | 120
 }
 
 export type BaseDeveloperSettingsInput = Partial<Omit<BaseDeveloperSettings, 'supportedLocales'>> & {
@@ -49,7 +48,7 @@ export const basePlayerSettingsDefaults: BasePlayerSettings = {
   autoAdvanceDelayMs: 2000,
   skipMode: 'read',
   confirmBeforeQuit: true,
-  frameRateLimit: 60,
+  frameRateLimit: 'auto',
 }
 
 export function createBaseSettingsScope(options: BaseSettingsScopeOptions = {}): SettingsScopeContribution<BaseDeveloperSettings, BasePlayerSettings> {
@@ -141,9 +140,9 @@ export function createBaseSettingsScope(options: BaseSettingsScopeOptions = {}):
             default: basePlayerSettingsDefaults.confirmBeforeQuit,
           },
           frameRateLimit: {
-            type: 'number',
+            type: ['string', 'number'],
             title: 'Frame Rate',
-            enum: [30, 60, 120],
+            enum: ['auto', 30, 60, 120],
             default: basePlayerSettingsDefaults.frameRateLimit,
           },
         },
@@ -212,8 +211,9 @@ export function createBaseSettingsScope(options: BaseSettingsScopeOptions = {}):
             group: 'display',
             order: 0,
             options: [
+              { label: 'Follow Display', value: 'auto' },
               { label: '30 FPS (Battery Saver)', value: 30 },
-              { label: '60 FPS (Default)', value: 60 },
+              { label: '60 FPS', value: 60 },
               { label: '120 FPS (High Refresh)', value: 120 },
             ],
           },
@@ -246,10 +246,8 @@ export function createBaseSettingsScope(options: BaseSettingsScopeOptions = {}):
           ),
         },
       })
-      const frameRateLimit = player.frameRateLimit === 30 || player.frameRateLimit === 60 || player.frameRateLimit === 120
-        ? player.frameRateLimit
-        : basePlayerSettingsDefaults.frameRateLimit
-      await engine.setRendererOptions({ targetFrameRate: frameRateLimit })
+      const frameRateLimit = normalizeFrameRateLimit(player.frameRateLimit)
+      await engine.setRendererOptions(frameRateLimit === 'auto' ? {} : { targetFrameRate: frameRateLimit })
     },
   }
 }
@@ -288,11 +286,13 @@ function createBasePlayerSettings(
     textSpeedCps: input.textSpeedCps ?? basePlayerSettingsDefaults.textSpeedCps,
     autoAdvanceDelayMs: input.autoAdvanceDelayMs ?? basePlayerSettingsDefaults.autoAdvanceDelayMs,
     skipMode: input.skipMode === 'all' ? 'all' : input.skipMode === 'read' ? 'read' : basePlayerSettingsDefaults.skipMode,
-    frameRateLimit: input.frameRateLimit === 30 || input.frameRateLimit === 60 || input.frameRateLimit === 120
-      ? input.frameRateLimit
-      : basePlayerSettingsDefaults.frameRateLimit,
+    frameRateLimit: normalizeFrameRateLimit(input.frameRateLimit),
     confirmBeforeQuit: input.confirmBeforeQuit ?? basePlayerSettingsDefaults.confirmBeforeQuit,
   }
+}
+
+function normalizeFrameRateLimit(value: unknown): BasePlayerSettings['frameRateLimit'] {
+  return value === 30 || value === 60 || value === 120 ? value : 'auto'
 }
 
 function normalizeSupportedLocales(

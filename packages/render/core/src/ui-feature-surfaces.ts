@@ -27,6 +27,7 @@ export interface UiFeatureSurfaceOverlay {
   scene?: unknown
   surface: {
     key: string
+    safeAreaAnchor?: readonly [number, number]
     root?: unknown
   }
   contentPackageId?: string
