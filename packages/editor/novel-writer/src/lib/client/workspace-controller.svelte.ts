@@ -104,6 +104,7 @@ export class WorkspaceController {
   artifacts = $state<ArtifactRef[]>([])
   events = $state<WorkflowEvent[]>([])
   selectedArtifactId = $state('')
+  followingWorkflow = $state(true)
   liveContent = $state<StageContentPreview | undefined>(undefined)
 
   projectTitle = $state('')
@@ -261,6 +262,21 @@ export class WorkspaceController {
     if (this.artifactMarkdownEdit !== this.artifactDraftOriginal || this.reviewNote.trim())
       this.artifactDrafts.set(this.artifactDraftKey, { markdown: this.artifactMarkdownEdit, original: this.artifactDraftOriginal, note: this.reviewNote })
     else this.artifactDrafts.delete(this.artifactDraftKey)
+  }
+
+  selectArtifact = (id: string) => {
+    this.followingWorkflow = false
+    this.selectedArtifactId = id
+    this.syncSelectedArtifactDraft()
+  }
+
+  private reconcileArtifactSelection(preferredId: string) {
+    if (!this.followingWorkflow && this.artifacts.some(artifact => artifact.id === this.selectedArtifactId)) return
+    this.followingWorkflow = true
+    this.selectedArtifactId = this.artifacts.some(artifact => artifact.id === preferredId)
+      ? preferredId
+      : this.artifacts.at(-1)?.id || ''
+    this.syncSelectedArtifactDraft()
   }
 
   syncSelectedArtifactDraft = () => {
@@ -612,6 +628,7 @@ export class WorkspaceController {
       errorTitle?: string
     } = {},
   ) => {
+    if (this.selectedProjectId === projectId) this.followingWorkflow = true
     this.running = true
     this.markProjectRunning(projectId, mode)
     try {
@@ -691,6 +708,7 @@ export class WorkspaceController {
     }
 
     this.pendingApprovalAction = action
+    if (action !== 'manual_edit') this.followingWorkflow = true
     const projectId = this.selectedProjectId
     const submittedMarkdown = this.artifactMarkdownEdit
     const submittedNote = this.reviewNote
@@ -717,9 +735,7 @@ export class WorkspaceController {
       this.artifacts = result.artifacts
       this.events = result.events
       this.plannerMessages = buildPlannerMessages(this.events)
-      this.selectedArtifactId = this.artifacts.some(artifact => artifact.id === artifactId)
-        ? artifactId
-        : this.artifacts.at(-1)?.id || ''
+      this.reconcileArtifactSelection(artifactId)
       if (result.project.status !== 'running') {
         this.liveContent = undefined
       }
@@ -822,6 +838,7 @@ export class WorkspaceController {
       this.events = result.events
       this.plannerMessages = []
       this.selectedArtifactId = ''
+      this.followingWorkflow = true
       this.artifactDraftKey = ''
       this.artifactMarkdownEdit = ''
       this.artifactEditArtifactId = ''
@@ -860,7 +877,6 @@ export class WorkspaceController {
 
   private async loadProject(projectId: string, preserveArtifactSelection: boolean, preferredArtifactId = '') {
     ++this.loadGeneration
-    const previousArtifactId = this.selectedArtifactId
     if (this.selectedProjectId !== projectId) {
       this.clearSelectedProject()
       this.selectedProjectId = projectId
@@ -877,11 +893,7 @@ export class WorkspaceController {
     this.events = payload.events
     this.plannerMessages = buildPlannerMessages(this.events)
     this.liveContent = undefined
-    this.selectedArtifactId = preferredArtifactId && this.artifacts.some(artifact => artifact.id === preferredArtifactId)
-      ? preferredArtifactId
-      : preserveArtifactSelection && this.artifacts.some(artifact => artifact.id === previousArtifactId)
-        ? previousArtifactId
-        : this.artifacts.at(-1)?.id || ''
+    this.reconcileArtifactSelection(preferredArtifactId || (preserveArtifactSelection ? this.selectedArtifactId : ''))
     return true
   }
 
@@ -1146,6 +1158,7 @@ export class WorkspaceController {
     this.plannerInput = ''
     this.otherPlannerDraftsDirty = [...this.plannerDrafts.values()].some(draft => Boolean(draft.trim()))
     this.selectedProjectId = ''
+    this.followingWorkflow = true
     this.selectedProject = undefined
     this.artifacts = []
     this.events = []

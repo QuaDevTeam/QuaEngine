@@ -6,6 +6,14 @@
   "description": "QuaEngine editor AI writing plugin and local agent service.",
   "author": "QuaDevTeam",
   "license": "MPL-2.0",
+  "files": [
+    "agent-instructions",
+    "build",
+    "desktop",
+    "dist",
+    "LICENSE",
+    "NOTICE"
+  ],
   "exports": {
     "./handler": "./build/handler.js",
     "./desktop": "./desktop/server.mjs",

@@ -71,6 +71,7 @@
       artifacts={workspace.artifacts}
       selectedArtifact={workspace.selectedArtifact}
       selectedArtifactId={workspace.selectedArtifactId}
+      viewingLive={workspace.followingWorkflow}
       liveContent={workspace.liveContent}
       progress={workspace.progress}
       stageTimeline={workspace.stageTimeline}
@@ -87,7 +88,8 @@
           return workspace.resetProject(workspace.selectedProjectId)
         }
       }}
-      onSelectArtifact={(artifactId) => workspace.selectedArtifactId = artifactId}
+      onSelectArtifact={workspace.selectArtifact}
+      onSelectLive={() => workspace.followingWorkflow = true}
       onSubmitApproval={workspace.submitApproval}
     />
 

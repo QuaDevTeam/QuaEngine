@@ -83,3 +83,122 @@ html:has(.desktop-shell) .nw-button-default {
 .desktop-shell .run-actions {
   flex-wrap: wrap;
 }
+
+.desktop-shell .viewer-head,
+.desktop-shell .viewer-actions {
+  flex-wrap: wrap;
+}
+
+.desktop-shell .viewer-actions .segmented button {
+  white-space: nowrap;
+}
+
+/* A docked project list becomes a strip before the manuscript loses room. */
+@media (max-width: 960px) {
+  .desktop-shell {
+    grid-template-columns: minmax(0, 1fr);
+    height: 100dvh;
+    min-height: 0;
+  }
+
+  .desktop-shell .workspace {
+    grid-template-columns: minmax(0, 1fr) 248px;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .desktop-shell .project-sidebar {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 4px 10px;
+    height: auto;
+    max-height: none;
+    padding: 4px 12px;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .desktop-shell .sidebar-header,
+  .desktop-shell .trash-header {
+    padding: 0;
+    gap: 6px;
+  }
+
+  .desktop-shell .project-list,
+  .desktop-shell .trash-list {
+    flex-direction: row;
+    align-items: center;
+    padding: 2px;
+  }
+
+  .desktop-shell .project-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex: none;
+    width: auto;
+    max-width: 100%;
+    padding: 4px 8px;
+  }
+
+  .desktop-shell .project-item-meta {
+    flex: none;
+    margin: 0;
+  }
+
+  .desktop-shell .project-item-meta .small {
+    display: none;
+  }
+
+  .desktop-shell .trash-section {
+    display: contents;
+  }
+
+  .desktop-shell .trash-list {
+    grid-column: 1 / -1;
+    border-top: 1px solid var(--border);
+  }
+
+  .desktop-shell .workspace:has(.main-inner > .empty-state:only-child) .project-list > .project-empty,
+  .desktop-shell .project-empty {
+    position: static;
+    transform: none;
+    padding: 2px 4px;
+  }
+
+  .desktop-shell .main-scroll {
+    padding: 12px;
+  }
+
+  .desktop-shell .inspector-tabs {
+    padding: 0 3px;
+  }
+
+  .desktop-shell .inspector-tab {
+    gap: 4px;
+    padding-inline: 3px;
+  }
+}
+
+@media (max-width: 649px) {
+  .desktop-shell .workspace {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 2fr) minmax(0, 1fr);
+  }
+
+  .desktop-shell .inspector {
+    border-left: 0;
+    border-top: 1px solid var(--border);
+  }
+
+  .desktop-shell .chat-composer .chat-composer-textarea {
+    min-height: 32px;
+  }
+
+  .desktop-shell .inspector-empty {
+    padding: 6px 12px;
+    overflow: auto;
+    justify-content: safe center;
+  }
+}

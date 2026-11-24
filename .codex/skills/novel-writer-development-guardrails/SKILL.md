@@ -106,6 +106,7 @@ description: Guardrails for developing packages/editor/novel-writer, the SvelteK
 
 ## Integration review regression gates
 
+- At narrow Electron dock widths, keep project selection and trash in a compact strip, and keep the manuscript and inspector independently scrollable. Check the actual manuscript title width, both view buttons' single-line labels and hit targets, keyboard editing, visible inspector tabs, and screenshots at side-by-side and stacked widths in `novel-writer-smoke.mjs`.
 - Preserve the pairing of manuscript, source snapshot and task across task/root switches. Delayed reads must never replace another task or its event stream; preserve inactive artifact and integration drafts in the dirty guard.
 - JSON snapshots use atomic replacement; JSONL reads/appends are serialized. Track planner requests and review writes alongside workflow jobs for close, shutdown and conflicting task operations.
 - Chapter regeneration retains chapter identity; revision invalidates dependent checkpoints without erasing unrelated chapter progress. Input revision must use the same chapter loop as normal generation before marking completion.

@@ -47,9 +47,10 @@
     <div class="row viewer-actions">
       {#if onWriteProject}<Button size="sm" variant="secondary" onclick={onWriteProject}><FileOutput size={14} />写入项目</Button>{/if}
       <Badge tone={artifactStatus.tone} dot>{artifactStatus.label}</Badge>
-      <div class="segmented" role="tablist">
+      <div class="segmented" role="group" aria-label="稿件视图">
         <button
           class:active={viewMode === 'preview'}
+          aria-pressed={viewMode === 'preview'}
           type="button"
           onclick={() => (viewMode = 'preview')}
         >
@@ -57,6 +58,7 @@
         </button>
         <button
           class:active={viewMode === 'edit'}
+          aria-pressed={viewMode === 'edit'}
           type="button"
           onclick={() => (viewMode = 'edit')}
         >
@@ -68,7 +70,7 @@
 
   <div class="viewer-body">
     {#if viewMode === 'edit'}
-      <textarea class="editor-textarea" bind:value={artifactMarkdownEdit}></textarea>
+      <textarea class="editor-textarea" aria-label="稿件源文" bind:value={artifactMarkdownEdit}></textarea>
     {:else}
       <MarkdownPreview markdown={artifactMarkdownEdit} />
     {/if}

@@ -18,6 +18,7 @@
   export let artifacts: ArtifactRef[]
   export let selectedArtifact: ArtifactRef | undefined
   export let selectedArtifactId = ''
+  export let viewingLive = true
   export let liveContent: StageContentPreview | undefined
   export let progress: number
   export let stageTimeline: StageTimelineItem[]
@@ -31,12 +32,10 @@
   export let onExportProject: () => void | Promise<void>
   export let onResetProject: () => void | Promise<void>
   export let onSelectArtifact: (artifactId: string) => void
+  export let onSelectLive: () => void
   export let onSubmitApproval: (action: ApprovalAction) => void | Promise<void>
 
   let selectedChapterIndex: number | null = null
-  let viewingLive = true
-
-  $: if (liveContent) viewingLive = true
 
   $: outlineArtifact = artifacts.find(a => a.stage === 'outline')
   $: outlineChapters = outlineArtifact ? extractOutlineChapters(outlineArtifact.markdown) : []
@@ -44,11 +43,6 @@
   $: awaitingApproval = selectedProject?.status === 'awaiting_review' && selectedArtifact?.status === 'needs_review'
   $: approving = pendingApprovalAction === 'approve'
   $: showChapterNav = selectedProject?.currentStage === 'scene_writing' && outlineChapters.length > 0
-
-  function handleSelectArtifact(artifactId: string) {
-    viewingLive = false
-    onSelectArtifact(artifactId)
-  }
 
   function handleRunChapter(chapterIndex: number) {
     selectedChapterIndex = chapterIndex
@@ -80,8 +74,8 @@
             items={stageTimeline}
             {selectedArtifactId}
             {viewingLive}
-            onSelectArtifact={handleSelectArtifact}
-            onSelectLive={() => (viewingLive = true)}
+            {onSelectArtifact}
+            {onSelectLive}
           />
         </section>
 
@@ -106,7 +100,7 @@
             bind:artifactMarkdownEdit
             bind:reviewNote
             {pendingApprovalAction}
-            onSelectArtifact={handleSelectArtifact}
+            {onSelectArtifact}
             {onSubmitApproval}
           />
         {:else if !liveContent}
