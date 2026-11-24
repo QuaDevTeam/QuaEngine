@@ -11,8 +11,9 @@ import { mkdir, readFile, stat } from 'node:fs/promises'
 import { basename, dirname, isAbsolute, join } from 'node:path'
 import { createLogger } from '@quajs/logger'
 import { isValidSemverVersion } from '@quajs/utils'
-import { QPKBundler } from '../bundlers/qpk-bundler'
+import { getQpkAssetPath, QPKBundler } from '../bundlers/qpk-bundler'
 import { ZipBundler } from '../bundlers/zip-bundler'
+import { readQpkEntries, readQpkSummary } from '../qpk-reader'
 import { getErrorMessage } from '../utils/error'
 import { VersionManager } from './versioning'
 
@@ -153,7 +154,7 @@ export class PatchGenerator {
           size: assetInfo.size,
           hash: assetInfo.hash,
           version: assetInfo.version,
-          type: this.inferAssetType(diff.path),
+          type: assetInfo.qpkAssetType ?? this.inferAssetType(diff.path),
           locales: ['default'], // Will be properly detected later
           mtime: assetInfo.mtime,
         }
@@ -162,6 +163,18 @@ export class PatchGenerator {
       }
     }
 
+    const published = new Map(patchAssets.filter(asset => toBuildLog.assets[asset.relativePath]?.qpkAssetType)
+      .map(asset => [getQpkAssetPath(asset), asset]))
+    if (published.size) {
+      const summary = await readQpkSummary(toBuildLog.bundlePath)
+      const entries = await readQpkEntries(toBuildLog.bundlePath, summary.assets.filter(entry => published.has(entry.path)))
+      for (const [path, asset] of published) {
+        const content = entries.get(path)
+        if (!content || createHash('sha256').update(content).digest('hex') !== asset.hash)
+          throw new Error(`QPK entry does not match the target build log: ${path}`)
+        asset.content = content
+      }
+    }
     return patchAssets
   }
 

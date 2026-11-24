@@ -1108,7 +1108,7 @@ project
   .option('-t, --target <target>', 'Target platform to build (web, native, cocos, godot, unity)', 'cocos')
   .option('--embedded', 'Export an embeddable module with the versioned host protocol')
   .option('--output <path>', 'Owned embedded module output directory')
-  .option('--platform <platform>', 'Specific Cocos platform to build')
+  .option('--platform <platform>', 'Cocos platform or native distribution (macos, windows, linux, ios, ios-simulator, android)')
   .option('--result-file <path>', 'Write the production result as JSON')
   .option('--progress-fd <fd>', 'Stream structured production progress to inherited descriptor 3')
   .option('-b, --bundle <name>', 'Build specific workspace bundle')
@@ -1142,15 +1142,15 @@ project
       if (options.target === 'web' || options.target === 'native') {
         if (options.progressFd !== undefined && options.progressFd !== '3')
           throw new Error('Production progress must use inherited descriptor 3.')
-        if (options.platform && (options.target !== 'native' || options.platform !== 'macos'))
-          throw new Error('Production native application packaging supports the macOS host only.')
+        if (options.platform && (options.target !== 'native' || !['macos', 'windows', 'linux', 'ios', 'ios-simulator', 'android'].includes(options.platform)))
+          throw new Error('Native packaging supports macos, windows, linux, ios, ios-simulator and android.')
         const { projectRoot } = await loadProjectConfigForCli({ config: options.config })
         const controller = new AbortController()
         const abort = () => controller.abort()
         process.once('SIGTERM', abort)
         process.once('SIGINT', abort)
         try {
-          const result = await buildQuaProjectProduction({ cwd: projectRoot, configPath: options.config, target: options.target, signal: controller.signal, onLog: text => process.stdout.write(text), onProgress: options.progressFd ? event => writeSync(3, `${JSON.stringify(event)}\n`) : undefined })
+          const result = await buildQuaProjectProduction({ cwd: projectRoot, configPath: options.config, target: options.target, platform: options.platform, signal: controller.signal, onLog: text => process.stdout.write(text), onProgress: options.progressFd ? event => writeSync(3, `${JSON.stringify(event)}\n`) : undefined })
           if (options.resultFile) {
             const { writeFile } = await import('node:fs/promises')
             await writeFile(resolve(options.resultFile), JSON.stringify(result))

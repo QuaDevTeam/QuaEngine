@@ -299,6 +299,14 @@ export class QuackBundler extends EventEmitter {
       assets = this.versionManager.assignAssetVersions(assets, 1)
       assets = await this.processAssetsForBundle(assets)
 
+      const textureOptions = normalizedConfig.assetTarget?.nativeTextures
+      if (textureOptions) {
+        if (normalizedConfig.assetTarget?.platform !== 'native' || normalizedConfig.format !== 'qpk')
+          throw new Error('nativeTextures requires a native QPK asset target.')
+        const { buildNativeTextureVariants } = await import('../assets/native-textures')
+        assets = await buildNativeTextureVariants(assets, textureOptions)
+      }
+
       const locales = this.assetDetector.getLocalesFromAssets(assets)
       const { tree, root } = this.versionManager.createMerkleTree(assets)
       const manifest = this.metadataGenerator.generateManifest(assets, options.manifestName, {
@@ -384,6 +392,7 @@ export class QuackBundler extends EventEmitter {
           assets.map(asset => [asset.relativePath, {
             hash: asset.hash,
             path: asset.path,
+            qpkAssetType: textureOptions ? asset.type : undefined,
             size: asset.size,
             version: asset.version || 1,
             mtime: asset.mtime || Date.now(),
@@ -976,6 +985,7 @@ function createAssetTargetManifest(target: AssetBundleTarget): AssetBundleTarget
     suffix: target.suffix,
     description: target.description,
     browserCondition: target.browserCondition,
+    nativeTextureFormat: target.nativeTextures?.format === 'auto' ? undefined : target.nativeTextures?.format,
     formats: {
       images: target.pipeline?.images ? target.pipeline.images.format ?? 'webp' : undefined,
       characters: target.pipeline?.characters ? target.pipeline.characters.format ?? 'webp' : undefined,

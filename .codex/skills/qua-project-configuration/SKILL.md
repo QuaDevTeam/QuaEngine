@@ -101,7 +101,7 @@ Also run affected `typecheck` and `build` commands. If `@quajs/renderer-web type
 
 ## Production builds
 
-`targets.native.build` accepts `cargoManifest`, `cargoPackage`, `viteConfig`, `appAsset`, `workspaceConfig` and `cargoFeatures`, plus library-only `embeddedEntry` and `embeddedViteConfig`. Release packaging requires native-window and javascriptcore. `targets.native.distribution.macos` contains `minimumSystemVersion`, `signing: { mode: adhoc | developer-id, identity?, entitlements? }` and `notarization: { enabled, keychainProfile? }`. Enabled notarization requires Developer ID signing and a Keychain profile; never store secrets in the manifest. `name` is the OS window/application display name, with `(Dev)` only in development. See `packages/build/quack/docs/production-build.md` for the full example, host-only macOS scope, numeric Apple version fields, output immutability and validation. The editor and CLI use the same `buildQuaProjectProduction` pipeline.
+`targets.native.build` accepts `cargoManifest`, `cargoPackage`, `viteConfig`, `appAsset`, `workspaceConfig` and `cargoFeatures`, plus library-only `embeddedEntry` and `embeddedViteConfig`. Release packaging requires native-window and javascriptcore. `targets.native.distribution.macos` contains `minimumSystemVersion`, `signing: { mode: adhoc | developer-id, identity?, entitlements? }` and `notarization: { enabled, keychainProfile? }`. Enabled notarization requires Developer ID signing and a Keychain profile; never store secrets in the manifest. `name` is the OS window/application display name, with `(Dev)` only in development. See `packages/build/quack/docs/production-build.md` for the full example, macOS, iOS and Android distribution scope, numeric Apple version fields, output immutability and validation. The editor and CLI use the same `buildQuaProjectProduction` pipeline.
 
 For the demo Cocos surface review, reuse the full-story browser profiles and origins (ports 46181/46182; IndexedDB is origin-scoped) so chapter unlock state matches the native profile. Locked and unlocked chapter titles have intentionally different shared geometry; mixed profile data is not a valid same-state layout comparison. Preserve a failed report when correcting the test setup.
 
@@ -117,3 +117,10 @@ Creator 3.8.8 CLI 构建使用每次独立的临时工作区导入副本，避�
 ## Embedded module delivery
 
 Embedded Web config adds targets.web.build.embeddedEntry, embeddedOrigins (exact HTTP(S) allowlist), optional embeddedViteConfig; Native library factories use targets.native.build.embeddedEntry with cargoManifest; Scene target factories use build.entry and receive services.embedding. CLI --embedded emits modules into dedicated owned directories. Never redirect it into authoring projects. Keep docs, package exports, target-isolation and consumer tests aligned.
+
+
+Native application platform values include `ios` and `android`. The production CLI selects them with `--target native --platform ios|ios-simulator|android`. The ios-simulator build consumes the ios platform plan, writes a separate simulator output, and uses the simulator Rust ABI. Device archives and APKs require platform signing for installation. Keep target selection in the native resolver and use the same verified QPK/manifest path for mobile and desktop. See `packages/build/quack/docs/production-build.md` for toolchains and signing.
+
+`targets.native.distribution.desktopTextures` overrides native texture settings for desktop release plans. Debug, ordinary workspace bundles and mobile plans retain the base settings.
+
+`targets.native.assetTarget.nativeTextures.format: auto` follows the selected artifact platform. Resolve to ASTC on macOS, iOS and Android and BC7 on Windows and Linux. The optional `paths` list scopes conversion to particular assets. Use the same resolution in production, project asset builds and macOS embedded modules.

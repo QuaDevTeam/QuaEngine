@@ -3,7 +3,6 @@ import { createWriteStream } from 'node:fs'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { createLogger } from '@quajs/logger'
-import * as lzma from 'lzma-native'
 import { EncryptionManager } from '../crypto/encryption'
 import { readQpkBundle } from '../qpk-reader'
 import { verifyQpkFile } from '../security/signature'
@@ -174,7 +173,7 @@ export class QPKBundler {
     // Data length: uint32 (4 bytes)
     // Data: bytes (variable)
 
-    const pathBuffer = Buffer.from(this.getAssetPath(asset), 'utf8')
+    const pathBuffer = Buffer.from(getQpkAssetPath(asset), 'utf8')
     const pathLength = Buffer.alloc(4)
     pathLength.writeUInt32LE(pathBuffer.length, 0)
 
@@ -286,28 +285,10 @@ export class QPKBundler {
   }
 
   /**
-   * Get asset path in QPK
-   */
-  private getAssetPath(asset: AssetInfo): string {
-    // Similar to ZIP bundler but with forward slashes
-    const basePath = `assets/${asset.type}`
-
-    if (asset.type === 'characters') {
-      return `${basePath}/${asset.relativePath.replace(/^characters\//, '')}`
-    }
-
-    let relativePath = asset.relativePath
-    if (relativePath.startsWith(`${asset.type}/`)) {
-      relativePath = relativePath.substring(asset.type.length + 1)
-    }
-
-    return `${basePath}/${relativePath}`
-  }
-
-  /**
    * Compress buffer using LZMA
    */
   private async compressBuffer(buffer: Buffer): Promise<Buffer> {
+    const lzma = await import('lzma-native')
     const result = await lzma.compress(buffer, { preset: 6 })
     return Buffer.from(result)
   }
@@ -391,6 +372,11 @@ export class QPKBundler {
   async verifyBundle(qpkPath: string): Promise<{ valid: boolean, errors: string[] }> {
     return await verifyQpkFile(qpkPath)
   }
+}
+
+export function getQpkAssetPath(asset: Pick<AssetInfo, 'type' | 'relativePath'>): string {
+  const prefix = `${asset.type}/`
+  return `assets/${asset.relativePath.startsWith(prefix) ? asset.relativePath : prefix + asset.relativePath}`
 }
 
 async function readAssetBuffer(asset: AssetInfo): Promise<Buffer> {

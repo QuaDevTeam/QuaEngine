@@ -57,6 +57,63 @@ describe('qua project config', () => {
     await Promise.all(tempDirs.splice(0).map(dir => rm(dir, { recursive: true, force: true })))
   })
 
+  it('selects GPU texture encodings from the native artifact platform', () => {
+    const project = normalizeQuaProjectConfig({
+      ...createProjectConfig(),
+      targets: { native: { enabled: true, platforms: ['windows', 'macos', 'ios', 'android', 'linux'], assetTarget: { name: 'vn', nativeTextures: { format: 'auto' } } } },
+    })
+    const targets = createQuaProjectAssetTargets(project).filter(target => target.platform === 'native')
+    expect(Object.fromEntries(targets.map(target => [target.name, target.nativeTextures?.format]))).toEqual({
+      'vn-android': 'astc',
+      'vn-ios': 'astc',
+      'vn-linux': 'bc7',
+      'vn-macos': 'astc',
+      'vn-windows': 'bc7',
+    })
+    for (const plan of createQuaProjectNativeArtifactPlans(project))
+      expect(plan.assetTarget?.nativeTextures?.format).toBe(targets.find(target => target.name === `vn-${plan.platform}`)?.nativeTextures?.format)
+  })
+
+  it('adds platform-specific textures only to desktop release artifacts', () => {
+    const paths = ['images/backgrounds']
+    const project = normalizeQuaProjectConfig({
+      ...createProjectConfig(),
+      targets: {
+        native: {
+          platforms: ['macos', 'windows', 'linux', 'ios', 'android'],
+          profiles: ['debug', 'release'],
+          distribution: { desktopTextures: { format: 'auto', paths } },
+        },
+      },
+    })
+    expect(createQuaProjectAssetTargets(project).every(target => !target.nativeTextures)).toBe(true)
+    for (const plan of createQuaProjectNativeArtifactPlans(project)) {
+      const format = { macos: 'astc', windows: 'bc7', linux: 'bc7', ios: undefined, android: undefined }[plan.platform]
+      expect(plan.assetTarget?.nativeTextures).toEqual(plan.profile === 'release' && format ? { format, paths } : undefined)
+    }
+  })
+
+  it('inherits the common encoder and image selection when a desktop build overrides the format', () => {
+    const project = normalizeQuaProjectConfig({
+      ...createProjectConfig(),
+      targets: {
+        native: {
+          platforms: ['macos'],
+          profiles: ['debug', 'release'],
+          assetTarget: { name: 'art', nativeTextures: { format: 'astc', ktx: '/tools/ktx', paths: ['images/cg'] } },
+          distribution: { desktopTextures: { format: 'bc7' } },
+        },
+      },
+    })
+    for (const plan of createQuaProjectNativeArtifactPlans(project)) {
+      expect(plan.assetTarget?.nativeTextures).toEqual({
+        format: plan.profile === 'release' ? 'bc7' : 'astc',
+        ktx: '/tools/ktx',
+        paths: ['images/cg'],
+      })
+    }
+  })
+
   it('loads YAML and normalizes package-version and Web defaults', async () => {
     const root = await createProjectRoot()
     await writeFile(join(root, 'package.json'), JSON.stringify({ version: '2.3.4' }), 'utf8')
@@ -968,11 +1025,16 @@ describe('qua project config', () => {
   })
 
   it('validates native target platforms and profiles', () => {
+    const mobile = normalizeQuaProjectConfig({
+      ...createProjectConfig(),
+      targets: { native: { platforms: ['ios', 'android'], profiles: ['release'] } },
+    })
+    expect(createQuaProjectNativeArtifactPlans(mobile).map(plan => plan.platform)).toEqual(['ios', 'android'])
     expect(() => normalizeQuaProjectConfig({
       ...createProjectConfig(),
       targets: {
         native: {
-          platforms: ['ios'],
+          platforms: ['unknown'],
           profiles: ['staging'],
         },
       },

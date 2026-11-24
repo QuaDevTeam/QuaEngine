@@ -24,7 +24,7 @@ export class ProjectBuild {
     const controller = new AbortController()
     this.controller = controller
     const startedAt = Date.now()
-    const steps = createEditorBuildSteps(target)
+    const steps = createEditorBuildSteps(target, process.platform === 'darwin')
     steps[0] = { ...steps[0], phase: 'running', startedAt }
     this.state = { root, target, phase: 'building', message: '正在检查项目…', log: '', steps, startedAt }
     this.emit()

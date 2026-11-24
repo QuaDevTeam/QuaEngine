@@ -1,3 +1,14 @@
+import type { AssetBundleTarget } from './core/types'
+import type { QuaProjectNativePlatform } from './project'
+
+/** Resolve against the artifact OS, including cross-built mobile targets. */
+export function nativeAssetTargetForPlatform(target: AssetBundleTarget | undefined, platform: QuaProjectNativePlatform) {
+  if (target?.nativeTextures?.format !== 'auto')
+    return target
+  const format = platform === 'windows' || platform === 'linux' ? 'bc7' : 'astc'
+  return { ...target, nativeTextures: { ...target.nativeTextures, format } } satisfies AssetBundleTarget
+}
+
 export const QUA_NATIVE_JSC_CARGO_FEATURE = 'javascriptcore'
 
 export interface QuaProjectNativeBuildConfig extends Record<string, unknown> {

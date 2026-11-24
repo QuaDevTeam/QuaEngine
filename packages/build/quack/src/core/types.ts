@@ -394,6 +394,7 @@ export interface AssetPipelineOptions {
 }
 
 export interface AssetBundleTargetManifest {
+  nativeTextureFormat?: 'astc' | 'bc7'
   name: string
   platform?: 'web' | 'cocos' | 'native' | 'godot' | 'unity' | (string & {})
   displayName?: string
@@ -453,7 +454,16 @@ export interface CocosAssetTargetMetadata extends Omit<CocosAssetTargetManifestM
   hybrid?: CocosHybridAssetConfig | CocosHybridAssetManifest
 }
 
+export interface NativeTextureOptions {
+  format: 'auto' | 'astc' | 'bc7'
+  /** Asset paths or directory prefixes relative to the source root. */
+  paths?: string[]
+  /** Khronos KTX-Software CLI (4.4 or later). */
+  ktx?: string
+}
+
 export interface AssetBundleTarget {
+  nativeTextures?: NativeTextureOptions
   name: string
   platform?: 'web' | 'cocos' | 'native' | 'godot' | 'unity' | (string & {})
   displayName?: string
@@ -497,6 +507,8 @@ export interface BuildLog {
   assets: Record<string, {
     hash: string
     path?: string
+    /** Read the published bytes from this QPK domain when assembling patches. */
+    qpkAssetType?: AssetType
     size: number
     version: number
     mtime: number

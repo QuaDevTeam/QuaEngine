@@ -12,6 +12,7 @@ import { basename, dirname, extname, isAbsolute, join, relative, resolve } from 
 import { parse as parseYaml } from 'yaml'
 import { normalizeGodotTarget } from './project-godot-config'
 import {
+  nativeAssetTargetForPlatform,
   normalizeQuaProjectNativeBuildConfig,
 
 } from './project-native-build'
@@ -74,7 +75,8 @@ export type QuaProjectConfigFileName = typeof QUA_PROJECT_CONFIG_CANDIDATES[numb
 export type QuaProjectDeviceClass = 'desktop' | 'pad' | 'phone'
 export type QuaProjectLayoutInput = 'landscape' | 'portrait' | (Record<string, unknown> & { preset?: 'landscape' | 'portrait' })
 export type QuaProjectWebServiceWorkerMode = 'generated' | 'none' | (string & {})
-export type QuaProjectNativePlatform = 'macos' | 'windows' | 'linux'
+const nativePlatforms = ['macos', 'windows', 'linux', 'ios', 'android'] as const
+export type QuaProjectNativePlatform = typeof nativePlatforms[number]
 export type QuaProjectNativeProfile = 'debug' | 'release'
 
 export interface QuaProjectHomeConfig {
@@ -576,25 +578,17 @@ export function createQuaProjectAssetTargets(project: NormalizedQuaProjectConfig
   }
   const native = project.targets.native
   if (native?.enabled) {
-    const configuredName = native.assetTarget?.name
-    const configuredSuffix = native.assetTarget?.suffix
-    const hasMultiplePlatforms = native.platforms.length > 1
-    for (const platform of native.platforms) {
-      const name = configuredName
-        ? hasMultiplePlatforms ? `${configuredName}-${platform}` : configuredName
-        : `native-${platform}`
-      const suffix = configuredSuffix
-        ? hasMultiplePlatforms ? `${configuredSuffix}-${platform}` : configuredSuffix
-        : name
-      targets.push({
-        ...(native.assetTarget || {}),
-        name,
-        platform: native.assetTarget?.platform || 'native',
-        suffix,
-      })
-    }
+    for (const platform of native.platforms)
+      targets.push(createQuaProjectNativeAssetTarget(native, platform))
   }
   return targets
+}
+
+export function createQuaProjectNativeAssetTarget(native: NormalizedQuaProjectNativeTarget, platform: QuaProjectNativePlatform): AssetBundleTarget {
+  const configured = nativeAssetTargetForPlatform(native.assetTarget, platform)
+  const platformSuffix = native.platforms.length > 1 ? `-${platform}` : ''
+  const name = configured?.name ? configured.name + platformSuffix : `native-${platform}`
+  return { ...configured, name, platform: 'native', suffix: configured?.suffix ? configured.suffix + platformSuffix : name }
 }
 
 export function mergeQuaProjectAssetTargets(
@@ -1145,12 +1139,12 @@ function normalizeNativeTarget(
 
 function normalizeNativePlatforms(value: unknown, issues: string[]): QuaProjectNativePlatform[] {
   const rawPlatforms = Array.isArray(value) ? value.filter((platform): platform is string => typeof platform === 'string') : []
-  const platforms = rawPlatforms.filter((platform): platform is QuaProjectNativePlatform =>
-    platform === 'macos' || platform === 'windows' || platform === 'linux')
+  const supported: readonly string[] = nativePlatforms
+  const platforms = rawPlatforms.filter((platform): platform is QuaProjectNativePlatform => supported.includes(platform))
   if (platforms.length === 0) {
-    issues.push('targets.native.platforms must include at least one of macos, windows, or linux when native is enabled.')
+    issues.push('targets.native.platforms must include at least one of macos, windows, linux, ios, or android when native is enabled.')
   }
-  const invalid = rawPlatforms.filter(platform => platform !== 'macos' && platform !== 'windows' && platform !== 'linux')
+  const invalid = rawPlatforms.filter(platform => !supported.includes(platform))
   if (invalid.length > 0) {
     issues.push(`targets.native.platforms contains unsupported platform(s): ${[...new Set(invalid)].join(', ')}.`)
   }

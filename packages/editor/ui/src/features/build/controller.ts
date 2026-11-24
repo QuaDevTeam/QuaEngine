@@ -6,7 +6,8 @@ import './styles.scss'
 
 export class ProductionBuild {
   private readonly dialog = element<HTMLDialogElement>(html`<dialog class="production-build" aria-labelledby="production-build-title"></dialog>`)
-  private readonly target = select([{ value: 'web', title: 'Web 网站' }, { value: 'native', title: 'macOS 应用' }])
+  private readonly target = select([{ value: 'web', title: 'Web 网站' }, { value: 'native', title: '本机桌面应用' }])
+  private appleSigning = false
   private state?: EditorBuildState
   private pending = false
   private cancelling = false
@@ -44,9 +45,14 @@ export class ProductionBuild {
       this.dialog.showModal()
     this.syncClock()
     this.bounds()
-    void this.bridge.buildState().then((state) => {
-      if (state && generation === this.generation && !this.pending)
+    void Promise.all([this.bridge.windowState(), this.bridge.buildState()]).then(([window, state]) => {
+      if (generation !== this.generation || this.pending)
+        return
+      this.appleSigning = window.platform === 'macos'
+      if (state)
         this.update(state)
+      else
+        this.render()
     }).catch(error => this.fail(error))
   }
 
@@ -127,7 +133,7 @@ export class ProductionBuild {
     const state = this.state?.root === project?.root ? this.state : undefined
     const busy = this.pending || state?.phase === 'building'
     this.target.disabled = busy
-    const steps = state?.steps ?? createEditorBuildSteps(this.target.value as PreviewTarget)
+    const steps = state?.steps ?? createEditorBuildSteps(this.target.value as PreviewTarget, this.appleSigning)
     if (this.pending && !state)
       steps[0] = { ...steps[0], phase: 'running', startedAt: this.startedAt, detail: this.preparing }
     render(productionBuildView({

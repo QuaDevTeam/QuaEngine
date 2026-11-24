@@ -73,12 +73,22 @@ export async function readQpkBundle(qpkPath: string, options: QpkReaderOptions =
       : `QPK manifest could not be read: ${summary.errors.join('; ') || 'unknown error'}`)
   }
 
+  return { manifest: summary.manifest, assets: await readQpkEntries(qpkPath, summary.assets) }
+}
+
+export async function readQpkEntries(qpkPath: string, entries: QpkAssetSummary[]): Promise<Map<string, Buffer>> {
   const assets = new Map<string, Buffer>()
   const file = await open(qpkPath, 'r')
   try {
-    for (const asset of summary.assets) {
+    for (const asset of entries) {
       const buffer = Buffer.alloc(asset.size)
-      await file.read(buffer, 0, asset.size, asset.dataOffset)
+      let length = 0
+      while (length < buffer.length) {
+        const { bytesRead } = await file.read(buffer, length, buffer.length - length, asset.dataOffset + length)
+        if (bytesRead === 0)
+          throw new Error(`Truncated QPK entry: ${asset.path}`)
+        length += bytesRead
+      }
       assets.set(asset.path, buffer)
     }
   }
@@ -86,7 +96,7 @@ export async function readQpkBundle(qpkPath: string, options: QpkReaderOptions =
     await file.close()
   }
 
-  return { manifest: summary.manifest, assets }
+  return assets
 }
 
 function parseQpkHeader(buffer: Buffer): QpkHeaderInfo {

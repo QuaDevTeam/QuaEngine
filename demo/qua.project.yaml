@@ -85,6 +85,8 @@ targets:
       - macos
       - windows
       - linux
+      - ios
+      - android
     profiles:
       - debug
       - release
@@ -96,6 +98,8 @@ targets:
       buildNumber: '1'
       icon: public/icon.png
     distribution:
+      desktopTextures:
+        format: auto
       macos:
         minimumSystemVersion: '11.0'
         signing:

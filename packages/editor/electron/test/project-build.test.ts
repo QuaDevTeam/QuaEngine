@@ -11,7 +11,7 @@ it('returns a real build result and bounds streamed logs', async () => {
     expect(root).toBe('/project')
     expect(operation.env.NODE_OPTIONS).toBeUndefined()
     operation.report('x'.repeat(100000))
-    for (const step of createEditorBuildSteps('native')) {
+    for (const step of createEditorBuildSteps('native', process.platform === 'darwin')) {
       if (step.id === 'notarize') {
         operation.reportEvent?.(`${JSON.stringify({ version: 1, step: step.id, status: 'skipped' })}\n`)
       }
@@ -27,7 +27,11 @@ it('returns a real build result and bounds streamed logs', async () => {
   expect(build.busy).toBe(false)
   expect(events.at(-1)).toMatchObject({ phase: 'completed', artifact: '/project/dist/Game.app', signing: 'adhoc' })
   expect(build.snapshot()?.log.length).toBe(64000)
-  expect(build.snapshot()?.steps.find(step => step.id === 'notarize')).toMatchObject({ phase: 'skipped', detail: '项目未启用公证' })
+  const notarize = build.snapshot()?.steps.find(step => step.id === 'notarize')
+  if (process.platform === 'darwin')
+    expect(notarize).toMatchObject({ phase: 'skipped', detail: '项目未启用公证' })
+  else
+    expect(notarize).toBeUndefined()
   expect(events[0].steps[0].phase).toBe('running')
   expect(events[0].steps[1].phase).toBe('pending')
   expect(build.snapshot()?.finishedAt).toBeGreaterThanOrEqual(build.snapshot()!.startedAt)

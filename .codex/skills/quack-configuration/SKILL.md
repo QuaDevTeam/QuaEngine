@@ -321,6 +321,7 @@ Verify examples against the actual CLI: `-c` selects a config, compression algor
 
 ## Review Checklist
 
+- Keep the native LZMA codec lazy in both QPK writer and reader. Electron starts cancellable workers to inspect project configuration; those workers should reach the codec only when they actually compress or decompress a bundle.
 - Is this single-bundle, workspace, or runtime QPK mode?
 - Does runtime-generated content ship as a Quack-built QPK Runtime Package?
 - Are runtime scripts, scenes, plugins, graph deltas, migrations, dependencies, compatibility, integrity, and signature declared where needed?
@@ -341,7 +342,7 @@ The same manifest includes `bundleIdentity: { name, version, buildNumber, hash, 
 
 Generated Cocos/Godot READMEs must state the implementation SDK/API baseline separately from a configured SDK version or loader minimum. Creator currently uses the 3.8.8 profile; Godot uses the 4.7 API with godot-rust 0.5.5/rquickjs 0.12.1. Unity has an initial 6.3 LTS target, default Editor 6000.3.28f1. Emit UPM/native/JS/QPK through unity-core-resolver, separating C ABI evidence from pending Editor/Player validation. Do not promise future SDK versions. Point users to exact SDK/platform regression and independent embedding validation; generated outputs must never replace host authoring projects. See `docs/content/docs/platforms/compatibility.md` and `guides/embedding.md`.
 
-`quack project build --target web|native` runs production Vite and validates the retained module graph through the active target resolver. Native distribution currently builds macOS `.app` on macOS, with staged QPKs, pinned startup metadata, Cargo release executable, icon, signature and optional notarytool submission/stapling. Use `buildQuaProjectProduction` from `@quajs/quack/project`; see `packages/build/quack/docs/production-build.md`. `QuackBundler.bundle(manifestName)` optionally preserves a workspace bundle's identity when staging individual outputs. Never overwrite an existing release/version directory, silently downgrade requested signing/notarization, inject inactive target cores or bundle dev transport into a production app.
+`quack project build --target web|native` runs production Vite and validates the retained module graph through the active target resolver. Desktop distribution builds on the selected OS with staged QPKs, pinned startup metadata, a Cargo release executable and project icon. macOS emits a signed `.app` with optional notarization. Windows and Linux emit a relocatable `Game/` directory with sibling executable and resources. Use `buildQuaProjectProduction` from `@quajs/quack/project`; see `packages/build/quack/docs/production-build.md`. `QuackBundler.bundle(manifestName)` optionally preserves a workspace bundle's identity when staging individual outputs. Never overwrite an existing release/version directory, silently downgrade requested signing/notarization, inject inactive target cores or bundle dev transport into a production app.
 
 ## Creator opaque QPK import
 
@@ -372,3 +373,7 @@ Embedded delivery: project build --embedded --target web|godot|cocos|unity|nativ
 Native `--embedded` exports a host-driven macOS C ABI SDK from targets.native.build.embeddedEntry, embeddedViteConfig and cargoManifest. It is independent of production .app packaging and keeps normal module icon metadata without changing the parent icon. Use native-core-resolver, public dist inputs, emitted manifest selection, uncompressed verified static QPKs, atomically owned output and module inventory. Ship lib/include/qua-native.cmake/native-sdk.md/examples, no parent startup shell. Native consumer tests cover standalone C/JSC/storage; QUA_NATIVE_VISUAL_SMOKE=1 separately exercises Cocoa/Metal. Unsupported host OS fails explicitly; deployment minimum is not runtime qualification.
 
 Vite 8.3/Rolldown emits source-path comments in simple debug mode; disable experimental.attachDebugInfo in active-target bundlers, preserving legal comments. Do not depend on stripping obsolete //#region markers for portability. sharp 0.35 factories use the module default export type.
+
+### Native texture encoding
+
+`targets.native.distribution.desktopTextures` applies the same encoder options specifically to desktop release artifact plans. `assetTarget.nativeTextures` opts native QPKs into GPU-ready variants. Standalone targets select `astc` or `bc7`. Project targets can select `auto`, resolved from the artifact platform. `paths` selects source-relative files/directories and `ktx` selects the KTX-Software executable on the builder. Keep fallback images and generate private data entries before hashing and signing. See `packages/build/quack/docs/production-build.md` for defaults and package-size implications.

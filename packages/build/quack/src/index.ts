@@ -54,6 +54,7 @@ export type {
   MediaMetadata,
   MerkleNode,
   MultiBundlePatchOptions,
+  NativeTextureOptions,
   PatchManifest,
   PatchOptions,
   QuackConfig,

@@ -6,7 +6,7 @@ import { extname, join, resolve } from 'node:path'
 import { createTargetCoreSelection } from '@quajs/native-contracts'
 import { QuackBundler } from './core/bundler'
 import { AssetPipelinePlugin } from './plugins/asset-pipeline'
-import { createQuaProjectAssetTargets } from './project'
+import { createQuaProjectNativeAssetTarget } from './project'
 import { createNativeEmbeddedEntry } from './project-native-entry'
 import { buildSceneScriptBundle } from './project-scene-bundle'
 import { emitQuaTargetBundleManifest } from './project-target-bundle'
@@ -83,7 +83,7 @@ export async function buildEmbeddedNative(root: string, output: string, project:
   await mkdir(join(output, 'qua'))
   for (const definition of workspace.getBundlesBuildOrder()) {
     options.signal?.throwIfAborted()
-    await new QuackBundler(workspace.createBundleConfig(definition.name, { output: join(output, 'qua', `${definition.name}.qpk`), format: 'qpk', assetTargets: [], assetTarget: createQuaProjectAssetTargets(project).find(target => target.platform === 'native'), plugins: [new AssetPipelinePlugin()], compression: { algorithm: 'none' }, encryption: { enabled: false, algorithm: 'none' }, versioning: { bundleVersion: 1, buildNumber, incrementVersion: false } })).bundle(definition.name)
+    await new QuackBundler(workspace.createBundleConfig(definition.name, { output: join(output, 'qua', `${definition.name}.qpk`), format: 'qpk', assetTargets: [], assetTarget: createQuaProjectNativeAssetTarget(native, 'macos'), plugins: [new AssetPipelinePlugin()], compression: { algorithm: 'none' }, encryption: { enabled: false, algorithm: 'none' }, versioning: { bundleVersion: 1, buildNumber, incrementVersion: false } })).bundle(definition.name)
     const file = (await readdir(join(output, 'qua'))).find(file => file.startsWith(`${definition.name}.`) && file.endsWith('.qpk'))
     if (!file)
       throw new Error('Missing Native library QPK')
@@ -95,6 +95,6 @@ export async function buildEmbeddedNative(root: string, output: string, project:
   const dependencies = await buildSceneScriptBundle({ root, artifactDir: output, outputDir: output, target: 'native', entry: createNativeEmbeddedEntry(resolve(root, config.embeddedEntry), bundles, { name: project.name, bundleId: project.bundleId, version: project.version }, native.layout), viteConfig: config.embeddedViteConfig ? resolve(root, config.embeddedViteConfig) : undefined })
   await emitQuaTargetBundleManifest({ artifactDir: output, expectedTarget: 'native', manifest: { schemaVersion: 1, platform: 'macos', profile: 'release', app: { bundleId: project.bundleId, version: project.version, buildNumber, icon: moduleIcon }, ...createTargetCoreSelection('native'), nativeRenderer: { ...host.renderer, capabilityIds: host.renderer.capabilities.map((value: { id: string }) => value.id) }, nativeRuntime: host.runtime, rendererEntries: [{ specifier: '@quajs/native-renderer/builtin', target: 'native' }], dependencies, projectGraphs: [{ id: 'native.embedded.post-bundle', kind: 'post-bundle', references: dependencies }] } })
   await writeFile(join(output, 'native-module.json'), `${JSON.stringify({ schemaVersion: 1, bundles, buildNumber })}\n`)
-  await writeFile(join(output, 'qua-host-compatibility.json'), `${JSON.stringify({ schemaVersion: 1, target: 'native', sdk: { name: 'Qua Native C ABI', version: 1, minimumMacOS: '11.0' }, host: { platform: process.platform, arch: process.arch }, runtime: 'JavaScriptCore', renderer: 'wgpu/Metal', embedding: { ownsApplicationExit: false, ownsEventLoop: false, parentOwnedSurface: 'CAMetalLayer', isolatedVmPerHandle: true, storage: 'atomic file records; exclusive module/account namespace' }, unsupported: ['Windows/Linux SDK delivery', 'iOS/Android', 'universal binary', 'IME/wheel/gamepad', 'dynamic runtime modules'], sdkRuntimeValidation: 'required-on-consumer-host' }, null, 2)}\n`)
+  await writeFile(join(output, 'qua-host-compatibility.json'), `${JSON.stringify({ schemaVersion: 1, target: 'native', sdk: { name: 'Qua Native C ABI', version: 1, minimumMacOS: '11.0' }, host: { platform: process.platform, arch: process.arch }, runtime: 'JavaScriptCore', renderer: 'wgpu/Metal', embedding: { ownsApplicationExit: false, ownsEventLoop: false, parentOwnedSurface: 'CAMetalLayer', isolatedVmPerHandle: true, storage: 'atomic file records; exclusive module/account namespace' }, unsupported: ['Windows/Linux SDK delivery', 'iOS/Android embedded SDK', 'universal binary', 'IME/wheel', 'dynamic runtime modules'], sdkRuntimeValidation: 'required-on-consumer-host' }, null, 2)}\n`)
   return { library: 'lib/libquajs_native.dylib', staticLibrary: 'lib/libquajs_native.a', header: 'include/qua_native.h', config: 'native-module.json', open: 'qua_native_open', cancel: 'qua_native_cancel', tick: 'qua_native_tick', events: 'qua_native_poll', close: 'qua_native_close', destroy: 'qua_native_destroy', forceEviction: 'qua_native_abort', surface: 'qua_native_attach_metal_layer', example: 'examples/macos-parent.m' }
 }

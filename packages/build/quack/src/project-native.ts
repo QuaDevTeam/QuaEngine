@@ -23,6 +23,7 @@ import { isDeepStrictEqual } from 'node:util'
 import { createTargetCoreSelection } from '@quajs/native-contracts'
 import {
   hasQuaProjectNativeCargoFeature,
+  nativeAssetTargetForPlatform,
   QUA_NATIVE_JSC_CARGO_FEATURE,
 
 } from './project-native-build'
@@ -79,6 +80,12 @@ export function createQuaProjectNativeArtifactPlans(
   const plans: QuaProjectNativeArtifactPlan[] = []
   for (const profile of native.profiles) {
     for (const platform of native.platforms) {
+      const desktopTextures = profile === 'release' && ['macos', 'windows', 'linux'].includes(platform)
+        ? native.distribution.desktopTextures
+        : undefined
+      const assetTarget = desktopTextures
+        ? { name: `native-${platform}`, ...native.assetTarget, nativeTextures: { ...native.assetTarget?.nativeTextures, ...desktopTextures } }
+        : native.assetTarget
       plans.push({
         target: 'native',
         platform,
@@ -88,7 +95,7 @@ export function createQuaProjectNativeArtifactPlans(
         artifactDir: join(native.outputDir, profile, versionSegment, platform),
         app: { ...native.app },
         layout: native.layout,
-        assetTarget: native.assetTarget ? { ...native.assetTarget } : undefined,
+        assetTarget: nativeAssetTargetForPlatform(assetTarget, platform),
         build: { ...native.build },
       })
     }

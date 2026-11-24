@@ -50,7 +50,7 @@ export function productionBuildView(view: BuildView) {
   return html`<header class="build-header"><div><h2 id="production-build-title">生产打包</h2><p>${view.project}</p></div>
     ${iconButtonView('关闭打包面板', html`${unsafeHTML(icon('close'))}`, view.close, { size: 'comfortable' })}</header>
     <div class="build-body">
-      <div class="build-target" data-control-size="comfortable">${field('构建目标', view.target, { layout: 'row' })}<span>${view.target.value === 'native' ? '可执行的 .app 应用' : '可部署的静态网站'}</span></div>
+      <div class="build-target" data-control-size="comfortable">${field('构建目标', view.target, { layout: 'row' })}<span>${view.target.value === 'native' ? '使用原生渲染器运行' : '可部署的静态网站'}</span></div>
       <section class="build-overview" data-phase=${view.error ? 'error' : state?.phase ?? 'ready'} aria-label="打包进度">
         <div><strong role="status">${status}</strong>${view.startedAt ? html`<span class="build-elapsed">耗时 ${duration(view.startedAt, state?.finishedAt)}</span>` : nothing}</div>
         <progress max=${steps.length} value=${completed + skipped} aria-label="构建步骤完成进度" aria-valuetext=${`已完成 ${completed} 步，跳过 ${skipped} 步，共 ${steps.length} 步`}></progress>
@@ -61,7 +61,7 @@ export function productionBuildView(view: BuildView) {
       ${state?.artifact ? html`<div class="build-output"><strong>产物已生成</strong><code>${state.artifact}</code>${sign ? html`<span>${sign}${state.notarized ? '，已通过 Apple 公证' : ''}</span>` : nothing}</div>` : nothing}
       ${disclosure(html`构建日志<span>${state?.phase === 'error' ? '查看错误详情' : '详细输出'}</span>`, html`<pre tabindex="0" aria-label="构建日志">${guard([state?.log], () => state?.log ? buildLogView(state.log) : '构建开始后，详细日志会显示在这里。')}</pre>`, { className: 'build-log', open: view.logsOpen, onToggle: view.toggleLogs })}
     </div>
-    <footer class="build-footer"><span>${busy ? '可关闭面板，在后台继续构建。' : '图标、签名和公证使用项目配置。'}</span><div>
+    <footer class="build-footer"><span>${busy ? '可关闭面板，在后台继续构建。' : '使用已保存的项目配置。'}</span><div>
       ${buttonView(busy ? '后台运行' : '关闭', view.close, { variant: 'quiet', size: 'comfortable' })}
       ${state?.phase === 'building'
         ? buttonView(view.cancelling ? '正在取消…' : '取消打包', view.cancel, { variant: 'danger', size: 'comfortable', busy: view.cancelling, icon: html`${unsafeHTML(icon('stop'))}` })
