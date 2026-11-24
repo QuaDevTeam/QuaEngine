@@ -6,6 +6,7 @@ import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { _electron } from 'playwright'
 import { build } from 'vite'
+import { closeTestEditor, editorTestApp, firstTestWindow } from './smoke-profile.mjs'
 
 const root = fileURLToPath(new URL('../../../../', import.meta.url))
 const editorRoot = resolve(root, 'packages/editor/electron')
@@ -24,8 +25,24 @@ for (const path of ['plugins/background', 'plugins/audio', 'game/character']) {
   plugins.push({ name: pkg.name, decorators: pkg.quajs.decorators, language: pkg.quajs.language })
 }
 await writeFile(join(fixture, 'qua.plugins.json'), JSON.stringify({ plugins }))
-await writeFile(join(fixture, 'vite.config.ts'), `import { quaScriptPlugin } from '@quajs/script-compiler'; export default { server: { hmr: false }, plugins: [quaScriptPlugin()] }`)
-await writeFile(join(fixture, 'index.html'), '<html><meta charset="utf-8"><div id="app"></div><script type="module" src="/main.ts"></script></html>')
+await writeFile(join(fixture, 'vite.config.ts'), `import { quaScriptPlugin } from '@quajs/script-compiler'
+export default { server: { hmr: false }, plugins: [quaScriptPlugin(), {
+  name: 'unfinished-poster',
+  configureServer(server) {
+    server.middlewares.use('/slow-poster.svg', (_request, response) => {
+      const timer = setTimeout(() => response.end(), 60000)
+      response.on('close', () => clearTimeout(timer))
+    })
+  }
+}] }`)
+await writeFile(join(fixture, 'index.html'), `<html><meta charset="utf-8"><body><div id="app"></div>
+<script>{
+  const poster = new Image()
+  poster.id = 'pending-poster'
+  poster.hidden = true
+  poster.src = '/slow-poster.svg'
+  document.body.append(poster)
+}</script><script type="module" src="/main.ts"></script></body></html>`)
 await writeFile(join(fixture, 'room.svg'), '<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080"><rect width="1920" height="1080" fill="#274354"/><path d="M0 700 L1920 300 V1080 H0" fill="#536750"/></svg>')
 await writeFile(join(fixture, 'hero.svg'), '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="800"><rect x="60" y="200" rx="90" width="280" height="600" fill="#779ab8"/><circle cx="200" cy="140" r="100" fill="#e6c6a8"/></svg>')
 // Actual PCM WAV decoding/playback. Quiet synthetic tones; no Demo assets mutated.
@@ -78,6 +95,11 @@ document.head.insertAdjacentHTML('beforeend','<style>html,body,#app{margin:0;wid
 if(import.meta.env.DEV && import.meta.env.VITE_QUA_EDITOR_PREVIEW === '1') {
  const [{createEditorPreviewRuntime},{mountWebPreviewDevtools},{getWebAudioPlaybackEntries}] = await Promise.all([import('@quajs/editor-core/runtime'),import('@quajs/renderer-web/devtools'),import('@quajs/renderer-web/audio')])
  const runtime = await createEditorPreviewRuntime(engine,{baselinePoint:{sceneId:'fixture',stepId:'baseline'},resolveFile:path=>{if(path!=='scene.qs')throw new Error('unknown source');return scene},getAudio:()=>{const a=getAudioProjection(engine);return [...(a.bgm?[a.bgm]:[]),...a.bgmOutgoing,...a.voices,...a.sfx,...a.ambients]},controlAudio:async q=>{if(q.action==='pause')await pauseAudioWithEngine(engine,q.target);if(q.action==='resume')await resumeAudioWithEngine(engine,q.target);if(q.action==='stop')await stopAudioWithEngine(engine,q.target);if(q.action==='seek')await seekAudioWithEngine(engine,q.target,q.positionMs)}})
+ // Simulate a cold project preparing its assets after the document has loaded.
+ if (!sessionStorage.getItem('prepared')) {
+   await new Promise(resolve => setTimeout(resolve, 6500))
+   sessionStorage.setItem('prepared', 'true')
+ }
  Object.assign(globalThis,{__QUA_EDITOR_PREVIEW__:runtime.request})
  mountWebPreviewDevtools({container:document.getElementById('app')!,pipeline:engine.getPipeline(),getViewState:()=>engine.getViewState(),getAudioPlayback:()=>getWebAudioPlaybackEntries(engine.getPipeline())})
 } else { void engine.dialogue(scene()) }
@@ -97,7 +119,12 @@ async function preview(code) {
       if (!value)
         throw new Error('No preview WebContents')
     }
-    return contents.executeJavaScript(code, true)
+    // executeJavaScript waits for window.load. Inspect the live document even
+    // while an unrelated subresource is pending, as the preview host does.
+    const result = await contents.debugger.sendCommand('Runtime.evaluate', { expression: code, awaitPromise: true, returnByValue: true, userGesture: true })
+    if (result.exceptionDetails)
+      throw new Error(result.exceptionDetails.exception?.description || result.exceptionDetails.text)
+    return result.result.value
   }, code)
 }
 async function command(command) {
@@ -143,9 +170,9 @@ try {
   assert.ok(!/editor\/preview|qua-preview-devtools|__QUA_EDITOR_PREVIEW__|expectedText/.test(js), 'production excludes developer code and source metadata')
   delete process.env.VITE_QUA_EDITOR_PREVIEW
   process.stdout.write('Production bundle excludes devtools and source markers.\n')
-  app = await _electron.launch({ executablePath: require('electron'), args: ['-r', startupGuard, editorRoot, '--project', fixture, `--user-data-dir=${join(temporary, 'profile')}`], env, timeout: 60000 })
+  app = await _electron.launch({ executablePath: require('electron'), args: ['-r', startupGuard, editorTestApp, '--project', fixture, `--user-data-dir=${join(temporary, 'profile')}`], env, timeout: 60000 })
   process.stdout.write('Electron launched.\n')
-  page = await app.firstWindow({ timeout: 20000 })
+  page = await firstTestWindow(app, { timeout: 20000 })
   process.stdout.write('Editor window ready.\n')
   page.setDefaultTimeout(20000)
   const errors = []
@@ -154,9 +181,8 @@ try {
   process.stdout.write('Project ready.\n')
   await page.locator('#run').click()
   await until(async () => (await page.evaluate(() => window.quaEditor.previewState())).phase === 'running', 'preview startup', 60000)
-  await until(async () => preview('typeof globalThis.__QUA_EDITOR_PREVIEW__ === "function"'), 'runtime entry')
-  process.stdout.write('Preview runtime ready.\n')
   await command({ action: 'seek', path: 'scene.qs', stepIndex: 0 })
+  assert.equal(await preview('document.getElementById("pending-poster")?.complete'), false, 'cold startup can seek before an unrelated image completes')
   await page.locator('#tab-scene-debugger').click()
   await page.getByRole('button', { name: '拾取属性', exact: true }).click()
   await until(async () => (await debug()).picking, 'picking enabled')
@@ -194,6 +220,7 @@ try {
       return false
     return preview('document.querySelector(".qua-dialogue-box")?.textContent.includes("改写后的台词")').catch(() => false)
   }, 'saved text rendered', 60000)
+  assert.equal(await preview('document.getElementById("pending-poster")?.complete'), false, 'reload and seek complete while the poster is still loading')
   await until(async () => {
     const tracks = (await debug()).clips.filter(clip => clip.track)
     return tracks.length === 4 && tracks.every(clip => clip.playback?.durationMs > 29000 && clip.playback?.state === 'playing')
@@ -236,6 +263,19 @@ try {
   await until(async () => (await debug()).flow === 'auto', 'auto reading')
   await page.getByRole('button', { name: '停止自动阅读', exact: true }).click()
   await until(async () => (await debug()).flow === 'normal', 'manual reading')
+  // A project adapter can accept a seek but forget its response. Retrying could
+  // execute script side effects twice. Continue serving the real debug sampler.
+  await preview(`(() => {
+    const request = globalThis.__QUA_EDITOR_PREVIEW__
+    globalThis.seekDispatches = 0
+    globalThis.__QUA_EDITOR_PREVIEW__ = command => {
+      if (command.action !== 'seek') return request(command)
+      globalThis.seekDispatches++
+      return Promise.resolve(undefined)
+    }
+  })()`)
+  await assert.rejects(command({ action: 'seek', path: 'scene.qs', stepIndex: 0 }), /预览控制未返回有效结果/)
+  assert.equal(await preview('globalThis.seekDispatches'), 1)
   await page.locator('#stop').click()
   assert.deepEqual(errors, [])
   process.stdout.write('Scene debugger: production isolation, real preview picks, guarded QS draft/undo/save/reload, four decoded audio lanes, pause/seek and speaker timeline passed.\n')
@@ -257,7 +297,6 @@ finally {
   await app?.evaluate(({ dialog }) => {
     dialog.showMessageBox = async () => ({ response: 1 })
   }).catch(() => {})
-  await app?.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().forEach(window => window.destroy())).catch(() => {})
-  await app?.close()
+  await closeTestEditor(app, { destroyWindows: true })
   await rm(temporary, { recursive: true, force: true })
 }

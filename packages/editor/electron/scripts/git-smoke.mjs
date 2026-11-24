@@ -7,6 +7,7 @@ import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
 import { _electron } from 'playwright'
+import { closeTestEditor, editorTestApp, firstTestWindow } from './smoke-profile.mjs'
 
 const root = fileURLToPath(new URL('../../../../', import.meta.url))
 const editorRoot = resolve(root, 'packages/editor/electron')
@@ -37,8 +38,8 @@ delete env.ELECTRON_RUN_AS_NODE
 let application
 let page
 try {
-  application = await _electron.launch({ executablePath: require('electron'), args: [editorRoot, '--project', projectRoot, `--user-data-dir=${join(temporary, 'profile')}`], env, timeout: 60000 })
-  page = await application.firstWindow()
+  application = await _electron.launch({ executablePath: require('electron'), args: [editorTestApp, '--project', projectRoot, `--user-data-dir=${join(temporary, 'profile')}`], env, timeout: 60000 })
+  page = await firstTestWindow(application)
   const errors = []
   page.on('pageerror', error => errors.push(error.message))
   await page.locator('.dock-separator[data-split-id="main"]').dblclick()
@@ -46,7 +47,7 @@ try {
   await page.locator('#files[data-project-name="剧情项目"]').waitFor()
   await page.locator('#git-branch').filter({ hasText: 'main*' }).waitFor()
   assert.equal(await page.locator('#project-name, #open-project, #refresh-project, #tree-file-count').count(), 0)
-  assert.match((await page.locator('.titlebar').textContent()).trim(), /^QUA \/ EDITOR/)
+  assert.equal((await page.locator('.titlebar strong').textContent()).trim(), 'Qua / Editor')
   assert.equal(await page.locator('#workbench-views').isVisible(), true)
   await page.locator('#files [data-path="scene.qs"]').click()
   await page.locator('#document-name').filter({ hasText: 'scene.qs' }).waitFor()
@@ -189,8 +190,36 @@ try {
   await page.locator('#status').filter({ hasText: '项目已刷新' }).waitFor()
   // A draft stays in its model even when checkout changes the same disk file.
   const base = await git('show', 'HEAD:scene.qs')
-  await writeFile(join(projectRoot, 'scene.qs'), base)
-  await page.locator('#editor .view-lines').filter({ hasText: '未保存的草稿' }).waitFor()
+  assert.match(base, /未保存的草稿/u)
+  await page.evaluate(() => {
+    globalThis.gitSmokeFileChanges = []
+    globalThis.gitSmokeStopObserving = window.quaEditor.onProjectChange(({ paths, project }) => {
+      globalThis.gitSmokeFileChanges.push({
+        time: Date.now(),
+        affected: paths.filter(path => !path || path === 'scene.qs'),
+        size: project.entries.find(entry => entry.path === 'scene.qs')?.size,
+      })
+      if (globalThis.gitSmokeFileChanges.length > 12)
+        globalThis.gitSmokeFileChanges.shift()
+    })
+  })
+  try {
+    await writeFile(join(projectRoot, 'scene.qs'), base)
+    await page.locator('#editor .view-lines').filter({ hasText: '未保存的草稿' }).waitFor()
+  }
+  catch (error) {
+    const state = await page.evaluate(async () => ({
+      changes: globalThis.gitSmokeFileChanges,
+      disk: (await window.quaEditor.readDocument('scene.qs')).text,
+      buffer: document.querySelector('#editor .view-lines')?.textContent,
+      dirtyIndicator: document.querySelector('.document-tab.active .tab-close')?.textContent,
+      status: document.querySelector('#status')?.textContent,
+    }))
+    throw new Error(`External disk reload failed: ${JSON.stringify(state)}`, { cause: error })
+  }
+  finally {
+    await page.evaluate(() => globalThis.gitSmokeStopObserving())
+  }
   await page.locator('#editor .view-lines').click()
   await page.keyboard.press(process.platform === 'darwin' ? 'Meta+ArrowDown' : 'Control+End')
   await page.keyboard.insertText('Mara: 跨分支保留的草稿。\n')
@@ -225,6 +254,6 @@ finally {
   await application?.evaluate(({ dialog }) => {
     dialog.showMessageBox = async () => ({ response: 1, checkboxChecked: false })
   }).catch(() => {})
-  await application?.close()
+  await closeTestEditor(application)
   await rm(temporary, { recursive: true, force: true })
 }

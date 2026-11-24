@@ -11,12 +11,13 @@ export async function copyDemoFixture(repository, destination, { native = false 
   await symlink(join(demo, 'node_modules'), join(destination, 'node_modules'), 'dir')
   await cp(join(demo, 'package.json'), join(destination, 'package.json'))
   const config = await readFile(join(destination, 'vite.config.ts'), 'utf8')
-  await writeFile(join(destination, 'vite.config.ts'), config.replace('server: {', `server: { fs: { allow: ${JSON.stringify([repository, destination])} },`))
+  await writeFile(join(destination, 'vite.config.ts'), config.replace('server: {', `cacheDir: '.vite-cache', server: { fs: { allow: ${JSON.stringify([repository, destination])} },`))
+  // The authored tsconfig resolves JSX sources from the workspace parent.
+  await symlink(join(repository, 'packages'), join(dirname(destination), 'packages'), 'dir')
   if (native) {
     for (const entry of ['scripts', 'vite.native-jsc.config.ts'])
       await cp(join(demo, entry), join(destination, entry), { recursive: true })
-    for (const entry of ['node_modules', 'packages'])
-      await symlink(join(repository, entry), join(dirname(destination), entry), 'dir')
+    await symlink(join(repository, 'node_modules'), join(dirname(destination), 'node_modules'), 'dir')
     const manifest = JSON.parse(await readFile(join(destination, 'package.json'), 'utf8'))
     manifest.scripts['dev:native'] = 'node native-smoke.mjs'
     await writeFile(join(destination, 'package.json'), JSON.stringify(manifest))

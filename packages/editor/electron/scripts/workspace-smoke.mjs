@@ -5,7 +5,7 @@ import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { launchEditor } from './smoke-profile.mjs'
+import { closeTestEditor, editorTestApp, firstTestWindow, launchEditor } from './smoke-profile.mjs'
 
 const root = fileURLToPath(new URL('../../../../', import.meta.url))
 const editorRoot = resolve(root, 'packages/editor/electron')
@@ -24,10 +24,10 @@ for (const [path, name] of [[projectRoot, 'Editor workspace fixture'], [secondRo
 await mkdir(artifacts, { recursive: true })
 const env = { ...process.env }
 delete env.ELECTRON_RUN_AS_NODE
-const application = await launchEditor({ executablePath: require('electron'), args: [editorRoot, '--project', projectRoot], env, timeout: 60000 })
+const application = await launchEditor({ executablePath: require('electron'), args: [editorTestApp, '--project', projectRoot], env, timeout: 60000 })
 const errors = []
 const documentEnd = process.platform === 'darwin' ? 'Meta+ArrowDown' : 'Control+End'
-const page = await application.firstWindow()
+const page = await firstTestWindow(application)
 page.on('pageerror', error => errors.push(error.message))
 application.process().stderr.on('data', data => process.stderr.write(data))
 try {
@@ -138,7 +138,7 @@ finally {
   await application.evaluate(({ dialog }) => {
     dialog.showMessageBox = async () => ({ response: 1, checkboxChecked: false })
   }).catch(() => {})
-  await application.close()
+  await closeTestEditor(application)
   await rm(temporary, { recursive: true, force: true })
 }
 

@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
 import { copyDemoFixture } from './demo-fixture.mjs'
 import { captureNativeWindow } from './native-window-artifact.mjs'
-import { launchEditor } from './smoke-profile.mjs'
+import { closeTestEditor, editorTestApp, firstTestWindow, launchEditor } from './smoke-profile.mjs'
 
 const root = fileURLToPath(new URL('../../../../', import.meta.url))
 const editorRoot = resolve(root, 'packages/editor/electron')
@@ -20,13 +20,13 @@ const env = { ...process.env }
 delete env.ELECTRON_RUN_AS_NODE
 
 await mkdir(artifacts, { recursive: true })
-const application = await launchEditor({ executablePath: require('electron'), args: [editorRoot, '--project', projectRoot], env, timeout: 60000 })
+const application = await launchEditor({ executablePath: require('electron'), args: [editorTestApp, '--project', projectRoot], env, timeout: 60000 })
 const errors = []
 const metrics = []
 const previewPids = new Set()
 application.process().stderr.on('data', data => process.stderr.write(data))
 try {
-  const page = await application.firstWindow()
+  const page = await firstTestWindow(application)
   page.on('pageerror', error => errors.push(error.message))
   await page.locator('#files[data-project-name^="Call Me Again Tomorrow"]').waitFor({ timeout: 60000 })
   await page.locator('#tab-console').click()
@@ -152,17 +152,24 @@ try {
       await page.waitForTimeout(500)
       await clickNativeCommand(page, cdp, await waitNativeCommand(page, cdp, command => command.text === '关闭'))
       await clickNativeCommand(page, cdp, await waitNativeCommand(page, cdp, command => command.text === '从头开始'))
-      const firstDialogue = await waitNativeCommand(page, cdp, command => command.id === 'dialogue:text' && command.text?.length > 0)
-      await page.waitForTimeout(2000)
+      const dialogueSteps = await page.evaluate(async () => {
+        const file = await window.quaEditor.readDocument('src/game/scenes/prologue-arrival.qs')
+        const { authoring } = await window.quaEditor.analyzeDocument(file.path, file.text)
+        return authoring.steps.filter(step => step.kind === 'dialogue').map(step => ({
+          index: step.index,
+          text: step.fields.find(field => field.label === '文本').value,
+        }))
+      })
+      const visibleLine = text => waitNativeCommand(page, cdp, command => command.id === 'dialogue:text' && command.text === text)
+      const firstDialogue = await visibleLine(dialogueSteps[0].text)
       await clickNativeCommand(page, cdp, firstDialogue)
-      await waitNativeCommand(page, cdp, command => command.id === 'dialogue:text' && command.text?.length > 0 && command.text !== firstDialogue.text)
+      await visibleLine(dialogueSteps[1].text)
       await page.waitForTimeout(1000)
       await capture(application, 'native-story')
       await sampleMemory('native')
-      process.stdout.write('Native: GPU title/settings displayed; resized canvas clicks started and advanced story\n')
-      await verifyEditorControl(page, 'native')
-      const previewLine = await waitNativeCommand(page, cdp, command => command.id === 'dialogue:text' && command.text?.length > 0)
-      assert.ok(previewLine.text.length > 3)
+      process.stdout.write('Native: GPU title/settings displayed; resized surface clicks started and advanced story\n')
+      const stepped = await verifyEditorControl(page, 'native')
+      await visibleLine(dialogueSteps.find(step => step.index === stepped).text)
       await capture(application, 'native-seek')
       await assert.rejects(() => cdp.call('Qua.editorCommand', { command: { action: 'step' }, requestId: 'unauthorized' }), /not authorized/)
     }
@@ -197,17 +204,17 @@ try {
 }
 catch (error) {
   await capture(application, 'failure').catch(() => {})
-  const page = await application.firstWindow()
+  const page = await firstTestWindow(application)
   await writeFile(resolve(artifacts, 'failure.log'), await page.locator('#logs').textContent({ timeout: 1000 }).catch(() => 'Logs unavailable')).catch(() => {})
   throw error
 }
 finally {
-  await application.close()
+  await closeTestEditor(application)
   await rm(temporary, { recursive: true, force: true })
 }
 
 async function capture(application, name) {
-  const page = await application.firstWindow()
+  const page = await firstTestWindow(application)
   const state = await page.evaluate(() => window.quaEditor.previewState())
   if (state.identity?.target === 'native' && state.phase === 'running') {
     await captureNativeWindow(application, page, resolve(artifacts, `${name}.png`))
@@ -352,4 +359,5 @@ async function verifyEditorControl(page, target) {
   })
   assert.ok(next.stepIndex > current.stepIndex)
   process.stdout.write(`${target}: engine checkpoint seek to AST step ${current.stepIndex} and F10 to ${next.stepIndex} passed\n`)
+  return next.stepIndex
 }

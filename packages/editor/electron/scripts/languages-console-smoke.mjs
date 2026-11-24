@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { _electron } from 'playwright'
+import { closeTestEditor, editorTestApp, firstTestWindow } from './smoke-profile.mjs'
 
 const root = fileURLToPath(new URL('../../../../', import.meta.url))
 const editorRoot = resolve(root, 'packages/editor/electron')
@@ -27,8 +28,8 @@ for (const [name, text] of Object.entries(files)) await writeFile(join(project, 
 for (let i = 0; i < 180; i++) await writeFile(join(project, `check-${i}.ts`), `export const n${i}: number = ${i}\n`)
 const env = { ...process.env }
 delete env.ELECTRON_RUN_AS_NODE
-const application = await _electron.launch({ executablePath: require('electron'), args: [editorRoot, `--user-data-dir=${join(project, '.editor-profile')}`, '--project', project], env, timeout: 60000 })
-const page = await application.firstWindow()
+const application = await _electron.launch({ executablePath: require('electron'), args: [editorTestApp, `--user-data-dir=${join(project, '.editor-profile')}`, '--project', project], env, timeout: 60000 })
+const page = await firstTestWindow(application)
 const errors = []
 page.on('pageerror', (error) => {
   errors.push(error.message)
@@ -150,6 +151,6 @@ finally {
   await application.evaluate(({ dialog }) => {
     dialog.showMessageBox = async () => ({ response: 1, checkboxChecked: false })
   }).catch(() => {})
-  await application.close()
+  await closeTestEditor(application)
   await rm(project, { recursive: true, force: true })
 }

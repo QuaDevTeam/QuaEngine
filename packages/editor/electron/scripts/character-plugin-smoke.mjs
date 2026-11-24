@@ -5,12 +5,15 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { _electron } from 'playwright'
+import { copyDemoFixture } from './demo-fixture.mjs'
+import { closeTestEditor, editorTestApp, firstTestWindow } from './smoke-profile.mjs'
 
 const root = fileURLToPath(new URL('../../../../', import.meta.url))
 const editorRoot = resolve(root, 'packages/editor/electron')
 const require = createRequire(join(editorRoot, 'package.json'))
 const temporary = await mkdtemp(join(tmpdir(), 'qua-character-editor-'))
 const fixture = join(temporary, 'project')
+const demo = await copyDemoFixture(root, join(temporary, 'demo'))
 const empty = join(temporary, 'empty')
 const artifacts = resolve(root, '.codex-tmp/editor-character-plugin-smoke')
 await mkdir(artifacts, { recursive: true })
@@ -30,8 +33,8 @@ await writeFile(join(fixture, 'characters.ts'), source)
 await writeFile(manifestPath, JSON.stringify({ version: 1, family: 'a', expressions: { smile: { layers: [{ asset: 'a/smile.png', opacity: 0.7 }] } } }, null, 2))
 const env = { ...process.env }
 delete env.ELECTRON_RUN_AS_NODE
-const app = await _electron.launch({ executablePath: require('electron'), args: [editorRoot, '--project', join(root, 'demo'), `--user-data-dir=${join(temporary, 'profile')}`], env, timeout: 60000 })
-const page = await app.firstWindow()
+const app = await _electron.launch({ executablePath: require('electron'), args: [editorTestApp, '--project', demo, `--user-data-dir=${join(temporary, 'profile')}`], env, timeout: 60000 })
+const page = await firstTestWindow(app)
 const errors = []
 page.on('pageerror', error => errors.push(error.message))
 const panel = page.locator('[id="panel-plugin-qua.character-characters"]')
@@ -75,7 +78,11 @@ try {
   // A second indexed edit must never replace an existing unsaved document.
   await panel.getByLabel('角色名称', { exact: true }).fill('Must not replace')
   await panel.locator('.character-field').first().getByRole('button', { name: '应用', exact: true }).click()
-  await page.locator('footer .character-message').filter({ hasText: '未保存或外部修改' }).waitFor()
+  const conflict = page.locator('footer .character-message').filter({ hasText: '未保存或外部修改' })
+  await conflict.waitFor()
+  await writeFile(join(fixture, 'project-note.ts'), '// unrelated change while resolving the dirty document\n')
+  await page.locator('#files [data-path="project-note.ts"]').waitFor()
+  assert.ok(await conflict.isVisible(), 'An unrelated project refresh preserves the edit conflict until it can be resolved')
   await page.keyboard.press(`${mod}+z`)
   await save(false)
   assert.equal(await readFile(join(fixture, 'characters.ts'), 'utf8'), source, 'plugin edit participates in Monaco undo')
@@ -202,6 +209,36 @@ try {
   await panel.locator('.character-variant-count').filter({ hasText: '共 10 个差分' }).waitFor({ timeout: 20000 })
   assert.equal(await cards.count(), 10, 'Shrinking the catalog clamps an unavailable page')
   assert.equal(await pager.isVisible(), false)
+  // A watcher can refresh the index between choosing a registration and applying.
+  const guestPath = join(fixture, 'guests.ts')
+  const guestSource = 'import { registerCharacters } from \'@quajs/character\'\nregisterCharacters([])\n'
+  await writeFile(guestPath, guestSource)
+  await panel.getByRole('button', { name: '新建角色', exact: true }).click()
+  const registration = panel.getByRole('combobox', { name: '角色注册位置' })
+  await registration.selectOption({ label: 'guests.ts:2' })
+  await panel.getByLabel('新角色 ID').fill('guest')
+  await panel.getByLabel('新角色名称').fill('访客')
+  const revision = await panel.locator('.character-browser').getAttribute('data-index-version')
+  await writeFile(guestPath, `${guestSource}// changed while form was open\n`)
+  await page.waitForFunction(previous => document.querySelector('.character-browser').dataset.indexVersion !== previous, revision)
+  assert.equal(await registration.locator(':checked').textContent(), 'guests.ts:2')
+  await panel.getByRole('button', { name: '添加到源文件' }).click()
+  await page.locator('footer .character-message').filter({ hasText: '已应用到源文件' }).waitFor()
+  await save()
+  await panel.locator('[data-character="guest"]').waitFor()
+  assert.ok((await readFile(guestPath, 'utf8')).includes('访客'))
+  assert.ok(!(await readFile(join(fixture, 'characters.ts'), 'utf8')).includes('访客'))
+
+  // Removing the selected character while hidden must not copy its draft to the next character.
+  await panel.locator('[data-character="guest"]').click()
+  await panel.getByLabel('角色名称', { exact: true }).fill('仅属于访客的草稿')
+  await page.getByRole('tab', { name: '调试控制台' }).click()
+  const beforeRemoval = await panel.locator('.character-browser').getAttribute('data-index-version')
+  await writeFile(guestPath, guestSource)
+  await page.waitForFunction(previous => document.querySelector('.character-browser').dataset.indexVersion !== previous, beforeRemoval)
+  await tab.click()
+  assert.equal(await panel.locator('[data-character="guest"]').count(), 0)
+  assert.equal(await panel.getByLabel('角色名称', { exact: true }).inputValue(), 'Refreshed')
   await switchProject(empty, 'Empty fixture')
   await panel.getByText('未发现可静态解析的角色。').waitFor()
   assert.equal(await panel.locator('img').count(), 0)
@@ -216,6 +253,6 @@ finally {
   await app.evaluate(({ dialog }) => {
     dialog.showMessageBox = async () => ({ response: 1, checkboxChecked: false })
   }).catch(() => {})
-  await app.close()
+  await closeTestEditor(app)
   await rm(temporary, { recursive: true, force: true })
 }

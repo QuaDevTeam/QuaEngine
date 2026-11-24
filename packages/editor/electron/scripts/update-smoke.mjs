@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { networkFixture } from './network-fixture.mjs'
-import { launchEditor } from './smoke-profile.mjs'
+import { closeTestEditor, editorTestApp, firstTestWindow, launchEditor } from './smoke-profile.mjs'
 
 const root = fileURLToPath(new URL('../../../../', import.meta.url))
 const editor = join(root, 'packages/editor/electron')
@@ -29,8 +29,8 @@ const fixture = await networkFixture(scratch, (request, response) => {
   }
   response.end(body)
 })
-const app = await launchEditor({ executablePath: require('electron'), args: [editor, `--ignore-certificate-errors-spki-list=${fixture.pin}`], env })
-const page = await app.firstWindow()
+const app = await launchEditor({ executablePath: require('electron'), args: [editorTestApp, `--ignore-certificate-errors-spki-list=${fixture.pin}`], env })
+const page = await firstTestWindow(app)
 const errors = []
 page.on('pageerror', error => errors.push(error.message))
 try {
@@ -56,8 +56,7 @@ try {
   process.stdout.write('Electron update smoke passed: menu check, manifest selection, streamed verified download, IPC/UI state and development install guard.\n')
 }
 finally {
-  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().forEach(window => window.destroy())).catch(() => {})
-  await app.close()
+  await closeTestEditor(app, { destroyWindows: true })
   fixture.close()
   await rm(scratch, { recursive: true, force: true })
 }

@@ -13,6 +13,7 @@ import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { _electron } from 'playwright'
 import { pluginFixture } from './plugin-fixture.mjs'
+import { closeTestEditor, editorTestApp, firstTestWindow } from './smoke-profile.mjs'
 
 const repository = fileURLToPath(new URL('../../../../', import.meta.url))
 const editorRoot = resolve(repository, 'packages/editor/electron')
@@ -50,7 +51,7 @@ delete env.ELECTRON_RUN_AS_NODE
 const app = await _electron.launch({
   executablePath: require('electron'),
   args: [
-    editorRoot,
+    editorTestApp,
     '--project',
     root,
     `--user-data-dir=${join(directory, 'profile')}`,
@@ -58,7 +59,7 @@ const app = await _electron.launch({
   env,
   timeout: 60000,
 })
-const page = await app.firstWindow()
+const page = await firstTestWindow(app)
 const errors = []
 page.on('pageerror', error => errors.push(error.message))
 page.on('console', (msg) => {
@@ -209,7 +210,7 @@ finally {
       })
     })
     .catch(() => {})
-  await app.close()
+  await closeTestEditor(app)
   await registry.close()
   await rm(directory, { recursive: true, force: true })
 }

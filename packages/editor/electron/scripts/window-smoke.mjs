@@ -4,7 +4,7 @@ import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { launchEditor } from './smoke-profile.mjs'
+import { closeTestEditor, editorTestApp, firstTestWindow, launchEditor } from './smoke-profile.mjs'
 
 const root = fileURLToPath(new URL('../../../../', import.meta.url))
 const editorRoot = resolve(root, 'packages/editor/electron')
@@ -20,8 +20,8 @@ delete env.ELECTRON_RUN_AS_NODE
 let application
 let page
 try {
-  application = await launchEditor({ executablePath: require('electron'), args: [editorRoot, '--project', temporary], env, timeout: 60000 })
-  page = await application.firstWindow()
+  application = await launchEditor({ executablePath: require('electron'), args: [editorTestApp, '--project', temporary], env, timeout: 60000 })
+  page = await firstTestWindow(application)
   const errors = []
   page.on('pageerror', error => errors.push(error.message))
   const platform = process.platform === 'darwin' ? 'macos' : process.platform === 'win32' ? 'windows' : 'linux'
@@ -82,19 +82,6 @@ try {
   })
   await page.waitForFunction(() => document.visibilityState === 'visible')
   await page.waitForFunction(async () => (await window.quaEditor.windowState()).focused)
-  if (platform === 'macos') {
-    await page.locator('#window-maximize').click()
-    await page.locator('.titlebar.fullscreen').waitFor()
-    assert.equal(await page.locator('#window-maximize').getAttribute('aria-label'), '退出全屏')
-    await page.locator('#window-maximize').click()
-    await page.waitForFunction(() => !document.querySelector('.titlebar').classList.contains('fullscreen'))
-  }
-  else {
-    await page.locator('#window-maximize').click()
-    await page.locator('#window-maximize[aria-label="还原窗口"]').waitFor()
-    await page.locator('#window-maximize').click()
-    await page.locator('#window-maximize[aria-label="最大化"]').waitFor()
-  }
   // The workbench dropdown shares commands with the global application menu.
   await application.evaluate(({ Menu }) => {
     const popup = Menu.prototype.popup
@@ -126,6 +113,20 @@ try {
   await page.locator('dialog[open]').waitFor()
   await page.keyboard.press('Escape')
   assert.equal(await application.evaluate(({ Menu }) => Boolean(Menu.getApplicationMenu().getMenuItemById('open-project'))), true)
+  process.stdout.write(`${platform}: frameless geometry, window regions, maximize/minimize/restore, native menu, dirty close guard and settings shortcut passed.\n`)
+  if (platform === 'macos') {
+    await page.locator('#window-maximize').click()
+    await page.locator('.titlebar.fullscreen').waitFor()
+    assert.equal(await page.locator('#window-maximize').getAttribute('aria-label'), '退出全屏')
+    await page.locator('#window-maximize').click()
+    await page.waitForFunction(() => !document.querySelector('.titlebar').classList.contains('fullscreen'))
+  }
+  else {
+    await page.locator('#window-maximize').click()
+    await page.locator('#window-maximize[aria-label="还原窗口"]').waitFor()
+    await page.locator('#window-maximize').click()
+    await page.locator('#window-maximize[aria-label="最大化"]').waitFor()
+  }
   assert.deepEqual(errors, [])
   process.stdout.write(`${platform}: frameless content, drag/control hit regions, zoom/restore, minimize/restore, fullscreen or window controls, rejected unknown IPC, unsaved close protection and settings shortcut passed\n`)
 }
@@ -141,6 +142,6 @@ finally {
       window.setFullScreen(false)
     dialog.showMessageBox = async () => ({ response: 1, checkboxChecked: false })
   }).catch(() => {})
-  await application?.close()
+  await closeTestEditor(application)
   await rm(temporary, { recursive: true, force: true })
 }

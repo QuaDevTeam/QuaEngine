@@ -126,11 +126,19 @@ Novel Writer retains its Svelte app, local data, stage review, project context, 
 
 ## Production builds
 
-File → Production Build or Ctrl/Cmd+Shift+B saves and stops preview, then calls the project's Quack chain. The dialog supports Web output and macOS Native `.app`, reports real stages/bundle counts/durations, retains background progress, exposes cancellation/artifacts, and opens logs on failure. Closing it does not cancel.
+File → Production Build or Ctrl/Cmd+Shift+B saves and stops preview, then calls the project's Quack chain. The dialog supports Web output and the host desktop application (macOS `.app` or a Windows/Linux game directory), reports real stages/bundle counts/durations, retains background progress, exposes cancellation/artifacts, and opens logs on failure. Closing it does not cancel.
 
 Identity/icons/signing/notarization belong in `qua.project.*`; credentials stay outside source. Skipped notarization is not success. Building a game is separate from Editor release or publication. See [production builds](../../docs/content/docs/en/editor/builds.md).
 
 ## Validation and limits of evidence
+
+Run `pnpm run test:editor:e2e` from the repository root to build the Editor and Demo dependencies and exercise the real Electron workbench, authoring plugins, desktop tools and Web previews. Each run records per-scenario status, duration and logs in `.codex-tmp/editor-e2e/run-*/`. The command finishes all selected scenarios and fails if any fail.
+
+Select groups with `pnpm run test:editor:e2e workbench authoring tools preview`. Run `pnpm run test:editor:e2e native` for the macOS Native preview and embedding scenarios with Rust and Xcode installed. Native window fullscreen and compositor capture require an unlocked desktop. To reuse an existing build, run `node packages/editor/electron/scripts/e2e.mjs <group>`. Archive installation and packaged update checks run in the Editor release workflow.
+
+The Editor E2E workflow measures workbench source coverage across the four default groups on pull requests. Manual runs can include Native. With over 1,200 indexed files, the large-project scenario measures 24 keyboard navigation events and fails if the 95th percentile from keydown to the next animation frame exceeds 250 ms. CI retains scenario results, timing metrics and wide and narrow window screenshots in both themes.
+
+With an existing build, run `node packages/editor/electron/scripts/e2e.mjs --coverage workbench authoring tools preview native` to measure the original workbench TypeScript executed in Electron. A single scenario such as `--coverage workbench/navigation` works too. The test app instruments every non-declaration TypeScript file under `packages/editor/ui/src`, including files with zero hits. The run directory contains `renderer-coverage-summary.json` with line, branch and function counts per file and overall, and Istanbul-compatible `renderer-coverage-final.json`. Only passing scenarios contribute to the totals. When all four default groups have run, the regression floors are 84% of executable source lines, 80% of functions and 72% of branch outcomes. A partial selection still produces measurements. The summary lists missing snapshots and failed scenarios. A window closed early may contribute only its last periodic sample. The Electron main process, feature plugin packages, Novel Writer and platform renderers have separate test scopes.
 
 For documentation-only changes, check/build the independent docs workspace and exercise localized routes/search/navigation; rebuilding the editor is not required. Runtime changes need affected package tests/typechecks/builds and actual Electron smoke. Useful scripts under `packages/editor/electron/scripts/` include `settings-dock-smoke.mjs`, `theme-smoke.mjs`, `visual-authoring-smoke.mjs`, `scene-debugger-smoke.mjs`, `preview-tools-smoke.mjs`, `terminal-smoke.mjs`, `marketplace-smoke.mjs`, and `packaged-update-smoke.mjs` (which requires an archive).
 

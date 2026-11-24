@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { _electron } from 'playwright'
+import { closeTestEditor, editorTestApp, firstTestWindow } from './smoke-profile.mjs'
 
 // Real local POSIX shell acceptance. Run ConPTY acceptance on Windows separately.
 if (process.platform === 'win32')
@@ -25,8 +26,8 @@ for (const [path, name] of [[first, 'Terminal fixture'], [second, 'Terminal repl
 await mkdir(artifacts, { recursive: true })
 const env = { ...process.env, SHELL: '/bin/sh' }
 delete env.ELECTRON_RUN_AS_NODE
-const application = await _electron.launch({ executablePath: require('electron'), args: [editorRoot, '--project', first, `--user-data-dir=${join(temporary, 'profile')}`], env, timeout: 60000 })
-const page = await application.firstWindow()
+const application = await _electron.launch({ executablePath: require('electron'), args: [editorTestApp, '--project', first, `--user-data-dir=${join(temporary, 'profile')}`], env, timeout: 60000 })
+const page = await firstTestWindow(application)
 const errors = []
 page.on('pageerror', error => errors.push(error.message))
 const samples = {}
@@ -52,7 +53,8 @@ try {
   await output('TTY_ACTIVE')
   assert.ok(await page.locator('.terminal-instance:not([hidden]) .xterm-rows').textContent().then(text => text.includes('你好 QuaEngine terminal')))
   await page.locator('#panel-terminal').screenshot({ path: join(artifacts, 'terminal.png') })
-  await command('sleep 120')
+  await command('printf "SLEEP_READY\\n"; sleep 120')
+  await output('SLEEP_READY\r\n')
   await page.keyboard.press('Control+c')
   await command('printf "INTERRUPTED_OK\\n"')
   await output('INTERRUPTED_OK')
@@ -201,7 +203,7 @@ catch (error) {
   throw error
 }
 finally {
-  await application.close().catch(() => {})
+  await closeTestEditor(application).catch(() => {})
   await rm(temporary, { recursive: true, force: true })
 }
 

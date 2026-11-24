@@ -6,6 +6,7 @@ import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { _electron } from 'playwright'
 import { copyDemoFixture } from './demo-fixture.mjs'
+import { closeTestEditor, editorTestApp, firstTestWindow } from './smoke-profile.mjs'
 
 const root = fileURLToPath(new URL('../../../../', import.meta.url))
 const editorRoot = resolve(root, 'packages/editor/electron')
@@ -17,8 +18,8 @@ await mkdir(artifacts, { recursive: true })
 const projectRoot = await copyDemoFixture(root, join(profile, 'project'), { native: target === 'native' })
 const env = { ...process.env }
 delete env.ELECTRON_RUN_AS_NODE
-const app = await _electron.launch({ executablePath: require('electron'), args: [editorRoot, '--project', projectRoot, `--user-data-dir=${profile}`], env, timeout: 60000 })
-const page = await app.firstWindow()
+const app = await _electron.launch({ executablePath: require('electron'), args: [editorTestApp, '--project', projectRoot, `--user-data-dir=${profile}`], env, timeout: 60000 })
+const page = await firstTestWindow(app)
 const errors = []
 page.on('pageerror', error => errors.push(error.message))
 try {
@@ -27,9 +28,14 @@ try {
   await page.locator('#preview-mute').click()
   await page.locator('#run').click()
   await waitState(state => state.phase === 'running' && !state.reloading)
-  await page.evaluate(async () => {
+  const expectedText = await page.evaluate(async () => {
     const state = await window.quaEditor.previewState()
-    await window.quaEditor.previewCommand(state.identity.sessionId, { action: 'seek', path: 'src/game/scenes/prologue-arrival.qs', stepIndex: 5 })
+    const path = 'src/game/scenes/prologue-arrival.qs'
+    const file = await window.quaEditor.readDocument(path)
+    const analysis = await window.quaEditor.analyzeDocument(path, file.text)
+    const step = analysis.previewSteps.find(step => step.index === 5)
+    await window.quaEditor.previewCommand(state.identity.sessionId, { action: 'seek', path, stepIndex: step.index })
+    return file.text.split('\n')[step.line - 1].replace(/^[^:]+: /u, '').trim()
   })
   await page.locator('#tab-inspector').click()
   await page.locator('#inspector-tree [role="treeitem"]').first().waitFor({ timeout: 20000 })
@@ -37,7 +43,7 @@ try {
   const filter = page.locator('#inspector-filter')
   await filter.fill(target === 'web' ? 'qua-dialogue-text' : 'dialogue:text')
   await page.locator('#inspector-tree').press('End')
-  await page.waitForFunction(() => document.querySelector('#inspector-tree').textContent.includes('已经生锈'), undefined, { timeout: 15000 })
+  await page.waitForFunction(text => document.querySelector('#inspector-tree').textContent.includes(text), expectedText, { timeout: 15000 })
   await page.locator('#inspector-live').uncheck()
   await page.locator('#inspector-tree').press('End')
   await page.locator('#inspector-details .inspector-box').waitFor({ timeout: 10000 })
@@ -138,7 +144,7 @@ catch (error) {
   throw error
 }
 finally {
-  await app.close()
+  await closeTestEditor(app)
   await rm(profile, { recursive: true, force: true })
 }
 

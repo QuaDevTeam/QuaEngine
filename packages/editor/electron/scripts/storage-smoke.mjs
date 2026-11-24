@@ -6,6 +6,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { _electron } from 'playwright'
 import { copyDemoFixture } from './demo-fixture.mjs'
+import { closeTestEditor, editorTestApp, firstTestWindow } from './smoke-profile.mjs'
 
 const root = fileURLToPath(new URL('../../../../', import.meta.url))
 const editor = join(root, 'packages/editor/electron')
@@ -17,8 +18,8 @@ await mkdir(artifacts, { recursive: true })
 const projectRoot = await copyDemoFixture(root, join(temporary, 'project'), { native: target === 'native' })
 const env = { ...process.env }
 delete env.ELECTRON_RUN_AS_NODE
-const app = await _electron.launch({ executablePath: require('electron'), args: [editor, '--project', projectRoot, `--user-data-dir=${temporary}`], env, timeout: 60000 })
-const page = await app.firstWindow()
+const app = await _electron.launch({ executablePath: require('electron'), args: [editorTestApp, '--project', projectRoot, `--user-data-dir=${temporary}`], env, timeout: 60000 })
+const page = await firstTestWindow(app)
 const errors = []
 page.on('pageerror', error => errors.push(error.message))
 let session
@@ -179,6 +180,6 @@ catch (error) {
   throw error
 }
 finally {
-  await app.close().catch(() => {})
+  await closeTestEditor(app).catch(() => {})
   await rm(temporary, { recursive: true, force: true })
 }

@@ -5,12 +5,15 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { _electron } from 'playwright'
+import { copyDemoFixture } from './demo-fixture.mjs'
+import { closeTestEditor, editorTestApp, firstTestWindow } from './smoke-profile.mjs'
 
 const root = fileURLToPath(new URL('../../../../', import.meta.url))
 const editorRoot = resolve(root, 'packages/editor/electron')
 const require = createRequire(join(editorRoot, 'package.json'))
 const temporary = await mkdtemp(join(tmpdir(), 'qua-outline-'))
 const fixture = join(temporary, 'project')
+const demo = await copyDemoFixture(root, join(temporary, 'demo'))
 const artifacts = resolve(root, '.codex-tmp/editor-outline-smoke')
 await mkdir(artifacts, { recursive: true })
 await mkdir(fixture)
@@ -20,8 +23,8 @@ const scene = '@Chapter("01", { title: "实时章节" })\n@Scene("room")\n  @Nod
 await writeFile(join(fixture, 'scene.qs'), scene)
 const env = { ...process.env }
 delete env.ELECTRON_RUN_AS_NODE
-const app = await _electron.launch({ executablePath: require('electron'), args: [editorRoot, '--project', join(root, 'demo'), `--user-data-dir=${join(temporary, 'profile')}`], env, timeout: 60000 })
-const page = await app.firstWindow()
+const app = await _electron.launch({ executablePath: require('electron'), args: [editorTestApp, '--project', demo, `--user-data-dir=${join(temporary, 'profile')}`], env, timeout: 60000 })
+const page = await firstTestWindow(app)
 const errors = []
 page.on('pageerror', error => errors.push(error.message))
 try {
@@ -33,26 +36,29 @@ try {
   assert.equal(await page.locator('#story .tree-row').first().evaluate(row => row.getBoundingClientRect().height), 22)
   await page.screenshot({ path: join(artifacts, 'demo-outline.png') })
   const input = page.locator('#outline-search')
-  await input.fill('商店街')
+  await input.fill('prologue-street')
   const street = page.locator('#story [data-kind="node"][data-symbol="prologue-street"]')
   await street.waitFor()
   await street.click()
   await page.locator('#document-name').filter({ hasText: 'prologue-arrival.qs' }).waitFor()
-  const source = await readFile(join(root, 'demo/src/game/scenes/prologue-arrival.qs'), 'utf8')
+  const source = await readFile(join(demo, 'src/game/scenes/prologue-arrival.qs'), 'utf8')
   const line = source.split('\n').findIndex(line => line.startsWith('@Node(\'prologue-street\'')) + 1
   await page.locator('#cursor-position').filter({ hasText: `行 ${line}，列 1` }).waitFor()
   await page.screenshot({ path: join(artifacts, 'demo-source-jump.png') })
-  await input.fill('提前结束这次委托')
+  await input.fill('early-handoff')
   const choice = page.locator('#story [data-kind="choice"][data-symbol="early-handoff"]')
   await choice.waitFor()
   await choice.click()
   await page.locator('#document-name').filter({ hasText: 'chapter-05.qs' }).waitFor()
-  const choiceSource = await readFile(join(root, 'demo/src/game/scenes/chapter-05.qs'), 'utf8')
+  const choiceSource = await readFile(join(demo, 'src/game/scenes/chapter-05.qs'), 'utf8')
   const choiceLine = choiceSource.split('\n').findIndex(line => line.startsWith('@Choice(') && line.includes('id: \'early-handoff\'')) + 1
   assert.ok(choiceLine > 0, 'Demo contains the early-handoff choice')
   await page.locator('#cursor-position').filter({ hasText: `行 ${choiceLine}，列 1` }).waitFor()
-  await input.fill('下一次见面')
-  await page.locator('#story [data-kind="chapter"]').filter({ hasText: '下一次见面' }).waitFor()
+  const chapterSource = await readFile(join(demo, 'src/game/scenes/chapter-07.qs'), 'utf8')
+  const chapterTitle = /^@Chapter\('07', \{ title: '([^']+)'/mu.exec(chapterSource)?.[1]
+  assert.ok(chapterTitle, 'Demo chapter 07 has a searchable title')
+  await input.fill(chapterTitle)
+  await page.locator('#story [data-kind="chapter"][data-symbol="07"]').filter({ hasText: chapterTitle }).waitFor()
   await page.locator('#outline-collapse').click()
   assert.equal(await page.locator('#story [aria-expanded="true"]').count(), 0)
   await page.locator('#story').focus()
@@ -93,6 +99,6 @@ finally {
   await app.evaluate(({ dialog }) => {
     dialog.showMessageBox = async () => ({ response: 1, checkboxChecked: false })
   }).catch(() => {})
-  await app.close()
+  await closeTestEditor(app)
   await rm(temporary, { recursive: true, force: true })
 }

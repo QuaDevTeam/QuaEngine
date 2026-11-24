@@ -7,6 +7,7 @@ import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
 import { _electron } from 'playwright'
+import { closeTestEditor, editorTestApp, firstTestWindow } from './smoke-profile.mjs'
 
 const repository = fileURLToPath(new URL('../../../../', import.meta.url))
 const editorRoot = resolve(repository, 'packages/editor/electron')
@@ -16,8 +17,8 @@ const artifacts = join(repository, '.codex-tmp/editor-project-setup-smoke')
 await mkdir(artifacts, { recursive: true })
 const env = { ...process.env }
 delete env.ELECTRON_RUN_AS_NODE
-const app = await _electron.launch({ executablePath: require('electron'), args: [editorRoot, `--user-data-dir=${join(directory, 'profile')}`], env, timeout: 60000 })
-const page = await app.firstWindow()
+const app = await _electron.launch({ executablePath: require('electron'), args: [editorTestApp, `--user-data-dir=${join(directory, 'profile')}`], env, timeout: 60000 })
+const page = await firstTestWindow(app)
 const errors = []
 page.on('pageerror', error => errors.push(error.message))
 async function ready() {
@@ -36,7 +37,7 @@ async function create(name, kind) {
   await app.evaluate(({ Menu }) => Menu.getApplicationMenu().getMenuItemById('new-project').click())
   await page.locator('#project-create-dialog input[name="name"]').fill(name)
   await page.locator('#project-create-dialog select[name="kind"]').selectOption(kind)
-  await page.locator('#project-create-dialog [data-action="location"]').click()
+  await page.getByRole('dialog', { name: '新建项目' }).getByRole('button', { name: '选择…' }).click()
   await page.locator('#project-create-dialog button[type="submit"]').click()
   await page.locator('#project-create-dialog').waitFor({ state: 'hidden', timeout: 30000 })
   await ready()
@@ -56,11 +57,20 @@ try {
   assert.equal(await page.evaluate(() => window.quaEditor.startPreview('web').then(() => false, () => true)), true)
   await page.screenshot({ path: join(artifacts, 'plugin.png') })
 
+  // Cancelling a second directory picker preserves the chosen parent in the dialog and host.
   // Duplicate creation must remain a reviewable error with the existing project intact.
   await app.evaluate(({ Menu }) => Menu.getApplicationMenu().getMenuItemById('new-project').click())
-  await page.locator('#project-create-dialog button[type="submit"]').click()
+  await app.evaluate(({ dialog }) => {
+    dialog.showOpenDialog = async () => ({ canceled: true, filePaths: [] })
+  })
+  const newProjectDialog = page.getByRole('dialog', { name: '新建项目' })
+  await newProjectDialog.getByRole('button', { name: '选择…' }).click()
+  await newProjectDialog.getByRole('button', { name: '创建项目' }).click()
   await page.waitForFunction(() => document.querySelector('.project-error')?.textContent?.includes('EEXIST'))
-  await page.locator('#project-create-dialog [data-action="cancel"]').click()
+  await page.getByRole('dialog', { name: '新建项目' }).getByRole('button', { name: '取消' }).click()
+  await app.evaluate(({ dialog }, directory) => {
+    dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [directory] })
+  }, directory)
   await create('example-game', 'game')
   assert.equal(await page.locator('.preview-pane').isVisible(), true)
   await page.locator('#run').click()
@@ -125,6 +135,6 @@ catch (error) {
   throw error
 }
 finally {
-  await app.close()
+  await closeTestEditor(app)
   await rm(directory, { recursive: true, force: true })
 }

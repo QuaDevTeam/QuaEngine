@@ -5,7 +5,7 @@ import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { launchEditor } from './smoke-profile.mjs'
+import { closeTestEditor, editorTestApp, firstTestWindow, launchEditor } from './smoke-profile.mjs'
 
 const root = fileURLToPath(new URL('../../../../', import.meta.url))
 const editorRoot = resolve(root, 'packages/editor/electron')
@@ -22,8 +22,8 @@ await writeFile(join(project, 'broken.qs'), 'Narrator: ${doesNotExist}\n')
 await writeFile(join(project, 'helper.ts'), 'export const number: number = "wrong"\n')
 const env = { ...process.env }
 delete env.ELECTRON_RUN_AS_NODE
-const app = await launchEditor({ executablePath: require('electron'), args: [editorRoot, '--project', project], env, timeout: 60000 })
-const page = await app.firstWindow()
+const app = await launchEditor({ executablePath: require('electron'), args: [editorTestApp, '--project', project], env, timeout: 60000 })
+const page = await firstTestWindow(app)
 const errors = []
 page.on('pageerror', (error) => {
   errors.push(error.message)
@@ -38,8 +38,9 @@ try {
   assert.equal(new Set(colors['神代凛']).size, 1)
   assert.equal(new Set(colors.Mara).size, 1)
   assert.notEqual(colors.Mara[0], colors['神代凛'][0])
-  await page.locator('#check-indicator[data-phase="complete"]').waitFor({ timeout: 60000 })
+  await page.locator('#check-indicator:is([data-phase="complete"], [data-phase="error"])').waitFor({ timeout: 60000 })
   await page.locator('#tab-problems').click()
+  assert.equal(await page.locator('#check-indicator').getAttribute('data-phase'), 'complete', await page.locator('#diagnostics').textContent())
   await page.locator('.problem-row').filter({ hasText: 'TS_2304' }).waitFor()
   await page.locator('.problem-row').filter({ hasText: 'TS_2322' }).waitFor()
   assert.equal(await page.locator('#diagnostic-count').textContent(), '2')
@@ -73,7 +74,7 @@ catch (error) {
   throw error
 }
 finally {
-  await app.close()
+  await closeTestEditor(app)
   await rm(project, { recursive: true, force: true })
 }
 

@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { _electron } from 'playwright'
+import { closeTestEditor, editorTestApp, firstTestWindow } from './smoke-profile.mjs'
 
 const root = fileURLToPath(new URL('../../../../', import.meta.url))
 const editorRoot = resolve(root, 'packages/editor/electron')
@@ -22,8 +23,8 @@ for (const [path, text] of Object.entries({
 })) await writeFile(join(project, path), text)
 const env = { ...process.env }
 delete env.ELECTRON_RUN_AS_NODE
-const application = await _electron.launch({ executablePath: require('electron'), args: [editorRoot, `--user-data-dir=${join(project, '.editor-profile')}`, '--project', project], env })
-const page = await application.firstWindow()
+const application = await _electron.launch({ executablePath: require('electron'), args: [editorTestApp, `--user-data-dir=${join(project, '.editor-profile')}`, '--project', project], env })
+const page = await firstTestWindow(application)
 const errors = []
 page.on('pageerror', error => errors.push(error.message))
 page.on('console', (message) => {
@@ -155,6 +156,6 @@ finally {
       await clipboard.writeText(globalThis.savedMenuClipboard)
     delete globalThis.savedMenuClipboard
   }).catch(() => {})
-  await application.close()
+  await closeTestEditor(application)
   await rm(project, { recursive: true, force: true })
 }

@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict'
-import { cp, mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { _electron } from 'playwright'
+import { copyDemoFixture } from './demo-fixture.mjs'
+import { closeTestEditor, editorTestApp, firstTestWindow } from './smoke-profile.mjs'
 
 const root = fileURLToPath(new URL('../../../../', import.meta.url))
 const editor = resolve(root, 'packages/editor/electron')
@@ -13,35 +15,26 @@ const profile = await realpath(await mkdtemp(join(tmpdir(), 'qua-animation-scene
 const artifacts = resolve(root, '.codex-tmp/editor-animation-scene-smoke')
 await mkdir(artifacts, { recursive: true })
 const fixture = join(profile, 'project')
-const demo = resolve(root, 'demo')
-await mkdir(fixture)
-for (const entry of ['src', 'assets', 'public', 'index.html', 'tsconfig.json', 'qua.project.yaml', 'quack.workspace.ts', 'vite.config.ts'])
-  await cp(join(demo, entry), join(fixture, entry), { recursive: true })
-await symlink(join(demo, 'node_modules'), join(fixture, 'node_modules'), 'dir')
-const manifest = JSON.parse(await readFile(join(demo, 'package.json'), 'utf8'))
-// Standalone fixture uses existing workspace builds; it installs no packages.
-await writeFile(join(fixture, 'package.json'), JSON.stringify(manifest, null, 2))
-const config = await readFile(join(fixture, 'vite.config.ts'), 'utf8')
-await writeFile(join(fixture, 'vite.config.ts'), config.replace('server: {', `server: { fs: { allow: ${JSON.stringify([root, fixture])} },`))
+await copyDemoFixture(root, fixture)
 const path = 'src/game/scenes/prologue-arrival.qs'
 const sourceFile = resolve(fixture, path)
 const original = await readFile(sourceFile, 'utf8')
 const id = 'editor-scene-smoke'
 const animationFile = resolve(fixture, 'editor-scene-smoke.animation.json')
 const animation = `${JSON.stringify({ id, duration: 1000, fill: 'both', commit: 'none', tracks: [{ target: 'self', property: 'position.x', interpolation: 'number', keyframes: [{ at: 0, value: 640 }, { at: 1000, value: 1280 }] }] }, null, 2)}\n`
-const source = original.replace('Mara: 神代小姐？', `@DefineAnimation('${id}', 1000)\n@Key('self', 'position.x', 0, 640)\n@Key('self', 'position.x', 1000, 1280)\n@PlayAnimation('${id}', 'self=character:mara', true)\nMara: 神代小姐？`)
+const firstGreeting = original.match(/^Mara: .+$/m)?.[0]
+assert.ok(firstGreeting, 'fixture scene contains a Mara dialogue step')
+const source = original.replace(firstGreeting, `@DefineAnimation('${id}', 1000)\n@Key('self', 'position.x', 0, 640)\n@Key('self', 'position.x', 1000, 1280)\n@PlayAnimation('${id}', 'self=character:mara', true)\n${firstGreeting}`)
 assert.notEqual(source, original)
 const env = { ...process.env }
 delete env.ELECTRON_RUN_AS_NODE
 let app
 let page
-let created = false
 try {
   await writeFile(animationFile, animation, { flag: 'wx' })
-  created = true
   await writeFile(sourceFile, source)
-  app = await _electron.launch({ executablePath: require('electron'), args: [editor, '--project', fixture, `--user-data-dir=${join(profile, 'user-data')}`], env, timeout: 60000 })
-  page = await app.firstWindow()
+  app = await _electron.launch({ executablePath: require('electron'), args: [editorTestApp, '--project', fixture, `--user-data-dir=${join(profile, 'user-data')}`], env, timeout: 60000 })
+  page = await firstTestWindow(app)
   page.setDefaultTimeout(20000)
   const errors = []
   page.on('pageerror', error => errors.push(error.message))
@@ -61,11 +54,11 @@ try {
   assert.equal(initial.path, path)
   assert.ok(initial.stepIndex > 0)
   assert.equal(await panel.getByLabel('self 角色', { exact: true }).inputValue(), 'mara')
-  await waitGame(() => {
+  await waitGame((expectedDialogue) => {
     const image = document.querySelector('[data-character-id="mara"] img')
     const background = document.querySelector('.qua-background img, img.qua-background, img.qua-background-image')
-    return image?.complete && image.naturalWidth > 0 && background?.complete && background.naturalWidth > 0 && document.querySelector('.qua-dialogue-text')?.textContent.includes('神代小姐')
-  })
+    return image?.complete && image.naturalWidth > 0 && background?.complete && background.naturalWidth > 0 && document.querySelector('.qua-dialogue-text')?.textContent.includes(expectedDialogue)
+  }, firstGreeting.slice('Mara: '.length))
   await seek(500)
   await waitGame(() => Number(document.querySelector('[data-character-id="mara"]')?.getAttribute('data-character-x')) === 960)
   await assertBounds('.animation-preview')
@@ -119,11 +112,7 @@ finally {
   await app?.evaluate(({ dialog }) => {
     dialog.showMessageBox = async () => ({ response: 1, checkboxChecked: false })
   }).catch(() => {})
-  await app?.close()
-  if (await readFile(sourceFile, 'utf8') === source)
-    await writeFile(sourceFile, original)
-  if (created && await readFile(animationFile, 'utf8') === animation)
-    await rm(animationFile)
+  await closeTestEditor(app)
   await rm(profile, { recursive: true, force: true })
 }
 
@@ -148,8 +137,8 @@ async function seek(time) {
     input.dispatchEvent(new Event('input', { bubbles: true }))
   }, time)
 }
-async function waitGame(predicate) {
-  const expression = `(${predicate.toString()})()`
+async function waitGame(predicate, argument) {
+  const expression = `(${predicate.toString()})(${JSON.stringify(argument)})`
   for (let attempt = 0; attempt < 150; attempt++) {
     if (await app.evaluate(({ webContents }, expression) => webContents.getAllWebContents().find(contents => /^http:\/\/127\.0\.0\.1:\d+\/?$/u.test(contents.getURL()))?.executeJavaScript(expression), expression))
       return

@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { _electron } from 'playwright'
+import { closeTestEditor, editorTestApp, firstTestWindow } from './smoke-profile.mjs'
 
 const root = fileURLToPath(new URL('../../../../', import.meta.url))
 const editorRoot = resolve(root, 'packages/editor/electron')
@@ -70,7 +71,7 @@ delete env.ELECTRON_RUN_AS_NODE
 const app = await _electron.launch({
   executablePath: require('electron'),
   args: [
-    editorRoot,
+    editorTestApp,
     '--project',
     fixture,
     `--user-data-dir=${join(temporary, 'profile')}`,
@@ -78,7 +79,7 @@ const app = await _electron.launch({
   env,
   timeout: 60000,
 })
-const page = await app.firstWindow()
+const page = await firstTestWindow(app)
 page.setDefaultTimeout(15000)
 const errors = []
 page.on('pageerror', error => errors.push(error.message))
@@ -124,6 +125,16 @@ try {
     'enter',
   )
   await waitX(640)
+  const filePicker = panel.getByRole('combobox', { name: '动画文件' })
+  await change('动画 ID', 'unsaved-animation')
+  await filePicker.selectOption('')
+  await message.getByRole('button', { name: '放弃更改并切换' }).waitFor()
+  assert.equal(await filePicker.inputValue(), 'enter.animation.json', 'Pending navigation still displays the file being edited')
+  assert.equal(await panel.getByLabel('动画 ID', { exact: true }).inputValue(), 'unsaved-animation')
+  await message.getByRole('button', { name: '放弃更改并切换' }).click()
+  assert.equal(await filePicker.inputValue(), '')
+  await filePicker.selectOption('enter.animation.json')
+  assert.equal(await panel.getByLabel('动画 ID', { exact: true }).inputValue(), 'enter')
   await panel.getByText('1 个文件需检查').waitFor()
   // Give the visual panel working room through the actual workbench splitter.
   const splitter = page.locator('.dock-separator[data-split-id="main"]')
@@ -283,6 +294,6 @@ finally {
       })
     })
     .catch(() => {})
-  await app.close()
+  await closeTestEditor(app)
   await rm(temporary, { recursive: true, force: true })
 }

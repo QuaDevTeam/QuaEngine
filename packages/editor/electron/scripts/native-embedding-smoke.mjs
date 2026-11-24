@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict'
-import { cp, mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { _electron } from 'playwright'
+import { copyDemoFixture } from './demo-fixture.mjs'
 import { captureNativeWindow } from './native-window-artifact.mjs'
+import { closeTestEditor, editorTestApp, firstTestWindow } from './smoke-profile.mjs'
 
 const root = fileURLToPath(new URL('../../../../', import.meta.url))
 const editor = resolve(root, 'packages/editor/electron')
@@ -14,35 +16,30 @@ const temporary = await realpath(await mkdtemp(join(tmpdir(), 'qua-native-embedd
 const fixture = join(temporary, 'demo')
 const artifacts = resolve(root, '.codex-tmp/editor-native-embedding')
 const path = 'src/game/scenes/prologue-arrival.qs'
-await mkdir(fixture)
 await mkdir(artifacts, { recursive: true })
-// A standalone npm fixture reuses installed workspace builds. No installation,
-// policy override, live Demo source edit or alternate renderer is involved.
-for (const entry of ['src', 'assets', 'public', 'scripts', 'tsconfig.json', 'qua.project.yaml', 'quack.workspace.ts', 'vite.native-jsc.config.ts'])
-  await cp(join(root, 'demo', entry), join(fixture, entry), { recursive: true })
-await symlink(join(root, 'demo/node_modules'), join(fixture, 'node_modules'), 'dir')
-await symlink(join(root, 'node_modules'), join(temporary, 'node_modules'), 'dir')
-await symlink(join(root, 'packages'), join(temporary, 'packages'), 'dir')
-const manifest = JSON.parse(await readFile(join(root, 'demo/package.json'), 'utf8'))
-manifest.scripts['dev:native'] = 'node native-embedding.mjs'
-await writeFile(join(fixture, 'package.json'), JSON.stringify(manifest))
-await writeFile(join(fixture, 'native-embedding.mjs'), 'process.env.QUA_NATIVE_EDITOR_FAST_REBUILD = "1"; await import("./scripts/native-dev.mjs");\n')
-const source = await readFile(join(fixture, path), 'utf8')
-const marker = '月底，海岸台要搬去市民中心。'
-assert.ok(source.includes(marker))
+const beforeShader = '正在准备转场。'
+const afterShader = '转场已完成。'
 const shader = {
   glsl: 'vec4 transition(vec2 uv) { if (progress == 0.0) return sampleFrom(uv); if (progress == 1.0) return sampleTo(uv); return vec4(1.0, progress * 0.2, 1.0, 1.0); }',
   wgsl: 'fn transition(uv: vec2<f32>) -> vec4<f32> { if (progress == 0.0) { return sampleFrom(uv); } if (progress == 1.0) { return sampleTo(uv); } return vec4(1.0, progress * 0.2, 1.0, 1.0); }',
 }
-await writeFile(join(fixture, path), source.replace(marker, `@SetBackground('backgrounds/town-street-rain-anime-v3.webp', ${JSON.stringify({ transition: { type: 'shader', duration: 4000, shader } })})\n${marker}`))
 const env = { ...process.env }
 delete env.ELECTRON_RUN_AS_NODE
 let app
 let page
 const report = { platform: process.platform, transport: 'ca-context', errors: [] }
 try {
-  app = await _electron.launch({ executablePath: require('electron'), args: [editor, '--project', fixture, `--user-data-dir=${join(temporary, 'profile')}`], env, timeout: 60000 })
-  page = await app.firstWindow()
+  await copyDemoFixture(root, fixture, { native: true })
+  const source = await readFile(join(fixture, path), 'utf8')
+  const background = /^@SetBackground\([^\n]+$/mu.exec(source)
+  assert.ok(background, 'fixture needs an initial background before the shader transition')
+  const transition = `@SetBackground('backgrounds/town-street-rain-anime-v3.webp', ${JSON.stringify({ transition: { type: 'shader', duration: 4000, shader } })})`
+  const probe = [background[0], beforeShader, transition, afterShader].join('\n')
+  const probeSource = source.slice(0, background.index) + probe + source.slice(background.index + background[0].length)
+  await writeFile(join(fixture, path), probeSource)
+  process.stdout.write('Native embedding: opening the editor with an isolated Demo project\n')
+  app = await _electron.launch({ executablePath: require('electron'), args: [editorTestApp, '--project', fixture, `--user-data-dir=${join(temporary, 'profile')}`], env, timeout: 60000 })
+  page = await firstTestWindow(app, { timeout: 60000 })
   page.on('pageerror', error => report.errors.push(error.message))
   await page.locator('#run:not([disabled])').waitFor({ timeout: 60000 })
   await page.evaluate(() => {
@@ -94,18 +91,22 @@ try {
   assert.equal((await nativeView(page))[0].contextId, report.surface[0].contextId)
   report.modalOcclusion = true
 
-  await command({ action: 'seek', path, stepIndex: 5 })
+  const [startStep, endStep] = await page.evaluate(async ({ path, markers }) => {
+    const file = await window.quaEditor.readDocument(path)
+    const { previewSteps } = await window.quaEditor.analyzeDocument(path, file.text)
+    const lines = file.text.split('\n')
+    return markers.map(marker => previewSteps.find(step => step.endLine === lines.indexOf(marker) + 1)?.index)
+  }, { path, markers: [beforeShader, afterShader] })
+  assert.ok(Number.isInteger(startStep) && endStep > startStep, 'both fixture dialogue steps must resolve through the editor language service')
+  assert.equal((await command({ action: 'seek', path, stepIndex: startStep })).stepIndex, startStep)
   await waitSurface(page)
   const stepping = command({ action: 'step' })
-  void stepping.catch(() => {})
-  // A few OS-window acceptance artifacts only, never a preview transport.
-  // Chromium page.screenshot cannot capture an AppKit sibling view.
-  await page.waitForTimeout(1800)
-  await capture(page, 'native-embedded-shader.png')
-  await stepping
-  process.stdout.write('Native embedding: shader step completed\n')
-  report.shader = { completedStep: (await command({ action: 'status' })).stepIndex }
-  assert.equal(report.shader.completedStep, 6)
+  const [step, capturedShader] = await Promise.all([stepping, captureShader(page)])
+  assert.equal(step.stepIndex, endStep)
+  report.shader = { completedStep: (await command({ action: 'status' })).stepIndex, ...capturedShader }
+  assert.equal(report.shader.completedStep, endStep)
+  assert.ok(report.shader.magentaFraction > 0.01, `the injected transition must be visible in the actual macOS window capture: ${JSON.stringify(report.shader)}`)
+  process.stdout.write(`Native embedding: shader step completed, ${JSON.stringify(report.shader)}\n`)
   assert.equal(await page.locator('canvas#native-surface').count(), 0)
   assert.equal(await page.evaluate(() => 'readNativeFrame' in window.quaEditor), false)
   const popup = app.waitForEvent('window', { timeout: 15000 })
@@ -160,7 +161,7 @@ catch (error) {
   throw error
 }
 finally {
-  await app?.close()
+  await closeTestEditor(app)
   await rm(temporary, { recursive: true, force: true })
 }
 async function state() {
@@ -187,6 +188,25 @@ async function waitSurface(window) {
 async function capture(window, name) {
   await captureNativeWindow(app, window, join(artifacts, name))
 }
+async function captureShader(window) {
+  // These macOS window captures include the AppKit sibling that Chromium omits.
+  const deadline = Date.now() + 10000
+  const name = 'native-embedded-shader.png'
+  let magentaFraction = 0
+  let samples = 0
+  while (Date.now() < deadline && magentaFraction <= 0.01) {
+    await capture(window, name)
+    const pixels = await require('sharp')(join(artifacts, name)).resize({ width: 240 }).removeAlpha().raw().toBuffer()
+    let magenta = 0
+    for (let offset = 0; offset < pixels.length; offset += 3) {
+      if (pixels[offset] > 225 && pixels[offset + 1] < 100 && pixels[offset + 2] > 225)
+        magenta++
+    }
+    samples++
+    magentaFraction = Math.max(magentaFraction, magenta / (pixels.length / 3))
+  }
+  return { samples, magentaFraction }
+}
 async function tree() {
   const result = await page.evaluate(async () => {
     const state = await window.quaEditor.previewState()
@@ -202,9 +222,9 @@ async function tree() {
 }
 async function nativeView(page) {
   const window = await app.browserWindow(page)
-  return window.evaluate(async (window, editor) => {
+  return window.evaluate(async (window, appRoot) => {
     const { createRequire } = process.getBuiltinModule('node:module')
-    const binding = createRequire(`${editor}/package.json`)('./dist/native-layer.node')
+    const binding = createRequire(`${appRoot}/package.json`)('./dist/native-layer.node')
     return JSON.parse(binding.inspect(window.getNativeWindowHandle()))
-  }, editor)
+  }, editorTestApp)
 }

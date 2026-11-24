@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { _electron } from 'playwright'
+import { closeTestEditor, editorTestApp, firstTestWindow } from './smoke-profile.mjs'
 
 const root = fileURLToPath(new URL('../../../../', import.meta.url))
 const editorRoot = resolve(root, 'packages/editor/electron')
@@ -24,8 +25,8 @@ await require('sharp')({ create: { width: 64, height: 64, channels: 4, backgroun
 
 const env = { ...process.env, SHELL: '/bin/sh' }
 delete env.ELECTRON_RUN_AS_NODE
-const app = await _electron.launch({ executablePath: require('electron'), args: [editorRoot, '--project', project, `--user-data-dir=${join(temporary, 'profile')}`], env, timeout: 30000 })
-const page = await app.firstWindow()
+const app = await _electron.launch({ executablePath: require('electron'), args: [editorTestApp, '--project', project, `--user-data-dir=${join(temporary, 'profile')}`], env, timeout: 30000 })
+const page = await firstTestWindow(app)
 page.setDefaultTimeout(15000)
 const errors = []
 process.stdout.write('Theme fixture launched.\n')
@@ -172,7 +173,6 @@ catch (error) {
   throw error
 }
 finally {
-  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().forEach(window => window.destroy())).catch(() => {})
-  await app.close()
+  await closeTestEditor(app, { destroyWindows: true })
   await rm(temporary, { recursive: true, force: true })
 }

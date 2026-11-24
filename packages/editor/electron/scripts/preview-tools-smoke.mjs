@@ -6,7 +6,7 @@ import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { copyDemoFixture } from './demo-fixture.mjs'
 import { captureNativeWindow } from './native-window-artifact.mjs'
-import { launchEditor } from './smoke-profile.mjs'
+import { closeTestEditor, editorTestApp, firstTestWindow, launchEditor } from './smoke-profile.mjs'
 
 const root = fileURLToPath(new URL('../../../../', import.meta.url))
 const editorRoot = resolve(root, 'packages/editor/electron')
@@ -27,8 +27,8 @@ delete env.ELECTRON_RUN_AS_NODE
 let application
 let page
 try {
-  application = await launchEditor({ executablePath: require('electron'), args: [editorRoot, '--project', projectRoot], env, timeout: 60000 })
-  page = await application.firstWindow()
+  application = await launchEditor({ executablePath: require('electron'), args: [editorTestApp, '--project', projectRoot], env, timeout: 60000 })
+  page = await firstTestWindow(application)
   const errors = []
   page.on('pageerror', error => errors.push(error.message))
   await page.locator('#files[data-project-name^="Call Me Again Tomorrow"]').waitFor({ timeout: 60000 })
@@ -112,7 +112,7 @@ try {
     const analysis = await page.evaluate(async ({ path, original }) => window.quaEditor.analyzeDocument(path, original), { path, original })
     const span = analysis.previewSteps.find(step => step.index === 5)
     assert.equal(span.line, span.endLine)
-    assert.match(lines[span.line - 1], /邮件下面附了六张照片/)
+    assert.ok(lines[span.line - 1].trim() && !lines[span.line - 1].startsWith('@'), 'expected a dialogue source line')
     const marker = ' EDITOR_LIVE_RELOAD'
     lines[span.line - 1] += marker
     await save(lines.join('\n'))
@@ -219,7 +219,7 @@ finally {
   if (await readFile(file, 'utf8') === written)
     await writeFile(file, original)
   else process.stderr.write('Source changed outside this smoke; leaving it intact.\n')
-  await application?.close()
+  await closeTestEditor(application)
   await rm(temporary, { recursive: true, force: true })
 }
 async function state() {

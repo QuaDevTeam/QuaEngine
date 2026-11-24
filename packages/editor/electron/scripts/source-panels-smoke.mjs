@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { _electron } from 'playwright'
+import { closeTestEditor, editorTestApp, firstTestWindow } from './smoke-profile.mjs'
 
 const root = fileURLToPath(new URL('../../../../', import.meta.url))
 const editorRoot = resolve(root, 'packages/editor/electron')
@@ -33,8 +34,8 @@ registerCharacters([
 await writeFile(join(project, 'alice.manifest.json'), '{"version":1,"family":"alice","expressions":{}}')
 const env = { ...process.env }
 delete env.ELECTRON_RUN_AS_NODE
-const app = await _electron.launch({ executablePath: require('electron'), args: [editorRoot, '--project', project, `--user-data-dir=${join(temporary, 'profile')}`], env })
-const page = await app.firstWindow()
+const app = await _electron.launch({ executablePath: require('electron'), args: [editorTestApp, '--project', project, `--user-data-dir=${join(temporary, 'profile')}`], env })
+const page = await firstTestWindow(app)
 page.setDefaultTimeout(15000)
 const errors = []
 page.on('pageerror', error => errors.push(error.message))
@@ -132,6 +133,6 @@ catch (error) {
   throw error
 }
 finally {
-  await app.close()
+  await closeTestEditor(app)
   await rm(temporary, { recursive: true, force: true })
 }

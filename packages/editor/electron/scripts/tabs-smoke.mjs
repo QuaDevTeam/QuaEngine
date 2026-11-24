@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { _electron } from 'playwright'
+import { closeTestEditor, editorTestApp, firstTestWindow } from './smoke-profile.mjs'
 
 const root = fileURLToPath(new URL('../../../../', import.meta.url))
 const editorRoot = resolve(root, 'packages/editor/electron')
@@ -18,8 +19,8 @@ await writeFile(join(project, 'one.qs'), 'Mara: first\n')
 await writeFile(join(project, 'two.qs'), 'Yumi: second\n')
 const env = { ...process.env }
 delete env.ELECTRON_RUN_AS_NODE
-const application = await _electron.launch({ executablePath: require('electron'), args: [editorRoot, `--user-data-dir=${join(project, '.editor-profile')}`, '--project', project], env })
-const page = await application.firstWindow()
+const application = await _electron.launch({ executablePath: require('electron'), args: [editorTestApp, `--user-data-dir=${join(project, '.editor-profile')}`, '--project', project], env })
+const page = await firstTestWindow(application)
 const errors = []
 page.on('pageerror', error => errors.push(error.message))
 const end = process.platform === 'darwin' ? 'Meta+ArrowDown' : 'Control+End'
@@ -102,7 +103,7 @@ try {
   await page.locator('#setting-fontSize').fill('18')
   await page.locator('#setting-fontSize').press('Tab')
   await page.locator('#setting-tabSize').selectOption('4')
-  await page.getByRole('button', { name: '预览', exact: true }).click()
+  assert.equal(await page.locator('#setting-tabSize').inputValue(), '4')
   await page.screenshot({ path: join(artifacts, 'settings.png') })
   await page.keyboard.press('Escape')
   await page.locator('#editor .minimap canvas').first().waitFor({ state: 'hidden' })
@@ -153,7 +154,7 @@ finally {
   await application.evaluate(({ dialog }) => {
     dialog.showMessageBox = async () => ({ response: 1, checkboxChecked: false })
   }).catch(() => {})
-  await application.close()
+  await closeTestEditor(application)
   await rm(project, { recursive: true, force: true })
 }
 async function poll(predicate) {

@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { _electron } from 'playwright'
+import { closeTestEditor, editorTestApp, firstTestWindow } from './smoke-profile.mjs'
 
 const root = fileURLToPath(new URL('../../../../', import.meta.url))
 const editorRoot = resolve(root, 'packages/editor/electron')
@@ -23,8 +24,8 @@ await writeFile(join(temporary, 'scene.qs'), '@Mood("calm", {})\nNarrator: hello
 await writeFile(join(temporary, 'helper.ts'), '/** Change the mood. */\nexport function mood(value: string, options?: object) {}\n')
 const env = { ...process.env }
 delete env.ELECTRON_RUN_AS_NODE
-const app = await _electron.launch({ executablePath: require('electron'), args: [editorRoot, '--project', temporary, '--user-data-dir', join(temporary, 'profile')], env })
-const page = await app.firstWindow()
+const app = await _electron.launch({ executablePath: require('electron'), args: [editorTestApp, '--project', temporary, '--user-data-dir', join(temporary, 'profile')], env })
+const page = await firstTestWindow(app)
 page.setDefaultTimeout(20000)
 const errors = []
 page.on('pageerror', error => errors.push(error.message))
@@ -101,7 +102,7 @@ finally {
   await app.evaluate(({ dialog }) => {
     dialog.showMessageBox = async () => ({ response: 1, checkboxChecked: false })
   }).catch(() => {})
-  await app.close()
+  await closeTestEditor(app)
   await rm(temporary, { recursive: true, force: true })
 }
 async function replace(value) {

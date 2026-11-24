@@ -5,13 +5,15 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { promisify } from 'node:util'
 import { prepareEditorInstall } from '../src/release/install.ts'
-import { launchEditor } from './smoke-profile.mjs'
+import { firstTestWindow, launchEditor } from './smoke-profile.mjs'
 
 const archive = process.argv[2]
 if (!archive)
   throw new Error('Pass the packaged editor tar.gz to smoke test.')
 const scratch = await mkdtemp(join(tmpdir(), 'qua-packaged-smoke-'))
 let app
+let child
+let summary
 try {
   await promisify(execFile)('tar', ['-xzf', resolve(archive), '-C', scratch])
   const [application] = await readdir(scratch)
@@ -19,10 +21,11 @@ try {
   const executablePath = process.platform === 'darwin'
     ? join(scratch, application, 'Contents/MacOS', name)
     : join(scratch, application, `${name}${process.platform === 'win32' ? '.exe' : ''}`)
-  const env = { ...process.env }
+  const env = { ...process.env, NOVEL_WRITER_HOME: join(scratch, 'writing') }
   delete env.ELECTRON_RUN_AS_NODE
   app = await launchEditor({ executablePath, args: process.env.CI && process.platform === 'linux' ? ['--no-sandbox'] : [], env, timeout: 30000 })
-  const page = await app.firstWindow()
+  child = app.process()
+  const page = await firstTestWindow(app)
   const errors = []
   page.on('pageerror', error => errors.push(error.message))
   await page.locator('#editor-update').waitFor()
@@ -57,6 +60,13 @@ try {
     return terminal.pid
   }, project.root)
   assert.ok(terminalPid > 0, 'Packaged native PTY and spawn helper work')
+  const [writer] = await Promise.all([
+    page.context().waitForEvent('page', { timeout: 30000 }),
+    page.locator('#activity-writer').click(),
+  ])
+  await writer.getByRole('button', { name: '新建项目', exact: true }).waitFor()
+  assert.equal(await writer.evaluate(() => typeof window.quaNovelWriter?.dirty), 'function')
+  await page.locator('#tab-source').click()
   const state = await page.evaluate(() => window.quaEditor.editorUpdateState())
   assert.equal(state.app.installSupported, true)
   assert.equal(state.app.channel, assets.metadata.channel)
@@ -68,12 +78,22 @@ try {
   await mkdir(output, { recursive: true })
   await page.screenshot({ path: join(output, 'packaged-editor.png') })
   assert.deepEqual(errors, [])
-  process.stdout.write(`Packaged ${state.app.channel} ${state.app.currentVersion}: standalone launch, ${assets.packages} SDK packages, complete templates, project creation, worker IPC, native terminal and real update staging passed.\n`)
+  summary = `Packaged ${state.app.channel} ${state.app.currentVersion}: standalone launch, ${assets.packages} SDK packages, complete templates, project creation, worker IPC, native terminal, embedded Novel Writer, real update staging and clean exit passed.\n`
 }
 finally {
   if (app) {
-    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().forEach(window => window.destroy())).catch(() => {})
-    await app.close()
+    // A native startup error dialog can block the main process and its debugging connection.
+    const terminate = setTimeout(() => child.kill('SIGKILL'), 5000)
+    try {
+      await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().forEach(window => window.destroy())).catch(() => {})
+      await app.close().catch(() => {})
+    }
+    finally {
+      clearTimeout(terminate)
+    }
   }
   await rm(scratch, { recursive: true, force: true })
 }
+assert.equal(child.signalCode, null, 'Packaged editor should exit without a signal')
+assert.equal(child.exitCode, 0, 'Packaged editor should exit successfully')
+process.stdout.write(summary)

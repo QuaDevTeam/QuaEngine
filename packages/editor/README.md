@@ -252,6 +252,22 @@ Source Control 采用 VS Code 风格的紧凑布局：分支入口与刷新、�
 
 ## 验证
 
+在仓库根目录运行 `pnpm run test:editor:e2e`，构建 Editor 和 Demo 依赖，并按顺序测试实际 Electron 窗口。macOS 原生全屏和窗口合成截图需要已解锁的图形会话。每次执行都有独立的 `.codex-tmp/editor-e2e/run-*/results.json`，记录每个场景的耗时、结果和日志路径。单个场景失败后会继续检查其他场景，命令最终返回非零状态。
+
+| 分组 | 覆盖的操作 |
+| --- | --- |
+| `workbench` | 空项目、窗口、主题、布局、文件导航、键盘焦点、搜索、外部修改和草稿保存 |
+| `authoring` | 大纲、语言服务、修饰器、角色和动画面板、嵌入式写作及回写 |
+| `tools` | 终端、Git、插件管理、新建项目、更新和生产打包的取消、恢复与产物校验 |
+| `preview` | Web 预览、弹出与停靠、热更新、场景调试、存储、Inspector 和性能采样 |
+| `native` | macOS Native 预览、实际嵌入表面与跨窗口交互，使用本机 Rust 和 Xcode 工具链 |
+
+默认执行前四组。指定分组可运行 `pnpm run test:editor:e2e workbench authoring` 或 `pnpm run test:editor:e2e native`。已构建时可以直接运行 `node packages/editor/electron/scripts/e2e.mjs <分组>`。发行归档的安装和更新测试由 Editor 发布流程负责。
+
+Editor E2E 工作流在 PR 中测量前四组的工作台源码覆盖率。手动启动时可勾选 Native。大项目用例索引超过 1,200 个文件，用 24 次键盘导航测量按键到下一帧回调的 P95，超过 250 毫秒即失败。CI 同时保存用例结果、耗时指标和宽窄窗口的明暗主题截图。
+
+已有构建可运行 `node packages/editor/electron/scripts/e2e.mjs --coverage workbench authoring tools preview native` 测量真实 Electron 窗口执行的工作台源码。单个场景可写成 `--coverage workbench/navigation`。测试副本使用 Istanbul 给 `packages/editor/ui/src` 下所有非声明 TypeScript 文件插桩，包括未执行的文件。报告与本次日志放在同一目录，`renderer-coverage-summary.json` 列出行、分支、函数的命中数、分母和各文件结果，`renderer-coverage-final.json` 可供 Istanbul 工具读取。汇总只使用通过场景的快照，并列出缺失快照和失败场景。默认四组全部执行后检查回归下限，行覆盖率至少 84%，函数至少 80%，分支至少 72%。仅运行部分场景时仍输出实测值。提前关闭的窗口可能只保留定时采样。Electron 主进程、独立插件、Novel Writer 和各平台渲染器有各自的测试范围。
+
 ```bash
 pnpm --filter @quajs/editor-core test
 pnpm --filter @quajs/editor-electron test
@@ -458,7 +474,7 @@ QS 文档工具栏可打开底部「语句属性」，表单直接编辑同一�
 
 打包面板列出 Web 或 native 的完整步骤，展示当前阶段、完成/跳过/失败状态、资源包计数和实际耗时。关闭面板可在后台继续，再次打开保留当前进度。日志默认折叠，失败时展开；未配置的 Apple 公证明示为跳过。圆角弹窗独立滚动内容，保持标题和操作按钮可见。
 
-点击标题栏的应用菜单按钮，选择“文件 → 生产打包…”（⌘/Ctrl Shift B）；macOS 系统菜单栏也保留同一入口。统一下拉菜单集中提供文件、编辑、终端和视图操作，标题栏保持 `Qua / Editor` 品牌标题。支持 Web 生产目录和 macOS native `.app`，提供日志、取消和产物定位。构建前保存当前文档，应用图标、Developer ID 签名和公证在 `qua.project.*` 配置。参见[生产构建配置](../build/quack/docs/production-build.md)。
+点击标题栏的应用菜单按钮，选择“文件 → 生产打包…”（⌘/Ctrl Shift B）；macOS 系统菜单栏也保留同一入口。统一下拉菜单集中提供文件、编辑、终端和视图操作，标题栏保持 `Qua / Editor` 品牌标题。支持 Web 生产目录、macOS 原生 `.app`，以及 Windows 和 Linux 本机的游戏发布目录，提供日志、取消和产物定位。构建前保存当前文档，应用图标、Developer ID 签名和公证在 `qua.project.*` 配置。参见[生产构建配置](../build/quack/docs/production-build.md)。
 
 编辑器自身使用[专属应用图标](../../assets/brand/quaeditor-icon.png)：现有角色配薄荷绿铅笔和圆角底板。`python3 scripts/brand/editor.py` 可重新导出设计；Electron 构建会自动生成 `electron/dist/icons/quaeditor.{png,icns,ico}`，其中 PNG 用于窗口和 macOS Dock。未来编辑器安装包需将 ICNS/ICO 接入应用包或可执行文件元数据；图标资源导出不等于完成安装包签名。游戏产物继续使用项目配置中的图标。
 

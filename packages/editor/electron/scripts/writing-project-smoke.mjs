@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
-import { launchEditor } from './smoke-profile.mjs'
+import { closeTestEditor, editorTestApp, firstTestWindow, launchEditor } from './smoke-profile.mjs'
 
 const root = fileURLToPath(new URL('../../../../', import.meta.url))
 const editorRoot = resolve(root, 'packages/editor/electron')
@@ -72,7 +72,7 @@ await new Promise(resolve => provider.listen(0, '127.0.0.1', resolve))
 const providerUrl = `http://127.0.0.1:${provider.address().port}`
 const env = { ...process.env, NOVEL_WRITER_HOME: join(temporary, 'writer') }
 delete env.ELECTRON_RUN_AS_NODE
-const app = await launchEditor({ executablePath: require('electron'), args: [editorRoot, '--project', first], env, timeout: 60000 })
+const app = await launchEditor({ executablePath: require('electron'), args: [editorTestApp, '--project', first], env, timeout: 60000 })
 let writer
 const errors = []
 async function poll(test) {
@@ -140,7 +140,7 @@ async function assertEmptyLayout() {
   await assertSquareIconButtons()
 }
 try {
-  const page = await app.firstWindow()
+  const page = await firstTestWindow(app)
   page.on('pageerror', error => errors.push(error.message))
   await page.locator('#files[data-project-name="Writing first"]').waitFor()
   // Writer keeps its Svelte document. Test its full authoring layout in a
@@ -495,7 +495,7 @@ finally {
   await app.evaluate(({ dialog }) => {
     dialog.showMessageBox = async () => ({ response: 1 })
   }).catch(() => {})
-  await app.close()
+  await closeTestEditor(app)
   await new Promise(resolve => provider.close(resolve))
   await rm(temporary, { recursive: true, force: true })
 }

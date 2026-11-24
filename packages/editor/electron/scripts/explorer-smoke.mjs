@@ -4,7 +4,7 @@ import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { launchEditor } from './smoke-profile.mjs'
+import { closeTestEditor, editorTestApp, firstTestWindow, launchEditor } from './smoke-profile.mjs'
 
 const root = fileURLToPath(new URL('../../../../', import.meta.url))
 const editorRoot = resolve(root, 'packages/editor/electron')
@@ -22,8 +22,8 @@ delete env.ELECTRON_RUN_AS_NODE
 let application
 let page
 try {
-  application = await launchEditor({ executablePath: require('electron'), args: [editorRoot, '--project', temporary], env, timeout: 60000 })
-  page = await application.firstWindow()
+  application = await launchEditor({ executablePath: require('electron'), args: [editorTestApp, '--project', temporary], env, timeout: 60000 })
+  page = await firstTestWindow(application)
   const errors = []
   page.on('pageerror', error => errors.push(error.message))
   await page.locator('#files[data-project-name="Explorer fixture"]').waitFor()
@@ -183,6 +183,6 @@ finally {
   await application?.evaluate(({ dialog }) => {
     dialog.showMessageBox = async () => ({ response: 1, checkboxChecked: false })
   }).catch(() => {})
-  await application?.close()
+  await closeTestEditor(application)
   await rm(temporary, { recursive: true, force: true })
 }

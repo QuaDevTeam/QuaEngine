@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { _electron } from 'playwright'
+import { closeTestEditor, editorTestApp, firstTestWindow } from './smoke-profile.mjs'
 
 const root = fileURLToPath(new URL('../../../../', import.meta.url))
 const editorRoot = resolve(root, 'packages/editor/electron')
@@ -43,8 +44,8 @@ await writeFile(join(projectRoot, 'assets', 'audio', 'tone.wav'), wav)
 const env = { ...process.env }
 delete env.ELECTRON_RUN_AS_NODE
 const started = performance.now()
-const application = await _electron.launch({ executablePath: require('electron'), args: [editorRoot, '--project', projectRoot, `--user-data-dir=${join(temporary, 'profile')}`], env, timeout: 60000 })
-const page = await application.firstWindow()
+const application = await _electron.launch({ executablePath: require('electron'), args: [editorTestApp, '--project', projectRoot, `--user-data-dir=${join(temporary, 'profile')}`], env, timeout: 60000 })
+const page = await firstTestWindow(application)
 const errors = []
 page.on('pageerror', error => errors.push(error.message))
 const metrics = {}
@@ -55,6 +56,35 @@ try {
   await page.keyboard.press('ControlOrMeta+f')
   await page.locator('#file-search').fill('document-')
   await page.keyboard.press('ArrowDown')
+  // Measure keyboard-to-next-frame latency inside the Electron renderer, excluding
+  // automation transport. Verify each key selects a different file row.
+  const tree = page.locator('#files')
+  await tree.focus()
+  await tree.evaluate((element) => {
+    const samples = []
+    window.treeNavigationSamples = samples
+    element.addEventListener('keydown', function sample(event) {
+      if (event.key !== 'ArrowDown')
+        return
+      requestAnimationFrame(() => {
+        const row = element.querySelector('[aria-selected="true"]')
+        samples.push({ path: row?.dataset.path, milliseconds: performance.now() - event.timeStamp })
+        if (samples.length === 24)
+          element.removeEventListener('keydown', sample)
+      })
+    })
+  })
+  for (let index = 0; index < 24; index++) {
+    await page.keyboard.press('ArrowDown')
+    await page.waitForFunction(count => window.treeNavigationSamples.length === count, index + 1)
+  }
+  const samples = await page.evaluate(() => window.treeNavigationSamples)
+  assert.ok(samples.every(sample => sample.path))
+  assert.equal(new Set(samples.map(sample => sample.path)).size, samples.length)
+  const durations = samples.map(sample => sample.milliseconds).sort((a, b) => a - b)
+  metrics.navigationSamples = durations.length
+  metrics.keyToFrameP95Milliseconds = Math.round(durations[Math.ceil(durations.length * 0.95) - 1])
+  assert.ok(metrics.keyToFrameP95Milliseconds <= 250, `File navigation took ${metrics.keyToFrameP95Milliseconds} ms at P95 (budget 250 ms)`)
   await page.keyboard.press('End')
   assert.equal(await page.locator('#files [aria-selected=true]').getAttribute('data-path'), 'src/chapters/document-899.txt')
   metrics.treeDomRows = await page.locator('#files [role=treeitem]').count()
@@ -245,6 +275,6 @@ finally {
   await application.evaluate(({ dialog }) => {
     dialog.showMessageBox = async () => ({ response: 1, checkboxChecked: false })
   }).catch(() => {})
-  await application.close()
+  await closeTestEditor(application)
   await rm(temporary, { recursive: true, force: true })
 }

@@ -6,7 +6,7 @@ import { resolve } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
 import { copyDemoFixture } from './demo-fixture.mjs'
-import { launchEditor } from './smoke-profile.mjs'
+import { closeTestEditor, editorTestApp, firstTestWindow, launchEditor } from './smoke-profile.mjs'
 
 const root = fileURLToPath(new URL('../../../../', import.meta.url))
 const editorRoot = resolve(root, 'packages/editor/electron')
@@ -42,8 +42,8 @@ async function capture(name) {
 }
 
 try {
-  application = await launchEditor({ executablePath: require('electron'), args: [editorRoot, '--project', projectRoot], env, timeout: 60000 })
-  page = await application.firstWindow()
+  application = await launchEditor({ executablePath: require('electron'), args: [editorTestApp, '--project', projectRoot], env, timeout: 60000 })
+  page = await firstTestWindow(application)
   page.on('pageerror', error => errors.push(error.message))
   await page.locator('#run:not([disabled])').waitFor({ timeout: 60000 })
   await application.evaluate(({ ipcMain, BrowserWindow }) => {
@@ -185,6 +185,6 @@ catch (error) {
 }
 finally {
   await page?.evaluate(() => window.quaEditor.stopPreview()).catch(() => {})
-  await application?.close()
+  await closeTestEditor(application)
   await rm(temporary, { recursive: true, force: true })
 }

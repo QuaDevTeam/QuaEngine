@@ -65,6 +65,8 @@
     "@types/node": "catalog:",
     "@types/semver": "catalog:",
     "electron": "catalog:",
+    "istanbul-lib-coverage": "catalog:",
+    "istanbul-lib-instrument": "catalog:",
     "vitest": "catalog:",
     "yaml": "catalog:"
   }

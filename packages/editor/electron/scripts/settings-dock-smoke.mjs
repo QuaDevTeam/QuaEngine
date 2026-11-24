@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { _electron } from 'playwright'
+import { closeTestEditor, editorTestApp, firstTestWindow } from './smoke-profile.mjs'
 
 const root = fileURLToPath(new URL('../../../../', import.meta.url))
 const editorRoot = resolve(root, 'packages/editor/electron')
@@ -14,8 +15,8 @@ const artifacts = join(root, '.codex-tmp/editor-settings-dock')
 await mkdir(artifacts, { recursive: true })
 const env = { ...process.env, SHELL: '/bin/sh' }
 delete env.ELECTRON_RUN_AS_NODE
-const app = await _electron.launch({ executablePath: require('electron'), args: [editorRoot, `--user-data-dir=${join(temporary, 'profile')}`], env })
-const page = await app.firstWindow()
+const app = await _electron.launch({ executablePath: require('electron'), args: [editorTestApp, `--user-data-dir=${join(temporary, 'profile')}`], env })
+const page = await firstTestWindow(app)
 page.setDefaultTimeout(12000)
 const errors = []
 page.on('pageerror', error => errors.push(error.message))
@@ -206,6 +207,6 @@ catch (error) {
   throw error
 }
 finally {
-  await app.close()
+  await closeTestEditor(app)
   await rm(temporary, { recursive: true, force: true })
 }
