@@ -93,3 +93,7 @@ Plugin styling inherits the workbench's `--editor-*` semantic theme tokens from
 modes without resetting a local palette or remounting forms. Asset/game preview
 pixels retain their original colors. Include `theme-smoke.mjs` alongside the
 feature smoke after theme changes; verify focused or unsaved drafts survive.
+
+Retain the chosen character registration across index refreshes and panel visibility changes using its source path, line and column. A removed destination requires a new selection before applying. Reopening a hidden panel after its selected character disappears must load the current character’s fields. The character plugin Electron smoke checks the authored destination on disk and the hidden-panel replacement.
+
+Keep edit feedback visible when a filesystem notification leaves both the character catalog and its indexing error unchanged. The Electron smoke creates an unrelated source file while the character document has an unresolved edit conflict, waits until the Explorer sees it and checks that the user can still read the conflict in the footer.

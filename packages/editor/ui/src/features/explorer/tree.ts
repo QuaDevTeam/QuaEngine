@@ -135,7 +135,7 @@ export class FileTree {
     this.active = path
     this.selected = path
     this.refresh()
-    this.list.reveal(this.rows.findIndex(row => row.node.path === path))
+    this.list.revealSelection(this.rows.findIndex(row => row.node.path === path))
     this.persist()
   }
 
@@ -262,7 +262,7 @@ export class FileTree {
     event.preventDefault()
     index = Math.max(0, Math.min(this.rows.length - 1, index))
     this.selected = this.rows[index]?.node.path || ''
-    this.list.reveal(index)
+    this.list.revealSelection(index)
     this.updateFocus()
   }
 

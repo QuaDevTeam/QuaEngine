@@ -60,7 +60,8 @@ export function registerProjectIpc(context: Pick<MainServices, 'handle' | 'windo
   )
   context.handle('editor:project-location', async () => {
     const result = await dialog.showOpenDialog(context.window, { title: '选择新项目的父目录', properties: ['openDirectory', 'createDirectory'] })
-    context.projectLocation = result.canceled ? undefined : result.filePaths[0]
+    if (!result.canceled && result.filePaths[0])
+      context.projectLocation = result.filePaths[0]
     return context.projectLocation
   })
   context.handle('editor:create', async (request: EditorCreateProject) => {

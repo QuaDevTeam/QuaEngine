@@ -2,7 +2,7 @@ qua-workbench-shell {
   display: contents;
 }
 #app.docked {
-  grid-template-rows: 36px minmax(0, 1fr) 26px;
+  grid-template-rows: 36px minmax(0, 1fr) minmax(26px, max-content);
   min-width: 720px;
   .workspace {
     grid-template-columns: 44px var(--sidebar-width) 4px minmax(0, 1fr);

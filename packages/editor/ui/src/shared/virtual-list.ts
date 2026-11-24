@@ -52,6 +52,17 @@ export class VirtualList<T> {
     this.paint(true)
   }
 
+  /** Single-selection trees and listboxes retain their DOM rows while scrolling. */
+  revealSelection(index: number): void {
+    const previous = this.rendered.get(this.pinned)
+    previous?.setAttribute('aria-selected', 'false')
+    previous?.classList.remove('selected')
+    this.reveal(index)
+    const current = this.rendered.get(index)
+    current?.setAttribute('aria-selected', 'true')
+    current?.classList.add('selected')
+  }
+
   private paint(force = false): void {
     const start = Math.max(0, Math.floor(this.host.scrollTop / this.height) - 4)
     const end = Math.min(this.items.length, Math.ceil((this.host.scrollTop + this.host.clientHeight) / this.height) + 4)

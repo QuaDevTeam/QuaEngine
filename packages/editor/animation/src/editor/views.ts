@@ -5,7 +5,7 @@ import type {
 import type { AnimationTimeline } from '@quajs/plugin-animation'
 import type { AnimationCatalog, AnimationRecord } from '../contracts.js'
 import type { editTimeline, Property } from '../model/timeline.js'
-import { element, html, nothing, render } from '@quajs/editor-controls'
+import { element, html, live, nothing, render } from '@quajs/editor-controls'
 import {
   easings,
   MAX_DURATION,
@@ -55,7 +55,7 @@ export function createAnimationViews(context: ViewContext) {
   function renderToolbar(): void {
     render(html`
       <select class="editor-select" aria-label="动画文件" @change=${(event: Event) => context.choose(context.catalog.animations.find(item => item.path === (event.currentTarget as HTMLSelectElement).value))}>
-        ${[{ path: '', title: '新动画' }, ...context.catalog.animations.map(item => ({ path: item.path, title: item.path }))].map(item => html`<option value=${item.path} .selected=${item.path === (context.record?.path ?? '')}>${item.title}</option>`)}
+        ${[{ path: '', title: '新动画' }, ...context.catalog.animations.map(item => ({ path: item.path, title: item.path }))].map(item => html`<option value=${item.path} .selected=${live(item.path === (context.record?.path ?? ''))}>${item.title}</option>`)}
       </select>
       <button type="button" @click=${() => context.choose()}>新建动画</button>
       <button type="button" ?disabled=${!context.undo.length} @click=${() => context.history(false)}>撤销</button>

@@ -85,6 +85,19 @@ it('replaces Native once and restores through the new engine command channel', a
   await f.workbench.stop()
 })
 
+it('drops errors reported by the retiring native session while reading its position', async () => {
+  const f = fixture(true)
+  await f.workbench.start({ target: 'native', projectRoot: '/project', script: 'dev', buildRevision: 'a' })
+  f.command.mockImplementationOnce(async () => {
+    f.start.mock.calls[0][0].issue?.('error in the retiring process')
+    return { path: 'story.qs', stepIndex: 0, message: 'ok' }
+  })
+  await f.workbench.reload()
+  expect(f.workbench.getSnapshot().identity?.sessionId).toBe('2')
+  expect(f.workbench.getSnapshot().renderError).toBeUndefined()
+  await f.workbench.stop()
+})
+
 it('does not restore or publish an obsolete reload after stop', async () => {
   const f = fixture()
   let finish!: () => void

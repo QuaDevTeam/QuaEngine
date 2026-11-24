@@ -44,6 +44,43 @@ export function createWebPreview(window: BrowserWindow, setView: (view?: WebCont
         return view.webContents
       }
       const cdp = (method: string, params?: Record<string, unknown>) => contents().debugger.sendCommand(method, params)
+      function waitForDocument(navigate: () => Promise<unknown>, reloading = false): Promise<void> {
+        const page = contents()
+        return new Promise<void>((resolve, reject) => {
+          const timer = reloading ? setTimeout(() => fail(new Error('Web 刷新超时。')), 30000) : undefined
+          function cleanup() {
+            clearTimeout(timer)
+            page.removeListener('dom-ready', ready)
+            page.removeListener('did-fail-load', loadFailed)
+            page.removeListener('destroyed', cancelled)
+            request.signal.removeEventListener('abort', cancelled)
+          }
+          function fail(error: unknown) {
+            cleanup()
+            reject(error)
+          }
+          function cancelled() {
+            fail(new Error('Web 预览已关闭。'))
+          }
+          function ready() {
+            if (page.getURL() === 'about:blank')
+              return
+            cleanup()
+            resolve()
+          }
+          function loadFailed(_event: unknown, code: number, description: string, _url: string, mainFrame: boolean) {
+            if (mainFrame && code !== -3)
+              fail(new Error(description))
+          }
+          // A slow image or iframe can hold the window load event indefinitely.
+          // Commands separately wait for the new document's game runtime.
+          page.on('dom-ready', ready)
+          page.on('did-fail-load', loadFailed)
+          page.once('destroyed', cancelled)
+          request.signal.addEventListener('abort', cancelled, { once: true })
+          void navigate().catch(fail)
+        })
+      }
       try {
         await waitForEndpoint(url, request.signal, process.assertRunning)
         request.signal.throwIfAborted()
@@ -107,7 +144,7 @@ export function createWebPreview(window: BrowserWindow, setView: (view?: WebCont
             })
           }
         })
-        await Promise.all([view.webContents.loadURL(url), (async () => {
+        await Promise.all([waitForDocument(() => activeView.webContents.loadURL(url)), (async () => {
           await cdp('Runtime.enable')
           await cdp('DOM.enable')
           await cdp('CSS.enable')
@@ -117,58 +154,28 @@ export function createWebPreview(window: BrowserWindow, setView: (view?: WebCont
         return { stop, storage: webStorage(cdp), performance: webPerformance(contents), cdp: async (method, params) => cdp(method, params), async setMuted(muted) {
           contents().setAudioMuted(muted)
         }, async reload() {
-          const page = contents()
-          await new Promise<void>((resolve, reject) => {
-            let timer: ReturnType<typeof setTimeout>
-            function cleanup() {
-              clearTimeout(timer)
-              page.removeListener('did-finish-load', done)
-              page.removeListener('did-fail-load', fail)
-              page.removeListener('destroyed', cancelled)
-              request.signal.removeEventListener('abort', cancelled)
-            }
-            function cancelled() {
-              cleanup()
-              reject(new Error('Web 预览已关闭。'))
-            }
-            function done() {
-              cleanup()
-              resolve()
-            }
-            function fail(_event: unknown, code: number, description: string) {
-              if (code !== -3) {
-                cleanup()
-                reject(new Error(description))
-              }
-            }
-            timer = setTimeout(() => {
-              cleanup()
-              reject(new Error('Web 刷新超时。'))
-            }, 30000)
-            page.on('did-finish-load', done)
-            page.on('did-fail-load', fail)
-            page.once('destroyed', cancelled)
-            request.signal.addEventListener('abort', cancelled, { once: true })
-            void cdp('Page.reload', { ignoreCache: true }).catch((error) => {
-              cleanup()
-              reject(error)
-            })
-          })
+          await waitForDocument(() => cdp('Page.reload', { ignoreCache: true }), true)
         }, async command(command) {
-          for (let attempt = 0; attempt < 50; attempt++) {
-            const ready = await cdp('Runtime.evaluate', { expression: 'typeof globalThis.__QUA_EDITOR_PREVIEW__ === "function"', returnByValue: true })
-            if (ready.result?.value)
-              break
+          // A loaded document may still be preparing the engine and its assets.
+          // Probe and dispatch in one evaluation so navigation cannot separate the two.
+          const expression = `typeof globalThis.__QUA_EDITOR_PREVIEW__ === 'function'
+            ? Promise.resolve(globalThis.__QUA_EDITOR_PREVIEW__(${JSON.stringify(command)})).then(value => ({ value }))
+            : undefined`
+          const sampling = command.action === 'status' || (command.action === 'debug' && command.request.kind === 'read')
+          const deadline = Date.now() + (sampling ? 5000 : 30000)
+          do {
+            const response = await cdp('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true })
+            if (response.exceptionDetails)
+              throw new Error(response.exceptionDetails.exception?.description || response.exceptionDetails.text)
+            if (response.result.type !== 'undefined') {
+              const result = response.result.value?.value
+              if (!result)
+                throw new Error('预览控制未返回有效结果。')
+              return result as PreviewCommandResult
+            }
             await delay(100, undefined, { signal: request.signal })
-          }
-          // Fixed development entrypoint; no user-supplied executable code.
-          const response = await cdp('Runtime.evaluate', { expression: `(() => {
-            if (typeof globalThis.__QUA_EDITOR_PREVIEW__ !== 'function') throw new Error('项目尚未接入编辑器预览控制。');
-            return globalThis.__QUA_EDITOR_PREVIEW__(${JSON.stringify(command)});
-          })()`, awaitPromise: true, returnByValue: true })
-          if (response.exceptionDetails)
-            throw new Error(response.exceptionDetails.exception?.description || response.exceptionDetails.text)
-          return response.result.value as PreviewCommandResult
+          } while (Date.now() < deadline)
+          throw new Error('未能连接编辑器预览控制，请检查游戏启动状态和预览配置。')
         } }
       }
       catch (error) {

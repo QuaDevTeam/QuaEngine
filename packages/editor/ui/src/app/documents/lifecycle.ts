@@ -2,32 +2,58 @@ import type { EditorDocument } from '@quajs/editor-core'
 import type { AppContext } from '../bootstrap'
 import { canFormat, documentLanguage, monaco } from '../../features/source/monaco'
 
-export function createDocumentsLifecycle(context: Pick<AppContext, 'activeGitTab' | 'activeTab' | 'analysisGeneration' | 'analysisTimer' | 'analyzedPath' | 'bridge' | 'changingDocument' | 'checkDiskDocument' | 'clearDiskChange' | 'dialogueColors' | 'dirty' | 'diskUnavailable' | 'documentDiagnostics' | 'documentModel' | 'editor' | 'element' | 'flushProjectChange' | 'hideGitDiff' | 'openGeneration' | 'previewCommandBusy' | 'projectRelativePath' | 'renderTabs' | 'reportDirty' | 'saving' | 'scheduleAnalysis' | 'settings' | 'status' | 'tabs' | 'workbench' | 'workspaceBusy'>) {
+export function createDocumentsLifecycle(context: Pick<AppContext, 'activeGitTab' | 'activeTab' | 'analysisGeneration' | 'analysisTimer' | 'analyzedPath' | 'bridge' | 'changingDocument' | 'checkDiskDocument' | 'clearDiskChange' | 'dialogueColors' | 'dirty' | 'diskUnavailable' | 'documentDiagnostics' | 'documentModel' | 'editor' | 'element' | 'flushProjectChange' | 'hideGitDiff' | 'previewCommandBusy' | 'project' | 'projectRelativePath' | 'renderTabs' | 'reportDirty' | 'saving' | 'scheduleAnalysis' | 'settings' | 'status' | 'tabs' | 'workbench' | 'workspaceBusy'>) {
+  let navigation = 0
+  let opening: Promise<void> | undefined
   async function openDocument(path: string, line?: number, column?: number, forceReload = false, focus = true, followSource = true): Promise<void> {
     if (focus)
       context.workbench.dock.open('source')
-    if (context.workspaceBusy || context.saving)
+    if (context.saving || (context.workspaceBusy && (!opening || forceReload || !followSource)))
       return
+    const root = context.project?.root
+    const generation = ++navigation
+    const current = () => generation === navigation && root === context.project?.root
+    // Coalesce rapid source selection while one filesystem read is in flight.
+    // A file mutation, forced reload or save-all traversal retains exclusive access.
+    if (opening) {
+      await opening.catch(() => {})
+      if (generation !== navigation)
+        return
+    }
     context.workspaceBusy = true
     context.hideGitDiff()
     context.editor.updateOptions({ readOnly: true })
     try {
-      await replaceDocument(path, line, column, forceReload, focus)
+      const change = replaceDocument(current, path, line, column, forceReload, focus)
+      if (!forceReload && followSource)
+        opening = change
+      await change
+      if (!current())
+        return
       if (followSource && context.documentModel && context.projectRelativePath(context.documentModel.path) === context.projectRelativePath(path)) {
         const position = context.editor.getPosition()
         context.workbench.documentOpened(context.projectRelativePath(context.documentModel.path), position?.lineNumber, position?.column)
       }
       context.element('document-tabs').querySelector('.active')?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
     }
+    catch (error) {
+      if (current())
+        throw error
+    }
     finally {
-      context.workspaceBusy = false
-      context.editor.updateOptions({ readOnly: false })
-      context.flushProjectChange()
-      void context.checkDiskDocument()
+      opening = undefined
+      if (generation === navigation) {
+        context.workspaceBusy = false
+        context.editor.updateOptions({ readOnly: false })
+        context.flushProjectChange()
+        void context.checkDiskDocument()
+      }
     }
   }
 
-  async function replaceDocument(path: string, line?: number, column?: number, forceReload = false, focus = true): Promise<void> {
+  async function replaceDocument(current: () => boolean, path: string, line?: number, column?: number, forceReload = false, focus = true): Promise<void> {
+    if (!current())
+      return
     if (!forceReload && context.documentModel && context.projectRelativePath(path) === context.projectRelativePath(context.documentModel.path)) {
       if (line) {
         context.editor.setPosition({ lineNumber: line, column: column || 1 })
@@ -40,9 +66,8 @@ export function createDocumentsLifecycle(context: Pick<AppContext, 'activeGitTab
     if (forceReload && context.dirty && !await context.bridge.confirmDiscard())
       return
     const existing = context.tabs.find(tab => context.projectRelativePath(tab.document.path) === context.projectRelativePath(path))
-    const generation = ++context.openGeneration
     const next = !forceReload && existing ? existing.document : await context.bridge.readDocument(path)
-    if (generation !== context.openGeneration)
+    if (!current())
       return
     if (!existing) {
     // Keep a single editor and bound dormant buffers. Never evict unsaved work.
@@ -135,5 +160,5 @@ export function createDocumentsLifecycle(context: Pick<AppContext, 'activeGitTab
     context.element<HTMLButtonElement>('save').disabled = !context.documentModel || !next || context.diskUnavailable
     context.element<HTMLButtonElement>('preview-seek').disabled = !context.documentModel?.path.endsWith('.qs') || context.previewCommandBusy
   }
-  return { openDocument, replaceDocument, saveDocument, setDirty }
+  return { openDocument, saveDocument, setDirty }
 }

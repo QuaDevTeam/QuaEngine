@@ -1,4 +1,4 @@
-import type { Category, Setting } from './schema'
+import type { Category, Setting, SettingKey } from './schema'
 import { buttonView, iconButtonView } from '@quajs/editor-controls'
 import { html, nothing } from 'lit'
 import { live } from 'lit/directives/live.js'
@@ -17,6 +17,7 @@ export class SettingsView extends EditorElement {
   private category: Category = 'editor'
   private query = ''
   private modified = false
+  private readonly numericDrafts = new Map<SettingKey, string>()
   private unsubscribe?: () => void
 
   connectedCallback(): void {
@@ -38,6 +39,14 @@ export class SettingsView extends EditorElement {
         control.removeAttribute('aria-invalid')
       }
     }
+  }
+
+  private resetSettings(key?: SettingKey): void {
+    if (key)
+      this.numericDrafts.delete(key)
+    else
+      this.numericDrafts.clear()
+    preferences.reset(key)
   }
 
   private select(category: Category): void {
@@ -98,7 +107,7 @@ export class SettingsView extends EditorElement {
           ${!searching && this.category === 'workspace' ? html`<div class="settings-layout-reset"><div><strong>工作区布局</strong><p>将视图放回默认位置，保留打开的文件和终端。</p></div>${buttonView('重置布局', this.resetLayout)}</div>` : nothing}
         </main>
       </div>
-      <footer class="settings-footer"><span role="status">${preferences.persisted ? '保存在本机，修改立即生效' : '本机存储不可用，设置仅在本次运行生效'}</span>${buttonView('恢复默认设置', () => preferences.reset(), { id: 'settings-reset', variant: 'quiet' })}</footer>
+      <footer class="settings-footer"><span role="status">${preferences.persisted ? '保存在本机，修改立即生效' : '本机存储不可用，设置仅在本次运行生效'}</span>${buttonView('恢复默认设置', () => this.resetSettings(), { id: 'settings-reset', variant: 'quiet' })}</footer>
     `
   }
 
@@ -112,8 +121,11 @@ export class SettingsView extends EditorElement {
       const valid = preferences.update(setting.key, next)
       control.setCustomValidity(valid ? '' : `请输入 ${setting.min} 到 ${setting.max} 之间的有效值。`)
       control.setAttribute('aria-invalid', String(!valid))
-      if (!valid)
+      if (valid)
+        this.numericDrafts.delete(setting.key)
+      else
         control.reportValidity()
+      this.requestUpdate()
     }
     return html`<div class="settings-row" data-modified=${String(changed)}>
       <div class="settings-row-copy"><label for=${id}>${setting.title}${changed ? html`<span class="settings-changed-mark" title="已修改" aria-label="已修改"></span>` : nothing}</label><p id=${`${id}-description`}>${setting.description}</p></div>
@@ -122,8 +134,16 @@ export class SettingsView extends EditorElement {
           ? html`<input class="editor-switch" type="checkbox" role="switch" id=${id} aria-label=${setting.title} aria-describedby=${`${id}-description`} .checked=${live(value)} @change=${update}>`
           : setting.options
             ? html`<select id=${id} aria-label=${setting.title} aria-describedby=${`${id}-description`} @change=${update}>${setting.options.map(([key, title]) => html`<option value=${String(key)} .selected=${key === value}>${title}</option>`)}</select>`
-            : html`<div class="editor-input-unit"><input type="number" id=${id} aria-label=${setting.title} aria-describedby=${`${id}-description`} min=${setting.min!} max=${setting.max!} step=${setting.step!} .value=${live(String(value))} @change=${update}><span class="editor-unit" aria-hidden="true">${setting.unit}</span></div>`}
-        ${iconButtonView(`恢复${setting.title}的默认值`, html`${unsafeHTML(icon('refresh'))}`, () => preferences.reset(setting.key), { className: 'settings-item-reset', disabled: !changed })}
+            : html`<div class="editor-input-unit"><input type="number" id=${id} aria-label=${setting.title} aria-describedby=${`${id}-description`} min=${setting.min!} max=${setting.max!} step=${setting.step!} required
+              .value=${live(this.numericDrafts.get(setting.key) ?? String(value))}
+              @input=${(event: Event) => {
+                const input = event.target as HTMLInputElement
+                this.numericDrafts.set(setting.key, input.value)
+                input.setCustomValidity('')
+                input.removeAttribute('aria-invalid')
+                this.requestUpdate()
+              }} @change=${update}><span class="editor-unit" aria-hidden="true">${setting.unit}</span></div>`}
+        ${iconButtonView(`恢复${setting.title}的默认值`, html`${unsafeHTML(icon('refresh'))}`, () => this.resetSettings(setting.key), { className: 'settings-item-reset', disabled: !changed && !this.numericDrafts.has(setting.key) })}
       </div>
     </div>`
   }

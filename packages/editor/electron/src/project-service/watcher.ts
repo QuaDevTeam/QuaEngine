@@ -36,6 +36,9 @@ export class ProjectWatcher {
           this.record('')
         })
         this.watchers.set(path, watcher)
+        // fs.watch can miss writes between the index scan and native subscription
+        // startup. Recheck newly covered directories once in the first batch.
+        this.record(relative(this.root, path).replaceAll('\\', '/'))
       }
       catch {
         failures.push(relative(this.root, path) || '.')

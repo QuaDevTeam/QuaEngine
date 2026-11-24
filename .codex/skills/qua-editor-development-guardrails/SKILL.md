@@ -188,3 +188,10 @@ their own JSC/QPK and exercising the actual renderer. Match source rows by
 `data-path` or their label instead of whitespace-sensitive whole-row text. Compare
 focus colors against resolved theme tokens. Keep geometry, real user interactions,
 retained resources and source safety assertions when updating old tests.
+
+Run `workbench-keyboard-smoke.mjs` for settings and dock changes. Every listed
+settings category must contain usable controls or shortcuts. Keep rejected numeric
+drafts visible across unrelated preference changes and allow both the row and
+global reset to recover them. Activating a dock view from the picker reveals
+and focuses its tab. Closing the focused tab keeps keyboard navigation in its
+surviving group. Programmatic source navigation still preserves source focus.

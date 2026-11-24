@@ -152,6 +152,15 @@ export class CharacterBrowser implements EditorPluginPanel {
     this.project = project
     const contribution = project.plugins?.[CHARACTER_EDITOR_ID]
     const next = contribution?.data as CharacterCatalog | undefined
+    if (
+      previous?.root === project.root
+      && previous.plugins?.[CHARACTER_EDITOR_ID]?.error === contribution?.error
+      && JSON.stringify(this.catalog) === JSON.stringify(next)
+    ) {
+      if (this.sourceSwitch)
+        this.revealSource(this.sourceLocation)
+      return
+    }
     render(contribution?.error
       ? `角色索引失败：${contribution.error}`
       : (next?.issues.map(issue => issue.message).join('；')
@@ -164,23 +173,23 @@ export class CharacterBrowser implements EditorPluginPanel {
     this.create.title = this.create.disabled
       ? '新建需要源码中的 registerCharacters([...]) 对象数组；动态生成的定义请打开源码编辑。'
       : '向角色注册数组添加定义'
-    if (
-      previous?.root === project.root
-      && JSON.stringify(this.catalog) === JSON.stringify(next)
-    ) {
-      if (this.sourceSwitch)
-        this.revealSource(this.sourceLocation)
-      return
-    }
     this.catalog = next
     this.count.textContent = `${next?.characters.length ?? 0} 个角色`
     this.host.dataset.indexVersion = String(++this.indexVersion)
     const selection = this.selected
     if (!next?.characters.some(character => character.key === this.selected))
       this.selected = next?.characters[0]?.key ?? ''
+    const preserve = previous?.root === project.root && selection === this.selected
     if (this.visible) {
       this.renderList()
-      this.refreshDetails(selection === this.selected)
+      this.refreshDetails(preserve)
+    }
+    else if (!preserve) {
+      // The next reveal must not restore another character's form fields.
+      this.form = undefined
+      this.selectedExpression = ''
+      render(nothing, this.details)
+      render(nothing, this.variants)
     }
     if (this.sourceSwitch)
       this.revealSource(this.sourceLocation)
@@ -238,17 +247,18 @@ export class CharacterBrowser implements EditorPluginPanel {
         ? document.activeElement?.getAttribute('aria-label')
         : undefined
     const form = preserve ? this.form : undefined
+    const registration = this.details.querySelector<HTMLSelectElement>('[aria-label="角色注册位置"]')?.value
     this.form = undefined
     this.formsView.renderDetails()
     if (form === 'character')
-      this.formsView.newCharacter(false)
+      this.formsView.newCharacter(false, registration)
     const character = this.catalog?.characters.find(
       character => character.key === this.selected,
     )
     if (form === 'expression' && character?.addExpression)
       this.formsView.newExpression(character, false)
-    for (const input of this.host.querySelectorAll<HTMLInputElement>(
-      'input[aria-label]',
+    for (const input of this.host.querySelectorAll<HTMLInputElement | HTMLSelectElement>(
+      'input[aria-label], select[aria-label]',
     )) {
       const label = input.getAttribute('aria-label')!
       if (drafts.has(label)) {

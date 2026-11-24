@@ -106,7 +106,6 @@ let documentModel: EditorDocument | undefined
 let dirty = false
 let workspaceBusy = false
 let changingDocument = false
-let openGeneration = 0
 let analysisGeneration = 0
 let analysisTimer: ReturnType<typeof setTimeout> | undefined
 let documentDiagnostics: EditorDiagnostic[] = []
@@ -563,12 +562,6 @@ function applicationContext() {
     },
     get openDocument(): (path: string, line?: number, column?: number, forceReload?: boolean, focus?: boolean, followSource?: boolean) => Promise<void> {
       return openDocument
-    },
-    get openGeneration(): typeof openGeneration {
-      return openGeneration
-    },
-    set openGeneration(value: typeof openGeneration) {
-      openGeneration = value
     },
     get peekModels(): typeof peekModels {
       return peekModels

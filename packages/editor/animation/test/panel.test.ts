@@ -55,7 +55,7 @@ describe('animation editing lifecycle', () => {
   }
   const click = (label: string) =>
     [...host.querySelectorAll('button')]
-      .find(button => button.textContent === label)!
+      .find(button => button.textContent?.trim() === label)!
       .click()
   const change = (label: string, value: string) => {
     const field = host.querySelector<HTMLInputElement>(
@@ -193,7 +193,7 @@ describe('animation editing lifecycle', () => {
     expect(selected()).toBe('second.animation.json')
     change('数值', '900')
     panel.revealSource({ path: 'move.animation.json', line: 1, column: 1 })
-    const stale = [...host.querySelectorAll('button')].find(button => button.textContent === '放弃更改并切换')!
+    const stale = [...host.querySelectorAll('button')].find(button => button.textContent?.trim() === '放弃更改并切换')!
     expect(selected()).toBe('second.animation.json')
     panel.revealSource(undefined)
     stale.click()

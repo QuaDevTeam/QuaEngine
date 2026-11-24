@@ -203,7 +203,7 @@ export class SearchPanel {
   }
 
   private focusRow(): void {
-    this.list.reveal(this.active)
+    this.list.revealSelection(this.active)
     this.results.setAttribute('aria-activedescendant', `search-row-${this.active}`)
   }
 

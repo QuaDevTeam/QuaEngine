@@ -18,7 +18,7 @@ export interface DockView {
   available?: boolean
 }
 interface MountedView extends DockView { tab: HTMLButtonElement, label: HTMLElement }
-interface GroupElements { root: HTMLElement, tabs: HTMLElement, actions: HTMLElement, body: HTMLElement }
+interface GroupElements { root: DockGroupElement, tabs: HTMLElement, actions: HTMLElement, body: HTMLElement }
 const storageKey = 'qua.editor.dock-layout.v1'
 
 /** Owns layout only. Moving a view reuses its actual DOM and its feature instance. */
@@ -62,6 +62,7 @@ export class DockWorkbench {
     this.viewPicker.openView = (id) => {
       this.dialog.close()
       this.open(id)
+      this.views.get(id)?.tab.focus({ preventScroll: true })
     }
     this.viewPicker.resetLayout = () => {
       this.dialog.close()
@@ -312,6 +313,7 @@ export class DockWorkbench {
     if (!this.started)
       return
     const focused = document.activeElement as HTMLElement | null
+    const focusedGroup = focused?.closest<HTMLElement>('.dock-group')?.dataset.dockGroup
     const previous = this.visible
     this.visible = new Set()
     const usedGroups = new Set<string>()
@@ -408,11 +410,20 @@ export class DockWorkbench {
       localStorage.setItem(storageKey, JSON.stringify(this.model.state))
     }
     catch { /* Layout remains usable without storage. */ }
+    for (const { root } of this.groups.values()) {
+      const id = root.dataset.activeView!
+      if (active === id || !previous.has(id))
+        root.revealSelected()
+    }
     this.changed(this.visible, active)
-    if (focused?.isConnected && focused.closest('.dock-view:not([hidden])') && document.activeElement === document.body)
+    if (focused?.isConnected && focused.closest('.dock-view:not([hidden])') && document.activeElement === document.body) {
       focused.focus({ preventScroll: true })
-    else if (focused && document.activeElement === document.body && [...previous].some(id => !this.visible.has(id)))
-      this.views.get([...this.visible][0])?.tab.focus({ preventScroll: true })
+    }
+    else if (focusedGroup && document.activeElement === document.body) {
+      const sibling = this.groups.get(focusedGroup)?.tabs.querySelector<HTMLButtonElement>('[aria-selected="true"]')
+      const next = sibling ?? this.views.get([...this.visible][0])?.tab ?? this.empty.element.querySelector('button')
+      next?.focus({ preventScroll: true })
+    }
     this.notifyLayout()
   }
 

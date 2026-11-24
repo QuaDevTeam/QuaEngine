@@ -23,6 +23,9 @@ export class PreviewWorkbench {
   private state: PreviewState = { phase: 'idle' }
   constructor(private readonly project: ProjectClient, private readonly options: ConstructorParameters<typeof PreviewController>[0]) {
     this.controller = new PreviewController({ ...options, changed: (state) => {
+      // The previous process may report an error while we read its position.
+      if (state.phase === 'starting')
+        delete this.activity.renderError
       this.state = state
       this.publish()
     }, issue: (_identity, message) => {

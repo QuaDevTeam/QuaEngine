@@ -3,6 +3,7 @@ import type {
   EditorProject,
   EditorPublication,
   EditorPublishingState,
+  EditorRuntimeState,
   EditorSourceEdit,
 } from '@quajs/editor-core'
 import { element, html, nothing, render } from '@quajs/editor-controls'
@@ -17,6 +18,7 @@ export class PluginPublisherView {
   readonly host = element(html`<section class="market-detail plugin-publisher"></section>`)
   private project?: EditorProject
   private state?: EditorPublishingState
+  private runtime?: EditorRuntimeState
   private prepared?: EditorPublication
   private busy = false
   private generation = 0
@@ -33,7 +35,27 @@ export class PluginPublisherView {
     this.otp.autocomplete = 'one-time-code'
     this.otp.placeholder = 'npm OTP（需要时填写）'
     this.otp.setAttribute('aria-label', 'npm 一次性验证码')
-    window.addEventListener('beforeunload', () => clearTimeout(this.pollTimer))
+    const stop = bridge.onRuntimeState((state) => {
+      const wasPreparing = this.preparingRuntime
+      this.runtime = state
+      if (wasPreparing !== this.preparingRuntime && !this.host.hidden)
+        this.render()
+    })
+    void bridge.runtimeState().then((state) => {
+      if (!this.runtime && state) {
+        this.runtime = state
+        if (!this.host.hidden)
+          this.render()
+      }
+    })
+    window.addEventListener('beforeunload', () => {
+      stop()
+      clearTimeout(this.pollTimer)
+    })
+  }
+
+  private get preparingRuntime(): boolean {
+    return !this.runtime || this.runtime.root !== this.project?.root || ['checking', 'installing'].includes(this.runtime.phase)
   }
 
   update(project: EditorProject): void {
@@ -172,7 +194,7 @@ export class PluginPublisherView {
             <div class="market-actions">${this.button('打包并检查文件', async () => {
               this.prepared = await this.bridge.preparePluginPublication(this.project!.root)
               this.message = '打包完成。检查下方文件清单后，可以发布此压缩包。'
-            }, Boolean(project.error), true)}
+            }, Boolean(project.error) || this.preparingRuntime, true)}
             ${this.busy
               ? html`<button type="button" @click=${() => void this.bridge.cancelPluginPublication().catch((error) => {
                 this.message = String(error)
@@ -189,7 +211,7 @@ export class PluginPublisherView {
                 await this.bridge.publishPlugin(this.project!.root, artifact.artifact, otp || undefined)
                 this.prepared = undefined
                 this.message = artifact.version.includes('-') ? '已发布到 npm 的 next 标签。Registry 同步 latest；稳定版设为 latest 后可加入。' : '已发布到 npm。首次发布请继续加入 Registry。'
-              }, false, true)}</div>
+              }, this.preparingRuntime, true)}</div>
             </div>`
               : nothing}
           </section>
@@ -199,11 +221,11 @@ export class PluginPublisherView {
               this.message = `${statusText[result.status]}${result.reason ? `：${result.reason}` : ''}`
               if (this.state)
                 this.state.submissions = [...this.state.submissions.filter(item => item.name !== result.name), result]
-            }, !state?.account || Boolean(project.error))}</div>
+            }, !state?.account || Boolean(project.error) || this.preparingRuntime)}</div>
             ${submission ? html`<p class="publisher-status">${statusText[submission.status]}，${submission.version}${submission.official ? '（官方）' : ''}</p><p>${submission.reason ?? ''}</p>` : nothing}
           </section>
         </div>`}
-      <p class="publisher-message" role="status">${this.message}</p>
+      <p class="publisher-message" role="status">${this.preparingRuntime && project ? '正在准备项目运行环境，请稍候。' : this.message}</p>
     `, this.host)
   }
 }

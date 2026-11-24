@@ -51,7 +51,7 @@ describe('character panel form lifecycle', () => {
     }
     panel.update(project('old'))
     panel.setVisible(true)
-    const click = (text: string) => [...host.querySelectorAll('button')].find(button => button.textContent === text)!.click()
+    const click = (text: string) => [...host.querySelectorAll('button')].find(button => button.textContent?.trim() === text)!.click()
     click('添加差分')
     const field = (label: string) => host.querySelector<HTMLInputElement>(`[aria-label="${label}"]`)!
     field('新差分名称').value = 'happy'

@@ -97,3 +97,5 @@ Refresh the selected plugin's detail from the same accepted snapshot as the list
 after enable/disable or watched manifest changes; generation guards must prevent
 an older refresh from leaving the action label stale. `marketplace-smoke.mjs`
 checks preserved sidebar/workspace bounds, narrow overflow and repeated enabling.
+
+Keep pack, publish and registry submission disabled while the active project runtime is being checked or installed. Render the preparation status until the matching runtime reports a terminal phase. The publication smoke must reach the staged local tarball through the enabled button.

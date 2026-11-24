@@ -219,13 +219,19 @@ export function createCharacterForms(context: ViewContext) {
     return control
   }
 
-  function newCharacter(focus = true): void {
+  function newCharacter(focus = true, registration?: string): void {
     if (!context.catalog?.registrations.length)
       return
     context.form = 'character'
     const select = editorSelect()
     select.setAttribute('aria-label', '角色注册位置')
-    renderView(html`${context.catalog.registrations.map((registration, index) => html`<option value=${index}>${registration.source.path}:${registration.source.line}</option>`)}`, select)
+    const registrations = new Map(context.catalog.registrations.map(({ source, append }) => [
+      JSON.stringify([source.path, source.line, source.column]),
+      { source, append },
+    ]))
+    renderView(html`${[...registrations].map(([key, { source }]) => html`<option value=${key}>${source.path}:${source.line}</option>`)}`, select)
+    if (registration !== undefined)
+      select.value = registration
     const id = editorInput()
     id.placeholder = '角色 ID'
     id.setAttribute('aria-label', '新角色 ID')
@@ -249,9 +255,15 @@ export function createCharacterForms(context: ViewContext) {
           )
         ) {
           renderView('请输入未使用的角色 ID。', context.message)
+          id.focus()
           return
         }
-        const target = context.catalog!.registrations[Number(select.value)].append
+        const target = registrations.get(select.value)?.append
+        if (!target) {
+          renderView('请选择当前项目中的角色注册位置。', context.message)
+          select.focus()
+          return
+        }
         context.append(
           target,
           JSON.stringify(

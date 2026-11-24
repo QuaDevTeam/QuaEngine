@@ -37,7 +37,11 @@ export function splitConsoleJson(text: string): { segments: ConsoleSegment[], in
     }
     if (depth !== 0) {
       // Only retain a plausible JSON prefix across process stdout chunks.
-      if (/^(?:\{\s*(?:"|$)|\[\s*(?:[\d\-"{[\]]|true|false|null|$))/u.test(text.slice(start))) {
+      const prefix = text.slice(start)
+      // A literal terminal sequence like "[2K" is ordinary text. A scalar
+      // array item must end or be followed by an actual JSON delimiter.
+      if (/^\{\s*(?:"|$)|^\[\s*(?:["{[\]]|$)/u.test(prefix)
+        || /^\[\s*(?:-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|true|false|null)\s*(?:,|$)/u.test(prefix)) {
         segments.push({ text: text.slice(plain) })
         return { segments, incomplete: true }
       }

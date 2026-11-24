@@ -26,7 +26,7 @@ export const defaults = {
 }
 export type Preferences = typeof defaults
 export type SettingKey = keyof Preferences
-export type Category = 'appearance' | 'editor' | 'terminal' | 'preview' | 'workspace' | 'shortcuts'
+export type Category = 'appearance' | 'editor' | 'terminal' | 'workspace' | 'shortcuts'
 export interface Setting {
   key: SettingKey
   category: Category
@@ -42,7 +42,6 @@ export const categories: readonly { id: Category, title: string, description: st
   { id: 'appearance', title: '外观', description: '颜色主题与明暗模式' },
   { id: 'editor', title: '代码编辑器', description: '字体、阅读与编辑行为' },
   { id: 'terminal', title: '终端', description: '终端显示与滚动记录' },
-  { id: 'preview', title: '预览', description: '游戏预览的显示性能' },
   { id: 'workspace', title: '工作区', description: '界面与布局偏好' },
   { id: 'shortcuts', title: '快捷键', description: '常用操作的键盘快捷键' },
 ]

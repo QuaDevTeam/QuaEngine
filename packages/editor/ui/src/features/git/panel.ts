@@ -300,7 +300,7 @@ export class GitPanel {
     event.preventDefault()
     index = Math.max(0, Math.min(this.rows.length - 1, index))
     this.selected = this.rows[index]?.node.id || ''
-    this.list.reveal(index)
+    this.list.revealSelection(index)
     this.updateFocus(index)
   }
 

@@ -8,6 +8,21 @@ export class DockGroupElement extends HTMLElement {
   readonly body = element<HTMLDivElement>(html`<div></div>`)
   private initialized = false
 
+  private readonly resize = new ResizeObserver(() => this.revealSelected())
+
+  connectedCallback(): void {
+    this.resize.observe(this.tabs)
+  }
+
+  disconnectedCallback(): void {
+    this.resize.disconnect()
+  }
+
+  revealSelected(): void {
+    const options = { block: 'nearest', inline: 'nearest', container: 'nearest' } as const
+    this.tabs.querySelector('.dock-tab.active')?.scrollIntoView(options)
+  }
+
   initialize(id: string): void {
     this.dataset.dockGroup = id
     if (this.initialized)

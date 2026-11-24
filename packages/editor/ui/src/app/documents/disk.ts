@@ -51,8 +51,11 @@ export function createDocumentsDisk(context: Pick<AppContext, 'activeGitTab' | '
     if (generation !== context.diskReadGeneration || context.documentModel !== base || model !== context.editor.getModel())
       return
     if (context.workspaceBusy || context.saving) {
-      if (context.project)
-        context.pendingProjectChange = { project: context.project, paths: [''] }
+      // The file needs another read after the operation. A watcher may already
+      // have queued a newer project index while this read was in flight.
+      const project = context.pendingProjectChange?.project ?? context.project
+      if (project)
+        context.pendingProjectChange = { project, paths: [''] }
       return
     }
     if (disk && (disk.revision === base.revision || context.editor.getValue() === disk.text)) {

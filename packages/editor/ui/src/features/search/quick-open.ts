@@ -36,18 +36,18 @@ export class QuickOpen {
     this.input.onkeydown = (event) => {
       if (event.isComposing)
         return
+      if (this.timer && ['ArrowDown', 'ArrowUp', 'Enter'].includes(event.key)) {
+        clearTimeout(this.timer)
+        this.search()
+      }
       if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
         event.preventDefault()
         this.selected = Math.max(0, Math.min(this.rows.length - 1, this.selected + (event.key === 'ArrowDown' ? 1 : -1)))
-        this.list.reveal(this.selected)
+        this.list.revealSelection(this.selected)
         this.focus()
       }
       else if (event.key === 'Enter') {
         event.preventDefault()
-        if (this.timer) {
-          clearTimeout(this.timer)
-          this.search()
-        }
         this.accept(this.selected)
       }
     }
@@ -72,8 +72,11 @@ export class QuickOpen {
         this.dialog.close()
     }
     this.project = project
-    if (this.dialog.open)
-      this.search()
+    if (this.dialog.open) {
+      const path = this.timer ? undefined : this.rows[this.selected]?.path
+      clearTimeout(this.timer)
+      this.search(path)
+    }
   }
 
   remember(path: string): void {
@@ -93,16 +96,19 @@ export class QuickOpen {
     this.input.focus()
   }
 
-  private search(): void {
+  private search(retainPath?: string): void {
     this.timer = undefined
     const query = this.input.value.replace(/:\d+(?::\d+)?$/u, '').trim()
     const entries = this.project?.entries || []
     this.rows = query
       ? entries.map(entry => ({ entry, score: fuzzyScore(entry.path, query) })).filter(item => item.score >= 0).sort((a, b) => b.score - a.score || a.entry.path.localeCompare(b.entry.path)).slice(0, 100).map(item => item.entry)
       : [...this.recent.map(path => entries.find(entry => entry.path === path)).filter((entry): entry is EditorFileEntry => Boolean(entry)), ...entries.filter(entry => !this.recent.includes(entry.path))].slice(0, 100)
-    this.selected = 0
+    const retained = retainPath ? this.rows.findIndex(entry => entry.path === retainPath) : -1
+    this.selected = Math.max(0, retained)
     this.list.host.style.height = `${Math.max(1, Math.min(10, this.rows.length)) * 42}px`
-    this.list.set(this.rows, true, this.rows.length ? 0 : -1)
+    this.list.set(this.rows, retained < 0, this.rows.length ? this.selected : -1)
+    if (retained >= 0)
+      this.list.revealSelection(retained)
     this.dialog.querySelector<HTMLElement>('#quick-open-empty')!.hidden = this.rows.length > 0
     this.focus()
   }

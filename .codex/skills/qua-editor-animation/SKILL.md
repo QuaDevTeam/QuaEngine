@@ -55,3 +55,5 @@ Plugin styling inherits the workbench's `--editor-*` semantic theme tokens from
 modes without resetting a local palette or remounting forms. Asset/game preview
 pixels retain their original colors. Include `theme-smoke.mjs` alongside the
 feature smoke after theme changes; verify focused or unsaved drafts survive.
+
+During a pending discard confirmation, the file picker must continue displaying the animation being edited. Exercise a real select change, confirm the switch and reopen the previous file in the animation plugin smoke. The scene smoke uses the isolated Demo fixture and checks the rendered dialogue against the authored line at the injected binding.
