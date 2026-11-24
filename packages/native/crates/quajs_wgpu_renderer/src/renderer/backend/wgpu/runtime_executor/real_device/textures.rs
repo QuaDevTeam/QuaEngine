@@ -1,14 +1,37 @@
 #[cfg(feature = "image-decode")]
-use super::texture::decode_image_bytes_rgba8;
+use super::texture::blocks::prepare_encoded_texture;
 use super::texture::{
     create_runtime_decoded_texture_rgba8, RealWgpuDecodedTextureMetadata,
     RealWgpuDecodedTextureRgba8,
 };
 use super::RealWgpuNativeRenderRuntimeDevice;
 use crate::renderer::backend::wgpu::runtime_executor::WgpuNativeRenderRuntimeError;
+#[cfg(feature = "image-decode")]
+use crate::renderer::backend::wgpu::ImageUploadBytes;
 use crate::renderer::backend::wgpu::WgpuNativeRenderBindGroupLayout;
 
 impl RealWgpuNativeRenderRuntimeDevice {
+    #[cfg(feature = "image-decode")]
+    pub fn texture_variant_fits(&self, bytes: &[u8]) -> bool {
+        super::texture::blocks::fits_device(
+            bytes,
+            self.target.device().limits().max_texture_dimension_2d,
+        )
+    }
+
+    pub fn texture_variant_suffixes(&self) -> &'static [&'static str] {
+        let features = self.target.device().features();
+        match (
+            features.contains(wgpu::Features::TEXTURE_COMPRESSION_ASTC),
+            features.contains(wgpu::Features::TEXTURE_COMPRESSION_BC),
+        ) {
+            (true, true) => &[".qua-astc", ".qua-bc7"],
+            (true, false) => &[".qua-astc"],
+            (false, true) => &[".qua-bc7"],
+            _ => &[],
+        }
+    }
+
     pub fn upload_decoded_texture_rgba8(
         &mut self,
         resource_id: impl Into<String>,
@@ -56,8 +79,16 @@ impl RealWgpuNativeRenderRuntimeDevice {
         metadata: RealWgpuDecodedTextureMetadata,
     ) -> Result<(), WgpuNativeRenderRuntimeError> {
         let resource_id = resource_id.into();
-        let decoded = decode_image_bytes_rgba8(&resource_id, encoded_image.as_ref())?;
-        self.upload_decoded_texture_rgba8_with_metadata(resource_id, decoded, metadata)
+        let texture = prepare_encoded_texture(
+            &self.target,
+            &resource_id,
+            encoded_image.as_ref(),
+            metadata,
+            || true,
+        )?;
+        self.decoded_textures.insert(resource_id.clone(), texture);
+        self.invalidate_texture_sampler_bind_groups_for_resource(&resource_id);
+        Ok(())
     }
 
     /// Opt in for interactive hosts. Synchronous upload APIs remain available
@@ -78,20 +109,27 @@ impl RealWgpuNativeRenderRuntimeDevice {
     pub fn request_image_texture_upload(
         &mut self,
         id: &str,
-        bytes: &[u8],
+        bytes: impl ImageUploadBytes,
         metadata: RealWgpuDecodedTextureMetadata,
     ) -> Result<bool, WgpuNativeRenderRuntimeError> {
-        let peak = super::texture::preparation::estimate(bytes)?;
+        let peak = super::texture::preparation::estimate(bytes.as_ref())?;
         // An on-screen request displaces speculative work and idle residency.
         if let Some(worker) = &self.async_textures {
-            worker.retain(&self.image_cache.active.union(&self.image_cache.required).cloned().collect());
+            worker.retain(
+                &self
+                    .image_cache
+                    .active
+                    .union(&self.image_cache.required)
+                    .cloned()
+                    .collect(),
+            );
         }
         self.trim_image_cache(peak);
         if let Some(worker) = &self.async_textures {
             worker.request(id, bytes, metadata, peak);
             Ok(false)
         } else {
-            self.upload_image_texture_bytes_with_metadata(id, bytes, metadata)?;
+            self.upload_image_texture_bytes_with_metadata(id, bytes.as_ref(), metadata)?;
             Ok(true)
         }
     }
@@ -100,10 +138,10 @@ impl RealWgpuNativeRenderRuntimeDevice {
     pub fn request_image_preload(
         &mut self,
         id: &str,
-        bytes: &[u8],
+        bytes: impl ImageUploadBytes,
         metadata: RealWgpuDecodedTextureMetadata,
     ) -> Result<bool, WgpuNativeRenderRuntimeError> {
-        let peak = super::texture::preparation::estimate(bytes)?;
+        let peak = super::texture::preparation::estimate(bytes.as_ref())?;
         if !self.image_cache.preloads.contains(id) || !self.can_prepare_image_preload(peak) {
             self.image_cache.deferred.insert(id.into(), peak);
             return Ok(false);

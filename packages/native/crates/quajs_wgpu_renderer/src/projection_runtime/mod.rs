@@ -147,6 +147,12 @@ pub struct NativeRendererProjectionFrame {
     pub target_frame_rate: Option<u32>,
 }
 
+#[derive(Clone, Copy, Debug)]
+struct ScrollPosition {
+    requested: (f64, f64),
+    offset: (f64, f64),
+}
+
 #[derive(Debug)]
 pub struct NativeRendererProjectionRuntime {
     base_frame: Value,
@@ -161,7 +167,7 @@ pub struct NativeRendererProjectionRuntime {
     /// engine owns scroll *content*; the pointer-driven offset is transient
     /// renderer state, like the typewriter reveal, so wheel input does not need
     /// a round trip through JavaScriptCore to move a scroll panel.
-    scroll_offsets: BTreeMap<String, (f64, f64)>,
+    scroll_offsets: BTreeMap<String, ScrollPosition>,
 }
 
 impl NativeRendererProjectionRuntime {
@@ -533,57 +539,89 @@ impl NativeRendererProjectionRuntime {
         delta_x: f64,
         delta_y: f64,
     ) -> bool {
-        if delta_x == 0.0 && delta_y == 0.0 {
+        self.scroll_at_logical_with_layout(logical_x, logical_y, delta_x, delta_y, None)
+    }
+
+    pub fn scroll_at_logical_with_layout(
+        &mut self,
+        logical_x: f64,
+        logical_y: f64,
+        delta_x: f64,
+        delta_y: f64,
+        layout: Option<&crate::stage_layout::ResolvedStageLayout>,
+    ) -> bool {
+        if (!delta_x.is_finite() || !delta_y.is_finite()) || (delta_x == 0.0 && delta_y == 0.0) {
             return false;
         }
-        // Walk view.ui.overlays to find the innermost Scroll node under the point.
-        let Some(overlays) = self
-            .base_frame
-            .pointer("/view/ui/overlays")
-            .and_then(Value::as_array)
-        else {
+        let ui = &self.base_frame["view"]["ui"];
+        if ui["visible"].as_bool() == Some(false) {
+            return false;
+        }
+        let Some(overlays) = ui["overlays"].as_array() else {
             return false;
         };
-        // Build a candidate list: (elementId, nodeId, max_scroll_x, max_scroll_y,
-        //                          current_offset_x, current_offset_y, depth)
-        let mut best: Option<(String, f64, f64, f64, f64)> = None;
+        let mut best = None;
         for overlay in overlays {
-            let element_id = overlay
-                .get("elementId")
-                .and_then(Value::as_str)
-                .unwrap_or("");
-            if let Some(surface) = overlay.get("surface") {
-                if let Some(root) = surface.get("root") {
-                    find_scroll_node(root, logical_x, logical_y, element_id, 0.0, 0.0, &mut best);
-                }
+            if overlay["visible"].as_bool() != Some(false) {
+                let surface = &overlay["surface"];
+                let anchor = surface["safeAreaAnchor"]
+                    .as_array()
+                    .and_then(|xy| Some([xy.first()?.as_f64()?, xy.get(1)?.as_f64()?]));
+                let (dx, dy) = layout.map_or((0.0, 0.0), |l| l.safe_area_anchor_offset(anchor));
+                find_scroll_node(
+                    &surface["root"],
+                    (logical_x - dx, logical_y - dy),
+                    overlay["elementId"].as_str().unwrap_or(""),
+                    &self.scroll_offsets,
+                    &mut best,
+                );
             }
         }
-        let Some((key, json_cur_x, json_cur_y, max_x, max_y)) = best else {
+        let Some((key, mut position, (max_x, max_y))) = best else {
             return false;
         };
-        // The authoritative current offset lives in `self.scroll_offsets`, not
-        // in the base-frame JSON (which never has scrollOffsetX/Y written back).
-        let (cur_x, cur_y) = self
-            .scroll_offsets
-            .get(&key)
-            .copied()
-            .unwrap_or((json_cur_x, json_cur_y));
-        let new_x = (cur_x + delta_x).clamp(0.0, max_x.max(0.0));
-        let new_y = (cur_y + delta_y).clamp(0.0, max_y.max(0.0));
-        if (new_x - cur_x).abs() < 0.01 && (new_y - cur_y).abs() < 0.01 {
+        let (x, y) = position.offset;
+        let next = (
+            (x + delta_x).clamp(0.0, max_x),
+            (y + delta_y).clamp(0.0, max_y),
+        );
+        if next == position.offset {
             return false;
         }
-        self.scroll_offsets.insert(key, (new_x, new_y));
+        position.offset = next;
+        self.scroll_offsets.insert(key, position);
         self.cached_static_projection_json = None;
         true
     }
 
     fn prune_scroll_offsets(&mut self) {
-        let mut keys = std::collections::BTreeSet::new();
+        if self.scroll_offsets.is_empty() {
+            return;
+        }
+        let mut previous = std::mem::take(&mut self.scroll_offsets);
         visit_scroll_nodes(&self.base_frame, &mut |element, node| {
-            keys.insert(format!("{element}/{}", node["id"].as_str().unwrap_or("")));
+            let key = format!("{element}/{}", node["id"].as_str().unwrap_or(""));
+            if let Some(mut position) = previous.remove(&key) {
+                let requested = requested_scroll(node);
+                let (max_x, max_y) = scroll_limits(node);
+                position.offset = (
+                    (if requested.0 == position.requested.0 {
+                        position.offset.0
+                    } else {
+                        requested.0
+                    })
+                    .clamp(0.0, max_x),
+                    (if requested.1 == position.requested.1 {
+                        position.offset.1
+                    } else {
+                        requested.1
+                    })
+                    .clamp(0.0, max_y),
+                );
+                position.requested = requested;
+                self.scroll_offsets.insert(key, position);
+            }
         });
-        self.scroll_offsets.retain(|key, _| keys.contains(key));
     }
 
     fn scroll_to_edge(&mut self, payload: &Value) -> bool {
@@ -600,19 +638,25 @@ impl NativeRendererProjectionRuntime {
         let mut target = None;
         visit_scroll_nodes(&self.base_frame, &mut |owner, node| {
             if owner == element && node["id"].as_str() == Some(node_id) {
-                let bounds = &node["bounds"];
-                let max_y = (children_max_bottom(node, 0.0)
-                    - bounds["y"].as_f64().unwrap_or(0.0)
-                    - bounds["height"].as_f64().unwrap_or(0.0))
-                .max(0.0);
-                target = Some(if edge == "end" { max_y } else { 0.0 });
+                target = Some((requested_scroll(node), scroll_limits(node)));
             }
         });
-        let Some(y) = target else {
+        let Some((requested, (max_x, max_y))) = target else {
             return false;
         };
-        self.scroll_offsets
-            .insert(format!("{element}/{node_id}"), (0.0, y));
+        let key = format!("{element}/{node_id}");
+        let x = self
+            .scroll_offsets
+            .get(&key)
+            .map_or(requested.0, |position| position.offset.0);
+        let y = if edge == "end" { max_y } else { 0.0 };
+        self.scroll_offsets.insert(
+            key,
+            ScrollPosition {
+                requested,
+                offset: (x.clamp(0.0, max_x), y),
+            },
+        );
         self.cached_static_projection_json = None;
         true
     }
@@ -638,10 +682,16 @@ impl NativeRendererProjectionRuntime {
         // modal fade. Retaining exiting destination snapshots would demand the
         // very images that this scene is meant to prepare before presentation.
         let loading_boundary = self.presence.known_overlays.contains_key("asset-loading")
-            || self.base_frame.pointer("/view/ui/overlays").and_then(Value::as_array)
-                .is_some_and(|overlays| overlays.iter().any(|overlay|
-                    overlay.get("elementId").and_then(Value::as_str) == Some("asset-loading")
-                    && overlay.get("visible").and_then(Value::as_bool) != Some(false)));
+            || self
+                .base_frame
+                .pointer("/view/ui/overlays")
+                .and_then(Value::as_array)
+                .is_some_and(|overlays| {
+                    overlays.iter().any(|overlay| {
+                        overlay.get("elementId").and_then(Value::as_str) == Some("asset-loading")
+                            && overlay.get("visible").and_then(Value::as_bool) != Some(false)
+                    })
+                });
         // --- Dialogue ---
         let new_dialogue_visible = self
             .base_frame
@@ -971,120 +1021,81 @@ impl NativeRendererProjectionRuntime {
     }
 }
 
-/// Depth-first search for the innermost `"Scroll"` node that contains
-/// `(hit_x, hit_y)`.  `acc_*` carry the accumulated scroll offsets of
-/// ancestor scroll nodes so the hit-test uses the node's rendered position.
-/// Writes `(key, cur_x, cur_y, content_extent_x, content_extent_y)` into
-/// `best` when a candidate is found.
+/// Compare the hit in the current node's authored coordinates. Crossing a
+/// scroll viewport adds its displayed offset before visiting its descendants.
 fn find_scroll_node(
     node: &Value,
-    hit_x: f64,
-    hit_y: f64,
-    element_id: &str,
-    acc_scroll_x: f64,
-    acc_scroll_y: f64,
-    best: &mut Option<(String, f64, f64, f64, f64)>,
+    point: (f64, f64),
+    element: &str,
+    offsets: &BTreeMap<String, ScrollPosition>,
+    best: &mut Option<(String, ScrollPosition, (f64, f64))>,
 ) {
-    let bounds = match (
-        node.get("bounds")
-            .and_then(|b| b.get("x"))
-            .and_then(Value::as_f64),
-        node.get("bounds")
-            .and_then(|b| b.get("y"))
-            .and_then(Value::as_f64),
-        node.get("bounds")
-            .and_then(|b| b.get("width"))
-            .and_then(Value::as_f64),
-        node.get("bounds")
-            .and_then(|b| b.get("height"))
-            .and_then(Value::as_f64),
-    ) {
-        (Some(x), Some(y), Some(w), Some(h)) => (x, y, w, h),
-        _ => return,
-    };
-    let (x, y, w, h) = bounds;
-    // The node's rendered position accounts for ancestor scroll offsets.
-    let rendered_x = x - acc_scroll_x;
-    let rendered_y = y - acc_scroll_y;
-    let inside = hit_x >= rendered_x
-        && hit_x <= rendered_x + w
-        && hit_y >= rendered_y
-        && hit_y <= rendered_y + h;
-    let is_scroll = node.get("kind").and_then(Value::as_str) == Some("Scroll");
-    let node_id = node.get("id").and_then(Value::as_str).unwrap_or("");
-    let (next_acc_x, next_acc_y) = if is_scroll {
-        let cur_x = node
-            .get("scrollOffsetX")
-            .and_then(Value::as_f64)
-            .unwrap_or(0.0);
-        let cur_y = node
-            .get("scrollOffsetY")
-            .and_then(Value::as_f64)
-            .unwrap_or(0.0);
-        if inside && !node_id.is_empty() {
-            // Estimate content extent from children bounds.
-            let extent_x = children_max_right(node, acc_scroll_x) - x;
-            let extent_y = children_max_bottom(node, acc_scroll_y) - y;
-            let max_x = (extent_x - w).max(0.0);
-            let max_y = (extent_y - h).max(0.0);
-            let key = format!("{element_id}/{node_id}");
-            *best = Some((key, cur_x, cur_y, max_x, max_y));
+    if node["visible"].as_bool() == Some(false) {
+        return;
+    }
+    let scroll = node["kind"] == "Scroll";
+    let mut child_point = point;
+    if scroll || node["clipChildren"].as_bool() == Some(true) {
+        let bounds = &node["bounds"];
+        let (x, y) = (
+            bounds["x"].as_f64().unwrap_or(0.0),
+            bounds["y"].as_f64().unwrap_or(0.0),
+        );
+        if point.0 < x
+            || point.1 < y
+            || point.0 >= x + bounds["width"].as_f64().unwrap_or(0.0)
+            || point.1 >= y + bounds["height"].as_f64().unwrap_or(0.0)
+        {
+            return;
         }
-        (acc_scroll_x + cur_x, acc_scroll_y + cur_y)
-    } else {
-        (acc_scroll_x, acc_scroll_y)
-    };
-    if let Some(children) = node.get("children").and_then(Value::as_array) {
+        if scroll {
+            let Some(id) = node["id"].as_str() else {
+                return;
+            };
+            let key = format!("{element}/{id}");
+            let requested = requested_scroll(node);
+            let position = offsets.get(&key).copied().unwrap_or(ScrollPosition {
+                requested,
+                offset: requested,
+            });
+            child_point = (point.0 + position.offset.0, point.1 + position.offset.1);
+            *best = Some((key, position, scroll_limits(node)));
+        }
+    }
+    if let Some(children) = node["children"].as_array() {
         for child in children {
-            find_scroll_node(
-                child, hit_x, hit_y, element_id, next_acc_x, next_acc_y, best,
-            );
+            find_scroll_node(child, child_point, element, offsets, best);
         }
     }
 }
 
-fn children_max_right(node: &Value, acc_x: f64) -> f64 {
-    node.get("children")
-        .and_then(Value::as_array)
-        .map(|children| {
-            children
-                .iter()
-                .filter_map(|child| {
-                    let x = child
-                        .get("bounds")
-                        .and_then(|b| b.get("x"))
-                        .and_then(Value::as_f64)?;
-                    let w = child
-                        .get("bounds")
-                        .and_then(|b| b.get("width"))
-                        .and_then(Value::as_f64)?;
-                    Some(x + w - acc_x)
-                })
-                .fold(0.0_f64, f64::max)
-        })
-        .unwrap_or(0.0)
+fn requested_scroll(node: &Value) -> (f64, f64) {
+    (
+        node["scrollOffsetX"].as_f64().unwrap_or(0.0),
+        node["scrollOffsetY"].as_f64().unwrap_or(0.0),
+    )
 }
 
-fn children_max_bottom(node: &Value, acc_y: f64) -> f64 {
-    node.get("children")
-        .and_then(Value::as_array)
-        .map(|children| {
-            children
-                .iter()
-                .filter_map(|child| {
-                    let y = child
-                        .get("bounds")
-                        .and_then(|b| b.get("y"))
-                        .and_then(Value::as_f64)?;
-                    let h = child
-                        .get("bounds")
-                        .and_then(|b| b.get("height"))
-                        .and_then(Value::as_f64)?;
-                    Some(y + h - acc_y)
-                })
-                .fold(0.0_f64, f64::max)
-        })
-        .unwrap_or(0.0)
+fn scroll_limits(node: &Value) -> (f64, f64) {
+    let bounds = &node["bounds"];
+    let right = bounds["x"].as_f64().unwrap_or(0.0) + bounds["width"].as_f64().unwrap_or(0.0);
+    let bottom = bounds["y"].as_f64().unwrap_or(0.0) + bounds["height"].as_f64().unwrap_or(0.0);
+    let mut max = (0.0_f64, 0.0_f64);
+    if let Some(children) = node["children"].as_array() {
+        for child in children
+            .iter()
+            .filter(|child| child["visible"].as_bool() != Some(false))
+        {
+            let b = &child["bounds"];
+            max.0 = max
+                .0
+                .max(b["x"].as_f64().unwrap_or(0.0) + b["width"].as_f64().unwrap_or(0.0) - right);
+            max.1 = max
+                .1
+                .max(b["y"].as_f64().unwrap_or(0.0) + b["height"].as_f64().unwrap_or(0.0) - bottom);
+        }
+    }
+    max
 }
 
 fn current_epoch_ms() -> f64 {
@@ -1160,7 +1171,7 @@ fn slice_text(value: &mut Value, visible: usize) {
 /// appears in the map.
 fn apply_scroll_offsets(
     view: &mut Map<String, Value>,
-    scroll_offsets: &BTreeMap<String, (f64, f64)>,
+    scroll_offsets: &BTreeMap<String, ScrollPosition>,
 ) {
     if scroll_offsets.is_empty() {
         return;
@@ -1192,14 +1203,15 @@ fn apply_scroll_offsets(
 fn inject_scroll_offsets_into_node(
     node: &mut Value,
     element_id: &str,
-    scroll_offsets: &BTreeMap<String, (f64, f64)>,
+    scroll_offsets: &BTreeMap<String, ScrollPosition>,
 ) {
     let node_id = match node.get("id").and_then(Value::as_str) {
         Some(id) => id.to_string(),
         None => return,
     };
     let key = format!("{element_id}/{node_id}");
-    if let Some(&(offset_x, offset_y)) = scroll_offsets.get(&key) {
+    if let Some(position) = scroll_offsets.get(&key) {
+        let (offset_x, offset_y) = position.offset;
         if let Some(obj) = node.as_object_mut() {
             // Only write non-zero offsets — zero is the serde default and writing
             // it wastes JSON bytes without changing behaviour.

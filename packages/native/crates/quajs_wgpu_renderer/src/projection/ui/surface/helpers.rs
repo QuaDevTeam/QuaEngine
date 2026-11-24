@@ -28,7 +28,9 @@ pub(super) fn renderer_intent(
     node: &UiSurfaceNodeProjection,
     intent: &UiIntentProjection,
 ) -> Option<RendererIntent> {
-    if !is_projectable_native_ui_intent_event(&intent.event) {
+    if node.accessibility.as_ref().is_some_and(|a| a.disabled)
+        || !is_projectable_native_ui_intent_event(&intent.event)
+    {
         return None;
     }
 

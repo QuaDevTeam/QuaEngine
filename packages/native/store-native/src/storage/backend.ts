@@ -10,13 +10,14 @@ import type {
   StorageMiddleware,
 } from '@quajs/store'
 import type { NativeStoreRecord, NativeStoreRecordKind } from './records'
+import type { NativeStoreRecords } from './transport'
 import {
   createNativeStoreGroupPrefix,
   createNativeStoreNamespace,
   createNativeStoreRecordKey,
-  requireNativeStoreStorageKeys,
 } from './keys'
 import { decodeNativeStoreRecord, encodeNativeStoreRecord } from './records'
+import { createByteHostRecords } from './transport'
 
 export interface NativeStoreBackendOptions {
   host: QuaNativeHostApi
@@ -28,12 +29,23 @@ export interface NativeStoreBackendOptions {
 
 export { createNativeStoreNamespace } from './keys'
 
+interface NativeProductBackendOptions {
+  namespace: string
+  records: NativeStoreRecords
+}
+
 export class NativeStoreBackend implements StorageBackend {
-  get storageInfo() { return { driver: 'native-host', persistence: 'host-defined', namespace: this.namespace } as const }
+  private readonly records: NativeStoreRecords
+
+  get storageInfo() {
+    return { driver: 'native-host', persistence: 'records' in this.options ? 'persistent' : 'host-defined', namespace: this.namespace } as const
+  }
+
   private readonly namespace: string
 
-  constructor(private readonly options: NativeStoreBackendOptions) {
-    this.namespace = createNativeStoreNamespace(options)
+  constructor(private readonly options: NativeStoreBackendOptions | NativeProductBackendOptions) {
+    this.records = 'records' in options ? options.records : createByteHostRecords(options.host)
+    this.namespace = 'records' in options ? options.namespace : createNativeStoreNamespace(options)
   }
 
   async saveSnapshot(snapshot: QuaSnapshot): Promise<void> {
@@ -45,7 +57,7 @@ export class NativeStoreBackend implements StorageBackend {
   }
 
   async deleteSnapshot(id: string): Promise<void> {
-    await this.options.host.deleteStorage(this.key('snapshots', id))
+    await this.records.remove(this.key('snapshots', id))
   }
 
   async listSnapshots(storeName?: string): Promise<QuaSnapshotMeta[]> {
@@ -82,7 +94,7 @@ export class NativeStoreBackend implements StorageBackend {
   }
 
   async deleteGameSlotIndex(slotId: string): Promise<void> {
-    await this.options.host.deleteStorage(this.key('slot-indexes', slotId))
+    await this.records.remove(this.key('slot-indexes', slotId))
   }
 
   async saveGameSlotPayload(slot: QuaGameSaveSlotPayload): Promise<void> {
@@ -94,7 +106,7 @@ export class NativeStoreBackend implements StorageBackend {
   }
 
   async deleteGameSlotPayload(slotId: string): Promise<void> {
-    await this.options.host.deleteStorage(this.key('slot-payloads', slotId))
+    await this.records.remove(this.key('slot-payloads', slotId))
   }
 
   async saveGameSlotPreview(preview: QuaGameSavePreviewRecord): Promise<void> {
@@ -106,7 +118,7 @@ export class NativeStoreBackend implements StorageBackend {
   }
 
   async deleteGameSlotPreview(previewId: string): Promise<void> {
-    await this.options.host.deleteStorage(this.key('slot-previews', previewId))
+    await this.records.remove(this.key('slot-previews', previewId))
   }
 
   async clearGameSlots(): Promise<void> {
@@ -117,7 +129,10 @@ export class NativeStoreBackend implements StorageBackend {
     ])
   }
 
-  async transaction<T>(_mode: 'readonly' | 'readwrite', action: () => Promise<T>): Promise<T> {
+  async transaction<T>(mode: 'readonly' | 'readwrite', action: (backend?: StorageBackend) => Promise<T>): Promise<T> {
+    if (mode === 'readwrite' && this.records.transaction) {
+      return await this.records.transaction(records => action(new NativeStoreBackend({ namespace: this.namespace, records })))
+    }
     return await action()
   }
 
@@ -126,14 +141,14 @@ export class NativeStoreBackend implements StorageBackend {
     kind: NativeStoreRecordKind,
     record: TRecord,
   ): Promise<void> {
-    await this.options.host.writeStorage(key, encodeNativeStoreRecord(kind, record))
+    await this.records.write(key, encodeNativeStoreRecord(kind, record))
   }
 
   private async readRecord<TRecord extends NativeStoreRecord>(
     key: string,
     kind: NativeStoreRecordKind,
   ): Promise<TRecord | undefined> {
-    const data = await this.options.host.readStorage(key)
+    const data = await this.records.read(key)
     if (!data)
       return undefined
     return decodeNativeStoreRecord<TRecord>(data, kind)
@@ -150,11 +165,11 @@ export class NativeStoreBackend implements StorageBackend {
 
   private async deletePrefix(group: string): Promise<void> {
     const keys = await this.listRecordKeys(group)
-    await Promise.all(keys.map(key => this.options.host.deleteStorage(key)))
+    await Promise.all(keys.map(key => this.records.remove(key)))
   }
 
   private async listRecordKeys(group: string): Promise<string[]> {
-    return await requireNativeStoreStorageKeys(this.options.host, createNativeStoreGroupPrefix(this.namespace, group))
+    return await this.records.list(createNativeStoreGroupPrefix(this.namespace, group))
   }
 
   private key(group: string, id: string): string {

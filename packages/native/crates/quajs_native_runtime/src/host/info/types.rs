@@ -9,6 +9,8 @@ pub enum NativePlatform {
     Windows,
     #[serde(rename = "linux")]
     Linux,
+    Ios,
+    Android,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]

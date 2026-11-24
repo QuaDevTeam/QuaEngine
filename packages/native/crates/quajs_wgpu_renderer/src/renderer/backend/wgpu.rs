@@ -6,6 +6,10 @@ mod device_plan;
 mod diagnostics;
 mod execution;
 mod gpu_frame;
+#[cfg(feature = "image-decode")]
+mod image_bytes;
+#[cfg(feature = "image-decode")]
+pub use image_bytes::ImageUploadBytes;
 mod mesh;
 mod physical;
 mod pipeline;
@@ -87,10 +91,10 @@ pub use resource_cache::{
 pub use runtime_executor::decode_image_bytes_rgba8;
 #[cfg(feature = "real-wgpu")]
 pub use runtime_executor::{
-    create_real_wgpu_surface_target, RealRuntimeFrameTargetSnapshot,
-    RealWgpuDecodedTextureMetadata, RealWgpuDecodedTextureRgba8, RealWgpuEncodedFrameCapture,
-    RealWgpuFrameCapture, RealWgpuFrameCaptureError, RealWgpuFrameCopyReport,
-    RealWgpuNativeRenderRuntimeDevice, RealWgpuNativeRenderRuntimeTarget,
+    create_real_wgpu_surface_target, native_renderer_required_limits,
+    RealRuntimeFrameTargetSnapshot, RealWgpuDecodedTextureMetadata, RealWgpuDecodedTextureRgba8,
+    RealWgpuEncodedFrameCapture, RealWgpuFrameCapture, RealWgpuFrameCaptureError,
+    RealWgpuFrameCopyReport, RealWgpuNativeRenderRuntimeDevice, RealWgpuNativeRenderRuntimeTarget,
     RealWgpuSurfacePresentReport, RealWgpuSurfacePresentStatus, RealWgpuSurfaceTargetBootstrap,
     RealWgpuSurfaceTargetBootstrapError, RealWgpuSurfaceTargetBootstrapErrorKind,
     RealWgpuSurfaceTargetBootstrapRequest, RealWgpuTargetResizeReport,

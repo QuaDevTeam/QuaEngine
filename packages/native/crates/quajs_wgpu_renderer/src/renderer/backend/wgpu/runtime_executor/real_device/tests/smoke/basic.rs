@@ -93,6 +93,13 @@ fn noop_device_applies_buffer_upload_and_empty_render_pass() {
         assert_eq!((capture.width, capture.height), (64, 64));
         assert_eq!(capture.mime_type, "image/png");
         assert_eq!(&capture.bytes[..8], b"\x89PNG\r\n\x1a\n");
+        let reader = png::Decoder::new(std::io::Cursor::new(&capture.bytes))
+            .read_info()
+            .unwrap();
+        assert_eq!(
+            reader.info().srgb,
+            Some(png::SrgbRenderingIntent::RelativeColorimetric)
+        );
         assert_eq!(capture.visible_pixel_count, 0);
         assert_eq!(capture.colored_pixel_count, 0);
     }

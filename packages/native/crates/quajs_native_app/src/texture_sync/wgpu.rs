@@ -13,6 +13,12 @@ impl NativeTextureUploadSink
     >
 {
     type Error = WgpuNativeRenderRuntimeError;
+    fn texture_variant_fits(&self, bytes: &[u8]) -> bool {
+        self.runtime_executor().device().texture_variant_fits(bytes)
+    }
+    fn texture_variant_suffixes(&self) -> &'static [&'static str] {
+        self.runtime_executor().device().texture_variant_suffixes()
+    }
     fn texture_preload_budget_generation(&self) -> u64 {
         self.runtime_executor()
             .device()
@@ -21,7 +27,7 @@ impl NativeTextureUploadSink
     fn request_texture_preload(
         &mut self,
         request: &NativeTextureUploadRequest,
-        bytes: &[u8],
+        bytes: std::sync::Arc<[u8]>,
         metadata: NativeTextureUploadMetadata,
     ) -> Result<bool, Self::Error> {
         self.runtime_executor_mut()
@@ -56,7 +62,9 @@ impl NativeTextureUploadSink
             .set_image_preloads(ids);
     }
     fn set_required_texture_preparations(&mut self, ids: std::collections::BTreeSet<String>) {
-        self.runtime_executor_mut().device_mut().set_required_image_preparations(ids);
+        self.runtime_executor_mut()
+            .device_mut()
+            .set_required_image_preparations(ids);
     }
     fn prepare_texture_request(&mut self, request: &NativeTextureUploadRequest) {
         self.runtime_executor_mut()
@@ -136,7 +144,7 @@ impl NativeTextureUploadSink
     fn request_texture_upload(
         &mut self,
         request: &NativeTextureUploadRequest,
-        bytes: &[u8],
+        bytes: std::sync::Arc<[u8]>,
         metadata: NativeTextureUploadMetadata,
     ) -> Result<bool, Self::Error> {
         self.request_image_texture_upload(

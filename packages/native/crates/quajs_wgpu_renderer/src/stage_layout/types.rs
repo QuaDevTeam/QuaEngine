@@ -148,3 +148,19 @@ pub struct ResolvedStageLayout {
     pub logical_safe_area_insets: StageSafeAreaInsets,
     pub safe_area: StageSafeArea,
 }
+
+impl ResolvedStageLayout {
+    /// Move an authored point in the aspect-safe rectangle to its counterpart
+    /// in the device-safe rectangle, preserving the size of an anchored surface.
+    pub fn safe_area_anchor_offset(&self, anchor: Option<[f64; 2]>) -> (f64, f64) {
+        let Some([x, y]) = anchor else {
+            return (0.0, 0.0);
+        };
+        let safe = self.safe_area;
+        let aspect = self.aspect_safe_area;
+        (
+            safe.x - aspect.x + (safe.width - aspect.width) * x.clamp(0.0, 1.0),
+            safe.y - aspect.y + (safe.height - aspect.height) * y.clamp(0.0, 1.0),
+        )
+    }
+}

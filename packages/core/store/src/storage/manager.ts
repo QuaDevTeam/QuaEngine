@@ -17,9 +17,9 @@ export class StorageManager {
   private backend: StorageBackend
   private middlewares: StorageMiddleware[] = []
 
-  constructor(config?: StorageConfig) {
+  constructor(config?: StorageConfig, scopedBackend?: StorageBackend) {
     this.middlewares = config?.middlewares || []
-    this.backend = this.createBackend(config?.backend)
+    this.backend = scopedBackend ?? this.createBackend(config?.backend)
   }
 
   /**
@@ -123,11 +123,13 @@ export class StorageManager {
     await this.backend.clearSnapshots(storeName)
   }
 
-  async transaction<T>(mode: StorageTransactionMode, action: () => Promise<T>): Promise<T> {
+  async transaction<T>(mode: StorageTransactionMode, action: (storage: StorageManager) => Promise<T>): Promise<T> {
     if (this.backend.transaction) {
-      return await this.backend.transaction(mode, action)
+      return await this.backend.transaction(mode, scopedBackend => action(scopedBackend
+        ? new StorageManager({ middlewares: this.middlewares }, scopedBackend)
+        : this))
     }
-    return await action()
+    return await action(this)
   }
 
   async saveGameSlotIndex(index: QuaGameSaveSlotIndex): Promise<void> {

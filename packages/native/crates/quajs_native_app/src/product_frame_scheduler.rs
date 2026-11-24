@@ -91,6 +91,7 @@ pub(crate) struct NativeProductFrameScheduler {
     target_frame_count: usize,
     max_present_attempts: usize,
     attempt_count: usize,
+    consecutive_attempts: usize,
     recovery_metrics: NativeProductSurfaceRecoveryMetrics,
 }
 
@@ -107,6 +108,7 @@ impl NativeProductFrameScheduler {
             target_frame_count: target_frame_count.max(1),
             max_present_attempts: max_present_attempts.max(1),
             attempt_count: 0,
+            consecutive_attempts: 0,
             recovery_metrics: NativeProductSurfaceRecoveryMetrics::default(),
         }
     }
@@ -137,10 +139,15 @@ impl NativeProductFrameScheduler {
 
     pub(crate) fn begin_present_attempt(&mut self) -> NativeProductFrameAttempt {
         self.attempt_count = self.attempt_count.saturating_add(1);
+        self.consecutive_attempts = self.consecutive_attempts.saturating_add(1);
         NativeProductFrameAttempt {
-            allow_occluded_report: self.attempt_count >= self.max_present_attempts,
+            allow_occluded_report: self.consecutive_attempts >= self.max_present_attempts,
             attempt_number: self.attempt_count,
         }
+    }
+
+    pub(crate) fn record_present_success(&mut self) {
+        self.consecutive_attempts = 0;
     }
 
     pub(crate) fn record_present_failure(
@@ -242,7 +249,7 @@ impl NativeProductFrameScheduler {
         &self,
         failure: NativeProductFramePresentFailureKind,
     ) -> NativeProductFramePresentFailureAction {
-        if self.attempt_count >= self.max_present_attempts {
+        if self.consecutive_attempts >= self.max_present_attempts {
             return NativeProductFramePresentFailureAction::Fail;
         }
 
@@ -312,6 +319,31 @@ mod tests {
             },
         );
         assert_eq!(scheduler.attempt_count(), 3);
+    }
+
+    #[test]
+    fn successful_frames_preserve_the_budget_for_a_later_surface_loss() {
+        let mut scheduler = NativeProductFrameScheduler::with_max_present_attempts(1, 3);
+        for _ in 0..10 {
+            assert!(!scheduler.begin_present_attempt().allow_occluded_report);
+            scheduler.record_present_success();
+        }
+        for _ in 0..2 {
+            assert!(!scheduler.begin_present_attempt().allow_occluded_report);
+            assert_eq!(
+                scheduler.classify_present_failure(
+                    NativeProductFramePresentFailureKind::RecoverableSurface
+                ),
+                NativeProductFramePresentFailureAction::RecoverSurface
+            );
+        }
+        assert!(scheduler.begin_present_attempt().allow_occluded_report);
+        assert_eq!(
+            scheduler
+                .classify_present_failure(NativeProductFramePresentFailureKind::RecoverableSurface),
+            NativeProductFramePresentFailureAction::Fail
+        );
+        assert_eq!(scheduler.attempt_count(), 13);
     }
 
     #[test]

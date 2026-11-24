@@ -39,6 +39,27 @@ fn decodes_webp_image_bytes_to_rgba8() {
 
 #[cfg(feature = "image-decode")]
 #[test]
+fn normalizes_display_p3_png_to_straight_srgb_before_upload() {
+    use image::ImageEncoder;
+
+    let mut png = Vec::new();
+    let mut encoder = image::codecs::png::PngEncoder::new(&mut png);
+    encoder
+        .set_icc_profile(moxcms::ColorProfile::new_display_p3().encode().unwrap())
+        .unwrap();
+    encoder
+        .write_image(&[180, 100, 80, 64], 1, 1, image::ExtendedColorType::Rgba8)
+        .unwrap();
+    let decoded = decode_image_bytes_rgba8("images:p3.png", &png).unwrap();
+    // D65 P3 -> sRGB with the IEC sRGB transfer function on both ends.
+    for (&actual, expected) in decoded.rgba[..3].iter().zip([193, 95, 74]) {
+        assert!(actual.abs_diff(expected) <= 1, "{:?}", decoded.rgba);
+    }
+    assert_eq!(decoded.rgba[3], 64);
+}
+
+#[cfg(feature = "image-decode")]
+#[test]
 fn rejects_invalid_encoded_image_bytes() {
     let error = decode_image_bytes_rgba8("images:broken.png", b"not an image").unwrap_err();
 

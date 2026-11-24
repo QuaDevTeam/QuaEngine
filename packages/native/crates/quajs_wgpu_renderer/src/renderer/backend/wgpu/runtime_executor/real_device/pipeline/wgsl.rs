@@ -251,6 +251,7 @@ var texture_sampler: sampler;
 
 @group(1) @binding(1)
 var texture_source: texture_2d<f32>;
+@group(1) @binding(2) var<uniform> canvas_uv: vec4<f32>;
 
 @vertex
 fn vs_main(input: VertexInput) -> VertexOutput {
@@ -297,12 +298,15 @@ fn sepia(rgb: vec3<f32>, amount: f32) -> vec3<f32> {
 
 @fragment
 fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
-    var sample = textureSample(texture_source, texture_sampler, input.uv);
+    var uv = clamp(input.uv, vec2(0.0), vec2(1.0)) * canvas_uv.xy + canvas_uv.zw;
+    var sample = textureSample(texture_source, texture_sampler, uv);
     if (input.effect2.z > 0.0 && input.effect2.w > 0.0) {
         // A sliced image/atlas frame owns only these texels. Full-texture mip
         // levels contain neighboring frames, so sample its clamped base level.
-        sample = textureSampleLevel(texture_source, texture_sampler, clamp(input.uv, input.effect2.xy, input.effect2.zw), 0.0);
+        uv = clamp(input.uv, input.effect2.xy, input.effect2.zw) * canvas_uv.xy + canvas_uv.zw;
+        sample = textureSampleLevel(texture_source, texture_sampler, uv, 0.0);
     }
+    if (any(uv < vec2(0.0)) || any(uv > vec2(1.0))) { sample = vec4(0.0); }
     // Texture filtering operates on premultiplied pixels. Color filters and
     // this pipeline's straight-alpha blend operate on the recovered RGB.
     sample = vec4<f32>(sample.rgb / max(sample.a, 0.000001), sample.a);

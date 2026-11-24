@@ -36,14 +36,22 @@ pub(crate) fn initialize() -> Result<(), Box<dyn std::error::Error>> {
     if !enabled() {
         return Ok(());
     }
-    let executable = std::env::current_exe()?;
-    let parent = executable
-        .parent()
-        .ok_or("Executable has no parent directory")?;
-    let resources = if cfg!(target_os = "macos") {
-        parent.join("../Resources")
-    } else {
-        parent.join("resources")
+    #[cfg(all(target_os = "android", feature = "native-window"))]
+    let resources = PathBuf::from("resources");
+    #[cfg(not(all(target_os = "android", feature = "native-window")))]
+    let resources = {
+        let executable = std::env::current_exe()?;
+        let parent = executable
+            .parent()
+            .ok_or("Executable has no parent directory")?;
+        if cfg!(target_os = "macos") {
+            parent.join("../Resources")
+        } else if cfg!(target_os = "ios") {
+            // "Resources" identifies a legacy macOS bundle to Apple's signing tools.
+            parent.join("QuaContent")
+        } else {
+            parent.join("resources")
+        }
     };
     let bytes = read_verified(
         &resources.join("native-app.json"),
@@ -70,16 +78,28 @@ pub(crate) fn initialize() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
     app.resources = resources;
-    APP.set(app)
-        .map_err(|_| "Packaged application initialized twice")?;
+    // NativeActivity can be recreated in the same signed process.
+    if let Err(new) = APP.set(app) {
+        if APP
+            .get()
+            .is_none_or(|existing| existing.resources != new.resources)
+        {
+            return Err("Packaged resource directory changed during application restart".into());
+        }
+    }
     Ok(())
 }
 
 pub(crate) fn read_verified(path: &Path, expected: &str) -> Result<Vec<u8>, std::io::Error> {
-    if std::fs::metadata(path)?.len() > 1024 * 1024 * 1024 {
-        return Err(std::io::Error::other("Packaged resource exceeds 1 GiB"));
-    }
-    let bytes = std::fs::read(path)?;
+    #[cfg(all(target_os = "android", feature = "native-window"))]
+    let bytes = crate::android_activity::read_asset(path)?;
+    #[cfg(not(all(target_os = "android", feature = "native-window")))]
+    let bytes = {
+        if std::fs::metadata(path)?.len() > 1024 * 1024 * 1024 {
+            return Err(std::io::Error::other("Packaged resource exceeds 1 GiB"));
+        }
+        std::fs::read(path)?
+    };
     let digest = format!("{:x}", Sha256::digest(&bytes));
     if digest != expected {
         return Err(std::io::Error::other(format!(

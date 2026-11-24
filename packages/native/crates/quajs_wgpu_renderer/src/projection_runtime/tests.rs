@@ -3,19 +3,35 @@ use super::NativeRendererProjectionRuntime;
 #[test]
 fn loading_scene_boundaries_never_reintroduce_fading_destination_snapshots() {
     let mut runtime = NativeRendererProjectionRuntime::from_frame_json(r#"{"view":{"ui":{"overlays":[{"elementId":"menu","visible":true}]},"characters":[{"id":"alice","visible":true}]}}"#).unwrap();
-    runtime.apply_pipeline_event("view/update", r#"{"view":{"ui":{"overlays":[{"elementId":"asset-loading","visible":true}]}}}"#).unwrap();
+    runtime
+        .apply_pipeline_event(
+            "view/update",
+            r#"{"view":{"ui":{"overlays":[{"elementId":"asset-loading","visible":true}]}}}"#,
+        )
+        .unwrap();
     let frame = runtime.project_now().unwrap();
     let json: serde_json::Value = serde_json::from_str(&frame.json).unwrap();
     assert_eq!(json["view"]["ui"]["overlays"].as_array().unwrap().len(), 1);
-    assert!(json["view"]["characters"].as_array().is_none_or(|items| items.is_empty()));
-    assert!(json["view"]["ui"]["overlays"][0].get("presenceOpacity").is_none());
+    assert!(json["view"]["characters"]
+        .as_array()
+        .is_none_or(|items| items.is_empty()));
+    assert!(json["view"]["ui"]["overlays"][0]
+        .get("presenceOpacity")
+        .is_none());
     assert!(!frame.local_work_active);
-    runtime.apply_pipeline_event("view/update", r#"{"view":{"ui":{"overlays":[{"elementId":"menu","visible":true}]}}}"#).unwrap();
+    runtime
+        .apply_pipeline_event(
+            "view/update",
+            r#"{"view":{"ui":{"overlays":[{"elementId":"menu","visible":true}]}}}"#,
+        )
+        .unwrap();
     let frame = runtime.project_now().unwrap();
     let json: serde_json::Value = serde_json::from_str(&frame.json).unwrap();
     assert_eq!(json["view"]["ui"]["overlays"].as_array().unwrap().len(), 1);
     assert_eq!(json["view"]["ui"]["overlays"][0]["elementId"], "menu");
-    assert!(json["view"]["ui"]["overlays"][0].get("presenceOpacity").is_none());
+    assert!(json["view"]["ui"]["overlays"][0]
+        .get("presenceOpacity")
+        .is_none());
     assert!(!frame.local_work_active);
 }
 
@@ -282,8 +298,8 @@ mod scroll {
             )
             .unwrap());
         assert_eq!(
-            rt.scroll_offsets.get("panel/scroll-root"),
-            Some(&(0.0, 500.0))
+            rt.scroll_offsets.get("panel/scroll-root").map(|p| p.offset),
+            Some((0.0, 500.0))
         );
         assert_eq!(rt.base_frame, original);
         assert!(!rt
@@ -294,8 +310,8 @@ mod scroll {
             .unwrap());
         assert!(rt.scroll_at_logical(200.0, 150.0, 0.0, -50.0));
         assert_eq!(
-            rt.scroll_offsets.get("panel/scroll-root"),
-            Some(&(0.0, 450.0))
+            rt.scroll_offsets.get("panel/scroll-root").map(|p| p.offset),
+            Some((0.0, 450.0))
         );
         rt.apply_pipeline_event("view/update", r#"{"view":{"ui":{"overlays":[]}}}"#)
             .unwrap();
@@ -309,8 +325,33 @@ mod scroll {
             serde_json::json!(500);
         assert!(rt.scroll_at_logical(200.0, 150.0, 0.0, -50.0));
         assert_eq!(
-            rt.scroll_offsets.get("panel/scroll-root"),
-            Some(&(0.0, 450.0))
+            rt.scroll_offsets.get("panel/scroll-root").map(|p| p.offset),
+            Some((0.0, 450.0))
+        );
+    }
+
+    #[test]
+    fn replacement_respects_changed_requests_and_clamps_transient_offsets_per_axis() {
+        let mut rt = runtime_with_scroll_overlay(400.0, 300.0, 800.0);
+        let mut frame = rt.base_frame.clone();
+        let root = &mut frame["view"]["ui"]["overlays"][0]["surface"]["root"];
+        root["children"][0]["bounds"]["width"] = serde_json::json!(800);
+        rt.replace_frame_json(&frame.to_string()).unwrap();
+        assert!(rt.scroll_at_logical(50.0, 50.0, 300.0, 250.0));
+
+        let root = &mut frame["view"]["ui"]["overlays"][0]["surface"]["root"];
+        root["scrollOffsetY"] = serde_json::json!(40);
+        root["children"][0]["bounds"]["width"] = serde_json::json!(500);
+        rt.replace_frame_json(&frame.to_string()).unwrap();
+        assert_eq!(rt.scroll_offsets["panel/scroll-root"].offset, (100.0, 40.0));
+        rt.apply_pipeline_event(
+            "native-ui/scroll",
+            r#"{"elementId":"panel","nodeId":"scroll-root","edge":"end"}"#,
+        )
+        .unwrap();
+        assert_eq!(
+            rt.scroll_offsets["panel/scroll-root"].offset,
+            (100.0, 500.0)
         );
     }
 
@@ -442,6 +483,16 @@ mod scroll {
             moved_outer,
             "hit outside inner but inside outer should scroll outer"
         );
+        // The outer viewport moved down by 50. Hit above the inner node's
+        // authored position but within its new on-screen bounds.
+        assert!(rt.scroll_at_logical(110.0, 60.0, 0.0, 500.0));
+        assert_eq!(
+            rt.scroll_offsets["outer-panel/inner-scroll"].offset,
+            (0.0, 300.0)
+        );
+        assert!(!rt.scroll_at_logical(110.0, -1.0, 0.0, -1.0));
+        rt.base_frame["view"]["ui"]["overlays"][0]["visible"] = serde_json::json!(false);
+        assert!(!rt.scroll_at_logical(110.0, 60.0, 0.0, -1.0));
     }
 }
 

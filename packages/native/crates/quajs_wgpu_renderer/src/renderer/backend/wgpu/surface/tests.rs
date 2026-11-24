@@ -81,21 +81,75 @@ fn falls_back_to_fifo_when_requested_present_mode_is_unsupported() {
 }
 
 #[test]
-fn rejects_surface_without_copy_dst_usage() {
-    let capabilities = capabilities(
+fn renders_to_surface_when_copy_dst_is_unavailable() {
+    let caps = capabilities(
         vec![wgpu::TextureFormat::Bgra8UnormSrgb],
         vec![wgpu::PresentMode::Fifo],
         vec![wgpu::CompositeAlphaMode::Opaque],
         wgpu::TextureUsages::RENDER_ATTACHMENT,
     );
-    let request = WgpuNativeSurfaceConfigRequest::new(320, 180);
+    let plan =
+        plan_wgpu_surface_configuration(&caps, &WgpuNativeSurfaceConfigRequest::new(8, 8)).unwrap();
+    assert_eq!(plan.config.usage, wgpu::TextureUsages::RENDER_ATTACHMENT);
+}
 
-    let error = plan_wgpu_surface_configuration(&capabilities, &request)
-        .expect_err("COPY_DST is required for frame copy presentation");
+#[test]
+fn hdr_requires_both_display_and_linear_surface_support() {
+    use wgpu::TextureFormat::{Rgb10a2Unorm, Rgba16Float, Rgba8Unorm};
+    let mut caps = capabilities(
+        vec![Rgba16Float, Rgb10a2Unorm, Rgba8Unorm],
+        vec![wgpu::PresentMode::Fifo],
+        vec![wgpu::CompositeAlphaMode::Opaque],
+        wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_DST,
+    );
+    let mut request = WgpuNativeSurfaceConfigRequest::new(32, 32);
+    let plan = plan_wgpu_surface_configuration(&caps, &request).unwrap();
+    assert_eq!(plan.config.format, Rgba8Unorm);
+    assert_eq!(plan.output_color_space(), "srgb");
 
+    request.display_hdr_available = true;
+    let plan = plan_wgpu_surface_configuration(&caps, &request).unwrap();
+    assert_eq!(plan.config.format, Rgba16Float);
+    assert_eq!(plan.output_color_space(), "extended-linear-srgb");
+    assert_eq!(plan.config.usage, wgpu::TextureUsages::RENDER_ATTACHMENT);
+
+    request.preferred_format = Some(Rgba8Unorm);
     assert_eq!(
-        error.kind,
-        WgpuNativeSurfaceConfigErrorKind::UnsupportedSurfaceUsage
+        plan_wgpu_surface_configuration(&caps, &request)
+            .unwrap()
+            .config
+            .format,
+        Rgba8Unorm
+    );
+    request.preferred_format = None;
+    request.sdr_white_scale = f32::NAN;
+    assert_eq!(
+        plan_wgpu_surface_configuration(&caps, &request)
+            .unwrap()
+            .config
+            .format,
+        Rgba8Unorm
+    );
+    request.sdr_white_scale = 1.0;
+    caps.formats.remove(0);
+    assert_eq!(
+        plan_wgpu_surface_configuration(&caps, &request)
+            .unwrap()
+            .config
+            .format,
+        Rgba8Unorm
+    );
+    caps.formats = vec![Rgb10a2Unorm];
+    let plan = plan_wgpu_surface_configuration(&caps, &request).unwrap();
+    assert_eq!(plan.config.format, Rgb10a2Unorm);
+    assert_eq!(plan.output_color_space(), "srgb");
+    assert_eq!(plan.config.usage, wgpu::TextureUsages::RENDER_ATTACHMENT);
+    caps.formats = vec![wgpu::TextureFormat::Rgba8Snorm];
+    assert_eq!(
+        plan_wgpu_surface_configuration(&caps, &request)
+            .unwrap_err()
+            .kind,
+        WgpuNativeSurfaceConfigErrorKind::UnsupportedFormat
     );
 }
 

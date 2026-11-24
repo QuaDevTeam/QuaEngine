@@ -627,9 +627,10 @@ it('projects scene dialogue visibility without mutating the engine dialogue', ()
 })
 
 it('preserves feature scene policy when generating a native surface from plugin state', () => {
-  const scene = { id: 'backlog', presentation: 'overlay', overlay: { hideDialogue: true } }
+  const scene = { id: 'backlog', presentation: 'overlay', overlay: { hideDialogue: true, hideHud: true } }
   const view = { dialogue: { visible: true, text: 'Unchanged story' }, plugins: { backlog: { visible: true, ui: { scene } } } }
   const result = createNativeRendererViewProjection(view, { featureSurfaces: [{ pluginId: 'backlog', createOverlays: () => ({ elementId: 'backlog', visible: true, surface: { key: 'test' } }) }] })
   expect(result.dialogue).toMatchObject({ visible: false, text: 'Unchanged story' })
+  expect(result.ui).toMatchObject({ hideHudChrome: true })
   expect(view.dialogue.visible).toBe(true)
 })

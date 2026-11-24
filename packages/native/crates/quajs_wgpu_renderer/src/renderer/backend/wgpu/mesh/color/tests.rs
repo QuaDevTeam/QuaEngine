@@ -9,7 +9,10 @@ fn projection_and_gpu_agree_on_generated_alpha_literals() {
             is_safe_native_color_literal(&color),
             "projection rejected {color}"
         );
-        assert!(parse_color_literal(&color).is_some(), "GPU rejected {color}");
+        assert!(
+            parse_color_literal(&color).is_some(),
+            "GPU rejected {color}"
+        );
     }
     for alpha in ["-0.1", "1.00001", "2", "NaN", "inf", "1e0", "1.", ""] {
         let color = format!("rgba(49,94,83,{alpha})");
@@ -17,7 +20,10 @@ fn projection_and_gpu_agree_on_generated_alpha_literals() {
             !is_safe_native_color_literal(&color),
             "projection accepted {color}"
         );
-        assert!(parse_color_literal(&color).is_none(), "GPU accepted {color}");
+        assert!(
+            parse_color_literal(&color).is_none(),
+            "GPU accepted {color}"
+        );
     }
 }
 

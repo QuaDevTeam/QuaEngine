@@ -105,6 +105,10 @@ impl WgpuNativeRenderRuntimeDevice for RealWgpuNativeRenderRuntimeDevice {
         Ok(())
     }
 
+    fn resident_texture_ids(&self) -> Vec<String> {
+        self.decoded_textures.keys().cloned().collect()
+    }
+
     fn runtime_snapshot(&self) -> WgpuNativeRenderRuntimeSnapshot {
         self.snapshot()
     }

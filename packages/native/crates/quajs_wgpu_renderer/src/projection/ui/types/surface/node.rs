@@ -81,10 +81,23 @@ impl UiSurfaceImageProjection {
     }
 }
 
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UiSurfaceAccessibilityProjection {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pressed: Option<bool>,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub disabled: bool,
+}
+
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UiSurfaceNodeProjection {
     pub id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub accessibility: Option<UiSurfaceAccessibilityProjection>,
     #[serde(default)]
     pub kind: UiSurfaceNodeKind,
     #[serde(default = "default_true")]
@@ -127,6 +140,7 @@ impl UiSurfaceNodeProjection {
     pub fn new(id: impl Into<String>, kind: UiSurfaceNodeKind, bounds: UiSurfaceNodeRect) -> Self {
         Self {
             id: id.into(),
+            accessibility: None,
             kind,
             visible: true,
             clip_children: false,

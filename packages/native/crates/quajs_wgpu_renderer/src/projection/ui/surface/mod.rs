@@ -20,6 +20,7 @@ pub fn build_ui_surface_node_commands(
     overlay: &UiOverlayProjection,
     surface: &UiOverlaySurfaceProjection,
     base_z_index: i32,
+    layout: &crate::stage_layout::ResolvedStageLayout,
 ) -> Vec<DrawCommand> {
     if !is_safe_native_dispatch_identifier(&overlay.element_id) {
         return Vec::new();
@@ -29,6 +30,7 @@ pub fn build_ui_surface_node_commands(
         return Vec::new();
     };
 
+    let (x, y) = layout.safe_area_anchor_offset(surface.safe_area_anchor);
     let mut commands = Vec::new();
     let mut seen_node_ids = BTreeSet::new();
     append_surface_node_commands(
@@ -38,7 +40,7 @@ pub fn build_ui_surface_node_commands(
         root,
         base_z_index.saturating_add(SURFACE_NODE_Z_OFFSET),
         &[],
-        SurfaceNodeOffset::default(),
+        SurfaceNodeOffset { x, y },
         ROOT_SURFACE_OPACITY * overlay.presence_opacity,
     );
     commands

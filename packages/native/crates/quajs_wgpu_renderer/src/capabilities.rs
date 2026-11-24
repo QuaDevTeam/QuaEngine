@@ -198,6 +198,21 @@ pub fn native_wgpu_capabilities_with_audio_playback() -> Vec<RendererCapability>
     capabilities
 }
 
+/// Hosts that connect the product input controller can accept these input sources.
+pub fn native_product_input_capabilities() -> [RendererCapability; 2] {
+    ["native-wgpu.input.touch@1", "native-wgpu.input.gamepad@1"].map(|id| {
+        capability(
+            id,
+            &["view.choices", "view.ui.overlays"],
+            &["choice/select", "ui/intent", "user/input_command"],
+            &[],
+            &[],
+            &[],
+            "reject-package",
+        )
+    })
+}
+
 pub fn native_wgpu_audio_playback_capability() -> RendererCapability {
     capability(
         "native-wgpu.audio@1",

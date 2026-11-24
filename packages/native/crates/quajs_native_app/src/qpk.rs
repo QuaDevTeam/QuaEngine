@@ -27,6 +27,7 @@ const QPK_MAX_BYTES: u64 = 1024 * 1024 * 1024;
 
 #[derive(Debug)]
 struct NativeDevQpk {
+    texture_suffix: Option<&'static str>,
     bundle: NativeMountedBundleInfo,
     assets: Vec<(String, Vec<u8>)>,
 }
@@ -65,15 +66,11 @@ pub(crate) fn mount_native_dev_qpk(
 }
 
 pub(crate) fn mount_qpk_bytes(
-    mut host: InMemoryNativeHostApi,
+    host: InMemoryNativeHostApi,
     bytes: &[u8],
 ) -> Result<InMemoryNativeHostApi, NativeQpkError> {
     let qpk = parse_native_dev_qpk(bytes)?;
-    host = host.with_mounted_bundle(qpk.bundle);
-    for (asset_name, bytes) in qpk.assets {
-        host = host.with_asset(asset_name, bytes);
-    }
-    Ok(host)
+    Ok(host.with_bundle_assets(qpk.bundle, qpk.assets, qpk.texture_suffix))
 }
 
 fn parse_native_dev_qpk(bytes: &[u8]) -> Result<NativeDevQpk, NativeQpkError> {
@@ -172,7 +169,20 @@ fn parse_native_dev_qpk(bytes: &[u8]) -> Result<NativeDevQpk, NativeQpkError> {
         .and_then(Value::as_str)
         .map(str::to_string);
 
+    let texture_suffix = match (
+        manifest
+            .pointer("/assetTarget/platform")
+            .and_then(Value::as_str),
+        manifest
+            .pointer("/assetTarget/nativeTextureFormat")
+            .and_then(Value::as_str),
+    ) {
+        (Some("native"), Some("astc")) => Some(".qua-astc"),
+        (Some("native"), Some("bc7")) => Some(".qua-bc7"),
+        _ => None,
+    };
     Ok(NativeDevQpk {
+        texture_suffix,
         bundle: NativeMountedBundleInfo {
             name: format!("{name}-native-dev"),
             logical_name: Some(name),
@@ -267,4 +277,113 @@ mod tests {
         qpk.extend_from_slice(&manifest);
         qpk
     }
+}
+
+/// Exercise the same package lookup, upload, mesh, shader and capture path as the
+/// native window. The fixture is supplied by Quack, so CI without a GPU/encoder
+/// still runs the format and lifecycle regression tests.
+#[cfg(all(test, feature = "native-window"))]
+#[test]
+#[ignore = "requires a real GPU, QUA_TEXTURE_QPK and QUA_TEXTURE_FRAME"]
+fn capture_native_texture_qpk_frame() {
+    use quajs_wgpu_renderer::renderer::{
+        InMemoryWgpuNativeRenderRuntimeExecutor, NativeRenderer, RealWgpuNativeRenderRuntimeDevice,
+        RealWgpuNativeRenderRuntimeTarget, WgpuNativeRenderBackend, WgpuNativeRenderBackendConfig,
+    };
+    let host_info = crate::startup::create_native_startup_host_info(
+        crate::startup::compile_time_native_app_config(),
+        None,
+    )
+    .unwrap();
+    let host = mount_native_dev_qpk(
+        InMemoryNativeHostApi::new(host_info),
+        std::env::var_os("QUA_TEXTURE_QPK").unwrap(),
+    )
+    .unwrap();
+    let frame = std::fs::read_to_string(std::env::var_os("QUA_TEXTURE_FRAME").unwrap()).unwrap();
+    let json: Value = serde_json::from_str(&frame).unwrap();
+    let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle());
+    let adapter = pollster::block_on(instance.request_adapter(&Default::default())).unwrap();
+    let features = if std::env::var_os("QUA_TEXTURE_RGBA").is_some() {
+        wgpu::Features::empty()
+    } else {
+        adapter.features()
+            & (wgpu::Features::TEXTURE_COMPRESSION_ASTC | wgpu::Features::TEXTURE_COMPRESSION_BC)
+    };
+    let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
+        required_features: features,
+        required_limits: quajs_wgpu_renderer::renderer::native_renderer_required_limits(
+            adapter.limits(),
+        ),
+        ..Default::default()
+    }))
+    .unwrap();
+    let extent = wgpu::Extent3d {
+        width: json["container"]["width"].as_u64().unwrap() as u32,
+        height: json["container"]["height"].as_u64().unwrap() as u32,
+        depth_or_array_layers: 1,
+    };
+    let target = RealWgpuNativeRenderRuntimeTarget::new(
+        device,
+        queue,
+        wgpu::TextureFormat::Bgra8UnormSrgb,
+        extent,
+    );
+    let mut runtime_device = RealWgpuNativeRenderRuntimeDevice::new(target.clone());
+    if std::env::var_os("QUA_TEXTURE_ASYNC").is_some() {
+        runtime_device.enable_async_image_uploads().unwrap();
+    }
+    let executor = InMemoryWgpuNativeRenderRuntimeExecutor::with_device(runtime_device);
+    let mut renderer = NativeRenderer::new(WgpuNativeRenderBackend::with_runtime_executor(
+        WgpuNativeRenderBackendConfig::default(),
+        executor,
+    ));
+    let start = std::time::Instant::now();
+    let mut uploads = 0;
+    loop {
+        let result = crate::texture_sync::render_json_frame_with_host_texture_sync(
+            &mut renderer,
+            &host,
+            &frame,
+        )
+        .unwrap();
+        assert!(
+            result.texture_upload_report.failures.is_empty(),
+            "{:?}",
+            result.texture_upload_report
+        );
+        uploads += result.texture_upload_report.uploaded_count;
+        if result.frame.texture_upload_sync.pending_requests.is_empty() {
+            break;
+        }
+        assert!(
+            start.elapsed() < std::time::Duration::from_secs(10),
+            "pending image uploads"
+        );
+        std::thread::sleep(std::time::Duration::from_millis(2));
+    }
+    assert!(uploads > 0);
+    target
+        .device()
+        .poll(wgpu::PollType::wait_indefinitely())
+        .unwrap();
+    let elapsed = start.elapsed();
+    let snapshot = renderer.backend().runtime_snapshot();
+    let capture = renderer
+        .backend()
+        .runtime_executor()
+        .device()
+        .capture_frame_png()
+        .unwrap();
+    assert!(capture.colored_pixel_count > 0);
+    if let Some(path) = std::env::var_os("QUA_TEXTURE_CAPTURE") {
+        std::fs::write(path, capture.bytes).unwrap();
+    }
+    println!(
+        "cold_frame_ms={:.2} resident_bytes={} textures={} colored_pixels={}",
+        elapsed.as_secs_f64() * 1000.,
+        snapshot.resident_texture_byte_len,
+        uploads,
+        capture.colored_pixel_count
+    );
 }

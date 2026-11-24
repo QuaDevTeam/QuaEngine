@@ -75,7 +75,7 @@ where
             continue;
         }
 
-        let read = match read_texture_asset_bytes(host, request) {
+        let read = match read_texture_asset_bytes(host, request, sink) {
             Ok(read) => read,
             Err(read_failure) => {
                 report.record_failure(read_failure);
@@ -84,7 +84,7 @@ where
         };
         let metadata = upload_metadata_from_request(request, read.package_id.as_deref());
 
-        match sink.request_texture_upload(request, &read.bytes, metadata) {
+        match sink.request_texture_upload(request, read.bytes, metadata) {
             Ok(false) => {}
             Ok(true) => {
                 report.uploaded_count += 1;
@@ -145,6 +145,7 @@ struct NativeTextureAssetReadCandidate(NativeAssetBundleCandidate);
 pub(super) fn read_texture_asset_bytes(
     host: &impl NativeHostApi,
     request: &NativeTextureUploadRequest,
+    sink: &impl NativeTextureUploadSink,
 ) -> Result<NativeTextureAssetRead, NativeTextureUploadHostSyncFailure> {
     let candidates = read_candidates(host, request)?;
     let mut last_missing: Option<NativeTextureUploadHostSyncFailure> = None;
@@ -157,7 +158,18 @@ pub(super) fn read_texture_asset_bytes(
                 asset_id: Some(request.resource_id.as_str().to_string()),
             };
 
-            match host.read_shared_asset_bytes(&read_request) {
+            let selected = host
+                .read_shared_texture_bytes(&read_request, sink.texture_variant_suffixes())
+                .and_then(|bytes| {
+                    // Block padding can push a source that fits the adapter beyond its
+                    // 2D limit. Read the same package's full-canvas image in that case.
+                    if sink.texture_variant_fits(&bytes) {
+                        Ok(bytes)
+                    } else {
+                        host.read_shared_texture_bytes(&read_request, &[])
+                    }
+                });
+            match selected {
                 Ok(bytes) => {
                     return Ok(NativeTextureAssetRead {
                         bytes,

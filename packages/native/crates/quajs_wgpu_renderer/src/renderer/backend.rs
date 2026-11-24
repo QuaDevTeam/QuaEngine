@@ -42,14 +42,14 @@ pub use wgpu::decode_image_bytes_rgba8;
 #[cfg(feature = "real-wgpu")]
 pub use wgpu::{
     configure_wgpu_surface_for_native_renderer, create_real_wgpu_surface_target,
-    plan_wgpu_surface_configuration, RealRuntimeFrameTargetSnapshot, RealWgpuEncodedFrameCapture,
-    RealWgpuFrameCapture, RealWgpuFrameCaptureError, RealWgpuFrameCopyReport,
-    RealWgpuNativeRenderRuntimeDevice, RealWgpuNativeRenderRuntimeTarget,
-    RealWgpuSurfacePresentReport, RealWgpuSurfacePresentStatus, RealWgpuSurfaceTargetBootstrap,
-    RealWgpuSurfaceTargetBootstrapError, RealWgpuSurfaceTargetBootstrapErrorKind,
-    RealWgpuSurfaceTargetBootstrapRequest, RealWgpuTargetResizeReport,
-    WgpuNativeSurfaceConfigError, WgpuNativeSurfaceConfigErrorKind, WgpuNativeSurfaceConfigPlan,
-    WgpuNativeSurfaceConfigRequest,
+    native_renderer_required_limits, plan_wgpu_surface_configuration,
+    RealRuntimeFrameTargetSnapshot, RealWgpuEncodedFrameCapture, RealWgpuFrameCapture,
+    RealWgpuFrameCaptureError, RealWgpuFrameCopyReport, RealWgpuNativeRenderRuntimeDevice,
+    RealWgpuNativeRenderRuntimeTarget, RealWgpuSurfacePresentReport, RealWgpuSurfacePresentStatus,
+    RealWgpuSurfaceTargetBootstrap, RealWgpuSurfaceTargetBootstrapError,
+    RealWgpuSurfaceTargetBootstrapErrorKind, RealWgpuSurfaceTargetBootstrapRequest,
+    RealWgpuTargetResizeReport, WgpuNativeSurfaceConfigError, WgpuNativeSurfaceConfigErrorKind,
+    WgpuNativeSurfaceConfigPlan, WgpuNativeSurfaceConfigRequest,
 };
 #[cfg(feature = "wgpu-backend")]
 pub use wgpu::{

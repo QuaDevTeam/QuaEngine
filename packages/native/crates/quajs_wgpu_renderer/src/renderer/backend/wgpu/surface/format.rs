@@ -5,6 +5,8 @@ pub(super) fn parse_surface_format(
     value: &str,
 ) -> Result<wgpu::TextureFormat, WgpuNativeSurfaceConfigError> {
     match value.trim() {
+        "Rgb10a2Unorm" => Ok(wgpu::TextureFormat::Rgb10a2Unorm),
+        "Rgba16Float" => Ok(wgpu::TextureFormat::Rgba16Float),
         "Bgra8UnormSrgb" => Ok(wgpu::TextureFormat::Bgra8UnormSrgb),
         "Bgra8Unorm" => Ok(wgpu::TextureFormat::Bgra8Unorm),
         "Rgba8UnormSrgb" => Ok(wgpu::TextureFormat::Rgba8UnormSrgb),

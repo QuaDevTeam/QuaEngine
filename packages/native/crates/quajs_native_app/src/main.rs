@@ -54,6 +54,9 @@ use target_bundle::load_native_target_bundle_manifest;
 #[cfg(feature = "native-window")]
 use window_smoke::run_native_window_smoke_from_env;
 
+#[cfg(all(target_os = "android", feature = "native-window"))]
+mod android_activity;
+
 fn main() {
     let _ = logging::init_native_logging();
     if let Err(error) = run() {
@@ -64,6 +67,13 @@ fn main() {
 }
 
 fn run() -> Result<(), Box<dyn std::error::Error>> {
+    if !packaged_app::enabled()
+        && std::env::args().nth(1).as_deref() == Some("--describe-mobile-distributions")
+    {
+        let distributions: serde_json::Value =
+            serde_json::from_str(quajs_native_runtime::MOBILE_JSC_DISTRIBUTIONS)?;
+        println!("{}", serde_json::json!({"mobileJsc": distributions}));
+    }
     packaged_app::initialize()?;
     if !packaged_app::enabled() {
         if env_flag_enabled("QUA_NATIVE_JSC_BRIDGE")

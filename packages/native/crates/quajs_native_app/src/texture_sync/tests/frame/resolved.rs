@@ -19,7 +19,7 @@ use super::super::support::{
 };
 
 #[test]
-fn render_frame_helper_uploads_pending_textures_and_resubmits_prepared_frame() {
+fn render_frame_helper_uploads_pending_textures_before_first_submission() {
     let host = RecordingAssetHost::new()
         .with_bundle(bundle("base-bundle", Some("base")))
         .with_asset(Some("base-bundle"), "bg/school.png", [1, 2, 3, 4]);
@@ -33,14 +33,14 @@ fn render_frame_helper_uploads_pending_textures_and_resubmits_prepared_frame() {
     )
     .expect("texture-synced frame should render");
 
-    assert!(result.resubmitted_after_texture_upload);
+    assert!(!result.resubmitted_after_texture_upload);
     assert_eq!(result.texture_upload_report.uploaded_count, 1);
     assert!(result.frame.texture_upload_sync.pending_requests.is_empty());
     assert_eq!(
         result.frame.texture_upload_sync.resident_resource_ids,
         vec![ResourceId::from("images:bg/school.png")]
     );
-    assert_eq!(renderer.backend().submissions.len(), 2);
+    assert_eq!(renderer.backend().submissions.len(), 1);
     assert_eq!(renderer.backend().uploads.len(), 1);
     assert_eq!(renderer.backend().uploads[0].bytes, vec![1, 2, 3, 4]);
     assert_eq!(

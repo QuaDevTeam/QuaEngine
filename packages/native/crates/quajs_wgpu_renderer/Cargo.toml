@@ -11,8 +11,8 @@ bench-smoke = []
 wgpu-backend = []
 real-wgpu = ["wgpu-backend", "dep:wgpu", "dep:pollster"]
 real-wgpu-noop = ["real-wgpu", "wgpu/noop"]
-real-wgpu-native = ["dep:objc2-metal", "real-wgpu", "wgpu/dx12", "wgpu/metal", "wgpu/vulkan"]
-image-decode = ["real-wgpu", "dep:image"]
+real-wgpu-native = ["dep:objc2-core-graphics", "dep:objc2-quartz-core", "dep:objc2-metal", "real-wgpu", "wgpu/dx12", "wgpu/metal", "wgpu/vulkan"]
+image-decode = ["real-wgpu", "dep:image", "dep:moxcms", "dep:png"]
 
 [dependencies]
 pollster = { version = "0.4.0", optional = true }
@@ -25,7 +25,18 @@ unicode-segmentation = "1.12"
 serde.workspace = true
 serde_json.workspace = true
 wgpu = { version = "29.0.3", optional = true, default-features = false, features = ["std", "wgsl"] }
+png = { version = "0.18", optional = true }
+moxcms = { version = "0.8", optional = true }
 image = { version = "0.25", optional = true, default-features = false, features = ["jpeg", "png", "webp"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
+objc2-core-graphics = { version = "0.3.2", optional = true, default-features = false, features = ["CGColorSpace"] }
+objc2-quartz-core = { version = "0.3.2", optional = true, default-features = false, features = ["CAMetalLayer", "objc2-core-graphics"] }
 objc2-metal = { version = "0.3.2", optional = true, default-features = false, features = ["MTLDevice"] }
+
+[target.'cfg(target_os = "ios")'.dev-dependencies]
+objc2-quartz-core = { version = "0.3.2", default-features = false, features = ["CAMetalLayer", "CALayer"] }
+
+[[example]]
+name = "native_render_perf"
+required-features = ["real-wgpu-native"]

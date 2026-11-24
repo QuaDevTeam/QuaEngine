@@ -163,13 +163,9 @@ where
         &self,
         texture_uploads: &NativeTextureUploadRequestPlan,
     ) -> NativeTextureUploadSyncPlan {
-        let snapshot = self.runtime_snapshot();
         plan_native_texture_upload_sync(
             texture_uploads,
-            snapshot
-                .resident_texture_resource_ids
-                .iter()
-                .map(String::as_str),
+            self.runtime_executor.resident_texture_ids(),
         )
     }
 

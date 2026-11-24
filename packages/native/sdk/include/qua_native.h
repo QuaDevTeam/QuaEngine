@@ -41,8 +41,12 @@ int32_t qua_native_abort(uint64_t handle);
 int32_t qua_native_attach_metal_layer(uint64_t handle, void *layer, uint32_t width, uint32_t height, double scale);
 int32_t qua_native_resize(uint64_t handle, uint32_t width, uint32_t height, double scale);
 /* Input: {type:"pointer",phase:"press"|"release"|"move",x,y},
- * {type:"advance"}, {type:"focus",focused:boolean}. Route only focused view
- * input. Keyboard shortcuts/IME/wheel/gamepad are not yet in ABI 1. */
+ * {type:"touch",id:uint64,phase:"press"|"release"|"move"|"cancel",x,y},
+ * {type:"gamepad",gamepad:uint32,button:uint8,pressed:boolean},
+ * {type:"gamepadDisconnect",gamepad:uint32}, {type:"advance"},
+ * {type:"focus",focused:boolean}. Route focused view input and send blur on
+ * deactivation. Buttons use standard Gamepad indices. Keyboard shortcuts, IME
+ * and wheel events require host handling. */
 int32_t qua_native_input(uint64_t handle, const uint8_t *input, size_t length);
 #ifdef __cplusplus
 }

@@ -315,6 +315,9 @@ impl Compositor {
             width: target.extent().width as f64,
             height: target.extent().height as f64,
         });
+        let mask_uv = mask.map_or(super::super::texture::sampler::IDENTITY_UV, |t| {
+            t.uv_transform
+        });
         let intrinsic = mask.map_or([1.0; 2], |t| [t.width as f64, t.height as f64]);
         let tile = group.mask_layout.resolve(area, intrinsic, group.mask_scale);
         let rotation = group.mask_rotation.to_radians();
@@ -325,6 +328,7 @@ impl Compositor {
                 source.view(),
                 encoder,
                 group.blur_radius.hypot(s.sigma),
+                None,
             )
         });
 
@@ -391,6 +395,10 @@ impl Compositor {
             lighting.map_or(1.0, |l| l.bounds.height as f32),
             lighting.map_or(1.0, |l| l.rotation_radians.cos()),
             lighting.map_or(0.0, |l| l.rotation_radians.sin()),
+            mask_uv[0],
+            mask_uv[1],
+            mask_uv[2],
+            mask_uv[3],
         ];
         let bytes: Vec<u8> = if let Some(shader) = &group.transition_shader {
             [

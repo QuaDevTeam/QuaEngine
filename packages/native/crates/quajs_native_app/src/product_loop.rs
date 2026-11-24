@@ -41,19 +41,27 @@ impl NativeProductLoopFrameResult {
         let synced = &self.synced_frame.frame;
         if let Some(failure) = synced.texture_upload_report.failures.first() {
             return Err(format!(
-                "image {}: {}", failure.resource_id.as_str(), failure.message
+                "image {}: {}",
+                failure.resource_id.as_str(),
+                failure.message
             ));
         }
         if let Some(failure) = synced
-            .font_asset_report.as_ref().and_then(|r| r.failures.first())
+            .font_asset_report
+            .as_ref()
+            .and_then(|r| r.failures.first())
         {
             return Err(format!("font: {}", failure.message));
         }
         if let Some(failure) = synced
-            .font_atlas_report.as_ref().and_then(|r| r.failures.first())
+            .font_atlas_report
+            .as_ref()
+            .and_then(|r| r.failures.first())
         {
             return Err(format!(
-                "font atlas {}: {}", failure.resource_id.as_str(), failure.message
+                "font atlas {}: {}",
+                failure.resource_id.as_str(),
+                failure.message
             ));
         }
         Ok(synced.frame.texture_upload_sync.pending_requests.is_empty())
@@ -247,7 +255,8 @@ mod tests {
             ..Default::default()
         });
         let mut product_loop = NativeProductLoop::new();
-        let image = r#"{"view":{"background":{"mode":"image","assetName":"title.webp","layers":[]}}}"#;
+        let image =
+            r#"{"view":{"background":{"mode":"image","assetName":"title.webp","layers":[]}}}"#;
         for _ in 0..2 {
             let frame = product_loop
                 .render_projection_json_with_media_teardown(&mut renderer, &host, image)
@@ -274,7 +283,9 @@ mod tests {
             r#"{"view":{"background":{"mode":"image","assetName":"missing.webp","layers":[]}}}"#,
         ).unwrap();
         assert!(frame
-            .ready_for_presentation().unwrap_err().contains("missing.webp"));
+            .ready_for_presentation()
+            .unwrap_err()
+            .contains("missing.webp"));
     }
 
     #[test]

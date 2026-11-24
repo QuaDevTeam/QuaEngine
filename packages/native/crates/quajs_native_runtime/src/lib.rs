@@ -38,3 +38,5 @@ pub use jsc::{
     JscRuntimeModuleRecord, JscSandboxLimits, UnsupportedJscModuleEvaluator,
     UNSUPPORTED_JSC_VERSION,
 };
+
+pub const MOBILE_JSC_DISTRIBUTIONS: &str = include_str!("../mobile-jsc.json");

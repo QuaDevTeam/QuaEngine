@@ -17,6 +17,7 @@ import type { NativeJscPipelineSubscriptionBridge } from '../runtime/module-load
 import { emitRenderToLogic, LogicToRenderEvents, onLogicToRender, RenderToLogicEvents } from '@quajs/engine'
 import { installNativeJscRendererIntentBridge, resolveNativeJscRendererIntentBridge } from '../bridge/renderer'
 import { createNativeRendererJsonFrameInput } from '../renderer/frame'
+import { installNativeProductInput } from '../renderer/input'
 import { drainNativeRendererIntentsToPipeline, installNativeRendererIntentBridge } from '../renderer/intents'
 import { installNativeSavePreviewCaptureResponder } from '../renderer/save-preview-capture'
 import {
@@ -61,6 +62,7 @@ export class NativeHostPlugin implements EnginePlugin {
   private releasedJscPackages: NativeJscModuleNamespaceRecord[] = []
   private rendererIntentErrors: Error[] = []
   private jscCleanupErrors: Error[] = []
+  private disposeProductInput?: () => void
   private disposeRendererIntentBridge?: NativeRendererIntentBridgeDisposer
   private disposeJscRendererIntentBridge?: () => void
   private disposeRuntimePackageUnloadListener?: () => void
@@ -77,6 +79,8 @@ export class NativeHostPlugin implements EnginePlugin {
     this.hostInfo = hostInfo
     if (context.pipeline) {
       this.rendererIntentPipeline = context.pipeline
+      this.disposeProductInput?.()
+      this.disposeProductInput = installNativeProductInput(context.engine, context.pipeline)
       const rendererIntentBridgeOptions = {
         featureSurfaces: this.options.featureSurfaces,
         onError: (error: unknown, event: NativeRendererIntent) => {
@@ -121,6 +125,8 @@ export class NativeHostPlugin implements EnginePlugin {
   }
 
   destroy(): void {
+    this.disposeProductInput?.()
+    this.disposeProductInput = undefined
     this.disposeRendererIntentBridge?.()
     this.disposeRendererIntentBridge = undefined
     this.disposeJscRendererIntentBridge?.()

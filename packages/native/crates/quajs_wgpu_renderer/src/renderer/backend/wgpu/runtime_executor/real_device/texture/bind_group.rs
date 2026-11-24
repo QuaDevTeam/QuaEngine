@@ -7,7 +7,7 @@ use crate::renderer::backend::wgpu::buffer::text_geometry::bitmap::glyphs::{
 use super::super::RealWgpuNativeRenderRuntimeTarget;
 use super::decoded::RealRuntimeDecodedTexture;
 use super::placeholder::{placeholder_texture_rgba8, PLACEHOLDER_TEXTURE_EXTENT};
-use super::sampler::{create_sampler_bind_group, create_texture_sampler};
+use super::sampler::create_sampler_bind_group;
 
 #[derive(Clone, Debug)]
 pub(in crate::renderer::backend::wgpu::runtime_executor::real_device) struct RealRuntimeTextureSamplerBindGroup
@@ -62,9 +62,15 @@ fn create_decoded_text_atlas_bind_group(
     resource_id: &str,
     decoded: &RealRuntimeDecodedTexture,
 ) -> RealRuntimeTextureSamplerBindGroup {
-    let sampler = create_texture_sampler(target, &format!("{cache_label}::text-atlas-sampler"));
-    let bind_group =
-        create_sampler_bind_group(target, layout, cache_label, &sampler, &decoded.view);
+    let sampler = target.scene_sampler.clone();
+    let bind_group = create_sampler_bind_group(
+        target,
+        layout,
+        cache_label,
+        &sampler,
+        &decoded.view,
+        decoded.uv_transform,
+    );
     RealRuntimeTextureSamplerBindGroup {
         bind_group,
         texture: decoded.texture.clone(),
@@ -129,8 +135,15 @@ pub(in crate::renderer::backend::wgpu::runtime_executor::real_device) fn create_
         extent,
     );
     let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-    let sampler = create_texture_sampler(target, &format!("{cache_label}::text-atlas-sampler"));
-    let bind_group = create_sampler_bind_group(target, layout, cache_label, &sampler, &view);
+    let sampler = target.scene_sampler.clone();
+    let bind_group = create_sampler_bind_group(
+        target,
+        layout,
+        cache_label,
+        &sampler,
+        &view,
+        super::sampler::IDENTITY_UV,
+    );
     RealRuntimeTextureSamplerBindGroup {
         bind_group,
         texture,
@@ -178,8 +191,15 @@ fn create_placeholder_texture_sampler_bind_group(
         PLACEHOLDER_TEXTURE_EXTENT,
     );
     let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-    let sampler = create_texture_sampler(target, &format!("{cache_label}::placeholder-sampler"));
-    let bind_group = create_sampler_bind_group(target, layout, cache_label, &sampler, &view);
+    let sampler = target.scene_sampler.clone();
+    let bind_group = create_sampler_bind_group(
+        target,
+        layout,
+        cache_label,
+        &sampler,
+        &view,
+        super::sampler::IDENTITY_UV,
+    );
     RealRuntimeTextureSamplerBindGroup {
         bind_group,
         texture,
@@ -200,8 +220,14 @@ fn create_decoded_texture_sampler_bind_group(
     resource_id: &str,
     decoded: &RealRuntimeDecodedTexture,
 ) -> RealRuntimeTextureSamplerBindGroup {
-    let bind_group =
-        create_sampler_bind_group(target, layout, cache_label, &decoded.sampler, &decoded.view);
+    let bind_group = create_sampler_bind_group(
+        target,
+        layout,
+        cache_label,
+        &decoded.sampler,
+        &decoded.view,
+        decoded.uv_transform,
+    );
     RealRuntimeTextureSamplerBindGroup {
         bind_group,
         texture: decoded.texture.clone(),

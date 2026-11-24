@@ -1,3 +1,6 @@
+mod surface_blit;
+pub(super) use surface_blit::SurfaceBlit;
+
 use super::RealWgpuNativeRenderRuntimeDevice;
 use crate::renderer::backend::wgpu::runtime_executor::{
     WgpuNativeRenderRuntimeError, WgpuNativeRenderRuntimeErrorKind,
@@ -88,9 +91,46 @@ impl RealWgpuNativeRenderRuntimeDevice {
         &mut self,
         surface_texture: wgpu::SurfaceTexture,
     ) -> Result<RealWgpuFrameCopyReport, WgpuNativeRenderRuntimeError> {
-        let report = self.copy_frame_to_texture(&surface_texture.texture)?;
+        let report = self.write_surface_frame(&surface_texture.texture)?;
         surface_texture.present();
         Ok(report)
+    }
+
+    fn write_surface_frame(
+        &mut self,
+        destination: &wgpu::Texture,
+    ) -> Result<RealWgpuFrameCopyReport, WgpuNativeRenderRuntimeError> {
+        if destination.size() != self.frame_target.extent() {
+            return invalid_copy(
+                "surface configuration is outdated: acquired texture extent changed",
+            );
+        }
+        if destination.format().remove_srgb_suffix() == self.frame_target.color_format()
+            && destination.usage().contains(wgpu::TextureUsages::COPY_DST)
+            && self.target.alpha_mode != wgpu::CompositeAlphaMode::PostMultiplied
+        {
+            return self.copy_frame_to_texture(destination);
+        }
+        if self.active_encoder.is_some() || self.frame_target.completed_pass_count() == 0 {
+            return invalid_copy("presentation requires a completed frame");
+        }
+        if destination.format() != self.target.color_format()
+            || !destination
+                .usage()
+                .contains(wgpu::TextureUsages::RENDER_ATTACHMENT)
+        {
+            return invalid_copy("presentation texture does not match the configured surface");
+        }
+        let blit = self
+            .surface_blit
+            .get_or_insert_with(|| SurfaceBlit::new(&self.target, self.frame_target.view()));
+        blit.submit(&self.target, destination);
+        self.submitted_command_buffer_count += 1;
+        Ok(RealWgpuFrameCopyReport {
+            extent: self.frame_target.extent(),
+            color_format: destination.format(),
+            submitted_command_buffer_count: self.submitted_command_buffer_count,
+        })
     }
 
     pub fn present_frame_to_surface(
@@ -142,3 +182,6 @@ fn invalid_copy<T>(message: impl Into<String>) -> Result<T, WgpuNativeRenderRunt
         message,
     ))
 }
+
+#[cfg(all(test, feature = "real-wgpu-native"))]
+mod tests;

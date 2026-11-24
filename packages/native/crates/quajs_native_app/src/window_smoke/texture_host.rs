@@ -49,8 +49,11 @@ pub(super) fn create_window_smoke_texture_host_from_env(
             .map_err(|error| NativeWindowSmokeError::new(format!("{error}")))?;
         let mut host = InMemoryNativeHostApi::new(host_info);
         for bundle in &app.bundles {
-            let bytes = crate::packaged_app::read_verified(&app.resources.join(&bundle.file), &bundle.sha256)
-                .map_err(|error| NativeWindowSmokeError::new(error.to_string()))?;
+            let bytes = crate::packaged_app::read_verified(
+                &app.resources.join(&bundle.file),
+                &bundle.sha256,
+            )
+            .map_err(|error| NativeWindowSmokeError::new(error.to_string()))?;
             host = super::dev_qpk::mount_qpk_bytes(host, &bytes)?;
         }
         return Ok(host);

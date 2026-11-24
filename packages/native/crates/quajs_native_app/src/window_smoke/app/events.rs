@@ -13,18 +13,24 @@ use crate::product_window::{
     NativeProductWindowPresentFailureKind,
 };
 use crate::window_smoke::config::native_window_interactive;
-use crate::window_smoke::frame::normalized_physical_size;
+use crate::window_smoke::frame::window_surface_size;
 use crate::window_smoke::input::{pointer_button_from_winit, pointer_phase_from_element_state};
 
 impl ApplicationHandler for NativeWindowSmokeApp {
     fn new_events(&mut self, event_loop: &ActiveEventLoop, cause: winit::event::StartCause) {
         if matches!(cause, winit::event::StartCause::ResumeTimeReached { .. })
             && self.needs_more_frames()
+            && !self
+                .next_frame_deadline()
+                .is_some_and(|t| t > std::time::Instant::now())
         {
             // Hidden editor hosts may never receive RedrawRequested. A control
             // request arriving before the pacing deadline must still be served
             // when that deadline expires, without another client wake-up.
-            if !self.first_frame_ready || crate::window_smoke::editor_preview::enabled() {
+            if !self.first_frame_ready
+                || self.is_occluded_fixture()
+                || crate::window_smoke::editor_preview::enabled()
+            {
                 if let Some(shell) = self.product_shell.as_mut() {
                     shell.record_redraw_dispatch_started();
                 }
@@ -91,6 +97,23 @@ impl ApplicationHandler for NativeWindowSmokeApp {
             self.fail_and_exit(event_loop, error);
             return;
         }
+        #[cfg(target_os = "android")]
+        if let (Some(window), Some(shell)) = (&self.window, &mut self.product_shell) {
+            let runtime = shell.window_loop_mut().runtime_mut();
+            if runtime.surface_suspended() {
+                let size = window_surface_size(window);
+                if let Err(error) = runtime.recreate_window_surface(
+                    NativeProductWindowPhysicalSize::new(size.width, size.height),
+                ) {
+                    self.fail_and_exit(
+                        event_loop,
+                        crate::window_smoke::NativeWindowSmokeError::new(error.to_string()),
+                    );
+                    return;
+                }
+            }
+        }
+        self.refresh_display(self.window_monitor());
         self.reset_frame_pacing();
         let action = match self.product_shell.as_mut() {
             Some(product_shell) => product_shell.record_resumed(),
@@ -110,6 +133,14 @@ impl ApplicationHandler for NativeWindowSmokeApp {
     }
 
     fn suspended(&mut self, event_loop: &ActiveEventLoop) {
+        if let Err(error) = self.clear_window_input() {
+            self.fail_and_exit(event_loop, error);
+            return;
+        }
+        #[cfg(target_os = "android")]
+        if let Some(shell) = self.product_shell.as_mut() {
+            shell.window_loop_mut().runtime_mut().suspend_surface();
+        }
         let action = match self.product_shell.as_mut() {
             Some(product_shell) => product_shell.record_suspended(),
             None => return,
@@ -137,22 +168,59 @@ impl ApplicationHandler for NativeWindowSmokeApp {
             return;
         }
 
+        // Android may deliver stale size/input events after TerminateWindow.
+        // Resume configures the replacement surface from its current extent.
+        #[cfg(target_os = "android")]
+        if self
+            .product_shell
+            .as_ref()
+            .is_some_and(|shell| shell.window_loop().runtime().surface_suspended())
+            && !matches!(event, WindowEvent::CloseRequested)
+        {
+            return;
+        }
+
         // The OS still shows the previous complete surface while new images
         // prepare. Do not hit-test/advance the not-yet-visible projection.
         // Close, resize, focus and worker wake-ups must remain responsive.
-        if self.frame_resources_pending && matches!(event,
-            WindowEvent::CursorMoved { .. }
-                | WindowEvent::MouseInput { .. }
-                | WindowEvent::MouseWheel { .. }
-                | WindowEvent::KeyboardInput { .. }
-                | WindowEvent::Ime(_)
-        ) {
+        if self.frame_resources_pending
+            && matches!(
+                event,
+                WindowEvent::CursorMoved { .. }
+                    | WindowEvent::Touch(_)
+                    | WindowEvent::MouseInput { .. }
+                    | WindowEvent::MouseWheel { .. }
+                    | WindowEvent::KeyboardInput { .. }
+                    | WindowEvent::Ime(_)
+            )
+        {
             return;
+        }
+
+        #[cfg(target_os = "android")]
+        if matches!(
+            event,
+            WindowEvent::KeyboardInput { .. } | WindowEvent::Touch(_)
+        ) {
+            if let Some(buttons) = self.gamepads.android.current_events() {
+                for button in buttons {
+                    if let Err(error) = self.handle_gamepad(button) {
+                        self.fail_and_exit(event_loop, error);
+                        return;
+                    }
+                }
+                return;
+            }
         }
 
         match event {
             WindowEvent::CloseRequested => event_loop.exit(),
             WindowEvent::Resized(size) => {
+                #[cfg(target_os = "ios")]
+                let size = self
+                    .window
+                    .as_ref()
+                    .map_or(size, |window| window_surface_size(window));
                 if let Err(error) = self.resize_surface(size) {
                     self.fail_and_exit(event_loop, error);
                 } else {
@@ -162,8 +230,11 @@ impl ApplicationHandler for NativeWindowSmokeApp {
             WindowEvent::ScaleFactorChanged { .. } => {
                 // A scale-factor change usually means the window moved to a
                 // different monitor, which may run at a different refresh rate.
-                self.refresh_display_refresh_rate();
-                let size = self.window.as_ref().map(|window| window.inner_size());
+                self.refresh_display(self.window_monitor());
+                let size = self
+                    .window
+                    .as_ref()
+                    .map(|window| window_surface_size(window));
                 if let Some(size) = size {
                     if let Err(error) = self.resize_surface(size) {
                         self.fail_and_exit(event_loop, error);
@@ -172,7 +243,12 @@ impl ApplicationHandler for NativeWindowSmokeApp {
                     }
                 }
             }
-            WindowEvent::Moved(_) => self.refresh_display_refresh_rate(),
+            WindowEvent::Moved(_) => {
+                let monitor = self.window_monitor();
+                if self.current_monitor != monitor {
+                    self.refresh_display(monitor);
+                }
+            }
             WindowEvent::Occluded(occluded) => {
                 // The host window is hidden; the editor owns display visibility.
                 if !self.first_frame_ready || crate::window_smoke::editor_preview::enabled() {
@@ -183,12 +259,15 @@ impl ApplicationHandler for NativeWindowSmokeApp {
                         self.fail_and_exit(event_loop, error);
                         return;
                     }
-                    self.cancel_window_pointer_interaction();
-                    self.input.clear_cursor_position();
+                    if let Err(error) = self.clear_window_input() {
+                        self.fail_and_exit(event_loop, error);
+                        return;
+                    }
                 }
                 // Becoming visible again must not wait out a deadline computed
                 // before the occlusion gap.
                 if !occluded {
+                    self.refresh_display(self.window_monitor());
                     self.reset_frame_pacing();
                 }
                 self.record_visibility_changed(event_loop, !occluded);
@@ -223,8 +302,10 @@ impl ApplicationHandler for NativeWindowSmokeApp {
                         self.fail_and_exit(event_loop, error);
                         return;
                     }
-                    self.cancel_window_pointer_interaction();
-                    self.input.clear_cursor_position();
+                    if let Err(error) = self.clear_window_input() {
+                        self.fail_and_exit(event_loop, error);
+                        return;
+                    }
                 }
                 self.record_focus_changed(event_loop, focused);
             }
@@ -236,6 +317,11 @@ impl ApplicationHandler for NativeWindowSmokeApp {
             }
             WindowEvent::Ime(event) => {
                 if let Err(error) = self.dispatch_window_ime_event(&event) {
+                    self.fail_and_exit(event_loop, error);
+                }
+            }
+            WindowEvent::Touch(touch) => {
+                if let Err(error) = self.dispatch_window_touch(touch) {
                     self.fail_and_exit(event_loop, error);
                 }
             }
@@ -282,6 +368,7 @@ impl ApplicationHandler for NativeWindowSmokeApp {
                     self.request_redraw();
                 }
             }
+            WindowEvent::RedrawRequested if !self.can_draw() => {}
             WindowEvent::RedrawRequested => {
                 // request_redraw can wake winit before WaitUntil. Coalesce these
                 // events until the deadline; new_events requests the owed frame.
@@ -328,11 +415,18 @@ impl ApplicationHandler for NativeWindowSmokeApp {
         // the display refresh rate allows. Windows that owe no frame — hidden,
         // suspended, or a finite run that is done — park in `Wait` and are woken
         // by input, the compositor, or the projection worker.
-        let control_flow = match self.next_frame_deadline() {
-            Some(deadline) if self.needs_more_frames() => ControlFlow::WaitUntil(deadline),
-            _ => ControlFlow::Wait,
+        let frame_deadline = self
+            .next_frame_deadline()
+            .filter(|_| self.needs_more_frames());
+        let gamepad_deadline = match self.poll_window_gamepads(self.can_draw()) {
+            Ok(deadline) => deadline,
+            Err(error) => {
+                self.fail_and_exit(event_loop, error);
+                return;
+            }
         };
-        event_loop.set_control_flow(control_flow);
+        let deadline = frame_deadline.into_iter().chain(gamepad_deadline).min();
+        event_loop.set_control_flow(deadline.map_or(ControlFlow::Wait, ControlFlow::WaitUntil));
         let action = match self.product_shell.as_mut() {
             Some(product_shell) => product_shell.about_to_wait(),
             None => return,
@@ -346,8 +440,16 @@ impl ApplicationHandler for NativeWindowSmokeApp {
 }
 
 impl NativeWindowSmokeApp {
+    fn can_draw(&self) -> bool {
+        self.is_occluded_fixture()
+            || self
+                .product_shell
+                .as_ref()
+                .is_some_and(|shell| shell.app_loop().can_request_redraw())
+    }
+
     fn needs_more_frames(&self) -> bool {
-        if self.demo_e2e.is_finished() {
+        if !self.can_draw() || self.demo_e2e.is_finished() {
             return false;
         }
         #[cfg(feature = "javascriptcore")]
@@ -387,27 +489,15 @@ impl NativeWindowSmokeApp {
                 };
                 match action {
                     Ok(action) => {
-                        #[cfg(feature = "javascriptcore")]
-                        let request_redraw = if self.jsc_product.is_some() {
-                            self.product_shell
-                                .as_ref()
-                                .is_some_and(|shell| shell.needs_more_frames())
-                                || self.renderer_local_work_active
-                                || self.product_shell.as_ref().is_some_and(|shell| {
-                                    shell.window_loop().has_active_interaction_transition()
-                                })
-                                || self.demo_e2e.is_running()
-                        } else {
-                            action.request_redraw
-                        };
-                        #[cfg(not(feature = "javascriptcore"))]
-                        let request_redraw = action.request_redraw;
-                        let request_redraw = request_redraw && !self.demo_e2e.is_finished();
-                        let applied = self.apply_product_shell_action(event_loop, action);
-                        if request_redraw {
-                            self.request_redraw();
+                        self.apply_product_shell_action(event_loop, action);
+                        // Continuous mode defers its redraw to about_to_wait.
+                        // Resource preparation and partial fixture runs still
+                        // owe frames even when this action schedules none.
+                        let more = self.needs_more_frames();
+                        if !more && (self.demo_e2e.is_finished() || !native_window_interactive()) {
+                            event_loop.exit();
                         }
-                        applied && request_redraw
+                        more
                     }
                     Err(error) => {
                         self.fail_and_exit(
@@ -433,7 +523,7 @@ impl NativeWindowSmokeApp {
             self.record_product_frame_texture_metrics(&product_frame);
         }
         let recovery_size = self.window.as_ref().map(|window| {
-            let size = normalized_physical_size(window.inner_size());
+            let size = window_surface_size(window);
             NativeProductWindowPhysicalSize::new(size.width, size.height)
         });
         let Some(product_shell) = self.product_shell.as_mut() else {
@@ -472,6 +562,7 @@ impl NativeWindowSmokeApp {
                 false
             }
             Err(recovery_error) => {
+                event_loop.exit();
                 log::error!("Surface recovery failed: {recovery_error}");
                 self.error = Some(crate::window_smoke::NativeWindowSmokeError::new(format!(
                     "Failed to recover native renderer smoke product window surface: {recovery_error}."

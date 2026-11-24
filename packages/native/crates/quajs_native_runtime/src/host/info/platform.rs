@@ -13,6 +13,10 @@ pub fn current_platform() -> NativePlatform {
         NativePlatform::MacOs
     } else if cfg!(target_os = "windows") {
         NativePlatform::Windows
+    } else if cfg!(target_os = "ios") {
+        NativePlatform::Ios
+    } else if cfg!(target_os = "android") {
+        NativePlatform::Android
     } else {
         NativePlatform::Linux
     }

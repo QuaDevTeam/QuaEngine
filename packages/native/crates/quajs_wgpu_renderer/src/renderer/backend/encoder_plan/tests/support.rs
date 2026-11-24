@@ -67,6 +67,7 @@ fn view_with_ui_scroll() -> ViewProjection {
         }),
         dialogue: Some(DialogueProjection::say("Hello native")),
         ui: Some(UiProjection {
+            hide_hud_chrome: false,
             visible: true,
             provenance: provenance("runtime.ui", ["base"]),
             overlays: vec![UiOverlayProjection {

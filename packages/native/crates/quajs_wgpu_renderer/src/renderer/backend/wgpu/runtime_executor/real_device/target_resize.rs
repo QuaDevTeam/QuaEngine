@@ -18,20 +18,32 @@ impl RealWgpuNativeRenderRuntimeDevice {
         &mut self,
         surface_config: &WgpuNativeSurfaceConfigPlan,
     ) -> Result<RealWgpuTargetResizeReport, WgpuNativeRenderRuntimeError> {
-        self.resize_target(
+        let report = self.reconfigure_target(
             surface_config.config.format,
             wgpu::Extent3d {
                 width: surface_config.config.width,
                 height: surface_config.config.height,
                 depth_or_array_layers: 1,
             },
-        )
+            true,
+        )?;
+        self.target.set_surface_output(surface_config);
+        Ok(report)
     }
 
     pub fn resize_target(
         &mut self,
         color_format: wgpu::TextureFormat,
         extent: wgpu::Extent3d,
+    ) -> Result<RealWgpuTargetResizeReport, WgpuNativeRenderRuntimeError> {
+        self.reconfigure_target(color_format, extent, false)
+    }
+
+    fn reconfigure_target(
+        &mut self,
+        color_format: wgpu::TextureFormat,
+        extent: wgpu::Extent3d,
+        preserve_scene_format: bool,
     ) -> Result<RealWgpuTargetResizeReport, WgpuNativeRenderRuntimeError> {
         if self.active_encoder.is_some() {
             return invalid_order(
@@ -41,15 +53,22 @@ impl RealWgpuNativeRenderRuntimeDevice {
 
         let previous_extent = self.target.extent();
         let previous_color_format = self.target.color_format();
-        self.target.resize(color_format, extent);
-        self.uniforms = self.uniforms.resized(&self.target);
-        self.frame_target = RealRuntimeFrameTarget::new(&self.target);
-        self.compositor = None;
-        self.backdrop_resources = Default::default();
+        let previous_frame_format = self.target.frame_color_format();
+        if preserve_scene_format {
+            self.target.set_output_format(color_format, extent);
+        } else {
+            self.target.resize(color_format, extent);
+        }
+        if !preserve_scene_format || previous_extent != self.target.extent() {
+            self.uniforms = self.uniforms.resized(&self.target);
+            self.frame_target = RealRuntimeFrameTarget::new(&self.target);
+            self.compositor = None;
+            self.backdrop_resources = Default::default();
+        }
+        self.surface_blit = None;
 
-        let mut pipelines_cleared = 0;
-        let mut bind_groups_cleared = 0;
-        if previous_color_format != self.target.color_format() {
+        let (mut pipelines_cleared, mut bind_groups_cleared) = (0, 0);
+        if previous_frame_format != self.target.frame_color_format() {
             pipelines_cleared = self.pipelines.len();
             bind_groups_cleared = self.bind_groups.len();
             self.pipelines.clear();

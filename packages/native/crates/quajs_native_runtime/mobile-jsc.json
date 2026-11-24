@@ -1,0 +1,13 @@
+{
+  "ios": {
+    "runtimeVersion": "javascriptcore-ios-system;javascriptcore-c-api-1"
+  },
+  "android": {
+    "runtimeVersion": "javascriptcore-bun-webkit-6ef83cb6;javascriptcore-c-api-1",
+    "archiveUrl": "https://github.com/oven-sh/WebKit/releases/download/autobuild-6ef83cb658722ff1f33f4a4c9335fb094bed4c6b/bun-webkit-linux-arm64-android.tar.gz",
+    "archiveSha256": "797831291ea3da96d29d914d5cb088239d00f46bf8c5b7eb1d2e93dbd4912bb1",
+    "librarySha256": "8845efb3a1ea8e3130bf2f001281ae1461e1c7c7ebd9022c2f6d0ab3fc93632b",
+    "ndkVersion": "28.2.13676358",
+    "minSdk": 28
+  }
+}

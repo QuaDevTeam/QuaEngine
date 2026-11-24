@@ -150,3 +150,22 @@ fn lowers_primitives_into_gpu_quads_and_paints() {
         vec![ResourceId::from("images:bg/school.png")]
     );
 }
+
+/// The real-wgpu backdrop path copies and blurs only the draw's
+/// `physical_bounds` plus the blur reach. That is exact only while backdrop
+/// quads cover exactly those bounds (no rotation or geometry override).
+#[test]
+fn backdrop_blur_quads_cover_exactly_their_physical_bounds() {
+    let plan = WgpuNativeRenderMeshPlan::from_primitive_plan(&primitive_plan(vec![primitive(
+        "dialogue:backdrop-blur",
+        DrawBatchPipeline::BackdropBlur,
+        DrawCommandKind::BackdropBlur,
+        WgpuNativeRenderPrimitiveKind::BackdropBlur { blur_radius: 8.0 },
+        physical_rect(120, 760, 1680, 300),
+        Vec::new(),
+    )]));
+
+    let quad = &plan.passes[0].quads[0];
+    assert_eq!(quad.physical_bounds, physical_rect(120, 760, 1680, 300));
+    assert_eq!(quad.vertices, quad_vertices(120.0, 760.0, 1680.0, 300.0));
+}

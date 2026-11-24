@@ -16,6 +16,7 @@ struct CompositeStyle {
     shade_from_x: f32, shade_from_y: f32, shade_to_x: f32, shade_to_y: f32,
     light_x: f32, light_y: f32, light_width: f32, light_height: f32,
     light_cos: f32, light_sin: f32,
+    mask_u: f32, mask_v: f32, mask_u_offset: f32, mask_v_offset: f32,
 }
 @group(0) @binding(1) var<uniform> style: CompositeStyle;
 @group(0) @binding(2) var backdrop: texture_2d<f32>;
@@ -72,7 +73,9 @@ fn mask_alpha(position: vec2<f32>) -> f32 {
     // Space gaps and no-repeat regions are transparent, never edge-stretched.
     if (any(tile < vec2(0.0)) || any(tile >= size)) { return 0.0; }
     // Match Chrome raster masks' bilinear sampling of the original image.
-    return mask_sample(tile / size, 0);
+    let uv = tile / size * vec2(style.mask_u, style.mask_v) + vec2(style.mask_u_offset, style.mask_v_offset);
+    if (any(uv < vec2(0.0)) || any(uv > vec2(1.0))) { return 0.0; }
+    return mask_sample(uv, 0);
 }
 
 fn filtered_pixel(position: vec2<f32>) -> vec4<f32> {

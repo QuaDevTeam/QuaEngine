@@ -4,11 +4,11 @@ mod bind_group;
 mod buffer;
 mod capture;
 mod device;
-mod image_cache;
 mod draw;
 mod encoder;
 mod error;
 mod frame_target;
+mod image_cache;
 mod operations;
 mod pass;
 mod pipeline;
@@ -38,9 +38,9 @@ pub use presentation::{
 #[cfg(all(test, feature = "real-wgpu-noop"))]
 use resources::checksum_bytes;
 pub use surface_target::{
-    create_real_wgpu_surface_target, RealWgpuSurfaceTargetBootstrap,
-    RealWgpuSurfaceTargetBootstrapError, RealWgpuSurfaceTargetBootstrapErrorKind,
-    RealWgpuSurfaceTargetBootstrapRequest,
+    create_real_wgpu_surface_target, native_renderer_required_limits,
+    RealWgpuSurfaceTargetBootstrap, RealWgpuSurfaceTargetBootstrapError,
+    RealWgpuSurfaceTargetBootstrapErrorKind, RealWgpuSurfaceTargetBootstrapRequest,
 };
 pub use target::RealWgpuNativeRenderRuntimeTarget;
 pub use target_resize::RealWgpuTargetResizeReport;

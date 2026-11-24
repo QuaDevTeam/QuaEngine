@@ -5,14 +5,6 @@ import type {
   QuaSnapshot,
 } from '@quajs/store'
 
-declare const TextEncoder: {
-  new(): { encode: (input: string) => Uint8Array }
-}
-
-declare const TextDecoder: {
-  new(): { decode: (input: Uint8Array) => string }
-}
-
 export type NativeStoreRecord
   = | QuaSnapshot
     | QuaGameSaveSlotIndex
@@ -31,7 +23,7 @@ interface NativeStoreEnvelope<TRecord extends NativeStoreRecord = NativeStoreRec
 export function encodeNativeStoreRecord<TRecord extends NativeStoreRecord>(
   kind: NativeStoreRecordKind,
   record: TRecord,
-): Uint8Array {
+): string {
   const envelope: NativeStoreEnvelope<TRecord> = {
     format: 'qua-native-store',
     version: 1,
@@ -42,28 +34,28 @@ export function encodeNativeStoreRecord<TRecord extends NativeStoreRecord>(
 }
 
 export function decodeNativeStoreRecord<TRecord extends NativeStoreRecord>(
-  bytes: Uint8Array,
+  text: string,
   kind: NativeStoreRecordKind,
 ): TRecord | undefined {
-  const envelope = decodeJson<NativeStoreEnvelope<TRecord>>(bytes)
+  const envelope = decodeJson<NativeStoreEnvelope<TRecord>>(text)
   if (envelope.format !== 'qua-native-store' || envelope.kind !== kind)
     return undefined
   return reviveRecord(envelope.record)
 }
 
-function encodeJson(value: unknown): Uint8Array {
-  return new TextEncoder().encode(JSON.stringify(value, function (key, entry) {
+function encodeJson(value: unknown): string {
+  return JSON.stringify(value, function (key, entry) {
     const original = key ? (this as Record<string, unknown>)[key] : entry
     if (original instanceof Date)
       return { __quaType: 'Date', value: original.toISOString() }
     if (original instanceof Uint8Array)
       return { __quaType: 'Uint8Array', value: bytesToBase64(original) }
     return entry
-  }))
+  })
 }
 
-function decodeJson<T>(bytes: Uint8Array): T {
-  return JSON.parse(new TextDecoder().decode(bytes), (_key, value) => {
+function decodeJson<T>(text: string): T {
+  return JSON.parse(text, (_key, value) => {
     if (isTypedJsonDate(value))
       return new Date(value.value)
     if (isTypedJsonUint8Array(value))

@@ -20,6 +20,7 @@ pub struct RealWgpuNativeRenderRuntimeDevice {
     #[cfg(feature = "image-decode")]
     pub(super) async_textures: Option<std::sync::Arc<super::async_textures::AsyncTextures>>,
     pub(super) composite_groups: BTreeMap<String, Vec<crate::render_graph::DrawCompositeGroup>>,
+    pub(super) surface_blit: Option<super::presentation::SurfaceBlit>,
     pub(super) compositor: Option<super::pass::composite::Compositor>,
     pub(super) target: RealWgpuNativeRenderRuntimeTarget,
     pub(super) uniforms: RealRuntimeFrameUniforms,
@@ -51,6 +52,7 @@ impl Clone for RealWgpuNativeRenderRuntimeDevice {
             async_textures: self.async_textures.clone(),
             image_cache: self.image_cache.clone(),
             composite_groups: self.composite_groups.clone(),
+            surface_blit: self.surface_blit.clone(),
             compositor: self.compositor.clone(),
             target: self.target.clone(),
             uniforms: self.uniforms.clone(),
@@ -82,6 +84,7 @@ impl RealWgpuNativeRenderRuntimeDevice {
             async_textures: None,
             image_cache: Default::default(),
             composite_groups: BTreeMap::new(),
+            surface_blit: None,
             compositor: None,
             target,
             uniforms,

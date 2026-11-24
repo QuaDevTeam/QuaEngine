@@ -49,6 +49,14 @@ where
         self.host.read_asset_bytes(request)
     }
 
+    fn read_shared_texture_bytes(
+        &self,
+        request: &NativeAssetReadRequest,
+        suffixes: &[&str],
+    ) -> NativeHostApiResult<std::sync::Arc<[u8]>> {
+        self.host.read_shared_texture_bytes(request, suffixes)
+    }
+
     fn list_mounted_bundles(&self) -> NativeHostApiResult<Vec<NativeMountedBundleInfo>> {
         self.host.list_mounted_bundles()
     }

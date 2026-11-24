@@ -10,7 +10,7 @@ use crate::texture_sync::{
 use super::super::support::{bundle, RecordingAssetHost, TextureResidentBackend};
 
 #[test]
-fn render_json_frame_helper_uploads_pending_textures_and_resubmits() {
+fn render_json_frame_helper_uploads_pending_textures_before_first_submission() {
     let host = RecordingAssetHost::new()
         .with_bundle(bundle("base-bundle", Some("base")))
         .with_asset(Some("base-bundle"), "bg/school.png", [1, 2, 3, 4]);
@@ -34,14 +34,14 @@ fn render_json_frame_helper_uploads_pending_textures_and_resubmits() {
     )
     .expect("texture-synced JSON frame should render");
 
-    assert!(result.resubmitted_after_texture_upload);
+    assert!(!result.resubmitted_after_texture_upload);
     assert_eq!(result.texture_upload_report.uploaded_count, 1);
     assert!(result.frame.texture_upload_sync.pending_requests.is_empty());
     assert_eq!(
         result.frame.texture_upload_sync.resident_resource_ids,
         vec![ResourceId::from("images:bg/school.png")]
     );
-    assert_eq!(renderer.backend().submissions.len(), 2);
+    assert_eq!(renderer.backend().submissions.len(), 1);
     assert_eq!(renderer.backend().uploads.len(), 1);
 }
 
@@ -97,7 +97,7 @@ fn render_json_frame_helper_uploads_scene_surface_images_from_required_package()
     )
     .expect("scene surface texture should resolve through package candidates");
 
-    assert!(result.resubmitted_after_texture_upload);
+    assert!(!result.resubmitted_after_texture_upload);
     assert_eq!(result.texture_upload_report.uploaded_count, 1);
     assert_eq!(
         result.frame.texture_upload_sync.resident_resource_ids,
@@ -115,7 +115,7 @@ fn render_json_frame_helper_uploads_scene_surface_images_from_required_package()
         .all(|read| read.asset_id.as_deref() == Some("images:ui/shared/poster.png")));
     drop(reads);
 
-    assert_eq!(renderer.backend().submissions.len(), 2);
+    assert_eq!(renderer.backend().submissions.len(), 1);
     assert_eq!(renderer.backend().uploads.len(), 1);
     let upload = &renderer.backend().uploads[0];
     assert_eq!(
@@ -184,7 +184,7 @@ fn render_json_frame_helper_uploads_scene_surface_background_images_from_require
     )
     .expect("scene surface background texture should resolve through package candidates");
 
-    assert!(result.resubmitted_after_texture_upload);
+    assert!(!result.resubmitted_after_texture_upload);
     assert_eq!(result.texture_upload_report.uploaded_count, 1);
     assert_eq!(
         result.frame.texture_upload_sync.resident_resource_ids,
@@ -202,7 +202,7 @@ fn render_json_frame_helper_uploads_scene_surface_background_images_from_require
         .all(|read| read.asset_id.as_deref() == Some("images:ui/shared/panel.png")));
     drop(reads);
 
-    assert_eq!(renderer.backend().submissions.len(), 2);
+    assert_eq!(renderer.backend().submissions.len(), 1);
     assert_eq!(renderer.backend().uploads.len(), 1);
     let upload = &renderer.backend().uploads[0];
     assert_eq!(
@@ -244,9 +244,9 @@ fn render_json_lifecycle_frame_helper_syncs_texture_upload_and_bundle_baseline()
     )
     .expect("texture lifecycle JSON frame should render");
 
-    assert!(result.frame.resubmitted_after_texture_upload);
+    assert!(!result.frame.resubmitted_after_texture_upload);
     assert_eq!(result.frame.texture_upload_report.uploaded_count, 1);
-    assert_eq!(renderer.backend().submissions.len(), 2);
+    assert_eq!(renderer.backend().submissions.len(), 1);
     assert_eq!(renderer.backend().uploads.len(), 1);
     assert!(result.bundle_lifecycle_report.initial_sync);
     assert_eq!(result.bundle_lifecycle_report.observed_bundle_count, 1);
@@ -289,9 +289,9 @@ fn render_json_lifecycle_media_teardown_helper_syncs_texture_upload_and_bundle_b
     )
     .expect("texture lifecycle JSON frame should render with media teardown gate");
 
-    assert!(result.frame.resubmitted_after_texture_upload);
+    assert!(!result.frame.resubmitted_after_texture_upload);
     assert_eq!(result.frame.texture_upload_report.uploaded_count, 1);
-    assert_eq!(renderer.backend().submissions.len(), 2);
+    assert_eq!(renderer.backend().submissions.len(), 1);
     assert_eq!(renderer.backend().uploads.len(), 1);
     assert!(result.bundle_lifecycle_report.initial_sync);
     assert_eq!(

@@ -71,12 +71,12 @@ fn rejects_missing_empty_or_invalid_native_artifact_platform_without_startup_exp
         .contains("Native target bundle manifest platform must not be empty"));
 
     let mut invalid_platform = native_manifest();
-    invalid_platform.platform = Some("ios".to_string());
+    invalid_platform.platform = Some("tvos".to_string());
     let invalid_error = validate_native_target_bundle_manifest(&invalid_platform, None)
         .expect_err("invalid native artifact platform is rejected");
     assert!(invalid_error
         .to_string()
-        .contains("platform must be \"macos\", \"windows\", or \"linux\""));
+        .contains("platform must be \"macos\", \"windows\", \"linux\", \"ios\", or \"android\""));
 }
 
 #[test]

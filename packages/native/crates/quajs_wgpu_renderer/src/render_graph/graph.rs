@@ -7,6 +7,7 @@ use super::summary::{add_package_command, RenderGraphResourceSummary, RenderGrap
 #[derive(Clone, Debug, PartialEq)]
 pub struct RenderGraph {
     pub layout: ResolvedStageLayout,
+    pub(crate) hide_hud_chrome: bool,
     commands: Vec<DrawCommand>,
 }
 
@@ -14,6 +15,7 @@ impl RenderGraph {
     pub fn new(layout: ResolvedStageLayout) -> Self {
         Self {
             layout,
+            hide_hud_chrome: false,
             commands: Vec::new(),
         }
     }

@@ -1539,7 +1539,6 @@ mod tests {
         }
     }
 
-    #[cfg(target_os = "macos")]
     fn load(
         face: &FontBackendFaceState,
         bytes: Vec<u8>,
@@ -1555,7 +1554,6 @@ mod tests {
         }
     }
 
-    #[cfg(target_os = "macos")]
     fn command(kind: FontBackendCommandKind, face: &FontBackendFaceState) -> FontBackendCommand {
         FontBackendCommand {
             face_id: face.id.clone(),

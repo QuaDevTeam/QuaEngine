@@ -3,12 +3,14 @@ mod config;
 mod control;
 mod demo_e2e;
 mod dev_qpk;
+mod display_color;
 pub(crate) mod editor_preview;
 #[cfg(target_os = "macos")]
 mod editor_surface;
 mod error;
 mod frame;
 mod frame_composer;
+mod gamepads;
 mod input;
 mod inspector;
 #[cfg(feature = "javascriptcore")]
@@ -26,6 +28,7 @@ mod texture_host;
 
 use app::NativeWindowSmokeApp;
 use config::{load_window_smoke_frame_source, native_window_smoke_enabled};
+#[cfg(not(target_os = "android"))]
 use winit::event_loop::EventLoop;
 
 #[allow(unused_imports)]
@@ -45,7 +48,11 @@ pub fn run_native_window_smoke_from_env(
     }
 
     let frame_source = load_window_smoke_frame_source()?;
-    let event_loop = EventLoop::new().map_err(|error| {
+    #[cfg(target_os = "android")]
+    let event_loop = crate::android_activity::event_loop();
+    #[cfg(not(target_os = "android"))]
+    let event_loop = EventLoop::new();
+    let event_loop = event_loop.map_err(|error| {
         NativeWindowSmokeError::new(format!(
             "Failed to create native window event loop for renderer smoke: {error}."
         ))

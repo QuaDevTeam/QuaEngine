@@ -185,3 +185,55 @@ fn host_clones_share_immutable_assets_but_keep_storage_and_reads_independent() {
     assert_eq!(clone.read_asset_bytes(&request).unwrap(), vec![3]);
     assert_eq!(host.read_asset_bytes(&request).unwrap().len(), 1024);
 }
+
+#[test]
+fn texture_variant_follows_the_winning_source_and_explicit_package_scope() {
+    let bundle = |name: &str| NativeMountedBundleInfo {
+        name: name.into(),
+        logical_name: None,
+        version: None,
+        hash: None,
+        runtime_package_id: None,
+    };
+    let host = InMemoryNativeHostApi::new(host_info())
+        .with_bundle_assets(
+            bundle("base"),
+            vec![
+                ("assets/images/bg".into(), vec![1]),
+                (
+                    "assets/data/qua-native-textures/images/bg.qua-astc".into(),
+                    vec![2],
+                ),
+            ],
+            Some(".qua-astc"),
+        )
+        .with_bundle_assets(
+            bundle("patch"),
+            vec![("assets/images/bg".into(), vec![3])],
+            None,
+        );
+    let mut request = NativeAssetReadRequest {
+        url: "assets/images/bg".into(),
+        bundle_name: None,
+        asset_id: None,
+    };
+    assert_eq!(
+        &*host
+            .read_shared_texture_bytes(&request, &[".qua-astc"])
+            .unwrap(),
+        &[3]
+    );
+    request.bundle_name = Some("base".into());
+    assert_eq!(
+        &*host
+            .read_shared_texture_bytes(&request, &[".qua-astc"])
+            .unwrap(),
+        &[2]
+    );
+    assert_eq!(
+        &*host
+            .read_shared_texture_bytes(&request, &[".qua-bc7"])
+            .unwrap(),
+        &[1]
+    );
+}

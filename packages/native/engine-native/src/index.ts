@@ -38,6 +38,7 @@ export type {
   NativeJscRendererIntentBridge,
   NativeJscRendererIntentSubscriptionOptions,
 } from './bridge/renderer'
+export { installNativeProductInput } from './renderer/input'
 export { createNativeAssetPreloadProjection } from './renderer/asset-preload'
 export type { NativeAssetPreloadOptions } from './renderer/asset-preload'
 export {

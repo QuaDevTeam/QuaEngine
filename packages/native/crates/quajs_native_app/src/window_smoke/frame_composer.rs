@@ -82,12 +82,7 @@ impl NativeWindowFrameComposer {
             }
         }
 
-        let mut json = frame_json_for_window(
-            projection,
-            dimensions.logical_width,
-            dimensions.logical_height,
-            dimensions.device_pixel_ratio,
-        )?;
+        let mut json = frame_json_for_window(projection, dimensions)?;
         if let Some(hud) = hud {
             json = hud.inject(&json, dimensions)?;
         }
@@ -115,6 +110,7 @@ mod tests {
             logical_height: 540.0,
             physical_size: winit::dpi::PhysicalSize::new(1920, 1080),
             device_pixel_ratio: 2.0,
+            safe_area_insets: None,
         }
     }
 
@@ -170,6 +166,22 @@ mod tests {
 
         assert!(!second.cache_hit);
         assert!(second.json.contains("1280"));
+    }
+
+    #[test]
+    fn changed_safe_insets_recompose_an_unchanged_mobile_projection() {
+        let projection: Arc<str> = Arc::from(PROJECTION);
+        let mut composer = NativeWindowFrameComposer::default();
+        let mut frame = dimensions();
+        composer.compose(&projection, frame, None).unwrap();
+        frame.safe_area_insets = Some(quajs_wgpu_renderer::stage_layout::StageSafeAreaInsets {
+            left: 44.0,
+            ..Default::default()
+        });
+        let updated = composer.compose(&projection, frame, None).unwrap();
+        assert!(!updated.cache_hit);
+        let value: serde_json::Value = serde_json::from_str(&updated.json).unwrap();
+        assert_eq!(value["container"]["safeAreaInsets"]["left"], 44.0);
     }
 
     #[test]

@@ -1,6 +1,9 @@
 //! Thread-confined, rooted JavaScriptCore C API values. No raw JS handle escapes
 //! this module. Every value keeps its context alive and is protected from GC.
-#[cfg(not(target_os = "windows"))]
+#[cfg(any(target_os = "ios", target_os = "android"))]
+#[path = "mobile_ffi.rs"]
+mod ffi;
+#[cfg(not(any(target_os = "windows", target_os = "ios", target_os = "android")))]
 use javascriptcore_sys as ffi;
 #[cfg(target_os = "windows")]
 #[allow(non_snake_case)]
@@ -19,6 +22,8 @@ mod ffi {
     }
 }
 use std::{cell::Cell, fmt, ptr, rc::Rc, sync::OnceLock};
+
+mod product_storage;
 
 pub type Result<T> = std::result::Result<T, Error>;
 #[derive(Debug)]
@@ -84,6 +89,7 @@ struct ContextInner {
 }
 impl Drop for ContextInner {
     fn drop(&mut self) {
+        product_storage::remove(self.group);
         unsafe {
             JSContextGroupClearExecutionTimeLimit(self.group);
             // The pinned Windows distribution releases a global context without
@@ -608,6 +614,10 @@ pub fn runtime_version() -> &'static str {
                 .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_owned())
                 .unwrap_or_else(|| "system".into());
             format!("javascriptcore-{version};javascriptcore-c-api-1")
+        }
+        #[cfg(any(target_os = "ios", target_os = "android"))]
+        {
+            env!("QUA_MOBILE_JSC_VERSION").into()
         }
         #[cfg(target_os = "linux")]
         {

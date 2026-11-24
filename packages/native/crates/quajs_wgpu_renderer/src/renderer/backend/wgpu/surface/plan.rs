@@ -8,15 +8,22 @@ pub fn plan_wgpu_surface_configuration(
     capabilities: &wgpu::SurfaceCapabilities,
     request: &WgpuNativeSurfaceConfigRequest,
 ) -> Result<WgpuNativeSurfaceConfigPlan, WgpuNativeSurfaceConfigError> {
-    let required_usage = wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_DST;
+    let mut required_usage = wgpu::TextureUsages::RENDER_ATTACHMENT;
     if !capabilities.usages.contains(required_usage) {
         return Err(surface_error(
             WgpuNativeSurfaceConfigErrorKind::UnsupportedSurfaceUsage,
-            "native real-wgpu presentation requires surface textures to support RENDER_ATTACHMENT | COPY_DST",
+            "native real-wgpu presentation requires surface textures to support RENDER_ATTACHMENT",
         ));
     }
 
-    let format = select_surface_format(capabilities, request.preferred_format)?;
+    let format = select_surface_format(capabilities, request)?;
+    if !matches!(
+        format,
+        wgpu::TextureFormat::Rgba16Float | wgpu::TextureFormat::Rgb10a2Unorm
+    ) && capabilities.usages.contains(wgpu::TextureUsages::COPY_DST)
+    {
+        required_usage |= wgpu::TextureUsages::COPY_DST;
+    }
     let requested_present_mode = to_wgpu_present_mode(request.present_mode);
     let present_mode = select_present_mode(capabilities, requested_present_mode)?;
     let alpha_mode = select_alpha_mode(capabilities)?;
@@ -32,6 +39,7 @@ pub fn plan_wgpu_surface_configuration(
             alpha_mode,
             view_formats: vec![],
         },
+        sdr_white_scale: request.sdr_white_scale,
         requested_present_mode,
         present_mode_fallback: present_mode != requested_present_mode,
     })
@@ -44,43 +52,97 @@ pub fn configure_wgpu_surface_for_native_renderer(
     request: &WgpuNativeSurfaceConfigRequest,
 ) -> Result<WgpuNativeSurfaceConfigPlan, WgpuNativeSurfaceConfigError> {
     let capabilities = surface.get_capabilities(adapter);
-    let plan = plan_wgpu_surface_configuration(&capabilities, request)?;
+    let mut request = request.clone();
+    let backend = adapter.get_info().backend;
+    // Vulkan maps FP16 specifically to EXTENDED_SRGB_LINEAR_EXT. DXGI's
+    // FP16 swapchain default is scRGB. Metal's layer is tagged below.
+    request.display_hdr_available &= matches!(backend, wgpu::Backend::Vulkan | wgpu::Backend::Dx12)
+        || (cfg!(all(target_os = "macos", feature = "real-wgpu-native"))
+            && backend == wgpu::Backend::Metal);
+    let plan = plan_wgpu_surface_configuration(&capabilities, &request)?;
     surface.configure(device, &plan.config);
+    #[cfg(all(target_os = "macos", feature = "real-wgpu-native"))]
+    if backend == wgpu::Backend::Metal {
+        use objc2_core_graphics::{
+            kCGColorSpaceExtendedLinearSRGB, kCGColorSpaceSRGB, CGColorSpace,
+        };
+        // SAFETY: we borrow the live Metal layer under HAL's lock. The two
+        // system CGColorSpace name constants outlive the surface.
+        unsafe {
+            let metal = surface.as_hal::<wgpu::hal::api::Metal>().ok_or_else(|| {
+                surface_error(
+                    WgpuNativeSurfaceConfigErrorKind::UnsupportedFormat,
+                    "Metal surface unavailable",
+                )
+            })?;
+            let name = if plan.config.format == wgpu::TextureFormat::Rgba16Float {
+                kCGColorSpaceExtendedLinearSRGB
+            } else {
+                kCGColorSpaceSRGB
+            };
+            let space = CGColorSpace::with_name(Some(name)).ok_or_else(|| {
+                surface_error(
+                    WgpuNativeSurfaceConfigErrorKind::UnsupportedFormat,
+                    "Core Graphics color space unavailable",
+                )
+            })?;
+            metal.render_layer().lock().setColorspace(Some(&space));
+        }
+    }
     Ok(plan)
 }
 
 fn select_surface_format(
     capabilities: &wgpu::SurfaceCapabilities,
-    preferred: Option<wgpu::TextureFormat>,
+    request: &WgpuNativeSurfaceConfigRequest,
 ) -> Result<wgpu::TextureFormat, WgpuNativeSurfaceConfigError> {
+    use wgpu::TextureFormat::{
+        Bgra8Unorm, Bgra8UnormSrgb, Rgb10a2Unorm, Rgba16Float, Rgba8Unorm, Rgba8UnormSrgb,
+    };
+
     if capabilities.formats.is_empty() {
         return Err(surface_error(
             WgpuNativeSurfaceConfigErrorKind::MissingFormat,
             "surface capabilities do not expose any texture formats",
         ));
     }
-    if let Some(preferred) = preferred {
-        if capabilities.formats.contains(&preferred) {
+    let hdr = request.display_hdr_available
+        && request.sdr_white_scale.is_finite()
+        && request.sdr_white_scale > 0.0
+        && capabilities.formats.contains(&Rgba16Float);
+    let sdr8 = |f: wgpu::TextureFormat| {
+        matches!(f, Bgra8Unorm | Bgra8UnormSrgb | Rgba8Unorm | Rgba8UnormSrgb)
+    };
+    if let Some(preferred) = request.preferred_format {
+        if ((sdr8(preferred) || preferred == Rgb10a2Unorm)
+            && capabilities.formats.contains(&preferred))
+            || (preferred == Rgba16Float && hdr)
+        {
             return Ok(preferred);
         }
         return Err(surface_error(
             WgpuNativeSurfaceConfigErrorKind::UnsupportedFormat,
-            format!(
-                "configured surface format {:?} is not supported by this surface",
-                preferred
-            ),
+            format!("configured surface format {preferred:?} is unavailable on this display"),
         ));
     }
-    capabilities
-        .formats
-        .iter()
-        .copied()
+    if hdr {
+        return Ok(Rgba16Float);
+    }
+    let formats = || capabilities.formats.iter().copied().filter(|f| sdr8(*f));
+    formats()
         .find(wgpu::TextureFormat::is_srgb)
-        .or_else(|| capabilities.formats.first().copied())
+        .or_else(|| formats().next())
+        // A 10-bit UNORM surface uses ordinary SDR transfer, never PQ.
+        .or_else(|| {
+            capabilities
+                .formats
+                .contains(&Rgb10a2Unorm)
+                .then_some(Rgb10a2Unorm)
+        })
         .ok_or_else(|| {
             surface_error(
-                WgpuNativeSurfaceConfigErrorKind::MissingFormat,
-                "surface capabilities do not expose any texture formats",
+                WgpuNativeSurfaceConfigErrorKind::UnsupportedFormat,
+                "surface has no compatible native sRGB presentation format",
             )
         })
 }

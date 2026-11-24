@@ -35,7 +35,6 @@ pub(super) fn view_with_ui_scroll() -> ViewProjection {
             ..Default::default()
         }),
         ui: Some(UiProjection {
-            visible: true,
             provenance: provenance("runtime.ui", ["base"]),
             overlays: vec![UiOverlayProjection {
                 interactive: Some(false),
@@ -43,6 +42,7 @@ pub(super) fn view_with_ui_scroll() -> ViewProjection {
                 provenance: provenance("runtime.menu", ["runtime.ui"]),
                 ..UiOverlayProjection::new("menu")
             }],
+            ..Default::default()
         }),
         ..Default::default()
     }
@@ -77,7 +77,6 @@ pub(super) fn view_with_clipped_ui_scroll() -> ViewProjection {
             ..Default::default()
         }),
         ui: Some(UiProjection {
-            visible: true,
             provenance: provenance("runtime.ui", ["base"]),
             overlays: vec![UiOverlayProjection {
                 interactive: Some(false),
@@ -85,6 +84,7 @@ pub(super) fn view_with_clipped_ui_scroll() -> ViewProjection {
                 provenance: provenance("runtime.menu", ["runtime.ui"]),
                 ..UiOverlayProjection::new("menu")
             }],
+            ..Default::default()
         }),
         ..Default::default()
     }

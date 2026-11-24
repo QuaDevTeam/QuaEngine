@@ -55,7 +55,7 @@ pub(super) struct NativeWindowSmokeInputMetrics {
 
 #[derive(Clone, Debug, Default)]
 pub(super) struct NativeWindowSmokeInputState {
-    product_input: NativeProductInputController,
+    pub(super) product_input: NativeProductInputController,
     metrics: NativeWindowSmokeInputMetrics,
     pub(super) dispatched_intent_count: usize,
 }
@@ -459,7 +459,7 @@ impl NativeWindowSmokeInputState {
     }
 }
 
-fn input_error(error: NativeProductInputError) -> NativeWindowSmokeError {
+pub(super) fn input_error(error: NativeProductInputError) -> NativeWindowSmokeError {
     NativeWindowSmokeError::new(format!(
         "Native renderer smoke input intent failed: {error}."
     ))
@@ -476,8 +476,14 @@ mod tests {
 
     #[test]
     fn open_settings_probe_emits_ui_intent_through_native_host() {
-        let frame_json = frame_json_for_window(DEFAULT_WINDOW_SMOKE_FRAME, 960.0, 540.0, 1.0)
-            .expect("window smoke frame should be rewritten");
+        let frame_json = frame_json_for_window(
+            DEFAULT_WINDOW_SMOKE_FRAME,
+            crate::window_smoke::frame::window_frame_dimensions(
+                winit::dpi::PhysicalSize::new(960, 540),
+                1.0,
+            ),
+        )
+        .expect("window smoke frame should be rewritten");
         let mut renderer = NativeRenderer::new(NullNativeRenderBackend::new());
         renderer
             .prepare_and_render_json_str(&frame_json)

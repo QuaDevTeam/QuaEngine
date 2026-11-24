@@ -55,7 +55,9 @@ const MAX_WAIT_TIMEOUT_MS: u64 = 60_000;
 const MAX_HTTP_HEAD_BYTES: usize = 16 * 1024;
 
 pub(super) fn native_window_control_addr() -> Option<String> {
-    if crate::packaged_app::enabled() { return None; }
+    if crate::packaged_app::enabled() {
+        return None;
+    }
     let value = std::env::var(WINDOW_CONTROL_ENV).ok()?;
     let value = value.trim();
     (!value.is_empty() && value != "0" && !value.eq_ignore_ascii_case("false"))
@@ -127,14 +129,7 @@ impl NativeWindowControl {
                     let http_addr = http_addr.clone();
                     let performance = thread_performance.clone();
                     thread::spawn(move || {
-                        handle_connection(
-                            stream,
-                            &http_addr,
-                            tx,
-                            proxy,
-                            wake_count,
-                            performance,
-                        )
+                        handle_connection(stream, &http_addr, tx, proxy, wake_count, performance)
                     });
                 }
             })

@@ -7,7 +7,6 @@ use super::super::{
     invalid_order, RealWgpuNativeRenderRuntimeTarget, WgpuNativeRenderRuntimeError,
     WgpuNativeRenderRuntimeErrorKind,
 };
-use super::sampler::create_texture_sampler;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RealWgpuDecodedTextureRgba8 {
@@ -63,23 +62,34 @@ pub fn decode_image_bytes_rgba8(
     if encoded_image.is_empty() {
         return invalid_order(format!("encoded image '{resource_id}' must not be empty"));
     }
+    use image::ImageDecoder;
+    let decode_error = |error: image::ImageError| {
+        WgpuNativeRenderRuntimeError::new(
+            WgpuNativeRenderRuntimeErrorKind::InvalidOperationOrder,
+            format!("failed to decode encoded image '{resource_id}': {error}"),
+        )
+    };
     super::preparation::estimate(encoded_image).map_err(|error| {
         WgpuNativeRenderRuntimeError::new(
             WgpuNativeRenderRuntimeErrorKind::InvalidOperationOrder,
             format!("failed to decode encoded image '{resource_id}': {error}"),
         )
     })?;
-    let reader = super::preparation::reader(encoded_image)?;
-    let image = reader.decode().map_err(|error| {
-        WgpuNativeRenderRuntimeError::new(
-            WgpuNativeRenderRuntimeErrorKind::InvalidOperationOrder,
-            format!("failed to decode encoded image '{resource_id}': {error}"),
-        )
-    })?;
-    if u64::from(image.width()) * u64::from(image.height()) > 32 * 1024 * 1024 {
-        return invalid_order("Decoded image exceeds the 128 MiB RGBA preparation budget");
-    }
-    let rgba = image.into_rgba8();
+    let mut decoder = super::preparation::reader(encoded_image)?
+        .into_decoder()
+        .map_err(decode_error)?;
+    // Keep the pixel reservation that ImageReader::decode normally makes.
+    let mut limits = super::preparation::decode_limits();
+    limits
+        .reserve(decoder.total_bytes())
+        .map_err(decode_error)?;
+    decoder.set_limits(limits).map_err(decode_error)?;
+    let profile = decoder.icc_profile().unwrap_or_else(|error| {
+        log::warn!("Image '{resource_id}' has unreadable ICC metadata: {error}");
+        None
+    });
+    let image = image::DynamicImage::from_decoder(decoder).map_err(decode_error)?;
+    let rgba = super::color_profile::into_srgb(image, profile.as_deref(), resource_id);
     let (width, height) = rgba.dimensions();
     Ok(RealWgpuDecodedTextureRgba8::new(
         width,
@@ -96,6 +106,8 @@ pub(in crate::renderer::backend::wgpu::runtime_executor::real_device) struct Rea
     pub(in crate::renderer::backend::wgpu::runtime_executor::real_device) sampler: wgpu::Sampler,
     pub(in crate::renderer::backend::wgpu::runtime_executor::real_device) width: u32,
     pub(in crate::renderer::backend::wgpu::runtime_executor::real_device) height: u32,
+    /// Original normalized canvas UV to physical texture UV (scale.xy, offset.zw).
+    pub(in crate::renderer::backend::wgpu::runtime_executor::real_device) uv_transform: [f32; 4],
     pub(in crate::renderer::backend::wgpu::runtime_executor::real_device) byte_len: usize,
     pub(in crate::renderer::backend::wgpu::runtime_executor::real_device) owner_package_id:
         Option<String>,
@@ -110,6 +122,11 @@ pub(in crate::renderer::backend::wgpu::runtime_executor::real_device) fn create_
     metadata: RealWgpuDecodedTextureMetadata,
 ) -> Result<RealRuntimeDecodedTexture, WgpuNativeRenderRuntimeError> {
     validate_decoded_texture_rgba8(resource_id, &decoded)?;
+    if decoded.width.max(decoded.height) > target.device().limits().max_texture_dimension_2d {
+        return invalid_order(format!(
+            "Image '{resource_id}' exceeds the device texture dimension limit"
+        ));
+    }
     validate_decoded_texture_metadata(&metadata)?;
     // Filter premultiplied texels at every mip level, including magnification.
     // Straight RGBA stays at the decode/public boundary; GPU bytes are transient.
@@ -183,13 +200,14 @@ pub(in crate::renderer::backend::wgpu::runtime_executor::real_device) fn create_
         );
     }
     let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-    let sampler = create_texture_sampler(target, &format!("decoded-sampler::{resource_id}"));
+    let sampler = target.scene_sampler.clone();
     Ok(RealRuntimeDecodedTexture {
         texture,
         view,
         sampler,
         width,
         height,
+        uv_transform: [1.0, 1.0, 0.0, 0.0],
         byte_len,
         owner_package_id: metadata.owner_package_id,
         required_package_ids: metadata.required_package_ids,

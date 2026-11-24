@@ -33,6 +33,45 @@ impl NativeUiControlInteractionState {
         self.projected_selected_indices.clear();
     }
 
+    pub(crate) fn cancel_pointer(&mut self, pointer_id: u64) -> bool {
+        let Some(active) = self.active_ranges.remove(&pointer_id) else {
+            return false;
+        };
+        self.local_selected_indices.remove(&active.command_id);
+        true
+    }
+
+    pub(crate) fn step_option(
+        &mut self,
+        id: &str,
+        control: &UiControlDrawParam,
+        backwards: bool,
+    ) -> Option<RendererIntentHit> {
+        let count = control.options.len();
+        if count == 0 {
+            return None;
+        }
+        let index = self.selected_index(id, control);
+        let next = match (&control.parts, backwards) {
+            (UiControlPartsDrawParam::Switch { .. }, _) => (index + 1) % count,
+            (_, true) => index.saturating_sub(1),
+            (_, false) => (index + 1).min(count - 1),
+        };
+        if next == index {
+            return None;
+        }
+        self.open_select_command_id = None;
+        self.local_selected_indices.insert(id.to_owned(), next);
+        Some(RendererIntentHit {
+            command_id: id.to_owned(),
+            intent: control.options[next].intent.clone(),
+        })
+    }
+
+    pub(crate) fn is_dragging_range(&self, pointer_id: u64) -> bool {
+        self.active_ranges.contains_key(&pointer_id)
+    }
+
     pub(crate) fn has_feedback(&self) -> bool {
         !self.active_ranges.is_empty()
             || !self.local_selected_indices.is_empty()
@@ -137,6 +176,10 @@ impl NativeUiControlInteractionState {
         let previous = self.clone();
         let event = resolution.event;
 
+        if event.phase == NativePointerEventPhase::Cancel {
+            resolution.visual_state_changed |= self.cancel_pointer(event.pointer_id);
+            return;
+        }
         if let Some(active) = self.active_ranges.get_mut(&event.pointer_id) {
             if let Some(command) = control_command(graph, &active.command_id) {
                 if let Some(control) = command.control.as_ref() {
@@ -193,7 +236,9 @@ impl NativeUiControlInteractionState {
             }
         }
 
-        if event.phase == NativePointerEventPhase::Release {
+        if event.phase == NativePointerEventPhase::Release
+            && resolution.intent_to_dispatch.is_some()
+        {
             if let Some((command_id, option_index)) =
                 hit_command_id.and_then(parse_select_option_command_id)
             {
@@ -229,14 +274,9 @@ impl NativeUiControlInteractionState {
                         UiControlPartsDrawParam::Range { .. } => {}
                     }
                 }
-            } else if self.open_select_command_id.is_some() {
-                self.open_select_command_id = None;
-                resolution.intent_to_dispatch = None;
             }
-        }
-
-        if event.phase == NativePointerEventPhase::Cancel {
-            self.active_ranges.remove(&event.pointer_id);
+        } else if event.phase == NativePointerEventPhase::Release && hit_command_id.is_none() {
+            self.open_select_command_id = None;
         }
         resolution.visual_state_changed |= *self != previous;
     }

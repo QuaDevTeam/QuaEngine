@@ -31,7 +31,6 @@ pub(super) fn solid_ui_view() -> ViewProjection {
 
     ViewProjection {
         ui: Some(UiProjection {
-            visible: true,
             provenance: PackageProvenance {
                 content_package_id: Some("runtime.ui".to_string()),
                 required_runtime_packages: ["base".to_string()].into_iter().collect(),
@@ -44,6 +43,7 @@ pub(super) fn solid_ui_view() -> ViewProjection {
                 },
                 ..UiOverlayProjection::new("menu")
             }],
+            ..Default::default()
         }),
         ..Default::default()
     }
@@ -99,7 +99,6 @@ pub(super) fn mixed_ui_view() -> ViewProjection {
 
     ViewProjection {
         ui: Some(UiProjection {
-            visible: true,
             provenance: PackageProvenance {
                 content_package_id: Some("runtime.ui".to_string()),
                 required_runtime_packages: ["base".to_string()].into_iter().collect(),
@@ -112,6 +111,7 @@ pub(super) fn mixed_ui_view() -> ViewProjection {
                 },
                 ..UiOverlayProjection::new("mixed")
             }],
+            ..Default::default()
         }),
         ..Default::default()
     }
@@ -141,7 +141,6 @@ pub(super) fn text_ui_view() -> ViewProjection {
 
     ViewProjection {
         ui: Some(UiProjection {
-            visible: true,
             provenance: PackageProvenance {
                 content_package_id: Some("runtime.ui".to_string()),
                 required_runtime_packages: ["base".to_string()].into_iter().collect(),
@@ -154,6 +153,7 @@ pub(super) fn text_ui_view() -> ViewProjection {
                 },
                 ..UiOverlayProjection::new("caption")
             }],
+            ..Default::default()
         }),
         ..Default::default()
     }

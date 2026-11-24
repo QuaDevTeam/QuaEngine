@@ -1,4 +1,8 @@
 mod bind_group;
+#[cfg(feature = "image-decode")]
+pub(super) mod blocks;
+#[cfg(feature = "image-decode")]
+mod color_profile;
 pub(super) mod decoded;
 mod placeholder;
 #[cfg(feature = "image-decode")]

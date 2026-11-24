@@ -34,7 +34,10 @@ mod tests {
     #[test]
     fn required_loading_images_survive_zero_advisory_budget_until_destination_adopts_them() {
         let mut device = device();
-        device.set_required_image_preparations(BTreeSet::from(["images:title".into(), "images:paper".into()]));
+        device.set_required_image_preparations(BTreeSet::from([
+            "images:title".into(),
+            "images:paper".into(),
+        ]));
         upload(&mut device, "images:title");
         upload(&mut device, "images:paper");
         device.set_image_memory_budget(0, 0);
@@ -279,7 +282,14 @@ impl RealWgpuNativeRenderRuntimeDevice {
         #[cfg(feature = "image-decode")]
         if shrinking {
             if let Some(worker) = &self.async_textures {
-                worker.retain(&self.image_cache.active.union(&self.image_cache.required).cloned().collect());
+                worker.retain(
+                    &self
+                        .image_cache
+                        .active
+                        .union(&self.image_cache.required)
+                        .cloned()
+                        .collect(),
+                );
             }
         }
         let _ = shrinking;
@@ -334,7 +344,11 @@ impl RealWgpuNativeRenderRuntimeDevice {
 
     /// Frame retirement is different from explicit package release/shutdown.
     pub fn retire_image_texture(&mut self, id: &str) -> bool {
-        if is_image(id) && (self.image_cache.budget > 0 || self.image_cache.active.contains(id) || self.image_cache.required.contains(id)) {
+        if is_image(id)
+            && (self.image_cache.budget > 0
+                || self.image_cache.active.contains(id)
+                || self.image_cache.required.contains(id))
+        {
             self.image_cache
                 .used
                 .entry(id.into())
@@ -369,7 +383,11 @@ impl RealWgpuNativeRenderRuntimeDevice {
             let victim = self
                 .decoded_textures
                 .keys()
-                .filter(|id| is_image(id) && !self.image_cache.active.contains(*id) && !self.image_cache.required.contains(*id))
+                .filter(|id| {
+                    is_image(id)
+                        && !self.image_cache.active.contains(*id)
+                        && !self.image_cache.required.contains(*id)
+                })
                 .min_by_key(|id| {
                     (
                         self.image_cache.preloads.contains(*id),

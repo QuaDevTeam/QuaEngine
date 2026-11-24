@@ -1,7 +1,7 @@
 import type { SettingsStorageAdapter, SettingsStoredProfile } from '@quajs/plugin-settings'
 
-/** Web platform adapter. Preferences are independent of story slots/checkpoints. */
-export function createDemoSettingsStorage(storage: Storage): SettingsStorageAdapter {
+/** Profile preferences persist independently of story slots and checkpoints. */
+export function createDemoSettingsStorage(storage: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>): SettingsStorageAdapter {
   const key = (profileId: string) => `call-me-tomorrow:settings:${profileId}`
   return {
     async loadProfile(profileId) {

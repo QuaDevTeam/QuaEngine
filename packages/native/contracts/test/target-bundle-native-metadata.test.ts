@@ -279,6 +279,10 @@ describe('target bundle native metadata validation', () => {
     ]))
   })
 
+  it.each(['ios', 'android'])('accepts %s native product manifests', (platform) => {
+    expect(validateTargetBundleManifest(targetBundleManifest({ platform })).ok).toBe(true)
+  })
+
   it('requires native target bundle profile and platform metadata needed by packaging and startup', () => {
     const missingProfile = targetBundleManifest() as unknown as TargetBundleManifest & { profile?: unknown }
     delete missingProfile.profile
@@ -289,7 +293,7 @@ describe('target bundle native metadata validation', () => {
     const missingPlatform = targetBundleManifest()
     delete missingPlatform.platform
     const emptyPlatform = targetBundleManifest({ platform: ' ' })
-    const invalidPlatform = targetBundleManifest({ platform: 'ios' })
+    const invalidPlatform = targetBundleManifest({ platform: 'tvos' })
 
     const missingProfileResult = validateTargetBundleManifest(missingProfile as TargetBundleManifest)
     const invalidProfileResult = validateTargetBundleManifest(invalidProfile)
@@ -340,7 +344,7 @@ describe('target bundle native metadata validation', () => {
         code: 'TARGET_BUNDLE_PLATFORM_INVALID',
         target: 'native',
         field: 'platform',
-        value: 'ios',
+        value: 'tvos',
       }),
     ]))
   })

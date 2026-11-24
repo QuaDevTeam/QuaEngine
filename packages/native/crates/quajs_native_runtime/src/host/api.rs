@@ -140,6 +140,14 @@ pub trait NativeHostApi {
     ) -> NativeHostApiResult<Arc<[u8]>> {
         self.read_asset_bytes(request).map(Arc::from)
     }
+    /// Select a renderer-only representation of the resolved source within its owning QPK.
+    fn read_shared_texture_bytes(
+        &self,
+        request: &NativeAssetReadRequest,
+        _suffixes: &[&str],
+    ) -> NativeHostApiResult<Arc<[u8]>> {
+        self.read_shared_asset_bytes(request)
+    }
     fn list_mounted_bundles(&self) -> NativeHostApiResult<Vec<NativeMountedBundleInfo>>;
     fn read_storage(&self, key: &str) -> NativeHostApiResult<Option<Vec<u8>>>;
     fn write_storage(&mut self, key: &str, value: Vec<u8>) -> NativeHostApiResult<()>;
@@ -153,9 +161,17 @@ pub trait NativeHostApi {
 }
 
 #[derive(Debug, Clone)]
+struct MountedAssets {
+    entries: BTreeMap<String, Arc<[u8]>>,
+    texture_suffix: Option<&'static str>,
+}
+
+#[derive(Debug, Clone)]
 pub struct InMemoryNativeHostApi {
     host_info: NativeHostInfo,
     assets: BTreeMap<String, Arc<[u8]>>,
+    bundle_assets: BTreeMap<String, MountedAssets>,
+    asset_owners: BTreeMap<String, String>,
     mounted_bundles: Vec<NativeMountedBundleInfo>,
     storage: BTreeMap<String, Vec<u8>>,
     renderer_intents: Vec<NativeRendererIntent>,
@@ -166,6 +182,8 @@ impl InMemoryNativeHostApi {
         Self {
             host_info,
             assets: BTreeMap::new(),
+            bundle_assets: BTreeMap::new(),
+            asset_owners: BTreeMap::new(),
             mounted_bundles: Vec::new(),
             storage: BTreeMap::new(),
             renderer_intents: Vec::new(),
@@ -173,8 +191,33 @@ impl InMemoryNativeHostApi {
     }
 
     pub fn with_asset(mut self, url: impl Into<String>, bytes: impl Into<Vec<u8>>) -> Self {
-        self.assets.insert(url.into(), Arc::from(bytes.into()));
+        let url = url.into();
+        self.asset_owners.remove(&url);
+        self.assets.insert(url, Arc::from(bytes.into()));
         self
+    }
+
+    pub fn with_bundle_assets(
+        mut self,
+        bundle: NativeMountedBundleInfo,
+        assets: Vec<(String, Vec<u8>)>,
+        texture_suffix: Option<&'static str>,
+    ) -> Self {
+        let mut scoped = BTreeMap::new();
+        for (url, bytes) in assets {
+            let bytes: Arc<[u8]> = bytes.into();
+            self.assets.insert(url.clone(), bytes.clone());
+            self.asset_owners.insert(url.clone(), bundle.name.clone());
+            scoped.insert(url, bytes);
+        }
+        self.bundle_assets.insert(
+            bundle.name.clone(),
+            MountedAssets {
+                entries: scoped,
+                texture_suffix,
+            },
+        );
+        self.with_mounted_bundle(bundle)
     }
 
     pub fn with_mounted_bundle(mut self, bundle: NativeMountedBundleInfo) -> Self {
@@ -220,6 +263,39 @@ impl NativeHostApi for InMemoryNativeHostApi {
             .get(&request.url)
             .cloned()
             .ok_or_else(|| NativeHostApiError::AssetNotFound(request.url.clone()))
+    }
+
+    fn read_shared_texture_bytes(
+        &self,
+        request: &NativeAssetReadRequest,
+        suffixes: &[&str],
+    ) -> NativeHostApiResult<Arc<[u8]>> {
+        let owner = request
+            .bundle_name
+            .as_ref()
+            .or_else(|| self.asset_owners.get(&request.url));
+        if let Some(assets) = owner.and_then(|name| self.bundle_assets.get(name)) {
+            // Resolve the source first. A replacement without variants must use its own pixels.
+            let source = assets
+                .entries
+                .get(&request.url)
+                .ok_or_else(|| NativeHostApiError::AssetNotFound(request.url.clone()))?;
+            if let (Some(path), Some(suffix)) = (
+                request.url.strip_prefix("assets/"),
+                assets
+                    .texture_suffix
+                    .filter(|suffix| suffixes.contains(suffix)),
+            ) {
+                if let Some(bytes) = assets
+                    .entries
+                    .get(&format!("assets/data/qua-native-textures/{path}{suffix}"))
+                {
+                    return Ok(bytes.clone());
+                }
+            }
+            return Ok(source.clone());
+        }
+        self.read_shared_asset_bytes(request)
     }
 
     fn list_mounted_bundles(&self) -> NativeHostApiResult<Vec<NativeMountedBundleInfo>> {

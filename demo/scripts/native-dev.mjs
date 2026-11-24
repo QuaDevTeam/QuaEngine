@@ -464,8 +464,8 @@ async function validateNativeE2eOutput(output) {
     'story-street': ['backgrounds/town-street-rain-anime-v3.webp', ['mara']],
     'story-studio': ['backgrounds/radio-studio-day-anime-v3.webp', ['mara', 'haruka']],
     'story-team': ['backgrounds/radio-studio-day-anime-v3.webp', ['mara', 'haruka', 'yumi']],
-    'story-choice': ['backgrounds/radio-studio-day-anime-v3.webp', ['mara', 'haruka', 'yumi']],
-    'story-branch': ['backgrounds/radio-studio-day-anime-v3.webp', ['mara', 'haruka', 'yumi']],
+    'story-choice': ['backgrounds/radio-archive-day-anime-v3.webp', ['mara', 'haruka', 'yumi']],
+    'story-branch': ['backgrounds/radio-archive-day-anime-v3.webp', ['mara', 'haruka', 'yumi']],
   }
   if (JSON.stringify(checkpoints.map(checkpoint => checkpoint.name)) !== JSON.stringify(expectedCheckpoints)) {
     failures.push('the real GPU visual checkpoints are incomplete or out of order')
@@ -533,8 +533,8 @@ async function validateNativeE2eOutput(output) {
   if (report.shapedTextDrawCount < 1 || report.bitmapTextDrawCount !== 0) {
     failures.push('the final title frame did not use native OpenType shaping exclusively')
   }
-  if (!report.fontAtlasResourceIds?.some(id => id === 'fonts:Noto Sans' || id.startsWith('fonts:Noto Sans@'))) {
-    failures.push('the final title frame did not bind fonts:Noto Sans')
+  if (!report.fontAtlasResourceIds?.some(id => id === 'fonts:Noto Serif' || id.startsWith('fonts:Noto Serif@'))) {
+    failures.push('the final title frame did not bind fonts:Noto Serif')
   }
   if (report.linearSampledTextureBindGroupCount < 1 || report.nearestSampledTextureBindGroupCount !== 0) {
     failures.push('the final title texture sampling was not exclusively linear')

@@ -104,9 +104,9 @@ fn check_native_artifact_metadata(
     match manifest.platform.as_deref() {
         Some(platform) if platform.trim().is_empty() => diagnostics
             .push("Native target bundle manifest platform must not be empty.".to_string()),
-        Some("macos" | "windows" | "linux") => {}
+        Some("macos" | "windows" | "linux" | "ios" | "android") => {}
         Some(platform) => diagnostics.push(format!(
-            "Native target bundle manifest platform must be \"macos\", \"windows\", or \"linux\", but found \"{}\".",
+            "Native target bundle manifest platform must be \"macos\", \"windows\", \"linux\", \"ios\", or \"android\", but found \"{}\".",
             platform
         )),
         None => diagnostics.push("Native target bundle manifest must include platform.".to_string()),

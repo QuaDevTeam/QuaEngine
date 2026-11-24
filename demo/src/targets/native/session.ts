@@ -2,12 +2,14 @@ import type { NativeJscPipelineBridge, NativeRendererEngineViewProjection } from
 import type { NativeRendererIntent } from '@quajs/native-contracts'
 import { createMemoryAssetsAdapter } from '@quajs/assets-memory'
 import { clearCharacterRuntime, configureCharacterRuntime, resolveCharacterRef } from '@quajs/character'
-import { collectUpcomingAssetHints, LogicToRenderEvents, QuaEngine, RenderToLogicEvents } from '@quajs/engine'
-import { emitNativeRendererIntentToPipeline, installNativeJscPipelineBridge } from '@quajs/engine-native'
+import { collectUpcomingAssetHints, LogicToRenderEvents, QuaEngine } from '@quajs/engine'
+import { emitNativeRendererIntentToPipeline, installNativeJscPipelineBridge, installNativeProductInput } from '@quajs/engine-native'
 import { parseNativeRendererIntentPayload } from '@quajs/native-contracts'
-import { AssetLoadingPlugin, ASSET_LOADING_RENDERER_PROGRESS } from '@quajs/plugin-asset-loading'
+import { ASSET_LOADING_RENDERER_PROGRESS, AssetLoadingPlugin } from '@quajs/plugin-asset-loading'
+import { resolveNativeProductStorage } from '@quajs/store-native'
 import { createDemoEngineRuntime } from '../../game/runtime-shared'
 import arrival from '../../game/scenes/prologue-arrival.qs'
+import { createDemoSettingsStorage } from '../../game/settings-storage'
 import { createDemoUiSession } from '../../game/ui/session'
 import { projectDemoNativeView } from './presentation'
 
@@ -15,6 +17,7 @@ export type DemoNativeSession = Awaited<ReturnType<typeof createDemoNativeSessio
 export async function createDemoNativeSession() {
   QuaEngine.resetInstance()
   const loading = new AssetLoadingPlugin()
+  const storage = resolveNativeProductStorage('call-me-tomorrow-saves')
   const runtime = await createDemoEngineRuntime({
     plugins: [loading],
     engine: {
@@ -25,11 +28,13 @@ export async function createDemoNativeSession() {
       },
       layout: 'landscape',
       assets: { adapter: createMemoryAssetsAdapter(), locale: 'default', enableCache: false },
+      store: storage ? { storage: storage.store } : undefined,
       flowControl: { skipMode: 'read' },
       dialogue: {
         typewriter: { enabled: true, charactersPerSecond: 36, revealOnAdvance: true },
       },
     },
+    settingsStorage: storage && createDemoSettingsStorage(storage),
     systemLocale: 'zh-cn',
   })
   configureCharacterRuntime({ engine: runtime.engine, waitForAdvance: true })
@@ -42,8 +47,12 @@ export async function createDemoNativeSession() {
   // to render the loading scene and service the preparation request.
   const startup = loading.prepareRenderer('明天，请再一次呼唤我', [
     { assetType: 'images', assetName: 'ui/title-menu-background.webp' },
-  ]).catch((error) => { if (!destroyed) startupError = String(error) })
+  ]).catch((error) => {
+    if (!destroyed)
+      startupError = String(error)
+  })
   const pipeline = runtime.engine.getPipeline()
+  const disposeInput = installNativeProductInput(runtime.engine, pipeline)
   return {
     connectPipelineBridge(bridge: NativeJscPipelineBridge) {
       const projected: NativeJscPipelineBridge = {
@@ -78,16 +87,12 @@ export async function createDemoNativeSession() {
         await pipeline.emit(intent.type, parseNativeRendererIntentPayload(intent))
         return
       }
-      const record = parseNativeRendererIntentPayload(intent) as Record<string, unknown> | undefined
-      if (intent.type === RenderToLogicEvents.USER_INPUT_COMMAND && record?.command === 'advance' && record.pressed !== false) {
-        await pipeline.emit(RenderToLogicEvents.USER_ADVANCE, { source: record.source || 'native' })
-        return
-      }
       await emitNativeRendererIntentToPipeline(pipeline, intent)
     },
     getInteractionDiagnostics: () => ({ ...ui.getInteractionDiagnostics(), ...(loading.getProjection()?.visible ? { screen: 'loading' } : {}), ...(startupError ? { error: startupError } : {}) }),
     async destroy() {
       destroyed = true
+      disposeInput()
       ui.dispose()
       runtime.editorPreview?.dispose()
       clearCharacterRuntime()

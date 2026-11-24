@@ -185,6 +185,7 @@ impl NativeProjectionWorker {
     /// so the worker republishes with the new offset.
     pub(super) fn scroll_at(
         &self,
+        layout: &quajs_wgpu_renderer::stage_layout::ResolvedStageLayout,
         client_x: f64,
         client_y: f64,
         delta_x: f64,
@@ -193,7 +194,13 @@ impl NativeProjectionWorker {
         let Ok(mut runtime) = self.runtime.lock() else {
             return false;
         };
-        let scrolled = runtime.scroll_at_logical(client_x, client_y, delta_x, delta_y);
+        let scrolled = runtime.scroll_at_logical_with_layout(
+            client_x,
+            client_y,
+            delta_x,
+            delta_y,
+            Some(layout),
+        );
         drop(runtime);
         if scrolled {
             self.request_tick();

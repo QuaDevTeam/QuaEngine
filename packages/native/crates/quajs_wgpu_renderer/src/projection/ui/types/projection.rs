@@ -10,6 +10,8 @@ use super::UiOverlayProjection;
 pub struct UiProjection {
     #[serde(default = "default_true")]
     pub visible: bool,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub hide_hud_chrome: bool,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub overlays: Vec<UiOverlayProjection>,
     #[serde(default, skip_serializing_if = "PackageProvenance::is_empty")]
@@ -20,6 +22,7 @@ impl Default for UiProjection {
     fn default() -> Self {
         Self {
             visible: true,
+            hide_hud_chrome: false,
             overlays: Vec::new(),
             provenance: PackageProvenance::default(),
         }

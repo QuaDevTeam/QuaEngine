@@ -21,6 +21,7 @@ import {
   projectUiOverlay,
   resolveBackgroundLayers,
   viewAllowsDialogueChrome,
+  viewAllowsHudChrome,
 } from '@quajs/render-core'
 
 import { sampleNativeSpriteLayerAnimations } from './sprite-animation'
@@ -157,6 +158,9 @@ export function createNativeRendererViewProjection(
       delete projected[key]
     projected.ui = mergeNativeUiProjection(undefined, [loadingOverlay])
   }
+  const projectedUi = asRecord(projected.ui)
+  if (projectedUi && chromeUi.visible && !viewAllowsHudChrome({ ui: chromeUi }))
+    projectedUi.hideHudChrome = true
   return projected
 }
 
@@ -711,6 +715,7 @@ function createNativeUiSurfaceProjection(surface: unknown): JsonRecord | undefin
   }
   return omitUndefined({
     key,
+    safeAreaAnchor: Array.isArray(record.safeAreaAnchor) && record.safeAreaAnchor.length === 2 && record.safeAreaAnchor.every(Number.isFinite) ? record.safeAreaAnchor : undefined,
     root: cloneJsonValue(record.root),
   })
 }

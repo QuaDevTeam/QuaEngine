@@ -47,7 +47,7 @@ pub(super) struct NativeWindowPerformanceHud {
     displayed_projection_fresh: bool,
     displayed_input_latency_ms: Option<f64>,
     displayed_active_transition_count: usize,
-    displayed_target_fps: u32,
+    displayed_target_fps: f64,
     displayed_compose_ms: f64,
     displayed_compose_cache_hit: bool,
 }
@@ -77,7 +77,7 @@ impl Default for NativeWindowPerformanceHud {
             displayed_projection_fresh: true,
             displayed_input_latency_ms: None,
             displayed_active_transition_count: 0,
-            displayed_target_fps: 0,
+            displayed_target_fps: 0.0,
             displayed_compose_ms: 0.0,
             displayed_compose_cache_hit: false,
         }
@@ -140,7 +140,7 @@ impl NativeWindowPerformanceHud {
         projection_fresh: bool,
         input_latency_ms: Option<f64>,
         active_transition_count: usize,
-        target_fps: u32,
+        target_fps: f64,
         compose_ms: f64,
         compose_cache_hit: bool,
     ) {
@@ -195,14 +195,26 @@ impl NativeWindowPerformanceHud {
         self.last_hud_refresh_at = self
             .last_hud_refresh_at
             .map(|t| t - HUD_REFRESH_INTERVAL * 2);
-        self.record_frame(Duration::ZERO, 0, 0, 0, 0.0, true, None, 0, 60, 0.0, false);
+        self.record_frame(
+            Duration::ZERO,
+            0,
+            0,
+            0,
+            0.0,
+            true,
+            None,
+            0,
+            60.0,
+            0.0,
+            false,
+        );
     }
 
     fn overlay(&self, dimensions: WindowFrameDimensions) -> Value {
         let fps = self.displayed_fps;
         let frame_ms = self.displayed_frame_time.as_secs_f64() * 1_000.0;
         let performance_line = if self.displayed_active {
-            if self.displayed_target_fps > 0 {
+            if self.displayed_target_fps > 0.0 {
                 format!(
                     "FPS {:>5.1}/{:<3}  FRAME {:>5.2} ms",
                     fps, self.displayed_target_fps, frame_ms
@@ -324,6 +336,7 @@ mod tests {
                     logical_height: 540.0,
                     physical_size: winit::dpi::PhysicalSize::new(1920, 1080),
                     device_pixel_ratio: 2.0,
+                    safe_area_insets: None,
                 },
             )
             .unwrap();
@@ -343,6 +356,7 @@ mod tests {
             logical_height: 540.0,
             physical_size: winit::dpi::PhysicalSize::new(1920, 1080),
             device_pixel_ratio: 2.0,
+            safe_area_insets: None,
         };
         hud.record_frame(
             Duration::from_millis(8),
@@ -353,7 +367,7 @@ mod tests {
             true,
             None,
             0,
-            60,
+            60.0,
             0.0,
             false,
         );
@@ -369,7 +383,7 @@ mod tests {
             true,
             None,
             0,
-            60,
+            60.0,
             0.0,
             false,
         );
@@ -394,7 +408,7 @@ mod tests {
             true,
             None,
             0,
-            60,
+            60.0,
             0.0,
             false,
         );
@@ -411,6 +425,7 @@ mod tests {
                     logical_height: 540.0,
                     physical_size: winit::dpi::PhysicalSize::new(1920, 1080),
                     device_pixel_ratio: 2.0,
+                    safe_area_insets: None,
                 },
             )
             .unwrap();
@@ -427,7 +442,7 @@ mod tests {
             true,
             None,
             0,
-            60,
+            60.0,
             0.0,
             false,
         );

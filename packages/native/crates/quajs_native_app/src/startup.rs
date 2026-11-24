@@ -5,7 +5,10 @@ use quajs_native_runtime::{
     current_platform, current_profile, jsc_runtime_version, NativeHostInfo, NativeHostInfoBuilder,
     NativePlatform, NativeProfile, RendererCapability,
 };
-#[cfg(all(any(feature = "native-window", feature = "embedded-sdk"), feature = "native-audio-rodio"))]
+#[cfg(all(
+    any(feature = "native-window", feature = "embedded-sdk"),
+    feature = "native-audio-rodio"
+))]
 use quajs_wgpu_renderer::native_wgpu_audio_playback_capability;
 use quajs_wgpu_renderer::native_wgpu_capabilities;
 
@@ -75,13 +78,24 @@ fn create_host_info(config: NativeAppConfig) -> NativeHostInfo {
 
 pub(crate) fn native_startup_renderer_capabilities() -> Vec<RendererCapability> {
     let capabilities = native_wgpu_capabilities();
-    // ABI 1 exposes pointer/advance/focus, but has no text/IME entrypoint.
+    // A parent can forward pointer, touch and digital gamepad input through ABI 1.
     #[cfg(feature = "embedded-sdk")]
-    let capabilities = capabilities.into_iter().filter(|capability| capability.id != "native-wgpu.input.text@1").collect();
+    let capabilities = capabilities
+        .into_iter()
+        .filter(|capability| capability.id != "native-wgpu.input.text@1")
+        .collect::<Vec<_>>();
+    #[cfg(any(feature = "embedded-sdk", feature = "native-window"))]
+    let capabilities = capabilities
+        .into_iter()
+        .chain(quajs_wgpu_renderer::native_product_input_capabilities())
+        .collect();
     append_native_startup_feature_capabilities(capabilities)
 }
 
-#[cfg(all(any(feature = "native-window", feature = "embedded-sdk"), feature = "native-audio-rodio"))]
+#[cfg(all(
+    any(feature = "native-window", feature = "embedded-sdk"),
+    feature = "native-audio-rodio"
+))]
 fn append_native_startup_feature_capabilities(
     mut capabilities: Vec<RendererCapability>,
 ) -> Vec<RendererCapability> {
@@ -89,7 +103,10 @@ fn append_native_startup_feature_capabilities(
     capabilities
 }
 
-#[cfg(not(all(any(feature = "native-window", feature = "embedded-sdk"), feature = "native-audio-rodio")))]
+#[cfg(not(all(
+    any(feature = "native-window", feature = "embedded-sdk"),
+    feature = "native-audio-rodio"
+)))]
 fn append_native_startup_feature_capabilities(
     capabilities: Vec<RendererCapability>,
 ) -> Vec<RendererCapability> {
@@ -139,6 +156,8 @@ pub(crate) fn platform_manifest_value(platform: NativePlatform) -> &'static str 
         NativePlatform::MacOs => "macos",
         NativePlatform::Windows => "windows",
         NativePlatform::Linux => "linux",
+        NativePlatform::Ios => "ios",
+        NativePlatform::Android => "android",
     }
 }
 

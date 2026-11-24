@@ -35,6 +35,10 @@ where
         Ok(report)
     }
 
+    fn resident_texture_ids(&self) -> Vec<String> {
+        self.device.resident_texture_ids()
+    }
+
     fn runtime_snapshot(&self) -> super::WgpuNativeRenderRuntimeSnapshot {
         self.snapshot()
     }

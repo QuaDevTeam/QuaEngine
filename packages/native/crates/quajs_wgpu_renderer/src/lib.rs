@@ -12,8 +12,8 @@ pub mod stage_layout;
 pub mod video;
 
 pub use capabilities::{
-    native_wgpu_audio_playback_capability, native_wgpu_capabilities,
-    native_wgpu_capabilities_with_audio_playback,
+    native_product_input_capabilities, native_wgpu_audio_playback_capability,
+    native_wgpu_capabilities, native_wgpu_capabilities_with_audio_playback,
 };
 
 #[cfg(all(test, feature = "bench-smoke"))]

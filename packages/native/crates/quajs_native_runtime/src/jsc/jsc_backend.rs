@@ -928,6 +928,16 @@ fn install_native_console_writer(ctx: &Context) -> Result<(), Error> {
 }
 
 impl JavaScriptCoreEvaluator {
+    /// Attach app-private record storage only to the signed standalone product VM.
+    pub fn install_product_storage(
+        &self,
+        operation: impl FnMut(&str, &str, Option<&str>) -> Result<String, String> + 'static,
+    ) -> Result<(), JscEvaluationError> {
+        self.context
+            .install_product_storage(operation)
+            .map_err(backend_error)
+    }
+
     pub fn new() -> Result<Self, JscEvaluationError> {
         let context = Context::new().map_err(backend_error)?;
         context
@@ -3496,6 +3506,33 @@ mod tests {
             .globals()
             .set("foreign", value)
             .is_err());
+    }
+
+    #[test]
+    fn app_storage_is_isolated_to_explicitly_configured_contexts() {
+        let product = Context::new().unwrap();
+        let other = Context::new().unwrap();
+        product
+            .install_product_storage(|op, key, _| match op {
+                "read" => Ok(key.into()),
+                _ => Err("unknown operation".into()),
+            })
+            .unwrap();
+        assert_eq!(
+            product
+                .eval::<String, _>("__quaNativeProductStorage('read','青叶市')")
+                .unwrap(),
+            "青叶市"
+        );
+        assert!(product
+            .eval::<(), _>("__quaNativeProductStorage('unknown','slot')")
+            .is_err());
+        assert!(product
+            .eval::<(), _>("__quaNativeProductStorage('read',{})")
+            .is_err());
+        assert!(other
+            .eval::<bool, _>("typeof __quaNativeProductStorage === 'undefined'")
+            .unwrap());
     }
 
     #[test]

@@ -7,6 +7,7 @@ import {
   emitNativeRendererIntentToPipeline,
   installNativeJscPipelineBridge,
   installNativeJscRendererIntentBridge,
+  installNativeProductInput,
   NativeHostPlugin,
 } from '../src'
 
@@ -88,6 +89,28 @@ const AUDIO_EVENTS = {
 } as const
 
 describe('@quajs/engine-native renderer intents', () => {
+  it('routes accepted controller commands, guards choices, and releases held modes across overlays', async () => {
+    const pipeline = createTestPipeline()
+    const view = { choices: [] as { id: string }[], ui: { visible: true }, flowControl: { mode: 'normal' } }
+    const dispose = installNativeProductInput({ getViewState: () => view } as any, pipeline as any)
+    const input = (command: string, pressed = true) => pipeline.emit(RenderToLogicEvents.USER_INPUT_COMMAND, { command, pressed, source: 'pad' })
+    await input('advance')
+    expect(pipeline.emit).toHaveBeenLastCalledWith(RenderToLogicEvents.USER_ADVANCE, { source: 'pad' })
+    view.choices.push({ id: 'option' })
+    pipeline.emit.mockClear()
+    await input('advance')
+    expect(pipeline.emit).toHaveBeenCalledTimes(1)
+    await input('skip:start')
+    expect(pipeline.emit).toHaveBeenLastCalledWith(RenderToLogicEvents.FLOW_CONTROL_START_SKIP_REQUEST, { source: 'pad' })
+    view.ui.visible = false
+    await input('skip:stop', false)
+    expect(pipeline.emit).toHaveBeenLastCalledWith(RenderToLogicEvents.FLOW_CONTROL_STOP_SKIP_REQUEST, { source: 'pad' })
+    dispose()
+    pipeline.emit.mockClear()
+    await input('skip:stop', false)
+    expect(pipeline.emit).toHaveBeenCalledTimes(1)
+  })
+
   it('returns background readiness and shader errors through the existing pipeline', async () => {
     const pipeline = createTestPipeline()
     for (const payload of [{ id: 'background.transition:1' }, { id: 'background.transition:2', error: 'Invalid WGSL' }]) {

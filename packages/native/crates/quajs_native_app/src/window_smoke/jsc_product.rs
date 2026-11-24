@@ -12,6 +12,8 @@ use quajs_native_runtime::{
 
 use super::error::NativeWindowSmokeError;
 
+mod product_storage;
+
 pub(super) const WINDOW_DEV_JSC_APP_ASSET_ENV: &str =
     "QUA_NATIVE_RENDERER_WINDOW_DEV_JSC_APP_ASSET";
 
@@ -51,6 +53,7 @@ struct JscProductAsset {
     bundle_name: String,
     code: String,
     bytes: Vec<u8>,
+    storage_path: Option<std::path::PathBuf>,
 }
 
 impl NativeWindowJscProduct {
@@ -61,8 +64,10 @@ impl NativeWindowJscProduct {
     where
         H: NativeHostApi,
     {
-        let Some(asset_url) = crate::packaged_app::config().map(|app| std::ffi::OsString::from(&app.app_asset))
-            .or_else(|| std::env::var_os(WINDOW_DEV_JSC_APP_ASSET_ENV)) else {
+        let Some(asset_url) = crate::packaged_app::config()
+            .map(|app| std::ffi::OsString::from(&app.app_asset))
+            .or_else(|| std::env::var_os(WINDOW_DEV_JSC_APP_ASSET_ENV))
+        else {
             return Ok(None);
         };
         let asset = load_product_asset(host, asset_url.to_string_lossy().as_ref())?;
@@ -295,6 +300,14 @@ fn run_jsc_product_worker(
 impl JscProductModule {
     fn load(asset: JscProductAsset) -> Result<Self, NativeWindowSmokeError> {
         let mut evaluator = JavaScriptCoreEvaluator::new().map_err(jsc_error)?;
+        if let Some(path) = asset.storage_path {
+            let mut store = product_storage::ProductStorage::open(&path).map_err(|error| {
+                NativeWindowSmokeError::new(format!("Product storage: {error}"))
+            })?;
+            evaluator
+                .install_product_storage(move |op, key, value| store.call(op, key, value))
+                .map_err(jsc_error)?;
+        }
         let response = evaluator
             .evaluate_module(&JscEvaluationRequest {
                 module: JscRuntimeModuleRecord {
@@ -396,6 +409,13 @@ where
         ))
     })?;
     Ok(JscProductAsset {
+        storage_path: if crate::packaged_app::enabled() {
+            Some(product_storage::directory().ok_or_else(|| {
+                NativeWindowSmokeError::new("Missing application data directory.")
+            })?)
+        } else {
+            None
+        },
         asset_name: asset_url
             .strip_prefix("assets/")
             .unwrap_or(asset_url)
@@ -476,8 +496,12 @@ fn host_error(error: quajs_native_runtime::NativeHostApiError) -> NativeWindowSm
 }
 
 fn jsc_error(error: quajs_native_runtime::JscEvaluationError) -> NativeWindowSmokeError {
-    NativeWindowSmokeError::new(format!(
-        "Native JavaScriptCore demo app failed: {}.",
-        error.message
-    ))
+    let detail = error.detail.filter(|message| !message.is_empty());
+    NativeWindowSmokeError::new(match detail {
+        Some(detail) => format!(
+            "Native JavaScriptCore app failed: {} {detail}",
+            error.message
+        ),
+        None => format!("Native JavaScriptCore app failed: {}", error.message),
+    })
 }

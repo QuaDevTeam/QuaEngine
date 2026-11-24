@@ -4,7 +4,7 @@ import type { QuaTargetBootstrap } from '../target/bootstrap'
 export type TargetBundleProfile = 'debug' | 'release'
 
 const TARGET_BUNDLE_PROFILES = new Set(['debug', 'release'] as const)
-const NATIVE_TARGET_BUNDLE_PLATFORMS = new Set<QuaNativePlatform>(['macos', 'windows', 'linux'])
+const NATIVE_TARGET_BUNDLE_PLATFORMS = new Set<QuaNativePlatform>(['macos', 'windows', 'linux', 'ios', 'android'])
 
 export interface TargetBundleAppInfo {
   bundleId?: string
@@ -92,7 +92,7 @@ export function checkArtifactMetadata(
       target: expectedTarget,
       field: 'platform',
       value: platform,
-      message: 'Native target bundle manifest platform must be "macos", "windows", or "linux".',
+      message: 'Native target bundle manifest platform must be "macos", "windows", "linux", "ios", or "android".',
     })
   }
 

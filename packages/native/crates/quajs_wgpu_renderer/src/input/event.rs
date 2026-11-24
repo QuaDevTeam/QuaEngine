@@ -97,12 +97,23 @@ impl NativePointerInteractionState {
         self.active_presses.get(&pointer_id)
     }
 
+    pub fn is_dragging_range(&self, pointer_id: u64) -> bool {
+        self.controls.is_dragging_range(pointer_id)
+    }
+
     pub fn active_press_count(&self) -> usize {
         self.active_presses.len()
     }
 
     pub fn hovered_command_id(&self) -> Option<&str> {
         self.hovered_command_id.as_deref()
+    }
+
+    pub(crate) fn focus_command(&mut self, id: &str) {
+        let previous = self.visual_snapshot();
+        self.hovered_command_id = None;
+        self.focused_command_id = Some(id.to_owned());
+        self.start_visual_transition(previous);
     }
 
     pub fn focused_command_id(&self) -> Option<&str> {
@@ -131,7 +142,8 @@ impl NativePointerInteractionState {
         let press_changed = self.active_presses.remove(&pointer_id).is_some();
         let hover_changed = self.hovered_command_id.take().is_some();
         let focus_changed = self.focused_command_id.take().is_some();
-        let changed = press_changed || hover_changed || focus_changed;
+        let control_changed = self.controls.cancel_pointer(pointer_id);
+        let changed = press_changed || hover_changed || focus_changed || control_changed;
         if changed {
             self.start_visual_transition(previous);
         }
@@ -200,10 +212,7 @@ impl NativePointerInteractionState {
 /// chain every frame, so the depth must stay bounded.
 const MAX_SUPERSEDED_CHAIN_DEPTH: usize = 8;
 
-fn truncate_superseded_chain(
-    chain: &mut NativePointerVisualTransition,
-    remaining_depth: usize,
-) {
+fn truncate_superseded_chain(chain: &mut NativePointerVisualTransition, remaining_depth: usize) {
     if remaining_depth == 0 {
         chain.superseded = None;
         return;

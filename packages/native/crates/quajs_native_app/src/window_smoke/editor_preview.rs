@@ -8,7 +8,8 @@ use std::time::Duration;
 static SURFACE: Mutex<Option<Value>> = Mutex::new(None);
 
 pub(crate) fn enabled() -> bool {
-    !crate::packaged_app::enabled() && std::env::var("QUA_NATIVE_EDITOR_PREVIEW").as_deref() == Ok("1")
+    !crate::packaged_app::enabled()
+        && std::env::var("QUA_NATIVE_EDITOR_PREVIEW").as_deref() == Ok("1")
         && std::env::var("QUA_NATIVE_EDITOR_TOKEN").is_ok_and(|token| !token.is_empty())
 }
 

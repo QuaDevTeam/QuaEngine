@@ -1,4 +1,6 @@
 use std::fmt::{Display, Formatter};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
 use quajs_native_runtime::{InMemoryNativeHostApi, NativeHostApi};
 use quajs_wgpu_renderer::audio::NativeAudioBackendError;
@@ -76,10 +78,31 @@ impl NativeProductWindowPhysicalSize {
     }
 }
 
+/// Properties of the physical display, separate from the negotiated swapchain.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub(crate) struct NativeDisplayColor {
+    pub(crate) color_space: Option<String>,
+    pub(crate) hdr_available: Option<bool>,
+    pub(crate) current_edr_headroom: Option<f64>,
+    pub(crate) sdr_white_scale: Option<f32>,
+}
+
+impl NativeDisplayColor {
+    fn output_parameters(&self) -> (bool, f32) {
+        // A display can be HDR-capable while its desktop white point cannot be
+        // queried. Let the compositor present SDR at the selected white then.
+        match (self.hdr_available, self.sdr_white_scale) {
+            (Some(true), Some(scale)) if scale.is_finite() && scale > 0.0 => (true, scale),
+            _ => (false, 1.0),
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct NativeProductWindowPresentation {
     pub(crate) adapter_name: String,
     pub(crate) surface_format: String,
+    pub(crate) output_color_space: &'static str,
     pub(crate) present_mode: String,
 }
 
@@ -235,14 +258,34 @@ impl Display for NativeProductWindowPresentFailure {
     }
 }
 
+pub(crate) trait NativeProductSurfaceSource: std::fmt::Debug {
+    fn create_surface(
+        &self,
+        instance: &wgpu::Instance,
+    ) -> Result<wgpu::Surface<'static>, wgpu::CreateSurfaceError>;
+}
+
+impl NativeProductSurfaceSource for Arc<winit::window::Window> {
+    fn create_surface(
+        &self,
+        instance: &wgpu::Instance,
+    ) -> Result<wgpu::Surface<'static>, wgpu::CreateSurfaceError> {
+        instance.create_surface(self.clone())
+    }
+}
+
 #[derive(Debug)]
 pub(crate) struct NativeProductWindowRuntime<H> {
     instance: wgpu::Instance,
-    surface: wgpu::Surface<'static>,
+    surface: Option<wgpu::Surface<'static>>,
+    // The native owner (including an editor CAMetalLayer) outlives the surface above.
+    surface_source: Option<Box<dyn NativeProductSurfaceSource>>,
+    device_lost: Arc<AtomicBool>,
     product: RealWgpuProductRuntime<H>,
     adapter: wgpu::Adapter,
     backend_config: WgpuNativeRenderBackendConfig,
     presentation: NativeProductWindowPresentation,
+    display_color: NativeDisplayColor,
     configured_physical_size: NativeProductWindowPhysicalSize,
 }
 
@@ -252,22 +295,25 @@ where
 {
     pub(crate) fn bootstrap(
         instance: &wgpu::Instance,
-        surface: wgpu::Surface<'static>,
+        source: Box<dyn NativeProductSurfaceSource>,
         physical_size: NativeProductWindowPhysicalSize,
         host: H,
+        display_color: NativeDisplayColor,
     ) -> Result<Self, NativeProductWindowError> {
-        let backend_config = WgpuNativeRenderBackendConfig::default();
-        Self::bootstrap_with_backend_config(instance, surface, physical_size, host, backend_config)
-    }
-
-    pub(crate) fn bootstrap_with_backend_config(
-        instance: &wgpu::Instance,
-        surface: wgpu::Surface<'static>,
-        physical_size: NativeProductWindowPhysicalSize,
-        host: H,
-        backend_config: WgpuNativeRenderBackendConfig,
-    ) -> Result<Self, NativeProductWindowError> {
-        Self::bootstrap_configured(instance, surface, physical_size, host, backend_config, configured_msaa_samples(), std::env::var_os("QUA_NATIVE_RENDERER_WINDOW_SMOKE_FRAME").is_none())
+        let surface = source.create_surface(instance).map_err(|error| {
+            NativeProductWindowError::new(format!("failed to create wgpu surface: {error}"))
+        })?;
+        let mut runtime = Self::bootstrap_configured(
+            instance,
+            surface,
+            physical_size,
+            host,
+            display_color,
+            configured_msaa_samples(),
+            std::env::var_os("QUA_NATIVE_RENDERER_WINDOW_SMOKE_FRAME").is_none(),
+        )?;
+        runtime.surface_source = Some(source);
+        Ok(runtime)
     }
 
     /// Embedding never consults application/editor development environment flags.
@@ -278,7 +324,15 @@ where
         physical_size: NativeProductWindowPhysicalSize,
         host: H,
     ) -> Result<Self, NativeProductWindowError> {
-        Self::bootstrap_configured(instance, surface, physical_size, host, WgpuNativeRenderBackendConfig::default(), 1, true)
+        Self::bootstrap_configured(
+            instance,
+            surface,
+            physical_size,
+            host,
+            NativeDisplayColor::default(),
+            1,
+            true,
+        )
     }
 
     fn bootstrap_configured(
@@ -286,15 +340,20 @@ where
         surface: wgpu::Surface<'static>,
         physical_size: NativeProductWindowPhysicalSize,
         host: H,
-        backend_config: WgpuNativeRenderBackendConfig,
+        display_color: NativeDisplayColor,
         msaa_samples: u32,
         async_images: bool,
     ) -> Result<Self, NativeProductWindowError> {
+        let backend_config = WgpuNativeRenderBackendConfig::default();
         let mut bootstrap_request = RealWgpuSurfaceTargetBootstrapRequest::new(
             physical_size.width,
             physical_size.height,
             backend_config.clone(),
         );
+        (
+            bootstrap_request.display_hdr_available,
+            bootstrap_request.sdr_white_scale,
+        ) = display_color.output_parameters();
         bootstrap_request.msaa_samples = msaa_samples;
         let bootstrap = pollster::block_on(create_real_wgpu_surface_target(
             instance,
@@ -307,6 +366,7 @@ where
             ))
         })?;
 
+        let device_lost = observe_device_loss(bootstrap.target.device());
         let mut runtime_device = RealWgpuNativeRenderRuntimeDevice::new(bootstrap.target);
         if async_images {
             runtime_device
@@ -325,6 +385,7 @@ where
         );
         let presentation = NativeProductWindowPresentation {
             adapter_name: bootstrap.adapter_info.name,
+            output_color_space: bootstrap.surface_config.output_color_space(),
             surface_format: format!("{:?}", bootstrap.surface_config.config.format),
             present_mode: format!("{:?}", bootstrap.surface_config.config.present_mode),
         };
@@ -342,7 +403,9 @@ where
 
         Ok(Self {
             instance: instance.clone(),
-            surface,
+            surface: Some(surface),
+            surface_source: None,
+            device_lost,
             product: NativeProductRuntime::new(
                 NativeRenderer::with_audio_video_font_backend(
                     backend,
@@ -355,12 +418,63 @@ where
             adapter: bootstrap.adapter,
             backend_config,
             presentation,
+            display_color,
             configured_physical_size,
         })
     }
 
+    #[cfg(target_os = "android")]
+    pub(crate) fn surface_suspended(&self) -> bool {
+        self.surface.is_none()
+    }
+
+    #[cfg(target_os = "android")]
+    pub(crate) fn suspend_surface(&mut self) {
+        self.surface.take();
+    }
+
+    pub(crate) fn device_lost(&self) -> bool {
+        self.device_lost.load(Ordering::Relaxed)
+    }
+
+    pub(crate) fn recreate_window_surface(
+        &mut self,
+        size: NativeProductWindowPhysicalSize,
+    ) -> Result<NativeProductWindowResizeReport, NativeProductWindowError> {
+        let source = self.surface_source.as_ref().ok_or_else(|| {
+            NativeProductWindowError::new("The owner must recreate the lost external surface")
+        })?;
+        // Release the old swapchain before requesting a new surface on the same native window.
+        self.surface.take();
+        self.surface = Some(
+            source
+                .create_surface(&self.instance)
+                .map_err(|error| NativeProductWindowError::new(error.to_string()))?,
+        );
+        let result = self.resize_to_physical_size(size);
+        if result.is_err() {
+            self.surface.take();
+        }
+        result
+    }
+
     pub(crate) fn presentation(&self) -> &NativeProductWindowPresentation {
         &self.presentation
+    }
+
+    pub(crate) fn display_color(&self) -> &NativeDisplayColor {
+        &self.display_color
+    }
+
+    pub(crate) fn update_display_color(
+        &mut self,
+        color: NativeDisplayColor,
+    ) -> Result<(), NativeProductWindowError> {
+        if self.display_color.output_parameters() != color.output_parameters() {
+            self.configure_surface(self.configured_physical_size, color.output_parameters())?;
+        }
+        self.display_color = color;
+        Ok(())
     }
 
     pub(crate) fn rendered_frame_count(&self) -> usize {
@@ -443,17 +557,34 @@ where
     pub(crate) fn present_frame_to_surface(
         &mut self,
     ) -> Result<RealWgpuSurfacePresentReport, WgpuNativeRenderRuntimeError> {
+        let surface = self.surface.as_ref().ok_or_else(|| WgpuNativeRenderRuntimeError {
+            kind: quajs_wgpu_renderer::renderer::WgpuNativeRenderRuntimeErrorKind::InvalidOperationOrder,
+            message: "Window surface is suspended".into(),
+        })?;
         self.product
             .renderer_mut()
             .backend_mut()
-            .present_frame_to_surface(&self.surface)
+            .present_frame_to_surface(surface)
     }
 
     pub(crate) fn resize_to_physical_size(
         &mut self,
         physical_size: NativeProductWindowPhysicalSize,
     ) -> Result<NativeProductWindowResizeReport, NativeProductWindowError> {
-        let surface_config_request = WgpuNativeSurfaceConfigRequest::from_backend_config(
+        // A loss can be reported while an Android window has no surface. Rebuild
+        // against the new drawable before trying to configure it with the old device.
+        if self.device_lost() {
+            return self.recover_device_for_physical_size(physical_size);
+        }
+        self.configure_surface(physical_size, self.display_color.output_parameters())
+    }
+
+    fn configure_surface(
+        &mut self,
+        physical_size: NativeProductWindowPhysicalSize,
+        (hdr_available, white_scale): (bool, f32),
+    ) -> Result<NativeProductWindowResizeReport, NativeProductWindowError> {
+        let mut surface_config_request = WgpuNativeSurfaceConfigRequest::from_backend_config(
             physical_size.width,
             physical_size.height,
             &self.backend_config,
@@ -463,6 +594,8 @@ where
                 "failed to plan native product window surface resize request: {error}"
             ))
         })?;
+        surface_config_request.display_hdr_available = hdr_available;
+        surface_config_request.sdr_white_scale = white_scale;
         let surface_config = {
             let device = self
                 .renderer()
@@ -472,7 +605,9 @@ where
                 .target()
                 .device();
             configure_wgpu_surface_for_native_renderer(
-                &self.surface,
+                self.surface
+                    .as_ref()
+                    .ok_or_else(|| NativeProductWindowError::new("Window surface is suspended"))?,
                 &self.adapter,
                 device,
                 &surface_config_request,
@@ -492,6 +627,7 @@ where
                 ))
             })?;
 
+        self.presentation.output_color_space = surface_config.output_color_space();
         self.presentation.surface_format = format!("{:?}", surface_config.config.format);
         self.presentation.present_mode = format!("{:?}", surface_config.config.present_mode);
         self.configured_physical_size = NativeProductWindowPhysicalSize::new(
@@ -513,10 +649,16 @@ where
             physical_size.height,
             self.backend_config.clone(),
         );
+        (
+            bootstrap_request.display_hdr_available,
+            bootstrap_request.sdr_white_scale,
+        ) = self.display_color.output_parameters();
         bootstrap_request.msaa_samples = configured_msaa_samples();
         let bootstrap = pollster::block_on(create_real_wgpu_surface_target(
             &self.instance,
-            &self.surface,
+            self.surface
+                .as_ref()
+                .ok_or_else(|| NativeProductWindowError::new("Window surface is suspended"))?,
             &bootstrap_request,
         ))
         .map_err(|error| {
@@ -525,6 +667,7 @@ where
             ))
         })?;
 
+        let device_lost = observe_device_loss(bootstrap.target.device());
         let mut runtime_device = RealWgpuNativeRenderRuntimeDevice::new(bootstrap.target);
         if std::env::var_os("QUA_NATIVE_RENDERER_WINDOW_SMOKE_FRAME").is_none() {
             runtime_device
@@ -542,8 +685,10 @@ where
             runtime_executor,
         );
         self.product.renderer_mut().replace_backend(backend);
+        self.device_lost = device_lost;
         self.adapter = bootstrap.adapter;
         self.presentation.adapter_name = bootstrap.adapter_info.name;
+        self.presentation.output_color_space = bootstrap.surface_config.output_color_space();
         self.presentation.surface_format = format!("{:?}", bootstrap.surface_config.config.format);
         self.presentation.present_mode =
             format!("{:?}", bootstrap.surface_config.config.present_mode);
@@ -562,6 +707,18 @@ where
     ) -> Result<NativeProductWindowResizeReport, NativeProductWindowError> {
         self.resize_to_physical_size(self.configured_physical_size)
     }
+}
+
+fn observe_device_loss(device: &wgpu::Device) -> Arc<AtomicBool> {
+    let lost = Arc::new(AtomicBool::new(false));
+    let flag = lost.clone();
+    device.set_device_lost_callback(move |reason, message| {
+        if reason == wgpu::DeviceLostReason::Unknown {
+            flag.store(true, Ordering::Relaxed);
+            log::error!("Native wgpu device lost: {message}");
+        }
+    });
+    lost
 }
 
 #[cfg(feature = "native-audio-rodio")]
@@ -661,6 +818,21 @@ mod tests {
     use quajs_wgpu_renderer::renderer::{RealWgpuFrameCopyReport, RealWgpuSurfacePresentStatus};
 
     use super::*;
+
+    #[test]
+    fn hdr_requires_known_sdr_white_but_not_current_mac_headroom() {
+        let mut display = NativeDisplayColor::default();
+        assert_eq!(display.output_parameters(), (false, 1.0));
+        display.hdr_available = Some(true);
+        display.current_edr_headroom = Some(1.0);
+        assert_eq!(display.output_parameters(), (false, 1.0));
+        display.sdr_white_scale = Some(1.0);
+        assert_eq!(display.output_parameters(), (true, 1.0));
+        display.sdr_white_scale = Some(2.5);
+        assert_eq!(display.output_parameters(), (true, 2.5));
+        display.hdr_available = Some(false);
+        assert_eq!(display.output_parameters(), (false, 1.0));
+    }
 
     #[test]
     fn physical_size_normalizes_zero_dimensions() {

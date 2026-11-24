@@ -17,6 +17,8 @@ pub struct RealWgpuSurfaceTargetBootstrap {
 
 #[derive(Clone, Debug)]
 pub struct RealWgpuSurfaceTargetBootstrapRequest<'a> {
+    pub display_hdr_available: bool,
+    pub sdr_white_scale: f32,
     pub width: u32,
     pub height: u32,
     pub backend_config: WgpuNativeRenderBackendConfig,
@@ -24,19 +26,30 @@ pub struct RealWgpuSurfaceTargetBootstrapRequest<'a> {
     pub force_fallback_adapter: bool,
     /// Opt-in 4x geometric coverage; 1x avoids extra attachment memory.
     pub msaa_samples: u32,
-    pub device_descriptor: wgpu::DeviceDescriptor<'a>,
+    pub device_label: Option<&'a str>,
+}
+
+/// Device limits the native renderer requires: the downlevel (GLES3 / early
+/// Vulkan, i.e. mobile) tier, with texture/attachment sizes taken from the
+/// adapter so large desktop windows keep full-size frame targets. Requesting
+/// WebGPU defaults instead makes `request_device` fail on phone GPUs that the
+/// renderer otherwise runs on.
+pub fn native_renderer_required_limits(adapter_limits: wgpu::Limits) -> wgpu::Limits {
+    wgpu::Limits::downlevel_defaults().using_resolution(adapter_limits)
 }
 
 impl<'a> RealWgpuSurfaceTargetBootstrapRequest<'a> {
     pub fn new(width: u32, height: u32, backend_config: WgpuNativeRenderBackendConfig) -> Self {
         Self {
+            display_hdr_available: false,
+            sdr_white_scale: 1.0,
             width,
             height,
             backend_config,
             power_preference: wgpu::PowerPreference::HighPerformance,
             force_fallback_adapter: false,
             msaa_samples: 1,
-            device_descriptor: wgpu::DeviceDescriptor::default(),
+            device_label: None,
         }
     }
 }
@@ -67,16 +80,25 @@ pub async fn create_real_wgpu_surface_target(
     surface: &wgpu::Surface<'_>,
     request: &RealWgpuSurfaceTargetBootstrapRequest<'_>,
 ) -> Result<RealWgpuSurfaceTargetBootstrap, RealWgpuSurfaceTargetBootstrapError> {
-    let surface_request = WgpuNativeSurfaceConfigRequest::from_backend_config(
+    let mut surface_request = WgpuNativeSurfaceConfigRequest::from_backend_config(
         request.width,
         request.height,
         &request.backend_config,
     )
     .map_err(surface_config_error)?;
+    surface_request.display_hdr_available = request.display_hdr_available;
+    surface_request.sdr_white_scale = request.sdr_white_scale;
     let adapter = select_surface_adapter(instance, surface, &surface_request, request).await?;
     let adapter_info = adapter.get_info();
     let (device, queue) = adapter
-        .request_device(&request.device_descriptor)
+        .request_device(&wgpu::DeviceDescriptor {
+            label: request.device_label,
+            required_features: adapter.features()
+                & (wgpu::Features::TEXTURE_COMPRESSION_ASTC
+                    | wgpu::Features::TEXTURE_COMPRESSION_BC),
+            required_limits: native_renderer_required_limits(adapter.limits()),
+            ..Default::default()
+        })
         .await
         .map_err(|error| {
             bootstrap_error(
@@ -90,13 +112,12 @@ pub async fn create_real_wgpu_surface_target(
     let surface_config =
         configure_wgpu_surface_for_native_renderer(surface, &adapter, &device, &surface_request)
             .map_err(surface_config_error)?;
+    let frame_format = super::target::initial_frame_color_format(surface_config.config.format);
     let sample_count = super::target::supported_sample_count(
         request.msaa_samples,
-        adapter
-            .get_texture_format_features(surface_config.config.format.remove_srgb_suffix())
-            .flags,
+        adapter.get_texture_format_features(frame_format).flags,
     );
-    let target = RealWgpuNativeRenderRuntimeTarget::new(
+    let mut target = RealWgpuNativeRenderRuntimeTarget::new(
         device,
         queue,
         surface_config.config.format,
@@ -107,8 +128,12 @@ pub async fn create_real_wgpu_surface_target(
         },
     )
     .with_msaa_samples(sample_count);
+    target.set_surface_output(&surface_config);
     log::info!(
-        "Native renderer MSAA: requested {}, active {}",
+        "Native wgpu {:?} adapter {:?} ({:?}), surface {:?} {}x{} {:?}, MSAA requested {}, active {}",
+        adapter_info.backend, adapter_info.name, adapter_info.device_type,
+        surface_config.config.format, surface_config.config.width, surface_config.config.height,
+        surface_config.config.present_mode,
         request.msaa_samples,
         target.sample_count()
     );
@@ -232,6 +257,26 @@ mod tests {
         };
 
         assert_eq!(configured_adapter_name(&config), None);
+    }
+
+    #[test]
+    fn required_limits_stay_in_the_downlevel_tier_but_follow_adapter_resolution() {
+        let adapter = wgpu::Limits {
+            max_texture_dimension_1d: 16384,
+            max_texture_dimension_2d: 16384,
+            max_texture_dimension_3d: 2048,
+            ..wgpu::Limits::default()
+        };
+
+        assert_eq!(
+            native_renderer_required_limits(adapter),
+            wgpu::Limits {
+                max_texture_dimension_1d: 16384,
+                max_texture_dimension_2d: 16384,
+                max_texture_dimension_3d: 2048,
+                ..wgpu::Limits::downlevel_defaults()
+            }
+        );
     }
 
     #[test]

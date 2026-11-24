@@ -12,11 +12,16 @@ use crate::product_window::{
 use quajs_wgpu_renderer::renderer::RealWgpuEncodedFrameCapture;
 
 pub(super) struct NativeWindowSmokeReportInput<'a> {
+    pub display_color: &'a crate::product_window::NativeDisplayColor,
+    pub output_color_space: &'a str,
     pub adapter_name: &'a str,
     pub surface_format: &'a str,
     pub present_mode: &'a str,
     pub present_status: &'a str,
     pub presented: bool,
+    pub display_refresh_millihertz: Option<u32>,
+    pub requested_frame_rate: Option<u32>,
+    pub effective_frame_rate: f64,
     pub present_attempt_count: usize,
     pub target_frame_count: usize,
     pub rendered_frame_count: usize,
@@ -52,11 +57,19 @@ pub(super) fn build_window_smoke_report(
 ) -> NativeWindowSmokeReport {
     NativeWindowSmokeReport {
         adapter_name: input.adapter_name.to_string(),
+        display_color_space: input.display_color.color_space.clone(),
+        display_hdr_available: input.display_color.hdr_available,
+        current_edr_headroom: input.display_color.current_edr_headroom,
+        display_sdr_white_scale: input.display_color.sdr_white_scale,
+        output_color_space: input.output_color_space.to_string(),
         backend: "wgpu".to_string(),
         surface_format: input.surface_format.to_string(),
         present_mode: input.present_mode.to_string(),
         present_status: input.present_status.to_string(),
         presented: input.presented,
+        display_refresh_millihertz: input.display_refresh_millihertz,
+        requested_frame_rate: input.requested_frame_rate,
+        effective_frame_rate: input.effective_frame_rate,
         present_attempt_count: input.present_attempt_count,
         target_frame_count: input.target_frame_count,
         rendered_frame_count: input.rendered_frame_count,
@@ -344,10 +357,19 @@ mod tests {
 
         let report = build_window_smoke_report(NativeWindowSmokeReportInput {
             adapter_name: "adapter",
+            display_color: &crate::product_window::NativeDisplayColor {
+                hdr_available: Some(true),
+                current_edr_headroom: Some(1.0),
+                ..Default::default()
+            },
+            output_color_space: "srgb",
             surface_format: "Bgra8Unorm",
             present_mode: "Fifo",
             present_status: "Presented",
             presented: true,
+            display_refresh_millihertz: Some(59_940),
+            requested_frame_rate: None,
+            effective_frame_rate: 59.94,
             present_attempt_count: 2,
             target_frame_count: 3,
             rendered_frame_count: 2,
@@ -402,6 +424,7 @@ mod tests {
                 logical_height: 270.0,
                 physical_size: winit::dpi::PhysicalSize::new(960, 540),
                 device_pixel_ratio: 2.0,
+                safe_area_insets: None,
             },
             revision: 7,
             pass_count: 8,
@@ -418,7 +441,13 @@ mod tests {
             frame_capture: Some(&frame_capture),
         });
 
+        assert_eq!(report.display_refresh_millihertz, Some(59_940));
+        assert_eq!(report.requested_frame_rate, None);
+        assert_eq!(report.effective_frame_rate, 59.94);
         assert_eq!(report.adapter_name, "adapter");
+        assert_eq!(report.display_hdr_available, Some(true));
+        assert_eq!(report.current_edr_headroom, Some(1.0));
+        assert_eq!(report.output_color_space, "srgb");
         assert_eq!(report.target_frame_count, 3);
         assert_eq!(report.rendered_frame_count, 2);
         assert_eq!(report.font_atlas_uploaded_count, 5);

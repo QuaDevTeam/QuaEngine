@@ -4,6 +4,8 @@ use super::super::super::{
     WgpuNativeRenderRuntimeError,
 };
 use super::super::WgpuNativeRenderDecodedTextureCleanupReport;
+#[cfg(feature = "image-decode")]
+use crate::renderer::backend::wgpu::ImageUploadBytes;
 use crate::renderer::{
     NativeRendererFrameUpdate, NativeRendererHostCleanupRecord, NativeRendererPackageRelease,
 };
@@ -86,7 +88,7 @@ impl
     pub fn request_image_texture_upload(
         &mut self,
         id: &str,
-        bytes: &[u8],
+        bytes: impl ImageUploadBytes,
         metadata: RealWgpuDecodedTextureMetadata,
     ) -> Result<bool, WgpuNativeRenderRuntimeError> {
         let ready = self

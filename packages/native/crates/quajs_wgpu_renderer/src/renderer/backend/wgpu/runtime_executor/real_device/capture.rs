@@ -148,8 +148,6 @@ impl RealWgpuNativeRenderRuntimeDevice {
     pub fn capture_frame_png(
         &self,
     ) -> Result<RealWgpuEncodedFrameCapture, RealWgpuFrameCaptureError> {
-        use image::ImageEncoder;
-
         let mut capture = self.capture_frame_rgba8()?;
         let visible_pixel_count = capture
             .rgba8
@@ -166,16 +164,21 @@ impl RealWgpuNativeRenderRuntimeDevice {
         // screenshots a second time when a browser/save preview composites them.
         unpremultiply_rgba8(&mut capture.rgba8);
         let mut bytes = Vec::new();
-        image::codecs::png::PngEncoder::new(&mut bytes)
-            .write_image(
-                &capture.rgba8,
-                capture.width,
-                capture.height,
-                image::ExtendedColorType::Rgba8,
-            )
+        let mut encoder = png::Encoder::new(&mut bytes, capture.width, capture.height);
+        encoder.set_color(png::ColorType::Rgba);
+        encoder.set_depth(png::BitDepth::Eight);
+        encoder.set_compression(png::Compression::Fast);
+        encoder.set_filter(png::Filter::Adaptive);
+        encoder.set_source_srgb(png::SrgbRenderingIntent::RelativeColorimetric);
+        encoder
+            .write_header()
+            .and_then(|mut writer| {
+                writer.write_image_data(&capture.rgba8)?;
+                writer.finish()
+            })
             .map_err(|error| {
                 RealWgpuFrameCaptureError::new(format!(
-                    "native frame capture PNG encoding failed: {error}",
+                    "native frame capture PNG encoding failed: {error}"
                 ))
             })?;
         Ok(RealWgpuEncodedFrameCapture {

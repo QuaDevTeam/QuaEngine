@@ -1,4 +1,8 @@
-pub const NATIVE_TEXT_ATLAS_COLUMNS: usize = 128;
+/// Grid width of the shared TextAtlas. Chosen so the full grid (ASCII, CJK,
+/// Hangul, fullwidth and the solid mask, ~39.7k cells) stays within 2048
+/// texels on both axes — the GLES3 / downlevel `max_texture_dimension_2d`
+/// floor — instead of one tall strip that mobile GPUs reject.
+pub const NATIVE_TEXT_ATLAS_COLUMNS: usize = 256;
 pub const NATIVE_TEXT_ATLAS_PADDING: usize = 1;
 pub const NATIVE_TEXT_ATLAS_GLYPH_WIDTH: usize = 5;
 pub const NATIVE_TEXT_ATLAS_GLYPH_HEIGHT: usize = 7;
@@ -144,6 +148,12 @@ pub fn native_text_atlas_cell_y(index: usize) -> usize {
 mod tests {
     use super::*;
 
+    /// `wgpu::Limits::downlevel_defaults().max_texture_dimension_2d`, the GLES3
+    /// floor; spelled out so the contract test needs no GPU feature.
+    fn wgpu_downlevel_max_texture_dimension_2d() -> u32 {
+        2048
+    }
+
     #[test]
     fn maps_cjk_and_fullwidth_characters_to_dedicated_slots() {
         for character in ['界', '語', 'あ', '한', 'Ａ', '。'] {
@@ -151,6 +161,14 @@ mod tests {
             assert_ne!(index, NATIVE_TEXT_ATLAS_SOLID_MASK_INDEX);
             assert_eq!(native_text_atlas_char_at(index), Some(character));
         }
+    }
+
+    #[test]
+    fn atlas_fits_the_downlevel_texture_dimension_limit() {
+        let max_dimension = wgpu_downlevel_max_texture_dimension_2d();
+        let (width, height) = native_text_atlas_dimensions();
+        assert!(width <= max_dimension, "atlas width {width}");
+        assert!(height <= max_dimension, "atlas height {height}");
     }
 
     #[test]

@@ -6,10 +6,15 @@ use std::sync::{
 #[derive(Clone, Debug)]
 pub struct RealWgpuNativeRenderRuntimeTarget {
     encoded_draws: Arc<AtomicU64>,
+    pub(super) scene_sampler: wgpu::Sampler,
+    pub(super) identity_uv: wgpu::Buffer,
     device: wgpu::Device,
     queue: wgpu::Queue,
     color_format: wgpu::TextureFormat,
     extent: wgpu::Extent3d,
+    frame_format: wgpu::TextureFormat,
+    pub(super) sdr_white_scale: f32,
+    pub(super) alpha_mode: wgpu::CompositeAlphaMode,
     requested_sample_count: u32,
     sample_count: u32,
 }
@@ -23,8 +28,18 @@ impl RealWgpuNativeRenderRuntimeTarget {
     ) -> Self {
         Self {
             encoded_draws: Default::default(),
+            scene_sampler: device.create_sampler(
+                &super::texture::sampler::texture_sampler_descriptor("qua-native::scene-sampler"),
+            ),
+            identity_uv: super::texture::sampler::uv_uniform(
+                &device,
+                super::texture::sampler::IDENTITY_UV,
+            ),
             device,
             queue,
+            frame_format: initial_frame_color_format(color_format),
+            sdr_white_scale: 1.0,
+            alpha_mode: wgpu::CompositeAlphaMode::Opaque,
             color_format,
             extent: normalized_extent(extent),
             requested_sample_count: 1,
@@ -84,6 +99,15 @@ impl RealWgpuNativeRenderRuntimeTarget {
     }
 
     pub(super) fn resize(&mut self, color_format: wgpu::TextureFormat, extent: wgpu::Extent3d) {
+        self.frame_format = initial_frame_color_format(color_format);
+        self.set_output_format(color_format, extent);
+    }
+
+    pub(super) fn set_output_format(
+        &mut self,
+        color_format: wgpu::TextureFormat,
+        extent: wgpu::Extent3d,
+    ) {
         self.color_format = color_format;
         self.extent = normalized_extent(extent);
         self.update_sample_count();
@@ -94,21 +118,34 @@ impl RealWgpuNativeRenderRuntimeTarget {
         self.color_format
     }
 
-    /// Format the offscreen frame is composited in. Always the non-sRGB variant
-    /// of [`Self::color_format`], so the fixed-function blender operates on
-    /// sRGB-encoded values the way CSS does instead of on decoded linear light.
-    /// Presenting is a raw texture copy, which wgpu allows between formats that
-    /// differ only in sRGB-ness, so the swapchain still receives the same bytes.
-    ///
-    /// Pipelines and the frame texture must both derive their color target from
-    /// here; reading [`Self::color_format`] instead would fail render-pass
-    /// format validation.
+    /// Premultiplied, sRGB-encoded scene storage used by CSS blending and PNG
+    /// capture. Retain the format across display moves so scene pipelines and
+    /// bind groups stay valid even when the swapchain switches to linear FP16.
     pub fn frame_color_format(&self) -> wgpu::TextureFormat {
-        self.color_format.remove_srgb_suffix()
+        self.frame_format
+    }
+
+    pub(super) fn set_surface_output(
+        &mut self,
+        plan: &crate::renderer::backend::wgpu::WgpuNativeSurfaceConfigPlan,
+    ) {
+        self.sdr_white_scale = plan.sdr_white_scale;
+        self.alpha_mode = plan.config.alpha_mode;
     }
 
     pub fn extent(&self) -> wgpu::Extent3d {
         self.extent
+    }
+}
+
+pub(super) fn initial_frame_color_format(surface: wgpu::TextureFormat) -> wgpu::TextureFormat {
+    if matches!(
+        surface,
+        wgpu::TextureFormat::Rgba16Float | wgpu::TextureFormat::Rgb10a2Unorm
+    ) {
+        wgpu::TextureFormat::Rgba8Unorm
+    } else {
+        surface.remove_srgb_suffix()
     }
 }
 

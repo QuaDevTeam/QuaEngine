@@ -208,7 +208,11 @@ impl NativeProductAppLoop {
         }
     }
 
-    fn can_request_redraw(&self) -> bool {
+    pub(crate) fn is_running_occluded(&self) -> bool {
+        self.lifecycle_state == NativeProductAppLifecycleState::Running && !self.visible
+    }
+
+    pub(crate) fn can_request_redraw(&self) -> bool {
         self.lifecycle_state == NativeProductAppLifecycleState::Running && self.visible
     }
 }
@@ -216,6 +220,21 @@ impl NativeProductAppLoop {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn occluded_frame_audits_can_only_run_during_a_resumed_lifecycle() {
+        let mut app_loop = NativeProductAppLoop::new();
+        assert!(!app_loop.is_running_occluded());
+        app_loop.record_resumed();
+        assert!(app_loop.can_request_redraw());
+        assert!(!app_loop.is_running_occluded());
+        app_loop.record_visibility_changed(false);
+        assert!(!app_loop.can_request_redraw());
+        assert!(app_loop.is_running_occluded());
+        app_loop.record_suspended();
+        assert!(!app_loop.can_request_redraw());
+        assert!(!app_loop.is_running_occluded());
+    }
 
     #[test]
     fn starts_suspended_without_redraw_pressure() {

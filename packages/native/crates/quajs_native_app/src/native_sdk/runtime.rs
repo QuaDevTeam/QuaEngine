@@ -620,7 +620,7 @@ impl Session {
         }
         let input: Value = serde_json::from_str(input).map_err(err)?;
         match input["type"].as_str() {
-            Some("pointer") => {
+            Some(kind @ ("pointer" | "touch")) => {
                 let x = input["x"]
                     .as_f64()
                     .filter(|x| x.is_finite())
@@ -638,6 +638,41 @@ impl Session {
                     client_x: x,
                     client_y: y,
                 };
+                if kind == "touch" {
+                    let id = input["id"].as_u64().ok_or("Invalid touch id")?;
+                    let phase = match input["phase"].as_str() {
+                        Some("press") => winit::event::TouchPhase::Started,
+                        Some("move") => winit::event::TouchPhase::Moved,
+                        Some("release") => winit::event::TouchPhase::Ended,
+                        Some("cancel") => winit::event::TouchPhase::Cancelled,
+                        _ => return Err("Invalid touch phase".into()),
+                    };
+                    if let Some(delta) = self
+                        .input
+                        .dispatch_touch(renderer, host, id, phase, point)
+                        .map_err(err)?
+                    {
+                        if let Some(frame) = renderer.state().frame() {
+                            let layout = &frame.graph.layout;
+                            let logical =
+                                quajs_wgpu_renderer::stage_layout::client_point_to_stage_logical(
+                                    layout,
+                                    delta.anchor,
+                                    Default::default(),
+                                );
+                            if logical.inside_stage {
+                                self.projection.scroll_at_logical_with_layout(
+                                    logical.x,
+                                    logical.y,
+                                    delta.dx / layout.scale,
+                                    delta.dy / layout.scale,
+                                    Some(layout),
+                                );
+                            }
+                        }
+                    }
+                    return Ok(());
+                }
                 match input["phase"].as_str() {
                     Some("move") => {
                         self.input
@@ -662,6 +697,39 @@ impl Session {
                     _ => return Err("Invalid pointer phase".into()),
                 }
             }
+            Some("gamepad") => {
+                let pad = input["gamepad"]
+                    .as_u64()
+                    .filter(|n| *n <= u32::MAX as u64)
+                    .ok_or("Invalid gamepad id")?;
+                let button = input["button"]
+                    .as_u64()
+                    .and_then(|n| u8::try_from(n).ok())
+                    .ok_or("Invalid gamepad button")?;
+                let pressed = input["pressed"]
+                    .as_bool()
+                    .ok_or("Invalid gamepad pressed flag")?;
+                let window = self
+                    .window
+                    .as_mut()
+                    .ok_or("Gamepad input requires a surface")?;
+                let (renderer, host) = window.renderer_and_host_mut();
+                self.input
+                    .dispatch_gamepad(renderer, host, pad, button, pressed)
+                    .map_err(err)?;
+            }
+            Some("gamepadDisconnect") => {
+                let pad = input["gamepad"]
+                    .as_u64()
+                    .filter(|n| *n <= u32::MAX as u64)
+                    .ok_or("Invalid gamepad id")?;
+                let mut controller = std::mem::take(&mut self.input);
+                let result = controller
+                    .release_gamepad_buttons(self.host_mut(), Some(pad))
+                    .map_err(err);
+                self.input = controller;
+                result?;
+            }
             Some("advance") => {
                 self.dispatch_intent(&NativeRendererIntent {
                             r#type: "user/input_command".into(),
@@ -676,6 +744,7 @@ impl Session {
                 if let Some(window) = self.window.as_mut() {
                     if !focused {
                         self.input.cancel_pointer_interaction(window.renderer_mut());
+                        self.input.cancel_touch(window.renderer_mut());
                     }
                 }
                 let mut controller = std::mem::take(&mut self.input);
@@ -685,7 +754,7 @@ impl Session {
                 self.input = controller;
                 result?;
             }
-            _ => return Err("Unsupported Native input (pointer/advance/focus)".into()),
+            _ => return Err("Unsupported Native input type".into()),
         }
         Ok(())
     }

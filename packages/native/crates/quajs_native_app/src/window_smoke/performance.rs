@@ -1,6 +1,6 @@
 //! Read-only development telemetry. Sampling never wakes or requests a frame.
 //! The two-second lease bounds work if the editor disconnects without cleanup.
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use std::{
     collections::VecDeque,
     sync::Mutex,

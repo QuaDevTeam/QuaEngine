@@ -101,7 +101,7 @@ export interface StorageBackend {
    */
   close?: () => Promise<void> | void
 
-  transaction?: <T>(mode: StorageTransactionMode, action: () => Promise<T>) => Promise<T>
+  transaction?: <T>(mode: StorageTransactionMode, action: (scopedBackend?: StorageBackend) => Promise<T>) => Promise<T>
 }
 
 /**

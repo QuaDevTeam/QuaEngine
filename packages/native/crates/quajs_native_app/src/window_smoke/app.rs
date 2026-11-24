@@ -1,9 +1,12 @@
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use std::{env, fs, path::Path};
 
-use winit::dpi::{LogicalSize, PhysicalSize};
+#[cfg(not(any(target_os = "ios", target_os = "android")))]
+use winit::dpi::LogicalSize;
+use winit::dpi::PhysicalSize;
 use winit::event_loop::{ActiveEventLoop, EventLoopProxy};
+use winit::monitor::MonitorHandle;
 use winit::window::Window;
 
 use super::config::{
@@ -14,7 +17,7 @@ use super::config::{
 use super::control::{native_window_control_addr, NativeWindowControl};
 use super::demo_e2e::NativeDemoE2eState;
 use super::error::NativeWindowSmokeError;
-use super::frame::{normalized_physical_size, window_frame_dimensions};
+use super::frame::{current_window_dimensions, normalized_physical_size, window_surface_size};
 use super::frame_composer::NativeWindowFrameComposer;
 use super::input::NativeWindowSmokeInputState;
 #[cfg(feature = "javascriptcore")]
@@ -29,14 +32,17 @@ use super::report::NativeWindowSmokeReport;
 use super::report_builder::{build_window_smoke_report, NativeWindowSmokeReportInput};
 use super::texture_host::create_window_smoke_texture_host_from_env;
 use crate::product_app_shell::{NativeProductAppShell, NativeProductAppShellAction};
-use crate::product_frame_pacer::{NativeProductFramePacer, DEFAULT_TARGET_FPS};
+use crate::product_frame_pacer::NativeProductFramePacer;
 use crate::product_loop::NativeProductLoopFrameResult;
-use crate::product_window::{NativeProductWindowInMemoryRuntime, NativeProductWindowPhysicalSize};
+use crate::product_window::{
+    NativeProductSurfaceSource, NativeProductWindowInMemoryRuntime, NativeProductWindowPhysicalSize,
+};
 use crate::product_window_loop::NativeProductWindowInMemoryLoop;
 #[cfg(feature = "javascriptcore")]
 use quajs_wgpu_renderer::projection_runtime::NativeRendererProjectionRuntime;
 use quajs_wgpu_renderer::renderer::RealWgpuEncodedFrameCapture;
 
+mod controllers;
 mod events;
 
 pub(super) struct NativeWindowSmokeApp {
@@ -45,10 +51,8 @@ pub(super) struct NativeWindowSmokeApp {
     first_frame_ready: bool,
     frame_resources_pending: bool,
     product_shell: Option<NativeProductAppShell<NativeProductWindowInMemoryLoop>>,
-    // Declared after product_shell so WGPU releases the surface first.
-    #[cfg(target_os = "macos")]
-    editor_surface: Option<super::editor_surface::EditorSurface>,
     input: NativeWindowSmokeInputState,
+    gamepads: super::gamepads::WindowGamepads,
     texture_metrics: NativeWindowSmokeTextureMetrics,
     performance_hud: NativeWindowPerformanceHud,
     memory_budget: super::memory_budget::MemoryBudgetMonitor,
@@ -61,6 +65,8 @@ pub(super) struct NativeWindowSmokeApp {
     /// `ControlFlow::WaitUntil(pacer.next_deadline())` between frames. Product
     /// E2E uses the same cadence; only finite GPU fixture audits bypass pacing.
     pacer: NativeProductFramePacer,
+    last_display_probe: Option<Instant>,
+    current_monitor: Option<MonitorHandle>,
     /// Whether this run enforces the frame deadline at all.
     pacing_enabled: bool,
     /// Set when `QUA_NATIVE_RENDERER_TARGET_FPS` pins the cadence, so a
@@ -106,9 +112,8 @@ impl NativeWindowSmokeApp {
             first_frame_ready: false,
             frame_resources_pending: true,
             product_shell: None,
-            #[cfg(target_os = "macos")]
-            editor_surface: None,
             input: NativeWindowSmokeInputState::default(),
+            gamepads: Default::default(),
             texture_metrics: NativeWindowSmokeTextureMetrics::default(),
             performance_hud: NativeWindowPerformanceHud::default(),
             memory_budget: if env::var_os("QUA_NATIVE_RENDERER_WINDOW_SMOKE_FRAME").is_none() {
@@ -120,9 +125,9 @@ impl NativeWindowSmokeApp {
                 Default::default()
             },
             frame_composer: NativeWindowFrameComposer::default(),
-            pacer: NativeProductFramePacer::new(
-                target_fps_env_override.unwrap_or(DEFAULT_TARGET_FPS),
-            ),
+            pacer: NativeProductFramePacer::new(target_fps_env_override),
+            last_display_probe: None,
+            current_monitor: None,
             pacing_enabled,
             target_fps_env_override,
             last_input_at: None,
@@ -153,6 +158,20 @@ impl NativeWindowSmokeApp {
             event_loop_proxy,
             report: None,
             error: None,
+        }
+    }
+
+    fn update_display_color(&mut self, monitor: Option<&winit::monitor::MonitorHandle>) {
+        let Some(shell) = self.product_shell.as_mut() else {
+            return;
+        };
+        let color = super::display_color::probe(monitor);
+        let runtime = shell.window_loop_mut().runtime_mut();
+        if color == *runtime.display_color() {
+            return;
+        }
+        if let Err(error) = runtime.update_display_color(color) {
+            log::warn!("Failed to update the window's display color configuration: {error}");
         }
     }
 
@@ -193,8 +212,18 @@ impl NativeWindowSmokeApp {
             .with_visible(false)
             .with_title(native_window_title())
             // Standalone windows use the OS titlebar and standard window controls.
-            .with_decorations(true)
-            .with_inner_size(LogicalSize::new(960.0, 540.0));
+            .with_decorations(true);
+        // UIKit interprets an explicit inner size as the UIWindow's point bounds.
+        // Phones and tablets must adopt the actual screen before fitting the stage.
+        #[cfg(not(any(target_os = "ios", target_os = "android")))]
+        {
+            attributes = attributes.with_inner_size(LogicalSize::new(960.0, 540.0));
+        }
+        #[cfg(target_os = "ios")]
+        {
+            use winit::platform::ios::WindowAttributesExtIOS;
+            attributes = attributes.with_prefers_status_bar_hidden(true);
+        }
         if let Some(size) = load_window_capture_size() {
             attributes = attributes.with_inner_size(size);
         }
@@ -203,7 +232,22 @@ impl NativeWindowSmokeApp {
                 "Failed to create native renderer smoke window: {error}."
             ))
         })?);
-        let physical_size = normalized_physical_size(window.inner_size());
+        #[cfg(target_os = "ios")]
+        {
+            use winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
+            unsafe extern "C" {
+                fn qua_ios_bind_scene(view: *mut std::ffi::c_void);
+            }
+            let handle = window
+                .window_handle()
+                .map_err(|e| NativeWindowSmokeError::new(e.to_string()))?;
+            if let RawWindowHandle::UiKit(handle) = handle.as_raw() {
+                // Winit owns this UIView for the lifetime of the window. UIKit
+                // requires this call on the main event-loop thread.
+                unsafe { qua_ios_bind_scene(handle.ui_view.as_ptr()) };
+            }
+        }
+        let physical_size = window_surface_size(&window);
         log::info!(
             "window created: {}x{} physical, scale_factor={}",
             physical_size.width,
@@ -220,32 +264,36 @@ impl NativeWindowSmokeApp {
             ));
         #[cfg(not(target_os = "macos"))]
         if super::editor_preview::enabled() {
-            return Err(NativeWindowSmokeError::new("Native compositor embedding is not implemented on this platform."));
+            return Err(NativeWindowSmokeError::new(
+                "Native compositor embedding is not implemented on this platform.",
+            ));
         }
+        let source: Box<dyn NativeProductSurfaceSource> = Box::new(window.clone());
         #[cfg(target_os = "macos")]
-        if super::editor_preview::enabled() {
+        let source: Box<dyn NativeProductSurfaceSource> = if super::editor_preview::enabled() {
             let viewport = physical_size.to_logical::<f64>(window.scale_factor());
-            self.editor_surface = Some(super::editor_surface::EditorSurface::create(
-                viewport.width, viewport.height, window.scale_factor(),
-            ).map_err(NativeWindowSmokeError::new)?);
-        }
-        #[cfg(target_os = "macos")]
-        let surface = match self.editor_surface.as_ref() {
-            Some(editor) => editor.wgpu_surface(&instance),
-            None => instance.create_surface(window.clone()),
+            Box::new(
+                super::editor_surface::EditorSurface::create(
+                    viewport.width,
+                    viewport.height,
+                    window.scale_factor(),
+                )
+                .map_err(NativeWindowSmokeError::new)?,
+            )
+        } else {
+            source
         };
-        #[cfg(not(target_os = "macos"))]
-        let surface = instance.create_surface(window.clone());
-        let surface = surface.map_err(|error| {
-            NativeWindowSmokeError::new(format!(
-                "Failed to create native renderer smoke wgpu surface: {error}."
-            ))
-        })?;
+        let monitor = if super::editor_preview::enabled() {
+            None
+        } else {
+            window.current_monitor()
+        };
         let runtime = NativeProductWindowInMemoryRuntime::bootstrap(
             &instance,
-            surface,
+            source,
             NativeProductWindowPhysicalSize::new(physical_size.width, physical_size.height),
             texture_host,
+            super::display_color::probe(monitor.as_ref()),
         )
         .map_err(|error| {
             NativeWindowSmokeError::new(format!(
@@ -288,6 +336,8 @@ impl NativeWindowSmokeApp {
                         "Rust native projection runtime failed to project the first frame: {error}."
                     ))
                 })?;
+                self.pacer
+                    .set_requested_fps(self.target_fps_env_override.or(seed.target_frame_rate));
                 self.renderer_local_work_active = seed.local_work_active;
                 self.last_projection_font_prewarm_texts = projection_runtime.font_prewarm_texts();
                 self.last_projection_json = Some(Arc::from(seed.json));
@@ -300,43 +350,46 @@ impl NativeWindowSmokeApp {
                 window.request_redraw();
             }
         }
-        self.window = Some(window.clone());
-        self.refresh_display_refresh_rate();
+        self.window = Some(window);
 
         Ok(())
     }
 
-    /// Re-reads the refresh rate of the monitor the window currently sits on.
-    /// Called at init and whenever the window may have moved to another display,
-    /// so a 120 FPS target is capped to what the panel can actually present.
-    pub(super) fn refresh_display_refresh_rate(&mut self) {
-        let refresh_rate = self
-            .window
+    /// Query the visible window's current output. A remote editor compositor
+    /// owns its own window, so the hidden host has no authoritative monitor.
+    fn window_monitor(&self) -> Option<MonitorHandle> {
+        self.window
             .as_ref()
+            .filter(|_| !super::editor_preview::enabled())
             .and_then(|window| window.current_monitor())
-            .and_then(|monitor| monitor.refresh_rate_millihertz())
-            .map(|millihertz| millihertz.div_ceil(1_000));
-        self.pacer.set_display_refresh_rate(refresh_rate);
     }
 
-    /// Applies a target frame rate coming from the engine projection. An
-    /// explicit env override always wins, so a developer pinning the cadence is
-    /// not fought by the product's settings value.
-    #[cfg(feature = "javascriptcore")]
-    fn apply_projection_target_fps(&mut self, target_fps: Option<u32>) {
-        if self.target_fps_env_override.is_some() {
-            return;
-        }
-        let Some(target_fps) = target_fps else {
-            return;
-        };
-        self.pacer.set_requested_fps(target_fps);
+    fn refresh_display(&mut self, monitor: Option<MonitorHandle>) {
+        self.pacer.set_display_refresh_millihertz(
+            monitor
+                .as_ref()
+                .and_then(MonitorHandle::refresh_rate_millihertz),
+        );
+        self.update_display_color(monitor.as_ref());
+        self.current_monitor = monitor;
+        self.last_display_probe = Some(Instant::now());
+    }
+
+    // Some compositors stop delivering RedrawRequested while occluded. A
+    // finite fixture can still collect its bounded real surface attempts and
+    // report OccludedAfterRetry. Interactive windows wait for visibility.
+    fn is_occluded_fixture(&self) -> bool {
+        !self.pacing_enabled
+            && self
+                .product_shell
+                .as_ref()
+                .is_some_and(|shell| shell.app_loop().is_running_occluded())
     }
 
     /// Deadline the event loop should sleep until before the next frame.
     /// `None` means "no pacing": dispatch as soon as the loop is idle.
     pub(super) fn next_frame_deadline(&self) -> Option<Instant> {
-        if !self.pacing_enabled {
+        if !self.pacing_enabled && !self.is_occluded_fixture() {
             return None;
         }
         Some(self.pacer.next_deadline(Instant::now()))
@@ -349,37 +402,43 @@ impl NativeWindowSmokeApp {
     fn render_once(&mut self) -> Result<NativeWindowSmokeReport, NativeWindowSmokeError> {
         self.maintain_image_memory();
         let frame_started_at = std::time::Instant::now();
+        // A mode or profile can change without a move/resize event. Recheck
+        // during existing render work so an idle window needs no timer wake.
+        if self
+            .last_display_probe
+            .is_none_or(|last| frame_started_at.duration_since(last) >= Duration::from_secs(1))
+        {
+            self.refresh_display(self.window_monitor());
+        }
         // The next deadline is measured from frame start, so the cadence stays
         // even no matter how long this frame ends up taking.
         self.pacer.record_frame_started(frame_started_at);
         let window = self.window.as_ref().ok_or_else(|| {
             NativeWindowSmokeError::new("Native renderer smoke window is not initialized.")
         })?;
-        let dimensions = window_frame_dimensions(window.inner_size(), window.scale_factor());
+        let dimensions = current_window_dimensions(window);
         #[cfg(feature = "javascriptcore")]
-        let (frame_source, projection_target_fps): (Arc<str>, Option<u32>) =
-            match self.projection_worker.as_ref() {
-                Some(worker) => {
-                    // Consume the newest projection if one landed.
-                    let mut projection_target_fps = None;
-                    if let Some(projection) = worker.take_latest_projection()? {
-                        self.renderer_local_work_active = projection.local_work_active;
-                        self.last_projection_font_prewarm_texts = projection.font_prewarm_texts;
-                        projection_target_fps = projection.target_frame_rate;
-                        self.last_projection_json = Some(Arc::from(projection.json));
-                    }
-                    // Kick the next projection before wgpu encode/present.
-                    worker.request_tick();
-                    let json = match self.last_projection_json.as_ref() {
-                        Some(json) => json.clone(),
-                        None => self.frame_source.clone().into(),
-                    };
-                    (json, projection_target_fps)
+        let frame_source: Arc<str> = match self.projection_worker.as_ref() {
+            Some(worker) => {
+                // Consume the newest projection if one landed.
+                if let Some(projection) = worker.take_latest_projection()? {
+                    self.renderer_local_work_active = projection.local_work_active;
+                    self.last_projection_font_prewarm_texts = projection.font_prewarm_texts;
+                    self.pacer.set_requested_fps(
+                        self.target_fps_env_override
+                            .or(projection.target_frame_rate),
+                    );
+                    self.last_projection_json = Some(Arc::from(projection.json));
                 }
-                None => (self.frame_source.clone().into(), None),
-            };
-        #[cfg(feature = "javascriptcore")]
-        self.apply_projection_target_fps(projection_target_fps);
+                // Kick the next projection before wgpu encode/present.
+                worker.request_tick();
+                match self.last_projection_json.as_ref() {
+                    Some(json) => json.clone(),
+                    None => self.frame_source.clone().into(),
+                }
+            }
+            None => self.frame_source.clone().into(),
+        };
         #[cfg(not(feature = "javascriptcore"))]
         let frame_source: Arc<str> = Arc::from(self.frame_source.as_str());
         let hud = if native_window_perf_hud_enabled() {
@@ -393,7 +452,7 @@ impl NativeWindowSmokeApp {
         let frame_json: Arc<str> = composed.json.clone();
         let compose_ms = composed.compose_duration.as_secs_f64() * 1000.0;
         let compose_cache_hit = composed.cache_hit;
-        let Some(mut product_shell) = self.product_shell.take() else {
+        let Some(product_shell) = self.product_shell.as_mut() else {
             return Err(NativeWindowSmokeError::new(
                 "Native renderer smoke runtime is not initialized.",
             ));
@@ -506,7 +565,6 @@ impl NativeWindowSmokeApp {
                 },
             );
         drop(demo_e2e);
-        self.product_shell = Some(product_shell);
         // The input closure holds its own Rc clone; drop it before the unwrap.
         drop(control_for_input);
         self.control = control.map(|control| match std::rc::Rc::try_unwrap(control) {
@@ -517,10 +575,16 @@ impl NativeWindowSmokeApp {
 
         let loop_frame =
             product_frame_result.map_err(NativeWindowSmokeError::from_window_loop_error)?;
-        self.frame_resources_pending =
-            loop_frame.present_outcome.present_status == "PreparingResources";
+        let preparing = loop_frame.present_outcome.present_status == "PreparingResources";
+        if preparing && !self.frame_resources_pending {
+            self.clear_window_input()?;
+        }
+        self.frame_resources_pending = preparing;
         #[cfg(feature = "javascriptcore")]
-        if let (Some(product), Some(progress)) = (&self.jsc_product, &loop_frame.product_frame.asset_preparation_update) {
+        if let (Some(product), Some(progress)) = (
+            &self.jsc_product,
+            &loop_frame.product_frame.asset_preparation_update,
+        ) {
             product.dispatch_renderer_intent(quajs_native_runtime::NativeRendererIntent {
                 r#type: "asset-loading/renderer-progress".into(),
                 payload_json: Some(progress.to_string()),
@@ -600,10 +664,15 @@ impl NativeWindowSmokeApp {
         let presentation = runtime.presentation();
         let report = build_window_smoke_report(NativeWindowSmokeReportInput {
             adapter_name: &presentation.adapter_name,
+            display_color: runtime.display_color(),
+            output_color_space: presentation.output_color_space,
             surface_format: &presentation.surface_format,
             present_mode: &presentation.present_mode,
             present_status: loop_frame.present_outcome.present_status,
             presented: loop_frame.present_outcome.presented,
+            display_refresh_millihertz: self.pacer.display_refresh_millihertz(),
+            requested_frame_rate: self.pacer.requested_fps(),
+            effective_frame_rate: self.pacer.effective_fps(),
             present_attempt_count: window_loop.present_attempt_count(),
             target_frame_count: window_loop.target_frame_count(),
             rendered_frame_count,
@@ -722,6 +791,15 @@ impl NativeWindowSmokeApp {
         let Some(point) = self.input.cursor_client_point() else {
             return false;
         };
+        self.scroll_window_at(point, delta_x, delta_y)
+    }
+
+    fn scroll_window_at(
+        &self,
+        point: quajs_wgpu_renderer::stage_layout::StageClientPoint,
+        delta_x: f64,
+        delta_y: f64,
+    ) -> bool {
         #[cfg(feature = "javascriptcore")]
         if let Some(worker) = self.projection_worker.as_ref() {
             let Some(frame) = self
@@ -741,6 +819,7 @@ impl NativeWindowSmokeApp {
                 return false;
             }
             return worker.scroll_at(
+                layout,
                 logical.x,
                 logical.y,
                 delta_x / layout.scale,
@@ -836,7 +915,7 @@ impl NativeWindowSmokeApp {
         if self.jsc_product.is_some() {
             self.renderer_redraw_pending = true;
         }
-        if super::editor_preview::enabled() {
+        if (!self.first_frame_ready && !self.pacing_enabled) || super::editor_preview::enabled() {
             let _ = self.event_loop_proxy.send_event(());
         } else if let Some(window) = &self.window {
             window.request_redraw();

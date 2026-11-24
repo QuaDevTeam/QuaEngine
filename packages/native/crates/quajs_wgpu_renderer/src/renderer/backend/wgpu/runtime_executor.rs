@@ -15,10 +15,10 @@ pub use device::{InMemoryWgpuNativeRenderRuntimeDevice, WgpuNativeRenderRuntimeD
 pub use real_device::decode_image_bytes_rgba8;
 #[cfg(feature = "real-wgpu")]
 pub use real_device::{
-    create_real_wgpu_surface_target, RealRuntimeFrameTargetSnapshot,
-    RealWgpuDecodedTextureMetadata, RealWgpuDecodedTextureRgba8, RealWgpuEncodedFrameCapture,
-    RealWgpuFrameCapture, RealWgpuFrameCaptureError, RealWgpuFrameCopyReport,
-    RealWgpuNativeRenderRuntimeDevice, RealWgpuNativeRenderRuntimeTarget,
+    create_real_wgpu_surface_target, native_renderer_required_limits,
+    RealRuntimeFrameTargetSnapshot, RealWgpuDecodedTextureMetadata, RealWgpuDecodedTextureRgba8,
+    RealWgpuEncodedFrameCapture, RealWgpuFrameCapture, RealWgpuFrameCaptureError,
+    RealWgpuFrameCopyReport, RealWgpuNativeRenderRuntimeDevice, RealWgpuNativeRenderRuntimeTarget,
     RealWgpuSurfacePresentReport, RealWgpuSurfacePresentStatus, RealWgpuSurfaceTargetBootstrap,
     RealWgpuSurfaceTargetBootstrapError, RealWgpuSurfaceTargetBootstrapErrorKind,
     RealWgpuSurfaceTargetBootstrapRequest, RealWgpuTargetResizeReport,
@@ -65,6 +65,9 @@ pub trait WgpuNativeRenderRuntimeExecutor {
     ) -> WgpuNativeRenderRuntimeResult;
 
     fn runtime_snapshot(&self) -> WgpuNativeRenderRuntimeSnapshot;
+    fn resident_texture_ids(&self) -> Vec<String> {
+        self.runtime_snapshot().resident_texture_resource_ids
+    }
 
     fn device_attached(&self) -> bool {
         false

@@ -317,9 +317,16 @@ where
     where
         F: FnOnce(&mut NativeProductWindowRenderer, &mut H) -> Result<(), E>,
         E: Display,
-        A: FnOnce(&NativeProductWindowRuntime<H>, &NativeProductWindowPresentOutcome) -> Result<(), AE>,
+        A: FnOnce(
+            &NativeProductWindowRuntime<H>,
+            &NativeProductWindowPresentOutcome,
+        ) -> Result<(), AE>,
         AE: Display,
     {
+        if self.runtime.device_lost() {
+            self.state.begin_present_attempt();
+            return Err(NativeProductWindowLoopError::new("native wgpu device lost"));
+        }
         let product_frame = self
             .runtime
             .render_projection_json_with_media_teardown(input)
@@ -365,6 +372,9 @@ where
             .map_err(|error| {
                 NativeProductWindowLoopError::from_present_error(error, product_frame.clone())
             })?;
+        if present_outcome.presented {
+            self.state.frame_scheduler.record_present_success();
+        }
         if present_outcome.surface_refresh_recommended {
             let state = &mut self.state;
             let runtime = &mut self.runtime;
@@ -436,6 +446,14 @@ where
         failure: &NativeProductWindowPresentFailure,
         recovery_size: Option<NativeProductWindowPhysicalSize>,
     ) -> Result<NativeProductWindowLoopFailureReport, NativeProductWindowError> {
+        let device_failure;
+        let failure = if self.runtime.device_lost() {
+            device_failure =
+                NativeProductWindowPresentFailure::from_message("native wgpu device lost");
+            &device_failure
+        } else {
+            failure
+        };
         let state = &mut self.state;
         let runtime = &mut self.runtime;
         Self::handle_redraw_failure_with_recovery(
@@ -443,6 +461,13 @@ where
             failure,
             recovery_size,
             |action, physical_size| match action {
+                NativeProductFramePresentFailureAction::RecoverSurface
+                    if failure.kind() == NativeProductWindowPresentFailureKind::Lost =>
+                {
+                    runtime
+                        .recreate_window_surface(physical_size)
+                        .map(|report| report.physical_size)
+                }
                 NativeProductFramePresentFailureAction::RecoverSurface => runtime
                     .resize_to_physical_size(physical_size)
                     .map(|report| report.physical_size),

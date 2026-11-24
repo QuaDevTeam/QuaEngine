@@ -26,7 +26,7 @@ export {
 
 export type QuaRendererTarget = 'web' | 'cocos' | 'native' | 'godot' | 'unity'
 
-export type QuaNativePlatform = 'macos' | 'windows' | 'linux'
+export type QuaNativePlatform = 'macos' | 'windows' | 'linux' | 'ios' | 'android'
 
 export type QuaNativeProfile = 'debug' | 'release'
 

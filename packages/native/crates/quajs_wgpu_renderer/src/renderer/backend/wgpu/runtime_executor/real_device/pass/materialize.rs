@@ -77,6 +77,7 @@ pub(in crate::renderer::backend::wgpu::runtime_executor::real_device) fn materia
                 encoder,
                 &pipeline.get_bind_group_layout(1),
                 &remaining[0].command_id,
+                backdrop_sampled_region(&remaining[0]),
             ));
             1
         } else {
@@ -108,6 +109,28 @@ pub(in crate::renderer::backend::wgpu::runtime_executor::real_device) fn materia
     }
 
     Ok(())
+}
+
+/// Physical area a backdrop-blur draw can write, and therefore sample.
+/// Backdrop quads are never rotated or media-fitted, so their vertices are
+/// exactly `physical_bounds` (see `backdrop_blur_quads_cover_exactly_their_physical_bounds`).
+fn backdrop_sampled_region(draw: &RealRuntimeDrawIndexed) -> WgpuPhysicalRect {
+    let bounds = intersect_physical_rect(draw.physical_bounds, draw.viewport);
+    draw.scissor
+        .map_or(bounds, |scissor| intersect_physical_rect(bounds, scissor))
+}
+
+fn intersect_physical_rect(a: WgpuPhysicalRect, b: WgpuPhysicalRect) -> WgpuPhysicalRect {
+    let x0 = a.x.max(b.x);
+    let y0 = a.y.max(b.y);
+    let x1 = (a.x.saturating_add(a.width)).min(b.x.saturating_add(b.width));
+    let y1 = (a.y.saturating_add(a.height)).min(b.y.saturating_add(b.height));
+    WgpuPhysicalRect {
+        x: x0,
+        y: y0,
+        width: x1.saturating_sub(x0),
+        height: y1.saturating_sub(y0),
+    }
 }
 
 pub(in crate::renderer::backend::wgpu::runtime_executor::real_device) fn validate_materializable_pass(

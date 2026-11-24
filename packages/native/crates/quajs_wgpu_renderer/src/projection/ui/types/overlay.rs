@@ -75,6 +75,8 @@ impl UiOverlayProjection {
 pub struct UiOverlaySurfaceProjection {
     pub key: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub safe_area_anchor: Option<[f64; 2]>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub root: Option<UiSurfaceNodeProjection>,
 }
 
@@ -82,6 +84,7 @@ impl UiOverlaySurfaceProjection {
     pub fn new(key: impl Into<String>) -> Self {
         Self {
             key: key.into(),
+            safe_area_anchor: None,
             root: None,
         }
     }

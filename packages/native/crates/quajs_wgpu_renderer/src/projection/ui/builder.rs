@@ -19,6 +19,7 @@ use super::surface::build_ui_surface_node_commands;
 use super::types::{UiIntentProjection, UiOverlayProjection, UiProjection};
 
 pub fn append_ui_commands(graph: &mut RenderGraph, ui: &UiProjection) {
+    graph.hide_hud_chrome = ui.visible && ui.hide_hud_chrome;
     graph.extend(build_ui_commands(&graph.layout, ui));
 }
 
@@ -63,6 +64,7 @@ fn ui_overlay_commands(
             overlay,
             surface,
             placement.effective_z_index,
+            layout,
         ));
     }
 

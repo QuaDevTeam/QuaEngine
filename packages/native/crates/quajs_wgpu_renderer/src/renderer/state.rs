@@ -9,6 +9,8 @@ use crate::resources::{NativeResourceLedger, ResourceBudget, ResourceBudgetViola
 use crate::video::{VideoBackendFrameResourceMap, VideoBackendStreamStateMap};
 
 mod frame;
+mod navigation;
+pub use navigation::{FocusAction, FocusResult};
 mod input;
 mod lifecycle;
 

@@ -11,13 +11,19 @@ pub struct NativeTextureUploadMetadata {
 }
 
 pub trait NativeTextureUploadSink {
+    fn texture_variant_fits(&self, _bytes: &[u8]) -> bool {
+        true
+    }
+    fn texture_variant_suffixes(&self) -> &'static [&'static str] {
+        &[]
+    }
     fn texture_preload_budget_generation(&self) -> u64 {
         0
     }
     fn request_texture_preload(
         &mut self,
         request: &NativeTextureUploadRequest,
-        bytes: &[u8],
+        bytes: std::sync::Arc<[u8]>,
         metadata: NativeTextureUploadMetadata,
     ) -> Result<bool, Self::Error> {
         self.request_texture_upload(request, bytes, metadata)
@@ -67,10 +73,10 @@ pub trait NativeTextureUploadSink {
     fn request_texture_upload(
         &mut self,
         request: &NativeTextureUploadRequest,
-        bytes: &[u8],
+        bytes: std::sync::Arc<[u8]>,
         metadata: NativeTextureUploadMetadata,
     ) -> Result<bool, Self::Error> {
-        self.upload_texture_bytes(request, bytes, metadata)
+        self.upload_texture_bytes(request, &bytes, metadata)
             .map(|_| true)
     }
 

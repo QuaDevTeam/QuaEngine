@@ -214,24 +214,7 @@ where
 {
     let update = renderer.prepare_frame(layout, view);
     let texture_host_cleanup_report = sync_frame_texture_releases(renderer.backend_mut(), &update);
-    let submission = renderer.render_frame()?;
-    let texture_upload_sync = renderer.texture_upload_sync_for_update(&update);
-    finish_texture_synced_frame(
-        renderer,
-        host,
-        NativeRendererFrameResult {
-            update,
-            submission,
-            texture_upload_sync,
-        },
-        texture_host_cleanup_report,
-        None,
-        None,
-        None,
-        None,
-        None,
-        false,
-    )
+    render_image_synced_frame(renderer, host, update, texture_host_cleanup_report)
 }
 
 #[allow(dead_code)]
@@ -274,14 +257,15 @@ where
     let previous_state = renderer.state().clone();
     let update = renderer.prepare_frame(layout, view);
     let texture_host_cleanup_report = sync_frame_texture_releases(renderer.backend_mut(), &update);
-    let submission = match renderer.render_frame() {
-        Ok(submission) => submission,
-        Err(error) => {
-            *renderer.state_mut() = previous_state;
-            return Err(error.into());
-        }
-    };
-    let texture_upload_sync = renderer.texture_upload_sync_for_update(&update);
+    let mut frame =
+        match render_image_synced_frame(renderer, host, update, texture_host_cleanup_report) {
+            Ok(frame) => frame,
+            Err(error) => {
+                *renderer.state_mut() = previous_state;
+                return Err(error.into());
+            }
+        };
+    let update = &frame.frame.update;
     let audio_asset_report = match sync_audio_assets_for_backend_if_needed(
         renderer,
         host,
@@ -293,7 +277,7 @@ where
             return Err(error.into());
         }
     };
-    if let Err(error) = renderer.apply_audio_update(&update) {
+    if let Err(error) = renderer.apply_audio_update(update) {
         *renderer.state_mut() = previous_state;
         return Err(error.into());
     }
@@ -308,7 +292,7 @@ where
             return Err(error.into());
         }
     };
-    if let Err(error) = renderer.apply_video_update(&update) {
+    if let Err(error) = renderer.apply_video_update(update) {
         *renderer.state_mut() = previous_state;
         return Err(error.into());
     }
@@ -322,7 +306,7 @@ where
                 return Err(error.into());
             }
         };
-    if let Err(error) = renderer.apply_font_update(&update) {
+    if let Err(error) = renderer.apply_font_update(update) {
         *renderer.state_mut() = previous_state;
         return Err(error.into());
     }
@@ -333,22 +317,21 @@ where
     let font_atlas_report = sync_font_atlas_textures_for_backend(renderer);
     let text_reflowed = renderer.reflow_text(view);
 
-    let frame = finish_texture_synced_frame(
-        renderer,
-        host,
-        NativeRendererFrameResult {
-            update,
-            submission,
-            texture_upload_sync,
-        },
-        texture_host_cleanup_report,
-        audio_asset_report,
-        video_asset_report,
-        font_asset_report,
-        Some(video_frame_texture_report),
-        Some(font_atlas_report),
-        text_reflowed,
-    )?;
+    // Media backends run after the first successful submission. Only new media
+    // pixels or a changed glyph layout need another draw of the scene.
+    if video_frame_texture_report.uploaded_count > 0
+        || font_atlas_report.uploaded_count > 0
+        || text_reflowed
+    {
+        frame.frame.submission = renderer.render_frame()?;
+        frame.frame.texture_upload_sync = renderer.texture_upload_sync_for_update(update);
+        frame.resubmitted_after_texture_upload = true;
+    }
+    frame.audio_asset_report = audio_asset_report;
+    frame.video_asset_report = video_asset_report;
+    frame.font_asset_report = font_asset_report;
+    frame.video_frame_texture_report = Some(video_frame_texture_report);
+    frame.font_atlas_report = Some(font_atlas_report);
     let bundle_lifecycle_report =
         sync_mounted_texture_bundle_lifecycle_from_host_and_media_teardown(
             registry, renderer, host,
@@ -466,62 +449,27 @@ where
     })
 }
 
-fn finish_texture_synced_frame<B, A, V, F, H>(
+fn render_image_synced_frame<B, A, V, F, H>(
     renderer: &mut NativeRenderer<B, A, V, F>,
     host: &H,
-    initial: NativeRendererFrameResult,
+    update: NativeRendererFrameUpdate,
     texture_host_cleanup_report: NativeTextureHostCleanupSyncReport,
-    audio_asset_report: Option<NativeAudioAssetHostSyncReport>,
-    video_asset_report: Option<NativeVideoAssetHostSyncReport>,
-    font_asset_report: Option<NativeFontAssetHostSyncReport>,
-    video_frame_texture_report: Option<NativeVideoFrameTextureSyncReport>,
-    font_atlas_report: Option<NativeFontAtlasTextureSyncReport>,
-    text_reflowed: bool,
 ) -> Result<NativeTextureSyncedFrameResult, NativeRenderBackendError>
 where
     B: NativeRenderBackend + NativeTextureUploadSink,
     H: NativeHostApi,
 {
-    let texture_upload_report = sync_pending_texture_uploads_from_host(
-        host,
-        renderer.backend_mut(),
-        &initial.texture_upload_sync,
-    );
-    let font_atlas_uploaded = font_atlas_report
-        .as_ref()
-        .map(|report| report.uploaded_count > 0)
-        .unwrap_or(false);
-    let video_frame_texture_uploaded = video_frame_texture_report
-        .as_ref()
-        .map(|report| report.uploaded_count > 0)
-        .unwrap_or(false);
-
-    if texture_upload_report.uploaded_count == 0
-        && !font_atlas_uploaded
-        && !video_frame_texture_uploaded
-        && !text_reflowed
-    {
-        let mut frame = initial;
-        if texture_upload_report.released_orphaned_count > 0 {
-            frame.texture_upload_sync = renderer.texture_upload_sync_for_update(&frame.update);
-        }
-        return Ok(NativeTextureSyncedFrameResult {
-            frame,
-            texture_host_cleanup_report,
-            texture_upload_report,
-            audio_asset_report,
-            video_asset_report,
-            font_asset_report,
-            video_frame_texture_report,
-            font_atlas_report,
-            resubmitted_after_texture_upload: false,
-        });
-    }
-
-    let update = initial.update;
+    let pending = renderer.texture_upload_sync_for_update(&update);
+    let texture_upload_report =
+        sync_pending_texture_uploads_from_host(host, renderer.backend_mut(), &pending);
     let submission = renderer.render_frame()?;
-    let texture_upload_sync = renderer.texture_upload_sync_for_update(&update);
-
+    let texture_upload_sync = if texture_upload_report.uploaded_count > 0
+        || texture_upload_report.released_orphaned_count > 0
+    {
+        renderer.texture_upload_sync_for_update(&update)
+    } else {
+        pending
+    };
     Ok(NativeTextureSyncedFrameResult {
         frame: NativeRendererFrameResult {
             update,
@@ -530,12 +478,12 @@ where
         },
         texture_host_cleanup_report,
         texture_upload_report,
-        audio_asset_report,
-        video_asset_report,
-        font_asset_report,
-        video_frame_texture_report,
-        font_atlas_report,
-        resubmitted_after_texture_upload: true,
+        audio_asset_report: None,
+        video_asset_report: None,
+        font_asset_report: None,
+        video_frame_texture_report: None,
+        font_atlas_report: None,
+        resubmitted_after_texture_upload: false,
     })
 }
 

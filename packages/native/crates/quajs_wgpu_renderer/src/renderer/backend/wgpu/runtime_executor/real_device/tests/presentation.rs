@@ -138,6 +138,39 @@ fn resize_target_rebuilds_frame_target_and_preserves_renderability() {
     assert_eq!(copy.extent.height, 72);
 }
 
+#[test]
+fn output_only_reconfiguration_preserves_the_composited_frame() {
+    use crate::renderer::backend::wgpu::{
+        plan_wgpu_surface_configuration, WgpuNativeSurfaceConfigRequest,
+    };
+    let target = RealWgpuNativeRenderRuntimeTarget::noop(64, 64);
+    let mut runtime = InMemoryWgpuNativeRenderRuntimeExecutor::with_device(
+        RealWgpuNativeRenderRuntimeDevice::new(target),
+    );
+    runtime
+        .apply_runtime_plan(&empty_pass_plan(64, 64))
+        .unwrap();
+    let device = runtime.device_mut();
+    let mut request = WgpuNativeSurfaceConfigRequest::new(64, 64);
+    let caps = wgpu::SurfaceCapabilities {
+        formats: vec![
+            wgpu::TextureFormat::Rgba16Float,
+            wgpu::TextureFormat::Bgra8UnormSrgb,
+        ],
+        present_modes: vec![wgpu::PresentMode::Fifo],
+        alpha_modes: vec![wgpu::CompositeAlphaMode::Opaque],
+        usages: wgpu::TextureUsages::RENDER_ATTACHMENT,
+    };
+    let before = device.frame_target_snapshot();
+    for hdr in [true, false] {
+        request.display_hdr_available = hdr;
+        let plan = plan_wgpu_surface_configuration(&caps, &request).unwrap();
+        device.resize_target_from_surface_config(&plan).unwrap();
+        assert_eq!(device.frame_target_snapshot(), before);
+        assert_eq!(device.target().color_format(), plan.config.format);
+    }
+}
+
 fn empty_pass_plan(width: u32, height: u32) -> WgpuNativeRenderRuntimePlan {
     WgpuNativeRenderRuntimePlan {
         revision: 7,

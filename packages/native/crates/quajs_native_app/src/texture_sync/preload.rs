@@ -215,12 +215,12 @@ impl NativeTexturePreloader {
                     // A rejected large hint must not leave smaller later hints
                     // unvisited when there is no worker job to keep frames alive.
                     self.needs_tick = true;
-                    let result = read_texture_asset_bytes(host, request)
+                    let result = read_texture_asset_bytes(host, request, sink)
                         .map_err(|e| e.message)
                         .and_then(|read| {
                             sink.request_texture_preload(
                                 request,
-                                &read.bytes,
+                                read.bytes,
                                 upload_metadata_from_request(request, read.package_id.as_deref()),
                             )
                             .map_err(|e| e.to_string())
@@ -259,8 +259,8 @@ impl NativeTexturePreloader {
                 } else if let Some(result) = sink.poll_texture_upload(&request.resource_id) {
                     result.map_err(|e| e.to_string())
                 } else {
-                    read_texture_asset_bytes(host, request).map_err(|e| e.message)
-                        .and_then(|read| sink.request_texture_upload(request, &read.bytes,
+                    read_texture_asset_bytes(host, request, sink).map_err(|e| e.message)
+                        .and_then(|read| sink.request_texture_upload(request, read.bytes,
                             upload_metadata_from_request(request, read.package_id.as_deref()))
                             .map_err(|e| e.to_string()))
                 };
@@ -318,7 +318,7 @@ mod tests {
         fn request_texture_preload(
             &mut self,
             request: &NativeTextureUploadRequest,
-            bytes: &[u8],
+            bytes: std::sync::Arc<[u8]>,
             metadata: NativeTextureUploadMetadata,
         ) -> Result<bool, String> {
             if self.oversized.contains(request.resource_id.as_str()) {

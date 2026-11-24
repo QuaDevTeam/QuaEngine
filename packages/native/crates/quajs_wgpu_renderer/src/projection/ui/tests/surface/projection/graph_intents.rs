@@ -54,6 +54,37 @@ fn resolves_inline_ui_surface_button_intent_from_graph() {
 }
 
 #[test]
+fn anchors_surface_paint_and_hits_to_the_device_safe_edge() {
+    let mut layout = test_layout();
+    layout.safe_area.height -= 60.0;
+    let mut graph = RenderGraph::new(layout);
+    let mut surface = UiOverlaySurfaceProjection::new("hud").with_root(
+        UiSurfaceNodeProjection::new(
+            "log",
+            UiSurfaceNodeKind::Button,
+            rect(100.0, 980.0, 100.0, 40.0),
+        )
+        .with_intent(UiIntentProjection::new("open-backlog")),
+    );
+    surface.safe_area_anchor = Some([0.95, 1.0]);
+    append_ui_commands(
+        &mut graph,
+        &UiProjection::new(vec![UiOverlayProjection {
+            interactive: Some(false),
+            surface: Some(surface),
+            ..UiOverlayProjection::new("hud")
+        }]),
+    );
+    assert_eq!(
+        resolve_renderer_intent_at(&graph, 125.0, 940.0)
+            .unwrap()
+            .command_id,
+        "ui:hud:log"
+    );
+    assert!(resolve_renderer_intent_at(&graph, 125.0, 1000.0).is_none());
+}
+
+#[test]
 fn resolves_inline_ui_surface_box_intent_from_graph() {
     let mut graph = RenderGraph::new(test_layout());
     append_ui_commands(
@@ -283,4 +314,31 @@ fn surface_choice_intent_payload_preserves_canonical_dispatch_fields() {
     assert_eq!(payload["action"], "select");
     assert_eq!(payload["elementId"], "menu:choose");
     assert_eq!(payload["source"], "surface-test");
+}
+
+#[test]
+fn disabled_shared_controls_paint_without_hit_or_focus_targets() {
+    let button: UiSurfaceNodeProjection = serde_json::from_value(serde_json::json!({
+        "id": "continue", "kind": "Button", "visible": true, "text": "Continue",
+        "bounds": {"x": 0, "y": 0, "width": 120, "height": 60},
+        "accessibility": {"disabled": true, "label": "Continue"},
+        "intent": {"event":"ui/intent", "action":"continue"}
+    }))
+    .unwrap();
+    let mut graph = RenderGraph::new(test_layout());
+    append_ui_commands(
+        &mut graph,
+        &UiProjection::new(vec![UiOverlayProjection {
+            interactive: Some(false),
+            surface: Some(UiOverlaySurfaceProjection::new("ui/menu.qui").with_root(button)),
+            ..UiOverlayProjection::new("menu")
+        }]),
+    );
+    let button = graph
+        .commands()
+        .iter()
+        .find(|c| c.id == "ui:menu:continue")
+        .unwrap();
+    assert!(!button.interactive);
+    assert!(resolve_renderer_intent_at(&graph, 50.0, 20.0).is_none());
 }

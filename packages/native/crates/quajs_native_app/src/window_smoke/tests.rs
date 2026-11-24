@@ -51,8 +51,14 @@ fn target_frame_count_defaults_clamps_and_accepts_positive_values() {
 
 #[test]
 fn frame_json_for_window_rewrites_container_only() {
-    let json = frame_json_for_window(DEFAULT_WINDOW_SMOKE_FRAME, 480.0, 270.0, 2.0)
-        .expect("frame JSON should serialize");
+    let json = frame_json_for_window(
+        DEFAULT_WINDOW_SMOKE_FRAME,
+        crate::window_smoke::frame::window_frame_dimensions(
+            winit::dpi::PhysicalSize::new(960, 540),
+            2.0,
+        ),
+    )
+    .expect("frame JSON should serialize");
     let value: serde_json::Value = serde_json::from_str(&json).expect("frame JSON parses");
 
     assert_eq!(value["container"]["width"], 480.0);
@@ -130,11 +136,19 @@ fn classifies_surface_present_errors_for_recovery_policy() {
 fn window_smoke_report_serializes_texture_lifecycle_metrics() {
     let report = NativeWindowSmokeReport {
         adapter_name: "test-adapter".to_string(),
+        display_color_space: None,
+        display_hdr_available: None,
+        current_edr_headroom: None,
+        display_sdr_white_scale: None,
+        output_color_space: "srgb".to_string(),
         backend: "wgpu".to_string(),
         surface_format: "Rgba8UnormSrgb".to_string(),
         present_mode: "Fifo".to_string(),
         present_status: "Presented".to_string(),
         presented: true,
+        display_refresh_millihertz: None,
+        requested_frame_rate: None,
+        effective_frame_rate: 60.0,
         present_attempt_count: 1,
         target_frame_count: 2,
         rendered_frame_count: 2,

@@ -10,6 +10,8 @@ Builds without it expose the unsupported evaluator explicitly.
 | Target | JavaScriptCore provider |
 | --- | --- |
 | macOS arm64 / x64 | System JavaScriptCore framework |
+| iOS arm64 and iOS Simulator | System JavaScriptCore framework, with an OS-independent provider identifier for signed bundles |
+| Android arm64-v8a | Packaged JavaScriptCore shared library pinned in `crates/quajs_native_runtime/mobile-jsc.json` |
 | Linux | JavaScriptCoreGTK development package, preferably `libjavascriptcoregtk-4.1-dev` |
 | Windows x64 MSVC | `otter-jsc-sys = 0.1.1`, statically linked bun-webkit distribution |
 
@@ -20,6 +22,18 @@ libraries. An intentional `BUN_WEBKIT_VERSION` override is embedded in the
 host's runtime identity. Windows runtime and linking tests are configured in
 `.github/workflows/native-jsc.yml`; a cross-target `cargo check` alone does not
 prove Windows linking, JIT execution or window behavior.
+
+Run `python3 packages/native/sdk/prepare-android-jsc.py <directory>` and set
+`QUA_ANDROID_JSC_LIB_DIR` to that directory before building for Android.
+The helper verifies the pinned arm64 bun-webkit static distribution and links
+its C API into a 16 KB-aligned shared library using NDK r28c. Cargo verifies
+the resulting library digest before linking. Quack packages that exact binary. A Linux builder compiling the desktop window
+probe needs the JavaScriptCoreGTK, ALSA and libudev development packages.
+
+The iOS system JSC exports the execution-time watchdog used by this runtime.
+Its set/clear functions are absent from the public iOS JavaScriptCore headers.
+An archive or a simulator run establishes no App Store qualification for that
+API dependency.
 
 A hardened-runtime macOS release must enable
 `com.apple.security.cs.allow-jit` in its signing entitlements for JSC JIT code.

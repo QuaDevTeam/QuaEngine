@@ -8,8 +8,9 @@ pub use control::{
     UiSurfaceSwitchControlPartsProjection,
 };
 pub use node::{
-    UiSurfaceImageProjection, UiSurfaceNodeKind, UiSurfaceNodeProjection, UiSurfaceNodeRect,
-    UiSurfaceNodeStateProjection, UiSurfacePseudoStateProjection,
+    UiSurfaceAccessibilityProjection, UiSurfaceImageProjection, UiSurfaceNodeKind,
+    UiSurfaceNodeProjection, UiSurfaceNodeRect, UiSurfaceNodeStateProjection,
+    UiSurfacePseudoStateProjection,
 };
 pub use style::{
     UiSurfaceBackdropFilterProjection, UiSurfaceBackgroundPositionProjection,

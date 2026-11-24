@@ -50,7 +50,17 @@ fn host_info_uses_signed_app_config_and_rust_renderer_capabilities() {
     );
     assert!(host_info.has_capability("native-wgpu.ui.surface@1"));
     assert!(host_info.has_capability("native-wgpu.input.pointer@1"));
-    assert_eq!(host_info.has_capability("native-wgpu.input.text@1"), !cfg!(feature = "embedded-sdk"));
+    for id in ["native-wgpu.input.touch@1", "native-wgpu.input.gamepad@1"] {
+        assert_eq!(
+            host_info.has_capability(id),
+            cfg!(any(feature = "native-window", feature = "embedded-sdk")),
+            "{id}"
+        );
+    }
+    assert_eq!(
+        host_info.has_capability("native-wgpu.input.text@1"),
+        !cfg!(feature = "embedded-sdk")
+    );
     assert_eq!(
         host_info.has_capability("native-wgpu.audio@1"),
         cfg!(all(

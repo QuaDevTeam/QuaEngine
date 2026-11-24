@@ -11,13 +11,14 @@ pub mod state;
 #[cfg(feature = "real-wgpu")]
 pub use backend::{
     configure_wgpu_surface_for_native_renderer, create_real_wgpu_surface_target,
-    plan_wgpu_surface_configuration, RealWgpuEncodedFrameCapture, RealWgpuFrameCapture,
-    RealWgpuFrameCaptureError, RealWgpuFrameCopyReport, RealWgpuNativeRenderRuntimeDevice,
-    RealWgpuNativeRenderRuntimeTarget, RealWgpuSurfacePresentReport, RealWgpuSurfacePresentStatus,
-    RealWgpuSurfaceTargetBootstrap, RealWgpuSurfaceTargetBootstrapError,
-    RealWgpuSurfaceTargetBootstrapErrorKind, RealWgpuSurfaceTargetBootstrapRequest,
-    RealWgpuTargetResizeReport, WgpuNativeSurfaceConfigError, WgpuNativeSurfaceConfigErrorKind,
-    WgpuNativeSurfaceConfigPlan, WgpuNativeSurfaceConfigRequest,
+    native_renderer_required_limits, plan_wgpu_surface_configuration, RealWgpuEncodedFrameCapture,
+    RealWgpuFrameCapture, RealWgpuFrameCaptureError, RealWgpuFrameCopyReport,
+    RealWgpuNativeRenderRuntimeDevice, RealWgpuNativeRenderRuntimeTarget,
+    RealWgpuSurfacePresentReport, RealWgpuSurfacePresentStatus, RealWgpuSurfaceTargetBootstrap,
+    RealWgpuSurfaceTargetBootstrapError, RealWgpuSurfaceTargetBootstrapErrorKind,
+    RealWgpuSurfaceTargetBootstrapRequest, RealWgpuTargetResizeReport,
+    WgpuNativeSurfaceConfigError, WgpuNativeSurfaceConfigErrorKind, WgpuNativeSurfaceConfigPlan,
+    WgpuNativeSurfaceConfigRequest,
 };
 #[cfg(feature = "wgpu-backend")]
 pub use backend::{

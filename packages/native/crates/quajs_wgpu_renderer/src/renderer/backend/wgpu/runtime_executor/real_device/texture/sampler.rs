@@ -1,13 +1,37 @@
 use super::super::RealWgpuNativeRenderRuntimeTarget;
 
-pub(super) fn create_sampler_bind_group(
+pub(in super::super) const IDENTITY_UV: [f32; 4] = [1., 1., 0., 0.];
+
+pub(in super::super) fn uv_uniform(device: &wgpu::Device, transform: [f32; 4]) -> wgpu::Buffer {
+    use wgpu::util::DeviceExt;
+    let bytes = transform.map(f32::to_le_bytes);
+    device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        label: Some("qua-native::texture-uv"),
+        contents: bytes.as_flattened(),
+        usage: wgpu::BufferUsages::UNIFORM,
+    })
+}
+
+pub(in super::super) fn create_sampler_bind_group(
     target: &RealWgpuNativeRenderRuntimeTarget,
     layout: &wgpu::BindGroupLayout,
     cache_label: &str,
     sampler: &wgpu::Sampler,
     view: &wgpu::TextureView,
+    transform: [f32; 4],
 ) -> wgpu::BindGroup {
+    let mapped;
+    let uniform = if transform == IDENTITY_UV {
+        &target.identity_uv
+    } else {
+        mapped = uv_uniform(target.device(), transform);
+        &mapped
+    };
     let entries = [
+        wgpu::BindGroupEntry {
+            binding: 2,
+            resource: uniform.as_entire_binding(),
+        },
         wgpu::BindGroupEntry {
             binding: 0,
             resource: wgpu::BindingResource::Sampler(sampler),
@@ -26,16 +50,7 @@ pub(super) fn create_sampler_bind_group(
         })
 }
 
-pub(in super::super) fn create_texture_sampler(
-    target: &RealWgpuNativeRenderRuntimeTarget,
-    label: &str,
-) -> wgpu::Sampler {
-    target
-        .device()
-        .create_sampler(&texture_sampler_descriptor(label))
-}
-
-fn texture_sampler_descriptor(label: &str) -> wgpu::SamplerDescriptor<'_> {
+pub(in super::super) fn texture_sampler_descriptor(label: &str) -> wgpu::SamplerDescriptor<'_> {
     wgpu::SamplerDescriptor {
         label: Some(label),
         address_mode_u: wgpu::AddressMode::ClampToEdge,

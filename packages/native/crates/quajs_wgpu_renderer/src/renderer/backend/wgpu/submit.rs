@@ -103,7 +103,7 @@ where
     }
 
     fn resident_texture_resource_ids(&self) -> Vec<String> {
-        self.runtime_snapshot().resident_texture_resource_ids
+        self.runtime_executor.resident_texture_ids()
     }
 }
 

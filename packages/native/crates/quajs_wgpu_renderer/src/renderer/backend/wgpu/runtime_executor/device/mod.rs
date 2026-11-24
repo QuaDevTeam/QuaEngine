@@ -31,6 +31,9 @@ pub trait WgpuNativeRenderRuntimeDevice: Clone {
     fn finish_runtime_plan(&mut self) -> Result<(), WgpuNativeRenderRuntimeError>;
 
     fn runtime_snapshot(&self) -> WgpuNativeRenderRuntimeSnapshot;
+    fn resident_texture_ids(&self) -> Vec<String> {
+        self.runtime_snapshot().resident_texture_resource_ids
+    }
 
     fn device_attached(&self) -> bool {
         false

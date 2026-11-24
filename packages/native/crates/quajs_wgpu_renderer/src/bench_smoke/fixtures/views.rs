@@ -27,6 +27,7 @@ pub(in crate::bench_smoke) fn heavy_ui_view(node_count: usize) -> ViewProjection
         choices: Some(ChoiceSetProjection {
             chrome: None,
             visible: true,
+            motion: Default::default(),
             provenance: provenance("runtime.choice", ["base"]),
             choices: (0..8)
                 .map(|index| ChoiceProjection {

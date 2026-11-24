@@ -1,3 +1,7 @@
+mod gamepad;
+mod touch;
+
+use std::collections::BTreeSet;
 use std::fmt::{Display, Formatter};
 
 use quajs_native_runtime::{NativeHostApi, NativeHostApiError, NativeRendererIntent};
@@ -91,6 +95,9 @@ pub(crate) struct NativeProductPointerDispatchReport {
 pub(crate) struct NativeProductInputController {
     cursor_client_point: Option<StageClientPoint>,
     pointer_id: u64,
+    stage_press: bool,
+    touch: Option<touch::TouchContact>,
+    gamepad_buttons: BTreeSet<(u64, u8)>,
     ime_composition: NativeProductImeCompositionState,
 }
 
@@ -105,6 +112,9 @@ impl NativeProductInputController {
         Self {
             cursor_client_point: None,
             pointer_id: DEFAULT_NATIVE_PRODUCT_POINTER_ID,
+            stage_press: false,
+            touch: None,
+            gamepad_buttons: BTreeSet::new(),
             ime_composition: NativeProductImeCompositionState::default(),
         }
     }
@@ -112,9 +122,8 @@ impl NativeProductInputController {
     #[allow(dead_code)]
     pub(crate) fn with_pointer_id(pointer_id: u64) -> Self {
         Self {
-            cursor_client_point: None,
             pointer_id,
-            ime_composition: NativeProductImeCompositionState::default(),
+            ..Self::new()
         }
     }
 
@@ -144,6 +153,9 @@ impl NativeProductInputController {
     where
         H: NativeHostApi,
     {
+        if !focused {
+            self.release_gamepad_buttons(host, None)?;
+        }
         let event_type = if focused {
             "window/focus"
         } else {
@@ -323,6 +335,7 @@ impl NativeProductInputController {
     where
         B: NativeRenderBackend,
     {
+        self.stage_press = false;
         renderer.cancel_pointer_interaction(self.pointer_id)
     }
 
@@ -345,21 +358,25 @@ impl NativeProductInputController {
             .pointer_event_and_emit_intent(event, host)
             .map_err(NativeProductInputError::from_host_error)?;
 
-        // Match the Web renderer's stage click behavior: only an unhandled primary
-        // release advances dialogue. Interactive controls keep their own intent.
-        let hit_interactive_intent = dispatch
-            .as_ref()
-            .and_then(|dispatch| dispatch.resolution.pointer.intent.as_ref())
-            .is_some();
-        if !hit_interactive_intent
-            && phase == NativePointerEventPhase::Release
-            && button == NativePointerButton::Primary
-        {
-            emit_native_renderer_intent(
-                host,
-                "user/input_command",
-                Some(build_pointer_advance_payload()),
-            )?;
+        let on_stage_background = dispatch.as_ref().is_some_and(|dispatch| {
+            let hit = &dispatch.resolution.pointer;
+            hit.point.inside_stage && hit.point.inside_viewport && hit.intent.is_none()
+        });
+        if button == NativePointerButton::Primary {
+            match phase {
+                NativePointerEventPhase::Press => self.stage_press = on_stage_background,
+                NativePointerEventPhase::Cancel => self.stage_press = false,
+                NativePointerEventPhase::Release
+                    if std::mem::take(&mut self.stage_press) && on_stage_background =>
+                {
+                    emit_native_renderer_intent(
+                        host,
+                        "user/input_command",
+                        Some(build_pointer_advance_payload()),
+                    )?;
+                }
+                _ => {}
+            }
         }
 
         Ok(NativeProductPointerDispatchReport {
@@ -459,7 +476,7 @@ pub(crate) fn pointer_button_from_winit(button: MouseButton) -> NativePointerBut
     }
 }
 
-fn logical_client_point_from_physical(
+pub(crate) fn logical_client_point_from_physical(
     position: PhysicalPosition<f64>,
     scale_factor: f64,
 ) -> StageClientPoint {
@@ -733,17 +750,25 @@ mod tests {
 
     #[test]
     fn screenshot_key_is_a_single_press_pipeline_command() {
-        let payload = build_keyboard_input_command_payload(
-            KeyCode::KeyH, ElementState::Pressed, false, 42,
-        ).expect("H toggles screenshot mode");
+        let payload =
+            build_keyboard_input_command_payload(KeyCode::KeyH, ElementState::Pressed, false, 42)
+                .expect("H toggles screenshot mode");
         assert_eq!(payload["command"], "ui:screenshot");
         assert_eq!(payload["source"], "keyboard:KeyH");
         assert!(build_keyboard_input_command_payload(
-            KeyCode::KeyH, ElementState::Pressed, true, 43,
-        ).is_none());
+            KeyCode::KeyH,
+            ElementState::Pressed,
+            true,
+            43,
+        )
+        .is_none());
         assert!(build_keyboard_input_command_payload(
-            KeyCode::KeyH, ElementState::Released, false, 44,
-        ).is_none());
+            KeyCode::KeyH,
+            ElementState::Released,
+            false,
+            44,
+        )
+        .is_none());
     }
 
     #[test]
@@ -843,7 +868,7 @@ mod tests {
         let mut input = NativeProductInputController::new();
         let point = StageClientPoint {
             client_x: 20.0,
-            client_y: 20.0,
+            client_y: 120.0,
         };
 
         input
@@ -1075,6 +1100,100 @@ mod tests {
         assert_eq!(disabled_payload["source"], "ime");
         assert!(disabled_payload.get("text").is_none());
         assert!(disabled_payload["timestamp"].as_u64().is_some());
+    }
+
+    #[test]
+    fn touch_taps_swipes_cancellation_multitouch_and_letterboxing() {
+        use winit::event::TouchPhase::*;
+        let mut renderer =
+            NativeRenderer::new(quajs_wgpu_renderer::renderer::NullNativeRenderBackend::new());
+        renderer
+            .prepare_and_render_json_str(include_str!(
+                "../../../test-fixtures/renderer/qui-qss-surface-frame.json"
+            ))
+            .unwrap();
+        let mut input = NativeProductInputController::new();
+        let mut host = product_input_host();
+        let mut touch = |id, phase, x, y| {
+            input
+                .dispatch_touch(
+                    &mut renderer,
+                    &mut host,
+                    id,
+                    phase,
+                    StageClientPoint {
+                        client_x: x,
+                        client_y: y,
+                    },
+                )
+                .unwrap()
+        };
+        touch(0, Started, 20.0, 120.0);
+        touch(1, Started, 20.0, 120.0);
+        touch(1, Ended, 20.0, 120.0);
+        touch(0, Ended, 20.0, 120.0);
+        touch(0, Started, 20.0, 20.0);
+        touch(0, Ended, 20.0, 20.0);
+        touch(0, Started, 20.0, 120.0);
+        let delta = touch(0, Moved, 20.0, 90.0).unwrap();
+        assert_eq!((delta.anchor.client_y, delta.dy), (120.0, 30.0));
+        touch(0, Ended, 20.0, 120.0);
+        touch(0, Started, 20.0, 120.0);
+        touch(0, Cancelled, 20.0, 120.0);
+        touch(0, Ended, 20.0, 120.0);
+        // (408,354) stage coordinates inside the Open Settings button.
+        touch(2, Started, 340.0, 345.0);
+        touch(2, Ended, 340.0, 345.0);
+        assert_eq!(host.renderer_intents().len(), 2);
+        let advance = host.renderer_intents()[0].payload_json.as_ref().unwrap();
+        assert!(advance.contains("touch:primary"));
+        assert_eq!(host.renderer_intents()[1].r#type, "ui/intent");
+    }
+
+    #[test]
+    fn standard_gamepad_edges_focus_activation_and_disconnect() {
+        let mut renderer =
+            NativeRenderer::new(quajs_wgpu_renderer::renderer::NullNativeRenderBackend::new());
+        renderer
+            .prepare_and_render_json_str(include_str!(
+                "../../../test-fixtures/renderer/qui-qss-surface-frame.json"
+            ))
+            .unwrap();
+        let mut input = NativeProductInputController::new();
+        let mut host = product_input_host();
+        input
+            .dispatch_gamepad(&mut renderer, &mut host, 0, 13, true)
+            .unwrap();
+        assert!(renderer
+            .state()
+            .pointer_interaction()
+            .focused_command_id()
+            .unwrap()
+            .contains("open-settings"));
+        input
+            .dispatch_gamepad(&mut renderer, &mut host, 0, 0, true)
+            .unwrap();
+        input
+            .dispatch_gamepad(&mut renderer, &mut host, 0, 0, true)
+            .unwrap();
+        assert_eq!(host.renderer_intents().len(), 1);
+        assert_eq!(host.renderer_intents()[0].r#type, "ui/intent");
+        for pad in [1, 2] {
+            input
+                .dispatch_gamepad(&mut renderer, &mut host, pad, 7, true)
+                .unwrap();
+        }
+        input.release_gamepad_buttons(&mut host, Some(1)).unwrap();
+        assert_eq!(host.renderer_intents().len(), 2);
+        input.dispatch_focus_event(&mut host, false).unwrap();
+        let payload = |i: usize| {
+            serde_json::from_str::<Value>(host.renderer_intents()[i].payload_json.as_ref().unwrap())
+                .unwrap()
+        };
+        assert_eq!(payload(1)["command"], "skip:start");
+        assert_eq!(payload(1)["device"], "gamepad");
+        assert_eq!(payload(2)["command"], "skip:stop");
+        assert_eq!(host.renderer_intents()[3].r#type, "window/blur");
     }
 
     fn product_input_host() -> InMemoryNativeHostApi {

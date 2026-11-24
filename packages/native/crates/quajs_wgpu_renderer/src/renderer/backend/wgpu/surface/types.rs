@@ -3,10 +3,14 @@ use std::fmt::{Display, Formatter};
 use super::parse_surface_format;
 use crate::renderer::backend::wgpu::{WgpuNativeRenderBackendConfig, WgpuPresentMode};
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct WgpuNativeSurfaceConfigRequest {
     pub width: u32,
     pub height: u32,
+    /// Reported by the current window display, independent of GPU format support.
+    pub display_hdr_available: bool,
+    /// SDR reference white relative to linear output value 1.0.
+    pub sdr_white_scale: f32,
     pub preferred_format: Option<wgpu::TextureFormat>,
     pub present_mode: WgpuPresentMode,
     pub desired_maximum_frame_latency: u32,
@@ -17,6 +21,8 @@ impl WgpuNativeSurfaceConfigRequest {
         Self {
             width,
             height,
+            display_hdr_available: false,
+            sdr_white_scale: 1.0,
             preferred_format: None,
             present_mode: WgpuPresentMode::Fifo,
             desired_maximum_frame_latency: 2,
@@ -31,6 +37,8 @@ impl WgpuNativeSurfaceConfigRequest {
         Ok(Self {
             width,
             height,
+            display_hdr_available: false,
+            sdr_white_scale: 1.0,
             preferred_format: config
                 .surface_format
                 .as_deref()
@@ -42,11 +50,22 @@ impl WgpuNativeSurfaceConfigRequest {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct WgpuNativeSurfaceConfigPlan {
     pub config: wgpu::SurfaceConfiguration,
+    pub sdr_white_scale: f32,
     pub requested_present_mode: wgpu::PresentMode,
     pub present_mode_fallback: bool,
+}
+
+impl WgpuNativeSurfaceConfigPlan {
+    pub fn output_color_space(&self) -> &'static str {
+        if self.config.format == wgpu::TextureFormat::Rgba16Float {
+            "extended-linear-srgb"
+        } else {
+            "srgb"
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

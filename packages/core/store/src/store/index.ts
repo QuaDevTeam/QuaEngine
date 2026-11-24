@@ -165,8 +165,8 @@ class QuaStore {
     logger.module(this.name).info(`Saving store to slot: ${input.slotId}`)
 
     const storageManager = await this.getStorageManager()
-    const nextSlot = await storageManager.transaction('readwrite', async () => {
-      const existingIndex = await storageManager.getGameSlotIndex(input.slotId)
+    const nextSlot = await storageManager.transaction('readwrite', async (transaction) => {
+      const existingIndex = await transaction.getGameSlotIndex(input.slotId)
       const previewRecord = input.preview
         ? normalizePreviewInput(input.slotId, input.preview)
         : undefined
@@ -191,15 +191,15 @@ class QuaStore {
         },
       }
 
-      await storageManager.saveGameSlotPayload(nextSlot)
+      await transaction.saveGameSlotPayload(nextSlot)
       if (previewRecord) {
-        await storageManager.saveGameSlotPreview(previewRecord)
+        await transaction.saveGameSlotPreview(previewRecord)
       }
-      await storageManager.saveGameSlotIndex(nextIndex)
+      await transaction.saveGameSlotIndex(nextIndex)
 
       const previousPreviewId = existingIndex?.preview?.previewId
       if (previousPreviewId && previousPreviewId !== previewRecord?.previewId) {
-        await storageManager.deleteGameSlotPreview(previousPreviewId)
+        await transaction.deleteGameSlotPreview(previousPreviewId)
       }
 
       return nextSlot
@@ -211,12 +211,12 @@ class QuaStore {
 
   public async patchSlotPreview(slotId: string, patch: QuaGameSaveSlotPreviewPatchInput): Promise<QuaGameSaveSlotIndex | undefined> {
     const storageManager = await this.getStorageManager()
-    return await storageManager.transaction('readwrite', async () => {
-      const currentIndex = await storageManager.getGameSlotIndex(slotId)
+    return await storageManager.transaction('readwrite', async (transaction) => {
+      const currentIndex = await transaction.getGameSlotIndex(slotId)
       if (!currentIndex) {
         return undefined
       }
-      const currentPayload = await storageManager.getGameSlotPayload(slotId)
+      const currentPayload = await transaction.getGameSlotPayload(slotId)
 
       if (patch.expectedSaveOpId && currentIndex.saveOpId !== patch.expectedSaveOpId) {
         return undefined
@@ -255,19 +255,19 @@ class QuaStore {
         : undefined
 
       if (previewRecord) {
-        await storageManager.saveGameSlotPreview(previewRecord)
+        await transaction.saveGameSlotPreview(previewRecord)
       }
       if (nextPayload) {
-        await storageManager.saveGameSlotPayload(nextPayload)
+        await transaction.saveGameSlotPayload(nextPayload)
       }
-      await storageManager.saveGameSlotIndex(nextIndex)
+      await transaction.saveGameSlotIndex(nextIndex)
 
       const previousPreviewId = currentIndex.preview?.previewId
       if (patch.clearPreview && previousPreviewId) {
-        await storageManager.deleteGameSlotPreview(previousPreviewId)
+        await transaction.deleteGameSlotPreview(previousPreviewId)
       }
       else if (previewRecord && previousPreviewId && previousPreviewId !== previewRecord.previewId) {
-        await storageManager.deleteGameSlotPreview(previousPreviewId)
+        await transaction.deleteGameSlotPreview(previousPreviewId)
       }
 
       return cloneSaveSlotIndex(nextIndex)
@@ -298,11 +298,11 @@ class QuaStore {
     }
 
     const nextState = this.deserializeState(gameSlot.storeData.state)
-    await storageManager.transaction('readwrite', async () => {
-      await storageManager.clearSnapshots(this.name)
+    await storageManager.transaction('readwrite', async (transaction) => {
+      await transaction.clearSnapshots(this.name)
 
       for (const snapshot of gameSlot.storeData.snapshots) {
-        await storageManager.saveSnapshot(snapshot)
+        await transaction.saveSnapshot(snapshot)
       }
     })
 
@@ -319,10 +319,10 @@ class QuaStore {
 
     const nextState = this.deserializeState(data.state)
     const storageManager = await this.getStorageManager()
-    await storageManager.transaction('readwrite', async () => {
-      await storageManager.clearSnapshots(this.name)
+    await storageManager.transaction('readwrite', async (transaction) => {
+      await transaction.clearSnapshots(this.name)
       for (const snapshot of data.snapshots) {
-        await storageManager.saveSnapshot(snapshot)
+        await transaction.saveSnapshot(snapshot)
       }
     })
     this.state = nextState
@@ -332,13 +332,13 @@ class QuaStore {
     logger.module(this.name).info(`Deleting slot: ${slotId}`)
 
     const storageManager = await this.getStorageManager()
-    await storageManager.transaction('readwrite', async () => {
-      const index = await storageManager.getGameSlotIndex(slotId)
+    await storageManager.transaction('readwrite', async (transaction) => {
+      const index = await transaction.getGameSlotIndex(slotId)
       if (index?.preview?.previewId) {
-        await storageManager.deleteGameSlotPreview(index.preview.previewId)
+        await transaction.deleteGameSlotPreview(index.preview.previewId)
       }
-      await storageManager.deleteGameSlotPayload(slotId)
-      await storageManager.deleteGameSlotIndex(slotId)
+      await transaction.deleteGameSlotPayload(slotId)
+      await transaction.deleteGameSlotIndex(slotId)
     })
 
     logger.module(this.name).info(`Slot deleted successfully: ${slotId}`)

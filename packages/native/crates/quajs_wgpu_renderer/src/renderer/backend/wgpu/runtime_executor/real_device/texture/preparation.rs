@@ -9,12 +9,16 @@ pub(super) fn reader(
     let mut reader = image::ImageReader::new(std::io::Cursor::new(bytes))
         .with_guessed_format()
         .map_err(error)?;
+    reader.limits(decode_limits());
+    Ok(reader)
+}
+
+pub(super) fn decode_limits() -> image::Limits {
     let mut limits = image::Limits::default();
     limits.max_image_width = Some(8192);
     limits.max_image_height = Some(8192);
     limits.max_alloc = Some(128 * 1024 * 1024);
-    reader.limits(limits);
-    Ok(reader)
+    limits
 }
 
 pub(super) fn error(error: impl std::fmt::Display) -> WgpuNativeRenderRuntimeError {
@@ -27,6 +31,10 @@ pub(super) fn error(error: impl std::fmt::Display) -> WgpuNativeRenderRuntimeErr
 pub(crate) fn estimate(bytes: &[u8]) -> Result<usize, WgpuNativeRenderRuntimeError> {
     if bytes.len() > 64 * 1024 * 1024 {
         return invalid_order("Encoded image exceeds the 64 MiB preparation budget");
+    }
+    if let Some(blocks) = super::blocks::parse(bytes)? {
+        // Source + worker copy, GPU storage and queue staging.
+        return Ok(bytes.len() * 4 + blocks.levels.len() * 256);
     }
     let (width, height) = reader(bytes)?.into_dimensions().map_err(error)?;
     let rgba = u64::from(width) * u64::from(height) * 4;

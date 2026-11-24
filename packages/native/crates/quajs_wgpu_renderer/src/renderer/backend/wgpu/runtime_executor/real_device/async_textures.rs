@@ -2,12 +2,13 @@
 //! and GPU writes happen off the frame thread; only completed textures are adopted.
 use super::{
     texture::{
-        create_runtime_decoded_texture_rgba8, decode_image_bytes_rgba8, RealRuntimeDecodedTexture,
-        RealWgpuDecodedTextureMetadata,
+        blocks::prepare_encoded_texture, RealRuntimeDecodedTexture, RealWgpuDecodedTextureMetadata,
     },
     RealWgpuNativeRenderRuntimeTarget,
 };
 use crate::renderer::backend::wgpu::runtime_executor::WgpuNativeRenderRuntimeError;
+#[cfg(feature = "image-decode")]
+use crate::renderer::backend::wgpu::ImageUploadBytes;
 use std::{
     collections::BTreeMap,
     sync::{mpsc, Arc, Mutex},
@@ -33,7 +34,7 @@ struct State {
 struct Request {
     id: String,
     generation: u64,
-    bytes: Vec<u8>,
+    bytes: Arc<[u8]>,
     metadata: RealWgpuDecodedTextureMetadata,
 }
 #[derive(Debug)]
@@ -60,19 +61,13 @@ impl AsyncTextures {
                             .is_some_and(|job| job.generation == request.generation)
                     };
                     let result = active().then(|| {
-                        decode_image_bytes_rgba8(&request.id, &request.bytes).and_then(|decoded| {
-                            if !active() {
-                                return super::invalid_order(
-                                    "Image preparation cancelled before upload",
-                                );
-                            }
-                            create_runtime_decoded_texture_rgba8(
-                                &target,
-                                &request.id,
-                                decoded,
-                                request.metadata,
-                            )
-                        })
+                        prepare_encoded_texture(
+                            &target,
+                            &request.id,
+                            &request.bytes,
+                            request.metadata,
+                            active,
+                        )
                     });
                     let encoded_len = request.bytes.len();
                     drop(request.bytes);
@@ -101,17 +96,18 @@ impl AsyncTextures {
     pub(super) fn request(
         &self,
         id: &str,
-        bytes: &[u8],
+        bytes: impl ImageUploadBytes,
         metadata: RealWgpuDecodedTextureMetadata,
         peak_bytes: usize,
     ) -> bool {
+        let byte_len = bytes.as_ref().len();
         let mut state = self.state.lock().unwrap();
         if state.jobs.contains_key(id) {
             return true;
         }
         // Bound both queued bytes and completed-but-not-yet-adopted GPU handles.
         if state.reservations.len() >= 4
-            || state.bytes.saturating_add(bytes.len()) > 64 * 1024 * 1024
+            || state.bytes.saturating_add(byte_len) > 64 * 1024 * 1024
             || state
                 .reservations
                 .values()
@@ -126,13 +122,13 @@ impl AsyncTextures {
         let request = Request {
             id: id.into(),
             generation,
-            bytes: bytes.to_vec(),
+            bytes: bytes.into_shared(),
             metadata: metadata.clone(),
         };
         if self.sender.as_ref().unwrap().try_send(request).is_err() {
             return false;
         }
-        state.bytes += bytes.len();
+        state.bytes += byte_len;
         state.reservations.insert(generation, peak_bytes);
         state.jobs.insert(
             id.into(),
@@ -204,6 +200,19 @@ impl Drop for AsyncTextures {
 #[cfg(all(test, feature = "real-wgpu-noop"))]
 mod tests {
     use super::*;
+    #[test]
+    fn queued_upload_keeps_the_mounted_image_allocation() {
+        let (sender, receiver) = mpsc::sync_channel(1);
+        let worker = AsyncTextures {
+            state: Default::default(),
+            sender: Some(sender),
+            worker: None,
+        };
+        let bytes: Arc<[u8]> = Arc::from([0; 32]);
+        assert!(worker.request("images:shared", bytes.clone(), Default::default(), 1024));
+        assert!(Arc::ptr_eq(&bytes, &receiver.try_recv().unwrap().bytes));
+    }
+
     #[test]
     fn cancellation_does_not_refund_memory_still_owned_by_the_queue() {
         let (sender, _receiver) = mpsc::sync_channel(4);
